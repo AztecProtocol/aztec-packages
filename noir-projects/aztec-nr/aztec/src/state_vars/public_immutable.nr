@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::state_variable::StateVariable,
-    utils::with_hash::WithHash,
+    utils::WithHash,
 };
 use protocol_types::{
     constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
@@ -172,7 +172,7 @@ impl<T> PublicImmutable<T, PublicContext> {
         WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
-    fn is_initialized(self) -> bool {
+    pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
 
         // Safety: it is safe to assume that the state variable has been initialized if the initialization nullifier

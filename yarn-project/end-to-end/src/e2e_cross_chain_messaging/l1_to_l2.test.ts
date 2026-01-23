@@ -5,7 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -215,8 +215,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // On public, we actually send the tx and check that it reverts due to the missing message.
           // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
           // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
-          const { status } = await consume().send({ from: user1Address }).wait({ dontThrowOnRevert: true });
-          expect(status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+          const receipt = await consume().send({ from: user1Address }).wait({ dontThrowOnRevert: true });
+          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
           await t.context.watcher!.markAsProven();
         }
       });

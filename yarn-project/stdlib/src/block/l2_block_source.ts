@@ -21,7 +21,7 @@ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
-import type { L2BlockNew } from './l2_block_new.js';
+import type { L2Block } from './l2_block.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
 /**
@@ -53,6 +53,20 @@ export interface L2BlockSource {
   getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+   * @returns The number of the latest L2 block checkpointed seen by the block source implementation.
+   */
+  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
+
+  /**
+   * Computes the finalized block number based on the proven block number.
+   * A block is considered finalized when it's 2 epochs behind the proven block.
+   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * @returns The finalized block number.
+   */
+  getFinalizedL2BlockNumber(): Promise<BlockNumber>;
+
+  /**
    * Gets an l2 block header.
    * @param number - The block number to return or 'latest' for the most recent one.
    * @returns The requested L2 block header.
@@ -67,15 +81,15 @@ export interface L2BlockSource {
    */
   getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined>;
 
-  getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]>;
 
   /**
-   * Retrieves a collection of published checkpoints
-   * @param checkpointNumber The first checkpoint to be retrieved
-   * @param limit The number of checkpoints to be retrieved
-   * @returns The collection of complete checkpoints
+   * Retrieves a collection of checkpoints.
+   * @param checkpointNumber The first checkpoint to be retrieved.
+   * @param limit The number of checkpoints to be retrieved.
+   * @returns The collection of complete checkpoints.
    */
-  getPublishedCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
+  getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
 
   /**
    * Gets the checkpoints for a given epoch
@@ -102,21 +116,21 @@ export interface L2BlockSource {
    * @param number - The block number to return.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+  getL2Block(number: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Gets an L2 block by its hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+  getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
 
   /**
    * Gets an L2 block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+  getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
   /**
    * Gets a tx effect.
@@ -143,11 +157,11 @@ export interface L2BlockSource {
   getL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   /**
-   * Returns all block headers for a given epoch.
+   * Returns all checkpointed block headers for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return headers for.
    */
-  getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
+  getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
 
   /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
@@ -193,49 +207,43 @@ export interface L2BlockSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
-
-  getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
+  getBlock(number: BlockNumber): Promise<L2Block | undefined>;
 
   /**
-   * Returns all blocks for a given epoch.
+   * Returns all checkpointed blocks for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]>;
+  getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]>;
 
   /**
    * Returns all blocks for a given slot.
    * @dev Use this method only with recent slots, since it walks the block list backwards.
    * @param slotNumber - The slot number to return blocks for.
    */
-  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]>;
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]>;
 
   /**
-   * Gets a published block by its block hash.
+   * Gets a checkpointed block by its block hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
+  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
-   * Gets a published block by its archive root.
+   * Gets a checkpointed block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
+  getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The maximum number of blocks to return.
-   * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
-
-  /** Equivalent to getBlocks but includes publish data. */
-  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 }
 
 /**
@@ -247,7 +255,7 @@ export interface L2BlockSink {
    * @param block - The L2 block to add.
    * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
    */
-  addBlock(block: L2BlockNew): Promise<void>;
+  addBlock(block: L2Block): Promise<void>;
 }
 
 /**
@@ -344,13 +352,13 @@ export type L2BlockProvenEvent = {
 export type L2PruneUnprovenEvent = {
   type: 'l2PruneUnproven';
   epochNumber: EpochNumber;
-  blocks: L2BlockNew[];
+  blocks: L2Block[];
 };
 
 export type L2PruneUncheckpointedEvent = {
   type: 'l2PruneUncheckpointed';
   slotNumber: SlotNumber;
-  blocks: L2BlockNew[];
+  blocks: L2Block[];
 };
 
 export type L2CheckpointEvent = {

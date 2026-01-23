@@ -12,7 +12,7 @@ pub contract Child {
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

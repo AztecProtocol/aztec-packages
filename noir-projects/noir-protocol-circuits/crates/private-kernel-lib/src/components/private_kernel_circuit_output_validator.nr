@@ -1,21 +1,16 @@
 use crate::{
     accumulated_data::{
-        assert_array_appended, assert_array_appended_and_scoped,
-        assert_array_appended_reversed_to_empty_dest,
-        assert_array_appended_reversed_up_to_some_length, assert_array_appended_to_empty_dest,
-        assert_array_appended_to_empty_dest_and_scoped, assert_array_prepended,
-        assert_array_prepended_up_to_some_length,
+        assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+        assert_array_prepended, assert_array_prepended_up_to_some_length,
     },
     components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
 };
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
-        transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData,
     },
     address::AztecAddress,
-    hash::{create_protocol_nullifier, silo_nullifier},
     traits::Empty,
 };
 
@@ -39,30 +34,6 @@ impl PrivateKernelCircuitOutputValidator {
         PrivateKernelCircuitOutputValidator { output }
     }
 
-    /// Called by the Init circuit.
-    pub fn validate_as_first_call(
-        self,
-        tx_request: TxRequest,
-        private_call: PrivateCallData,
-        vk_tree_root: Field,
-        protocol_contracts: ProtocolContracts,
-        is_private_only: bool,
-        first_nullifier_hint: Field,
-        revertible_counter_hint: u32,
-    ) {
-        let nullifier_offset = self.validate_initial_values(
-            tx_request,
-            private_call,
-            vk_tree_root,
-            protocol_contracts,
-            is_private_only,
-            first_nullifier_hint,
-            revertible_counter_hint,
-        );
-
-        self.validate_propagated_from_initial_private_call(private_call, nullifier_offset);
-    }
-
     /// Called by the Inner circuit.
     pub fn validate_as_inner_call(
         self,
@@ -73,143 +44,6 @@ impl PrivateKernelCircuitOutputValidator {
         self.validate_propagated_from_previous_kernel(previous_kernel_public_inputs);
         // The previous kernel's array lengths tell us where the private call's data should be appended.
         self.validate_propagated_from_private_call(private_call, previous_kernel_public_inputs);
-    }
-
-    /// Validates that the initial values of the public inputs are correctly populated by the tx request, the hints, and
-    /// the first private call.
-    /// Returns the offset to apply to the nullifier array validation to account for the protocol nullifier if present.
-    fn validate_initial_values(
-        self,
-        tx_request: TxRequest,
-        private_call: PrivateCallData,
-        vk_tree_root: Field,
-        protocol_contracts: ProtocolContracts,
-        is_private_only: bool,
-        first_nullifier_hint: Field,
-        revertible_counter_hint: u32,
-    ) -> u32 {
-        // Validate constants are correctly initialized.
-        assert_eq(
-            self.output.constants.anchor_block_header,
-            private_call.public_inputs.anchor_block_header,
-            "mismatch anchor_block_header",
-        );
-        assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
-        assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
-        assert_eq(
-            self.output.constants.protocol_contracts,
-            protocol_contracts,
-            "mismatch protocol_contracts",
-        );
-
-        // The `min_revertible_side_effect_counter` is set by private functions. The initial value is from the first
-        // private call.
-        assert_eq(
-            self.output.min_revertible_side_effect_counter,
-            private_call.public_inputs.min_revertible_side_effect_counter,
-            "incorrect initial min_revertible_side_effect_counter",
-        );
-
-        // Validate protocol nullifier if one needs to be created.
-        // Note: It's possible for the protocol nullifier to be injected even when private calls emit some nullifiers.
-        // This doesn't affect correctness, but the user will pay for the unnecessary creation of a protocol nullifier.
-        let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-        let should_inject_protocol_nullifier = first_nullifier_hint == protocol_nullifier;
-        if should_inject_protocol_nullifier {
-            assert_eq(
-                self.output.end.nullifiers.array[0],
-                scoped_protocol_nullifier,
-                "protocol nullifier must be the tx request nullifier",
-            );
-        }
-        // If the protocol nullifier is injected, offset subsequent array validation accordingly.
-        // This offset is later used in `validate_propagated_from_initial_private_call` to conditionally skip the
-        // nullifier at index 0 and validate the remaining items against the nullifiers emitted by the private call.
-        let nullifier_offset = if should_inject_protocol_nullifier {
-            1
-        } else {
-            0
-        };
-
-        // The other accumulated data in `validation_requests` and `end` is validated in
-        // `validate_propagated_from_initial_private_call`.
-
-        // The `public_teardown_call_request` may be set by at most one private function.
-        // Here we simply copy the value from the first private call:
-        // - if it's empty, that's fine
-        // - if it's nonempty, we know we're not overwriting anything given that this is the first private call.
-        assert_eq(
-            self.output.public_teardown_call_request,
-            private_call.public_inputs.public_teardown_call_request,
-            "incorrect initial public_teardown_call_request",
-        );
-
-        // The `fee_payer` must be set by exactly one private function.
-        // Here we set it to the contract address of the first private call if it nominates itself as the fee payer.
-        let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
-            private_call.public_inputs.call_context.contract_address
-        } else {
-            AztecAddress::zero()
-        };
-        assert_eq(self.output.fee_payer, initial_fee_payer, "incorrect initial fee_payer");
-
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
-        // This value can only decrease with each kernel iteration.
-        // Here we take the minimum of:
-        // - The timestamp set by this private call (via `context.set_include_by_timestamp()`)
-        // - The timestamp before which our earlier read of the contract instance registry would
-        //   become stale.
-        //   Recall: for the contract address of the private_call, we read whether the contract's
-        //   class have ever been upgraded, and if so we read the current class_id,
-        //   from a mapping in the ContractInstanceRegistry. Such reads (of DelayedPublicMutable state)
-        //   are only valid for a short period of time, after which the class_id might have been
-        //   overwritten. Hence, the include_by_timestamp of this entire tx must be at most the
-        //   timestamp at which our read becomes stale.
-        //   Note: even if the contract has never upgraded its class_id, we must still read (and
-        //   derive) an inclusion timestamp from its default INITIAL_DELAY in case an upgrade has
-        //   been scheduled since this tx's anchor block. I.e. even reads of empty registry entries
-        //   can go stale.
-        //
-        // Note: by default, at the time of writing, aztecnr sets the private_call.public_inputs.
-        // include_by_timestamp to be 24 hours after the anchor block's timestamp.
-        // Smart contract frameworks are responsible for setting such sensible values. If they were
-        // to set a value of `0`, this `min` would be `0` and the tx would be out of date before it's
-        // been submitted!
-        let timestamp_before_registry_read_goes_stale =
-            get_include_by_timestamp_for_contract_updates(private_call);
-
-        let include_by_timestamp = std::cmp::min(
-            private_call.public_inputs.include_by_timestamp,
-            timestamp_before_registry_read_goes_stale,
-        );
-        assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect initial include_by_timestamp",
-        );
-
-        // The following 3 values (is_private_only, claimed_first_nullifier, claimed_revertible_counter) are provided
-        // as hints and remain constant throughout private execution.
-        // They are verified against the final values after the last kernel iteration in the Tail(-to-Public) circuit.
-
-        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
-
-        // There must be at lease one nullifier for the private execution, which is used to compute note hash nonces.
-        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
-        assert_eq(
-            self.output.claimed_first_nullifier,
-            first_nullifier_hint,
-            "incorrect initial claimed_first_nullifier",
-        );
-
-        assert_eq(
-            self.output.claimed_revertible_counter,
-            revertible_counter_hint,
-            "incorrect initial claimed_revertible_counter",
-        );
-
-        nullifier_offset
     }
 
     fn validate_aggregated_values(
@@ -407,68 +241,10 @@ impl PrivateKernelCircuitOutputValidator {
         );
         // Private call requests are reversed (see propagate_private_call_requests comment).
         // Offset is length - 1 because we popped the current call from the stack.
-        assert_array_appended_reversed_up_to_some_length(
+        assert_array_appended_reversed(
             self.output.end.private_call_stack,
             private_call.public_inputs.private_call_requests,
             previous_kernel_public_inputs.end.private_call_stack.length - 1,
-        );
-    }
-
-    /// We distinguish between the initial private call and subsequent private calls, because it's
-    /// cheaper (constraint-wise) to append to the known index 0 ("empty dest") than to a dynamic
-    /// position in the dest array.
-    fn validate_propagated_from_initial_private_call(
-        self,
-        private_call: PrivateCallData,
-        nullifier_offset: u32,
-    ) {
-        let contract_address = private_call.public_inputs.call_context.contract_address;
-        assert_array_appended_to_empty_dest(
-            self.output.validation_requests.note_hash_read_requests,
-            private_call.public_inputs.note_hash_read_requests,
-        );
-        assert_array_appended_to_empty_dest(
-            self.output.validation_requests.nullifier_read_requests,
-            private_call.public_inputs.nullifier_read_requests,
-        );
-        assert_array_appended_to_empty_dest_and_scoped(
-            self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            private_call.public_inputs.key_validation_requests_and_generators,
-            contract_address,
-        );
-        assert_array_appended_to_empty_dest_and_scoped(
-            self.output.end.note_hashes,
-            private_call.public_inputs.note_hashes,
-            contract_address,
-        );
-        assert_array_appended_and_scoped(
-            self.output.end.nullifiers,
-            private_call.public_inputs.nullifiers,
-            nullifier_offset,
-            contract_address,
-        );
-        assert_array_appended_to_empty_dest_and_scoped(
-            self.output.end.l2_to_l1_msgs,
-            private_call.public_inputs.l2_to_l1_msgs,
-            contract_address,
-        );
-        assert_array_appended_to_empty_dest_and_scoped(
-            self.output.end.private_logs,
-            private_call.public_inputs.private_logs,
-            contract_address,
-        );
-        assert_array_appended_to_empty_dest_and_scoped(
-            self.output.end.contract_class_logs_hashes,
-            private_call.public_inputs.contract_class_logs_hashes,
-            contract_address,
-        );
-        assert_array_appended_to_empty_dest(
-            self.output.end.public_call_requests,
-            private_call.public_inputs.public_call_requests,
-        );
-        assert_array_appended_reversed_to_empty_dest(
-            self.output.end.private_call_stack,
-            private_call.public_inputs.private_call_requests,
         );
     }
 }

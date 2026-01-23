@@ -38,7 +38,7 @@ describe('InvalidTxsAfterMiningRule', () => {
       it('returns empty result for CHAIN_PRUNED event', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const result = await rule.evict(context, txPool);

@@ -29,24 +29,27 @@
 <li><a href="../note_getter/index.html">note_getter</a></div></li>
 <li><a href="../note_getter_options/index.html">note_getter_options</a></div></li>
 <li><a href="../note_interface/index.html">note_interface</a></div></li>
-<li><a href="../note_message/index.html">note_message</a></div></li>
 <li><a href="../note_metadata/index.html">note_metadata</a></div></li>
 <li><a href="../note_viewer_options/index.html">note_viewer_options</a></div></li>
-<li><a href="../retrieved_note/index.html">retrieved_note</a></div></li>
 <li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="../struct.ConfirmedNote.html">ConfirmedNote</a></div></li>
+<li><a href="../struct.HintedNote.html">HintedNote</a></div></li>
+<li><a href="../struct.MaybeNoteMessage.html">MaybeNoteMessage</a></div></li>
+<li><a href="../struct.NoteMessage.html">NoteMessage</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::utils</div>
 <h1>Module <span id="mod" class="module">utils</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.compute_confirmed_note_hash_for_nullification.html" class="fn">compute_confirmed_note_hash_for_nullification</a></div><div class="item-description">Same as <code>compute_note_hash_for_nullification</code>, except it takes the note hash used in a read request (i.e. what
+<code>compute_note_existence_request</code> would return). This is useful in scenarios where that hash has already been
+computed to reduce constraints by reusing this value.</div></li>
+<li><div class="item-name"><a href="fn.compute_note_existence_request.html" class="fn">compute_note_existence_request</a></div><div class="item-description">Returns the <a href="../../../noir_aztec/context/struct.NoteExistenceRequest.html">NoteExistenceRequest</a> used to prove a note exists.</div></li>
 <li><div class="item-name"><a href="fn.compute_note_hash_for_nullification.html" class="fn">compute_note_hash_for_nullification</a></div><div class="item-description">Returns the note hash that must be used to compute a note's nullifier when calling <code>NoteHash::compute_nullifier</code> or
 <code>NoteHash::compute_nullifier_unconstrained</code>.</div></li>
-<li><div class="item-name"><a href="fn.compute_note_hash_for_nullification_from_note_hash_read.html" class="fn">compute_note_hash_for_nullification_from_note_hash_read</a></div><div class="item-description">Same as <code>compute_note_hash_for_nullification</code>, except it takes the note hash used in a read request (i.e. what
-<code>compute_note_hash_read</code> would return). This is useful in scenarios where that hash has already been
-computed to reduce constraints by reusing this value.</div></li>
-<li><div class="item-name"><a href="fn.compute_note_hash_read.html" class="fn">compute_note_hash_read</a></div><div class="item-description">Returns the note hash that must be used to issue a private kernel read request for a note.</div></li>
-<li><div class="item-name"><a href="fn.compute_siloed_note_nullifier.html" class="fn">compute_siloed_note_nullifier</a></div><div class="item-description">Computes a note's siloed nullifier, i.e. the one that will be inserted into the nullifier tree.</div></li>
 </ul>
 </main>
 </span>

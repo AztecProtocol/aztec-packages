@@ -1,5 +1,5 @@
 mod note;
-mod fake_public_context;
+mod fake_avm_oracle;
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -12,8 +12,8 @@ pub contract AvmTest {
         0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
-    use crate::fake_public_context::{
-        avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
+    use crate::fake_avm_oracle::{
+        avm_return, call, returndata_copy, returndata_size, revert, success_copy,
     };
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::macros::{functions::{external, view}, storage::storage};
@@ -45,7 +45,7 @@ pub contract AvmTest {
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     use dep::auth_contract::AuthRegistry;
-    use dep::aztec::context::public_context::PublicContext;
+    use dep::aztec::context::PublicContext;
     use dep::fee_juice::FeeJuice;
     use dep::instance_contract::ContractInstanceRegistry;
     use std::ops::Add;
@@ -391,14 +391,14 @@ pub contract AvmTest {
     #[external("public")]
     fn assert_calldata_copy(args: [Field; 3], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
-        let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        let cd: [Field; 3] = dep::aztec::oracle::avm::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
 
     #[external("public")]
     fn assert_calldata_copy_large(args: [Field; 300], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
-        let cd: [Field; 300] = dep::aztec::context::public_context::calldata_copy(offset, 300);
+        let cd: [Field; 300] = dep::aztec::oracle::avm::calldata_copy(offset, 300);
         assert(cd == args, "Calldata copy failed");
     }
 
@@ -418,7 +418,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn revert_oracle() -> [Field; 3] {
-        avm_revert([1, 2, 3]);
+        revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 

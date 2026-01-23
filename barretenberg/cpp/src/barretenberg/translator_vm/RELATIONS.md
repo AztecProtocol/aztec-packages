@@ -536,7 +536,7 @@ Purpose: Enforce that each ordered wire is in non-descending order with maximum 
 
 For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
 
-$$\boxed{\left( L_{\text{real\_last}} - 1 \right) \cdot \left( L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
+$$\boxed{\left( L_{\text{real\_last}} + L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
 
 where:
 $$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i].$$

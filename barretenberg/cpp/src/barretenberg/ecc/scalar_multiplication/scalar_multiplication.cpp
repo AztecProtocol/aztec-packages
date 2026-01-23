@@ -149,14 +149,46 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     return work_units;
 }
 
+/**
+ * @brief Extract a slice of bits from a scalar for Pippenger bucket assignment
+ * @details Extracts bits [lo_bit, hi_bit) from the scalar's raw limb representation.
+ *          The scalar must already be converted out of Montgomery form.
+ *
+ * IMPORTANT RESTRICTIONS (optimized for Pippenger's specific usage pattern):
+ * - slice_size must be <= 32 bits (returns uint32_t)
+ * - The bit range must span at most 2 limbs (satisfied when slice_size <= 64)
+ * - hi_bit must be < 256 to avoid out-of-bounds access (satisfied since hi_bit <= NUM_BITS_IN_FIELD < 256)
+ *
+ * @param scalar The scalar field element (must be in non-Montgomery form)
+ * @param round The current Pippenger round (0 = most significant bits)
+ * @param slice_size Number of bits per slice
+ * @return uint32_t The bucket index for this round
+ */
 template <typename Curve>
 uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
                                       size_t round,
                                       size_t slice_size) noexcept
 {
+    constexpr size_t LIMB_BITS = 64;
+
     size_t hi_bit = NUM_BITS_IN_FIELD - (round * slice_size);
     size_t lo_bit = (hi_bit < slice_size) ? 0 : hi_bit - slice_size;
-    return scalar.get_bit_slice_raw(lo_bit, hi_bit);
+
+    BB_ASSERT_DEBUG(lo_bit < hi_bit);
+    BB_ASSERT_DEBUG(hi_bit <= NUM_BITS_IN_FIELD); // Ensures hi_bit < 256, so end_limb <= 3
+
+    size_t start_limb = lo_bit / LIMB_BITS;
+    size_t end_limb = hi_bit / LIMB_BITS;
+    size_t lo_slice_offset = lo_bit & (LIMB_BITS - 1);
+    size_t actual_slice_size = hi_bit - lo_bit;
+    size_t lo_slice_bits =
+        (LIMB_BITS - lo_slice_offset < actual_slice_size) ? (LIMB_BITS - lo_slice_offset) : actual_slice_size;
+    size_t hi_slice_bits = actual_slice_size - lo_slice_bits;
+
+    uint64_t lo_slice = (scalar.data[start_limb] >> lo_slice_offset) & ((1ULL << lo_slice_bits) - 1);
+    uint64_t hi_slice = (start_limb != end_limb) ? (scalar.data[end_limb] & ((1ULL << hi_slice_bits) - 1)) : 0;
+
+    return static_cast<uint32_t>(lo_slice | (hi_slice << lo_slice_bits));
 }
 
 template <typename Curve> uint32_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points) noexcept
@@ -485,7 +517,7 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
     std::span<ScalarField> scalar_span(scalar_ptr, num_scalars);
 
-    // Wrap into a size-1 batch and delegate to the general method that properly handles mullti-threading
+    // Wrap into a size-1 batch and delegate to the general method that properly handles multi-threading
     std::array<std::span<const AffineElement>, 1> points_batch{ points.subspan(scalars.start_index) };
     std::array<std::span<ScalarField>, 1> scalars_batch{ scalar_span };
 

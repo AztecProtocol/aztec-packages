@@ -21,11 +21,6 @@ tests_hash=$(hash_str \
     ../ts/.rebuild_patterns \
     ../noir/))
 
-function hex_to_fields_json {
-  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
-  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
-}
-
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
@@ -47,17 +42,15 @@ function run_proof_generation {
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --write_vk --output_format json -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
-
-  # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
-  # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
-  local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | hex_to_fields_json)
-  local vk_hash_field="\"0x$(cat "$outdir/vk_hash" | xxd -p -c 0)\""
-  local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | hex_to_fields_json)
-  local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | hex_to_fields_json)
+  # Extract fields from JSON output (already hex-encoded with 0x prefix)
+  local vk_fields=$(jq -c '.vk' "$outdir/vk.json")
+  local vk_hash_field=$(jq -c '.hash' "$outdir/vk.json")
+  local public_inputs_fields=$(jq -c '.public_inputs' "$outdir/public_inputs.json")
+  local proof_fields=$(jq -c '.proof' "$outdir/proof.json")
 
   generate_toml "$program" "$vk_fields" "$vk_hash_field" "$proof_fields" "$public_inputs_fields"
 }
@@ -96,7 +89,7 @@ function regenerate_recursive_inputs {
   parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof"
 }
 
-export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation generate_toml
+export -f regenerate_recursive_inputs run_proof_generation generate_toml
 
 function compile {
   echo_header "Compiling acir_tests"

@@ -89,7 +89,7 @@ methods. E.g.:</p>
 </div>
 </div><code id="public_context" class="code-header">pub unconstrained fn <a href="#public_context"><span class="fn">public_context</span></a>&lt;Env, T&gt;(
     self,
-    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T,
+    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -118,7 +118,7 @@ of it - it becomes invalid once <code>public_context</code> returns.</p>
 </div><code id="public_context_at" class="code-header">pub unconstrained fn <a href="#public_context_at"><span class="fn">public_context_at</span></a>&lt;Env, T&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T,
+    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -127,7 +127,7 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 </div>
 </div><code id="private_context" class="code-header">pub unconstrained fn <a href="#private_context"><span class="fn">private_context</span></a>&lt;Env, T&gt;(
     self,
-    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
+    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -158,7 +158,7 @@ for even more configurability.</p>
 </div><code id="private_context_at" class="code-header">pub unconstrained fn <a href="#private_context_at"><span class="fn">private_context_at</span></a>&lt;Env, T&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
+    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -168,7 +168,7 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 </div><code id="private_context_opts" class="code-header">pub unconstrained fn <a href="#private_context_opts"><span class="fn">private_context_opts</span></a>&lt;Env, T&gt;(
     _self: Self,
     opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.PrivateContextOptions.html" class="struct">PrivateContextOptions</a>,
-    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
+    f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -176,7 +176,7 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 </div>
 </div><code id="utility_context" class="code-header">pub unconstrained fn <a href="#utility_context"><span class="fn">utility_context</span></a>&lt;Env, T&gt;(
     self,
-    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>) -> T,
+    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -201,7 +201,7 @@ it - it becomes invalid once <code>utility_context</code> returns.</p>
 </div><code id="utility_context_at" class="code-header">pub unconstrained fn <a href="#utility_context_at"><span class="fn">utility_context_at</span></a>&lt;Env, T&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>) -> T,
+    f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>) -> T,
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
@@ -413,19 +413,19 @@ executable in a static context, and these produce no side effects).</p>
 <p>Unlike <code>call_public</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
 executable in a static context, and these produce no side effects).</p>
 </div>
-</div><code id="discover_note" class="code-header">pub unconstrained fn <a href="#discover_note"><span class="fn">discover_note</span></a>&lt;Note&gt;(self, note_message: <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;)
+</div><code id="discover_note" class="code-header">pub unconstrained fn <a href="#discover_note"><span class="fn">discover_note</span></a>&lt;Note&gt;(self, note_message: <a href="../../../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;)
 <div class="where-clause">where
     Note: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Discovers a note from a <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a>, which is expected to have been created in the last transaction
+<p>Discovers a note from a <a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a>, which is expected to have been created in the last transaction
 (typically via <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>) so that it can be retrieved in later transactions. This
 mimics the normal message processing that takes place automatically in contracts.</p>
-<p><a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a> values are typically returned by aztec-nr state variables that create notes and need to notify
+<p><a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> values are typically returned by aztec-nr state variables that create notes and need to notify
 a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
-would regularly take place in a contract, this function simply takes the <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html">NoteMessage</a> and processes it as
+would regularly take place in a contract, this function simply takes the <a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> and processes it as
 needed to discover the underlying note.</p>
 <p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note_at">TestEnvironment::discover_note_at</a> for a variant that allows specifying the contract address the note
 belongs to.</p>
@@ -436,11 +436,11 @@ belongs to.</p>
 
 env.discover_note(note_message);
 
-env.private_context(|context| { <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot); });</code></pre></div>
+env.private_context(|context| { <span class="kw">let</span> (hinted_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot); });</code></pre></div>
 </div><code id="discover_note_at" class="code-header">pub unconstrained fn <a href="#discover_note_at"><span class="fn">discover_note_at</span></a>&lt;Note&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    note_message: <a href="../../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;,
+    note_message: <a href="../../../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;,
 )
 <div class="where-clause">where
     Note: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
@@ -458,7 +458,7 @@ which is required when the note was not emitted in the default address used by
 env.discover_note_at(contract_address, note_message);
 
 env.private_context_at(contract_address, |context| {
-    <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot);
+    <span class="kw">let</span> (hinted_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot);
 });</code></pre></div>
 </div></div></main>
 </span>

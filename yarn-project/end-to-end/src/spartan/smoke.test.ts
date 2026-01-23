@@ -11,6 +11,7 @@ import { createPublicClient, fallback, http } from 'viem';
 
 import {
   getGitProjectRoot,
+  getSequencers,
   installChaosMeshChart,
   setupEnvironment,
   startPortForward,
@@ -195,12 +196,17 @@ describe('smoke test', () => {
           RETRY_INTERVAL_SECONDS,
         ),
 
-        // Test validator admin port forward
+        // Test validator admin port forward (uses dynamic discovery via label selectors)
         retryUntil(
           async () => {
             try {
+              // Dynamically discover validator pods instead of hardcoding names
+              const validators = await getSequencers(config.NAMESPACE);
+              if (!validators.length) {
+                return undefined;
+              }
               const result = await startPortForward({
-                resource: `pod/${config.NAMESPACE}-validator-aztec-node-0`,
+                resource: `pod/${validators[0]}`,
                 namespace: config.NAMESPACE,
                 containerPort: 8880,
               });

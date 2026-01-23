@@ -1,4 +1,4 @@
-use crate::note::{hinted_note::HintedNote, note_interface::NoteType};
+use crate::note::{HintedNote, note_interface::NoteType};
 
 use dep::protocol_types::{address::AztecAddress, traits::Packable};
 
@@ -35,13 +35,6 @@ pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
     // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
     // call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
-}
-
-/// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
-pub fn notify_created_nullifier(nullifier: Field) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
-    // call.
-    unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
@@ -85,13 +78,6 @@ unconstrained fn notify_nullified_note_oracle_wrapper(
 
 #[oracle(privateNotifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
-
-unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
-    notify_created_nullifier_oracle(nullifier);
-}
-
-#[oracle(privateNotifyCreatedNullifier)]
-unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(utilityGetNotes)]
 unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
@@ -193,17 +179,6 @@ where
 
     notes_array
 }
-
-/// Returns true if the nullifier exists. Note that a `true` value can be constrained by proving existence of the
-/// nullifier, but a `false` value should not be relied upon since other transactions may emit this nullifier before the
-/// current transaction is included in a block. While this might seem of little use at first, certain design patterns
-/// benefit from this abstraction (see e.g. `PrivateMutable`).
-pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
-    check_nullifier_exists_oracle(inner_nullifier)
-}
-
-#[oracle(utilityCheckNullifierExists)]
-unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 

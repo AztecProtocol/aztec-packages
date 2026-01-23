@@ -59,7 +59,7 @@ import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
+import { ensureContractSynced, readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -138,7 +138,7 @@ export class PXE {
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
-    const noteStore = await NoteStore.create(store);
+    const noteStore = new NoteStore(store);
     const anchorBlockStore = new AnchorBlockStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -158,7 +158,13 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
+    jobCoordinator.registerStores([
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+    ]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
@@ -288,6 +294,15 @@ export class PXE {
 
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+
+      await ensureContractSynced(
+        contractAddress,
+        functionSelector,
+        privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        this.node,
+        this.contractStore,
+        anchorBlockHeader,
+      );
 
       const result = await contractFunctionSimulator.run(
         txRequest,
@@ -428,7 +443,6 @@ export class PXE {
     }
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
-    await this.noteStore.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 
@@ -948,8 +962,14 @@ export class PXE {
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
-        await this.contractStore.syncPrivateState(call.to, call.selector, privateSyncCall =>
-          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        await ensureContractSynced(
+          call.to,
+          call.selector,
+          privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+          this.node,
+          this.contractStore,
+          anchorBlockHeader,
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1008,15 +1028,19 @@ export class PXE {
     await this.#putInJobQueue(async jobId => {
       await this.blockStateSynchronizer.sync();
 
-      anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+      anchorBlockNumber = anchorBlockHeader.getBlockNumber();
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
-      await this.contractStore.syncPrivateState(
+      await ensureContractSynced(
         filter.contractAddress,
         null,
         async privateSyncCall =>
           await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        this.node,
+        this.contractStore,
+        anchorBlockHeader,
       );
     });
 

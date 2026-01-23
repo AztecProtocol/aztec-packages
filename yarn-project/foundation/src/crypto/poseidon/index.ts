@@ -35,16 +35,6 @@ export async function poseidon2HashWithSeparator(input: Fieldable[], separator: 
   return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
-export async function poseidon2HashAccumulate(input: Fieldable[]): Promise<Fr> {
-  const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2HashAccumulate({
-    inputs: inputFields.map(i => i.toBuffer()),
-  });
-  return Fr.fromBuffer(Buffer.from(response.hash));
-}
-
 /**
  * Runs a Poseidon2 permutation.
  * @param input the input state. Expected to be of size 4.

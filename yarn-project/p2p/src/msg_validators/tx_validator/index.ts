@@ -11,3 +11,4 @@ export * from './allowed_public_setup.js';
 export * from './archive_cache.js';
 export * from './tx_permitted_validator.js';
 export * from './timestamp_validator.js';
+export * from './size_validator.js';

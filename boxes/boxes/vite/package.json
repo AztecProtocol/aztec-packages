@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "yarn clean && yarn compile && yarn codegen && tsc -b && vite build",
-    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target ./test-results",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target ./test-results || true",
     "compile": "cd src/contracts && ${AZTEC:-aztec} compile --silence-warnings",
     "codegen": "${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
     "serve": "vite",

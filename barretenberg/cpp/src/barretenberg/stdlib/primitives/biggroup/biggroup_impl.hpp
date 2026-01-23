@@ -840,8 +840,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     // result = submitted_in_round_0 * challenge_from_round_0 + submitted_in_round_1 * challenge_in_round_1
     // will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself.
     // To avoid this, we remove the tags, merge them separately and set the result appropriately
-    OriginTag tag{};
-    const auto empty_tag = OriginTag();
+    OriginTag tag = OriginTag::constant();  // Initialize as CONSTANT so merging with input tags works correctly
+    auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
     for (size_t i = 0; i < _points.size(); i++) {
         tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
     }

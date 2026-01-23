@@ -1720,7 +1720,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
+            block_number_t expected =
+                static_cast<block_number_t>(1 + static_cast<block_number_t>(indices[i]) / block_size);
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1734,7 +1735,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
+            block_number_t expected =
+                static_cast<block_number_t>(1 + static_cast<block_number_t>(indices[i]) / block_size);
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1749,7 +1751,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
+            block_number_t expected =
+                static_cast<block_number_t>(1 + static_cast<block_number_t>(indices[i]) / block_size);
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1767,7 +1770,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
+            block_number_t expected =
+                static_cast<block_number_t>(1 + static_cast<block_number_t>(indices[i]) / block_size);
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1781,7 +1785,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
+            block_number_t expected =
+                static_cast<block_number_t>(1 + static_cast<block_number_t>(indices[i]) / block_size);
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);

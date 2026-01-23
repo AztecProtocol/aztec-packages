@@ -1,11 +1,14 @@
-use crate::context::gas::GasOpts;
-use crate::hash::{
-    compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash,
+use crate::{
+    context::gas::GasOpts,
+    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash},
+    oracle::avm,
 };
-use dep::protocol_types::abis::function_selector::FunctionSelector;
-use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS};
-use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS},
+    traits::{Empty, FromField, Packable, Serialize, ToField},
+};
 
 /// # PublicContext
 ///
@@ -107,7 +110,7 @@ impl PublicContext {
         T: Serialize,
     {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_public_log(Serialize::serialize(log).as_vector()) };
+        unsafe { avm::emit_public_log(Serialize::serialize(log).as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular
@@ -122,7 +125,7 @@ impl PublicContext {
     ///
     pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: u64) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { note_hash_exists(note_hash, leaf_index) } == 1
+        unsafe { avm::note_hash_exists(note_hash, leaf_index) } == 1
     }
 
     /// Checks if a specific L1-to-L2 message exists in the L1-to-L2 message
@@ -148,7 +151,7 @@ impl PublicContext {
     pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
         // TODO(alvaro): Make l1l2msg leaf index a u64 upstream
-        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
+        unsafe { avm::l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
     }
 
     /// Returns `true` if an `unsiloed_nullifier` has been emitted by `contract_address`.
@@ -170,7 +173,7 @@ impl PublicContext {
     /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
     /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
     /// block. Private functions instead prove existence via
-    /// [crate::context::private_context::PrivateContext::assert_nullifier_exists] and 'prove' non-existence by
+    /// [crate::context::PrivateContext::assert_nullifier_exists] and 'prove' non-existence by
     /// _emitting_ the nullifer, which would cause the transaction to fail if the nullifier existed.
     ///
     /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
@@ -197,7 +200,7 @@ impl PublicContext {
         contract_address: AztecAddress,
     ) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { nullifier_exists(unsiloed_nullifier, contract_address.to_field()) } == 1
+        unsafe { avm::nullifier_exists(unsiloed_nullifier, contract_address.to_field()) } == 1
     }
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2) -- effectively
@@ -287,7 +290,7 @@ impl PublicContext {
     ///
     pub fn message_portal(_self: Self, recipient: EthAddress, content: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { send_l2_to_l1_msg(recipient, content) };
+        unsafe { avm::send_l2_to_l1_msg(recipient, content) };
     }
 
     /// Calls a public function on another contract.
@@ -312,19 +315,19 @@ impl PublicContext {
     ) -> [Field] {
         let calldata = [function_selector.to_field()].concat(args);
 
-        call(
+        avm::call(
             gas_opts.l2_gas.unwrap_or(MAX_U32_VALUE),
             gas_opts.da_gas.unwrap_or(MAX_U32_VALUE),
             contract_address,
             calldata,
         );
         // Use success_copy to determine whether the call succeeded
-        let success = success_copy();
+        let success = avm::success_copy();
 
-        let result_data = returndata_copy(0, returndata_size());
+        let result_data = avm::returndata_copy(0, avm::returndata_size());
         if !success {
             // Rethrow the revert data.
-            avm_revert(result_data);
+            avm::revert(result_data);
         }
         result_data
     }
@@ -357,19 +360,19 @@ impl PublicContext {
     ) -> [Field] {
         let calldata = [function_selector.to_field()].concat(args);
 
-        call_static(
+        avm::call_static(
             gas_opts.l2_gas.unwrap_or(MAX_U32_VALUE),
             gas_opts.da_gas.unwrap_or(MAX_U32_VALUE),
             contract_address,
             calldata,
         );
         // Use success_copy to determine whether the call succeeded
-        let success = success_copy();
+        let success = avm::success_copy();
 
-        let result_data = returndata_copy(0, returndata_size());
+        let result_data = avm::returndata_copy(0, avm::returndata_size());
         if !success {
             // Rethrow the revert data.
-            avm_revert(result_data);
+            avm::revert(result_data);
         }
         result_data
     }
@@ -399,7 +402,7 @@ impl PublicContext {
     ///
     pub fn push_note_hash(_self: Self, note_hash: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_note_hash(note_hash) };
+        unsafe { avm::emit_note_hash(note_hash) };
     }
 
     /// Adds a new nullifier to the Aztec blockchain's global Nullifier Tree.
@@ -424,7 +427,7 @@ impl PublicContext {
     ///
     pub fn push_nullifier(_self: Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_nullifier(nullifier) };
+        unsafe { avm::emit_nullifier(nullifier) };
     }
 
     /// Returns the address of the current contract being executed.
@@ -440,7 +443,7 @@ impl PublicContext {
     pub fn this_address(_self: Self) -> AztecAddress {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            address()
+            avm::address()
         }
     }
 
@@ -463,7 +466,7 @@ impl PublicContext {
     ///
     pub fn maybe_msg_sender(_self: Self) -> Option<AztecAddress> {
         // Safety: AVM opcodes are constrained by the AVM itself
-        let maybe_msg_sender = unsafe { sender() };
+        let maybe_msg_sender = unsafe { avm::sender() };
         if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
             Option::none()
         } else {
@@ -486,7 +489,7 @@ impl PublicContext {
     pub fn selector(_self: Self) -> FunctionSelector {
         // The selector is the first element of the calldata when calling a public function through dispatch.
         // Safety: AVM opcodes are constrained by the AVM itself
-        let raw_selector: [Field; 1] = unsafe { calldata_copy(0, 1) };
+        let raw_selector: [Field; 1] = unsafe { avm::calldata_copy(0, 1) };
         FunctionSelector::from_field(raw_selector[0])
     }
 
@@ -532,7 +535,7 @@ impl PublicContext {
     pub fn transaction_fee(_self: Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            transaction_fee()
+            avm::transaction_fee()
         }
     }
 
@@ -550,7 +553,7 @@ impl PublicContext {
     pub fn chain_id(_self: Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            chain_id()
+            avm::chain_id()
         }
     }
 
@@ -570,7 +573,7 @@ impl PublicContext {
     pub fn version(_self: Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            version()
+            avm::version()
         }
     }
     /// Returns the current block number.
@@ -596,7 +599,7 @@ impl PublicContext {
     pub fn block_number(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            block_number()
+            avm::block_number()
         }
     }
 
@@ -623,7 +626,7 @@ impl PublicContext {
     pub fn timestamp(_self: Self) -> u64 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            timestamp()
+            avm::timestamp()
         }
     }
 
@@ -653,7 +656,7 @@ impl PublicContext {
     pub fn min_fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            min_fee_per_l2_gas()
+            avm::min_fee_per_l2_gas()
         }
     }
 
@@ -670,7 +673,7 @@ impl PublicContext {
     pub fn min_fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            min_fee_per_da_gas()
+            avm::min_fee_per_da_gas()
         }
     }
 
@@ -684,7 +687,7 @@ impl PublicContext {
     pub fn l2_gas_left(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            l2_gas_left()
+            avm::l2_gas_left()
         }
     }
 
@@ -702,7 +705,7 @@ impl PublicContext {
     pub fn da_gas_left(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            da_gas_left()
+            avm::da_gas_left()
         }
     }
 
@@ -715,7 +718,7 @@ impl PublicContext {
     ///
     pub fn is_static_call(_self: Self) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { is_static_call() } == 1
+        unsafe { avm::is_static_call() } == 1
     }
 
     /// Reads raw field values from public storage.
@@ -734,11 +737,13 @@ impl PublicContext {
     /// * `N` - the number of consecutive slots to return, starting from the
     ///         `storage_slot`.
     ///
-    pub fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
+    pub fn raw_storage_read<let N: u32>(self: Self, storage_slot: Field) -> [Field; N] {
         let mut out = [0; N];
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
-            out[i] = unsafe { storage_read(storage_slot + i as Field) };
+            out[i] = unsafe {
+                avm::storage_read(storage_slot + i as Field, self.this_address().to_field())
+            };
         }
         out
     }
@@ -779,7 +784,7 @@ impl PublicContext {
     pub fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
-            unsafe { storage_write(storage_slot + i as Field, values[i]) };
+            unsafe { avm::storage_write(storage_slot + i as Field, values[i]) };
         }
     }
 
@@ -803,235 +808,8 @@ impl PublicContext {
     }
 }
 
-// TODO: consider putting this oracle code in its own file.
-// Unconstrained opcode wrappers (do not use directly).
-unconstrained fn address() -> AztecAddress {
-    address_opcode()
-}
-unconstrained fn sender() -> AztecAddress {
-    sender_opcode()
-}
-unconstrained fn transaction_fee() -> Field {
-    transaction_fee_opcode()
-}
-unconstrained fn chain_id() -> Field {
-    chain_id_opcode()
-}
-unconstrained fn version() -> Field {
-    version_opcode()
-}
-unconstrained fn block_number() -> u32 {
-    block_number_opcode()
-}
-unconstrained fn timestamp() -> u64 {
-    timestamp_opcode()
-}
-unconstrained fn min_fee_per_l2_gas() -> u128 {
-    min_fee_per_l2_gas_opcode()
-}
-unconstrained fn min_fee_per_da_gas() -> u128 {
-    min_fee_per_da_gas_opcode()
-}
-unconstrained fn l2_gas_left() -> u32 {
-    l2_gas_left_opcode()
-}
-unconstrained fn da_gas_left() -> u32 {
-    da_gas_left_opcode()
-}
-unconstrained fn is_static_call() -> u1 {
-    is_static_call_opcode()
-}
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> u1 {
-    note_hash_exists_opcode(note_hash, leaf_index)
-}
-unconstrained fn emit_note_hash(note_hash: Field) {
-    emit_note_hash_opcode(note_hash)
-}
-unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
-    nullifier_exists_opcode(nullifier, address)
-}
-unconstrained fn emit_nullifier(nullifier: Field) {
-    emit_nullifier_opcode(nullifier)
-}
-unconstrained fn emit_public_log(message: [Field]) {
-    emit_public_log_opcode(message)
-}
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> u1 {
-    l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
-}
-unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
-    send_l2_to_l1_msg_opcode(recipient, content)
-}
-
-unconstrained fn call<let N: u32>(
-    l2_gas_allocation: u32,
-    da_gas_allocation: u32,
-    address: AztecAddress,
-    args: [Field; N],
-) {
-    call_opcode(l2_gas_allocation, da_gas_allocation, address, N, args)
-}
-
-unconstrained fn call_static<let N: u32>(
-    l2_gas_allocation: u32,
-    da_gas_allocation: u32,
-    address: AztecAddress,
-    args: [Field; N],
-) {
-    call_static_opcode(l2_gas_allocation, da_gas_allocation, address, N, args)
-}
-
-pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
-    calldata_copy_opcode(cdoffset, copy_size)
-}
-
-// `success_copy` is placed immediately after the CALL opcode to get the success value
-unconstrained fn success_copy() -> bool {
-    success_copy_opcode()
-}
-
-unconstrained fn returndata_size() -> u32 {
-    returndata_size_opcode()
-}
-
-unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
-    returndata_copy_opcode(rdoffset, copy_size)
-}
-
-pub unconstrained fn avm_return(returndata: [Field]) {
-    return_opcode(returndata)
-}
-
-// This opcode reverts using the exact data given. In general it should only be used
-// to do rethrows, where the revert data is the same as the original revert data.
-// For normal reverts, use Noir's `assert` which, on top of reverting, will also add
-// an error selector to the revert data.
-unconstrained fn avm_revert(revertdata: [Field]) {
-    revert_opcode(revertdata)
-}
-
-unconstrained fn storage_read(storage_slot: Field) -> Field {
-    storage_read_opcode(storage_slot)
-}
-
-unconstrained fn storage_write(storage_slot: Field, value: Field) {
-    storage_write_opcode(storage_slot, value);
-}
-
 impl Empty for PublicContext {
     fn empty() -> Self {
         PublicContext::new(|| 0)
     }
 }
-
-// TODO: consider putting this oracle code in its own file.
-// AVM oracles (opcodes) follow, do not use directly.
-#[oracle(avmOpcodeAddress)]
-unconstrained fn address_opcode() -> AztecAddress {}
-
-#[oracle(avmOpcodeSender)]
-unconstrained fn sender_opcode() -> AztecAddress {}
-
-#[oracle(avmOpcodeTransactionFee)]
-unconstrained fn transaction_fee_opcode() -> Field {}
-
-#[oracle(avmOpcodeChainId)]
-unconstrained fn chain_id_opcode() -> Field {}
-
-#[oracle(avmOpcodeVersion)]
-unconstrained fn version_opcode() -> Field {}
-
-#[oracle(avmOpcodeBlockNumber)]
-unconstrained fn block_number_opcode() -> u32 {}
-
-#[oracle(avmOpcodeTimestamp)]
-unconstrained fn timestamp_opcode() -> u64 {}
-
-#[oracle(avmOpcodeMinFeePerL2Gas)]
-unconstrained fn min_fee_per_l2_gas_opcode() -> u128 {}
-
-#[oracle(avmOpcodeMinFeePerDaGas)]
-unconstrained fn min_fee_per_da_gas_opcode() -> u128 {}
-
-#[oracle(avmOpcodeL2GasLeft)]
-unconstrained fn l2_gas_left_opcode() -> u32 {}
-
-#[oracle(avmOpcodeDaGasLeft)]
-unconstrained fn da_gas_left_opcode() -> u32 {}
-
-#[oracle(avmOpcodeIsStaticCall)]
-unconstrained fn is_static_call_opcode() -> u1 {}
-
-#[oracle(avmOpcodeNoteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> u1 {}
-
-#[oracle(avmOpcodeEmitNoteHash)]
-unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
-
-#[oracle(avmOpcodeNullifierExists)]
-unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u1 {}
-
-#[oracle(avmOpcodeEmitNullifier)]
-unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
-
-// TODO(#11124): rename unencrypted to public in avm
-#[oracle(avmOpcodeEmitUnencryptedLog)]
-unconstrained fn emit_public_log_opcode(message: [Field]) {}
-
-#[oracle(avmOpcodeL1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: u64) -> u1 {}
-
-#[oracle(avmOpcodeSendL2ToL1Msg)]
-unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
-
-#[oracle(avmOpcodeCalldataCopy)]
-unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
-
-#[oracle(avmOpcodeReturndataSize)]
-unconstrained fn returndata_size_opcode() -> u32 {}
-
-#[oracle(avmOpcodeReturndataCopy)]
-unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
-
-#[oracle(avmOpcodeReturn)]
-unconstrained fn return_opcode(returndata: [Field]) {}
-
-// This opcode reverts using the exact data given. In general it should only be used
-// to do rethrows, where the revert data is the same as the original revert data.
-// For normal reverts, use Noir's `assert` which, on top of reverting, will also add
-// an error selector to the revert data.
-#[oracle(avmOpcodeRevert)]
-unconstrained fn revert_opcode(revertdata: [Field]) {}
-
-// While the length parameter might seem unnecessary given that we have N we keep it around because at the AVM bytecode
-// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take that
-// route.
-#[oracle(avmOpcodeCall)]
-unconstrained fn call_opcode<let N: u32>(
-    l2_gas_allocation: u32,
-    da_gas_allocation: u32,
-    address: AztecAddress,
-    length: u32,
-    args: [Field; N],
-) {}
-
-// While the length parameter might seem unnecessary given that we have N we keep it around because at the AVM bytecode
-// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take that
-// route.
-#[oracle(avmOpcodeStaticCall)]
-unconstrained fn call_static_opcode<let N: u32>(
-    l2_gas_allocation: u32,
-    da_gas_allocation: u32,
-    address: AztecAddress,
-    length: u32,
-    args: [Field; N],
-) {}
-
-#[oracle(avmOpcodeSuccessCopy)]
-unconstrained fn success_copy_opcode() -> bool {}
-
-#[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
-
-#[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}

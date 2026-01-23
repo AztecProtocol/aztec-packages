@@ -17,7 +17,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   private readonly updater = new ArchiverDataStoreUpdater(this.store);
 
   constructor(db: AztecAsyncKVStore) {
-    const store = new KVArchiverDataStore(db, 9999);
+    const store = new KVArchiverDataStore(db, 9999, { epochDuration: 32 });
     super(store);
   }
 
@@ -63,7 +63,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     if (!checkpointedBlock) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
     }
-    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber(number), 1);
+    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
     if (checkpoint.length === 0) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
     }

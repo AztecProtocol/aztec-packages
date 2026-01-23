@@ -23,10 +23,11 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2BlockNew } from '../block/l2_block_new.js';
+import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
@@ -77,13 +78,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export interface AztecNode
   extends Pick<
     L2BlockSource,
-    | 'getBlocks'
-    | 'getL2BlocksNew'
-    | 'getPublishedBlocks'
-    | 'getPublishedCheckpoints'
-    | 'getBlockHeader'
-    | 'getL2Tips'
-    | 'getCheckpointedBlocks'
+    'getBlocks' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
   > {
   /**
    * Returns the tips of the L2 chain.
@@ -232,21 +227,21 @@ export interface AztecNode
    * @param number - The block number or 'latest'.
    * @returns The requested block.
    */
-  getBlock(number: BlockParameter): Promise<L2BlockNew | undefined>;
+  getBlock(number: BlockParameter): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its hash.
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its archive root.
    * @param archive - The archive root being requested.
    * @returns The requested block.
    */
-  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
   /**
    * Method to fetch the latest block number synchronized by the node.
@@ -279,7 +274,7 @@ export interface AztecNode
    * @param limit - The maximum number of blocks to return.
    * @returns The blocks requested.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
    * Method to fetch the current min fees.
@@ -343,16 +338,38 @@ export interface AztecNode
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
+   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
+   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
+   * undefined behavior in the client's code.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: L2BlockHash): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
+   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
+   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
+   * undefined behavior in the client's code.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+    referenceBlock?: L2BlockHash,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -554,11 +571,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(EpochNumberSchema)
     .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2BlockNew.schema.optional()),
+  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 
-  getBlockByHash: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
+  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
+  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(BlockNumberSchema),
 
@@ -571,26 +588,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2BlockNew.schema)),
+    .returns(z.array(L2Block.schema)),
 
-  getPublishedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
-
-  getPublishedCheckpoints: z
+  getCheckpoints: z
     .function()
     .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
     .returns(z.array(PublishedCheckpoint.schema)),
 
-  getL2BlocksNew: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2BlockNew.schema)),
-
   getCheckpointedBlocks: z
     .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(z.boolean()))
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),
@@ -618,12 +625,17 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN))
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(L2BlockHash.schema))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   getPublicLogsByTagsFromContract: z
     .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema).max(MAX_RPC_LEN))
+    .args(
+      schemas.AztecAddress,
+      z.array(Tag.schema).max(MAX_RPC_LEN),
+      optional(z.number().gte(0)),
+      optional(L2BlockHash.schema),
+    )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),

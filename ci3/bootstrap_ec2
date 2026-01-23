@@ -165,7 +165,7 @@ container_script=$(
     mem_pid=\$!
 
     # Dump process tree every 10s.
-    bash -c "while true; do pstree -ag; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
     pstree_pid=\$!
 
     set +e

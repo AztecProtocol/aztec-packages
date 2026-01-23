@@ -1,8 +1,9 @@
 use crate::history::{
+    note_inclusion::ProveNoteInclusion,
     nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion},
     test,
 };
-use crate::oracle::{notes::notify_created_nullifier, random::random};
+use crate::oracle::{nullifiers::notify_created_nullifier, random::random};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use dep::protocol_types::{
     constants::DOM_SEP__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator, traits::ToField,
@@ -16,7 +17,8 @@ unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT - 1),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_not_nullified(hinted_note, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_not_nullified(confirmed_note, context);
         },
     );
 }
@@ -29,7 +31,8 @@ unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fai
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_not_nullified(hinted_note, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_not_nullified(confirmed_note, context);
         },
     );
 }

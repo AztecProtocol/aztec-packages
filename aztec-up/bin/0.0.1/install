@@ -33,6 +33,12 @@ function echo_yellow {
 }
 
 function dump_fail {
+  if [[ ${VERBOSE:-0} -eq 1 ]]; then
+    echo
+    ($@)
+    return $?
+  fi
+
   output=$(mktemp)
 
   set +e
@@ -97,25 +103,30 @@ function install_versions_file {
 
 function install_noir {
   set -euo pipefail
-  local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
 
-  # Create a temp directory for noirup to install to
-  local temp_nargo_home=$(mktemp -d)
-  mkdir -p "$temp_nargo_home/bin"
+  if [[ -n ${NARGO:-} ]]; then
+    cp "$NARGO" "$version_bin_path/nargo"
+  else
+    local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
 
-  # Install noirup if not already present
-  if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
-    curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+    # Create a temp directory for noirup to install to
+    local temp_nargo_home=$(mktemp -d)
+    mkdir -p "$temp_nargo_home/bin"
+
+    # Install noirup if not already present
+    if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
+      curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+    fi
+
+    # Install noir to temp location and move to version directory
+    NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
+
+    # Move the nargo binary to our version bin directory
+    mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
+
+    # Cleanup temp directory
+    rm -rf "$temp_nargo_home"
   fi
-
-  # Install noir to temp location and move to version directory
-  NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
-
-  # Move the nargo binary to our version bin directory
-  mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
-
-  # Cleanup temp directory
-  rm -rf "$temp_nargo_home"
 }
 
 function install_foundry {
@@ -128,11 +139,11 @@ function install_foundry {
 
   # Install foundryup if not present or wrong version.
   if ! "$HOME/.foundry/bin/foundryup" --help 2>&1 | grep -q -- '-i, --install'; then
-    curl -L https://foundry.paradigm.xyz | bash
+    curl --max-time 30 -L https://foundry.paradigm.xyz | bash
   fi
 
   # Install foundry to temp location and move to version directory
-  FOUNDRY_DIR="$temp_foundry_dir" "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
+  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
 
   # Move the foundry binaries to our version bin directory
   for binary in forge cast anvil chisel; do

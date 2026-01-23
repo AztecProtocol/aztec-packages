@@ -1,5 +1,4 @@
 import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '@aztec/constants';
-import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -38,7 +37,7 @@ export async function computePrivateFunctionLeaf(fn: PrivateFunction): Promise<B
 async function getPrivateFunctionTreeCalculator(): Promise<MerkleTreeCalculator> {
   if (!privateFunctionTreeCalculator) {
     const functionTreeZeroLeaf = (
-      await pedersenHash(new Array(PRIVATE_FUNCTION_SIZE).fill(0))
+      await poseidon2Hash(new Array(PRIVATE_FUNCTION_SIZE).fill(0))
     ).toBuffer() as Buffer<ArrayBuffer>;
     privateFunctionTreeCalculator = await MerkleTreeCalculator.create(
       FUNCTION_TREE_HEIGHT,

@@ -483,7 +483,7 @@ void Sha256TraceBuilder::process(
 
         if (invalid_tag_err) {
             // We need to increment the row counter for the next event (since we may have added rows for input loading)
-            row += event.input.size();
+            row += static_cast<uint32_t>(event.input.size());
             continue;
         }
 

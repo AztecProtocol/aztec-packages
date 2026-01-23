@@ -181,19 +181,19 @@ variable "VALIDATOR_MNEMONIC_START_INDEX" {
 
 variable "VALIDATORS_PER_NODE" {
   description = "The number of validators per node"
-  type        = string
+  type        = number
   default     = 12
 }
 
 variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
   description = "Number of publisher EOAs per validator key"
-  type        = string
+  type        = number
   default     = 1
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic start index for validator publishers"
-  type        = string
+  type        = number
   default     = 5000
 }
 
@@ -215,6 +215,12 @@ variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
   default     = 4
+}
+
+variable "VALIDATOR_HA_REPLICAS" {
+  description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
+  type        = number
+  default     = 0
 }
 
 variable "PROVER_MNEMONIC" {

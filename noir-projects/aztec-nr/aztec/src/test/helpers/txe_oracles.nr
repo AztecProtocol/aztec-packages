@@ -1,6 +1,5 @@
 use crate::{
-    context::inputs::PrivateContextInputs, event::event_selector::EventSelector,
-    test::helpers::utils::TestAccount,
+    context::inputs::PrivateContextInputs, event::EventSelector, test::helpers::utils::TestAccount,
 };
 
 use protocol_types::{

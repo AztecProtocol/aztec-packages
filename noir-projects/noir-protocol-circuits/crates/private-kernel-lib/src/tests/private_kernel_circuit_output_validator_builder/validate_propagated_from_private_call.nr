@@ -427,7 +427,7 @@ fn validate_propagated_from_private_call__private_call_requests_with_previous_ou
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "max > MAX")]
+#[test(should_fail_with = "Index out of bounds")]
 fn validate_propagated_from_private_call__private_call_requests_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

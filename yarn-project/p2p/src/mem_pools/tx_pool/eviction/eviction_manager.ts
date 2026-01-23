@@ -1,4 +1,5 @@
 import { findIndexInSortedArray, insertIntoSortedArray } from '@aztec/foundation/array';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -50,7 +51,7 @@ export class EvictionManager {
     await this.runEvictionRules(ctx);
   }
 
-  public async evictAfterChainPrune(blockNumber: number): Promise<void> {
+  public async evictAfterChainPrune(blockNumber: BlockNumber): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.CHAIN_PRUNED,
       blockNumber,

@@ -5,9 +5,9 @@ use crate::{
         lifecycle::{create_note, destroy_note},
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
-        note_message::NoteMessage,
+        NoteMessage,
     },
-    oracle::notes::check_nullifier_exists,
+    oracle::nullifiers::check_nullifier_exists,
     state_vars::state_variable::StateVariable,
 };
 

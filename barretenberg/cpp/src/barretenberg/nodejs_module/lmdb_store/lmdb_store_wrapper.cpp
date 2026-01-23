@@ -117,8 +117,12 @@ GetResponse LMDBStoreWrapper::get(const GetRequest& req)
 
 HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 {
+    auto string_cmp = [](const std::vector<unsigned char>& a, const std::vector<unsigned char>& b) {
+        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+    };
+
     verify_store();
-    std::set<lmdblib::Key> key_set;
+    std::set<lmdblib::Key, decltype(string_cmp)> key_set(string_cmp);
     for (const auto& entry : req.entries) {
         key_set.insert(entry.first);
     }

@@ -27,6 +27,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  ChainHealth,
   getSequencersConfig,
   rollAztecPods,
   setupEnvironment,
@@ -46,13 +47,16 @@ describe('spartan_upgrade_rollup_version', () => {
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
   const forwardProcesses: ChildProcess[] = [];
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
   jest.setTimeout(3 * 60 * 60 * 1000); // Governance flow can take a while
 
-  afterAll(() => {
+  afterAll(async () => {
+    await health.teardown();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
@@ -131,6 +135,7 @@ describe('spartan_upgrade_rollup_version', () => {
         slashAmountMedium: l1Config.slashAmountMedium,
         slashAmountLarge: l1Config.slashAmountLarge,
         governanceVotingDuration: l1Config.governanceVotingDuration,
+        initialEthPerFeeAsset: l1Config.initialEthPerFeeAsset,
       },
     );
 

@@ -97,6 +97,15 @@ Blocks added via `addBlock()` are considered "provisional" until they appear in 
 
 When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Both cases emit `L2PruneUncheckpointed`.
 
+### Querying Block Data
+
+When querying the archiver, be aware of the distinction between proposed and checkpointed blocks:
+
+- `getBlockHeader('latest')` / `getBlockNumber()`: Returns the latest block **including** proposed blocks
+- `getCheckpointedL2BlockNumber()`: Returns only the count of **checkpointed** blocks (synced from L1)
+
+Use checkpointed queries when the result must reflect L1 state (e.g., determining if an epoch is complete for proving). Use `'latest'` when you need the most recent block regardless of L1 confirmation (e.g., serving RPC queries to users).
+
 ### Edge Cases
 
 #### L1 Reorgs

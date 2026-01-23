@@ -11,3 +11,4 @@ export * from './topic_type.js';
 export * from './client_type.js';
 export * from './message_validator.js';
 export * from './peer_error.js';
+export * from './constants.js';

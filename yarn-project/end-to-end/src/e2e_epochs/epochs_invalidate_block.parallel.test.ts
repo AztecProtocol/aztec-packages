@@ -166,7 +166,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Verify the transaction was eventually included
     const receipt = await sentTx.wait({ timeout: 30 });
-    expect(receipt.status).toBe('success');
+    expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
     // Check that we have tagged an offense for that
@@ -454,7 +454,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -510,7 +510,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });

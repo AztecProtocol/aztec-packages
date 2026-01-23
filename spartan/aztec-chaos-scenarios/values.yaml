@@ -93,6 +93,7 @@ proverBrokerKill:
 validatorKill:
   enabled: false
   percent: 30
+  duration: 60s
 
 validatorFailure:
   enabled: false

@@ -4,8 +4,11 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+ffi = ["barretenberg-rs/ffi"]
+
 [dependencies]
-barretenberg-rs = { path = "../barretenberg-rs", features = ["native", "async"] }
+barretenberg-rs = { path = "../barretenberg-rs", default-features = false, features = ["native", "async"] }
 
 # Serialization
 serde.workspace = true

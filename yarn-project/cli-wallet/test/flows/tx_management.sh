@@ -16,6 +16,6 @@ TX_HASH=$(echo "${TX_LIST}" | grep "transactions:last" | awk '{print $3}')
 
 section Last transaction hash is ${TX_HASH}
 
-TX_STATUS=$(aztec-wallet get-tx ${TX_HASH} | grep "Status: " | awk '{print $2}')
+TX_RESULT=$(aztec-wallet get-tx ${TX_HASH} | grep "Execution result: " | awk '{print $3}')
 
-assert_eq ${TX_STATUS} "success"
+assert_eq ${TX_RESULT} "success"

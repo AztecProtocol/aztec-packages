@@ -23,7 +23,7 @@ pub contract SimpleToken {
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, state_variable::StateVariable},
     };
 
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use uint_note::{PartialUintNote, UintNote};
 
     use balance_set::BalanceSet;
 

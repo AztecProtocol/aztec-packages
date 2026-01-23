@@ -292,7 +292,16 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
   public async close(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
-    await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+    try {
+      await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+    } catch (err: any) {
+      // Ignore errors due to native instance being closed during shutdown.
+      // This can happen when validators are still processing block proposals while the node is stopping.
+      if (err?.message === 'Native instance is closed') {
+        return;
+      }
+      throw err;
+    }
   }
 
   async [Symbol.dispose](): Promise<void> {
