@@ -971,7 +971,8 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START), "SELECTOR_ON_START");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)

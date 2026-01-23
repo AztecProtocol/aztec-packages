@@ -1044,6 +1044,13 @@ sel_exec_dispatch_keccakf1600 {
      keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error
 };
 
+// ECADD DISPATCHING
+// Each input point uses 3 registers:
+//  P = [x, y, is_inf] -> register[0..2], Q = [x, y, is_inf] -> register[3..5]
+// The output point is written to memory internally inside the ecc_add_mem (ecc_mem.pil) trace, starting at:
+//  dst_addr[0] -> rop[6]
+// Outputs (#[WRITE_MEM_x]) and memory write checks (#[CHECK_DST_ADDR_IN_RANGE]) are hence handled by the trace.
+
 #[DISPATCH_TO_ECC_ADD]
 sel_exec_dispatch_ecc_add {
         precomputed.clk,

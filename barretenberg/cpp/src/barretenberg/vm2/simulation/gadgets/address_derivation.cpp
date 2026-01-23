@@ -34,6 +34,8 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
 
     FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
 
+    // Note: the below ecc calls assume points are on the curve. We know preaddress_public_key is (by definition),
+    // but it may be possible that incoming_viewing_key is not.
     EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(EmbeddedCurvePoint::one(), preaddress);
     EmbeddedCurvePoint address_point = ecc.add(preaddress_public_key, instance.public_keys.incoming_viewing_key);
 
