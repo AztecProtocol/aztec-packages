@@ -628,8 +628,8 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
 // arbitrary XOR/AND results, bypassing all bitwise constraints.
 //
 // The fix is to add:
-//   #[SELECTOR_ON_START]
-//   start * (1 - sel) = 0;
+// #[BITW_START_ONLY_WHEN_SEL]
+// (start_keccak + start_sha256) * (1 - sel) = 0;
 //
 // This is the same vulnerability class as poseidon2_hash.pil (fixed in that file).
 TEST(BitwiseConstrainingTest, VulnerabilityStartKeccakWithoutSel)
@@ -682,14 +682,10 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartKeccakWithoutSel)
     // - Arbitrary acc_ic (fake XOR output, not enforced because sel=0 skips #[BYTE_OPERATIONS])
     //
     // This allows a prover to claim any XOR result for keccak permutation computations!
-    check_relation<bitwise>(trace);
+    // check_relation<bitwise>(trace) should pass if the vulnerability is not fixed.
 
-    // If the vulnerability is FIXED by adding:
-    //   #[SELECTOR_ON_START]
-    //   start * (1 - sel) = 0;
-    //
-    // Then this test should FAIL with "SELECTOR_ON_START" error.
-    // Currently it PASSES, demonstrating the vulnerability exists.
+    // Now that the vulnerability is fixed, we expect an error:
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
 }
 
 // Same vulnerability but for start_sha256 (used by SHA256 compression lookups).
@@ -725,7 +721,8 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartSha256WithoutSel)
         },
     });
 
-    check_relation<bitwise>(trace);
+    // Now that the vulnerability is fixed, we expect an error:
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
 }
 
 // This test demonstrates a full exploit: forging a keccak XOR result.
@@ -810,7 +807,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     // Keccak relations pass because theta_xor_01 is committed, not relationally constrained
     check_relation<keccakf1600>(trace);
     // Bitwise relations pass because ghost row satisfies all constraints with sel=0
-    check_relation<bitwise>(trace);
+    // Commented out as fixed: check_relation<bitwise>(trace);
 
     // =========================================================================
     // STEP 7: Verify the exploited lookup passes
@@ -835,6 +832,9 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     // IMPACT: The keccak permutation is COMPLETELY BROKEN. By forging intermediate
     // XOR results, an attacker can produce arbitrary keccak hash outputs, breaking
     // all security guarantees of the hash function.
+
+    // Now that the vulnerability is fixed, we expect an error:
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
 }
 
 // This test demonstrates a full exploit: forging a SHA256 XOR result.
@@ -953,7 +953,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // not relationally constrained
     check_relation<sha256_relation>(trace);
     // Bitwise relations pass because ghost row satisfies all constraints with sel=0
-    check_relation<bitwise>(trace);
+    // Commented out as fixed: check_relation<bitwise>(trace);
 
     // =========================================================================
     // STEP 7: Verify the exploited lookup passes
@@ -982,6 +982,9 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // The attacker has successfully proven a fake XOR result in the SHA256
     // message schedule computation. By forging intermediate XOR results,
     // an attacker can produce arbitrary SHA256 compression outputs.
+
+    // Now that the vulnerability is fixed, we expect an error:
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
 }
 
 } // namespace
