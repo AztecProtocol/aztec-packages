@@ -188,11 +188,11 @@ template <typename Field> class StdlibCodec {
             Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-            // Construct the group element, deriving the point_at_infinity flag (validates the point is on curve)
+            // Construct the group element (validates the point is on curve).
+            // The 2-arg constructor auto-detects infinity from (x == 0 && y == 0).
             // For goblin_element (bn254 with Mega arithmetization), the on-curve check is delegated to ECCVM, see
             // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
-            T out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/true);
-            return out;
+            return T(x, y, /*assert_on_curve=*/true);
         } else {
             // Case 6: Array or Univariate
             T val;

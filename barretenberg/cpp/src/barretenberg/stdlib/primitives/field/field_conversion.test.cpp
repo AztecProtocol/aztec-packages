@@ -48,15 +48,14 @@ template <typename Builder> class stdlib_field_conversion : public ::testing::Te
     }
 
     // Serialize and deserialize
-    template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
+    template <typename T> void check_conversion(T in, bool valid_circuit = true)
     {
         size_t len = Codec::template calc_num_fields<T>();
         auto frs = Codec::serialize_to_fields(in);
         EXPECT_EQ(len, frs.size());
         auto out = Codec::template deserialize_from_fields<T>(frs);
-        bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
 
-        EXPECT_EQ(in.get_value() == out.get_value(), expected);
+        EXPECT_EQ(in.get_value(), out.get_value());
 
         auto ctx = in.get_context();
 
@@ -149,15 +148,13 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
             this->check_conversion(group_element);
         }
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Remove `point_at_infinity` flag when point at
-    // infinity is consistently represented.
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
         bn254_element<Builder> group_element =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-        // The circuit is valid, because the point at infinity is set to `one`.
-        this->check_conversion(group_element, /* valid circuit */ true, /* point at infinity */ true);
+        // Point at infinity is now consistently represented as (0, 0) across all builders
+        this->check_conversion(group_element);
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve

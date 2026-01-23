@@ -52,12 +52,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , _is_infinity(input.is_point_at_infinity())
     {}
 
-    // Construct a goblin biggroup element from its coordinates
+    // Construct a goblin biggroup element from its coordinates.
+    // Infinity is auto-detected from (x == 0 && y == 0).
     // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused)
     goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
-        , _is_infinity(false)
+        // Auto-detect infinity: point is at infinity iff both coordinates are zero.
+        // For goblin_field, each coordinate has 2 limbs. Sum all 4 limbs and check if zero.
+        // This follows the pattern from check_point_at_infinity in field_conversion.hpp.
+        , _is_infinity((x.limbs[0].add_two(x.limbs[1], y.limbs[0]) + y.limbs[1]).is_zero())
     {}
 
     goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
@@ -92,20 +96,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        goblin_element out;
-        // ECCVM requires points at infinity to be represented by 0-value x/y coords
+        // Handle point at infinity using the canonical representation with constant (0, 0) coordinates
         if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, bb::fq(0));
-            Fq y = Fq::from_witness(ctx, bb::fq(0));
-            out._x = x;
-            out._y = y;
-        } else {
-            Fq x = Fq::from_witness(ctx, input.x);
-            Fq y = Fq::from_witness(ctx, input.y);
-            out._x = x;
-            out._y = y;
+            return point_at_infinity(ctx);
         }
-        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        Fq x = Fq::from_witness(ctx, input.x);
+        Fq y = Fq::from_witness(ctx, input.y);
+        goblin_element out(x, y);
         out.set_free_witness_tag();
         return out;
     }
@@ -147,12 +144,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return goblin_element(x_fq, y_fq);
     }
 
-    static goblin_element point_at_infinity(Builder* ctx)
+    static goblin_element point_at_infinity([[maybe_unused]] Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
-        zero.unset_free_witness_tag();
-        Fq x_fq(zero, zero);
-        Fq y_fq(zero, zero);
+        // Use constant zero coordinates for the canonical infinity representation.
+        // Since we know this is infinity at construction time, constants are more
+        // efficient than witnesses (no decomposition, no range constraints).
+        Fq x_fq(ctx, uint256_t(0));
+        Fq y_fq(ctx, uint256_t(0));
         goblin_element result(x_fq, y_fq);
         result.set_point_at_infinity(true);
         return result;

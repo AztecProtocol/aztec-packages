@@ -71,9 +71,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        // Reject if the input is a point at infinity
-        BB_ASSERT(!(input.is_point_at_infinity()),
-                  "biggroup::from_witness: cannot create biggroup element from point at infinity");
+        // Handle point at infinity using the canonical representation
+        if (input.is_point_at_infinity()) {
+            return point_at_infinity(ctx);
+        }
 
         Fq x = Fq::from_witness(ctx, input.x);
         Fq y = Fq::from_witness(ctx, input.y);
@@ -91,6 +92,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     {
         // Return early for constant inputs (must check before accessing context since it may be nullptr)
         if (this->is_constant()) {
+            // For constant points at infinity, skip validation since (0,0) is not on the curve
+            // get_value() will properly set the infinity flag on the native element
+            auto is_inf = is_point_at_infinity();
+            if (is_inf.get_value()) {
+                return;
+            }
+            // get_value().on_curve() returns true for infinity points, so this handles all cases
             BB_ASSERT(this->get_value().on_curve(), "biggroup::validate_on_curve: constant point not on curve");
             return;
         }
@@ -163,12 +171,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return element(x_fq, y_fq, /*assert_on_curve=*/false);
     }
 
-    static element point_at_infinity(Builder* ctx)
+    static element point_at_infinity([[maybe_unused]] Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
-        zero.unset_free_witness_tag();
-        Fq x_fq(zero, zero);
-        Fq y_fq(zero, zero);
+        // Use constant zero coordinates for the canonical infinity representation.
+        // Since we know this is infinity at construction time, constants are more
+        // efficient than witnesses (no decomposition, no range constraints).
+        Fq x_fq(ctx, uint256_t(0));
+        Fq y_fq(ctx, uint256_t(0));
         element result(x_fq, y_fq, /*assert_on_curve=*/false);
         result.set_point_at_infinity(true);
         return result;

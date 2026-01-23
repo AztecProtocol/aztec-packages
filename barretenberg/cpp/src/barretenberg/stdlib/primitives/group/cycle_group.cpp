@@ -30,6 +30,49 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 }
 
 /**
+ * TODO: check with Luke if we can remove other constructors?
+ *
+ * @param x The x coordinate
+ * @param y The y coordinate
+ * @param assert_on_curve If true, validate that (x, y) satisfies the curve equation
+ */
+template <typename Builder>
+cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool assert_on_curve)
+    : _x(x)
+    , _y(y)
+    , context(nullptr)
+{
+    if (_x.get_context() != nullptr) {
+        context = _x.get_context();
+    } else if (_y.get_context() != nullptr) {
+        context = _y.get_context();
+    }
+
+    // Auto-detect infinity: point is at infinity iff both coordinates are zero
+    // we can check this efficiently using the observation that:
+    // (x^2 + 5 * y^2 = 0) has no non-trivial solutions in fr, since fr modulus p == 2 mod 5
+    const field_t x_sqr = _x.sqr();
+    const field_t five_y = _y * bb::fr(5);
+    _is_infinity = (_y.madd(five_y, x_sqr).is_zero());
+
+    // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
+    // constancy. If they don't, we convert the non-constant coordinate to a fixed witness. Should be rare.
+    if (_x.is_constant() != _y.is_constant()) {
+        if (_x.is_constant()) {
+            _x.convert_constant_to_fixed_witness(context);
+        } else {
+            _y.convert_constant_to_fixed_witness(context);
+        }
+    }
+
+    // Elements are always expected to be on the curve but may or may not be constrained as such.
+    BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
+    if (assert_on_curve) {
+        validate_on_curve();
+    }
+}
+
+/**
  * @brief Construct a new cycle group<Builder>::cycle group object
  * @warning This constructor constrains the point to be on the curve by default, however this can be disabled by passing
  * `false` for the `assert_on_curve` parameter. This is intended for cases where points are implicitly known to be on
@@ -171,10 +214,10 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
 {
     cycle_group result(_context);
 
-    // By convention we set the coordinates of the point at infinity to (0,0).
+    // Use constant (0, 0) coordinates for infinity points (canonical representation).
     if (_in.is_point_at_infinity()) {
-        result._x = field_t::from_witness(_context, bb::fr::zero());
-        result._y = field_t::from_witness(_context, bb::fr::zero());
+        result._x = field_t(_context, bb::fr::zero());
+        result._y = field_t(_context, bb::fr::zero());
     } else {
         result._x = field_t::from_witness(_context, _in.x);
         result._y = field_t::from_witness(_context, _in.y);
@@ -318,8 +361,16 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
+        // If coordinates are constant (e.g., infinity point from from_witness), convert to fixed witnesses
+        // for the gate since ecc_dbl_gate requires witness indices.
+        field_t x1_for_gate = _x;
+        if (_x.is_constant()) {
+            x1_for_gate.convert_constant_to_fixed_witness(context);
+        }
+        // modified_y is already a witness (from conditional_assign)
+
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
-            .x1 = _x.get_witness_index(),
+            .x1 = x1_for_gate.get_witness_index(),
             .y1 = modified_y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
@@ -397,11 +448,30 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
+        // If coordinates are constant (e.g., infinity point from from_witness), convert to fixed witnesses
+        // for the gate since ecc_add_gate requires witness indices.
+        field_t x1_for_gate = _x;
+        field_t y1_for_gate = _y;
+        field_t x2_for_gate = other._x;
+        field_t y2_for_gate = other._y;
+        if (_x.is_constant()) {
+            x1_for_gate.convert_constant_to_fixed_witness(context);
+        }
+        if (_y.is_constant()) {
+            y1_for_gate.convert_constant_to_fixed_witness(context);
+        }
+        if (other._x.is_constant()) {
+            x2_for_gate.convert_constant_to_fixed_witness(context);
+        }
+        if (other._y.is_constant()) {
+            y2_for_gate.convert_constant_to_fixed_witness(context);
+        }
+
         context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
-            .x1 = _x.get_witness_index(),
-            .y1 = _y.get_witness_index(),
-            .x2 = other._x.get_witness_index(),
-            .y2 = other._y.get_witness_index(),
+            .x1 = x1_for_gate.get_witness_index(),
+            .y1 = y1_for_gate.get_witness_index(),
+            .x2 = x2_for_gate.get_witness_index(),
+            .y2 = y2_for_gate.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
             .sign_coefficient = is_addition ? 1 : -1,

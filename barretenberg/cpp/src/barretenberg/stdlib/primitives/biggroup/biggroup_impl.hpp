@@ -120,8 +120,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
     // However, this would be an unnecessary constraint for valid points on the curve.
     // So we perform a native check here to catch any accidental misuse of this function.
-    const typename G::Fq y_value = uint256_t(_y.get_value());
-    BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    // Exception: Points at infinity use the canonical (0, 0) representation, so skip the check for them.
+    if (!lhs_infinity.get_value()) {
+        const typename G::Fq y_value = uint256_t(_y.get_value());
+        BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    }
+    if (!rhs_infinity.get_value()) {
+        const typename G::Fq other_y_value = uint256_t(other._y.get_value());
+        BB_ASSERT_EQ((other_y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    }
 
     // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
     // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
@@ -180,10 +187,22 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
 {
 
     const bool_ct is_infinity = is_point_at_infinity();
+
+    // For constant elements at infinity, create a new constant element with (0, 0)
+    // The 2-arg constructor will auto-detect infinity from (0, 0) coordinates
+    if (this->is_constant() && is_infinity.is_constant() && is_infinity.get_value()) {
+        const Fq zero = Fq(get_context(), 0);
+        element result(zero, zero);
+        result.set_origin_tag(this->get_origin_tag()); // Preserve the origin tag
+        return result;
+    }
+
     element result(*this);
-    const Fq zero = Fq::zero();
+    const Fq zero = Fq(get_context(), 0);
     result._x = Fq::conditional_assign(is_infinity, zero, this->_x);
     result._y = Fq::conditional_assign(is_infinity, zero, this->_y);
+    // Ensure the infinity flag is preserved
+    result._is_infinity = is_infinity;
     return result;
 }
 
@@ -306,13 +325,22 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 
 template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
 {
+    const bool_ct is_infinity = is_point_at_infinity();
+
     // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
     // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
     // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
     // However, this would be an unnecessary constraint for valid points on the curve.
     // So we perform a native check here to catch any accidental misuse of this function.
-    const typename G::Fq y_value = uint256_t(_y.get_value());
-    BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
+    // Exception: Points at infinity use the canonical (0, 0) representation, so skip the check for them.
+    if (!is_infinity.get_value()) {
+        const typename G::Fq y_value = uint256_t(_y.get_value());
+        BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
+    }
+
+    // If the input is a point at infinity, use a safe denominator (1) to prevent division by zero.
+    // The result will be infinity anyway, so the computed coordinates don't matter.
+    Fq denominator = Fq::conditional_assign(is_infinity, Fq(get_context(), 1), (_y + _y));
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
@@ -321,7 +349,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 
         // Compute neg_lambda = -λ = -(3x² + a) / (2y)
         // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
-        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), { a }, /*enable_divisor_nz_check*/ false);
+        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, { a }, /*enable_divisor_nz_check*/ false);
 
         // Compute x₃ = λ² - 2x
         // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
@@ -332,14 +360,14 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
         element result(x_3, y_3, /*assert_on_curve=*/false);
-        result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
+        result.set_point_at_infinity(is_infinity, /* add_to_used_witnesses */ true);
         return result;
     }
 
     // Curve equation when a = 0: y² = x³ + b
     // Compute neg_lambda = -λ = -3x² / (2y)
     // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
-    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), {}, /*enable_divisor_nz_check*/ false);
+    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, {}, /*enable_divisor_nz_check*/ false);
 
     // Compute x₃ = λ² - 2x
     // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
@@ -350,7 +378,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
     element result = element(x_3, y_3, /*assert_on_curve=*/false);
-    result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
+    result.set_point_at_infinity(is_infinity, /* add_to_used_witnesses */ true);
     return result;
 }
 
@@ -838,6 +866,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     BB_ASSERT_GT(_points.size(), 0ULL, "biggroup batch_mul: no points provided for batch multiplication");
     BB_ASSERT_EQ(_points.size(), _scalars.size(), "biggroup batch_mul: points and scalars size mismatch");
 
+    // Get builder context from input points (needed for creating infinity results)
+    C* builder = _points[0].get_context();
+
     // Replace (∞, scalar) pairs by the pair (G, 0).
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
@@ -889,7 +920,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             "biggroup batch_mul: masking_scalar must be constant (and equal to 1) when with_edgecases is false");
     }
 
-    if (with_edgecases) {
+    if (with_edgecases && !points.empty()) {
         // If points are linearly dependent, we randomise them using a masking scalar.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
         // while creating the ROM lookup table with the points.
@@ -946,8 +977,14 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     if (has_constant_terms || has_no_points) {
         // Convert from projective to affine to get correct (x, y) coordinates
         typename G::affine_element constant_accumulator_affine(constant_accumulator);
-        accumulator = element(constant_accumulator_affine.x, constant_accumulator_affine.y);
-        accumulator.set_point_at_infinity(constant_accumulator_affine.is_point_at_infinity());
+        if (constant_accumulator_affine.is_point_at_infinity()) {
+            // For infinity, create element with canonical (0, 0) coordinates
+            // Using constant zero Fq to create a constant infinity element
+            Fq zero_fq = Fq(builder, 0);
+            accumulator = element(zero_fq, zero_fq);
+        } else {
+            accumulator = element(constant_accumulator_affine.x, constant_accumulator_affine.y);
+        }
         accumulator_initialized = true;
     }
 

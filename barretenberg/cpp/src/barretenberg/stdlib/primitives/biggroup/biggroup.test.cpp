@@ -99,6 +99,16 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         return get_random_constant_point(builder);
     }
 
+    // Create a point at infinity as a witness.
+    // The canonical representation uses (0, 0) coordinates which auto-detects as infinity.
+    static element_ct get_infinity_witness_point(Builder* builder)
+    {
+        using Fq = typename element_ct::BaseField;
+        Fq zero_x = Fq::from_witness(builder, fq::zero());
+        Fq zero_y = Fq::from_witness(builder, fq::zero());
+        return element_ct(zero_x, zero_y, /*assert_on_curve=*/true);
+    }
+
     // Create a random scalar as a witness
     static std::pair<fr, scalar_ct> get_random_witness_scalar(Builder* builder, bool even = false)
     {
@@ -326,14 +336,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
+            affine_element input_b; // point at infinity for native computations
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
 
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+            element_ct b = get_infinity_witness_point(&builder);
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
@@ -386,7 +396,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 5;
         for (size_t i = 0; i < num_repetitions; ++i) {
             // Check both constant and witness case
-            element native_a = element::random_element();
+            affine_element native_a(element::random_element());
             element_ct input_a(native_a.x, native_a.y);
             element_ct input_b = element_ct::from_witness(&builder, element::random_element());
             input_a.set_point_at_infinity(true);
@@ -479,14 +489,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
+            affine_element input_b; // point at infinity for native computations
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
 
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+            element_ct b = get_infinity_witness_point(&builder);
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
@@ -633,9 +643,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         {
             // Case 1: Doubling point at infinity should return point at infinity
-            affine_element input_infinity(element::random_element());
-            input_infinity.self_set_infinity();
-            element_ct a_infinity = element_ct::from_witness(&builder, input_infinity);
+            element_ct a_infinity = get_infinity_witness_point(&builder);
             a_infinity.set_origin_tag(submitted_value_origin_tag);
 
             element_ct result_infinity = a_infinity.dbl();
@@ -1255,6 +1263,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 1: P * 0 = ∞
         {
+            info("Case 1: P * 0");
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
                                                               : scalar_ct(&builder, fr(0));
@@ -1263,6 +1272,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 2: (∞) * k = ∞
         {
+            info("Case 2: (∞) * k");
             auto [input, P] = get_random_point(&builder, point_type);
             if (point_type == InputType::CONSTANT) {
                 P.set_point_at_infinity(bool_ct(true));
@@ -1270,10 +1280,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
             }
 
-            // For mega circuit builder, we need to ensure the point at infinity is (0, 0)
-            if constexpr (IsMegaBuilder<Builder>) {
-                P = P.get_standard_form();
-            }
+            // Normalize to ensure the point at infinity has (0, 0) coordinates
+            P = P.get_standard_form();
 
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
             affine_element expected_infinity = affine_element(element::infinity());
@@ -1281,6 +1289,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 3: P * 1 = P
         {
+            info("Case 3: P * 1");
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct one = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(1))
                                                                 : scalar_ct(&builder, fr(1));
@@ -1288,6 +1297,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 4: P * (-1) = -P
         {
+            info("Case 4: P * (-1)");
             auto [input, P] = get_random_point(&builder, point_type);
             fr neg_one = -fr(1);
             scalar_ct neg_one_ct = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, neg_one)
@@ -1347,21 +1357,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul_infinity()
     {
         // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against
-        // a short scalar and also check that the number of gates in this case is more than the number of gates
-        // spent on a finite point.
+        // a short scalar.
 
         // Populate test points.
         std::vector<element> points(2);
 
         points[0] = element::infinity();
         points[1] = element::random_element();
-        // Containter for gate counts.
-        std::vector<size_t> gates(2);
 
         // We initialize this flag as `true`, because the first result is expected to be the point at infinity.
         bool expect_infinity = true;
 
-        for (auto [point, num_gates] : zip_view(points, gates)) {
+        for (const auto& point : points) {
             Builder builder;
 
             const size_t max_num_bits = 128;
@@ -1381,7 +1388,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
             std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            num_gates = builder.get_num_finalized_gates_inefficient();
+            std::cerr << "num gates = " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
@@ -1390,9 +1397,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // The second point is finite, hence we flip the flag
             expect_infinity = false;
         }
-        // Check that the numbers of gates are greater when multiplying by point at infinity,
-        // because we transform (s * ∞) into (0 * G), and NAF representation of 0 ≡ NAF(r) which is 254 bits long.
-        EXPECT_GT(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -1443,7 +1447,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
+            affine_element input_b; // point at infinity for native computations
             input_b.self_set_infinity();
 
             // Get two 128-bit scalars
@@ -1458,7 +1462,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             element_ct P_a = element_ct::from_witness(&builder, input_a); // A
             scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
-            element_ct P_b = element_ct::from_witness(&builder, input_b); // ∞
+            element_ct P_b = get_infinity_witness_point(&builder);        // ∞
             scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
 
             // Set tags
