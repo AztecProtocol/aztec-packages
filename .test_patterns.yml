@@ -347,6 +347,7 @@ tests:
     error_regex: "FailureMessage Object"
     owners:
       - *spyros
+      - *alex
 
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
