@@ -545,14 +545,13 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
                                            │ Phase: reception → challenge generation
                                            ▼
 ┌──────────────────────────────────┐
-│ get_challenges("eta", "eta_two", │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
-│                "eta_three")      │    2. Hash: c₀ = Poseidon2(current_round_data)
-└──────────────────────────────────┘    3. Split to [127-bit, 127-bit] x3
+│ get_challenge("eta")             │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
+└──────────────────────────────────┘    2. Hash: c₀ = Poseidon2(current_round_data)
+         │                               3. Split to [127-bit, 127-bit]
          │                               4. Clear current_round_data
-         │                               5. Set reception_phase = false
-         ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
-    eta, eta_two, eta_three                round_provenance = 0x0001...0000 (bit 0 upper)
-    tag = OriginTag(42, 0, false)
+         ▼                               5. Set reception_phase = false
+    eta (then compute eta² and eta³)     6. Assign tag: OriginTag(42, 0, is_submitted=false)
+    tag = OriginTag(42, 0, false)          round_provenance = 0x0001...0000 (bit 0 upper)
 
     ** All subsequent challenges depend on: H(vk_hash || pub_inputs || wire_comms) **
 
