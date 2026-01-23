@@ -213,8 +213,9 @@ export async function ensureContractSynced(
   contractStore: ContractStore,
   header: BlockHeader,
   anchorBlockStore: AnchorBlockStore,
+  jobId: string,
 ): Promise<void> {
-  if (anchorBlockStore.isContractSynced(contractAddress)) {
+  if (anchorBlockStore.isContractSynced(contractAddress, jobId)) {
     return;
   }
 
@@ -223,5 +224,5 @@ export async function ensureContractSynced(
     verifyCurrentClassId(contractAddress, aztecNode, contractStore, header),
   ]);
 
-  anchorBlockStore.markContractSynced(contractAddress);
+  anchorBlockStore.markContractSynced(contractAddress, jobId);
 }

@@ -549,6 +549,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.contractStore,
       this.anchorBlockHeader,
       this.anchorBlockStore,
+      this.jobId,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(

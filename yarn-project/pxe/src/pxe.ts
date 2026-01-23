@@ -303,6 +303,7 @@ export class PXE {
         this.contractStore,
         anchorBlockHeader,
         this.anchorBlockStore,
+        jobId,
       );
 
       const result = await contractFunctionSimulator.run(
@@ -972,6 +973,7 @@ export class PXE {
           this.contractStore,
           anchorBlockHeader,
           this.anchorBlockStore,
+          jobId,
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1044,6 +1046,7 @@ export class PXE {
         this.contractStore,
         anchorBlockHeader,
         this.anchorBlockStore,
+        jobId,
       );
     });
 
