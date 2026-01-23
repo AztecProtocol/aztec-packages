@@ -718,23 +718,14 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field montgomery_square() const noexcept;
 
 #if (BBERG_NO_ASM == 0)
-    BB_INLINE static field asm_mul(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_sqr(const field& a) noexcept;
-    BB_INLINE static field asm_add(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_sub(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_sqr_with_coarse_reduction(const field& a) noexcept;
     BB_INLINE static field asm_add_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_add_without_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sqr(const field& a) noexcept;
-    BB_INLINE static void asm_self_add(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sub(const field& a, const field& b) noexcept;
     BB_INLINE static void asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static void asm_self_sqr_with_coarse_reduction(const field& a) noexcept;
     BB_INLINE static void asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static void asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_add_without_reduction(const field& a, const field& b) noexcept;
 
     BB_INLINE static void asm_conditional_negate(field& r, uint64_t predicate) noexcept;
     BB_INLINE static field asm_reduce_once(const field& a) noexcept;
