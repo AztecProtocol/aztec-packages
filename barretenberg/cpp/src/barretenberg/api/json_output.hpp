@@ -6,7 +6,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include <filesystem>
 #include <iomanip>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -30,62 +29,6 @@ inline std::string bytes_to_hex_string(const std::vector<uint8_t>& bytes)
 }
 
 /**
- * @brief Serializable structure for JSON output (msgpack-compatible)
- */
-struct JsonOutput {
-    std::vector<std::string> fields;
-    std::string vk_hash;   // Only for VK and proof (hash of VK the proof targets)
-    std::string file_kind; // "vk", "proof", or "public_inputs"
-    std::string bb_version;
-    std::string scheme;
-    std::string verifier_target; // Optional
-
-    MSGPACK_FIELDS(fields, vk_hash, file_kind, bb_version, scheme, verifier_target);
-};
-
-/**
- * @brief Build JSON output string using msgpack serialization
- *
- * @tparam T Field element type (must have operator<< that outputs 0x-prefixed hex)
- * @param fields Vector of field elements to serialize
- * @param file_kind Type identifier: "vk", "proof", or "public_inputs"
- * @param flags API flags containing scheme and verifier_target
- * @param vk_hash Optional hash string for VK or proof files
- * @return JSON string
- */
-template <typename T>
-std::string build_json_output(const std::vector<T>& fields,
-                              const std::string& file_kind,
-                              const API::Flags& flags,
-                              const std::string& vk_hash = "")
-{
-    std::vector<std::string> hex_fields;
-    hex_fields.reserve(fields.size());
-    for (const auto& field : fields) {
-        std::stringstream ss;
-        ss << field; // T's operator<< outputs "0x" prefix
-        hex_fields.push_back(ss.str());
-    }
-
-    JsonOutput output{
-        .fields = std::move(hex_fields),
-        .vk_hash = vk_hash,
-        .file_kind = file_kind,
-        .bb_version = BB_VERSION,
-        .scheme = flags.scheme,
-        .verifier_target = flags.verifier_target,
-    };
-
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, output);
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-
-    std::stringstream ss;
-    ss << oh.get();
-    return ss.str();
-}
-
-/**
  * @brief Try to parse file content as JSON
  *
  * @details Attempts to parse the content as JSON.
@@ -95,7 +38,7 @@ inline std::optional<nlohmann::json> try_parse_json(const std::vector<uint8_t>& 
 {
     // Quick check: JSON objects must start with '{' (after whitespace)
     for (const auto& byte : content) {
-        if (std::isspace(byte)) {
+        if (std::isspace(static_cast<unsigned char>(byte)) != 0) {
             continue;
         }
         if (byte != '{') {
@@ -131,64 +74,150 @@ inline uint256_t hex_string_to_uint256(const std::string& hex_str)
 }
 
 /**
- * @brief Extract fields from parsed JSON as uint256_t vector
- *
- * @param json Parsed JSON object
- * @return Vector of field elements
+ * @brief Serializable structure for VK JSON output (msgpack-compatible)
  */
-inline std::vector<uint256_t> parse_json_fields(const nlohmann::json& json)
-{
-    if (!json.contains("fields") || !json["fields"].is_array()) {
-        throw_or_abort("JSON missing 'fields' array");
+struct VkJson {
+    std::vector<std::string> vk;
+    std::string hash;
+    std::string bb_version;
+    std::string scheme;
+
+    MSGPACK_FIELDS(vk, hash, bb_version, scheme);
+
+    template <typename T>
+    static std::string build(const std::vector<T>& fields, const std::string& hash, const std::string& scheme)
+    {
+        std::vector<std::string> hex_fields;
+        hex_fields.reserve(fields.size());
+        for (const auto& field : fields) {
+            std::stringstream ss;
+            ss << field;
+            hex_fields.push_back(ss.str());
+        }
+
+        VkJson output{ .vk = std::move(hex_fields), .hash = hash, .bb_version = BB_VERSION, .scheme = scheme };
+
+        msgpack::sbuffer buffer;
+        msgpack::pack(buffer, output);
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+
+        std::stringstream ss;
+        ss << oh.get();
+        return ss.str();
     }
 
-    std::vector<uint256_t> result;
-    result.reserve(json["fields"].size());
-    for (const auto& field : json["fields"]) {
-        result.push_back(hex_string_to_uint256(field.get<std::string>()));
-    }
-    return result;
-}
-
-/**
- * @brief Extract vk_hash from parsed JSON
- *
- * @param json Parsed JSON object
- * @return vk_hash as a hex string, or empty string if not present
- */
-inline std::string parse_json_vk_hash(const nlohmann::json& json)
-{
-    if (json.contains("vk_hash") && json["vk_hash"].is_string()) {
-        return json["vk_hash"].get<std::string>();
-    }
-    return "";
-}
-
-/**
- * @brief Extract fields from parsed JSON as raw bytes
- *
- * @details Converts field elements back to their 32-byte big-endian representation.
- * This is the inverse of the serialization used for VK output.
- *
- * @param json Parsed JSON object
- * @return Vector of bytes (each field element is 32 bytes)
- */
-inline std::vector<uint8_t> parse_json_fields_to_bytes(const nlohmann::json& json)
-{
-    auto fields = parse_json_fields(json);
-    std::vector<uint8_t> result;
-    result.reserve(fields.size() * 32);
-
-    for (const auto& field : fields) {
-        // Serialize each uint256_t as 32 bytes big-endian
-        for (int i = 3; i >= 0; --i) {
-            uint64_t limb = field.data[i];
-            for (int j = 7; j >= 0; --j) {
-                result.push_back(static_cast<uint8_t>((limb >> (j * 8)) & 0xFF));
+    static std::vector<uint8_t> parse_to_bytes(const nlohmann::json& json)
+    {
+        if (!json.contains("vk") || !json["vk"].is_array()) {
+            throw_or_abort("JSON missing 'vk' array");
+        }
+        std::vector<uint8_t> result;
+        result.reserve(json["vk"].size() * 32);
+        for (const auto& field : json["vk"]) {
+            auto value = hex_string_to_uint256(field.get<std::string>());
+            for (int i = 3; i >= 0; --i) {
+                uint64_t limb = value.data[i];
+                for (int j = 7; j >= 0; --j) {
+                    result.push_back(static_cast<uint8_t>((limb >> (j * 8)) & 0xFF));
+                }
             }
         }
+        return result;
     }
-    return result;
-}
+};
+
+/**
+ * @brief Serializable structure for proof JSON output (msgpack-compatible)
+ */
+struct ProofJson {
+    std::vector<std::string> proof;
+    std::string vk_hash;
+    std::string bb_version;
+    std::string scheme;
+
+    MSGPACK_FIELDS(proof, vk_hash, bb_version, scheme);
+
+    template <typename T>
+    static std::string build(const std::vector<T>& fields, const std::string& vk_hash, const std::string& scheme)
+    {
+        std::vector<std::string> hex_fields;
+        hex_fields.reserve(fields.size());
+        for (const auto& field : fields) {
+            std::stringstream ss;
+            ss << field;
+            hex_fields.push_back(ss.str());
+        }
+
+        ProofJson output{
+            .proof = std::move(hex_fields), .vk_hash = vk_hash, .bb_version = BB_VERSION, .scheme = scheme
+        };
+
+        msgpack::sbuffer buffer;
+        msgpack::pack(buffer, output);
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+
+        std::stringstream ss;
+        ss << oh.get();
+        return ss.str();
+    }
+
+    static std::vector<uint256_t> parse(const nlohmann::json& json)
+    {
+        if (!json.contains("proof") || !json["proof"].is_array()) {
+            throw_or_abort("JSON missing 'proof' array");
+        }
+        std::vector<uint256_t> result;
+        result.reserve(json["proof"].size());
+        for (const auto& field : json["proof"]) {
+            result.push_back(hex_string_to_uint256(field.get<std::string>()));
+        }
+        return result;
+    }
+};
+
+/**
+ * @brief Serializable structure for public inputs JSON output (msgpack-compatible)
+ */
+struct PublicInputsJson {
+    std::vector<std::string> public_inputs;
+    std::string bb_version;
+    std::string scheme;
+
+    MSGPACK_FIELDS(public_inputs, bb_version, scheme);
+
+    template <typename T> static std::string build(const std::vector<T>& fields, const std::string& scheme)
+    {
+        std::vector<std::string> hex_fields;
+        hex_fields.reserve(fields.size());
+        for (const auto& field : fields) {
+            std::stringstream ss;
+            ss << field;
+            hex_fields.push_back(ss.str());
+        }
+
+        PublicInputsJson output{ .public_inputs = std::move(hex_fields), .bb_version = BB_VERSION, .scheme = scheme };
+
+        msgpack::sbuffer buffer;
+        msgpack::pack(buffer, output);
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+
+        std::stringstream ss;
+        ss << oh.get();
+        return ss.str();
+    }
+
+    static std::vector<uint256_t> parse(const nlohmann::json& json)
+    {
+        if (!json.contains("public_inputs") || !json["public_inputs"].is_array()) {
+            throw_or_abort("JSON missing 'public_inputs' array");
+        }
+        std::vector<uint256_t> result;
+        result.reserve(json["public_inputs"].size());
+        for (const auto& field : json["public_inputs"]) {
+            result.push_back(hex_string_to_uint256(field.get<std::string>()));
+        }
+        return result;
+    }
+};
 
 } // namespace bb

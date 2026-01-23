@@ -43,7 +43,8 @@ void write_standalone_vk(std::vector<uint8_t> bytecode,
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else if (flags.output_format == "json") {
-        std::string json_content = build_json_output(response.fields, "vk", flags);
+        // Note: Chonk VK doesn't have a hash, so we pass an empty string
+        std::string json_content = VkJson::build(response.fields, "", flags.scheme);
         write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
         info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
@@ -111,7 +112,8 @@ void ChonkAPI::prove(const Flags& flags,
             write_bytes_to_stdout(to_buffer(proof_fields));
         } else if (flags.output_format == "json") {
             vinfo("writing Chonk proof (JSON) in directory ", output_dir);
-            std::string json_content = build_json_output(proof_fields, "proof", flags);
+            // Note: Chonk proof doesn't have a vk_hash, so we pass an empty string
+            std::string json_content = ProofJson::build(proof_fields, "", flags.scheme);
             write_file(output_dir / "proof.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
             info("Proof (JSON) saved to ", output_dir / "proof.json");
         } else {
