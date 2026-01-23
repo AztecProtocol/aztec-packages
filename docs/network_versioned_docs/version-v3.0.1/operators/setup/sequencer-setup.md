@@ -298,12 +298,13 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
-:::warning Nethermind Users
-If you are using Nethermind as your L1 execution client, you must add the following environment variable:
+:::warning Nethermind Users (versions before v1.36.0)
+If you are using Nethermind as your L1 execution client with a version before v1.36.0, you must add the following environment variable:
 ```bash
-# Required for Nethermind
+# Required for Nethermind versions before v1.36.0
 L1_FIXED_PRIORITY_FEE_PER_GAS=1
 ```
+This issue was fixed in Nethermind v1.36.0, so users on that version or later do not need this setting.
 :::
 
 :::warning
