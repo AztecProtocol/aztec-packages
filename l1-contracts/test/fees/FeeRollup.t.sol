@@ -42,7 +42,7 @@ import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
-  FeeAssetPerEthE9,
+  EthPerFeeAssetE12,
   EthValue,
   FeeHeader,
   L1FeeData,
@@ -94,7 +94,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   RewardDistributor internal rewardDistributor;
 
   constructor() {
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   function setUp() public {
@@ -269,7 +269,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
-        uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
+        uint256 ethPerFeeAsset = EthPerFeeAssetE12.unwrap(rollup.getEthPerFeeAsset());
 
         ManaMinFeeComponents memory components =
           rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
@@ -306,7 +306,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         assertEq(point.fee_header, feeHeader);
 
-        assertEq(point.outputs.fee_asset_price_at_execution, feeAssetPrice, "fee asset price mismatch");
+        assertEq(point.outputs.eth_per_fee_asset_at_execution, ethPerFeeAsset, "eth per fee asset mismatch");
         assertEq(point.outputs.l1_fee_oracle_output.base_fee, fees.baseFee, "base fee mismatch");
         assertEq(point.outputs.l1_fee_oracle_output.blob_fee, fees.blobFee, "blob fee mismatch");
 
@@ -407,9 +407,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function assertEq(FeeHeaderModel memory a, FeeHeader memory b) internal pure {
-    FeeHeaderModel memory bModel = FeeHeaderModel({
-      excess_mana: b.excessMana, fee_asset_price_numerator: b.feeAssetPriceNumerator, mana_used: b.manaUsed
-    });
+    FeeHeaderModel memory bModel =
+      FeeHeaderModel({eth_per_fee_asset: b.ethPerFeeAsset, excess_mana: b.excessMana, mana_used: b.manaUsed});
     assertEq(a, bModel);
   }
 
