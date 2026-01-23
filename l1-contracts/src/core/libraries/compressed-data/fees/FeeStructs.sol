@@ -11,7 +11,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
   uint1 preHeat;
   uint63 proverCost; Max value: 9.2233720369E18
   uint64 congestionCost;
-  uint48 feeAssetPriceNumerator;
+  uint48 ethPerFeeAsset;
   uint48 excessMana;
   uint32 manaUsed;
 }*/
@@ -20,7 +20,7 @@ type CompressedFeeHeader is uint256;
 struct FeeHeader {
   uint256 excessMana;
   uint256 manaUsed;
-  uint256 feeAssetPriceNumerator;
+  uint256 ethPerFeeAsset;
   uint256 congestionCost;
   uint256 proverCost;
 }
@@ -86,7 +86,7 @@ library FeeHeaderLib {
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 32) & MASK_48_BITS;
   }
 
-  function getFeeAssetPriceNumerator(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
+  function getEthPerFeeAsset(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 80) & MASK_48_BITS;
   }
 
@@ -103,7 +103,7 @@ library FeeHeaderLib {
     uint256 value = 0;
     value |= uint256(_feeHeader.manaUsed.toUint32());
     value |= uint256(_feeHeader.excessMana.toUint48()) << 32;
-    value |= uint256(_feeHeader.feeAssetPriceNumerator.toUint48()) << 80;
+    value |= uint256(_feeHeader.ethPerFeeAsset.toUint48()) << 80;
     value |= uint256(_feeHeader.congestionCost.toUint64()) << 128;
 
     uint256 proverCost = uint256(_feeHeader.proverCost.toUint64());
@@ -123,7 +123,7 @@ library FeeHeaderLib {
     value >>= 32;
     uint256 excessMana = value & MASK_48_BITS;
     value >>= 48;
-    uint256 feeAssetPriceNumerator = value & MASK_48_BITS;
+    uint256 ethPerFeeAsset = value & MASK_48_BITS;
     value >>= 48;
     uint256 congestionCost = value & MASK_64_BITS;
     value >>= 64;
@@ -132,7 +132,7 @@ library FeeHeaderLib {
     return FeeHeader({
       manaUsed: uint256(manaUsed),
       excessMana: uint256(excessMana),
-      feeAssetPriceNumerator: uint256(feeAssetPriceNumerator),
+      ethPerFeeAsset: uint256(ethPerFeeAsset),
       congestionCost: uint256(congestionCost),
       proverCost: uint256(proverCost)
     });

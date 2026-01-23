@@ -10,7 +10,7 @@ import {
   L1_GAS_PER_EPOCH_VERIFIED,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthE9,
+  EthPerFeeAssetE12,
   PriceLib,
   FeeHeader,
   L1FeeData,
@@ -62,9 +62,14 @@ contract MinimalFeeModel {
 
   uint256 public populatedThrough = 0;
 
-  constructor(uint256 _slotDuration, uint256 _epochDuration, uint256 _proofSubmissionEpochs) {
+  constructor(
+    uint256 _slotDuration,
+    uint256 _epochDuration,
+    uint256 _proofSubmissionEpochs,
+    EthPerFeeAssetE12 _initialEthPerFeeAsset
+  ) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), _initialEthPerFeeAsset);
     STFLib.initialize(
       GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
@@ -95,9 +100,7 @@ contract MinimalFeeModel {
   function getFeeHeader(uint256 checkpoint_number) public view returns (FeeHeaderModel memory) {
     FeeHeader memory feeHeader = STFLib.getFeeHeader(checkpoint_number).decompress();
     return FeeHeaderModel({
-      fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
-      excess_mana: feeHeader.excessMana,
-      mana_used: feeHeader.manaUsed
+      eth_per_fee_asset: feeHeader.ethPerFeeAsset, excess_mana: feeHeader.excessMana, mana_used: feeHeader.manaUsed
     });
   }
 
@@ -141,8 +144,8 @@ contract MinimalFeeModel {
     FeeLib.updateL1GasFeeOracle();
   }
 
-  function getFeeAssetPerEth() public view returns (FeeAssetPerEthE9) {
-    return FeeLib.getFeeAssetPerEthAtCheckpoint(populatedThrough);
+  function getEthPerFeeAsset() public view returns (EthPerFeeAssetE12) {
+    return FeeLib.getEthPerFeeAssetAtCheckpoint(populatedThrough);
   }
 
   function getCurrentL1Fees() public view returns (L1FeesModel memory) {

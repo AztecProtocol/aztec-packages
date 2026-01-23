@@ -8,7 +8,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {CheckpointLog, CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {EthPerFeeAssetE12, EthValue, FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeHeader, L1FeeData} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -75,6 +75,7 @@ struct RollupConfigInput {
   uint256 exitDelaySeconds;
   uint32 version;
   EthValue provingCostPerMana;
+  EthPerFeeAssetE12 initialEthPerFeeAsset;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
@@ -199,7 +200,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     returns (ManaMinFeeComponents memory);
   function getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
-  function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
+  function getEthPerFeeAsset() external view returns (EthPerFeeAssetE12);
 
   function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);

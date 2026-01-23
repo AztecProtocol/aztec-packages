@@ -5,7 +5,8 @@ pragma solidity >=0.8.27;
 import {
   MAGIC_CONGESTION_VALUE_MULTIPLIER,
   MAGIC_CONGESTION_VALUE_DIVISOR,
-  EthValue
+  EthValue,
+  EthPerFeeAssetE12
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeLibWrapper} from "./FeeLibWrapper.sol";
 import {TestBase} from "@test/base/Base.sol";
@@ -18,12 +19,13 @@ import {
 } from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
 contract UpdateManaTargetTest is TestBase {
   FeeLibWrapper private feeLibWrapper = new FeeLibWrapper();
 
   function setUp() external {
-    feeLibWrapper.initialize(100_000_000);
+    feeLibWrapper.initialize(100_000_000, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   function test_WhenManaLimitGTUint32(uint256 _manaTarget) external {

@@ -177,6 +177,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
+        initialEthPerFeeAsset: t.ctx.aztecNodeConfig.initialEthPerFeeAsset,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
