@@ -66,6 +66,10 @@ def montgomery_mul(a: list[int], b: list[int], modulus: list[int], r_inv: int) -
     t3, carry_a = mac_mini(carry_a, a[0], b[3])
     t2, c = mac(t3, k, modulus[3], c)
     t3 = c + carry_a
+    # After processing a[0]:
+    # Let S = a[0]*b + k0*modulus where k0 makes S divisible by 2^64.
+    # We've shifted right by 64 bits (divided by 2^64).
+    # t0..t3 holds S >> 64 = (a[0]*b + k0*modulus) / 2^64
 
     # Process a[1]
     t0, carry_a = mac_mini(t0, a[1], b[0])
@@ -78,6 +82,9 @@ def montgomery_mul(a: list[int], b: list[int], modulus: list[int], r_inv: int) -
     t3, carry_a = mac(t3, a[1], b[3], carry_a)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = c + carry_a
+    # After processing a[1]:
+    # t0..t3 holds ((a[0]*b + k0*p) / 2^64 + a[1]*b + k1*p) / 2^64
+    # = (a[0]*b + a[1]*b*2^64 + k0*p + k1*p*2^64) / 2^128
 
     # Process a[2]
     t0, carry_a = mac_mini(t0, a[2], b[0])
@@ -90,6 +97,8 @@ def montgomery_mul(a: list[int], b: list[int], modulus: list[int], r_inv: int) -
     t3, carry_a = mac(t3, a[2], b[3], carry_a)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = c + carry_a
+    # After processing a[2]:
+    # t0..t3 holds (a[0..2]*b + k0*p + k1*p*2^64 + k2*p*2^128) / 2^192
 
     # Process a[3]
     t0, carry_a = mac_mini(t0, a[3], b[0])
@@ -102,6 +111,11 @@ def montgomery_mul(a: list[int], b: list[int], modulus: list[int], r_inv: int) -
     t3, carry_a = mac(t3, a[3], b[3], carry_a)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = c + carry_a
+    # After processing a[3] (final):
+    # t0..t3 holds (a*b + k0*p + k1*p*2^64 + k2*p*2^128 + k3*p*2^192) / 2^256
+    # = (a*b + K*p) / R where K = k0 + k1*2^64 + k2*2^128 + k3*2^192 and R = 2^256.
+    # By construction, the numerator is divisible by R, so this is exact.
+    # Result: a*b*R^(-1) mod p, which is the Montgomery product (in [0, 2p)).
 
     # No conditional subtraction needed for 254-bit moduli with coarse representation.
     # The result is guaranteed to be in [0, 2p) when inputs are in [0, 2p).
@@ -174,6 +188,10 @@ def montgomery_square(a: list[int], modulus: list[int], r_inv: int) -> list[int]
     t1, c = mac(t2, k, modulus[2], c)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = (c + round_carry) & LIMB_MASK
+    # After round 0:
+    # We computed a[0]^2 + 2*a[0]*(a[1]*2^64 + a[2]*2^128 + a[3]*2^192) = a[0] * (2*a - a[0])
+    # which covers the a[0] row and column of the multiplication matrix.
+    # After adding k0*p and shifting right by 64: t0..t3 ~ (a[0]*(2a-a[0]) + k0*p) / 2^64
 
     # Round 1: a[1]^2 and 2*a[1]*a[j] for j > 1
     t1, carry_lo = mac_mini(t1, a[1], a[1])
@@ -188,6 +206,10 @@ def montgomery_square(a: list[int], modulus: list[int], r_inv: int) -> list[int]
     t1, c = mac(t2, k, modulus[2], c)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = (c + round_carry) & LIMB_MASK
+    # After round 1:
+    # Added a[1]^2*2^64 + 2*a[1]*(a[2]*2^128 + a[3]*2^192) to the running total.
+    # After reduction: t0..t3 ~ (partial_sum + k1*p) / 2^128
+    # Contains contributions from a[0]^2, a[1]^2, and all cross-terms 2*a[i]*a[j] where i+j <= 2.
 
     # Round 2: a[2]^2 and 2*a[2]*a[3]
     t2, carry_lo = mac_mini(t2, a[2], a[2])
@@ -201,6 +223,10 @@ def montgomery_square(a: list[int], modulus: list[int], r_inv: int) -> list[int]
     t1, c = mac(t2, k, modulus[2], c)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = (c + round_carry) & LIMB_MASK
+    # After round 2:
+    # Added a[2]^2*2^128 + 2*a[2]*a[3]*2^192 to the running total.
+    # After reduction: t0..t3 ~ (partial_sum + k2*p) / 2^192
+    # Contains all terms except a[3]^2: all diagonal a[i]^2 for i<3 and all cross-terms.
 
     # Round 3: a[3]^2 only (no off-diagonal terms left)
     t3, carry_lo = mac_mini(t3, a[3], a[3])
@@ -211,6 +237,11 @@ def montgomery_square(a: list[int], modulus: list[int], r_inv: int) -> list[int]
     t1, c = mac(t2, k, modulus[2], c)
     t2, c = mac(t3, k, modulus[3], c)
     t3 = (c + round_carry) & LIMB_MASK
+    # After round 3 (final):
+    # Added a[3]^2*2^192 to complete the full square a^2.
+    # After reduction: t0..t3 = (a^2 + k0*p + k1*p*2^64 + k2*p*2^128 + k3*p*2^192) / 2^256
+    # = (a^2 + K*p) / R where K = k0 + k1*2^64 + k2*2^128 + k3*2^192 and R = 2^256.
+    # Result: a^2 * R^(-1) mod p, which is the Montgomery square (~256-bit value in [0, 2p)).
 
     # No conditional subtraction needed for 254-bit moduli with coarse representation.
     return [t0, t1, t2, t3]

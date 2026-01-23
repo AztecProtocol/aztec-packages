@@ -284,23 +284,23 @@ template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexc
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
 
-    field result = *this;
-    // TODO(@zac-williamson): are these reductions needed?
-    // Rationale: We want to take any 256-bit input and be able to convert into montgomery form.
-    // A basic heuristic we use is that any input into the `*` operator must be between [0, 2p - 1]
-    // to prevent overflows in the asm algorithm.
-    // However... r_squared is already reduced so perhaps we can relax this requirement?
-    // (would be good to identify a failure case where not calling self_reduce triggers an error)
-    result.self_reduce_once();
-    result.self_reduce_once();
-    result.self_reduce_once();
-    return (result * r_squared).reduce_once();
+    // For 254-bit fields (coarse representation), note that r_squared < p. Therefore, by the analysis in the field
+    // documentation, if bR < p, then any 256-bit value of aR will satisfy that the high-bits of Montgomery
+    // multiplication are less than 2p.
+    // For 256-bit fields, we don't need reduction for the standard reason.
+    return *this * r_squared;
 }
 
 template <class T> constexpr field<T> field<T>::from_montgomery_form() const noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
-    return operator*(one_raw).reduce_once();
+    // For 254-bit fields, reduce to [0, 2p) range after multiplication.
+    // For 256-bit fields, skip reduction as any 256-bit value is valid.
+    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        return operator*(one_raw).reduce_once();
+    } else {
+        return operator*(one_raw);
+    }
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
@@ -308,18 +308,28 @@ template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
 
-    self_reduce_once();
-    self_reduce_once();
-    self_reduce_once();
-    *this *= r_squared;
-    self_reduce_once();
+    // For 254-bit fields (coarse representation), we need to reduce the input to [0, 2p) range.
+    // For 256-bit fields, we allow any 256-bit number and skip reduction.
+    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        self_reduce_once();
+        self_reduce_once();
+        self_reduce_once();
+        *this *= r_squared;
+        self_reduce_once();
+    } else {
+        *this *= r_squared;
+    }
 }
 
 template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
     *this *= one_raw;
-    self_reduce_once();
+    // For 254-bit fields, reduce to [0, 2p) range after multiplication.
+    // For 256-bit fields, skip reduction as any 256-bit value is valid.
+    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        self_reduce_once();
+    }
 }
 
 template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
