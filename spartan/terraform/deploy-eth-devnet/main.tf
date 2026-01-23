@@ -71,6 +71,12 @@ resource "null_resource" "generate_genesis" {
   }
 }
 
+# Determine if this is a kind cluster (local) based on context name
+locals {
+  is_kind = strcontains(var.K8S_CLUSTER_CONTEXT, "kind")
+  use_lb = var.USE_LOAD_BALANCERS && !local.is_kind
+}
+
 # Deploy eth-devnet helm chart
 resource "helm_release" "eth_devnet" {
   depends_on       = [null_resource.generate_genesis]
@@ -95,6 +101,16 @@ resource "helm_release" "eth_devnet" {
   set {
     name  = "fullnameOverride"
     value = var.RELEASE_PREFIX
+  }
+
+  set {
+    name  = "ethereum.execution.service.type"
+    value = local.use_lb ? "LoadBalancer" : "ClusterIP"
+  }
+
+  set {
+    name  = "ethereum.beacon.service.type"
+    value = local.use_lb ? "LoadBalancer" : "ClusterIP"
   }
 
   timeout       = 1200

@@ -8,7 +8,6 @@ import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
@@ -16,7 +15,7 @@ import {
   createWalletAndAztecNodeClient,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { setupEnvironment, startPortForwardForRPC } from './utils.js';
+import { type ServiceEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 describe('token transfer test', () => {
@@ -29,19 +28,19 @@ describe('token transfer test', () => {
 
   let testAccounts: TestAccounts;
   let wallet: TestWallet;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
     await cleanup?.();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    logger.info('Starting port forward for PXE');
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    logger.info('Connecting to RPC node');
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const rpcUrl = rpcEndpoint.url;
 
     const {
       wallet: _wallet,

@@ -28,7 +28,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
@@ -37,7 +36,14 @@ import {
   deploySponsoredTestAccounts,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { ChainHealth, getExternalIP, getSequencersConfig, setupEnvironment, updateSequencersConfig } from './utils.js';
+import {
+  ChainHealth,
+  type ServiceEndpoint,
+  getRPCEndpoint,
+  getSequencersConfig,
+  setupEnvironment,
+  updateSequencersConfig,
+} from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -62,13 +68,14 @@ describe('mempool limiter test', () => {
     from: AztecAddress;
   }[] = [];
 
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
   beforeAll(async () => {
     await health.setup();
-    const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
-    rpcUrl = `http://${rpcIP}:8080`;
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    rpcUrl = rpcEndpoint.url;
+    endpoints.push(rpcEndpoint);
     node = createAztecNodeClient(rpcUrl);
     const initialBlock = await node.getBlockNumber().catch(() => 0n);
     debugLogger.info(`Connected to RPC at ${rpcUrl}; initial L2 block: ${initialBlock}`);
@@ -188,7 +195,7 @@ describe('mempool limiter test', () => {
     for (const cleanup of cleanups) {
       await cleanup();
     }
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('evicts txs to keep mempool under specified limit', async () => {

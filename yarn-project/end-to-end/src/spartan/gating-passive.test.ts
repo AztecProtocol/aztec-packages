@@ -6,23 +6,23 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { expect, jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   ChainHealth,
+  type ServiceEndpoint,
   applyBootNodeFailure,
   applyNetworkShaping,
   applyValidatorKill,
   awaitCheckpointNumber,
   deleteResourceByLabel,
+  getEthereumEndpoint,
   getGitProjectRoot,
+  getRPCEndpoint,
   installTransferBot,
   restartBot,
   setupEnvironment,
   startPortForward,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
   uninstallTransferBot,
 } from './utils.js';
 
@@ -54,7 +54,7 @@ describe('a test that passively observes the network in the presence of network 
   let ETHEREUM_HOST: string;
   let alertChecker: GrafanaClient;
   let spartanDir: string;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   const podChaosInstances: string[] = [];
   const networkShapingInstance = `${NAMESPACE}-network-shaping`;
   const health = new ChainHealth(NAMESPACE, debugLogger);
@@ -63,7 +63,7 @@ describe('a test that passively observes the network in the presence of network 
     await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
     let promPort = 0;
-    let promProc: ChildProcess | undefined;
+    let promProc: ServiceEndpoint['process'];
     {
       const { process: p, port } = await startPortForward({
         resource: `svc/metrics-prometheus-server`,
@@ -89,7 +89,7 @@ describe('a test that passively observes the network in the presence of network 
     }
 
     if (promProc && promPort !== 0) {
-      forwardProcesses.push(promProc);
+      endpoints.push({ url: `http://127.0.0.1:${promPort}`, process: promProc });
       const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
       const grafanaCredentials = '';
       alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
@@ -126,17 +126,17 @@ describe('a test that passively observes the network in the presence of network 
 
     // Teardown transfer bot installed for this test
     await uninstallTransferBot(NAMESPACE, debugLogger);
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('survives network chaos', async () => {
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    const rpcEndpoint = await getRPCEndpoint(NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const nodeUrl = rpcEndpoint.url;
 
-    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(NAMESPACE);
-    forwardProcesses.push(ethProcess);
-    ETHEREUM_HOST = `http://127.0.0.1:${ethPort}`;
+    const ethEndpoint = await getEthereumEndpoint(NAMESPACE);
+    endpoints.push(ethEndpoint);
+    ETHEREUM_HOST = ethEndpoint.url;
 
     const node = createAztecNodeClient(nodeUrl);
     const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST], new DateProvider());

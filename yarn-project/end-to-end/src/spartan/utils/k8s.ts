@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/aztec.js/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { type ChildProcess, exec, spawn } from 'child_process';
 import path from 'path';
@@ -8,6 +9,15 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 const logger = createLogger('e2e:k8s-utils');
+
+/**
+ * Represents an endpoint to reach a K8s service.
+ * May be a LoadBalancer external IP or a port-forward.
+ */
+export interface ServiceEndpoint {
+  url: string;
+  process?: ChildProcess;
+}
 
 export async function startPortForward({
   resource,
@@ -127,6 +137,92 @@ export function getExternalIP(namespace: string, serviceName: string): Promise<s
   });
 
   return promise;
+}
+
+/**
+ * Gets an endpoint for a K8s service.
+ * By default, tries to get the external IP first and falls back to port-forward if unavailable.
+ *
+ * @param opts.namespace - K8s namespace
+ * @param opts.serviceName - Service name suffix (e.g., 'rpc-aztec-node', 'eth-execution')
+ * @param opts.containerPort - Port the service exposes
+ * @param opts.usePortForward - If true, skip external IP check and always use port-forward
+ */
+export async function getServiceEndpoint(opts: {
+  namespace: string;
+  serviceName: string;
+  containerPort: number;
+  forcePortForward?: boolean;
+}): Promise<ServiceEndpoint> {
+  const { namespace, serviceName, containerPort, forcePortForward } = opts;
+
+  if (!forcePortForward) {
+    try {
+      const ip = await retryUntil(
+        async () => {
+          try {
+            const ip = await getExternalIP(namespace, serviceName);
+            if (ip && ip !== '' && ip !== '<pending>' && ip !== 'null') {
+              return ip;
+            }
+          } catch (err) {
+            logger.verbose(`Failed to get external IP for ${serviceName}: ${err}`);
+          }
+          return undefined;
+        },
+        `external IP for ${serviceName}`,
+        30,
+        5,
+      );
+      logger.info(`Using external IP for ${serviceName}: ${ip}:${containerPort}`);
+      return { url: `http://${ip}:${containerPort}` };
+    } catch {
+      logger.warn(`External IP not available for ${serviceName} after 5min, using port-forward`);
+    }
+  }
+
+  // Fallback to port-forward
+  const resource = `svc/${namespace}-${serviceName}`;
+
+  const { process, port } = await startPortForward({
+    resource,
+    namespace,
+    containerPort,
+  });
+
+  return { url: `http://127.0.0.1:${port}`, process };
+}
+
+/**
+ * Gets an endpoint for the RPC node service.
+ * Tries external IP first, falls back to port-forward.
+ *
+ * @param namespace - K8s namespace
+ * @param usePortForward - If true, skip external IP and use port-forward directly
+ */
+export async function getRPCEndpoint(namespace: string, forcePortForward?: boolean): Promise<ServiceEndpoint> {
+  return await getServiceEndpoint({
+    namespace,
+    serviceName: 'rpc-aztec-node',
+    containerPort: 8080,
+    forcePortForward,
+  });
+}
+
+/**
+ * Gets an endpoint for the Ethereum execution service.
+ * Tries external IP first, falls back to port-forward.
+ *
+ * @param namespace - K8s namespace
+ * @param usePortForward - If true, skip external IP and use port-forward directly
+ */
+export async function getEthereumEndpoint(namespace: string, forcePortForward?: boolean): Promise<ServiceEndpoint> {
+  return await getServiceEndpoint({
+    namespace,
+    serviceName: 'eth-execution',
+    containerPort: 8545,
+    forcePortForward,
+  });
 }
 
 export function startPortForwardForPrometeheus(namespace: string) {
