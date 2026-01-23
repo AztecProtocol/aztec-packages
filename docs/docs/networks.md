@@ -15,10 +15,10 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 | Parameter | Ignition (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
-| **Version** | `2.1.9` | TBD | `3.0.0-devnet.20251212` |
+| **Version** | `2.1.9` | TBD | `3.0.0-devnet.6-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
 | **Rollup Version** | `0` | `2500495677` | `1647720761` |
-| **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://next.devnet.aztec-labs.com/` |
+| **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://devnet-6.aztec-labs.com/` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) | N/A |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/) | [Aztecscan](https://devnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/) |
 | **Getting Started** | [Run a sequencer →](/network/setup/sequencer_management) | [Run a node →](/network/setup/running_a_node) | [Build on Devnet →](/developers/getting_started_on_devnet) |

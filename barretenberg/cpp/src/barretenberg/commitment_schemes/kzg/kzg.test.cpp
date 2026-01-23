@@ -1,6 +1,6 @@
 
 #include "kzg.hpp"
-#include "../commitment_key.test.hpp"
+#include "../pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"

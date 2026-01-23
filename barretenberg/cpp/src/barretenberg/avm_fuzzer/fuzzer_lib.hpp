@@ -33,6 +33,7 @@ struct FuzzerTxData {
 
     // Public data tree writes to be applied during state setup (e.g., for bytecode upgrades)
     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
+    std::vector<FF> note_hashes;
 
     MSGPACK_FIELDS(input_programs,
                    contract_classes,
@@ -41,7 +42,8 @@ struct FuzzerTxData {
                    tx,
                    global_variables,
                    protocol_contracts,
-                   public_data_writes);
+                   public_data_writes,
+                   note_hashes);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
@@ -59,28 +61,33 @@ using FuzzerContext = bb::avm2::fuzzer::FuzzerContext;
 
 // Mutation configuration
 enum class FuzzerTxDataMutationType : uint8_t {
+    TxFuzzerDataMutation,
     TxMutation,
     BytecodeMutation,
     ContractClassMutation,
-    // ContractInstanceMutation,
-    // GlobalVariablesMutation,
-    // ProtocolContractsMutation
+    ContractInstanceMutation,
+    GlobalVariablesMutation,
+    ProtocolContractsMutation
 };
 
-using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 3>;
+using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 7>;
 
 constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = FuzzerTxDataMutationConfig({
+    { FuzzerTxDataMutationType::TxFuzzerDataMutation, 20 },
     { FuzzerTxDataMutationType::TxMutation, 10 },
     { FuzzerTxDataMutationType::BytecodeMutation, 1 },
     { FuzzerTxDataMutationType::ContractClassMutation, 1 },
+    { FuzzerTxDataMutationType::ContractInstanceMutation, 1 },
+    { FuzzerTxDataMutationType::GlobalVariablesMutation, 4 },
+    { FuzzerTxDataMutationType::ProtocolContractsMutation, 4 },
 });
 
 // Build bytecode and contract artifacts from fuzzer data
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
 // Create a default FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context);
-FuzzerTxData create_default_tx_data(const FuzzerContext& context);
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, FuzzerContext& context);
+FuzzerTxData create_default_tx_data(FuzzerContext& context);
 
 // Setup fuzzer state: register contracts and addresses in the world state
 void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
@@ -96,10 +103,10 @@ SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                         FuzzerTxData& tx_data);
 
 // Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
-// Returns 0 on success, -1 if the input should be rejected
-int fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
-                bb::avm2::fuzzer::FuzzerContractDB& contract_db,
-                FuzzerTxData& tx_data);
+// Returns simulation result on success, throws if the input should be rejected
+TxSimulationResult fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                               bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                               FuzzerTxData& tx_data);
 
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
@@ -108,5 +115,7 @@ size_t mutate_tx_data(FuzzerContext& context,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed);
+
+void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data);
 
 bool compare_cpp_simulator_results(const std::vector<TxSimulationResult>& results);

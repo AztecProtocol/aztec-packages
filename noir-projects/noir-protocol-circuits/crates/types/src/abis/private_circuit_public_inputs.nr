@@ -72,9 +72,11 @@ pub struct PrivateCircuitPublicInputs {
     // @dev: The app circuit should set this to the **smallest** revertible counter it has observed during the function
     //       call. Set it to 0 if the validation is not required.
     pub expected_revertible_side_effect_counter: u32,
-    // Requests for the kernel circuit to validate the note hashes being read in this function call.
+    // Requests for the kernel circuit to validate the existence of the notes hashes that were read by this function call.
+    // Note: the `Scoped` contract address is not necessarily that of this function: contracts can read other contracts' state.
     pub note_hash_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    // Requests for the kernel circuit to validate the nullifiers being read in this function call.
+    // Requests for the kernel circuit to validate the existence of the nullifiers that were read by this function call.
+    // Note: the `Scoped` contract address is not necessarily that of this function: contracts can read other contracts' state.
     pub nullifier_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     // Requests for the kernel circuit to validate the keys being used in this function call.
     pub key_validation_requests_and_generators: ClaimedLengthArray<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,

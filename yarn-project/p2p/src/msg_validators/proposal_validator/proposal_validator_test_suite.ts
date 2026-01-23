@@ -30,23 +30,40 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
   describe('shared proposal validation logic', () => {
     let epochCache: MockProxy<EpochCacheInterface>;
     let validator: { validate: (proposal: TProposal) => Promise<PeerErrorSeverity | undefined> };
+    const currentSlot = getSlot(100);
+    const nextSlot = getSlot(101);
+
+    function mockGetProposer(currentProposer: EthAddress, nextProposer: EthAddress) {
+      epochCache.getProposerAttesterAddressInSlot.mockImplementation(slot => {
+        if (slot === currentSlot) {
+          return Promise.resolve(currentProposer);
+        }
+        if (slot === nextSlot) {
+          return Promise.resolve(nextProposer);
+        }
+        throw new Error('Unexpected argument');
+      });
+    }
 
     beforeEach(() => {
       epochCache = epochCacheMock();
       validator = validatorFactory(epochCache, { txsPermitted: true });
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
+        currentSlot: currentSlot,
+        nextSlot: nextSlot,
+      });
     });
 
     it('returns high tolerance error if slot number is not current or next slot', async () => {
-      const header = makeHeader(1, 97, 97);
+      const header = makeHeader(1, 99, 99);
       const mockProposal = await makeProposal({ blockHeader: header, lastBlockHeader: header });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(98),
-        nextSlot: getSlot(99),
-        currentProposer: getAddress(),
-        nextProposer: getAddress(),
-      });
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(getAddress());
       const result = await validator.validate(mockProposal);
       expect(result).toBe(PeerErrorSeverity.HighToleranceError);
+
+      // Should not try to resolve proposers if base validation fails
+      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
     it('returns mid tolerance error if proposer is not current proposer for current slot', async () => {
@@ -59,12 +76,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         lastBlockHeader: header,
         signer: invalidProposer,
       });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(100),
-        nextSlot: getSlot(101),
-        currentProposer: getAddress(currentProposer),
-        nextProposer: getAddress(nextProposer),
-      });
+
+      mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -79,12 +92,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         lastBlockHeader: header,
         signer: invalidProposer,
       });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(100),
-        nextSlot: getSlot(101),
-        currentProposer: getAddress(currentProposer),
-        nextProposer: getAddress(nextProposer),
-      });
+
+      mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -98,12 +107,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         lastBlockHeader: header,
         signer: currentProposer,
       });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(100),
-        nextSlot: getSlot(101),
-        currentProposer: getAddress(currentProposer),
-        nextProposer: getAddress(nextProposer),
-      });
+
+      mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -117,12 +122,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         lastBlockHeader: header,
         signer: currentProposer,
       });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(100),
-        nextSlot: getSlot(101),
-        currentProposer: getAddress(currentProposer),
-        nextProposer: getAddress(nextProposer),
-      });
+
+      mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toBeUndefined();
     });
@@ -132,12 +133,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       const nextProposer = getSigner();
       const header = makeHeader(1, 101, 101);
       const mockProposal = await makeProposal({ blockHeader: header, lastBlockHeader: header, signer: nextProposer });
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentSlot: getSlot(100),
-        nextSlot: getSlot(101),
-        currentProposer: getAddress(currentProposer),
-        nextProposer: getAddress(nextProposer),
-      });
+
+      mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toBeUndefined();
     });
@@ -153,12 +150,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
           signer: currentProposer,
           txHashes: getTxHashes(2),
         });
-        epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-          currentSlot: getSlot(100),
-          nextSlot: getSlot(101),
-          currentProposer: getAddress(currentProposer),
-          nextProposer: getAddress(),
-        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
         const result = await validatorWithTxsDisabled.validate(mockProposal);
         expect(result).toBe(PeerErrorSeverity.MidToleranceError);
       });
@@ -173,12 +166,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
           signer: currentProposer,
           txHashes: getTxHashes(0),
         });
-        epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-          currentSlot: getSlot(100),
-          nextSlot: getSlot(101),
-          currentProposer: getAddress(currentProposer),
-          nextProposer: getAddress(),
-        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
         const result = await validatorWithTxsDisabled.validate(mockProposal);
         expect(result).toBeUndefined();
       });
@@ -192,12 +181,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
           signer: currentProposer,
           txHashes: getTxHashes(2),
         });
-        epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-          currentSlot: getSlot(100),
-          nextSlot: getSlot(101),
-          currentProposer: getAddress(currentProposer),
-          nextProposer: getAddress(),
-        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
         const result = await validator.validate(mockProposal);
         expect(result).toBeUndefined();
       });

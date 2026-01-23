@@ -1,5 +1,5 @@
 use dep::aztec::{
-    authwit::entrypoint::function_call::FunctionCall,
+    authwit::entrypoint::FunctionCall,
     context::PrivateContext,
     protocol_types::{
         address::AztecAddress,

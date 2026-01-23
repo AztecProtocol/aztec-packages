@@ -147,7 +147,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
 
     // Get checkpoints from the archiver
     const archiver = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     t.logger.info(`Retrieved ${publishedCheckpoints.length} checkpoints from archiver`);
 
     // Verify checkpoint structure
@@ -248,7 +248,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
 
     // Retrieve blocks and check attestations
     const archiver = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [block] = await archiver.getPublishedBlocks(blockNumber, blockNumber);
+    const [block] = await archiver.getCheckpointedBlocks(blockNumber, 1);
 
     // Verify attestations exist
     expect(block).toBeDefined();
@@ -342,7 +342,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     expect(archiverBlockNumber).toBeGreaterThanOrEqual(l1CheckpointNumber);
 
     // Verify all checkpoints have valid data
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     for (const pubCheckpoint of publishedCheckpoints) {
       const checkpoint = pubCheckpoint.checkpoint;
       // Each checkpoint should have blocks with sequential numbers

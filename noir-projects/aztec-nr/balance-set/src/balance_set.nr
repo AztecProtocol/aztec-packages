@@ -1,18 +1,18 @@
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
+        HintedNote,
+        MaybeNoteMessage,
         note_getter_options::{NoteGetterOptions, SortOrder},
         note_interface::NoteProperties,
-        note_message::MaybeNoteMessage,
         note_viewer_options::NoteViewerOptions,
-        retrieved_note::RetrievedNote,
     },
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
     state_vars::{owned_state_variable::OwnedStateVariable, PrivateSet},
 };
-use dep::uint_note::uint_note::UintNote;
+use dep::uint_note::UintNote;
 use std::ops::Add;
 
 pub struct BalanceSet<Context> {
@@ -109,9 +109,9 @@ impl BalanceSet<&mut PrivateContext> {
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum(
-    notes: [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<HintedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: u128,
-) -> [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<HintedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = 0 as u128;
     for i in 0..notes.len() {
@@ -120,9 +120,9 @@ pub fn preprocess_notes_min_sum(
         // sorted in descending order, the filter will only choose the notes with values 3 and 2, but if sorted in
         // ascending order it will choose 4 notes of value 1.
         if notes[i].is_some() & sum < min_sum {
-            let retrieved_note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(retrieved_note);
-            sum = sum.add(retrieved_note.note.value);
+            let hinted_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(hinted_note);
+            sum = sum.add(hinted_note.note.value);
         }
     }
     selected

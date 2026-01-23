@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
@@ -51,7 +52,7 @@ export class BlockProposal extends Gossipable {
     // TODO(palla/mbps): Is this really needed? Can we just derive it from the indexWithinCheckpoint of the parent block and the slot number?
     // See the block-proposal-handler, we have a lot of extra validations to check this is correct, so maybe we can avoid storing it here.
     /** Index of this block within the checkpoint (0-indexed) */
-    public readonly indexWithinCheckpoint: number,
+    public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 
     /** Hash of L1 to L2 messages for this checkpoint (constant across all blocks in checkpoint) */
     public readonly inHash: Fr,
@@ -120,12 +121,12 @@ export class BlockProposal extends Gossipable {
 
   static async createProposalFromSigner(
     blockHeader: BlockHeader,
-    indexWithinCheckpoint: number,
+    indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
-    payloadSigner: (payload: Buffer32) => Promise<Signature>,
+    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
@@ -137,13 +138,23 @@ export class BlockProposal extends Gossipable {
       Signature.empty(),
     );
 
+    // Create the block signing context
+    const blockContext: SigningContext = {
+      slot: blockHeader.globalVariables.slotNumber,
+      blockNumber: blockHeader.globalVariables.blockNumber,
+      blockIndexWithinCheckpoint: indexWithinCheckpoint,
+      dutyType: DutyType.BLOCK_PROPOSAL,
+    };
+
     const hashed = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.blockProposal);
-    const sig = await payloadSigner(hashed);
+    const sig = await payloadSigner(hashed, blockContext);
 
     // If txs are provided, sign them as well
     let signedTxs: SignedTxs | undefined;
     if (txs) {
-      signedTxs = await SignedTxs.createFromSigner(txs, payloadSigner);
+      const txsSigningContext: SigningContext = { dutyType: DutyType.TXS };
+      const txsSigner = (payload: Buffer32) => payloadSigner(payload, txsSigningContext);
+      signedTxs = await SignedTxs.createFromSigner(txs, txsSigner);
     }
 
     return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, sig, signedTxs);
@@ -201,7 +212,7 @@ export class BlockProposal extends Gossipable {
     const reader = BufferReader.asReader(buf);
 
     const blockHeader = reader.readObject(BlockHeader);
-    const indexWithinCheckpoint = reader.readNumber();
+    const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
     const inHash = reader.readObject(Fr);
     const archiveRoot = reader.readObject(Fr);
     const signature = reader.readObject(Signature);
@@ -245,13 +256,13 @@ export class BlockProposal extends Gossipable {
   }
 
   static empty(): BlockProposal {
-    return new BlockProposal(BlockHeader.empty(), 0, Fr.ZERO, Fr.ZERO, [], Signature.empty());
+    return new BlockProposal(BlockHeader.empty(), IndexWithinCheckpoint(0), Fr.ZERO, Fr.ZERO, [], Signature.empty());
   }
 
   static random(): BlockProposal {
     return new BlockProposal(
       BlockHeader.random(),
-      Math.floor(Math.random() * 5),
+      IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
       Fr.random(),
       Fr.random(),
       [TxHash.random(), TxHash.random()],
@@ -277,7 +288,7 @@ export class BlockProposal extends Gossipable {
    * @returns True if the proposal matches the block
    */
   matchesBlock(block: L2Block): boolean {
-    return this.archiveRoot.equals(block.archive.root) && this.blockHeader.equals(block.getBlockHeader());
+    return this.archiveRoot.equals(block.archive.root) && this.blockHeader.equals(block.header);
   }
 
   /**

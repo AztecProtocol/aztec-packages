@@ -306,10 +306,10 @@ export class FeesTest {
           await this.rollupContract.getManaTarget(),
         ) + (await this.rollupContract.getProvingCostPerMana());
 
-      const price = await this.rollupContract.getFeeAssetPerEth();
+      const price = await this.rollupContract.getEthPerFeeAsset();
 
       const mana = block!.header.totalManaUsed.toBigInt();
-      return mulDiv(mana * proverCost, price, 10n ** 9n);
+      return mulDiv(mana * proverCost, 10n ** 12n, price);
     };
   }
 

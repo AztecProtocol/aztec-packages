@@ -1,0 +1,166 @@
+---
+name: adding-benchmarks
+description: Add new benchmarks to the CI pipeline. Guides through creating benchmark JSON files, integrating with bootstrap.sh, and ensuring proper CI upload via ci3.yml workflow.
+---
+
+# Adding Benchmarks
+
+## When to Use
+
+Use this skill when:
+- Adding new performance benchmarks to a package
+- Creating benchmark tests that should be tracked over time
+- Integrating existing benchmarks into the CI pipeline
+
+## Benchmark System Overview
+
+Benchmarks flow through the system as follows:
+1. **Generation**: Each package produces `bench-out/*.bench.json` files
+2. **Aggregation**: `bench_merge` in root `bootstrap.sh` combines all files, prefixing names with the package path
+3. **Upload**: CI caches the merged JSON and GitHub Action uploads to the benchmark dashboard
+4. **Display**: Results appear at the dashboard with historical tracking
+
+**Live dashboard:** https://aztecprotocol.github.io/aztec-packages/bench/?branch=next
+
+## How Benchmark Names Work
+
+### Name Construction
+
+The **final benchmark name** combines two parts:
+
+1. **Package prefix** (added automatically by `bench_merge`): Based on where the file lives
+2. **Local name** (what you write in JSON): Your metric identifier
+
+### Dashboard Grouping
+
+The dashboard splits names by `/` to create a collapsible tree. The **last segment** becomes the chart name, everything before it becomes the group hierarchy.
+
+| Full Name | Group Path | Chart Name |
+|-----------|------------|------------|
+| `yarn-project/stdlib/Tx/private/getTxHash/avg` | `yarn-project/stdlib/Tx/private/getTxHash` | `avg` |
+| `yarn-project/kv-store/Map/Individual insertion` | `yarn-project/kv-store/Map` | `Individual insertion` |
+| `barretenberg/sol/Add2HonkVerifier` | `barretenberg/sol` | `Add2HonkVerifier` |
+
+### Naming Best Practices
+
+**Use `/` to create logical groupings:**
+```json
+[
+  {"name": "Tx/private/getTxHash/avg", "value": 1.2, "unit": "ms"},
+  {"name": "Tx/private/getTxHash/p50", "value": 1.1, "unit": "ms"},
+  {"name": "Tx/public/getTxHash/avg", "value": 2.3, "unit": "ms"}
+]
+```
+
+**Avoid flat names** - they create no hierarchy and are hard to navigate:
+```json
+[
+  {"name": "tx_private_gettxhash_avg", "value": 1.2, "unit": "ms"}
+]
+```
+
+**Common suffixes:**
+- Timing: `avg`, `p50`, `p95`, `p99`, `min`, `max`, `total`
+- Size: `_opcodes`, `_gates`, `memory`
+- Rate: `gasPerSecond`, `jobs_per_sec`
+
+## Required JSON Format
+
+All benchmark files must be arrays using the `customSmallerIsBetter` format:
+
+```json
+[
+  {"name": "category/metric_name", "value": 12345, "unit": "gas"},
+  {"name": "category/another_metric", "value": 100.5, "unit": "ms"}
+]
+```
+
+**Rules:**
+- Must be a JSON array `[...]`, not an object
+- Each entry needs `name`, `value`, `unit`
+- `value` must be numeric (lower is better)
+- File must end with `.bench.json`
+
+## Adding a New Benchmark
+
+### Step 1: Create the Benchmark
+
+**TypeScript** (most common):
+```typescript
+// my_bench.test.ts
+import { Timer } from '@aztec/foundation/timer';
+import { writeFile, mkdir } from 'fs/promises';
+
+describe('MyComponent benchmarks', () => {
+  const results: { name: string; value: number; unit: string }[] = [];
+
+  afterAll(async () => {
+    if (process.env.BENCH_OUTPUT) {
+      await mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(results));
+    }
+  });
+
+  it('benchmark operation', async () => {
+    const timer = new Timer();
+    // ... operation to benchmark ...
+    results.push({ name: 'MyComponent/operation/avg', value: timer.ms(), unit: 'ms' });
+  });
+});
+```
+
+**Shell** (jq-based):
+```bash
+mkdir -p bench-out
+jq -n '[
+  {name: "metric1", value: '$VALUE1', unit: "ms"},
+  {name: "metric2", value: '$VALUE2', unit: "gas"}
+]' > bench-out/my-component.bench.json
+```
+
+**Python**:
+```python
+import json
+benchmark_list = [{"name": "category/metric", "value": 12345, "unit": "gas"}]
+with open("bench-out/my-component.bench.json", "w") as f:
+    json.dump(benchmark_list, f)
+```
+
+### Step 2: Register in bootstrap.sh
+
+Add to the package's `bench_cmds` function:
+
+```bash
+function bench_cmds {
+  local hash=$(hash)
+  echo "$hash BENCH_OUTPUT=bench-out/my_component.bench.json yarn-project/scripts/run_test.sh <package>/src/my_bench.test.ts"
+}
+```
+
+**Options:** `:ISOLATE=1`, `:CPUS=8`, `:MEM=16g`, `:TIMEOUT=7200`
+
+### Step 3: Verify
+
+```bash
+# Run locally
+BENCH_OUTPUT=bench-out/test.bench.json yarn test src/my_bench.test.ts
+
+# Validate JSON
+jq . bench-out/test.bench.json
+jq 'all(has("name") and has("value") and has("unit"))' bench-out/test.bench.json
+```
+
+## CI Details
+
+**Benchmarks upload when:**
+- PR has label: `ci-merge-queue`, `ci-full`, or `ci-full-no-test-cache` (publishes to target branch, i.e. `next` or a merge-train branch)
+- Running on merge queue (publishes with `next`)
+
+**10-commit visibility window:** The dashboard only shows benchmarks that ran in the last 10 commits. If a benchmark stops running, it disappears after ~10 merges.
+
+## Reference Implementations
+
+- **TypeScript**: `yarn-project/stdlib/src/tx/tx_bench.test.ts`
+- **Python**: `l1-contracts/scripts/generate_benchmark_json.py`
+- **Shell**: `yarn-project/p2p/testbench/consolidate_benchmarks.sh`
+- **Circuits**: `noir-projects/noir-protocol-circuits/scripts/run_bench.sh`

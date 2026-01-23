@@ -4,7 +4,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt, randomInt } from '@aztec/foundation/crypto/random';
@@ -12,7 +12,7 @@ import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer'
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -268,9 +268,9 @@ export async function makeCheckpointWithLogs(
 ): Promise<PublishedCheckpoint> {
   const { previousArchive, numTxsPerBlock = 4, privateLogs, publicLogs } = options;
 
-  const block = await L2BlockNew.random(BlockNumber(blockNumber), {
-    checkpointNumber: CheckpointNumber(blockNumber),
-    indexWithinCheckpoint: 0,
+  const block = await L2Block.random(BlockNumber(blockNumber), {
+    checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
+    indexWithinCheckpoint: IndexWithinCheckpoint(0),
     state: makeStateForBlock(blockNumber, numTxsPerBlock),
     ...(previousArchive ? { lastArchive: previousArchive } : {}),
   });
@@ -289,7 +289,7 @@ export async function makeCheckpointWithLogs(
     AppendOnlyTreeSnapshot.random(),
     CheckpointHeader.random(),
     [block],
-    CheckpointNumber(blockNumber),
+    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
   );
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }

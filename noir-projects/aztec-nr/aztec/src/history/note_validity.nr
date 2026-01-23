@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     history::{note_inclusion::ProveNoteInclusion, nullifier_non_inclusion::ProveNoteNotNullified},
-    note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
+    note::{HintedNote, note_interface::NoteHash},
 };
 
 use protocol_types::abis::block_header::BlockHeader;
@@ -11,7 +11,7 @@ mod test;
 trait ProveNoteValidity {
     fn prove_note_validity<Note>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        hinted_note: HintedNote<Note>,
         context: &mut PrivateContext,
     )
     where
@@ -19,15 +19,11 @@ trait ProveNoteValidity {
 }
 
 impl ProveNoteValidity for BlockHeader {
-    fn prove_note_validity<Note>(
-        self,
-        retrieved_note: RetrievedNote<Note>,
-        context: &mut PrivateContext,
-    )
+    fn prove_note_validity<Note>(self, hinted_note: HintedNote<Note>, context: &mut PrivateContext)
     where
         Note: NoteHash,
     {
-        self.prove_note_inclusion(retrieved_note);
-        self.prove_note_not_nullified(retrieved_note, context);
+        let confirmed_note = self.prove_note_inclusion(hinted_note);
+        self.prove_note_not_nullified(confirmed_note, context);
     }
 }

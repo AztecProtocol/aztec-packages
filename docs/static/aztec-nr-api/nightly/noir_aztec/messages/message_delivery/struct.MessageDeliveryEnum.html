@@ -42,18 +42,8 @@
 }
 </code></pre>
 <div class="comments">
-<p>Specifies how to deliver a message to a recipient.</p>
-<p>All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
-read their contents. This enum instead configures which <strong>guarantees</strong> exist regarding delivery.</p>
-<p>There are two aspects to delivery guarantees:</p>
-<ul>
-<li>the medium on which the message is sent (off-chain or on-chain)</li>
-<li>whether the contract constrains the message to be constructed correctly</li>
-</ul>
-<p>For scenarios where the sender is incentivized to deliver the message correctly, use
-<a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN">MessageDeliveryEnum::OFFCHAIN</a> (the cheapest delivery option, but requiring that sender and recipient can
-communicate off-chain) or <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_UNCONSTRAINED">MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED</a>. If the sender cannot be trusted to send the
-message to the recipient, use <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED">MessageDeliveryEnum::ONCHAIN_CONSTRAINED</a>.</p></div>
+<p>Placeholder struct until Noir adds <code>enum</code> support.</p>
+<p>See <a href="../../../noir_aztec/messages/message_delivery/global.MessageDelivery.html">MessageDelivery</a> instead.</p></div>
 <h2>Fields</h2>
 <div id="structfield.OFFCHAIN" class="struct-field"><code class="code-header">OFFCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">

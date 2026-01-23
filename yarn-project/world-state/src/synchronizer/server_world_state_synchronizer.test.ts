@@ -3,7 +3,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { L2BlockNew, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -62,7 +62,7 @@ describe('ServerWorldStateSynchronizer', () => {
 
     merkleTreeDb = mock<MerkleTreeAdminDatabase>();
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
-    merkleTreeDb.handleL2BlockAndMessages.mockImplementation((l2Block: L2BlockNew) => {
+    merkleTreeDb.handleL2BlockAndMessages.mockImplementation((l2Block: L2Block) => {
       latestHandledBlockNumber = l2Block.number;
       return Promise.resolve(buildEmptyWorldStateStatusFull());
     });
@@ -77,11 +77,8 @@ describe('ServerWorldStateSynchronizer', () => {
 
     l2BlockStream = mock<L2BlockStream>();
 
-    // Note that worldStateProvenBlocksOnly is the only config value that is used by the synchronizer itself
-    // Others are relayed to the blockstream, which is mocked in this test suite
     const config: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 100,
-      worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateBlockHistory: 0,
     };
@@ -265,7 +262,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   public override getL2Tips() {
     const makeTipId = (blockId: typeof this.latest) => ({
       block: blockId,
-      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+      checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
     });
     return Promise.resolve({
       proposed: this.latest,

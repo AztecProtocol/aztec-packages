@@ -5,9 +5,174 @@ keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
 tags: [migration, updating, sandbox, local network]
 ---
 
-Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
 ## TBD
+
+### [aztec-nr] Removal of intermediate modules
+
+Lots of unnecessary modules have been removed from the API, making imports shorter. These are the modules that contain just a single struct, in which the module has the same name as the struct.
+
+```diff
+- use aztec::state_vars::private_mutable::PrivateMutable;
++ use aztec::state_vars::PrivateMutable;
+```
+
+Affected structs include all state variables, notes, contexts, messages, etc.
+
+### [L1 Contracts] Fee asset pricing direction inverted
+
+The fee model now uses `ethPerFeeAsset` instead of the previous `feeAssetPerEth`. This change inverts how the exchange rate is represented: values now express how much ETH one fee asset (AZTEC) is worth, with 1e12 precision.
+
+**Key changes:**
+
+- `FeeHeader.feeAssetPerEth` → `FeeHeader.ethPerFeeAsset`
+- `RollupConfigInput` now requires `initialEthPerFeeAsset` parameter at deployment
+- Default value: `1e7` (0.00001 ETH per AZTEC)
+- Valid range: `100` (1e-10 ETH/AZTEC) to `1e11` (0.1 ETH/AZTEC)
+
+**New environment variable for node operators:**
+
+- `AZTEC_INITIAL_ETH_PER_FEE_ASSET` - Sets the initial ETH per fee asset price with 1e12 precision
+
+### [L1 Contracts] Fee asset price modifier now in basis points
+
+The `OracleInput.feeAssetPriceModifier` field now expects values in basis points (BPS) instead of the previous representation. The modifier is applied as a percentage change to the ETH/AZTEC price each checkpoint.
+
+**Key changes:**
+
+- Valid range: `-100` to `+100` BPS (±1% max change per checkpoint)
+- A value of `+100` increases the price by 1%, `-100` decreases by 1%
+- Validated by `MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100`
+
+### [Aztec.js] Wallet batching now supports all methods
+
+The `BatchedMethod` type is now a discriminated union that ensures type safety: the `args` must match the specific method `name`. This prevents runtime errors from mismatched arguments.
+
+```diff
+- // Before: Only 5 methods could be batched
+- const results = await wallet.batch([
+-   { name: "registerSender", args: [address, "alias"] },
+-   { name: "sendTx", args: [payload, options] },
+- ]);
++ // After: All methods can be batched
++ const results = await wallet.batch([
++   { name: "getChainInfo", args: [] },
++   { name: "getContractMetadata", args: [contractAddress] },
++   { name: "registerSender", args: [address, "alias"] },
++   { name: "simulateTx", args: [payload, options] },
++   { name: "sendTx", args: [payload, options] },
++ ]);
+```
+
+### [Aztec.js] Refactored `getContractMetadata` and `getContractClassMetadata` in Wallet
+
+The contract metadata methods in the `Wallet` interface have been refactored to provide more granular information and avoid expensive round-trips.
+
+**`ContractMetadata`:**
+
+```diff
+  {
+-   contractInstance?: ContractInstanceWithAddress,
++   instance?: ContractInstanceWithAddress;  // Instance registered in the Wallet, if any
+    isContractInitialized: boolean;          // Is the init nullifier onchain? (already there)
+    isContractPublished: boolean;            // Has the contract been published? (already there)
++   isContractUpdated: boolean;              // Has the contract been updated?
++   updatedContractClassId?: Fr;             // If updated, the new class ID
+  }
+```
+
+**`ContractClassMetadata`:**
+
+This method loses the ability to request the contract artifact via the `includeArtifact` flag
+
+```diff
+  {
+-   contractClass?: ContractClassWithId;
+-   artifact?: ContractArtifact;
+    isContractClassPubliclyRegistered: boolean;  // Is the class registered onchain?
++   isArtifactRegistered: boolean;               // Does the Wallet know about this artifact?
+  }
+```
+
+- Removes expensive artifact/class transfers between wallet and app
+- Separates PXE storage info (`instance`, `isArtifactRegistered`) from public chain info (`isContractPublished`, `isContractClassPubliclyRegistered`)
+- Makes it easier to determine if actions like `registerContract` are needed
+
+### [Aztec.js] Removed `UnsafeContract` and protocol contract helper functions
+
+The `UnsafeContract` class and async helper functions (`getFeeJuice`, `getClassRegistryContract`, `getInstanceRegistryContract`) have been removed. Protocol contracts are now accessed via auto-generated type-safe wrappers with only the ABI (no bytecode). Since PXE always has protocol contract artifacts available, importing and using these contracts from `aztec.js` is very lightweight and follows the same pattern as regular user contracts.
+
+**Migration:**
+
+```diff
+- import { getFeeJuice, getClassRegistryContract, getInstanceRegistryContract } from '@aztec/aztec.js/contracts';
++ import { FeeJuiceContract, ContractClassRegistryContract, ContractInstanceRegistryContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = await getFeeJuice(wallet);
++ const feeJuice = FeeJuiceContract.at(wallet);
+  await feeJuice.methods.check_balance(feeLimit).send().wait();
+
+- const classRegistry = await getClassRegistryContract(wallet);
++ const classRegistry = ContractClassRegistryContract.at(wallet);
+  await classRegistry.methods.publish(...).send().wait();
+
+- const instanceRegistry = await getInstanceRegistryContract(wallet);
++ const instanceRegistry = ContractInstanceRegistryContract.at(wallet);
+  await instanceRegistry.methods.publish_for_public_execution(...).send().wait();
+```
+
+**Note:** The higher-level utilities like `publishInstance`, `publishContractClass`, and `broadcastPrivateFunction` from `@aztec/aztec.js/deployment` are still available and unchanged. These utilities use the new wrappers internally.
+
+### [Aztec.nr] Renamed Router contract
+
+`Router` contract has been renamed as `PublicChecks` contract.
+The name of the contract became stale as its use changed from routing public calls through it to simply having public functions that can be called by anyone.
+Having these "standard checks" on one contract results in a potentially large privacy set for apps that use it.
+
+### [Aztec Node] `getBlockByHash` and `getBlockHeaderByHash` removed
+
+The `getBlockByHash` and `getBlockHeaderByHash` methods have been removed. Use `getBlock` and `getBlockHeader` with a block hash instead.
+
+**Migration:**
+
+```diff
+- const block = await node.getBlockByHash(blockHash);
++ const block = await node.getBlock(blockHash);
+
+- const header = await node.getBlockHeaderByHash(blockHash);
++ const header = await node.getBlockHeader(blockHash);
+```
+
+### [Aztec.nr] Oracle functions now take `BlockHeader` instead of block number
+
+The low-level oracle functions for fetching membership witnesses and storage now take a `BlockHeader` instead of a `block_number: u32`. This change improves type safety and ensures the correct block state is queried.
+
+**Affected functions:**
+
+- `get_note_hash_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_archive_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_low_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_public_data_witness(block_header, public_data_tree_index)` - was `(block_number, public_data_tree_index)`
+- `storage_read(block_header, address, storage_slot)` - was `(address, storage_slot, block_number)`
+
+**Migration:**
+
+If you were calling these oracle functions directly (which is uncommon), update your code to pass a `BlockHeader` instead of a block number:
+
+```diff
+- let witness = get_note_hash_membership_witness(self.global_variables.block_number, note_hash);
++ let witness = get_note_hash_membership_witness(self, note_hash);
+
+- let witness = get_nullifier_membership_witness(block_number, nullifier);
++ let witness = get_nullifier_membership_witness(block_header, nullifier);
+
+- let value: T = storage_read(address, slot, block_number);
++ let value: T = storage_read(block_header, address, slot);
+```
+
+Note: The high-level history proof functions on `BlockHeader` (such as `prove_note_inclusion`, `prove_nullifier_inclusion`, etc.) are **not affected** by this change. They continue to work the same way.
 
 ### [Toolchain] Node.js upgraded to v24
 
@@ -97,7 +262,7 @@ The `self.context.msg_sender_unsafe` method has been dropped as its use can be r
 The following terms have been renamed:
 
 - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
-- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_UNCONSTRAINED`
 - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
 
 We believe these names will better convey the meaning of the concepts.
@@ -165,7 +330,7 @@ Private events are still emitted via the `emit` function, but this now returns a
 
 ### [Aztec.nr] History proof functions no longer require `storage_slot` parameter
 
-The `RetrievedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.
+The `HintedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.
 
 **Affected functions:**
 
@@ -176,24 +341,24 @@ The `RetrievedNote` struct now includes a `storage_slot` field, making it self-c
 
 **Migration:**
 
-The `storage_slot` is now read from `retrieved_note.storage_slot` internally. Simply remove the `storage_slot` argument from all calls to these functions:
+The `storage_slot` is now read from `hinted_note.storage_slot` internally. Simply remove the `storage_slot` argument from all calls to these functions:
 
 ```diff
   let header = context.get_anchor_block_header();
-- header.prove_note_inclusion(retrieved_note, storage_slot);
-+ header.prove_note_inclusion(retrieved_note);
+- header.prove_note_inclusion(hinted_note, storage_slot);
++ header.prove_note_inclusion(hinted_note);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_validity(retrieved_note, storage_slot, context);
-+ header.prove_note_validity(retrieved_note, context);
+- header.prove_note_validity(hinted_note, storage_slot, context);
++ header.prove_note_validity(hinted_note, context);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_is_nullified(retrieved_note, storage_slot, context);
-+ header.prove_note_is_nullified(retrieved_note, context);
+- header.prove_note_is_nullified(hinted_note, storage_slot, context);
++ header.prove_note_is_nullified(hinted_note, context);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_not_nullified(retrieved_note, storage_slot, context);
-+ header.prove_note_not_nullified(retrieved_note, context);
+- header.prove_note_not_nullified(hinted_note, storage_slot, context);
++ header.prove_note_not_nullified(hinted_note, context);
 ```
 
 ### [Aztec.nr] Note fields are now public
@@ -319,7 +484,7 @@ This function made it annoying to deal with invalid addresses in circuits. If yo
 
 ### [Aztec.nr] Note owner is now enshrined
 
-It turns out that in all the cases a note always have a logical owner.
+It turns out that in all cases a note always has a logical owner.
 For this reason we have decided to enshrine the concept of a note owner and you should drop the field from your note:
 
 ```diff
@@ -379,7 +544,7 @@ Signature of some functions like `destroy_note_unsafe` is unchanged:
 ```diff
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
+    hinted_note: HintedNote<Note>,
     note_hash_read: NoteHashRead,
 )
 where
@@ -389,7 +554,7 @@ where
 }
 ```
 
-because `RetrievedNote` now contains owner.
+because `HintedNote` now contains owner.
 
 `PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
 These state variables now implement a newly introduced `OwnedStateVariable` trait (see docs of `OwnedStateVariable` for explanation of what it is).
@@ -573,10 +738,10 @@ struct UintPartialNotePrivateLogContent {
 
 As a result of this change, the maximum packed length of the content of a note is 11 fields, down from 12. This is a direct consequence of moving the randomness field from the note content structure to the note's metadata.
 
-#### RetrievedNote now includes randomness field
+#### HintedNote now includes randomness field
 
 ```diff
-pub struct RetrievedNote<Note> {
+pub struct HintedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
 +   pub randomness: Field,
@@ -659,7 +824,7 @@ Previously, you might have computed the membership witness without explicitly ne
 const witness = await computeL2ToL1MembershipWitness(
   node,
   l2TxReceipt.blockNumber,
-  l2ToL1Message
+  l2ToL1Message,
 );
 ```
 
@@ -667,12 +832,12 @@ Now, you should provide the epoch number:
 
 ```typescript
 const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber)
+  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber),
 );
 const witness = await computeL2ToL1MembershipWitness(
   node,
   epoch,
-  l2ToL1Message
+  l2ToL1Message,
 );
 ```
 
@@ -793,7 +958,7 @@ The method now only accepts:
 
 #### Return value of `getNotes` no longer contains a recipient and it contains some other additional info
 
-Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
+Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and is now defined as `Promise<NoteDao[]>`.
 `NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
 Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
 
@@ -1380,7 +1545,7 @@ add_private_authwit_from_call_interface(
 ### Historical block renamed as anchor block
 
 A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
-This name is ambiguous and for this reason we've introduce "anchor block".
+This name is ambiguous and for this reason we've introduced "anchor block".
 This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
 
 ```diff
@@ -1409,7 +1574,7 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current note, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
@@ -1637,7 +1802,7 @@ emit_event_in_private_log(
 This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
 Drop the `from` argument when calling these.
 
-Example n TypeScript test:
+Example in TypeScript test:
 
 ```diff
 - await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
@@ -1816,7 +1981,7 @@ use dep::aztec::{
         note_getter_options::NoteGetterOptions,
         note_interface::{NoteHash, NoteType},
         note_viewer_options::NoteViewerOptions,
-        retrieved_note::RetrievedNote,
+        hinted_note::HintedNote,
     },
     state_vars::{
         map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
@@ -1914,11 +2079,10 @@ The following renamings have taken place:
 - `discovery` moved to `messages`: given that what is discovered are messages
 - `default_aes128` removed
 
-Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
+Most contracts barely used these modules directly. The frequently used `encode_and_encrypt` function imports remain unchanged:
 
-```diff
-- use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-+ use dep::aztec::messages::logs::note::encode_and_encrypt_note;
+```rust
+use dep::aztec::messages::logs::note::encode_and_encrypt_note;
 ```
 
 ### [noir-contracts] Reference Noir contracts directory structure change
@@ -1977,7 +2141,7 @@ This means that if your portal were hard-coding `1` it will now fail when insert
 Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
 
 New Deployments of the protocol do not preserve former state/across each other.
-This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existent contracts.
 To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
 This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
 
@@ -1987,11 +2151,11 @@ Both of these issues were in the token portal and the uniswap portal, so if you 
 
 ### [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
 
-It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
+It's common that we need block metadata of a block in which leaves were inserted when querying indexes of these tree leaves.
 For this reason we now return that information along with the indexes.
 This allows us to reduce the number of individual AztecNode queries.
 
-Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
+Along with this change, `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions were removed as all their uses can now be replaced with the newly modified `findLeavesIndexes` function.
 
 ### [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
@@ -2211,7 +2375,7 @@ await contract.methods
     txHash.hash,
     toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
     txEffects!.data.nullifiers[0],
-    wallet.getAddress()
+    wallet.getAddress(),
   )
   .simulate();
 ```
@@ -2266,7 +2430,7 @@ const transferAmount = 100n;
 const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
 const paymentMethod = new PrivateFeePaymentMethod(
   bananaFPCAddress,
-  aliceWallet
+  aliceWallet,
 );
 const receipt = await bananaCoin
   .withWallet(aliceWallet)
@@ -2314,7 +2478,7 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 
 In this releases we decided to do a large refactor of notes which resulted in the following changes:
 
-1. We removed `NoteHeader` and we've introduced a `RetrievedNote` struct that contains a note and the information originally stored in the `NoteHeader`.
+1. We removed `NoteHeader` and we've introduced a `HintedNote` struct that contains a note and the information originally stored in the `NoteHeader`.
 2. We removed the `pack_content` and `unpack_content` functions from the `NoteInterface`and made notes implement the standard `Packable` trait.
 3. We renamed the `NullifiableNote` trait to `NoteHash` and we've moved the `compute_note_hash` function to this trait from the `NoteInterface` trait.
 4. We renamed `NoteInterface` trait as `NoteType` and `get_note_type_id` function as `get_id`.
@@ -2403,9 +2567,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
 For `PrivateSet` the changes are a bit more involved than the changes in `PrivateImmutable`.
 Instead of passing in a mutable reference `&mut note` to the `insert` function just pass in `note`.
-The `remove` function now takes in a `RetrievedNote<Note>` instead of a `Note` and the `get_notes` function
-now returns a vector `RetrievedNote`s instead of a vector `Note`s.
-Note getters now generally return `RetrievedNote`s so getting a hold of the `RetrievedNote` for removal should be straightforward.
+The `remove` function now takes in a `HintedNote<Note>` instead of a `Note` and the `get_notes` function
+now returns a vector `HintedNote`s instead of a vector `Note`s.
+Note getters now generally return `HintedNote`s so getting a hold of the `HintedNote` for removal should be straightforward.
 
 ```diff
 impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
@@ -2418,7 +2582,7 @@ where
     }
 
 -    pub fn remove(self, note: Note) {
-+    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
++    pub fn remove(self, hinted_note: HintedNote<Note>) {
         ...
     }
 
@@ -2426,7 +2590,7 @@ where
         self,
         options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
 -    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
-+    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
++    ) -> BoundedVec<HintedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         ...
     }
 }
@@ -3369,7 +3533,7 @@ Extended syntax for more use cases:
 
 ```rust
 // The contract we're testing
-env.deploy_self("ContractName"); // We have to provide ContractName since nargo it's ready to support multi-contract files
+env.deploy_self("ContractName"); // We have to provide ContractName since nargo isn't ready to support multi-contract files
 
 // A contract in a workspace
 env.deploy("../path/to/workspace@package_name", "ContractName"); // This format allows locating the artifact in the root workspace target folder, regardless of internal code organization

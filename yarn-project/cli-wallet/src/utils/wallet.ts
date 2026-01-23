@@ -67,6 +67,7 @@ export class CLIWallet extends BaseWallet {
     const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, increasedFee.gasSettings);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
+    const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
       cancellable: this.cancellableTransactions,
@@ -75,6 +76,7 @@ export class CLIWallet extends BaseWallet {
     return await fromAccount.createTxExecutionRequest(
       feeExecutionPayload ?? executionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions,
     );
   }
@@ -91,8 +93,7 @@ export class CLIWallet extends BaseWallet {
   override async getAccountFromAddress(address: AztecAddress) {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
@@ -176,15 +177,26 @@ export class CLIWallet extends BaseWallet {
     return account;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
     });
@@ -201,6 +213,7 @@ export class CLIWallet extends BaseWallet {
       ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
       : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
@@ -218,6 +231,7 @@ export class CLIWallet extends BaseWallet {
       const txRequest = await fromAccount.createTxExecutionRequest(
         finalExecutionPayload,
         feeOptions.gasSettings,
+        chainInfo,
         executionOptions,
       );
       simulationResults = await this.pxe.simulateTx(
@@ -231,6 +245,7 @@ export class CLIWallet extends BaseWallet {
       const txRequest = await fromAccount.createTxExecutionRequest(
         finalExecutionPayload,
         feeOptions.gasSettings,
+        chainInfo,
         executionOptions,
       );
       const contractOverrides = {

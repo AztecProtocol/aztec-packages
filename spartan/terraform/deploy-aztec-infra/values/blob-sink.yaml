@@ -1,0 +1,8 @@
+node:
+  nodeType: "blob-sink"
+  env:
+    OTEL_SERVICE_NAME: "blob-sink"
+
+  startCmd:
+    - --node
+    - --archiver

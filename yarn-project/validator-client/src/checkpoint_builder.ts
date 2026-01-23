@@ -12,39 +12,42 @@ import {
   PublicProcessor,
   createPublicTxSimulatorForBlockBuilding,
 } from '@aztec/simulator/server';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
+  type BuildBlockInCheckpointResult,
   type FullNodeBlockBuilderConfig,
   FullNodeBlockBuilderConfigKeys,
+  type ICheckpointBlockBuilder,
+  type ICheckpointsBuilder,
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
+  type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type CheckpointGlobalVariables, type FailedTx, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
+import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_factory.js';
 
+// Re-export for backward compatibility
+export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
+
 const log = createLogger('checkpoint-builder');
 
-export interface BuildBlockInCheckpointResult {
-  block: L2BlockNew;
-  publicGas: Gas;
-  publicProcessorDuration: number;
-  numTxs: number;
-  failedTxs: FailedTx[];
+/** Result of building a block within a checkpoint. Extends the base interface with timer. */
+export interface BuildBlockInCheckpointResultWithTimer extends BuildBlockInCheckpointResult {
   blockBuildingTimer: Timer;
-  usedTxs: Tx[];
 }
 
 /**
  * Builder for a single checkpoint. Handles building blocks within the checkpoint
  * and completing it.
  */
-export class CheckpointBuilder {
+export class CheckpointBuilder implements ICheckpointBlockBuilder {
   constructor(
     private checkpointBuilder: LightweightCheckpointBuilder,
     private fork: MerkleTreeWriteOperations,
@@ -66,7 +69,7 @@ export class CheckpointBuilder {
     blockNumber: BlockNumber,
     timestamp: bigint,
     opts: PublicProcessorLimits & { expectedEndState?: StateReference },
-  ): Promise<BuildBlockInCheckpointResult> {
+  ): Promise<BuildBlockInCheckpointResultWithTimer> {
     const blockBuildingTimer = new Timer();
     const slot = this.checkpointBuilder.constants.slotNumber;
 
@@ -90,7 +93,7 @@ export class CheckpointBuilder {
     });
     const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs, _, usedTxBlobFields]] = await elapsed(() =>
       processor.process(pendingTxs, opts, validator),
     );
 
@@ -110,6 +113,7 @@ export class CheckpointBuilder {
       failedTxs,
       blockBuildingTimer,
       usedTxs,
+      usedTxBlobFields,
     };
     log.debug('Built block within checkpoint', res.block.header);
     return res;
@@ -170,12 +174,11 @@ export class CheckpointBuilder {
   }
 }
 
-/**
- * Factory for creating checkpoint builders.
- */
-export class FullNodeCheckpointsBuilder {
+/** Factory for creating checkpoint builders. */
+export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
   constructor(
-    private config: FullNodeBlockBuilderConfig,
+    private config: FullNodeBlockBuilderConfig & Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>,
+    private worldState: WorldStateSynchronizer,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -237,7 +240,7 @@ export class FullNodeCheckpointsBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
-    existingBlocks: L2BlockNew[] = [],
+    existingBlocks: L2Block[] = [],
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -272,5 +275,10 @@ export class FullNodeCheckpointsBuilder {
       this.dateProvider,
       this.telemetryClient,
     );
+  }
+
+  /** Returns a fork of the world state at the given block number. */
+  getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations> {
+    return this.worldState.fork(blockNumber);
   }
 }

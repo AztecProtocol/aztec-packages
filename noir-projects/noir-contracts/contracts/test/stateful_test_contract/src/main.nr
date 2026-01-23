@@ -16,7 +16,7 @@ pub contract StatefulTest {
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

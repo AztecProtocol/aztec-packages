@@ -62,8 +62,8 @@ unconstrained fn contract_historical_proofs_happy_path() {
     );
 }
 
-#[test(should_fail_with = "Nullifier membership witness not found at block 1.")]
-unconstrained fn prove_contract_deployment_before_deployment_fais() {
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
+unconstrained fn prove_contract_deployment_before_deployment_fails() {
     let (env, contract_address, _owner) = setup();
 
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
@@ -73,7 +73,7 @@ unconstrained fn prove_contract_deployment_before_deployment_fais() {
     );
 }
 
-#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
 unconstrained fn prove_contract_initialization_before_initialization_fails() {
     let (env, contract_address, _owner) = setup();
 

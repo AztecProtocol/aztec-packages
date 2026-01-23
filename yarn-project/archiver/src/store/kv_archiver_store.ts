@@ -1,12 +1,12 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateCheckpointResult } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2Block, L2BlockHash, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -16,6 +16,7 @@ import type {
   ExecutablePrivateFunctionWithMembershipProof,
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -64,8 +65,9 @@ export class KVArchiverDataStore implements ContractDataSource {
   constructor(
     private db: AztecAsyncKVStore,
     logsMaxPageSize: number = 1000,
+    l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db);
+    this.#blockStore = new BlockStore(db, l1Constants);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -99,6 +101,11 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Closes the underlying data store. */
   public close() {
     return this.db.close();
+  }
+
+  /** Computes the finalized block number based on the proven block number. */
+  getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getFinalizedL2BlockNumber();
   }
 
   /** Looks up a public function name given a selector. */
@@ -232,7 +239,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2BlockNew[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
+  addBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks, opts);
   }
 
@@ -298,21 +305,21 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Returns the block for the given number, or undefined if not exists.
    * @param number - The block number to return.
    */
-  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
+  getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     return this.#blockStore.getBlock(number);
   }
   /**
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
     return this.#blockStore.getBlockByHash(L2BlockHash.fromField(blockHash));
   }
   /**
    * Returns the block for the given archive root, or undefined if not exists.
    * @param archive - The archive root to return.
    */
-  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     return this.#blockStore.getBlockByArchive(archive);
   }
 
@@ -322,7 +329,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
     return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
@@ -385,11 +392,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.addLogs(blocks);
   }
 
-  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
   }
 
@@ -434,24 +441,33 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags);
+      return this.#logStore.getPrivateLogsByTags(tags, page);
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -589,7 +605,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param checkpointNumber Retrieves all blocks for the given checkpoint
    * @returns The collection of blocks for the requested checkpoint if available (undefined otherwise)
    */
-  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined> {
+  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2Block[] | undefined> {
     return this.#blockStore.getBlocksForCheckpoint(checkpointNumber);
   }
 
@@ -600,5 +616,23 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
     return this.#blockStore.getCheckpointData(checkpointNumber);
+  }
+
+  /**
+   * Gets all blocks that have the given slot number.
+   * @param slotNumber - The slot number to search for.
+   * @returns All blocks with the given slot number.
+   */
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
+    return this.#blockStore.getBlocksForSlot(slotNumber);
+  }
+
+  /**
+   * Removes all blocks with block number > blockNumber.
+   * @param blockNumber - The block number to remove after.
+   * @returns The removed blocks (for event emission).
+   */
+  removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    return this.#blockStore.unwindBlocksAfter(blockNumber);
   }
 }

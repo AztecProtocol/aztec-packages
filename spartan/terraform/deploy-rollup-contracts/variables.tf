@@ -194,6 +194,12 @@ variable "AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE" {
   nullable    = true
 }
 
+variable "AZTEC_GOVERNANCE_VOTING_DURATION" {
+  description = "Aztec governance voting duration in seconds"
+  type        = string
+  nullable    = true
+}
+
 variable "AZTEC_MANA_TARGET" {
   description = "Aztec mana target"
   type        = string

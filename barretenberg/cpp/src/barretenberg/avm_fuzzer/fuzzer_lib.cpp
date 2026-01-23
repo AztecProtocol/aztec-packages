@@ -11,7 +11,11 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/uint64_t.hpp"
+#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/mutations/protocol_contracts.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
 #include "barretenberg/common/log.hpp"
@@ -21,6 +25,7 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
+#include "barretenberg/vm2/tracegen_helper.hpp"
 
 using namespace bb::avm2::fuzzer;
 using namespace bb::avm2::simulation;
@@ -45,6 +50,22 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         contract_db.add_contract_instance(contract_address, contract_instance);
     }
 
+    // For protocol contracts, also add instances keyed by canonical address (1-11).
+    // This is needed because protocol contracts are looked up by canonical address,
+    // but the derived address in protocol_contracts.derived_addresses maps to the actual instance.
+    for (size_t i = 0; i < tx_data.protocol_contracts.derived_addresses.size(); ++i) {
+        const auto& derived_address = tx_data.protocol_contracts.derived_addresses[i];
+        if (!derived_address.is_zero()) {
+            // Canonical address is index + 1 (addresses 1-11 map to indices 0-10)
+            AztecAddress canonical_address(static_cast<uint256_t>(i + 1));
+            // Find the instance for this derived address and also add it by canonical address
+            auto maybe_instance = contract_db.get_contract_instance(derived_address);
+            if (maybe_instance.has_value()) {
+                contract_db.add_contract_instance(canonical_address, maybe_instance.value());
+            }
+        }
+    }
+
     // Register contract addresses in the world state
     for (const auto& addr : tx_data.contract_addresses) {
         ws_mgr.register_contract_address(addr);
@@ -54,6 +75,8 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     for (const auto& write : tx_data.public_data_writes) {
         ws_mgr.public_data_write(write);
     }
+
+    ws_mgr.append_note_hashes(tx_data.note_hashes);
 }
 
 void fund_fee_payer(FuzzerWorldStateManager& ws_mgr, const Tx& tx)
@@ -79,7 +102,13 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 
     try {
         ws_mgr.checkpoint();
-        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
+        cpp_result = cpp_simulator.simulate(ws_mgr,
+                                            contract_db,
+                                            tx_data.tx,
+                                            tx_data.global_variables,
+                                            tx_data.public_data_writes,
+                                            tx_data.note_hashes,
+                                            tx_data.protocol_contracts);
         fuzz_info("CppSimulator completed without exception");
         fuzz_info("CppSimulator result: ", cpp_result);
         ws_mgr.revert();
@@ -95,7 +124,13 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     }
 
     ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
+    auto js_result = js_simulator->simulate(ws_mgr,
+                                            contract_db,
+                                            tx_data.tx,
+                                            tx_data.global_variables,
+                                            tx_data.public_data_writes,
+                                            tx_data.note_hashes,
+                                            tx_data.protocol_contracts);
 
     // If the results do not match
     if (!compare_simulator_results(cpp_result, js_result)) {
@@ -114,11 +149,11 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 /// @param ws_mgr The world state manager (should already be forked)
 /// @param contract_db The contract database
 /// @param tx_data The transaction data
-/// @returns 0 on success
+/// @returns the simulation result
 /// @throws An exception if simulation results differ or check_circuit fails
-int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
+TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
-    ProtocolContracts protocol_contracts{};
+    ProtocolContracts& protocol_contracts = tx_data.protocol_contracts;
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
     AvmSimulationHelper helper;
@@ -152,7 +187,7 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
     } catch (const std::exception& e) {
         ws_mgr.revert();
         fuzz_info("simulate_fast_with_existing_ws threw an exception: ", e.what());
-        return 0;
+        return {};
     }
 
     // 2. Run simulate_for_hint_collection
@@ -187,22 +222,23 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
     BB_ASSERT(check_circuit_result,
               "check_circuit returned false in fuzzer with no exception, this indicates a failure");
 #else
-    // In coverage builds, run simulate_for_witgen instead of check_circuit
+    // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit
     vinfo("Running simulate_for_witgen in coverage build (skipping check_circuit)");
     avm2::AvmSimulationHelper simulation_helper;
-    simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    AvmTraceGenHelper tracegen_helper;
+    tracegen::TraceContainer trace;
+    tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
 #endif
 
-    return 0;
+    return fast_result;
 }
 
 // Initialize FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context)
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, FuzzerContext& context)
 {
-    FuzzerData fuzzer_data = generate_fuzzer_data(rng, context);
     FuzzerTxData tx_data = {
-        .input_programs = { fuzzer_data },
         .tx = create_default_tx(MSG_SENDER, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT),
         .global_variables = { .chain_id = CHAIN_ID,
                               .version = VERSION,
@@ -214,11 +250,21 @@ FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& c
                               .gas_fees =
                                   GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS } },
         .protocol_contracts = {},
+        // We can write proper mutations for this. However it might not be of much value since we have variability from
+        // nonrevertible note hashes.
+        .note_hashes = { generate_random_field(rng), generate_random_field(rng), generate_random_field(rng) }
     };
+
+    // TODO(alvaro): This is messy, we mutate when creating default tx data. Maybe we should just remove the mutation
+    // from generate_fuzzer_data altogether.
+    populate_context_from_tx_data(context, tx_data);
+    FuzzerData fuzzer_data = generate_fuzzer_data(rng, context);
+    tx_data.input_programs.push_back(fuzzer_data);
+
     return tx_data;
 }
 
-FuzzerTxData create_default_tx_data(const FuzzerContext& context)
+FuzzerTxData create_default_tx_data(FuzzerContext& context)
 {
     std::mt19937_64 rng(0);
     return create_default_tx_data(rng, context);
@@ -274,11 +320,7 @@ size_t mutate_tx_data(FuzzerContext& context,
         tx_data = create_default_tx_data(rng, context);
     }
 
-    // Mutate the fuzzer data multiple times for better bytecode variety
-    auto num_mutations = std::uniform_int_distribution<uint8_t>(1, 5)(rng);
-    for (uint8_t i = 0; i < num_mutations; i++) {
-        mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
-    }
+    populate_context_from_tx_data(context, tx_data);
 
     // Build up bytecodes, contract classes and instances from the fuzzer data
     tx_data.contract_classes.clear();
@@ -309,8 +351,8 @@ size_t mutate_tx_data(FuzzerContext& context,
 
     // Ensure all enqueued calls have valid contract addresses (not placeholders)
     // We may add more advanced mutation to change contract addresses later, right now we just ensure they are valid
-    auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
     if (!contract_addresses.empty()) {
+        auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
         for (auto& call : tx_data.tx.setup_enqueued_calls) {
             call.request.contract_address = contract_addresses[idx_dist(rng)];
         }
@@ -323,35 +365,49 @@ size_t mutate_tx_data(FuzzerContext& context,
     FuzzerTxDataMutationType mutation_choice = FUZZER_TX_DATA_MUTATION_CONFIGURATION.select(rng);
 
     switch (mutation_choice) {
+    case FuzzerTxDataMutationType::TxFuzzerDataMutation:
+        mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
+        break;
     case FuzzerTxDataMutationType::TxMutation:
         mutate_tx(tx_data.tx, contract_addresses, rng);
         break;
-    case FuzzerTxDataMutationType::BytecodeMutation: {
-        // Mutate bytecode and append public data writes for world state setup
+    case FuzzerTxDataMutationType::BytecodeMutation:
         mutate_bytecode(tx_data.contract_classes,
                         tx_data.contract_instances,
                         tx_data.contract_addresses,
                         tx_data.public_data_writes,
                         rng);
         break;
-    }
+
     case FuzzerTxDataMutationType::ContractClassMutation:
         mutate_contract_classes(tx_data.contract_classes, tx_data.contract_instances, tx_data.contract_addresses, rng);
-        // The fuzzer (like the AVM) assumes that all triplets of contract classes, instances and addresses are in sync
-        // So when we mutate contract classes, we also need to update the corresponding artifacts
-
         break;
-        // case TxDataMutationType::ContractInstanceMutation:
-        //     // Mutations here are likely to cause immediate failure
-        //     break;
-        // case TxDataMutationType::GlobalVariablesMutation:
-        //     break;
-        // case TxDataMutationType::ProtocolContractsMutation:
-        // break;
+    case FuzzerTxDataMutationType::ContractInstanceMutation:
+        mutate_contract_instances(tx_data.contract_instances, tx_data.contract_addresses, rng);
+        break;
+    case FuzzerTxDataMutationType::GlobalVariablesMutation:
+        // This is just mutating the gas values and timestamp
+        mutate_uint64_t(tx_data.global_variables.timestamp, rng, BASIC_UINT64_T_MUTATION_CONFIGURATION);
+        mutate_gas_fees(tx_data.global_variables.gas_fees, rng);
+        break;
+    case FuzzerTxDataMutationType::ProtocolContractsMutation:
+        mutate_protocol_contracts(tx_data.protocol_contracts, tx_data.tx, tx_data.contract_addresses, rng);
+        break;
     }
 
-    // todo: do we need to ensure this or are should we able to process 0 enqueued calls?
-    // Ensure at least 1 app_logic enqueued call exists (mutations may have deleted all)
+    // Clear any protocol contract derived addresses that reference addresses no longer in the contract set.
+    // This can happen when mutations (e.g., ContractClassMutation, ContractInstanceMutation) change contract addresses.
+    // Must run AFTER all mutations since some mutations modify contract_addresses.
+    std::unordered_set<AztecAddress> valid_addresses(tx_data.contract_addresses.begin(),
+                                                     tx_data.contract_addresses.end());
+    for (auto& derived_address : tx_data.protocol_contracts.derived_addresses) {
+        if (!derived_address.is_zero() && !valid_addresses.contains(derived_address)) {
+            derived_address = AztecAddress(0);
+        }
+    }
+
+    // Ensure at least 1 app_logic enqueued call exists (mutations may have deleted all), the public base kernel circuit
+    // guarantees that there is at least 1 enqueued call in an public tx (so this is a valid assumption)
     if (tx_data.tx.app_logic_enqueued_calls.empty() && !contract_addresses.empty()) {
         auto idx = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng);
         std::vector<FF> calldata = {};
@@ -363,6 +419,13 @@ size_t mutate_tx_data(FuzzerContext& context,
                                                                          .calldata_hash = calldata_hash },
                                            .calldata = calldata });
     }
+
+    // Ensure global gas_fees <= max_fees_per_gas (required for compute_effective_gas_fees)
+    // This must run after ANY mutation since TxMutation can reduce max_fees_per_gas
+    tx_data.global_variables.gas_fees.fee_per_da_gas = std::min(
+        tx_data.global_variables.gas_fees.fee_per_da_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+    tx_data.global_variables.gas_fees.fee_per_l2_gas = std::min(
+        tx_data.global_variables.gas_fees.fee_per_l2_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
 
     // Compute effective gas fees matching TS computeEffectiveGasFees
     // This must be done after any mutation that could affect gas settings or global variables
@@ -378,4 +441,31 @@ size_t mutate_tx_data(FuzzerContext& context,
     delete[] mutated_serialized_fuzzer_data;
 
     return mutated_serialized_fuzzer_data_size;
+}
+
+void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data)
+{
+    std::vector<std::pair<FF, uint64_t>> note_hash_leaf_index_pairs;
+    note_hash_leaf_index_pairs.reserve(tx_data.note_hashes.size() +
+                                       tx_data.tx.non_revertible_accumulated_data.note_hashes.size());
+
+    // For note hashes we assume we start from an empty tree. We could read size everytime but it'd slow things down.
+    // If you're having trouble with that check initialization on FuzzerWorldStateManager::initialize()
+    uint64_t leaf_offset = 0;
+
+    for (uint64_t i = 0; i < tx_data.note_hashes.size(); ++i) {
+        note_hash_leaf_index_pairs.push_back({ tx_data.note_hashes[i], leaf_offset + i });
+    }
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (tx_data.note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+    leaf_offset += tx_data.note_hashes.size() + padding_leaves;
+
+    for (uint64_t i = 0; i < tx_data.tx.non_revertible_accumulated_data.note_hashes.size(); ++i) {
+        note_hash_leaf_index_pairs.push_back(
+            { tx_data.tx.non_revertible_accumulated_data.note_hashes[i], leaf_offset + i });
+    }
+
+    context.set_existing_note_hashes(note_hash_leaf_index_pairs);
+
+    context.set_existing_contract_addresses(tx_data.contract_addresses);
 }

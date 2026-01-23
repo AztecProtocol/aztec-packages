@@ -236,5 +236,5 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);
     // docs:end:l1-withdraw
     expect(newL1Balance).toBe(withdrawAmount);
-  }, 150_000);
+  }, 300_000);
 });

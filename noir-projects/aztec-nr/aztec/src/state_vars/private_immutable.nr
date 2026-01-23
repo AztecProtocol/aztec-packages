@@ -5,7 +5,7 @@ use crate::{
         lifecycle::create_note,
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
-        note_message::NoteMessage,
+        NoteMessage,
     },
     oracle::notes::check_nullifier_exists,
     state_vars::owned_state_variable::OwnedStateVariable,
@@ -85,8 +85,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a [NoteEmission] that
-    /// allows you to decide what method of note message delivery to use.
+    /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a
+    /// [crate::note::note_message::NoteMessage] that allows you to decide what method of note message delivery to use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
@@ -118,12 +118,12 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
-        let retrieved_note = get_note(self.context, Option::some(self.owner), storage_slot).0;
+        let confirmed_note = get_note(self.context, Option::some(self.owner), storage_slot);
 
         // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
         // has already constrained the note (by pushing a read request to the context), we can return just the note
-        // and skip the additional data in RetrievedNote.
-        retrieved_note.note
+        // and skip the additional data in HintedNote.
+        confirmed_note.note
     }
 }
 

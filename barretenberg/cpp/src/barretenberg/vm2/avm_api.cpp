@@ -72,8 +72,7 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi)
 
 AvmAPI::AvmVerificationKey AvmAPI::get_verification_key()
 {
-    AvmProvingHelper proving_helper;
-    return proving_helper.get_verification_key();
+    return AvmAPI::AvmVerificationKey();
 }
 
 } // namespace bb::avm2

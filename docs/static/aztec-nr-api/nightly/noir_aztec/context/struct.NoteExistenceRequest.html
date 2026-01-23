@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct NoteExistenceRequest documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteExistenceRequest</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct NoteExistenceRequest</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#for_pending">for_pending</a></li>
+<li><a href="#for_settled">for_settled</a></li>
+</ul>
+<h2>In module context</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="calls/index.html">calls</a></div></li>
+<li><a href="gas/index.html">gas</a></div></li>
+<li><a href="inputs/index.html">inputs</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteExistenceRequest.html">NoteExistenceRequest</a></div></li>
+<li><a href="struct.PrivateContext.html">PrivateContext</a></div></li>
+<li><a href="struct.PublicContext.html">PublicContext</a></div></li>
+<li><a href="struct.ReturnsHash.html">ReturnsHash</a></div></li>
+<li><a href="struct.UtilityContext.html">UtilityContext</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
+<h1>Struct <span id="struct" class="struct">NoteExistenceRequest</span></h1>
+<pre><code>pub struct NoteExistenceRequest
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>A request to assert the existence of a note.</p>
+<p>Used by <a href="../../noir_aztec/context/struct.PrivateContext.html#assert_note_exists">crate::context::PrivateContext::assert_note_exists</a>.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.NoteExistenceRequest.html" class="struct">NoteExistenceRequest</a></code></h3>
+
+<div class="padded-methods"><code id="for_pending" class="code-header">pub fn <a href="#for_pending"><span class="fn">for_pending</span></a>(unsiloed_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates an existence request for a pending note.</p>
+<p>Pending notes have not been yet assigned a nonce, and they therefore have no unique note hash. Instead, these
+requests are created using the unsiloed note hash (i.e. from
+<a href="../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_note_hash">crate::note::note_interface::NoteHash::compute_note_hash</a>) and address of the contract that created the note.</p></div>
+</div><code id="for_settled" class="code-header">pub fn <a href="#for_settled"><span class="fn">for_settled</span></a>(unique_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates an existence request for a settled note.</p>
+<p>Unlike pending notes, settled notes have a nonce, and their existence request is created using the unique note
+hash.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

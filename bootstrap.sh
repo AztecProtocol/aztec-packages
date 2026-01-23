@@ -133,9 +133,10 @@ function check_toolchains {
   local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
-    # This can be removed once the AMI is updated.
-    nvm install --lts && nvm alias default lts/*
+    encourage_dev_container
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
+    exit 1
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
@@ -149,14 +150,15 @@ function check_toolchains {
 }
 
 function versions {
-  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
-  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
-  local node_version=$(node --version | cut -d 'v' -f 2)
-  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
-  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
-  local zig_version=$(zig version)
-  local rustc_version=$(rustc --version | cut -d' ' -f2)
-  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
   echo "noir: $noir_version"
   echo "foundry: $anvil_version"
   echo "node: $node_version"
@@ -363,6 +365,7 @@ function build {
   )
   # These projects can be built in parallel.
   parallel_cmds=(
+    yarn-project/end-to-end/bootstrap.sh
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
@@ -717,6 +720,15 @@ case "$cmd" in
     export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
+    ;;
+  ##########################################
+  # ROLLUP UPGRADE DEPLOYMENT              #
+  ##########################################
+  "ci-deploy-rollup-upgrade")
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address> [KEY=VALUE...]
+    export CI=1
+    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
   ##############################################

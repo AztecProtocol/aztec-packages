@@ -11,6 +11,9 @@ function build {
   # errors and prevent warnings
   echo_stderr "Checking aztec-nr for warnings..."
   $NARGO check --deny-warnings
+
+  # We also check that no docstring links are broken
+  $NARGO doc --check
 }
 
 function test_cmds {

@@ -448,7 +448,7 @@ When documentation references source code files, the CI system can automatically
 
 **How it works:**
 
-1. **Mark Referenced Files**: Add a `references` field to your documentation frontmatter with paths to source files (from repository root):
+1. **Mark Referenced Files**: Add a `references` field to your documentation frontmatter with paths to source files or directories (from repository root):
 
    ```yaml
    ---
@@ -457,10 +457,19 @@ When documentation references source code files, the CI system can automatically
    ---
    ```
 
+   To reference all files in a directory, use `/*` suffix:
+
+   ```yaml
+   ---
+   title: Function Context
+   references: ["noir-projects/aztec-nr/aztec/src/context/*"]
+   ---
+   ```
+
 2. **Automatic Detection**: During CI builds (`bootstrap.sh`), the system:
 
-   - Extracts all referenced files from documentation frontmatter
-   - Checks if any referenced files changed in the current PR
+   - Extracts all referenced paths from documentation frontmatter
+   - Checks if any referenced files (or files within referenced directories) changed in the current PR
    - Automatically requests `@AztecProtocol/devrel` as reviewers if:
      - The PR is not a draft
      - DevRel team is not already requested
@@ -473,7 +482,10 @@ When documentation references source code files, the CI system can automatically
 
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which runs as part of the docs CI pipeline.
 
-**Path Format**: Reference paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`).
+**Path Format**:
+- Paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`)
+- For individual files: `"path/to/file.ts"`
+- For directories (all files within): `"path/to/directory/*"`
 
 ## Contributing
 

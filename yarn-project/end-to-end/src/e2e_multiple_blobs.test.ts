@@ -5,6 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -91,7 +92,7 @@ describe('e2e_multiple_blobs', () => {
 
     const block = (await aztecNode.getBlock(blockNumber))!;
 
-    const numBlobFields = block.getCheckpointBlobFields().length;
+    const numBlobFields = encodeCheckpointBlobDataFromBlocks([block.toBlockBlobData()]).length;
     const numBlobs = Math.ceil(numBlobFields / FIELDS_PER_BLOB);
     logger.info(
       `Block ${blockNumber} has ${provenTxs.length} txs, which produce ${numBlobFields} blob fields in ${numBlobs} blobs.`,

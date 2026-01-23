@@ -89,13 +89,16 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
      *  C(in(X)...) =
      *      ( z_perm(X) + lagrange_first(X) )*P(X)
      *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
-     * where P(X) = Prod_{i=0:4} numerator_polynomial_i(X) + γ
-     *       Q(X) = Prod_{i=0:4} ordered_range_constraint_i(X) + γ
+     * where P(X) = Prod_{i=0:4} (numerator_polynomial_i(X) + lagrange_masking * β + γ)
+     *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_masking * β + γ)
      * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
      * extra numerator
      *
      * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that should contain
-     * masking values, expected to be at the same indices both for the ordered and interleaved polynomials.
+     * masking values, expected to be at the same indices both for the ordered and interleaved polynomials. The
+     * lagrange_masking * β term ensures that masking positions contribute unique values to the grand product,
+     * preventing information leakage about the underlying witness values at those positions.
+     *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....

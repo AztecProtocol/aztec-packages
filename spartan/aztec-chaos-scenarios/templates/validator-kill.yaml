@@ -13,6 +13,7 @@ spec:
   action: pod-kill
   mode: fixed-percent
   value: {{ .Values.validatorKill.percent | quote }}
+  duration: {{ .Values.validatorKill.duration | quote }}
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}

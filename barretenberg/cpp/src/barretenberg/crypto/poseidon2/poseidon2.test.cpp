@@ -28,9 +28,7 @@ TEST(Poseidon2, HashBasicTests)
     EXPECT_NE(r0, r2);
 }
 
-// N.B. these hardcoded values were extracted from the algorithm being tested. These are NOT independent test vectors!
-// TODO(@zac-williamson #3132): find independent test vectors we can compare against! (very hard to find given
-// flexibility of Poseidon's parametrisation)
+// Independent test vectors are validated via differential testing in stdlib/hash/poseidon2/poseidon2.test.cpp
 TEST(Poseidon2, HashConsistencyCheck)
 {
     fr a(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));

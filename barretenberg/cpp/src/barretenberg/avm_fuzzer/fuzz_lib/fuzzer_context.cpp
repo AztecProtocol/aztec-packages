@@ -73,10 +73,29 @@ FF FuzzerContext::register_contract_from_bytecode(const std::vector<uint8_t>& by
     return contract_address;
 }
 
+std::optional<std::pair<FF, uint64_t>> FuzzerContext::get_existing_note_hash(size_t index) const
+{
+    if (existing_note_hashes_.size() == 0) {
+        return std::nullopt;
+    }
+    return existing_note_hashes_[index % existing_note_hashes_.size()];
+}
+
+void FuzzerContext::set_existing_note_hashes(std::span<const std::pair<FF, uint64_t>> note_hashes)
+{
+    existing_note_hashes_.assign(note_hashes.begin(), note_hashes.end());
+}
+
+void FuzzerContext::set_existing_contract_addresses(std::span<const AztecAddress> contract_addresses)
+{
+    contract_addresses_.assign(contract_addresses.begin(), contract_addresses.end());
+}
+
 void FuzzerContext::reset()
 {
     contract_addresses_.clear();
     contract_db_ = std::make_unique<FuzzerContractDB>();
+    existing_note_hashes_.clear();
 }
 
 } // namespace bb::avm2::fuzzer

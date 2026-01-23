@@ -1,7 +1,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/srs/global_crs.hpp"

@@ -1,4 +1,4 @@
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -10,7 +10,7 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { L2BlockNew, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ExecutablePrivateFunctionWithMembershipProof,
@@ -32,6 +32,14 @@ enum Operation {
   Delete,
 }
 
+/** Result of adding checkpoints with information about any pruned blocks. */
+type ReconcileCheckpointsResult = {
+  /** Blocks that were pruned due to conflict with L1 checkpoints. */
+  prunedBlocks: L2Block[] | undefined;
+  /** Last block number that was already inserted locally, or undefined if none. */
+  lastAlreadyInsertedBlockNumber: BlockNumber | undefined;
+};
+
 /** Archiver helper module to handle updates to the data store. */
 export class ArchiverDataStoreUpdater {
   private readonly log = createLogger('archiver:store_updater');
@@ -47,10 +55,7 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
-  public addBlocksWithContractData(
-    blocks: L2BlockNew[],
-    pendingChainValidationStatus?: ValidateCheckpointResult,
-  ): Promise<boolean> {
+  public addBlocks(blocks: L2Block[], pendingChainValidationStatus?: ValidateCheckpointResult): Promise<boolean> {
     return this.store.transactionAsync(async () => {
       await this.store.addBlocks(blocks);
 
@@ -68,32 +73,136 @@ export class ArchiverDataStoreUpdater {
   }
 
   /**
+   * Reconciles local blocks with incoming checkpoints from L1.
    * Adds checkpoints to the store with contract class/instance extraction from logs.
+   * Prunes any local blocks that conflict with checkpoint data (by comparing archive roots).
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events,
    * and individually broadcasted functions from the checkpoint block logs.
    *
    * @param checkpoints - The published checkpoints to add.
    * @param pendingChainValidationStatus - Optional validation status to set.
-   * @returns True if the operation is successful.
+   * @returns Result with information about any pruned blocks.
    */
-  public addCheckpointsWithContractData(
+  public setNewCheckpointData(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
-  ): Promise<boolean> {
+  ): Promise<ReconcileCheckpointsResult> {
     return this.store.transactionAsync(async () => {
-      await this.store.addCheckpoints(checkpoints);
-      const allBlocks = checkpoints.flatMap((ch: PublishedCheckpoint) => ch.checkpoint.blocks);
+      // Before adding checkpoints, check for conflicts with local blocks if any
+      const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
-      const opResults = await Promise.all([
+      await this.store.addCheckpoints(checkpoints);
+
+      // Filter out blocks that were already inserted via addBlocks() to avoid duplicating logs/contract data
+      const newBlocks = checkpoints
+        .flatMap((ch: PublishedCheckpoint) => ch.checkpoint.blocks)
+        .filter(b => lastAlreadyInsertedBlockNumber === undefined || b.number > lastAlreadyInsertedBlockNumber);
+
+      await Promise.all([
         // Update the pending chain validation status if provided
         pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
         // Add any logs emitted during the retrieved blocks
-        this.store.addLogs(allBlocks),
+        this.store.addLogs(newBlocks),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-        ...allBlocks.map(block => this.addBlockDataToDB(block)),
+        ...newBlocks.map(block => this.addBlockDataToDB(block)),
       ]);
 
-      return opResults.every(Boolean);
+      return { prunedBlocks, lastAlreadyInsertedBlockNumber };
+    });
+  }
+
+  /**
+   * Checks for local proposed blocks that do not match the ones to be checkpointed and prunes them.
+   * This method handles multiple checkpoints but returns after pruning the first conflict found.
+   * This is correct because pruning from the first conflict point removes all subsequent blocks,
+   * and when checkpoints are added afterward, they include all the correct blocks.
+   */
+  private async pruneMismatchingLocalBlocks(checkpoints: PublishedCheckpoint[]): Promise<ReconcileCheckpointsResult> {
+    const [lastCheckpointedBlockNumber, lastBlockNumber] = await Promise.all([
+      this.store.getCheckpointedL2BlockNumber(),
+      this.store.getLatestBlockNumber(),
+    ]);
+
+    // Exit early if there are no local uncheckpointed blocks
+    if (lastBlockNumber === lastCheckpointedBlockNumber) {
+      return { prunedBlocks: undefined, lastAlreadyInsertedBlockNumber: undefined };
+    }
+
+    // Get all uncheckpointed local blocks
+    const uncheckpointedLocalBlocks = await this.store.getBlocks(
+      BlockNumber.add(lastCheckpointedBlockNumber, 1),
+      lastBlockNumber - lastCheckpointedBlockNumber,
+    );
+
+    let lastAlreadyInsertedBlockNumber: BlockNumber | undefined;
+
+    for (const publishedCheckpoint of checkpoints) {
+      const checkpointBlocks = publishedCheckpoint.checkpoint.blocks;
+      const slot = publishedCheckpoint.checkpoint.slot;
+      const localBlocksInSlot = uncheckpointedLocalBlocks.filter(b => b.slot === slot);
+
+      if (checkpointBlocks.length === 0) {
+        this.log.warn(`Checkpoint ${publishedCheckpoint.checkpoint.number} for slot ${slot} has no blocks`);
+        continue;
+      }
+
+      // Find the first checkpoint block that conflicts with an existing local block and prune local afterwards
+      for (const checkpointBlock of checkpointBlocks) {
+        const blockNumber = checkpointBlock.number;
+        const existingBlock = localBlocksInSlot.find(b => b.number === blockNumber);
+        const blockInfos = {
+          existingBlock: existingBlock?.toBlockInfo(),
+          checkpointBlock: checkpointBlock.toBlockInfo(),
+        };
+
+        if (!existingBlock) {
+          this.log.verbose(`No local block found for checkpointed block number ${blockNumber}`, blockInfos);
+        } else if (existingBlock.archive.root.equals(checkpointBlock.archive.root)) {
+          this.log.verbose(`Block number ${blockNumber} already inserted and matches checkpoint`, blockInfos);
+          lastAlreadyInsertedBlockNumber = blockNumber;
+        } else {
+          this.log.warn(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
+          const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
+          return { prunedBlocks, lastAlreadyInsertedBlockNumber };
+        }
+      }
+
+      // If local has more blocks than the checkpoint (e.g., local has [2,3,4] but checkpoint has [2,3]),
+      // we need to prune the extra local blocks so they match what was checkpointed
+      const lastCheckpointBlockNumber = checkpointBlocks.at(-1)!.number;
+      const lastLocalBlockNumber = localBlocksInSlot.at(-1)?.number;
+
+      if (lastLocalBlockNumber !== undefined && lastLocalBlockNumber > lastCheckpointBlockNumber) {
+        this.log.warn(
+          `Local chain for slot ${slot} ends at block ${lastLocalBlockNumber} but checkpoint ends at ${lastCheckpointBlockNumber}. Pruning blocks after block ${lastCheckpointBlockNumber}.`,
+        );
+        const prunedBlocks = await this.removeBlocksAfter(lastCheckpointBlockNumber);
+        return { prunedBlocks, lastAlreadyInsertedBlockNumber };
+      }
+    }
+
+    return { prunedBlocks: undefined, lastAlreadyInsertedBlockNumber };
+  }
+
+  /**
+   * Removes all blocks strictly after the specified block number and cleans up associated contract data.
+   * This handles removal of provisionally added blocks along with their contract classes/instances.
+   *
+   * @param blockNumber - Remove all blocks with number greater than this.
+   * @returns The removed blocks.
+   */
+  public removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    return this.store.transactionAsync(async () => {
+      // First get the blocks to be removed so we can clean up contract data
+      const removedBlocks = await this.store.removeBlocksAfter(blockNumber);
+
+      // Clean up contract data and logs for the removed blocks
+      await Promise.all([
+        this.store.deleteLogs(removedBlocks),
+        ...removedBlocks.map(block => this.removeBlockDataFromDB(block)),
+      ]);
+
+      return removedBlocks;
     });
   }
 
@@ -106,10 +215,7 @@ export class ArchiverDataStoreUpdater {
    * @param checkpointsToUnwind - The number of checkpoints to unwind.
    * @returns True if the operation is successful.
    */
-  public async unwindCheckpointsWithContractData(
-    from: CheckpointNumber,
-    checkpointsToUnwind: number,
-  ): Promise<boolean> {
+  public async unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
     if (checkpointsToUnwind <= 0) {
       throw new Error(`Cannot unwind ${checkpointsToUnwind} blocks`);
     }
@@ -132,22 +238,8 @@ export class ArchiverDataStoreUpdater {
     const opResults = await Promise.all([
       // Prune rolls back to the last proven block, which is by definition valid
       this.store.setPendingChainValidationStatus({ valid: true }),
-      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-      ...blocks.map(async block => {
-        const contractClassLogs = block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-        // ContractInstancePublished event logs are broadcast in privateLogs.
-        const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-        const publicLogs = block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
-
-        return (
-          await Promise.all([
-            this.updatePublishedContractClasses(contractClassLogs, block.number, Operation.Delete),
-            this.updateDeployedContractInstances(privateLogs, block.number, Operation.Delete),
-            this.updateUpdatedContractInstances(publicLogs, block.header.globalVariables.timestamp, Operation.Delete),
-          ])
-        ).every(Boolean);
-      }),
-
+      // Remove contract data for all blocks being unwound
+      ...blocks.map(block => this.removeBlockDataFromDB(block)),
       this.store.deleteLogs(blocks),
       this.store.unwindCheckpoints(from, checkpointsToUnwind),
     ]);
@@ -155,21 +247,30 @@ export class ArchiverDataStoreUpdater {
     return opResults.every(Boolean);
   }
 
-  /**
-   * Extracts and stores contract data from a single block.
-   */
-  private async addBlockDataToDB(block: L2BlockNew): Promise<boolean> {
+  /** Extracts and stores contract data from a single block. */
+  private addBlockDataToDB(block: L2Block): Promise<boolean> {
+    return this.editContractBlockData(block, Operation.Store);
+  }
+
+  /** Removes contract data associated with a block. */
+  private removeBlockDataFromDB(block: L2Block): Promise<boolean> {
+    return this.editContractBlockData(block, Operation.Delete);
+  }
+
+  /** Adds or remove contract data associated with a block. */
+  private async editContractBlockData(block: L2Block, operation: Operation): Promise<boolean> {
     const contractClassLogs = block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-    // ContractInstancePublished event logs are broadcast in privateLogs.
     const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
     const publicLogs = block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
     return (
       await Promise.all([
-        this.updatePublishedContractClasses(contractClassLogs, block.number, Operation.Store),
-        this.updateDeployedContractInstances(privateLogs, block.number, Operation.Store),
-        this.updateUpdatedContractInstances(publicLogs, block.header.globalVariables.timestamp, Operation.Store),
-        this.storeBroadcastedIndividualFunctions(contractClassLogs, block.number),
+        this.updatePublishedContractClasses(contractClassLogs, block.number, operation),
+        this.updateDeployedContractInstances(privateLogs, block.number, operation),
+        this.updateUpdatedContractInstances(publicLogs, block.header.globalVariables.timestamp, operation),
+        operation === Operation.Store
+          ? this.storeBroadcastedIndividualFunctions(contractClassLogs, block.number)
+          : Promise.resolve(true),
       ])
     ).every(Boolean);
   }

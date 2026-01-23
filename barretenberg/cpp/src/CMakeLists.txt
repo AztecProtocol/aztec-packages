@@ -126,8 +126,11 @@ if(NOT FUZZING AND NOT WASM)
 endif()
 
 if(FUZZING_AVM)
-    add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
+    if(FUZZING)
+        # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
+        add_subdirectory(barretenberg/world_state)
+        add_subdirectory(barretenberg/vm2)
+    endif()
     add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 

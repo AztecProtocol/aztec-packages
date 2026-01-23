@@ -145,7 +145,7 @@ template <typename Builder_> class field_t {
     mutable uint32_t witness_index = IS_CONSTANT;
 
   public:
-    mutable OriginTag tag{};
+    mutable OriginTag tag;
 
     field_t(Builder* parent_context = nullptr);
     field_t(Builder* parent_context, const bb::fr& value);
@@ -155,7 +155,9 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
@@ -163,15 +165,18 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     field_t(const unsigned int value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
@@ -179,7 +184,9 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
@@ -187,7 +194,9 @@ template <typename Builder_> class field_t {
         , additive_constant(value)
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // Construct a constant circuit element from a uint256t, that is implicitly converted to a native field element
     field_t(const uint256_t& value)
@@ -195,7 +204,9 @@ template <typename Builder_> class field_t {
         , additive_constant(value)
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     field_t(const witness_t<Builder>& value);
 

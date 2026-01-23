@@ -227,6 +227,11 @@ tests:
     owners:
       - *adam
 
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+    error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
+    owners:
+      - *adam
+
   # boxes
   - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
@@ -343,11 +348,6 @@ tests:
     owners:
       - *spyros
 
-  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
-    error_regex: "1:PARITY_BASE"
-    owners:
-      - *alex
-
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
   - regex: "playground/scripts/run_test.sh"
@@ -361,3 +361,8 @@ tests:
     error_regex: "tried to kill container, but did not receive an exit event"
     owners:
       - *adam
+
+  - regex: "cd l1-contracts && forge test"
+    error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
+    owners:
+      - *lasse

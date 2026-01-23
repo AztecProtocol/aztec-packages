@@ -1,14 +1,16 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
-import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { UtilityContext } from '../noir-structs/utility_context.js';
@@ -65,14 +67,21 @@ export interface IUtilityExecutionOracle {
   utilityGetUtilityContext(): UtilityContext;
   utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
   utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance>;
-  utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined>;
+  utilityGetNoteHashMembershipWitness(
+    blockHash: L2BlockHash,
+    leafValue: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
+  utilityGetArchiveMembershipWitness(
+    blockHash: L2BlockHash,
+    leafValue: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
   utilityGetNullifierMembershipWitness(
-    blockNumber: BlockNumber,
+    blockHash: L2BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetPublicDataWitness(blockNumber: BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  utilityGetPublicDataWitness(blockHash: L2BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
   utilityGetLowNullifierMembershipWitness(
-    blockNumber: BlockNumber,
+    blockHash: L2BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
@@ -102,9 +111,9 @@ export interface IUtilityExecutionOracle {
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
   utilityStorageRead(
+    blockHash: L2BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
-    blockNumber: BlockNumber,
     numberOfElements: number,
   ): Promise<Fr[]>;
   utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;

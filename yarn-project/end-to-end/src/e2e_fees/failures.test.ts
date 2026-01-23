@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
 import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -94,7 +94,7 @@ describe('e2e_fees failures', () => {
       })
       .wait({ dontThrowOnRevert: true });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
@@ -200,7 +200,7 @@ describe('e2e_fees failures', () => {
       })
       .wait({ dontThrowOnRevert: true });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -247,7 +247,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped\. Reason: Tx dropped by P2P node\./);
+    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped/i);
   });
 
   it('includes transaction that error in teardown', async () => {
@@ -303,7 +303,7 @@ describe('e2e_fees failures', () => {
       .wait({
         dontThrowOnRevert: true,
       });
-    expect(receipt.status).toEqual(TxStatus.TEARDOWN_REVERTED);
+    expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(

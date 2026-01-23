@@ -10,7 +10,8 @@ The interfaces `L2BlockSource`, `L2LogsSource`, and `ContractDataSource` define 
 
 The archiver emits events for other subsystems to react to state changes:
 
-- **`L2PruneDetected`**: Emitted before unwinding checkpoints due to epoch prune. Contains the epoch number and affected blocks. Subscribers (e.g., world-state) use this to prepare for the unwind.
+- **`L2PruneUnproven`**: Emitted before unwinding checkpoints due to epoch prune. Contains the epoch number and affected blocks. Subscribers (e.g., world-state) use this to prepare for the unwind.
+- **`L2PruneUncheckpointed`**: Emitted when provisional blocks are pruned due to checkpoint mismatch or slot expiration. Contains the slot number and affected blocks.
 - **`L2BlockProven`**: Emitted when the proven checkpoint advances. Contains the block number, slot, and epoch.
 - **`InvalidAttestationsCheckpointDetected`**: Emitted when a checkpoint with invalid attestations is encountered during sync.
 
@@ -29,6 +30,7 @@ sync()
 └── syncFromL1()
     ├── handleL1ToL2Messages()  # Sync messages from Inbox contract
     ├── handleCheckpoints()     # Sync checkpoints from Rollup contract
+    ├── pruneUncheckpointedBlocks()  # Prune provisional blocks from expired slots
     ├── handleEpochPrune()      # Proactive unwind before proof window expires
     └── checkForNewCheckpointsBeforeL1SyncPoint()  # Handle L1 reorg edge case
 ```
@@ -89,6 +91,21 @@ archiver.addBlock(block);  // Queues block for processing
 
 Queued blocks are processed at the start of each sync iteration. This allows the sequencer to make blocks available locally before checkpoint publication. This is used to make the `proposed` chain (ie blocks that have been broadcasted via p2p but not checkpointed on L1) available to consumers.
 
+Blocks added via `addBlock()` are considered "provisional" until they appear in an L1 checkpoint. These provisional blocks may need to be reconciled when:
+- **Checkpoint mismatch**: A checkpoint lands on L1 with different blocks than stored locally (e.g., a different proposer won the slot)
+- **Slot expiration**: An L2 slot ends without any checkpoint being mined on L1
+
+When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Both cases emit `L2PruneUncheckpointed`.
+
+### Querying Block Data
+
+When querying the archiver, be aware of the distinction between proposed and checkpointed blocks:
+
+- `getBlockHeader('latest')` / `getBlockNumber()`: Returns the latest block **including** proposed blocks
+- `getCheckpointedL2BlockNumber()`: Returns only the count of **checkpointed** blocks (synced from L1)
+
+Use checkpointed queries when the result must reflect L1 state (e.g., determining if an epoch is complete for proving). Use `'latest'` when you need the most recent block regardless of L1 confirmation (e.g., serving RPC queries to users).
+
 ### Edge Cases
 
 #### L1 Reorgs
@@ -115,7 +132,7 @@ This handles the case where an epoch's proof submission window has passed withou
 **Example**: The proven checkpoint is 10, and pending checkpoints 11-15 exist locally. The proof submission window for the epoch containing checkpoint 11 will expire. On sync:
 1. Archiver calls `canPruneAtTime()` with the next L1 block's timestamp — returns true
 2. Archiver unwinds checkpoints 11-15
-3. Emits `L2PruneDetected` event so subscribed subsystems can react
+3. Emits `L2PruneUnproven` event so subscribed subsystems can react
 4. Local state now shows checkpoint 10 as latest
 
 #### Checkpoints Behind Syncpoint

@@ -1,6 +1,5 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -8,6 +7,7 @@ import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { L2Block } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierSecretKey,

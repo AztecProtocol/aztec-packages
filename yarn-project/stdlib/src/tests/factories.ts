@@ -87,7 +87,6 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHeader } from '../block/l2_block_header.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -911,30 +910,7 @@ export function makeBlockHeader(
   });
 }
 
-export function makeL2BlockHeader(
-  seed = 0,
-  blockNumber?: number,
-  slotNumber?: number,
-  overrides: Partial<FieldsOf<L2BlockHeader>> = {},
-) {
-  return new L2BlockHeader(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    overrides?.blobsHash ?? fr(seed + 0x200),
-    overrides?.inHash ?? fr(seed + 0x300),
-    overrides?.epochOutHash ?? fr(seed + 0x400),
-    overrides?.state ?? makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber !== undefined ? { blockNumber: BlockNumber(blockNumber) } : {}),
-      ...(slotNumber !== undefined ? { slotNumber: SlotNumber(slotNumber) } : {}),
-    }),
-    new Fr(seed + 0x800),
-    new Fr(seed + 0x900),
-    new Fr(seed + 0xa00),
-    new Fr(seed + 0xb00),
-  );
-}
-
-export function makeCheckpointHeader(seed = 0) {
+export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<CheckpointHeader>> = {}) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
@@ -947,6 +923,7 @@ export function makeCheckpointHeader(seed = 0) {
     feeRecipient: makeAztecAddress(seed + 0x600),
     gasFees: makeGasFees(seed + 0x700),
     totalManaUsed: fr(seed + 0x800),
+    ...overrides,
   });
 }
 
@@ -1762,7 +1739,7 @@ export function makeL2Tips(
       ? typeof checkpointNumber === 'number'
         ? CheckpointNumber(checkpointNumber)
         : checkpointNumber
-      : CheckpointNumber(bn);
+      : CheckpointNumber.fromBlockNumber(bn);
   const cph = checkpointHash ?? hash;
   return {
     proposed: { number: bn, hash },

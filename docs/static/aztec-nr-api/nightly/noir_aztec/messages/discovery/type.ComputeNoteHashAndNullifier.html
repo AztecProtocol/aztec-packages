@@ -55,7 +55,7 @@ contract. The <code>#[aztec]</code> macro automatically creates such a contract 
 
         <span class="kw">let</span> note_hash = note.compute_note_hash(owner, storage_slot, randomness);
         <span class="kw">let</span> note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-            RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
+            HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
             storage_slot
         );
 

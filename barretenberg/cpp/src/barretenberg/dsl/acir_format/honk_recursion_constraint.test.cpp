@@ -72,7 +72,7 @@ class HonkRecursionConstraintTestingFunctions {
         }
 
         return true;
-    });
+    }());
 
     // Check that if IsRootRollup is true, then we set the parameters correctly
     static_assert([]() {
@@ -81,7 +81,7 @@ class HonkRecursionConstraintTestingFunctions {
         }
 
         return true;
-    });
+    }());
 
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
@@ -171,23 +171,24 @@ class HonkRecursionConstraintTestingFunctions {
     {
         // Lambda to offset the recursion constraint by the current size of the witness vector
         auto offset_recursion_constraint = [](RecursionConstraint& honk_recursion_constraint, const size_t offset) {
-            auto shift_by_offset = [&offset](std::vector<uint32_t>& indices) {
-                for (auto& witness_idx : indices) {
-                    witness_idx += offset;
+            uint32_t uint32_offset = static_cast<uint32_t>(offset);
+            auto shift_by_offset = [&uint32_offset](std::vector<uint32_t>& indices) {
+                for (auto& index : indices) {
+                    index += uint32_offset;
                 }
             };
 
             shift_by_offset(honk_recursion_constraint.key);
             shift_by_offset(honk_recursion_constraint.proof);
             shift_by_offset(honk_recursion_constraint.public_inputs);
-            honk_recursion_constraint.key_hash += offset;
-            honk_recursion_constraint.predicate.index += offset;
+            honk_recursion_constraint.key_hash += uint32_offset;
+            honk_recursion_constraint.predicate.index += uint32_offset;
         };
 
         for (auto [constraint, witnesses] : zip_view(constraints, witness_vectors)) {
             offset_recursion_constraint(constraint, witness_values.size());
             // If this is the root rollup, we need to set the proof type to ROOT_ROLLUP_HONK
-            constraint.proof_type = IsRootRollup ? ROOT_ROLLUP_HONK : constraint.proof_type;
+            constraint.proof_type = IsRootRollup ? static_cast<uint32_t>(ROOT_ROLLUP_HONK) : constraint.proof_type;
             witness_values.insert(witness_values.end(), witnesses.begin(), witnesses.end());
         }
 
@@ -308,8 +309,7 @@ class HonkRecursionConstraintTestingFunctions {
                     RecursionConstraint recursion_constraint = constraints[idx];
                     WitnessVector witnesses = witness_vectors[idx];
 
-                    AcirFormat acir_format = constraint_to_acir_format(
-                        recursion_constraint, /*max_witness_index=*/static_cast<uint32_t>(witnesses.size()) - 1);
+                    AcirFormat acir_format = constraint_to_acir_format(recursion_constraint);
 
                     AcirProgram acir_program{ .constraints = acir_format, .witness = witnesses };
 
@@ -396,8 +396,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursio
         auto [updated_constraint, updated_witness_values] =
             TestFixture::update_witness_based_on_predicate(constraint, witness_values, predicate);
 
-        AcirFormat constraint_system = constraint_to_acir_format(
-            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirFormat constraint_system = constraint_to_acir_format(updated_constraint);
 
         AcirProgram program{ constraint_system, updated_witness_values };
         ProgramMetadata metadata = TestFixture::Base::generate_metadata();
@@ -487,8 +486,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
     WitnessVector witness_values;
     TestFixture::Base::generate_constraints(constraint, witness_values);
 
-    AcirFormat constraint_system =
-        constraint_to_acir_format(constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
+    AcirFormat constraint_system = constraint_to_acir_format(constraint);
 
     AcirProgram program{ constraint_system, witness_values };
     ProgramMetadata metadata = TestFixture::Base::generate_metadata();

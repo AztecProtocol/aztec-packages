@@ -15,10 +15,9 @@ import {
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult, type TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
@@ -38,7 +37,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   let artifact: ContractArtifact;
   let contractClass: ContractClassWithId & ContractClassIdPreimage;
-  let publicationTxReceipt: FieldsOf<TxReceipt>;
+  let publicationTxReceipt: TxReceipt;
 
   beforeAll(async () => {
     ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
@@ -180,7 +179,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           // Contract instance deployed event is emitted via private logs.
           const blockNumber = await aztecNode.getBlockNumber();
 
-          const logs = (await aztecNode.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
+          const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs();
 
           expect(logs.length).toBe(1);
 
@@ -218,7 +217,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .increment_public_value(whom, 10)
             .send({ from: defaultAccountAddress })
             .wait({ dontThrowOnRevert: true });
-          expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
 
           // Meanwhile we check we didn't increment the value
           expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
@@ -265,7 +264,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .public_constructor(whom, 43)
             .send({ from: defaultAccountAddress })
             .wait({ dontThrowOnRevert: true });
-          expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
           expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
         });
 
@@ -320,7 +319,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         .increment_public_value_no_init_check(whom, 10)
         .send({ from: defaultAccountAddress })
         .wait({ dontThrowOnRevert: true });
-      expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+      expect(tx.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
     });
   });
 });

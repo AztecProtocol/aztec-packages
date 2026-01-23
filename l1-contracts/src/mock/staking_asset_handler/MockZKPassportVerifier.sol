@@ -7,10 +7,11 @@ pragma solidity >=0.8.27;
 // solhint-disable ordering
 // solhint-disable func-param-name-leading-underscore
 
-import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
+import {ProofVerificationParams} from "@zkpassport/Types.sol";
+import {ZKPassportHelper} from "@zkpassport/ZKPassportHelper.sol";
 
 interface IZKPassportVerifier {
-  function verifyProof(ProofVerificationParams calldata params) external returns (bool, bytes32);
+  function verify(ProofVerificationParams calldata params) external returns (bool, bytes32, ZKPassportHelper);
   function verifyScopes(bytes32[] calldata publicInputs, string calldata domain, string calldata scope)
     external
     returns (bool);
@@ -20,8 +21,8 @@ interface IZKPassportVerifier {
 contract MockZKPassportVerifier is IZKPassportVerifier {
   uint256 public uniqueIdentifier = 1;
 
-  function verifyProof(ProofVerificationParams calldata) external view returns (bool, bytes32) {
-    return (true, bytes32(uniqueIdentifier));
+  function verify(ProofVerificationParams calldata) external view returns (bool, bytes32, ZKPassportHelper) {
+    return (true, bytes32(uniqueIdentifier), ZKPassportHelper(address(0)));
   }
 
   function verifyScopes(bytes32[] calldata, string calldata, string calldata) external pure returns (bool) {

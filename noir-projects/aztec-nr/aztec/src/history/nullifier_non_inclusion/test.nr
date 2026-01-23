@@ -1,4 +1,5 @@
 use crate::history::{
+    note_inclusion::ProveNoteInclusion,
     nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion},
     test,
 };
@@ -10,26 +11,28 @@ use dep::protocol_types::{
 
 #[test]
 unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification() {
-    let (env, retrieved_note) = test::create_note_and_nullify_it();
+    let (env, hinted_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT - 1),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_not_nullified(retrieved_note, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_not_nullified(confirmed_note, context);
         },
     );
 }
 
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fails() {
-    let (env, retrieved_note) = test::create_note_and_nullify_it();
+    let (env, hinted_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_not_nullified(retrieved_note, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_not_nullified(confirmed_note, context);
         },
     );
 }

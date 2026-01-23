@@ -17,7 +17,7 @@ import {
   type ArchiverEmitter,
   type CheckpointId,
   GENESIS_CHECKPOINT_HEADER_HASH,
-  L2BlockNew,
+  L2Block,
   type L2BlockSink,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -46,7 +46,7 @@ export type { ArchiverEmitter };
 
 /** Request to add a block to the archiver, queued for processing by the sync loop. */
 type AddBlockRequest = {
-  block: L2BlockNew;
+  block: L2Block;
   resolve: () => void;
   reject: (err: Error) => void;
 };
@@ -64,7 +64,7 @@ export type ArchiverDeps = {
  * concern themselves with it.
  */
 export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Traceable {
-  /** Event emitter for archiver events (L2BlockProven, L2PruneDetected, etc). */
+  /** Event emitter for archiver events (L2BlockProven, L2PruneUnproven, L2PruneUncheckpointed, etc). */
   public readonly events: ArchiverEmitter;
 
   /** A loop in which we will be continually fetching new checkpoints. */
@@ -187,7 +187,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param block - The L2 block to add.
    * @returns A promise that resolves when the block has been added to the store, or rejects on error.
    */
-  public addBlock(block: L2BlockNew): Promise<void> {
+  public addBlock(block: L2Block): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.blockQueue.push({ block, resolve, reject });
       this.log.debug(`Queued block ${block.number} for processing`);
@@ -215,7 +215,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Process each block individually to properly resolve/reject each promise
     for (const { block, resolve, reject } of queuedItems) {
       try {
-        await this.updater.addBlocksWithContractData([block]);
+        await this.updater.addBlocks([block]);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
@@ -323,8 +323,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
-    // The epoch is complete if the current L2 block is the last one in the epoch (or later)
-    const header = await this.getBlockHeader('latest');
+    // The epoch is complete if the current checkpointed L2 block is the last one in the epoch (or later).
+    // We use the checkpointed block number (synced from L1) instead of 'latest' to avoid returning true
+    // prematurely when proposed blocks have been pushed to the archiver but not yet checkpointed on L1.
+    const checkpointedBlockNumber = await this.getCheckpointedL2BlockNumber();
+    const header = checkpointedBlockNumber > 0 ? await this.getBlockHeader(checkpointedBlockNumber) : undefined;
     const slot = header ? header.globalVariables.slotNumber : undefined;
     const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
     if (slot && slot >= endSlot) {
@@ -356,27 +359,25 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
-    return this.updater.unwindCheckpointsWithContractData(from, checkpointsToUnwind);
+    return this.updater.unwindCheckpoints(from, checkpointsToUnwind);
   }
 
-  public addCheckpoints(
+  /** Used by TXE to add checkpoints directly without syncing from L1. */
+  public async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    return this.updater.addCheckpointsWithContractData(checkpoints, pendingChainValidationStatus);
+    await this.updater.setNewCheckpointData(checkpoints, pendingChainValidationStatus);
+    return true;
   }
 
   public async getL2Tips(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber] = await Promise.all([
+    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
       this.getBlockNumber(),
       this.getProvenBlockNumber(),
-      this.getCheckpointedBlockNumber(),
+      this.getCheckpointedL2BlockNumber(),
+      this.getFinalizedL2BlockNumber(),
     ] as const);
-
-    // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
-    // We just force it 2 epochs worth of proven data for now.
-    // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
-    const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2, 0));
 
     const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
@@ -423,14 +424,12 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Now attempt to retrieve checkpoints for proven, finalised and checkpointed blocks
     const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
       provenCheckpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
+        ? await this.getCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
         : [undefined],
       finalizedCheckpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
+        ? await this.getCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
         : [undefined],
-      checkpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(checkpointedBlock?.checkpointNumber, 1)
-        : [undefined],
+      checkpointedBlock !== undefined ? await this.getCheckpoints(checkpointedBlock?.checkpointNumber, 1) : [undefined],
     ]);
 
     const initialcheckpointId: CheckpointId = {
@@ -504,7 +503,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
     const targetL1BlockHash = Buffer32.fromString(targetL1Block.hash);
     this.log.info(`Unwinding ${blocksToUnwind} checkpoints from L2 block ${currentL2Block}`);
-    await this.updater.unwindCheckpointsWithContractData(CheckpointNumber(currentL2Block), blocksToUnwind);
+    await this.updater.unwindCheckpoints(CheckpointNumber.fromBlockNumber(currentL2Block), blocksToUnwind);
     this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);

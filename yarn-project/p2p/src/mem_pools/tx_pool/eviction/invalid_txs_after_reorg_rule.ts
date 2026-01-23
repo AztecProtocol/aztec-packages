@@ -1,7 +1,7 @@
 import { findIndexInSortedArray, insertIntoSortedArray } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -26,7 +26,7 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
 
   private log = createLogger('p2p:mempool:tx_pool:invalid_txs_after_reorg_rule');
 
-  public constructor(private worldState: ReadonlyWorldStateAccess) {}
+  public constructor(private worldState: WorldStateSynchronizer) {}
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     if (context.event !== EvictionEvent.CHAIN_PRUNED) {
@@ -46,6 +46,8 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
         insertIntoSortedArray(uniqueBlockHashes, blockHash, Fr.cmp, false);
       });
 
+      // Ensure world state is synced to this block before accessing the snapshot.
+      await this.worldState.syncImmediate(context.blockNumber);
       const db = this.worldState.getSnapshot(context.blockNumber);
       const blocksFromDb = await db.findLeafIndices(MerkleTreeId.ARCHIVE, uniqueBlockHashes);
 

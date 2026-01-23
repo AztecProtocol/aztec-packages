@@ -297,7 +297,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
 void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::lte");
-    constexpr auto opcode = ExecutionOpCode::LT;
+    constexpr auto opcode = ExecutionOpCode::LTE;
     auto& memory = context.get_memory();
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
@@ -1113,13 +1113,18 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
  *
  * @param context The context.
  * @param slot_addr The resolved address of the slot value.
+ * @param contract_address_addr The resolved address of the contract address to read from.
  * @param dst_addr The resolved address of the output memory value.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - the slot tag is not FF.
+ *        - the contract_address tag is not FF.
  * @throws OutOfGasException if the gas limit is exceeded.
  */
-void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
+void Execution::sload(ContextInterface& context,
+                      MemoryAddress slot_addr,
+                      MemoryAddress contract_address_addr,
+                      MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::sload");
     constexpr auto opcode = ExecutionOpCode::SLOAD;
@@ -1127,11 +1132,12 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
     auto& memory = context.get_memory();
 
     const auto& slot = memory.get(slot_addr);
-    set_and_validate_inputs(opcode, { slot });
+    const auto& contract_address = memory.get(contract_address_addr);
+    set_and_validate_inputs(opcode, { slot, contract_address });
 
     get_gas_tracker().consume_gas();
 
-    auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
+    auto value = MemoryValue::from<FF>(merkle_db.storage_read(contract_address.as<AztecAddress>(), slot.as<FF>()));
 
     memory.set(dst_addr, value);
     set_output(opcode, value);
@@ -1771,7 +1777,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
             instruction = context.get_bytecode_manager().read_instruction(pc);
 
             debug("@", pc, " ", instruction.to_string());
-            context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
+            context.set_next_pc(pc + static_cast<PC>(instruction.size_in_bytes()));
             // next_pc is overwritten in dispatch_opcode() for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
 
             // Resolve the operands.
@@ -1885,6 +1891,9 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .parent_cd_size = parent_context.get_parent_cd_size(),
         .parent_gas_used = parent_context.get_parent_gas_used(),
         .parent_gas_limit = parent_context.get_parent_gas_limit(),
+        .internal_call_id = parent_context.get_internal_call_stack_manager().get_call_id(),
+        .internal_call_return_id = parent_context.get_internal_call_stack_manager().get_return_call_id(),
+        .next_internal_call_id = parent_context.get_internal_call_stack_manager().get_next_call_id(),
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Non-tree-tracked side effects
@@ -2145,7 +2154,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
         // This helper handles operand conversion. In particular it converts enums to their underlying type first.
-        auto convert_operand = []<typename T>(const Operand& op) -> T {
+        [[maybe_unused]] auto convert_operand = []<typename T>(const Operand& op) -> T {
             if constexpr (std::is_enum_v<T>) {
                 return static_cast<T>(op.to<std::underlying_type_t<T>>());
             } else {

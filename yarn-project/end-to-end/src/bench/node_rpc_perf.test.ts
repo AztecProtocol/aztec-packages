@@ -107,7 +107,6 @@ describe('e2e_node_rpc_perf', () => {
   let epoch: EpochNumber;
   let contractAddress: AztecAddress;
   let contractClassId: Fr;
-  let blockHash: Fr;
   let blockArchive: Fr;
   const txHashes: TxHash[] = [];
   let tokenContract: TokenContract;
@@ -170,7 +169,6 @@ describe('e2e_node_rpc_perf', () => {
 
     // Get block hash and archive for benchmarking getBlockByHash/getBlockByArchive
     const block = await aztecNode.getBlock(BlockNumber(blockNumber));
-    blockHash = await block!.hash();
     blockArchive = block!.header.lastArchive.root;
 
     // Create a sample tx for benchmarking simulation/validation APIs
@@ -312,29 +310,17 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getPublishedBlocks (5 blocks)', async () => {
+    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getPublishedBlocks', () => aztecNode.getPublishedBlocks(fromBlock, 5));
-      addResult('getPublishedBlocks_5', stats);
+      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
+      addResult('getCheckpointedBlocks_5', stats);
       expect(stats.avg).toBeLessThan(5000);
-    });
-
-    it('benchmarks getBlockByHash', async () => {
-      const { stats } = await benchmark('getBlockByHash', () => aztecNode.getBlockByHash(blockHash));
-      addResult('getBlockByHash', stats);
-      expect(stats.avg).toBeLessThan(3000);
     });
 
     it('benchmarks getBlockByArchive', async () => {
       const { stats } = await benchmark('getBlockByArchive', () => aztecNode.getBlockByArchive(blockArchive));
       addResult('getBlockByArchive', stats);
       expect(stats.avg).toBeLessThan(3000);
-    });
-
-    it('benchmarks getBlockHeaderByHash', async () => {
-      const { stats } = await benchmark('getBlockHeaderByHash', () => aztecNode.getBlockHeaderByHash(blockHash));
-      addResult('getBlockHeaderByHash', stats);
-      expect(stats.avg).toBeLessThan(2000);
     });
 
     it('benchmarks getBlockHeaderByArchive', async () => {

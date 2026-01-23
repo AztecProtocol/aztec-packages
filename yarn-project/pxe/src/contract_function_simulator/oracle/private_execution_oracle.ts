@@ -14,6 +14,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
@@ -46,7 +47,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
+import { ensureContractSynced, executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -265,7 +266,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
+      const anchorBlockHash = L2BlockHash.fromField(await this.anchorBlockHeader.hash());
+      await syncSenderTaggingIndexes(
+        secret,
+        this.contractAddress,
+        this.aztecNode,
+        this.senderTaggingStore,
+        anchorBlockHash,
+        this.jobId,
+      );
 
       const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
@@ -356,7 +365,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -519,9 +528,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.aztecNode, this.contractStore, this.anchorBlockHeader);
-
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
+    await ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      this.utilityExecutor,
+      this.aztecNode,
+      this.contractStore,
+      this.anchorBlockHeader,
+    );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,

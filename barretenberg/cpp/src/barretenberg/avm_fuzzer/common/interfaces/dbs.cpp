@@ -250,4 +250,14 @@ void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::P
     ws->update_public_data(public_data, fork_id);
 }
 
+void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
+{
+    auto fork_id = fork_ids.top();
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, note_hashes, fork_id);
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)), fork_id);
+}
+
 } // namespace bb::avm2::fuzzer

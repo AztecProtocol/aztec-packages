@@ -9,39 +9,21 @@ Distributed locking and slashing protection for Aztec validators running in high
 - **Automatic Retry**: Failed signing attempts are cleared, allowing other nodes to retry
 - **PostgreSQL Backend**: Shared database for coordination across nodes
 
-## Quick Start
+## Integration with Validator Client
 
-### Option 1: Automatic Migrations (Simplest)
+The HA signer is automatically integrated into the validator client when `VALIDATOR_HA_SIGNING_ENABLED=true` is set. The validator client will:
 
-```typescript
-import { createHASigner } from '@aztec/validator-ha-signer/factory';
+1. Create the HA signer using `createHASigner()` from the factory
+2. Wrap the base keystore with `HAKeyStore` to provide HA-protected signing
+3. Automatically start/stop the signer lifecycle
 
-// Migrations run automatically on startup
-const { signer, db } = await createHASigner({
-  databaseUrl: process.env.DATABASE_URL,
-  enabled: true,
-  nodeId: 'validator-node-1',
-  pollingIntervalMs: 100,
-  signingTimeoutMs: 3000,
-});
+No manual integration is required when using the validator client.
 
-// Start background cleanup tasks
-signer.start();
+## Manual Usage
 
-// Sign with protection
-const signature = await signer.signWithProtection(
-  validatorAddress,
-  messageHash,
-  { slot: 100n, blockNumber: 50n, dutyType: 'BLOCK_PROPOSAL' },
-  async root => localSigner.signMessage(root),
-);
+For advanced use cases or testing, you can use the HA signer directly. **Note**: Database migrations must be run separately before creating the signer (see [Database Migrations](#database-migrations) below).
 
-// Cleanup on shutdown
-await signer.stop();
-await db.close();
-```
-
-### Option 2: Manual Migrations (Recommended for Production)
+### Basic Usage
 
 ```bash
 # 1. Run migrations separately (once per deployment)
@@ -54,7 +36,7 @@ import { createHASigner } from '@aztec/validator-ha-signer/factory';
 
 const { signer, db } = await createHASigner({
   databaseUrl: process.env.DATABASE_URL,
-  enabled: true,
+  haSigningEnabled: true,
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
   signingTimeoutMs: 3000,
@@ -62,6 +44,14 @@ const { signer, db } = await createHASigner({
 
 // Start background cleanup tasks
 signer.start();
+
+// Sign with protection
+const signature = await signer.signWithProtection(
+  validatorAddress,
+  messageHash,
+  { slot: 100n, blockNumber: 50n, blockIndexWithinCheckpoint: 0, dutyType: 'BLOCK_PROPOSAL' },
+  async root => localSigner.signMessage(root),
+);
 
 // On shutdown
 await signer.stop();
@@ -73,7 +63,7 @@ await db.close();
 If you need custom pool configuration (e.g., max connections, idle timeout) or want to share a connection pool across multiple components:
 
 > **Note**: You still need to run migrations separately before using this approach.
-> See [Option 2](#option-2-manual-migrations-recommended-for-production) above.
+> See [Database Migrations](#database-migrations) below.
 
 ```typescript
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
@@ -91,11 +81,11 @@ const db = new PostgresSlashingProtectionDatabase(pool);
 await db.initialize();
 
 const signer = new ValidatorHASigner(db, {
-  enabled: true,
+  haSigningEnabled: true,
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
   signingTimeoutMs: 3000,
-  maxStuckDutiesAgeMs: 72000,
+  maxStuckDutiesAgeMs: 144000,
 });
 
 // Start background cleanup tasks
@@ -111,11 +101,15 @@ await pool.end(); // You manage the pool lifecycle
 Set via environment variables or config object:
 
 - `VALIDATOR_HA_DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://user:pass@host:port/db`)
-- `SLASHING_PROTECTION_ENABLED`: Whether slashing protection is enabled (default: true)
-- `SLASHING_PROTECTION_NODE_ID`: Unique identifier for this validator node
-- `SLASHING_PROTECTION_POLLING_INTERVAL_MS`: How often to check duty status (default: 100)
-- `SLASHING_PROTECTION_SIGNING_TIMEOUT_MS`: Max wait for in-progress signing (default: 3000)
-- `SLASHING_PROTECTION_MAX_STUCK_DUTIES_AGE_MS`: Max age of stuck duties before cleanup (default: 72000)
+- `VALIDATOR_HA_SIGNING_ENABLED`: Whether HA signing / slashing protection is enabled (default: false)
+- `VALIDATOR_HA_NODE_ID`: Unique identifier for this validator node (required when enabled)
+- `VALIDATOR_HA_POLLING_INTERVAL_MS`: How often to check duty status (default: 100)
+- `VALIDATOR_HA_SIGNING_TIMEOUT_MS`: Max wait for in-progress signing (default: 3000)
+- `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS`: Max age of stuck duties before cleanup (default: 2 \* aztecSlotDuration)
+- `VALIDATOR_HA_POOL_MAX`: Maximum number of connections in the pool (default: 10)
+- `VALIDATOR_HA_POOL_MIN`: Minimum number of connections in the pool (default: 0)
+- `VALIDATOR_HA_POOL_IDLE_TIMEOUT_MS`: Idle timeout for pool connections (default: 10000)
+- `VALIDATOR_HA_POOL_CONNECTION_TIMEOUT_MS`: Connection timeout (default: 0, no timeout)
 
 ## Database Migrations
 
@@ -170,8 +164,19 @@ When multiple validator nodes attempt to sign:
 
 1. First node acquires lock and signs
 2. Other nodes receive `DutyAlreadySignedError` (expected)
-3. If different data detected: `SlashingProtectionError` (likely for block builder signing)
+3. If different data detected: `SlashingProtectionError` (prevents slashing)
 4. Failed attempts are auto-cleaned, allowing retry
+
+### Signing Context
+
+All signing operations require a `SigningContext` that includes:
+
+- `slot`: The slot number
+- `blockNumber`: The block number within the checkpoint
+- `blockIndexWithinCheckpoint`: The index of the block within the checkpoint (use `-1` for N/A contexts)
+- `dutyType`: The type of duty (e.g., `BLOCK_PROPOSAL`, `CHECKPOINT_ATTESTATION`, `AUTH_REQUEST`)
+
+Note: `AUTH_REQUEST` duties bypass HA protection since signing multiple times is safe for authentication requests.
 
 ## Development
 

@@ -95,7 +95,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 target_compile_options(
                     ${MODULE_NAME}_objects
                     PRIVATE
-                    -fsanitize-coverage-allowlist=${CMAKE_SOURCE_DIR}/cmake/fuzzing-avm-allowlist.txt
                     -fsanitize-coverage-ignorelist=${CMAKE_SOURCE_DIR}/cmake/fuzzing-avm-ignorelist.txt
                 )
             endif()

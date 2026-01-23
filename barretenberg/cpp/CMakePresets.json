@@ -297,6 +297,21 @@
       }
     },
     {
+      "name": "fuzzing-avm-tooling",
+      "displayName": "Build fuzzer tooling without instrumentation",
+      "description": "Build fuzzer tests and utilities like corpus analyzer without fuzzer instrumentation",
+      "inherits": "clang20",
+      "binaryDir": "build-fuzzing-avm-tooling",
+      "cacheVariables": {
+        "FUZZING": "OFF",
+        "DISABLE_ASM": "OFF",
+        "AVM_TRANSPILER_LIB": "",
+        "FUZZING_AVM": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "ON"
+      }
+    },
+    {
       "name": "smt-verification",
       "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
@@ -615,6 +630,11 @@
       "configurePreset": "fuzzing-avm"
     },
     {
+      "name": "fuzzing-avm-tooling",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm-tooling"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang20",
       "configurePreset": "gperftools"
@@ -649,21 +669,29 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm.gz"]
+      "targets": [
+        "barretenberg.wasm.gz"
+      ]
     },
     {
       "name": "wasm-threads-dbg",
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb"]
+      "targets": [
+        "barretenberg.wasm",
+        "bb"
+      ]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm.gz", "ecc_tests"]
+      "targets": [
+        "barretenberg.wasm.gz",
+        "ecc_tests"
+      ]
     },
     {
       "name": "xray",

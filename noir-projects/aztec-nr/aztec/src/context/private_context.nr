@@ -1,7 +1,5 @@
 use crate::{
-    context::{
-        inputs::PrivateContextInputs, note_hash_read::NoteHashRead, returns_hash::ReturnsHash,
-    },
+    context::{inputs::PrivateContextInputs, NoteExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
@@ -47,7 +45,7 @@ use dep::protocol_types::{
     messaging::l2_to_l1_message::L2ToL1Message,
     side_effect::{Counted, scoped::Scoped},
     traits::{Empty, Hash, ToField},
-    utils::arrays::{ClaimedLengthArray, find_first_index, trimmed_array_length_hint},
+    utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
 
 /// # PrivateContext
@@ -180,8 +178,8 @@ pub struct PrivateContext {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
@@ -732,110 +730,60 @@ impl PrivateContext {
         self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
     }
 
-    /// Makes a request to the protocol's kernel circuit to ensure a note_hash
-    /// actually exists.
+    /// Asserts that a note has been created.
     ///
-    /// "Read requests" are used to prove that a note hash exists without
-    /// revealing which specific note was read.
+    /// This function will cause the transaction to fail unless the requested note exists. This is the preferred
+    /// mechanism for performing this check, and the only one that works for pending notes.
     ///
-    /// This can be used to prove existence of both settled notes (created in
-    /// prior transactions) and pending notes (created in the current
-    /// transaction).
-    /// If you need to prove existence of a settled note _at a specific block
-    /// number_, use `note_inclusion::prove_note_inclusion`.
+    /// ## Pending Notes
     ///
-    /// Low-level function. Ordinarily, smart contract developers will not need
-    /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
-    /// are designed to understand when to create and push new note_hash read
-    /// requests.
+    /// Both settled notes (created in prior transactions) and pending notes (created in the current transaction) will
+    /// be considered by this function. Pending notes must have been created **before** this call is made for the check
+    /// to pass.
     ///
-    /// # Arguments
-    /// * `note_hash_read` - The note hash to read and verify
+    /// ## Historical Notes
     ///
-    /// # Advanced
-    /// In "traditional" circuits for non-Aztec privacy applications, the merkle
-    /// membership proofs to check existence of a note are performed _within_
-    /// the application circuit.
+    /// If you need to assert that a note existed _at some specific time in the past_, instead of simply proving that it
+    /// exists in the current anchor block, use
+    /// [crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion] instead.
     ///
-    /// All Aztec private functions have access to the following constraint
-    /// optimisation:
-    /// In cases where the note being read was created earlier in the same tx,
-    /// the note wouldn't yet exist in the Note Hash Tree, so a hard-coded
-    /// merkle membership check which then gets ignored would be a waste of
-    /// constraints.
-    /// Instead, we can send read requests for all notes to the protocol's
-    /// kernel circuits, where we can conditionally assess which notes actually
-    /// need merkle membership proofs, and select an appropriately-sized
-    /// kernel circuit.
+    /// ## Cost
     ///
-    /// For "settled notes" (which already existed in the Note Hash Tree of the
-    /// anchor block (i.e. before the tx began)), the kernel does a merkle
-    /// membership check.
-    ///
-    /// For "pending notes" (which were created earlier in _this_ tx), the
-    /// kernel will check that the note existed _before_ this read request was
-    /// made, by checking the side-effect counters of the note_hash and this
-    /// read request.
-    ///
-    /// This approach improves latency between writes and reads:
-    /// a function can read a note which was created earlier in the tx (rather
-    /// than performing the read in a later tx, after waiting for the earlier tx
-    /// to be included, to ensure the note is included in the tree).
-    ///
-    pub fn push_note_hash_read_request(&mut self, note_hash_read: NoteHashRead) {
-        let note_hash = note_hash_read.note_hash();
-        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+    /// This uses up one of the call's kernel note hash read requests, which are limited. Like all kernel requests,
+    /// proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
+    /// an additional invocation of the kernel reset circuit.
+    pub fn assert_note_exists(&mut self, note_existence_request: NoteExistenceRequest) {
+        // Note that the `note_hash_read_requests` array does not hold `NoteExistenceRequest` objects, but rather a
+        // custom kernel type. We convert from the aztec-nr type into it.
+
+        let note_hash = note_existence_request.note_hash();
+        let contract_address =
+            note_existence_request.maybe_contract_address().unwrap_or(AztecAddress::zero());
+
         let side_effect = Scoped::new(
             Counted::new(note_hash, self.next_counter()),
             contract_address,
         );
+
         self.note_hash_read_requests.push(side_effect);
     }
 
-    /// Asserts that a NoteHashRead has been requested to the kernel by this context.
-    /// Asserts instead of returning a boolean to save on gates.
+    /// Asserts that a nullifier has been emitted.
     ///
-    /// # Arguments
-    /// * `note_hash_read` - The note hash read to assert that has been requested.
-    ///
-    pub fn assert_has_been_requested(self, note_hash_read: NoteHashRead) {
-        let note_hash = note_hash_read.note_hash();
-        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
-
-        // Safety: The index is constrained by the checks below.
-        let hinted_index = unsafe {
-            find_first_index(
-                self.note_hash_read_requests.storage(),
-                |r| (r.contract_address == contract_address) & (r.innermost() == note_hash),
-            )
-        };
-        // This assertion is not necessary, since the .get would fail. But it enables us to have a more explicit error message.
-        assert(
-            hinted_index != self.note_hash_read_requests.max_len(),
-            "Note hash read has not been requested",
-        );
-
-        let request = self.note_hash_read_requests.get(hinted_index);
-        assert_eq(request.contract_address, contract_address);
-        assert_eq(request.innermost(), note_hash);
-    }
-
-    /// Requests the private kernel to ensure an `unsiloed_nullifier` has been emitted by `contract_address`, failing
-    /// the transaction otherwise.
-    ///
-    /// Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
-    /// [crate::hash::compute_siloed_nullifier] with the emitting contract's address.
+    /// This function will cause the transaction to fail unless the requested nullifier exists. This is the preferred
+    /// mechanism for performing this check, and the only one that works for pending nullifiers.
     ///
     /// ## Pending Nullifiers
     ///
     /// Both settled nullifiers (emitted in prior transactions) and pending nullifiers (emitted in the current
-    /// transaction) will be considered by this function. This is the **only** mechanism via which it is possible to
-    /// assert that a pending nullifier exists, since those are otherwise hidden from contracts by the kernels.
+    /// transaction) will be considered by this function. Pending nullifiers must have been emitted **before** this call
+    /// is made for the check to pass.
     ///
-    /// The nullifier must have been emitted **before** this call is made for the transaction to not fail.
+    /// ## Historical Nullifiers
     ///
-    /// In order to instead prove existence of a settled nullifier at a specific block number, use
-    /// [crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion].
+    /// If you need to assert that a nullifier existed _at some specific time in the past_, instead of simply proving
+    /// that it exists in the current anchor block, use
+    /// [crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion] instead.
     ///
     /// ## Public vs Private
     ///
@@ -853,7 +801,7 @@ impl PrivateContext {
     /// This uses up one of the call's kernel nullifier read requests, which are limited. Like all kernel requests,
     /// proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
     /// an additional invocation of the kernel reset circuit.
-    pub fn push_nullifier_read_request(
+    pub fn assert_nullifier_exists(
         &mut self,
         unsiloed_nullifier: Field,
         contract_address: AztecAddress,

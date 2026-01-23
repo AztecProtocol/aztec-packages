@@ -8,8 +8,11 @@ replicaCount: 1
 node:
   resources:
     requests:
+      cpu: "0.5"
+      memory: "2Gi"
+    limits:
       cpu: "1.5"
-      memory: "5Gi"
+      memory: "6Gi"
 
 persistence:
   enabled: true
@@ -25,7 +28,7 @@ statefulSet:
         accessModes: [ReadWriteOnce]
         resources:
           requests:
-            storage: "1Ti"
+            storage: "64Gi"
 
 service:
   headless:

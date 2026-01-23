@@ -32,6 +32,7 @@ describe('validateCheckpointAttestations', () => {
       committee,
       seed: 0n,
       epoch: EpochNumber(0),
+      isEscapeHatchOpen: false,
     });
   };
 
@@ -61,6 +62,15 @@ describe('validateCheckpointAttestations', () => {
 
       expect(result.valid).toBe(true);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(0));
+    });
+
+    it('validates a checkpoint if escape hatch is open', async () => {
+      // This should already be covered by the case of empty committee
+      epochCache.isEscapeHatchOpen.mockResolvedValue(true);
+      const checkpoint = await makeCheckpoint(signers, committee);
+      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      expect(result.valid).toBe(true);
+      expect(epochCache.isEscapeHatchOpen).not.toHaveBeenCalled();
     });
   });
 
@@ -176,6 +186,14 @@ describe('validateCheckpointAttestations', () => {
       expect(result.committee).toEqual(committee);
       // The first mismatched attestation should be at index 1
       expect(result.invalidIndex).toBe(1);
+    });
+
+    it('validates a checkpoint if escape hatch is open', async () => {
+      epochCache.isEscapeHatchOpen.mockResolvedValue(true);
+      const checkpoint = await makeCheckpoint(signers, committee);
+      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      expect(result.valid).toBe(true);
+      expect(epochCache.isEscapeHatchOpen).toHaveBeenCalledWith(EpochNumber(0));
     });
   });
 });

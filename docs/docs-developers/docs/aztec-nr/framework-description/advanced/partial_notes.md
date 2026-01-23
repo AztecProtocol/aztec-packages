@@ -2,90 +2,86 @@
 title: Partial Notes
 sidebar_position: 1
 tags: [Developers, Contracts, Notes]
-description: "Learn how partial notes enable private-to-public value transfers when data depends on onchain state."
+description: How partial notes work and how they can be used.
+references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr", "noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
 
-Partial notes are notes created with incomplete data during private execution, which are completed later with additional information that becomes available during public execution.
+## What are Partial Notes?
 
-## Prerequisites
+Partial notes are notes created with incomplete data, usually during private execution, which can be completed with additional information that becomes available later, usually during public execution.
 
-- Understanding of [notes and private state](../how_to_implement_custom_notes.md)
-- Familiarity with [private and public function execution](../../../foundational-topics/call_types.md)
+Let's say, for example, we have a `UintNote`:
 
-## Overview
+#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-Consider a `UintNote`:
+The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
 
-#include_code uint_note_def noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
-
-The struct only contains the `value` field. Additional fields (`owner`, `randomness`, `storage_slot`) are passed as parameters during note hash computation.
-
-When creating a note in private, the `owner` and `storage_slot` are known, but the `value` may not be (e.g., it depends on onchain state). A **partial note** commits to the private fields first, then is _completed_ by adding the `value` field during public execution.
+When creating the note locally during private execution, the `owner` and `storage_slot` are known, but the `value` potentially is not (e.g., it depends on some onchain dynamic variable). First, a **partial note** can be created during private execution that commits to the `owner`, `randomness`, and `storage_slot`, and then the note is *"completed"* to create a full note by later adding the `value` field, usually during public execution.
 
 <Image img={require("@site/static/img/partial-notes.png")} />
 
 ## Use Cases
 
-Partial notes are useful when part of the note depends on dynamic, public onchain data unavailable during private execution:
+Partial notes are useful when a e.g., part of the note struct is a value that depends on dynamic, public onchain data that isn't available during private execution, such as:
 
 - AMM swap prices
 - Current gas prices
 - Time-dependent interest accrual
 
-## Two-Phase Commitment Process
+## Implementation
 
-All notes in Aztec use the partial note format internally. This ensures identical note hashes regardless of whether notes were created complete (all fields known in private) or as partial notes (completed later in public).
+All notes in Aztec use the partial note format internally. This ensures that notes produce identical note hashes regardless of whether they were created as complete notes (with all fields known in private) or as partial notes (completed later in public). By having all notes follow the same two-phase hash commitment process, the protocol maintains consistency and allows notes created through different flows to behave identically.
 
-### Phase 1: Partial Commitment (Private Execution)
+### Note Structure Example
 
-The private fields (`owner`, `randomness`, `storage_slot`) are committed during private execution, creating a `PartialUintNote`:
+The `UintNote` struct contains only the `value` field:
 
-#include_code partial_uint_note_def noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-The commitment is computed as:
+### Two-Phase Commitment Process
 
-#include_code compute_partial_commitment noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+**Phase 1: Partial Commitment (Private Execution)**
 
-This produces: `partial_commitment = H(owner, storage_slot, randomness)`
+The private fields (`owner`, `randomness`, and `storage_slot`) are committed during local, private execution:
 
-### Phase 2: Note Completion (Public Execution)
+#include_code compute_partial_commitment /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+
+This creates a partial note commitment:
+
+```
+partial_commitment = H(owner, storage_slot, randomness)
+```
+
+**Phase 2: Note Completion (Public Execution)**
 
 The note is completed by hashing the partial commitment with the public value:
 
-#include_code compute_complete_note_hash noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code compute_complete_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-The resulting note hash is: `H(partial_commitment, value)`
+The resulting structure is a nested commitment:
 
-### Complete Notes Use the Same Format
+```
+note_hash = H(H(owner, storage_slot, randomness), value)
+          = H(partial_commitment, value)
+```
 
-When a note is created with all fields known, it still follows the same two-phase process internally:
+## Universal Note Format
 
-#include_code compute_note_hash noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+All notes in Aztec use the partial note format internally, even when all data is known during private execution. This ensures consistent note hash computation regardless of how the note was created.
 
-This ensures notes with identical field values produce identical note hashes, regardless of whether they were created as partial or complete notes.
+When a note is created with all fields known (including `owner`, `storage_slot`, `randomness`, and `value`):
 
-## Using Partial Notes
+1. A partial commitment is computed from the private fields (`owner`, `storage_slot`, `randomness`)
+2. The partial commitment is immediately completed with the `value` field
 
-The typical workflow involves two function calls. The [Token contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) demonstrates this pattern:
+#include_code compute_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-**1. Private function**: Create the partial note using `UintNote::partial()`:
+This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.
 
-#include_code prepare_private_balance_increase noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+<Image img={require("@site/static/img/shrek.jpeg")} />
 
-**2. Public function**: Complete the note with the now-known value:
+## Partial Notes in Practice
 
-#include_code finalize_transfer_to_private noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
-
-The `completer` parameter ensures only the authorized address can finalize the note, preventing front-running attacks.
-
-## Example: AMM Contract
-
-The [AMM contract](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/noir-contracts/contracts/app/amm_contract) uses partial notes for token swaps. Since the exchange rate is only known onchain, a partial note is created for the recipient in private, then completed during public execution once the output amount is calculated.
-
-## Next Steps
-
-- [Implement custom notes](../how_to_implement_custom_notes.md) - Learn about note structure and lifecycle
-- [Private and public execution](../../../foundational-topics/call_types.md) - Understand the execution model
-- [Token contract tutorial](../../../tutorials/contract_tutorials/token_contract.md) - See partial notes in a complete example
+To understand how to use partial notes in practice, [this AMM contract](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/noir-contracts/contracts/app/amm_contract) uses partial notes to initiate and complete the swap of `token1` to `token2`. Since the exchange rate is onchain, it cannot be known ahead of time while executing in private so a full note cannot be created. Instead, a partial note is created for the `owner` swapping the tokens. This partial note is then completed during public execution once the exchange rate can be read.

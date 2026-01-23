@@ -67,6 +67,9 @@ function build_src {
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
+    # Output storage information for the escape hatch contract.
+    forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
+
     cache_upload $artifact out cache
   fi
 }
@@ -96,7 +99,7 @@ function build_verifier {
       $(find generated -name '*.sol') \
       test/shouting.t.sol \
       script/deploy/*.s.sol \
-      tests/scripts/*.t.sol
+      test/script/*.t.sol
 
     cache_upload $artifact out cache generated
   fi
@@ -112,6 +115,7 @@ function test_cmds {
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
   echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
+  echo "$hash cd l1-contracts && scripts/test_rollup_upgrade.sh"
   if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
     echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi

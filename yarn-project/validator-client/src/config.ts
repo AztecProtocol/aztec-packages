@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 
@@ -54,10 +55,9 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     ...booleanConfigHelper(true),
   },
   alwaysReexecuteBlockProposals: {
-    env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
-    ...booleanConfigHelper(false),
+    defaultValue: true,
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
@@ -70,11 +70,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip checkpoint proposal validation and always attest (default: true)',
     defaultValue: true,
   },
-  // TODO(palla/mbps): Change default to false once block sync is stable
   skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing re-executed blocks to archiver (default: true)',
-    defaultValue: true,
+    description: 'Skip pushing re-executed blocks to archiver (default: false)',
+    defaultValue: false,
   },
+  ...validatorHASignerConfigMappings,
 };
 
 /**

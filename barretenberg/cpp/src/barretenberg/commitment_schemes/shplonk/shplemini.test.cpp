@@ -1,10 +1,9 @@
 
 #include "shplemini.hpp"
-#include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"
+#include "../pcs_test_utils.hpp"
 #include "../shplonk/shplonk.hpp"
-#include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
@@ -34,7 +33,7 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-    using IPA = IPA<typename Flavor::Curve, log_n>;
+    using IPA = bb::IPA<typename Flavor::Curve, log_n>;
 
     // Witness polynomials array: [0]=Concatenated(G), [1]=GrandSum(A), [2]=unused, [3]=Quotient(Q)
     enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 3 };
@@ -142,7 +141,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
         commitments, scalars, verifier_batched_evaluation, rho);
 
     // Final pairing check
-    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
+    GroupElement shplemini_result = GroupElement::batch_mul(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
               mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
@@ -256,7 +255,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                                                 expected_constant_term_accumulator);
 
     // Compute the group element using the output of Shplemini method
-    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
+    GroupElement shplemini_result = GroupElement::batch_mul(commitments, scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
 }

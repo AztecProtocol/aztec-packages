@@ -305,6 +305,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_parent_cd_size);
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
+    EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+    EXPECT_CALL(internal_call_stack_manager, get_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
     EXPECT_CALL(context, get_side_effect_tracker);
@@ -391,6 +395,10 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_parent_cd_size);
         EXPECT_CALL(context, get_parent_gas_used);
         EXPECT_CALL(context, get_parent_gas_limit);
+        EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+        EXPECT_CALL(internal_call_stack_manager, get_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
         EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
             .WillOnce(Return(written_public_data_slots_tree_snapshot));
         EXPECT_CALL(context, get_side_effect_tracker);
@@ -478,9 +486,9 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
 
 TEST_F(ExecutionSimulationTest, InternalCall)
 {
-    uint32_t pc = 100;        // This is the pc of the current call.
-    uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
-    uint32_t pc_loc = 11;     // This is the pc of the internal call
+    PC pc = 100;        // This is the pc of the current call.
+    PC return_pc = 500; // This is next pc that we should return to after the internal call.
+    PC pc_loc = 11;     // This is the pc of the internal call
 
     NiceMock<MockInternalCallStackManager> internal_call_stack_manager;
     ON_CALL(context, get_internal_call_stack_manager).WillByDefault(ReturnRef(internal_call_stack_manager));
@@ -614,20 +622,22 @@ TEST_F(ExecutionSimulationTest, DebugLog)
 TEST_F(ExecutionSimulationTest, Sload)
 {
     MemoryAddress slot_addr = 27;
+    MemoryAddress contract_address_addr = 28;
     MemoryAddress dst_addr = 10;
     AztecAddress address = 0xdeadbeef;
     auto slot = MemoryValue::from<FF>(42);
+    auto contract_address = MemoryValue::from<AztecAddress>(address);
 
     EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
-    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
+    EXPECT_CALL(memory, get(contract_address_addr)).WillOnce(ReturnRef(contract_address));
     EXPECT_CALL(merkle_db, storage_read(address, slot.as<FF>())).WillOnce(Return(7));
 
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<FF>(7)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    execution.sload(context, slot_addr, dst_addr);
+    execution.sload(context, slot_addr, contract_address_addr, dst_addr);
 }
 
 TEST_F(ExecutionSimulationTest, SStore)

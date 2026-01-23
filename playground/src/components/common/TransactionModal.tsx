@@ -17,13 +17,7 @@ import { trackButtonClick } from '../../utils/matomo';
 import { useWindowSize } from '@uidotdev/usehooks';
 import { colors, commonStyles } from '../../global.styles';
 
-const TX_ERRORS = [
-  'error',
-  TxStatus.APP_LOGIC_REVERTED,
-  TxStatus.TEARDOWN_REVERTED,
-  TxStatus.BOTH_REVERTED,
-  TxStatus.DROPPED,
-];
+const TX_ERRORS = ['error', TxStatus.DROPPED];
 
 const minimizeButton = css({
   position: 'absolute',
@@ -147,7 +141,7 @@ export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; 
     return null;
   }
 
-  const isError = TX_ERRORS.includes(transaction?.status);
+  const isError = TX_ERRORS.includes(transaction?.status) || transaction?.receipt?.hasExecutionReverted();
   const isProving = transaction?.status === 'proving';
   const isSending = transaction?.status === 'sending';
   const isSuccess = transaction?.status === 'success';

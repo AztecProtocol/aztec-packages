@@ -5,6 +5,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
 import readline from 'readline';
+import { threadId } from 'worker_threads';
+
+let instanceCounter = 0;
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -42,7 +45,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
   constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void) {
     // Create a unique socket path in temp directory
-    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
+    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
     // Ensure socket path doesn't already exist (cleanup from previous crashes)
     if (fs.existsSync(this.socketPath)) {

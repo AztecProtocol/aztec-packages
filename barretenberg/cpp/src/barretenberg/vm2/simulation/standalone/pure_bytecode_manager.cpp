@@ -86,7 +86,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     return bytecode_id;
 }
 
-Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
+Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     // The corresponding bytecode is already stored in the cache if we call this routine. This is safe-guarded by the
     // fact that it is added in the cache when we retrieve the bytecode_id.
@@ -95,7 +95,7 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_i
 
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
                                                     std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                                    uint32_t pc)
+                                                    PC pc)
 {
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 

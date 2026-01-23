@@ -1,5 +1,5 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -12,13 +12,14 @@ import {
   Body,
   CheckpointedL2Block,
   CommitteeAttestation,
+  L2Block,
   L2BlockHash,
-  L2BlockNew,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -27,6 +28,7 @@ import {
   TxEffect,
   TxHash,
   TxReceipt,
+  TxStatus,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -111,7 +113,10 @@ export class BlockStore {
 
   #log = createLogger('archiver:block_store');
 
-  constructor(private db: AztecAsyncKVStore) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    private l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
+  ) {
     this.#blocks = db.openMap('archiver_blocks');
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
@@ -125,11 +130,23 @@ export class BlockStore {
   }
 
   /**
+   * Computes the finalized block number based on the proven block number.
+   * A block is considered finalized when it's 2 epochs behind the proven block.
+   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * TODO(palla/mbps): Even the provisional computation is wrong, since it should subtract checkpoints, not blocks
+   * @returns The finalized block number.
+   */
+  async getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    const provenBlockNumber = await this.getProvenBlockNumber();
+    return BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2, 0));
+  }
+
+  /**
    * Append new blocks to the store's list. All blocks must be for the 'current' checkpoint
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: L2BlockNew[], opts: { force?: boolean } = {}): Promise<boolean> {
+  async addBlocks(blocks: L2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
     if (blocks.length === 0) {
       return true;
     }
@@ -182,7 +199,7 @@ export class BlockStore {
       }
 
       // Iterate over blocks array and insert them, checking that the block numbers and indexes are sequential. Also check they are for the correct checkpoint.
-      let previousBlock: L2BlockNew | undefined = undefined;
+      let previousBlock: L2Block | undefined = undefined;
       for (const block of blocks) {
         if (!opts.force && previousBlock) {
           if (previousBlock.number + 1 !== block.number) {
@@ -241,7 +258,7 @@ export class BlockStore {
       }
 
       let previousBlockNumber: BlockNumber | undefined = undefined;
-      let previousBlock: L2BlockNew | undefined = undefined;
+      let previousBlock: L2Block | undefined = undefined;
 
       // If we have a previous checkpoint then we need to get the previous block number
       if (previousCheckpointData !== undefined) {
@@ -322,7 +339,7 @@ export class BlockStore {
     });
   }
 
-  private async addBlockToDatabase(block: L2BlockNew, checkpointNumber: number, indexWithinCheckpoint: number) {
+  private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
     const blockHash = L2BlockHash.fromField(await block.hash());
 
     await this.#blocks.set(block.number, {
@@ -348,6 +365,23 @@ export class BlockStore {
     // Update indices for block hash and archive
     await this.#blockHashIndex.set(blockHash.toString(), block.number);
     await this.#blockArchiveIndex.set(block.archive.root.toString(), block.number);
+  }
+
+  /** Deletes a block and all associated data (tx effects, indices). */
+  private async deleteBlock(block: L2Block): Promise<void> {
+    // Delete the block from the main blocks map
+    await this.#blocks.delete(block.number);
+
+    // Delete all tx effects for this block
+    await Promise.all(block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
+
+    // Delete block txs mapping
+    const blockHash = (await block.hash()).toString();
+    await this.#blockTxs.delete(blockHash);
+
+    // Clean up indices
+    await this.#blockHashIndex.delete(blockHash);
+    await this.#blockArchiveIndex.delete(block.archive.root.toString());
   }
 
   /**
@@ -387,16 +421,11 @@ export class BlockStore {
             this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
             continue;
           }
-          await this.#blocks.delete(block.number);
-          await Promise.all(block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
-          const blockHash = (await block.hash()).toString();
-          await this.#blockTxs.delete(blockHash);
 
-          // Clean up indices
-          await this.#blockHashIndex.delete(blockHash);
-          await this.#blockArchiveIndex.delete(block.archive.root.toString());
-
-          this.#log.debug(`Unwound block ${blockNumber} ${blockHash} for checkpoint ${checkpointNumber}`);
+          await this.deleteBlock(block);
+          this.#log.debug(
+            `Unwound block ${blockNumber} ${(await block.hash()).toString()} for checkpoint ${checkpointNumber}`,
+          );
         }
       }
 
@@ -437,7 +466,7 @@ export class BlockStore {
     return data;
   }
 
-  async getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined> {
+  async getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2Block[] | undefined> {
     const checkpoint = await this.#checkpoints.getAsync(checkpointNumber);
     if (!checkpoint) {
       return undefined;
@@ -452,6 +481,61 @@ export class BlockStore {
 
     const converted = await Promise.all(blocksForCheckpoint.map(x => this.getBlockFromBlockStorage(x[0], x[1])));
     return converted.filter(isDefined);
+  }
+
+  /**
+   * Gets all blocks that have the given slot number.
+   * Iterates backwards through blocks for efficiency since we usually query for the last slot.
+   * @param slotNumber - The slot number to search for.
+   * @returns All blocks with the given slot number, in ascending block number order.
+   */
+  async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
+    const blocks: L2Block[] = [];
+
+    // Iterate backwards through all blocks and filter by slot number
+    // This is more efficient since we usually query for the most recent slot
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync({ reverse: true })) {
+      const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
+      const blockSlot = block?.header.globalVariables.slotNumber;
+      if (block && blockSlot === slotNumber) {
+        blocks.push(block);
+      } else if (blockSlot && blockSlot < slotNumber) {
+        break; // Blocks are stored in slot ascending order, so we can stop searching
+      }
+    }
+
+    // Reverse to return blocks in ascending order (block number order)
+    return blocks.reverse();
+  }
+
+  /**
+   * Removes all blocks with block number > blockNumber.
+   * @param blockNumber - The block number to remove after.
+   * @returns The removed blocks (for event emission).
+   */
+  async unwindBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    return await this.db.transactionAsync(async () => {
+      const removedBlocks: L2Block[] = [];
+
+      // Get the latest block number to determine the range
+      const latestBlockNumber = await this.getLatestBlockNumber();
+
+      // Iterate from blockNumber + 1 to latestBlockNumber
+      for (let bn = blockNumber + 1; bn <= latestBlockNumber; bn++) {
+        const block = await this.getBlock(BlockNumber(bn));
+
+        if (block === undefined) {
+          this.#log.warn(`Cannot remove block ${bn} from the store since we don't have it`);
+          continue;
+        }
+
+        removedBlocks.push(block);
+        await this.deleteBlock(block);
+        this.#log.debug(`Removed block ${bn} ${(await block.hash()).toString()}`);
+      }
+
+      return removedBlocks;
+    });
   }
 
   async getProvenBlockNumber(): Promise<BlockNumber> {
@@ -538,6 +622,7 @@ export class BlockStore {
     }
     return this.getCheckpointedBlock(BlockNumber(blockNumber));
   }
+
   async getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
     const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
     if (blockNumber === undefined) {
@@ -552,7 +637,7 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2BlockNew> {
+  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2Block> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
@@ -566,7 +651,7 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlock(blockNumber: BlockNumber): Promise<L2BlockNew | undefined> {
+  async getBlock(blockNumber: BlockNumber): Promise<L2Block | undefined> {
     const blockStorage = await this.#blocks.getAsync(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return Promise.resolve(undefined);
@@ -579,7 +664,7 @@ export class BlockStore {
    * @param blockHash - The hash of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlockByHash(blockHash: L2BlockHash): Promise<L2BlockNew | undefined> {
+  async getBlockByHash(blockHash: L2BlockHash): Promise<L2Block | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {
       return undefined;
@@ -592,7 +677,7 @@ export class BlockStore {
    * @param archive - The archive root of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
     if (blockNumber === undefined) {
       return undefined;
@@ -668,10 +753,11 @@ export class BlockStore {
   private async getBlockFromBlockStorage(
     blockNumber: number,
     blockStorage: BlockStorage,
-  ): Promise<L2BlockNew | undefined> {
+  ): Promise<L2Block | undefined> {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
+    header.setHash(Fr.fromBuffer(blockHash));
     const blockHashString = bufferToHex(blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {
@@ -691,12 +777,12 @@ export class BlockStore {
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);
     }
     const body = new Body(txEffects);
-    const block = new L2BlockNew(
+    const block = new L2Block(
       archive,
       header,
       body,
       CheckpointNumber(blockStorage.checkpointNumber!),
-      blockStorage.indexWithinCheckpoint,
+      IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
     );
 
     if (block.number !== blockNumber) {
@@ -733,13 +819,34 @@ export class BlockStore {
       return undefined;
     }
 
+    const blockNumber = BlockNumber(txEffect.l2BlockNumber);
+
+    // Use existing archiver methods to determine finalization level
+    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
+      this.getProvenBlockNumber(),
+      this.getCheckpointedL2BlockNumber(),
+      this.getFinalizedL2BlockNumber(),
+    ]);
+
+    let status: TxStatus;
+    if (blockNumber <= finalizedBlockNumber) {
+      status = TxStatus.FINALIZED;
+    } else if (blockNumber <= provenBlockNumber) {
+      status = TxStatus.PROVEN;
+    } else if (blockNumber <= checkpointedBlockNumber) {
+      status = TxStatus.CHECKPOINTED;
+    } else {
+      status = TxStatus.PROPOSED;
+    }
+
     return new TxReceipt(
       txHash,
-      TxReceipt.statusFromRevertCode(txEffect.data.revertCode),
-      '',
+      status,
+      TxReceipt.executionResultFromRevertCode(txEffect.data.revertCode),
+      undefined,
       txEffect.data.transactionFee.toBigInt(),
       txEffect.l2BlockHash,
-      BlockNumber(txEffect.l2BlockNumber),
+      blockNumber,
     );
   }
 

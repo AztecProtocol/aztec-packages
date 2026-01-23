@@ -3,6 +3,7 @@ title: Proving Historic State
 sidebar_position: 15
 tags: [contracts]
 description: Prove historical state and note inclusion in your Aztec smart contracts using the Archive tree.
+references: ["noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr"]
 ---
 
 This guide shows you how to prove historical state transitions and note inclusion using Aztec's Archive tree.
@@ -44,7 +45,7 @@ To prove a note was valid (existed AND wasn't nullified) at a historical block:
 use dep::aztec::history::note_validity::ProveNoteValidity;
 
 let header = self.context.get_anchor_block_header();
-header.prove_note_validity(retrieved_note, &mut self.context);
+header.prove_note_validity(hinted_note, &mut self.context);
 ```
 
 This verifies both:
@@ -57,7 +58,7 @@ To prove against state at a specific past block (not just the anchor block):
 
 ```rust
 let historical_header = self.context.get_block_header_at(block_number);
-historical_header.prove_note_inclusion(retrieved_note);
+historical_header.prove_note_inclusion(hinted_note);
 ```
 
 :::warning
@@ -72,7 +73,7 @@ To prove a note has been spent/nullified:
 use dep::aztec::history::nullifier_inclusion::ProveNoteIsNullified;
 
 let header = self.context.get_anchor_block_header();
-header.prove_note_is_nullified(retrieved_note, &mut self.context);
+header.prove_note_is_nullified(hinted_note, &mut self.context);
 ```
 
 ## Prove contract deployment

@@ -91,7 +91,10 @@ describe('Native World State: benchmarks', () => {
   ) => {
     const leaves: (Buffer | Fr)[][] = [];
     for (let i = 0; i < numBlocks; i++) {
-      const l2Block = await L2Block.random(BlockNumber(1), 1, 1, 1, undefined, undefined, numLeaves);
+      const l2Block = await L2Block.random(BlockNumber(1), {
+        txsPerBlock: 1,
+        makeTxOptions: () => ({ maxEffects: numLeaves }),
+      });
       if (treeId === MerkleTreeId.PUBLIC_DATA_TREE) {
         leaves.push(
           l2Block.body.txEffects[0].publicDataWrites.filter(x => !x.isEmpty()).map(write => write.toBuffer()),

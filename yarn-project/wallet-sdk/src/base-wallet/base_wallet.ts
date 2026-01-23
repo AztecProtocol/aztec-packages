@@ -4,7 +4,6 @@ import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import type {
   Aliased,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
   PrivateEvent,
   PrivateEventFilter,
@@ -120,20 +119,25 @@ export abstract class BaseWallet implements Wallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const fromAccount = await this.getAccountFromAddress(from);
-    return fromAccount.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, executionOptions);
+    const chainInfo = await this.getChainInfo();
+    return fromAccount.createTxExecutionRequest(
+      finalExecutionPayload,
+      feeOptions.gasSettings,
+      chainInfo,
+      executionOptions,
+    );
   }
 
   public async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | IntentInnerHash | CallIntent,
+    messageHashOrIntent: IntentInnerHash | CallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
-    return account.createAuthWit(messageHashOrIntent);
+    const chainInfo = await this.getChainInfo();
+    return account.createAuthWit(messageHashOrIntent, chainInfo);
   }
 
-  public async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(
-    methods: T,
-  ): Promise<BatchResults<T>> {
+  public async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;

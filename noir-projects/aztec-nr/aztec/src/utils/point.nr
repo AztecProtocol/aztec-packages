@@ -52,7 +52,6 @@ mod test {
         BN254_FR_MODULUS_DIV_2, get_sign_of_point, point_from_x_coord, point_from_x_coord_and_sign,
     };
     use dep::protocol_types::point::Point;
-    use dep::protocol_types::utils::field::pow;
 
     #[test]
     unconstrained fn test_point_from_x_coord_and_sign() {
@@ -84,7 +83,7 @@ mod test {
         let point = result.unwrap();
         assert_eq(point.x, Field::from(8));
         // Check curve equation y^2 = x^3 - 17
-        assert_eq(pow(point.y, 2), pow(point.x, 3) - 17);
+        assert_eq(point.y * point.y, point.x * point.x * point.x - 17);
     }
 
     #[test]

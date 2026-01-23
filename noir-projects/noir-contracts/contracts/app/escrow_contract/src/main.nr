@@ -10,7 +10,7 @@ pub contract Escrow {
         state_vars::SinglePrivateImmutable,
     };
 
-    use address_note::address_note::AddressNote;
+    use address_note::AddressNote;
     use token::Token;
 
     #[storage]

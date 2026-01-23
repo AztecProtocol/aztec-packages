@@ -12,15 +12,8 @@
 
 namespace acir_format {
 
-struct Blake3Input {
-    WitnessOrConstant<bb::fr> blackbox_input;
-    uint32_t num_bits;
-
-    friend bool operator==(Blake3Input const& lhs, Blake3Input const& rhs) = default;
-};
-
 struct Blake3Constraint {
-    std::vector<Blake3Input> inputs;
+    std::vector<WitnessOrConstant<bb::fr>> inputs;
     std::array<uint32_t, 32> result;
 
     friend bool operator==(Blake3Constraint const& lhs, Blake3Constraint const& rhs) = default;

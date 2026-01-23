@@ -168,7 +168,6 @@ namespace poseidon2_perm_mem;
     ////////////////////////////////////////////////
     // Write output to memory
     ////////////////////////////////////////////////
-    // TODO: These need to be changed to permutations once we have the custom permutation selectors
     #[POS_WRITE_MEM_0]
     sel_should_exec {
         execution_clk,                   space_id,

@@ -27,10 +27,10 @@ class ContextInterface {
     virtual const MemoryInterface& get_memory() const = 0;
     virtual BytecodeManagerInterface& get_bytecode_manager() = 0;
     virtual InternalCallStackManagerInterface& get_internal_call_stack_manager() = 0;
-    virtual uint32_t get_pc() const = 0;
-    virtual void set_pc(uint32_t new_pc) = 0;
-    virtual uint32_t get_next_pc() const = 0;
-    virtual void set_next_pc(uint32_t new_next_pc) = 0;
+    virtual PC get_pc() const = 0;
+    virtual void set_pc(PC new_pc) = 0;
+    virtual PC get_next_pc() const = 0;
+    virtual void set_next_pc(PC new_next_pc) = 0;
     virtual bool halted() const = 0;
     virtual void halt() = 0;
     virtual uint32_t get_context_id() const = 0;

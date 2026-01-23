@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -12,7 +13,8 @@ import { loadLogsForRange } from './load_logs_for_range.js';
 
 // In tests where the anchor block behavior is not under examination, we use a high block number to ensure it occurs
 // after all logs.
-const NON_INTERFERING_ANCHOR_BLOCK_NUMBER = BlockNumber(100);
+const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
+const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
 
 describe('loadLogsForRange', () => {
   // App contract address and secret to be used on the input of the loadLogsForRange function.
@@ -46,7 +48,9 @@ describe('loadLogsForRange', () => {
       return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
-    expect(await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER)).toHaveLength(0);
+    expect(
+      await loadLogsForRange(secret, app, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH),
+    ).toHaveLength(0);
   });
 
   it('handles multiple logs at different indexes', async () => {
@@ -74,7 +78,15 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
+    const result = await loadLogsForRange(
+      secret,
+      app,
+      aztecNode,
+      0,
+      10,
+      FAR_FUTURE_BLOCK_NUMBER,
+      MOCK_ANCHOR_BLOCK_HASH,
+    );
 
     expect(result).toHaveLength(2);
     const resultByIndex = result.sort((a, b) => a.taggingIndex - b.taggingIndex);
@@ -106,7 +118,15 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
+    const result = await loadLogsForRange(
+      secret,
+      app,
+      aztecNode,
+      0,
+      10,
+      FAR_FUTURE_BLOCK_NUMBER,
+      MOCK_ANCHOR_BLOCK_HASH,
+    );
 
     expect(result).toHaveLength(2);
     expect(result[0].taggingIndex).toBe(index);
@@ -139,7 +159,15 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
+    const result = await loadLogsForRange(
+      secret,
+      app,
+      aztecNode,
+      0,
+      10,
+      FAR_FUTURE_BLOCK_NUMBER,
+      MOCK_ANCHOR_BLOCK_HASH,
+    );
 
     expect(result).toHaveLength(2);
 
@@ -173,7 +201,15 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(secret, app, aztecNode, start, end, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
+    const result = await loadLogsForRange(
+      secret,
+      app,
+      aztecNode,
+      start,
+      end,
+      FAR_FUTURE_BLOCK_NUMBER,
+      MOCK_ANCHOR_BLOCK_HASH,
+    );
 
     // Should only include log at start (inclusive), not at end (exclusive)
     expect(result).toHaveLength(1);
@@ -202,7 +238,15 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, BlockNumber(anchorBlockNumber));
+    const result = await loadLogsForRange(
+      secret,
+      app,
+      aztecNode,
+      0,
+      10,
+      BlockNumber(anchorBlockNumber),
+      MOCK_ANCHOR_BLOCK_HASH,
+    );
 
     // Should only include logs from blocks at or before the anchor block number
     expect(result).toHaveLength(2);

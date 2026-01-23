@@ -5,9 +5,38 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
+
+namespace {
+
+avm2::Fq random_fq_scalar(std::mt19937_64& rng)
+{
+    std::uniform_int_distribution<uint64_t> dist(0, std::numeric_limits<uint64_t>::max());
+
+    std::array<uint64_t, 4> limbs;
+    for (size_t i = 0; i < 4; ++i) {
+        limbs[i] = dist(rng);
+    }
+
+    return avm2::Fq(limbs[0], limbs[1], limbs[2], limbs[3]);
+}
+
+void mutate_point(AffinePoint& point, std::mt19937_64& rng)
+{
+    // Generates a new valid on-curve point via scalar multiplication of the generator
+    // We make some assumptions for this point mutation:
+    // - The point is not at infinity
+    // - The point is valid (on curve)
+
+    // Generate scalar
+    Fq scalar = random_fq_scalar(rng);
+    point = grumpkin::g1::affine_element::one() * scalar;
+}
+
+} // namespace
 
 namespace bb::avm2::fuzzer {
 
@@ -69,6 +98,7 @@ void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
     FF delayed_public_mutable_slot = Poseidon2::hash({ FF(UPDATED_CLASS_IDS_SLOT), address });
 
     // Build preimage
+    // todo(ilyas): make this somewhat random but also take into account the mutation on global variables.timestamp
     FF metadata = 0; // The lower 32 bits are the timestamp_of_change, we set to 0 so it has "taken effect"
     FF hash = Poseidon2::hash({ metadata, original_class_id, new_class_id });
 
@@ -140,6 +170,65 @@ void mutate_contract_classes(std::vector<ContractClassWithCommitment>& contract_
     }
     // Update class ID
     klass.id = new_class_id;
+}
+
+void mutate_contract_instances(std::vector<ContractInstance>& contract_instances,
+                               std::vector<AztecAddress>& contract_addresses,
+                               std::mt19937_64& rng)
+{
+    // Skip if no contracts to mutate
+    if (contract_instances.empty()) {
+        return;
+    }
+
+    // Select a random contract
+    size_t idx = std::uniform_int_distribution<size_t>(0, contract_instances.size() - 1)(rng);
+
+    ContractInstance& instance = contract_instances[idx];
+    auto original_address = simulation::compute_contract_address(instance);
+
+    // We don't mutate the class IDs here, only the other fields
+    constexpr size_t num_mutable_fields = 7;
+    auto choice = std::uniform_int_distribution<int>(0, num_mutable_fields - 1)(rng);
+    switch (choice) {
+    case 0:
+        // Mutate salt
+        mutate_field(instance.salt, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        break;
+    case 1:
+        // Mutate deployer
+        mutate_field(instance.deployer, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        break;
+    case 2:
+        // Mutate initialization hash
+        mutate_field(instance.initialization_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        break;
+    case 3:
+        // Mutate nullifier key
+        mutate_point(instance.public_keys.nullifier_key, rng);
+        break;
+    case 4:
+        // Mutate incoming viewing key
+        mutate_point(instance.public_keys.incoming_viewing_key, rng);
+        break;
+    case 5:
+        // Mutate outgoing viewing key
+        mutate_point(instance.public_keys.outgoing_viewing_key, rng);
+        break;
+    case 6:
+        // Mutate tagging key
+        mutate_point(instance.public_keys.tagging_key, rng);
+        break;
+    default:
+        break;
+    }
+
+    auto new_address = simulation::compute_contract_address(instance);
+
+    // This should always find a contract address, since we are mutating an existing instance
+    auto contract_address =
+        std::ranges::find_if(contract_addresses, [&](const AztecAddress& addr) { return addr == original_address; });
+    *contract_address = new_address;
 }
 
 } // namespace bb::avm2::fuzzer

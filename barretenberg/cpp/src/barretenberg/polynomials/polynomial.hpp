@@ -376,7 +376,7 @@ template <typename Fr> class Polynomial {
      */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        BB_ASSERT(value.is_zero() || is_valid_set_index(index));
+        BB_ASSERT_NO_WASM(value.is_zero() || is_valid_set_index(index));
         if (is_valid_set_index(index)) {
             at(index) = value;
         }

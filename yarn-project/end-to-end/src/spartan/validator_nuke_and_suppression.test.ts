@@ -14,6 +14,7 @@ import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
 import {
+  ChainHealth,
   applyValidatorFailure,
   applyValidatorKill,
   getExternalIP,
@@ -41,8 +42,10 @@ describe('validator suppression and nuke with slashing assertions', () => {
   let nodeRpcUrl: string;
   let spartanDir: string;
   const killReleases: string[] = [];
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   beforeAll(async () => {
+    await health.setup();
     const chaosReleases = ['validator-failure'];
     await Promise.all(
       chaosReleases.map(name =>
@@ -98,6 +101,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     // Ensure we don't leave validators disabled
     await updateSequencersConfig(config, { disabledValidators: [] }).catch(() => undefined);
     const chaosReleases = ['validator-failure', ...killReleases];

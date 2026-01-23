@@ -4,9 +4,8 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
+import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
-import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
@@ -83,6 +82,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getRegistryAddress: z.function().args().returns(schemas.EthAddress),
   getBlockNumber: z.function().args().returns(BlockNumberSchema),
   getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
+  getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
+  getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getBlock: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getBlockHeader: z
     .function()
@@ -91,45 +92,37 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointedBlock: z.function().args(BlockNumberSchema).returns(CheckpointedL2Block.schema.optional()),
   getCheckpointedBlocks: z
     .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
+    .args(BlockNumberSchema, schemas.Integer)
     .returns(z.array(CheckpointedL2Block.schema)),
-  getBlocks: z
-    .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(L2Block.schema)),
-  getPublishedCheckpoints: z
+  getBlocks: z.function().args(BlockNumberSchema, schemas.Integer).returns(z.array(L2Block.schema)),
+  getCheckpoints: z
     .function()
     .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
-  getPublishedBlocks: z
-    .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(PublishedL2Block.schema)),
-  getL2BlocksNew: z
-    .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(L2BlockNew.schema)),
-  getPublishedBlockByHash: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
-  getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
+  getCheckpointedBlockByHash: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
+  getCheckpointedBlockByArchive: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
-  getL2BlockNew: z.function().args(BlockNumberSchema).returns(L2BlockNew.schema.optional()),
+  getL2Block: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
+  getL2BlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
-  getBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(L2Block.schema)),
-  getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
+  getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
+  getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2Block.schema)),
+  getCheckpointedBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema))
+    .args(z.array(SiloedTag.schema), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getPublicLogsByTagsFromContract: z
     .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema))
+    .args(schemas.AztecAddress, z.array(Tag.schema), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),

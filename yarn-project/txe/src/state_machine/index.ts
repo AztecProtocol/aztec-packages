@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { AnchorBlockStore } from '@aztec/pxe/server';
 import { L2Block } from '@aztec/stdlib/block';
-import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -59,7 +59,15 @@ export class TXEStateMachine {
   }
 
   public async handleL2Block(block: L2Block) {
-    const checkpoint = block.toCheckpoint();
+    // Create a checkpoint from the block - L2Block doesn't have toCheckpoint() method
+    // We need to construct the Checkpoint manually
+    const checkpoint = await Checkpoint.random(block.checkpointNumber, {
+      numBlocks: 1,
+      startBlockNumber: Number(block.number),
+    });
+    // Replace the random block with our actual block
+    checkpoint.blocks = [block];
+
     const publishedCheckpoint = new PublishedCheckpoint(
       checkpoint,
       new L1PublishedData(
@@ -70,9 +78,9 @@ export class TXEStateMachine {
       [],
     );
     await Promise.all([
-      this.synchronizer.handleL2Block(block.toL2Block()),
+      this.synchronizer.handleL2Block(block), // L2Block doesn't need toL2Block() conversion
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.anchorBlockStore.setHeader(block.getBlockHeader()),
+      this.anchorBlockStore.setHeader(block.header), // Use .header property directly
     ]);
   }
 }

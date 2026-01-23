@@ -1,32 +1,33 @@
 import { type BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
-import type { FunctionsOf } from '@aztec/foundation/types';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { Gas } from '@aztec/stdlib/gas';
-import type { FullNodeBlockBuilderConfig, PublicProcessorLimits } from '@aztec/stdlib/interfaces/server';
+import type {
+  BuildBlockInCheckpointResult,
+  FullNodeBlockBuilderConfig,
+  ICheckpointBlockBuilder,
+  ICheckpointsBuilder,
+  MerkleTreeWriteOperations,
+  PublicProcessorLimits,
+} from '@aztec/stdlib/interfaces/server';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
-import type {
-  BuildBlockInCheckpointResult,
-  CheckpointBuilder,
-  FullNodeCheckpointsBuilder,
-} from '@aztec/validator-client';
 
 /**
  * A fake CheckpointBuilder for testing that implements the same interface as the real one.
  * Can be seeded with blocks to return sequentially on each `buildBlock` call.
  */
-export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
-  private blocks: L2BlockNew[] = [];
-  private builtBlocks: L2BlockNew[] = [];
+export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
+  private blocks: L2Block[] = [];
+  private builtBlocks: L2Block[] = [];
   private usedTxsPerBlock: Tx[][] = [];
   private blockIndex = 0;
 
   /** Optional function to dynamically provide the block (alternative to seedBlocks) */
-  private blockProvider: (() => L2BlockNew) | undefined = undefined;
+  private blockProvider: (() => L2Block) | undefined = undefined;
 
   /** Track calls for assertions */
   public buildBlockCalls: Array<{
@@ -46,7 +47,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
   ) {}
 
   /** Seed the builder with blocks to return on successive buildBlock calls */
-  seedBlocks(blocks: L2BlockNew[], usedTxsPerBlock?: Tx[][]): this {
+  seedBlocks(blocks: L2Block[], usedTxsPerBlock?: Tx[][]): this {
     this.blocks = blocks;
     this.usedTxsPerBlock = usedTxsPerBlock ?? blocks.map(() => []);
     this.blockIndex = 0;
@@ -58,7 +59,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
    * Set a function that provides blocks dynamically.
    * Useful for tests where the block is determined at call time (e.g., sequencer tests).
    */
-  setBlockProvider(provider: () => L2BlockNew): this {
+  setBlockProvider(provider: () => L2Block): this {
     this.blockProvider = provider;
     this.blocks = [];
     return this;
@@ -80,7 +81,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
       return Promise.reject(this.errorOnBuild);
     }
 
-    let block: L2BlockNew;
+    let block: L2Block;
     let usedTxs: Tx[];
 
     if (this.blockProvider) {
@@ -104,6 +105,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
       blockBuildingTimer: new Timer(),
       usedTxs,
       failedTxs: [],
+      usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,
     });
   }
 
@@ -146,7 +148,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
    * Creates a CheckpointHeader from a block's header for testing.
    * This is a simplified version that creates a minimal CheckpointHeader.
    */
-  private createCheckpointHeader(block: L2BlockNew): CheckpointHeader {
+  private createCheckpointHeader(block: L2Block): CheckpointHeader {
     const header = block.header;
     const gv = header.globalVariables;
     return CheckpointHeader.empty({
@@ -180,7 +182,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
  * as FullNodeCheckpointsBuilder. Returns MockCheckpointBuilder instances.
  * Does NOT use jest mocks - this is a proper test double.
  */
-export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBuilder> {
+export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   private checkpointBuilder: MockCheckpointBuilder | undefined;
 
   /** Track calls for assertions */
@@ -195,7 +197,7 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     constants: CheckpointGlobalVariables;
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
-    existingBlocks: L2BlockNew[];
+    existingBlocks: L2Block[];
   }> = [];
   public updateConfigCalls: Array<Partial<FullNodeBlockBuilderConfig>> = [];
 
@@ -243,8 +245,8 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
-    _fork: unknown,
-  ): Promise<CheckpointBuilder> {
+    _fork: MerkleTreeWriteOperations,
+  ): Promise<ICheckpointBlockBuilder> {
     this.startCheckpointCalls.push({ checkpointNumber, constants, l1ToL2Messages, previousCheckpointOutHashes });
 
     if (!this.checkpointBuilder) {
@@ -252,7 +254,7 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
       this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber);
     }
 
-    return Promise.resolve(this.checkpointBuilder as unknown as CheckpointBuilder);
+    return Promise.resolve(this.checkpointBuilder);
   }
 
   openCheckpoint(
@@ -260,9 +262,9 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
-    _fork: unknown,
-    existingBlocks: L2BlockNew[] = [],
-  ): Promise<CheckpointBuilder> {
+    _fork: MerkleTreeWriteOperations,
+    existingBlocks: L2Block[] = [],
+  ): Promise<ICheckpointBlockBuilder> {
     this.openCheckpointCalls.push({
       checkpointNumber,
       constants,
@@ -276,7 +278,11 @@ export class MockCheckpointsBuilder implements FunctionsOf<FullNodeCheckpointsBu
       this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber);
     }
 
-    return Promise.resolve(this.checkpointBuilder as unknown as CheckpointBuilder);
+    return Promise.resolve(this.checkpointBuilder);
+  }
+
+  getFork(_blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations> {
+    throw new Error('MockCheckpointsBuilder.getFork not implemented');
   }
 
   /** Reset for reuse in another test */

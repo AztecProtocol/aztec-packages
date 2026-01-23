@@ -31,10 +31,10 @@ class PureTxBytecodeManager : public TxBytecodeManagerInterface {
 
     BytecodeId get_bytecode(const AztecAddress& address) override;
     std::shared_ptr<std::vector<uint8_t>> get_bytecode_data(const BytecodeId& bytecode_id) override;
-    Instruction read_instruction(const BytecodeId& bytecode_id, uint32_t pc) override;
+    Instruction read_instruction(const BytecodeId& bytecode_id, PC pc) override;
     Instruction read_instruction(const BytecodeId& bytecode_id,
                                  std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                 uint32_t pc) override;
+                                 PC pc) override;
 
   private:
     ContractDBInterface& contract_db;
@@ -42,7 +42,7 @@ class PureTxBytecodeManager : public TxBytecodeManagerInterface {
 
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
     unordered_flat_set<ContractClassId> retrieved_class_ids;
-    using InstructionIdentifier = std::tuple</*bytecode_vector*/ void*, /*pc*/ uint32_t>;
+    using InstructionIdentifier = std::tuple</*bytecode_vector*/ void*, /*pc*/ PC>;
     unordered_flat_map<InstructionIdentifier, Instruction> instruction_cache;
 };
 

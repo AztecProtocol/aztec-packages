@@ -139,7 +139,7 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     WitnessVector witness;
     Base::generate_constraints(constraint, witness);
 
-    AcirFormat acir_format = constraint_to_acir_format(constraint, static_cast<uint32_t>(witness.size() - 1));
+    AcirFormat acir_format = constraint_to_acir_format(constraint);
 
     AcirProgram program = { acir_format, {} };
     ProgramMetadata metadata = Base::generate_metadata();

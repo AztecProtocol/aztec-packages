@@ -41,7 +41,7 @@ pub contract Orderbook {
     };
 
     use token::Token;
-    use uint_note::uint_note::PartialUintNote;
+    use uint_note::PartialUintNote;
 
     // The event contains only the `order_id` as the order itself can be retrieved via the `get_order` function.
     #[event]

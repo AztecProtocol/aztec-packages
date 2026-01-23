@@ -38,6 +38,7 @@ impl PrivateCallDataValidator {
         self,
         tx_request: TxRequest,
         protocol_contracts: ProtocolContracts,
+        first_nullifier_hint: Field,
         claimed_revertible_counter: u32,
     ) {
         self.validate_common(
@@ -45,6 +46,9 @@ impl PrivateCallDataValidator {
             protocol_contracts,
             claimed_revertible_counter,
         );
+
+        // There must be at least one nullifier for the private execution, which is used to compute note hash nonces.
+        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
 
         self.validate_against_tx_request(tx_request);
 
@@ -70,6 +74,8 @@ impl PrivateCallDataValidator {
 
         // Counters 0 and 1 are reserved: counter 0 is unused, counter 1 is for the protocol nullifier.
         // The first call's side effects must start at counter 2 or higher.
+        // It's not possible for subsequent calls to maliciously set counters <=2, due to the checks
+        // in `validate_increasing_counters()`.
         assert(
             this_call.start_side_effect_counter > 1,
             "start_side_effect_counter must be greater than 1",
@@ -99,7 +105,7 @@ impl PrivateCallDataValidator {
             self.data.verify(is_first_function_call);
         }
 
-        // Validate that the function being executed belongs to the contract being called.
+        // Validate that the function being processed belongs to the contract address that was called.
         validate_contract_address(self.data, protocol_contracts);
 
         self.validate_claimed_lengths();
@@ -246,6 +252,10 @@ impl PrivateCallDataValidator {
 
     /// For Init and Inner.
     /// Validates that claimed array lengths don't exceed maximum bounds.
+    /// Without these checks, you could get weird results: when appending the data from a `source` array to the
+    /// larger output `dest` arrays, the `dest` array increments its length by the claimed `source` length.
+    /// A `source` length beyond the `source.len()` would result in the `dest` array's length jumping over some
+    /// unallocated `dest` indices.
     fn validate_claimed_lengths(self) {
         self.data.public_inputs.note_hash_read_requests.assert_length_within_bounds(
             "note_hash_read_requests length out of bounds",

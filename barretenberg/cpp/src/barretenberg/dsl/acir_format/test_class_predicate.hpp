@@ -167,8 +167,7 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
             update_witness_based_on_predicate(constraint, witness_values, predicate);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
-        AcirFormat constraint_system = constraint_to_acir_format(
-            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirFormat constraint_system = constraint_to_acir_format(updated_constraint);
         AcirProgram program{ constraint_system, updated_witness_values };
         auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
@@ -209,8 +208,7 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
                 update_witness_based_on_predicate(constraint, witness_values, predicate);
 
             // Use the full ACIR flow
-            AcirFormat constraint_system = constraint_to_acir_format(
-                updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+            AcirFormat constraint_system = constraint_to_acir_format(updated_constraint);
             // Construct the vks
             std::shared_ptr<VerificationKey> vk_from_witness;
             {

@@ -14,10 +14,10 @@ template <typename FF_> class sha256_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 4, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 5, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                                                                             5, 5, 5, 5, 5, 5, 5, 3, 3, 6, 4, 3, 3,
-                                                                            5, 4, 3, 4, 5, 3, 3, 3, 5, 6, 3, 3, 4 };
+                                                                            5, 4, 3, 4, 5, 3, 3, 3, 5, 5, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,9 +38,9 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static constexpr const std::string_view NAME = "sha256_mem";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_LATCH_HAS_SEL_ON = 3;
-    static constexpr size_t SR_START_AFTER_LAST = 4;
-    static constexpr size_t SR_CONTINUITY_SEL = 5;
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
+    static constexpr size_t SR_LATCH_HAS_SEL_ON = 4;
+    static constexpr size_t SR_START_AFTER_LAST = 5;
     static constexpr size_t SR_CONTINUITY_EXEC_CLK = 6;
     static constexpr size_t SR_CONTINUITY_SPACE_ID = 7;
     static constexpr size_t SR_CONTINUITY_OUTPUT_ADDR = 8;
@@ -60,12 +60,12 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_LATCH_HAS_SEL_ON:
             return "LATCH_HAS_SEL_ON";
         case SR_START_AFTER_LAST:
             return "START_AFTER_LAST";
-        case SR_CONTINUITY_SEL:
-            return "CONTINUITY_SEL";
         case SR_CONTINUITY_EXEC_CLK:
             return "CONTINUITY_EXEC_CLK";
         case SR_CONTINUITY_SPACE_ID:

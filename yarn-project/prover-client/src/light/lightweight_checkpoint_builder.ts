@@ -1,10 +1,10 @@
 import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
@@ -38,7 +38,7 @@ export class LightweightCheckpointBuilder {
 
   private lastArchives: AppendOnlyTreeSnapshot[] = [];
   private spongeBlob: SpongeBlob;
-  private blocks: L2BlockNew[] = [];
+  private blocks: L2Block[] = [];
   private blobFields: Fr[] = [];
 
   constructor(
@@ -86,7 +86,7 @@ export class LightweightCheckpointBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
-    existingBlocks: L2BlockNew[],
+    existingBlocks: L2Block[],
   ): Promise<LightweightCheckpointBuilder> {
     const builder = new LightweightCheckpointBuilder(
       checkpointNumber,
@@ -142,7 +142,7 @@ export class LightweightCheckpointBuilder {
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
-  ): Promise<L2BlockNew> {
+  ): Promise<L2Block> {
     const isFirstBlock = this.blocks.length === 0;
 
     // Empty blocks are only allowed as the first block in a checkpoint
@@ -191,8 +191,8 @@ export class LightweightCheckpointBuilder {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     this.lastArchives.push(newArchive);
 
-    const indexWithinCheckpoint = this.blocks.length;
-    const block = new L2BlockNew(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
+    const indexWithinCheckpoint = IndexWithinCheckpoint(this.blocks.length);
+    const block = new L2Block(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
 
     await this.spongeBlob.absorb(blockBlobFields);

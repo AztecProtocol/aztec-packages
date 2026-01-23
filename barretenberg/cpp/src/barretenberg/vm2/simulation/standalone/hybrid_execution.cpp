@@ -51,7 +51,7 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
 
             debug("@", pc, " ", instruction.to_string());
-            context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
+            context.set_next_pc(pc + static_cast<PC>(instruction.size_in_bytes()));
 
             //// Temporality group 4 starts ////
 

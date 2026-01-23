@@ -175,7 +175,10 @@ describe('PXE', () => {
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        checkpoint: {
+          number: CheckpointNumber.fromBlockNumber(lastKnownBlockNumber),
+          hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
+        },
       };
       node.getL2Tips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
@@ -238,6 +241,7 @@ describe('PXE', () => {
           txIndexInBlock: 0,
           eventIndexInTx: eventCounter++,
         },
+        'test',
       );
 
       return event;
@@ -247,6 +251,7 @@ describe('PXE', () => {
       // Store a couple of events to exercise `getPrivateEvents`
       const event1 = await storeEvent();
       const event2 = await storeEvent();
+      await privateEventStore.commit('test');
 
       const events = await pxe.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -287,6 +292,8 @@ describe('PXE', () => {
           storeEvent(lastKnownBlockNumber + 1),
           storeEvent(lastKnownBlockNumber + 1),
         ]);
+
+        await privateEventStore.commit('test');
       });
 
       it('filters by txHash', async () => {

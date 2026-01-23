@@ -1,3 +1,5 @@
+//! Definition of Aztec contract functions, storage, notes and events.
+
 pub mod aztec;
 pub mod dispatch;
 pub(crate) mod calls_generation;

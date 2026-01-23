@@ -54,7 +54,7 @@ export type Aliased<T> = {
 
 /**
  * Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with
- * a simplified version that only hints at the wallet wether the interaction contains a
+ * a simplified version that only hints at the wallet whether the interaction contains a
  * fee payment method or not
  */
 export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
@@ -64,7 +64,7 @@ export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
 
 /**
  * Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with
- * a simplified version that only hints at the wallet wether the interaction contains a
+ * a simplified version that only hints at the wallet whether the interaction contains a
  * fee payment method or not
  */
 export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
@@ -74,7 +74,7 @@ export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
 
 /**
  * Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with
- * a simplified version that only hints at the wallet wether the interaction contains a
+ * a simplified version that only hints at the wallet whether the interaction contains a
  * fee payment method or not
  */
 export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
@@ -83,18 +83,14 @@ export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
 };
 
 /**
- * Helper type that represents all methods that can be batched.
+ * Helper type that represents all methods that can be batched (all methods except batch itself).
  */
-export type BatchableMethods = Pick<
-  Wallet,
-  'registerContract' | 'sendTx' | 'registerSender' | 'simulateUtility' | 'simulateTx'
->;
+export type BatchableMethods = Omit<Wallet, 'batch'>;
 
 /**
- * From the batchable methods, we create a type that represents a method call with its name and arguments.
- * This is what the wallet will accept as arguments to the `batch` method.
+ * A method call with its name and arguments.
  */
-export type BatchedMethod<T extends keyof BatchableMethods> = {
+type BatchedMethodInternal<T extends keyof BatchableMethods> = {
   /** The method name */
   name: T;
   /** The method arguments */
@@ -102,17 +98,25 @@ export type BatchedMethod<T extends keyof BatchableMethods> = {
 };
 
 /**
+ * Union of all possible batched method calls.
+ * This ensures type safety: the `args` must match the specific `name`.
+ */
+export type BatchedMethod = {
+  [K in keyof BatchableMethods]: BatchedMethodInternal<K>;
+}[keyof BatchableMethods];
+
+/**
  * Helper type to extract the return type of a batched method
  */
 export type BatchedMethodResult<T> =
-  T extends BatchedMethod<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
+  T extends BatchedMethodInternal<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
 
 /**
  * Wrapper type for batch results that includes the method name for discriminated union deserialization.
  * Each result is wrapped as \{ name: 'methodName', result: ActualResult \} to allow proper deserialization
  * when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
  */
-export type BatchedMethodResultWrapper<T extends BatchedMethod<keyof BatchableMethods>> = {
+export type BatchedMethodResultWrapper<T extends BatchedMethod> = {
   /** The method name */
   name: T['name'];
   /** The method result */
@@ -122,7 +126,7 @@ export type BatchedMethodResultWrapper<T extends BatchedMethod<keyof BatchableMe
 /**
  * Maps a tuple of BatchedMethod to a tuple of their wrapped return types
  */
-export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods>[]> = {
+export type BatchResults<T extends readonly BatchedMethod[]> = {
   [K in keyof T]: BatchedMethodResultWrapper<T[K]>;
 };
 
@@ -208,8 +212,8 @@ export type Wallet = {
   simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
-  createAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent): Promise<AuthWitness>;
-  batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
+  createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
+  batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 
 export const FunctionCallSchema = z.object({
@@ -270,34 +274,10 @@ export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
 });
 
 export const MessageHashOrIntentSchema = z.union([
-  schemas.Fr,
   z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
   z.object({
     caller: schemas.AztecAddress,
     call: FunctionCallSchema,
-  }),
-]);
-
-export const BatchedMethodSchema = z.union([
-  z.object({
-    name: z.literal('registerSender'),
-    args: z.tuple([schemas.AztecAddress, optional(z.string())]),
-  }),
-  z.object({
-    name: z.literal('registerContract'),
-    args: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
-  }),
-  z.object({
-    name: z.literal('sendTx'),
-    args: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
-  }),
-  z.object({
-    name: z.literal('simulateUtility'),
-    args: z.tuple([FunctionCallSchema, optional(z.array(AuthWitness.schema))]),
-  }),
-  z.object({
-    name: z.literal('simulateTx'),
-    args: z.tuple([ExecutionPayloadSchema, SimulateOptionsSchema]),
   }),
 ]);
 
@@ -335,7 +315,11 @@ export const ContractClassMetadataSchema = z.object({
   isContractClassPubliclyRegistered: z.boolean(),
 });
 
-export const WalletSchema: ApiSchemaFor<Wallet> = {
+/**
+ * Record of all wallet method schemas (excluding batch).
+ * This is the single source of truth for method schemas - batch schemas are derived from this.
+ */
+const WalletMethodSchemas = {
   getChainInfo: z
     .function()
     .args()
@@ -368,19 +352,46 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxHash.schema),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
+};
+
+/**
+ * Creates batch schemas from the individual wallet methods.
+ * This allows us to define them once and derive batch schemas automatically,
+ * reducing duplication and ensuring consistency.
+ */
+function createBatchSchemas<T extends Record<string, z.ZodFunction<z.ZodTuple<any, any>, z.ZodTypeAny>>>(
+  methodSchemas: T,
+) {
+  const names = Object.keys(methodSchemas) as (keyof T)[];
+
+  const namesAndArgs = names.map(name =>
+    z.object({
+      name: z.literal(name),
+      args: methodSchemas[name].parameters(),
+    }),
+  );
+
+  const namesAndReturns = names.map(name =>
+    z.object({
+      name: z.literal(name),
+      result: methodSchemas[name].returnType(),
+    }),
+  );
+
+  // Type assertion needed because discriminatedUnion expects a tuple type [T, T, ...T[]]
+  // but we're building the array dynamically. The runtime behavior is correct.
+  return {
+    input: z.discriminatedUnion('name', namesAndArgs as [(typeof namesAndArgs)[0], ...typeof namesAndArgs]),
+    output: z.discriminatedUnion('name', namesAndReturns as [(typeof namesAndReturns)[0], ...typeof namesAndReturns]),
+  };
+}
+
+const { input: BatchedMethodSchema, output: BatchedResultSchema } = createBatchSchemas(WalletMethodSchemas);
+
+export { BatchedMethodSchema, BatchedResultSchema };
+
+export const WalletSchema: ApiSchemaFor<Wallet> = {
+  ...WalletMethodSchemas,
   // @ts-expect-error - ApiSchemaFor cannot properly type generic methods with readonly arrays
-  batch: z
-    .function()
-    .args(z.array(BatchedMethodSchema))
-    .returns(
-      z.array(
-        z.discriminatedUnion('name', [
-          z.object({ name: z.literal('registerSender'), result: schemas.AztecAddress }),
-          z.object({ name: z.literal('registerContract'), result: ContractInstanceWithAddressSchema }),
-          z.object({ name: z.literal('sendTx'), result: TxHash.schema }),
-          z.object({ name: z.literal('simulateUtility'), result: UtilitySimulationResult.schema }),
-          z.object({ name: z.literal('simulateTx'), result: TxSimulationResult.schema }),
-        ]),
-      ),
-    ),
+  batch: z.function().args(z.array(BatchedMethodSchema)).returns(z.array(BatchedResultSchema)),
 };

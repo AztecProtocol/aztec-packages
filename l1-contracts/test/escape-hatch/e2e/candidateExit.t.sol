@@ -104,7 +104,7 @@ contract EscapeHatchCandidateExitTest is EscapeHatchIntegrationBase {
     _joinCandidateSet(CANDIDATE2);
 
     // Warp to start of known window (start of hatch 1)
-    _warpToEpoch(DEFAULT_FREQUENCY);
+    _warpForwardEpochs(DEFAULT_FREQUENCY);
 
     Hatch currentHatch = escapeHatch.getHatch(rollup.getCurrentEpoch());
     // The next selection (during currentHatch + 1) prepares targetHatch = currentHatch + 1 + lagInHatches
@@ -172,7 +172,7 @@ contract EscapeHatchCandidateExitTest is EscapeHatchIntegrationBase {
     _joinCandidateSet(CANDIDATE2);
 
     // Warp to start of hatch 1 to avoid underflows in freeze timestamp calculations
-    _warpToEpoch(DEFAULT_FREQUENCY);
+    _warpForwardEpochs(DEFAULT_FREQUENCY);
 
     // Calculate flux window boundaries and determine selected candidate
     uint256 freezeTimestamp;

@@ -13,6 +13,7 @@ export class EventService {
     private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
+    private readonly jobId: string,
   ) {}
 
   public async storeEvent(
@@ -28,20 +29,20 @@ export class EventService {
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const [syncedBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
+    const [anchorBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
       this.anchorBlockStore.getBlockHeader(),
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
 
-    const syncedBlockNumber = syncedBlockHeader.getBlockNumber();
+    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
 
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);
     }
 
-    if (txEffect.l2BlockNumber > syncedBlockNumber) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    if (txEffect.l2BlockNumber > anchorBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
     }
 
     // Find the index of the event commitment in the nullifiers array to determine event ordering within the tx
@@ -52,14 +53,21 @@ export class EventService {
       );
     }
 
-    return this.privateEventStore.storePrivateEventLog(selector, randomness, content, siloedEventCommitment, {
-      contractAddress,
-      scope,
-      txHash,
-      l2BlockNumber: txEffect.l2BlockNumber,
-      l2BlockHash: txEffect.l2BlockHash,
-      txIndexInBlock: txEffect.txIndexInBlock,
-      eventIndexInTx,
-    });
+    return this.privateEventStore.storePrivateEventLog(
+      selector,
+      randomness,
+      content,
+      siloedEventCommitment,
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: txEffect.l2BlockNumber,
+        l2BlockHash: txEffect.l2BlockHash,
+        txIndexInBlock: txEffect.txIndexInBlock,
+        eventIndexInTx,
+      },
+      this.jobId,
+    );
   }
 }

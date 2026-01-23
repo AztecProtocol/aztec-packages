@@ -7,6 +7,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { L2BlockHash } from '@aztec/stdlib/block';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -56,7 +57,7 @@ describe('e2e_simple', () => {
       const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
       expect(initialHeader).toBeDefined();
       const initialHeaderHash = await initialHeader!.hash();
-      const initialBlockByHash = await aztecNode.getBlockByHash(initialHeaderHash);
+      const initialBlockByHash = await aztecNode.getBlock(L2BlockHash.fromField(initialHeaderHash));
       expect(initialBlockByHash).toBeDefined();
       const initialBlockHash = await initialBlockByHash!.hash();
       expect(initialBlockHash.equals(initialHeaderHash)).toBeTrue();
