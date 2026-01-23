@@ -69,6 +69,27 @@ interface ProverHistory {
   brokerErrors: string[];
 }
 
+interface ValidatorVoteStatus {
+  address: string;
+  hasVoted: boolean;
+  votedPayload: string | null;
+}
+
+interface UpgradeProgress {
+  currentRound: number | null;
+  currentSlot: number | null;
+  payloadAddress: string | null;
+  leaderVotes: number | null;
+  quorumSize: number | null;
+  isQuorumReached: boolean;
+  governanceProposalId: bigint | null;
+  governanceProposalState: string | null;
+  governanceYesVotes: bigint | null;
+  governanceNoVotes: bigint | null;
+  validatorVotes: ValidatorVoteStatus[];
+  phase: 'none' | 'proposer_voting' | 'waiting_round_end' | 'governance_voting' | 'executing' | 'complete';
+}
+
 interface NetworkDiagnostics {
   namespace: string;
   l1BlockNumber: number | null;
@@ -85,6 +106,7 @@ interface NetworkDiagnostics {
     rollupAddress: string | null;
   };
   proverHistory: ProverHistory;
+  upgradeProgress: UpgradeProgress | null;
 }
 
 async function kubectl(args: string): Promise<string> {
@@ -537,6 +559,214 @@ async function getProverHistory(namespace: string): Promise<ProverHistory> {
   return history;
 }
 
+async function getUpgradeProgress(namespace: string): Promise<UpgradeProgress | null> {
+  const progress: UpgradeProgress = {
+    currentRound: null,
+    currentSlot: null,
+    payloadAddress: null,
+    leaderVotes: null,
+    quorumSize: null,
+    isQuorumReached: false,
+    governanceProposalId: null,
+    governanceProposalState: null,
+    governanceYesVotes: null,
+    governanceNoVotes: null,
+    validatorVotes: [],
+    phase: 'none',
+  };
+
+  // Check for upgrade test log file first (has most detailed info)
+  let testLogs = '';
+  try {
+    const { stdout } = await execAsync('cat /tmp/upgrade-test.log 2>/dev/null || true', {
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    testLogs = stdout;
+  } catch {
+    // Ignore errors
+  }
+
+  // Also check validator logs for governance proposer activity
+  const validatorLogs = await kubectl(`logs -n ${namespace} -l app.kubernetes.io/name=validator --tail=2000`);
+  const combinedLogs = testLogs + '\n' + validatorLogs;
+
+  // Look for payload address
+  const payloadMatch = combinedLogs.match(/[Pp]ayload\s+(?:deployed\s+at|address)[=:\s]+(0x[a-fA-F0-9]+)/i);
+  if (payloadMatch) {
+    progress.payloadAddress = payloadMatch[1];
+  }
+
+  // Look for quorum size
+  const quorumMatch = combinedLogs.match(/quorum size[=:\s]+(\d+)/i);
+  if (quorumMatch) {
+    progress.quorumSize = parseInt(quorumMatch[1]);
+  }
+
+  // Look for vote counting logs - "Votes for leader payload: X/Y (round Z)"
+  const voteMatches = [...combinedLogs.matchAll(/Votes for leader payload:\s*(\d+)\/(\d+)\s*\(round\s*(\d+)\)/gi)];
+  if (voteMatches.length > 0) {
+    const lastMatch = voteMatches[voteMatches.length - 1];
+    progress.leaderVotes = parseInt(lastMatch[1]);
+    progress.quorumSize = parseInt(lastMatch[2]);
+    progress.currentRound = parseInt(lastMatch[3]);
+    progress.isQuorumReached = progress.leaderVotes >= progress.quorumSize;
+    progress.phase = progress.isQuorumReached ? 'waiting_round_end' : 'proposer_voting';
+  }
+
+  // Check if round winner was submitted
+  if (combinedLogs.includes('submitRoundWinner receipt status: success')) {
+    progress.phase = 'governance_voting';
+  }
+
+  // Look for governance proposal info
+  const proposalIdMatch = combinedLogs.match(/proposalId[=:\s]+(\d+)/i);
+  if (proposalIdMatch) {
+    progress.governanceProposalId = BigInt(proposalIdMatch[1]);
+  }
+
+  // Look for proposal state
+  const stateMatch = combinedLogs.match(/[Cc]urrent proposal state[=:\s]+(\w+)/i);
+  if (stateMatch) {
+    progress.governanceProposalState = stateMatch[1];
+  }
+
+  // Look for "Waiting for proposal Active phase"
+  const activeWaitMatch = combinedLogs.match(/Waiting for proposal Active phase.*?(\d+)/);
+  if (activeWaitMatch) {
+    progress.governanceProposalState = `Pending (${activeWaitMatch[1]}s remaining)`;
+    progress.phase = 'governance_voting';
+  }
+
+  // Check if proposal is Active (voting started)
+  if (combinedLogs.includes('Proposal is Active (voting started)')) {
+    progress.governanceProposalState = 'Active (voting in progress)';
+    progress.phase = 'governance_voting';
+  }
+
+  // Check for staking deposits (means we're voting now)
+  const depositMatch = combinedLogs.match(/Deposited staking tokens:\s*(\d+)/);
+  if (depositMatch) {
+    progress.governanceProposalState = 'Active (casting votes)';
+  }
+
+  // Check for ballot info showing votes cast
+  const ballotMatch = combinedLogs.match(/ballot.*?yes.*?power.*?(\d+)/i);
+  if (ballotMatch) {
+    progress.governanceProposalState = 'Active (vote cast)';
+  }
+
+  // Check for voting in progress with countdown (get the LAST match for most recent countdown)
+  const votingCountdownMatches = [...combinedLogs.matchAll(/Voting in progress.*?(\d+)/g)];
+  if (votingCountdownMatches.length > 0) {
+    const lastMatch = votingCountdownMatches[votingCountdownMatches.length - 1];
+    progress.governanceProposalState = `Active (voting ends in ${lastMatch[1]}s)`;
+    progress.phase = 'governance_voting';
+  }
+
+  // Check for waiting to become executable (get LAST match)
+  const execWaitMatches = [...combinedLogs.matchAll(/Waiting to become Executable.*?(\d+)/gi)];
+  if (execWaitMatches.length > 0) {
+    const lastMatch = execWaitMatches[execWaitMatches.length - 1];
+    progress.governanceProposalState = `Queued (executable in ${lastMatch[1]}s)`;
+    progress.phase = 'executing';
+  }
+
+  // Check for proposal execution
+  if (combinedLogs.includes('executing proposal')) {
+    progress.governanceProposalState = 'Executing...';
+    progress.phase = 'executing';
+  }
+
+  // Check for governance execute succeeded - this is the key indicator
+  if (combinedLogs.includes('Governance execute succeeded')) {
+    progress.governanceProposalState = 'Executed - Restarting nodes';
+    progress.phase = 'complete';
+
+    // Extract new rollup address
+    const newRollupMatch = combinedLogs.match(/newVersion:\s*(\d+),\s*address:\s*(0x[a-fA-F0-9]+)/i);
+    if (newRollupMatch) {
+      progress.payloadAddress = `New Rollup: ${newRollupMatch[2]} (v${newRollupMatch[1]})`;
+    }
+  }
+
+  // Check for successful upgrade
+  if (combinedLogs.includes('Rollup was upgraded') || combinedLogs.includes('upgrade successful')) {
+    progress.governanceProposalState = 'Complete';
+    progress.phase = 'complete';
+  }
+
+  // Check if test passed
+  if (combinedLogs.includes('PASS') && combinedLogs.includes('upgrade_rollup_version')) {
+    progress.governanceProposalState = 'Test Passed!';
+    progress.phase = 'complete';
+  }
+
+  // Check for post-upgrade waiting phase
+  const waitingForBlocksMatch = combinedLogs.match(
+    /Waiting up to (\d+)s for new rollup to produce\/prove blocks.*lag=(\d+) epochs/,
+  );
+  if (waitingForBlocksMatch) {
+    progress.phase = 'complete'; // Upgrade is complete, just waiting for verification
+  }
+
+  // Check validator logs for committee status (post-upgrade)
+  if (validatorLogs.includes('committee does not exist on L1')) {
+    progress.governanceProposalState = 'Waiting for committee on new rollup (2 epoch lag)';
+  }
+
+  // Check if blocks are being produced on new rollup
+  if (progress.phase === 'complete' && validatorLogs.includes('Built block')) {
+    progress.governanceProposalState = 'New rollup producing blocks!';
+  }
+
+  // Look for VoteCast events in test logs
+  const voteCastMatches = [...combinedLogs.matchAll(/VoteCast.*?yes=(\d+)\s+no=(\d+)/gi)];
+  if (voteCastMatches.length > 0) {
+    const lastVote = voteCastMatches[voteCastMatches.length - 1];
+    progress.governanceYesVotes = BigInt(lastVote[1]);
+    progress.governanceNoVotes = BigInt(lastVote[2]);
+  }
+
+  // Check for completion
+  if (combinedLogs.includes('Test passed') || combinedLogs.includes('upgrade complete')) {
+    progress.phase = 'complete';
+  }
+
+  // Extract per-validator voting from committee logs
+  const committeeMatch = validatorLogs.match(/Validators ([^\s]+) are on the validator committee/);
+  if (committeeMatch) {
+    const addresses = committeeMatch[1].split(',');
+    for (const addr of addresses) {
+      progress.validatorVotes.push({
+        address: addr.slice(0, 10) + '...',
+        hasVoted: false, // We'd need L1 query to know this
+        votedPayload: null,
+      });
+    }
+  }
+
+  // Get current slot from validator status
+  for (const line of validatorLogs.split('\n').reverse()) {
+    const slotMatch = line.match(/"slotNumber":(\d+)/);
+    if (slotMatch) {
+      progress.currentSlot = parseInt(slotMatch[1]);
+      break;
+    }
+  }
+
+  // Only return if there's some upgrade activity
+  if (
+    progress.payloadAddress ||
+    progress.leaderVotes !== null ||
+    progress.governanceProposalId !== null ||
+    progress.phase !== 'none'
+  ) {
+    return progress;
+  }
+
+  return null;
+}
+
 async function getContractAddresses(namespace: string): Promise<{
   registryAddress: string | null;
   rollupAddress: string | null;
@@ -563,13 +793,14 @@ async function getContractAddresses(namespace: string): Promise<{
 }
 
 async function collectDiagnostics(namespace: string): Promise<NetworkDiagnostics> {
-  const [l1Status, pods, services, criticalEvents, contracts, proverHistory] = await Promise.all([
+  const [l1Status, pods, services, criticalEvents, contracts, proverHistory, upgradeProgress] = await Promise.all([
     getL1Status(namespace),
     getPods(namespace),
     getServiceEndpoints(namespace),
     getCriticalEvents(namespace),
     getContractAddresses(namespace),
     getProverHistory(namespace),
+    getUpgradeProgress(namespace),
   ]);
 
   // Get detailed status for aztec nodes (exclude L1 eth-validator pods)
@@ -592,6 +823,7 @@ async function collectDiagnostics(namespace: string): Promise<NetworkDiagnostics
     ...criticalEvents,
     contracts,
     proverHistory,
+    upgradeProgress,
   };
 }
 
@@ -714,6 +946,106 @@ function printDiagnostics(diag: NetworkDiagnostics): void {
     console.log(`  Chain ID:        ${colorize(diag.chainId.toString(), 'green')}`);
   }
   console.log();
+
+  // Upgrade Progress (if any)
+  if (diag.upgradeProgress) {
+    console.log(colorize('┌─────────────────────────────────────────────────────────────────────────────┐', 'cyan'));
+    console.log(colorize('│ UPGRADE PROGRESS                                                            │', 'cyan'));
+    console.log(colorize('└─────────────────────────────────────────────────────────────────────────────┘', 'cyan'));
+
+    const up = diag.upgradeProgress;
+
+    // Show current phase
+    const phaseLabels: Record<string, string> = {
+      none: 'No upgrade in progress',
+      proposer_voting: 'Phase 1: Governance Proposer Voting (collecting validator votes)',
+      waiting_round_end: 'Phase 1: Quorum Reached - Waiting for Round End',
+      governance_voting: 'Phase 2: Governance Proposal Voting',
+      executing: 'Phase 3: Waiting for Execution Window',
+      complete: 'UPGRADE EXECUTED - Network Restarting',
+    };
+    const phaseColors: Record<string, keyof typeof Colors> = {
+      none: 'yellow',
+      proposer_voting: 'yellow',
+      waiting_round_end: 'cyan',
+      governance_voting: 'cyan',
+      executing: 'yellow',
+      complete: 'green',
+    };
+
+    console.log();
+    console.log(`  ${colorize(phaseLabels[up.phase] || up.phase, phaseColors[up.phase] || 'yellow')}`);
+
+    // Phase 1: Governance Proposer voting
+    if (up.leaderVotes !== null && up.quorumSize !== null) {
+      console.log();
+      if (up.currentRound !== null) {
+        console.log(`    Round:         ${up.currentRound}`);
+      }
+      if (up.payloadAddress) {
+        console.log(`    Payload:       ${up.payloadAddress}`);
+      }
+
+      const voteProgress = up.leaderVotes / up.quorumSize;
+      const progressBar = '█'.repeat(Math.floor(voteProgress * 20)).padEnd(20, '░');
+      const voteColor = up.isQuorumReached ? 'green' : voteProgress >= 0.5 ? 'yellow' : 'red';
+
+      console.log(
+        `    Votes:         ${colorize(`${up.leaderVotes}/${up.quorumSize}`, voteColor)} [${colorize(progressBar, voteColor)}] ${Math.floor(voteProgress * 100)}%`,
+      );
+
+      if (up.isQuorumReached) {
+        console.log(`    Status:        ${colorize('✓ QUORUM REACHED', 'green')}`);
+      } else {
+        console.log(`    Status:        ${colorize('Collecting validator votes...', 'yellow')}`);
+      }
+    }
+
+    // Phase 2: Governance Proposal voting
+    if (up.phase === 'governance_voting' || up.governanceProposalState) {
+      console.log();
+      if (up.governanceProposalId !== null) {
+        console.log(`    Proposal ID:   ${up.governanceProposalId}`);
+      }
+
+      if (up.governanceProposalState) {
+        const isWaiting =
+          up.governanceProposalState.includes('Pending') || up.governanceProposalState.includes('Waiting');
+        const isComplete =
+          up.governanceProposalState.includes('Executed') || up.governanceProposalState.includes('producing');
+        const stateColor = isComplete ? 'green' : isWaiting ? 'yellow' : 'cyan';
+        console.log(`    State:         ${colorize(up.governanceProposalState, stateColor)}`);
+      }
+
+      if (up.governanceYesVotes !== null || up.governanceNoVotes !== null) {
+        const yes = up.governanceYesVotes || 0n;
+        const no = up.governanceNoVotes || 0n;
+        console.log(`    Yes Votes:     ${colorize(yes.toString(), 'green')}`);
+        console.log(`    No Votes:      ${colorize(no.toString(), 'red')}`);
+      }
+    }
+
+    // Validator votes (if available)
+    if (up.validatorVotes.length > 0) {
+      console.log();
+      console.log(colorize('    Committee Validators:', 'bold'));
+      for (const v of up.validatorVotes.slice(0, 12)) {
+        const status = v.hasVoted ? colorize('✓', 'green') : colorize('○', 'yellow');
+        console.log(`      ${status} ${v.address}`);
+      }
+      if (up.validatorVotes.length > 12) {
+        console.log(`      ... and ${up.validatorVotes.length - 12} more`);
+      }
+    }
+
+    // Current slot for context
+    if (up.currentSlot !== null) {
+      console.log();
+      console.log(`    Current Slot:  ${up.currentSlot}`);
+    }
+
+    console.log();
+  }
 
   // Pod Status
   console.log(colorize('┌─────────────────────────────────────────────────────────────────────────────┐', 'cyan'));
