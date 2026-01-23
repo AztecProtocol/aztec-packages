@@ -1153,6 +1153,74 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    /**
+     * @brief Test NAF reconstruction with a specific scalar that causes lo_accumulators.second = 2^136
+     *
+     * This scalar value: 0x0000000000000000000000640000000000000000000000000000000000000000
+     * has a specific bit pattern (0x64 at bit positions 232-239) that causes the NAF reconstruction
+     * to produce an intermediate value (lo_accumulators.second) equal to exactly 2^136.
+     *
+     * This value cannot be represented as two 68-bit limbs, causing the bigfield constructor to fail
+     * with the assertion: low_bits < 2^136.
+     *
+     * This is a bug in the NAF reconstruction logic that needs to be fixed.
+     */
+    static void test_compute_naf_edge_case_2_136()
+    {
+        Builder builder = Builder();
+
+        // This specific scalar causes NAF reconstruction to produce lo_accumulators.second = 2^136
+        // Binary: 0x64 = 0b01100100 at bit positions 232-239
+        uint256_t scalar_raw = uint256_t(0x64) << 232;
+        fr scalar_val = fr(scalar_raw);
+
+        std::cout << "\n=== test_compute_naf_edge_case_2_136 ===" << std::endl;
+        std::cout << "Testing scalar: " << scalar_val << std::endl;
+        std::cout << "This scalar is known to cause NAF reconstruction to produce lo_accumulators.second = 2^136"
+                  << std::endl;
+
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+        scalar.set_origin_tag(submitted_value_origin_tag);
+
+        // Compute NAF with full field size (this is where the issue occurs for composite fields)
+        const size_t length = fr::modulus.get_msb() + 1;
+
+        std::cout << "Computing NAF with length = " << length << std::endl;
+
+        // This will trigger the NAF reconstruction bug for composite fields (secp256r1)
+        // For non-composite fields, it should work fine
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        std::cout << "NAF computed successfully" << std::endl;
+
+        // Verify NAF correctness
+        for (const auto& bit : naf) {
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Reconstruct scalar from NAF: scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+        }
+        reconstructed_val -= fr(naf[length].get_value());
+
+        std::cout << "Original scalar:      " << scalar_val << std::endl;
+        std::cout << "Reconstructed scalar: " << reconstructed_val << std::endl;
+
+        EXPECT_EQ(scalar_val, reconstructed_val);
+
+        std::cout << "NAF reconstruction verification passed" << std::endl;
+        std::cout << "Checking circuit correctness..." << std::endl;
+
+        // For composite fields (secp256r1), this will fail at the circuit level
+        // because the bigfield constructor receives lo_accumulators.second = 2^136
+        // which cannot be represented as two 68-bit limbs
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+
+        std::cout << "=== test_compute_naf_edge_case_2_136 PASSED ===" << std::endl;
+    }
+
     static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
     {
         Builder builder;
@@ -2497,6 +2565,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_edge_case_2_136)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_edge_case_2_136();
     } else {
         GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }
