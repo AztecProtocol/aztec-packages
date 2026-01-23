@@ -35,6 +35,7 @@ pub mod history;
 pub mod keys;
 mod messaging;
 pub mod note;
+pub mod nullifier;
 pub mod oracle;
 pub mod state_vars;
 mod capsules;

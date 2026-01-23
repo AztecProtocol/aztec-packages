@@ -105,9 +105,15 @@ describe('Storage Instructions', () => {
         SLoad.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // slotOffset
+        ...Buffer.from('5678', 'hex'), // contractAddressOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new SLoad(/*addressing_mode=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
+      const inst = new SLoad(
+        /*addressing_mode=*/ 0x01,
+        /*slotOffset=*/ 0x1234,
+        /*contractAddressOffset=*/ 0x5678,
+        /*dstOffset=*/ 0x3456,
+      );
 
       expect(SLoad.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -118,17 +124,22 @@ describe('Storage Instructions', () => {
       const expectedResult = new Fr(1n);
       persistableState.readStorage.mockResolvedValueOnce(expectedResult);
 
-      const a = new Field(1n);
-      const b = new Field(2n);
+      const slot = new Field(1n);
+      const contractAddressField = new Field(address.toBigInt());
 
-      context.machineState.memory.set(0, a);
-      context.machineState.memory.set(1, b);
+      context.machineState.memory.set(0, slot);
+      context.machineState.memory.set(1, contractAddressField);
 
-      await new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new SLoad(
+        /*addressing_mode=*/ 0,
+        /*slotOffset=*/ 0,
+        /*contractAddressOffset=*/ 1,
+        /*dstOffset=*/ 2,
+      ).execute(context);
 
-      expect(persistableState.readStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()));
+      expect(persistableState.readStorage).toHaveBeenCalledWith(address, new Fr(slot.toBigInt()));
 
-      const actual = context.machineState.memory.get(1);
+      const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(expectedResult));
     });
   });

@@ -62,12 +62,10 @@ impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
 }
 
 impl Readable for NullifierLeafPreimage {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
-        let siloed_value =
-            compute_siloed_nullifier(read_request.contract_address, read_request.innermost());
+    fn assert_match_read_request(self, read_request: Field) {
         assert_eq(
             self.nullifier,
-            siloed_value,
+            read_request,
             "Value of the nullifier leaf does not match read request",
         );
     }

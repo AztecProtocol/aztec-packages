@@ -319,6 +319,8 @@ timelock
 Timelock
 timelocked
 tonelli
+townhall
+townhalls
 TORADIXLE
 Tpkm
 transactionfee

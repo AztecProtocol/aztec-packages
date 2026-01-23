@@ -36,8 +36,6 @@ pub contract Test {
         },
         // Event related
         messages::message_delivery::MessageDelivery,
-        // Hashing
-        hash::pedersen_hash,
         // History and inclusion proofs
         history::note_inclusion::ProveNoteInclusion,
         // Key management
@@ -51,6 +49,7 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
+    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -427,7 +426,7 @@ pub contract Test {
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash], 0)
+            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
         }
     }
 

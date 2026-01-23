@@ -34,7 +34,8 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
-    [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \
+    [[maybe_unused]] const auto clear_tag = OriginTag::constant();    /* A tag representing a constant value */        \
+    [[maybe_unused]] const auto constant_tag = OriginTag::constant(); /* Alias for clear_tag */                        \
     const auto submitted_value_origin_tag = OriginTag(                                                                 \
         parent_id, /*round_id=*/0, /*is_submitted=*/true); /*A tag describing a value submitted in the 0th round*/     \
     const auto next_submitted_value_origin_tag = OriginTag(                                                            \
@@ -58,11 +59,7 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
         OriginTag(first_second_third_merged_tag,                                                                       \
                   next_submitted_value_origin_tag); /* A tag describing a value computed from values submitted in the  \
                                  0th and 1st round and challenges generated in the 0th and 1st round*/                 \
-    const auto instant_death_tag = []() {                                                                              \
-        auto some_tag = OriginTag();                                                                                   \
-        some_tag.poison();                                                                                             \
-        return some_tag;                                                                                               \
-    }(); /* A tag that causes and abort on any arithmetic*/
+    const auto instant_death_tag = OriginTag::poisoned(); /* A tag that causes an abort on any arithmetic*/
 
 namespace bb {
 
@@ -78,7 +75,9 @@ struct OriginTag {
     // transcript_index is set to CONSTANT if the value is just a constant
     // transcript_index is set to FREE_WITNESS if the value is a free witness (not a constant and not from the
     // transcript)
-    size_t transcript_index = CONSTANT;
+    // NOTE: The default is FREE_WITNESS so that if we forget to set the tag, it will be treated as a witness,
+    // which is safer (can trigger errors if misused) than treating it as a constant (which would be silently accepted)
+    size_t transcript_index = FREE_WITNESS;
 
     // round_provenance specifies which submitted values and challenges have been used to generate this element
     // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
@@ -168,6 +167,35 @@ struct OriginTag {
         round_provenance = numeric::uint256_t(0);
     }
 
+    bool is_constant() const { return transcript_index == CONSTANT && !instant_death; }
+    void set_constant()
+    {
+        transcript_index = CONSTANT;
+        round_provenance = numeric::uint256_t(0);
+    }
+
+    // Static factory methods for cleaner syntax
+    static OriginTag constant()
+    {
+        OriginTag tag;
+        tag.transcript_index = CONSTANT;
+        return tag;
+    }
+
+    static OriginTag free_witness()
+    {
+        OriginTag tag;
+        tag.transcript_index = FREE_WITNESS;
+        return tag;
+    }
+
+    static OriginTag poisoned()
+    {
+        OriginTag tag;
+        tag.instant_death = true;
+        return tag;
+    }
+
     /**
      * @brief Clear the round_provenance to address round provenance false positives.
      */
@@ -204,7 +232,14 @@ struct OriginTag {
     bool is_free_witness() const { return false; }
     void set_free_witness() {}
     void unset_free_witness() {}
+    bool is_constant() const { return true; }
+    void set_constant() {}
     void clear_round_provenance() {}
+
+    // Static factory methods (no-ops in release builds)
+    static OriginTag constant() { return OriginTag(); }
+    static OriginTag free_witness() { return OriginTag(); }
+    static OriginTag poisoned() { return OriginTag(); }
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {

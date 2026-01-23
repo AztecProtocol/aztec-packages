@@ -296,7 +296,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                 break;
             }
 
-            DoNotOptimize(hash_response->hash);
+            auto hash = hash_response->hash;
+            DoNotOptimize(hash);
         }
     }
 };

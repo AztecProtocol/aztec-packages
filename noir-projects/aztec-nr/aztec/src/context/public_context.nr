@@ -737,11 +737,13 @@ impl PublicContext {
     /// * `N` - the number of consecutive slots to return, starting from the
     ///         `storage_slot`.
     ///
-    pub fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
+    pub fn raw_storage_read<let N: u32>(self: Self, storage_slot: Field) -> [Field; N] {
         let mut out = [0; N];
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
-            out[i] = unsafe { avm::storage_read(storage_slot + i as Field) };
+            out[i] = unsafe {
+                avm::storage_read(storage_slot + i as Field, self.this_address().to_field())
+            };
         }
         out
     }

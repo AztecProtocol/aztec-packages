@@ -119,5 +119,6 @@ export async function getL1ContractsConfig(
     slashAmountSmall: slashingAmounts[0],
     slashAmountMedium: slashingAmounts[1],
     slashAmountLarge: slashingAmounts[2],
+    initialEthPerFeeAsset: DefaultL1ContractsConfig.initialEthPerFeeAsset,
   };
 }

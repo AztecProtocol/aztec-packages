@@ -7,7 +7,7 @@ import {
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Body, L2BlockNew } from '@aztec/stdlib/block';
+import { Body, L2Block } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
 
@@ -61,7 +61,7 @@ export async function makeTXEBlockHeader(
 }
 
 /**
- * Creates an L2BlockNew with proper archive chaining.
+ * Creates an L2Block with proper archive chaining.
  * This function:
  * 1. Gets the current archive state as lastArchive for the header
  * 2. Creates the block header
@@ -71,13 +71,13 @@ export async function makeTXEBlockHeader(
  * @param worldTrees - The world trees to read/write from
  * @param globalVariables - Global variables for the block
  * @param txEffects - Transaction effects to include in the block
- * @returns The created L2BlockNew with proper archive chaining
+ * @returns The created L2Block with proper archive chaining
  */
 export async function makeTXEBlock(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
   txEffects: TxEffect[],
-): Promise<L2BlockNew> {
+): Promise<L2Block> {
   const header = await makeTXEBlockHeader(worldTrees, globalVariables);
 
   // Update the archive tree with this block's header hash
@@ -87,9 +87,9 @@ export async function makeTXEBlock(
   const newArchiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
   const newArchive = new AppendOnlyTreeSnapshot(new Fr(newArchiveInfo.root), Number(newArchiveInfo.size));
 
-  // L2BlockNew requires checkpointNumber and indexWithinCheckpoint
+  // L2Block requires checkpointNumber and indexWithinCheckpoint
   const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
   const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
-  return new L2BlockNew(newArchive, header, new Body(txEffects), checkpointNumber, indexWithinCheckpoint);
+  return new L2Block(newArchive, header, new Body(txEffects), checkpointNumber, indexWithinCheckpoint);
 }

@@ -169,8 +169,8 @@ impl TestBuilder {
 
     pub fn read_settled_nullifier(&mut self, preimage_index: u32) {
         let preimage = self.nullifier_preimages[preimage_index];
-        let nullifier_value = self.pre_existing_nullifier_values[preimage_index];
-        let read_request_index = self.previous_kernel.add_nullifier_read_request(nullifier_value);
+        let read_request_index =
+            self.previous_kernel.add_read_request_for_settled_nullifier(preimage.nullifier);
         let leaf_index = preimage_index as Field;
         let membership_witness = MembershipWitness {
             leaf_index,

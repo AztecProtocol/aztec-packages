@@ -13,7 +13,7 @@ export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
   constructor(
     l2BlockSource: Pick<
       L2BlockSource,
-      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
+      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
     >,
     localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,

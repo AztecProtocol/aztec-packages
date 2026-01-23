@@ -3,7 +3,7 @@ use crate::history::{
     nullifier_inclusion::{ProveNoteIsNullified, ProveNullifierInclusion},
     test,
 };
-use crate::oracle::{notes::notify_created_nullifier, random::random};
+use crate::oracle::{nullifiers::notify_created_nullifier, random::random};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use dep::protocol_types::{
     constants::DOM_SEP__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator, traits::ToField,

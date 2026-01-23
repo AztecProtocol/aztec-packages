@@ -121,9 +121,9 @@ TYPED_TEST(ScalarMultiplicationTests, RadixSort)
         Fr::__copy(source_scalar, scalars[i]);
     }
 
-    size_t bits_per_slice = scalar_multiplication::MSM<Curve>::get_optimal_log_num_buckets(target_degree);
+    uint32_t bits_per_slice = scalar_multiplication::MSM<Curve>::get_optimal_log_num_buckets(target_degree);
 
-    for (size_t i = 0; i < num_rounds; ++i) {
+    for (uint32_t i = 0; i < num_rounds; ++i) {
 
         std::vector<uint64_t> scalar_slices(target_degree);
         std::vector<uint64_t> sorted_scalar_slices(target_degree);
@@ -132,7 +132,7 @@ TYPED_TEST(ScalarMultiplicationTests, RadixSort)
             scalar_slices[j] = scalar_multiplication::MSM<Curve>::get_scalar_slice(scalars[j], i, bits_per_slice);
             sorted_scalar_slices[j] = scalar_slices[j];
         }
-        scalar_multiplication::process_buckets_count_zero_entries(
+        scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
             &sorted_scalar_slices[0], target_degree, static_cast<uint32_t>(bits_per_slice));
 
         const auto find_entry = [scalar_slices, num_entries = target_degree](auto x) {
