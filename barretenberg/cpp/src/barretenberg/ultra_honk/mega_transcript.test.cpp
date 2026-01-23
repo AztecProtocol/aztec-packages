@@ -84,7 +84,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
-        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
+        manifest_expected.add_challenge(round, "eta");
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);

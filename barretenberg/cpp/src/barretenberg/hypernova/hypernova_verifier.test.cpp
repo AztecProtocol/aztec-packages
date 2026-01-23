@@ -184,7 +184,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             manifest.add_entry(0, std::string(bus) + "_READ_COUNTS", frs_per_G);
             manifest.add_entry(0, std::string(bus) + "_READ_TAGS", frs_per_G);
         }
-        manifest.add_challenge(0, std::array{ "eta", "eta_two", "eta_three" });
+        manifest.add_challenge(0, "eta");
 
         // Round 1: lookup + w_4
         manifest.add_entry(1, "LOOKUP_READ_COUNTS", frs_per_G);
