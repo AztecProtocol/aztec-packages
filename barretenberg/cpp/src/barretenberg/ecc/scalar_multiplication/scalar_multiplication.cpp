@@ -243,7 +243,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
     using AffineElement = typename Curve::AffineElement;
     using BaseField = typename Curve::BaseField;
 
-    // Use interleaved array policy: pairs are (points[2i], points[2i+1]), output in points[num_pairs:]
+    // Use interleaved array policy: pairs are (points[2i], points[2i+1]), output in points[num_pairs + 1]
     // This includes prefetching for non-sequential output access
     const size_t num_pairs = num_points / 2;
     bb::group_elements::batch_affine_add_impl<bb::group_elements::InterleavedArrayPolicy, AffineElement, BaseField>(

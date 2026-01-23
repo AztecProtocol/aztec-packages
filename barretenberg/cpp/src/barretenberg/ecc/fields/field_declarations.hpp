@@ -189,46 +189,12 @@ template <class Params_> struct alignas(32) field {
         return { data[0], data[1], data[2], data[3] };
     }
 
-    /**
-     * @brief Extract a slice of bits from raw limbs (no Montgomery conversion)
-     * @details Returns bits [lo_bit, hi_bit) from the raw limb representation.
-     *          Useful for algorithms like Pippenger MSM that need to slice scalars
-     *          that have already been converted out of Montgomery form.
-     *
-     * @param lo_bit Starting bit position (inclusive)
-     * @param hi_bit Ending bit position (exclusive)
-     * @return uint32_t The extracted bit slice
-     */
-    [[nodiscard]] uint32_t get_bit_slice_raw(size_t lo_bit, size_t hi_bit) const noexcept
-    {
-        BB_ASSERT_DEBUG(lo_bit < hi_bit);
-        BB_ASSERT_DEBUG(hi_bit <= FIELD_BITS);
-
-        // Optimized: directly access limbs without creating temporary uint256_t objects (~4x faster)
-        size_t start_limb = lo_bit / LIMB_BITS;
-        size_t end_limb = hi_bit / LIMB_BITS;
-        size_t lo_slice_offset = lo_bit & (LIMB_BITS - 1);
-        size_t slice_size = hi_bit - lo_bit;
-        size_t lo_slice_bits = (LIMB_BITS - lo_slice_offset < slice_size) ? (LIMB_BITS - lo_slice_offset) : slice_size;
-        size_t hi_slice_bits = slice_size - lo_slice_bits;
-
-        uint64_t lo_slice = (data[start_limb] >> lo_slice_offset) & ((1ULL << lo_slice_bits) - 1);
-        uint64_t hi_slice = (start_limb != end_limb) ? (data[end_limb] & ((1ULL << hi_slice_bits) - 1)) : 0;
-
-        return static_cast<uint32_t>(lo_slice | (hi_slice << lo_slice_bits));
-    }
-
     constexpr field(const field& other) noexcept = default;
     constexpr field(field&& other) noexcept = default;
     constexpr field& operator=(const field& other) & noexcept = default;
     constexpr field& operator=(field&& other) & noexcept = default;
     constexpr ~field() noexcept = default;
     alignas(32) uint64_t data[4]; // NOLINT
-
-    // Limb size constants for field element representation
-    static constexpr size_t NUM_LIMBS = 4;
-    static constexpr size_t LIMB_BITS = 64;
-    static constexpr size_t FIELD_BITS = 256;
 
     static constexpr uint256_t modulus =
         uint256_t{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
