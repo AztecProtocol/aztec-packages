@@ -110,6 +110,7 @@ describe('sustained N TPS test', () => {
   let childProcesses: ChildProcess[];
 
   afterAll(async () => {
+    logger.info('Collecting benchmark metrics and cleaning up...');
     if (process.env.BENCH_OUTPUT) {
       for (const topic of Object.values(TopicType)) {
         try {
@@ -119,6 +120,7 @@ describe('sustained N TPS test', () => {
           ]);
 
           metrics.recordP2PGossipLatency(topic, p50, p95);
+          logger.debug(`Scraped P2P gossip latency for ${topic}`, { p50, p95 });
         } catch (err) {
           logger.warn(`Failed to scrape P2P gossip latency: ${err}`, { err });
         }
@@ -130,6 +132,7 @@ describe('sustained N TPS test', () => {
           prometheusClient.querySingleValue(attestationLatencyQuery('0.95')),
         ]);
         metrics.recordAttestationLatency(p50, p95);
+        logger.debug('Scraped attestation latency', { p50, p95 });
       } catch (err) {
         logger.warn(`Failed to scrape attestation latency: ${err}`, { err });
       }
@@ -141,6 +144,7 @@ describe('sustained N TPS test', () => {
           prometheusClient.querySingleValue(attestationFailedNodeIssueCountQuery()),
         ]);
         metrics.recordAttestationCounts(success, failedBad, failedNode);
+        logger.debug('Scraped attestation counts', { success, failedBad, failedNode });
       } catch (err) {
         logger.warn(`Failed to scrape attestation counts: ${err}`, { err });
       }
@@ -152,6 +156,7 @@ describe('sustained N TPS test', () => {
           prometheusClient.querySingleValue(reqRespTxsDelayQuery('0.95')),
         ]);
         metrics.recordReqRespStats(fraction, delayP50, delayP95);
+        logger.debug('Scraped req/resp stats', { fraction, delayP50, delayP95 });
       } catch (err) {
         logger.warn(`Failed to scrape req/resp stats: ${err}`, { err });
       }
@@ -163,6 +168,7 @@ describe('sustained N TPS test', () => {
           prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
         ]);
         metrics.recordPeerStats(avgCount, durationP50, durationP95);
+        logger.debug('Scraped peer stats', { avgCount, durationP50, durationP95 });
       } catch (err) {
         logger.warn(`Failed to scrape peer stats: ${err}`, { err });
       }
@@ -175,14 +181,23 @@ describe('sustained N TPS test', () => {
           prometheusClient.querySingleValue(mempoolAttestationMinedDelayQuery('0.95')),
         ]);
         metrics.recordMempoolMinedDelay(txP50, txP95, attestationP50, attestationP95);
+        logger.debug('Scraped mempool mined delay stats', { txP50, txP95, attestationP50, attestationP95 });
       } catch (err) {
         logger.warn(`Failed to scrape mempool mined delay stats: ${err}`, { err });
       }
 
+      const benchmarkData = metrics.toGithubActionBenchmarkJSON();
       await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });
-      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
+      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(benchmarkData));
+      logger.info('Wrote benchmark output', { path: process.env.BENCH_OUTPUT, entries: benchmarkData.length });
+    } else {
+      logger.info('BENCH_OUTPUT not set; skipping benchmark JSON output');
     }
 
+    logger.info('Cleaning up wallets and child processes', {
+      walletCount: testWallets?.length ?? 0,
+      childProcessCount: childProcesses?.length ?? 0,
+    });
     for (const { cleanup } of testWallets!) {
       await cleanup();
     }
@@ -196,9 +211,25 @@ describe('sustained N TPS test', () => {
 
   beforeAll(async () => {
     logger.info(`Starting test setup for sustained TPS tests over ${TEST_DURATION_SECONDS} seconds...`);
+    logger.info('Test configuration', {
+      namespace: config.NAMESPACE,
+      lowValueTps,
+      highValueTps,
+      lowValueAccounts,
+      highValueAccounts,
+      testDurationSeconds: TEST_DURATION_SECONDS,
+      realVerifier: config.REAL_VERIFIER,
+      benchOutput: process.env.BENCH_OUTPUT,
+      benchScenario: process.env.BENCH_SCENARIO,
+    });
     childProcesses = [];
 
     const spartanDir = `${getGitProjectRoot()}/spartan`;
+    logger.info('Installing chaos mesh chart', {
+      name: CHAOS_MESH_NAME,
+      namespace: config.NAMESPACE,
+      valuesFile: 'network-requirements.yaml',
+    });
     const chaosMeshInstallation = installChaosMeshChart({
       logger,
       targetNamespace: config.NAMESPACE,
@@ -209,16 +240,18 @@ describe('sustained N TPS test', () => {
 
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     const rpcUrl = `http://${rpcIP}:8080`;
+    logger.info('Resolved RPC endpoint', { rpcIP, rpcUrl });
     aztecNode = createAztecNodeClient(rpcUrl);
 
     const promPortForward = await startPortForwardForPrometeheus('metrics');
     childProcesses.push(promPortForward.process);
+    logger.info('Started Prometheus port-forward', { port: promPortForward.port, pid: promPortForward.process.pid });
 
     prometheusClient = new PrometheusClient({
       server: new URL(`http://127.0.0.1:${promPortForward.port}`),
     });
 
-    metrics = new TxInclusionMetrics(aztecNode);
+    metrics = new TxInclusionMetrics(aztecNode, logger);
 
     await retryUntil(
       async () => {
@@ -234,10 +267,14 @@ describe('sustained N TPS test', () => {
       60,
     );
 
+    const initialBlockNumber = await aztecNode.getBlockNumber();
+    logger.info('Initial block mined', { blockNumber: initialBlockNumber });
+
     testWallets = await timesAsync(lowValueAccounts + highValueAccounts, i => {
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
       return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     });
+    logger.info('Wallet provisioning complete', { walletCount: testWallets.length });
 
     // this function creates n + 1 accounts. We only want one for each wallet
     const localTestAccounts = await Promise.all(
@@ -246,15 +283,22 @@ describe('sustained N TPS test', () => {
 
     lowValueWallets = localTestAccounts.slice(0, lowValueAccounts).map(({ wallet }) => wallet);
     highValueWallets = localTestAccounts.slice(lowValueAccounts).map(({ wallet }) => wallet);
+    logger.info('Test accounts deployed', {
+      totalAccounts: localTestAccounts.length,
+      lowValueWallets: lowValueWallets.length,
+      highValueWallets: highValueWallets.length,
+    });
 
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet)
       .send({ from: localTestAccounts[0].recipientAddress, fee: { paymentMethod: sponsor } })
       .deployed();
+    logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
     logger.info(`Awaiting chaos mesh installation`);
     await chaosMeshInstallation;
+    logger.info('Chaos mesh installation complete');
 
     logger.info(`Test setup complete`);
   });
@@ -287,6 +331,13 @@ describe('sustained N TPS test', () => {
 
   it(`can send ${highValueTps}TPS of high-value txs`, async () => {
     logger.info(`Proving benchmark transactions...`);
+    logger.info('Starting sustained TPS run', {
+      lowValueTps,
+      highValueTps,
+      durationSeconds: TEST_DURATION_SECONDS,
+      lowValueWallets: lowValueWallets.length,
+      highValueWallets: highValueWallets.length,
+    });
 
     const backgroundTxPriorityFee = new GasFees(0, 1);
     let lowValueTxs = 0;
@@ -323,6 +374,11 @@ describe('sustained N TPS test', () => {
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
+    logger.info('Stopped transaction senders', {
+      lowValueTxs,
+      highValueTxs,
+      highValueSent: sentTxs.length,
+    });
 
     const results: { success: boolean; tx: SentTx; error?: any }[] = [];
     const waitForTx = async (sentTx: SentTx, txName: string) => {
@@ -334,22 +390,37 @@ describe('sustained N TPS test', () => {
         });
         if (receipt.blockNumber) {
           logger.info(`${txName} included in block ${receipt.blockNumber}`);
+          logger.debug(`${txName} receipt details`, {
+            txHash: receipt.txHash.toString(),
+            status: receipt.status,
+            blockNumber: receipt.blockNumber,
+            transactionFee: receipt.transactionFee?.toString(),
+          });
           await metrics.recordMinedTx(receipt);
         } else {
           throw new Error('Invalid txReceipt: ' + JSON.stringify(receipt));
         }
         results.push({ success: true, tx: sentTx });
       } catch (error) {
-        logger.error(`${txName} was not included: ${error}`);
+        const txHash = await sentTx.getTxHash().catch(() => undefined);
+        const receipt = txHash ? await sentTx.getReceipt().catch(() => undefined) : undefined;
+        logger.error(`${txName} was not included: ${error}`, {
+          txHash: txHash?.toString(),
+          receiptStatus: receipt?.status,
+          receiptBlockNumber: receipt?.blockNumber,
+          receiptError: receipt?.error,
+        });
         results.push({ success: false, tx: sentTx, error });
       }
     };
 
     let index = 0;
+    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxs.length });
     while (sentTxs.length > 0) {
       const chunk = sentTxs.splice(0, 10);
       await Promise.all(chunk.map((tx, idx) => waitForTx(tx, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
+      logger.debug('Processed tx batch', { processed: index, remaining: sentTxs.length });
     }
 
     // Count successes and failures
@@ -363,7 +434,10 @@ describe('sustained N TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
+    const highValueGroup = `high_value_${highValueTps}tps`;
+    const inclusionStats = metrics.inclusionTimeInSeconds(highValueGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
+    logger.info('Inclusion time stats', inclusionStats);
   });
 });
 
@@ -381,6 +455,12 @@ function sendTxsAtTps(
 
   const txs: SentTx[] = [];
   const targetTpsPerPromise = targetTps / promiseCount;
+  logger.info('Starting TPS sender', {
+    targetTps,
+    walletCount: wallets.length,
+    promiseCount,
+    targetTpsPerPromise,
+  });
   // start N "threads", where N is the target TPS rounded up
   // each wallet is responsible for N/targetTps txs per sec
   const promises = times(
@@ -391,11 +471,27 @@ function sendTxsAtTps(
           const wallet = wallets[i];
 
           const start = performance.now(); // ms
-          const tx = await sendTx(wallet);
+          let tx: SentTx;
+          try {
+            tx = await sendTx(wallet);
+          } catch (err) {
+            logger.error('Failed to submit tx', { walletIndex: i, err });
+            throw err;
+          }
           txs.push(tx);
           const dt = performance.now() - start; // ms
 
           const tps = 1000 / dt; // We just sent one tx. Calculate TPS. Note: we have to convert ms to s
+
+          const expectedMs = 1000 / targetTpsPerPromise;
+          if (dt > expectedMs * 2) {
+            logger.debug('Tx submission slower than target', {
+              walletIndex: i,
+              durationMs: dt,
+              targetMs: expectedMs,
+              observedTps: tps,
+            });
+          }
 
           if (tps > targetTpsPerPromise) {
             await sleep(1000 / targetTpsPerPromise - dt);
