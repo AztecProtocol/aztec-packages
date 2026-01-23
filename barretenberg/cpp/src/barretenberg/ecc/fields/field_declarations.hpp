@@ -38,9 +38,7 @@ namespace bb {
 //
 // On the other hand, for moduli with limb[3] > MODULUS_TOP_LIMB_LARGE_THRESHOLD, the uint256_t element
 // derived from the limbs is arbitrary (and is in particular NOT guaranteed to be in the range [0, p)). In particular
-// one sees this in the `add` functionality. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608):
-// Should we change this to maintain the invariant: "internal representation is always in [0, p)"? This would
-// potentially streamline a few other cases in the 256-bit range.
+// one sees this in the `add` functionality.
 
 // To speed up multiplication, we internally represent all elements in MONTGOMERY form. This means that the underlying 4
 // limbs represent a * R modulo p. (See the documentation in \ref field_docs["field documentation"]).

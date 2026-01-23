@@ -283,8 +283,6 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
         // if c != 0, i.e., if there was no carry, we do no additional processing. Note that this means that the output
         // might be larger than p, even if the original self and other were in the range [0, p). This is witnessed in
         // the test AddYieldsLimbsBiggerThanModulus.
-        //  AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): Should we reduce here, to try to
-        //  enforce in the API that the output of every computation is in [0, p)?
         return { r0, r1, r2, r3 };
     } else {
         uint64_t r0 = data[0] + other.data[0];
@@ -330,8 +328,7 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
         r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
         r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
         r3 = addc(r3, modulus.data[3] & borrow, carry, carry);
-        // The value being subtracted is in [0, 2^256) (see
-        // AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608)); it is possible that adding one copy of
+        // The value being subtracted is in [0, 2^256); it is possible that adding one copy of
         // p still leaves us with a negative number. To check if we might need to add another copy of p, we check if
         // `carry == 0`; this means that (if we are "in the borrow branch"), the addition did not 2^256-overflow, which
         // means we are still negative. If we not in the borrow branch (i.e., if `borrow == 0`), `carry == 0` and we add
@@ -422,9 +419,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     // most 257 bits because t4 is in {0, 1}. Proof: we have just computed (aR * bR + \sum_i k_i p)/(2^256), where each
     // k_i is less than 2^{64i} * (2^64 - 1) for i = 0..3. The numerator is therefore upper-bounded by (2^256 - 1)^2 +
     // (2^256 - 1) * p, hence the whole quantity is bounded by 2^256 + p - 1. Therefore, t4 is in {0, 1}, and we must do
-    // at most one subtraction to get in range. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): if
-    // we demand that the numbers are strictly in [0, p-1], then this bound improves to 2p - 1, which is what is written
-    // in the field docs.
+    // at most one subtraction to get in range. AUDITTODO: update field docs: Note that if we demand that the numbers
+    // are strictly in [0, p-1], then this bound improves to 2p - 1, which is what is written in the field docs.
 
     // constant-time "conditional reduction" that computes the following without branches:
     // `result = (value >= modulus) ? value - modulus : value`
@@ -830,7 +826,12 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
              (temp_15 >> 18) | (temp_16 << 11) };
 #endif
 }
-
+/**
+ * @brief Squaring via a variant of the Montgomery algorithm, where we roughly take advantage of the repeated terms in
+ * the expansion.
+ * @note The correctness of both the x64 and the WASM branches is _precisely_ analogus to what is argued in the
+ * `montgomery_mul()` method.
+ */
 template <class T> constexpr field<T> field<T>::montgomery_square() const noexcept
 {
     if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {

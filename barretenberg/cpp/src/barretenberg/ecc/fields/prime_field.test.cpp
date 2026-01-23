@@ -408,8 +408,7 @@ TYPED_TEST(PrimeFieldTest, PostfixIncrement)
 // ================================
 
 // Shows that the raw limbs of an addition can have a result which is not automatically reduced, even when we are in the
-// 256-bit field range. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): should we fix this
-// behavior by forcing the extra reduction, or not?
+// 256-bit field range.
 TYPED_TEST(PrimeFieldTwoFiftySixTest, AddYieldsLimbsBiggerThanModulus)
 {
     using F = TypeParam;
