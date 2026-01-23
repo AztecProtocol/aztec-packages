@@ -653,6 +653,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getProvenBlockNumber();
   }
 
+  public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
   /**
    * Method to fetch the version of the package.
    * @returns The node package version
