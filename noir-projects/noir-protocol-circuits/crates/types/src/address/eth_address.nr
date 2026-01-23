@@ -1,4 +1,7 @@
-use crate::traits::{Deserialize, Empty, Packable, Serialize, ToField};
+use crate::{
+    constants::MAX_ETH_ADDRESS_BIT_SIZE,
+    traits::{Deserialize, Empty, Packable, Serialize, ToField},
+};
 use std::meta::derive;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
@@ -24,12 +27,12 @@ impl EthAddress {
     }
 
     pub fn from_field(field: Field) -> Self {
-        field.assert_max_bit_size::<160>();
+        field.assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
         Self { inner: field }
     }
 
     pub fn validate(self) {
-        self.inner.assert_max_bit_size::<160>();
+        self.inner.assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
 
     pub fn is_zero(self) -> bool {

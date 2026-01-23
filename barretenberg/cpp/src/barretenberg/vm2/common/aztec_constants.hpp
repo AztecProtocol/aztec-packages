@@ -1,6 +1,7 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
+#define MAX_ETH_ADDRESS_BIT_SIZE 160
 #define MAX_ETH_ADDRESS_VALUE "0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff"
 #define ARCHIVE_HEIGHT 30
 #define NOTE_HASH_TREE_HEIGHT 42

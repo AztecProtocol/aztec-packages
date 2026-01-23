@@ -8,9 +8,9 @@ using bb::avm2::FF;
 
 namespace {
 
-EthAddress ff_to_eth_address(FF ff)
+EthAddress ff_to_eth_address(const FF& field)
 {
-    return EthAddress(static_cast<uint256_t>(ff).slice(0, 20));
+    return EthAddress(static_cast<uint256_t>(field).slice(0, MAX_ETH_ADDRESS_BIT_SIZE));
 }
 
 } // namespace

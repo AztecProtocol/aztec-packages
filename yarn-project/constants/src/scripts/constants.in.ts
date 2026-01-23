@@ -11,6 +11,7 @@ const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/Con
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
 const CPP_CONSTANTS = [
+  'MAX_ETH_ADDRESS_BIT_SIZE',
   'MAX_ETH_ADDRESS_VALUE',
   'GENESIS_BLOCK_HEADER_HASH',
   'GENESIS_ARCHIVE_ROOT',

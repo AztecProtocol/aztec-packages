@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_ETH_ADDRESS_BIT_SIZE: u32 = 160; // 20 bytes
 pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffffffff;
 pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
@@ -1247,7 +1248,7 @@ mod test {
         GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_ETH_ADDRESS_BIT_SIZE, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
@@ -1356,12 +1357,12 @@ mod test {
 
     #[test]
     fn validate_max_eth_address_value() {
-        MAX_ETH_ADDRESS_VALUE.assert_max_bit_size::<160>();
+        MAX_ETH_ADDRESS_VALUE.assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
     fn validate_max_eth_address_value_negative() {
-        (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<160>();
+        (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
 
 }
