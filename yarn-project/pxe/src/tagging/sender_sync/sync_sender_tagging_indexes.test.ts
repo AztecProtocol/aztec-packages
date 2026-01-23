@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -11,6 +12,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
+
+const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
 
 describe('syncSenderTaggingIndexes', () => {
   // Contract address and secret to be used on the input of the syncSenderTaggingIndexes function.
@@ -45,7 +48,7 @@ describe('syncSenderTaggingIndexes', () => {
       return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
-    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
+    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     // Highest used and finalized indexes should stay undefined
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBeUndefined();
@@ -88,7 +91,7 @@ describe('syncSenderTaggingIndexes', () => {
         ),
       );
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
+      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       // Verify the highest finalized index is updated to 3
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndexStep1);
@@ -120,7 +123,7 @@ describe('syncSenderTaggingIndexes', () => {
         ),
       );
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
+      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       // Verify the highest finalized index was not updated
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndexStep1);
@@ -203,7 +206,7 @@ describe('syncSenderTaggingIndexes', () => {
         }
       });
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
+      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newHighestFinalizedIndex);
       expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newHighestUsedIndex);
@@ -266,7 +269,7 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     // Sync tagged logs
-    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
+    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     // Verify that both highest finalized and highest used were set to the pending and finalized index
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);

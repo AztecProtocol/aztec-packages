@@ -5,7 +5,7 @@ keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
 tags: [migration, updating, sandbox, local network]
 ---
 
-Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
 ## TBD
 
@@ -19,6 +19,31 @@ Lots of unnecessary modules have been removed from the API, making imports short
 ```
 
 Affected structs include all state variables, notes, contexts, messages, etc.
+
+### [L1 Contracts] Fee asset pricing direction inverted
+
+The fee model now uses `ethPerFeeAsset` instead of the previous `feeAssetPerEth`. This change inverts how the exchange rate is represented: values now express how much ETH one fee asset (AZTEC) is worth, with 1e12 precision.
+
+**Key changes:**
+
+- `FeeHeader.feeAssetPerEth` → `FeeHeader.ethPerFeeAsset`
+- `RollupConfigInput` now requires `initialEthPerFeeAsset` parameter at deployment
+- Default value: `1e7` (0.00001 ETH per AZTEC)
+- Valid range: `100` (1e-10 ETH/AZTEC) to `1e11` (0.1 ETH/AZTEC)
+
+**New environment variable for node operators:**
+
+- `AZTEC_INITIAL_ETH_PER_FEE_ASSET` - Sets the initial ETH per fee asset price with 1e12 precision
+
+### [L1 Contracts] Fee asset price modifier now in basis points
+
+The `OracleInput.feeAssetPriceModifier` field now expects values in basis points (BPS) instead of the previous representation. The modifier is applied as a percentage change to the ETH/AZTEC price each checkpoint.
+
+**Key changes:**
+
+- Valid range: `-100` to `+100` BPS (±1% max change per checkpoint)
+- A value of `+100` increases the price by 1%, `-100` decreases by 1%
+- Validated by `MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100`
 
 ### [Aztec.js] Wallet batching now supports all methods
 
@@ -102,8 +127,8 @@ The `UnsafeContract` class and async helper functions (`getFeeJuice`, `getClassR
 ### [Aztec.nr] Renamed Router contract
 
 `Router` contract has been renamed as `PublicChecks` contract.
-The name of the contract became stale as its use changed from routing public calls through it to public functions to just having public functions on it that can be called by anyone.
-By having these "standard checks" on one contract results in the privacy set of apps that could use this becoming potentially large.
+The name of the contract became stale as its use changed from routing public calls through it to simply having public functions that can be called by anyone.
+Having these "standard checks" on one contract results in a potentially large privacy set for apps that use it.
 
 ### [Aztec Node] `getBlockByHash` and `getBlockHeaderByHash` removed
 
@@ -459,7 +484,7 @@ This function made it annoying to deal with invalid addresses in circuits. If yo
 
 ### [Aztec.nr] Note owner is now enshrined
 
-It turns out that in all the cases a note always have a logical owner.
+It turns out that in all cases a note always has a logical owner.
 For this reason we have decided to enshrine the concept of a note owner and you should drop the field from your note:
 
 ```diff
@@ -933,7 +958,7 @@ The method now only accepts:
 
 #### Return value of `getNotes` no longer contains a recipient and it contains some other additional info
 
-Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
+Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and is now defined as `Promise<NoteDao[]>`.
 `NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
 Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
 
@@ -1520,7 +1545,7 @@ add_private_authwit_from_call_interface(
 ### Historical block renamed as anchor block
 
 A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
-This name is ambiguous and for this reason we've introduce "anchor block".
+This name is ambiguous and for this reason we've introduced "anchor block".
 This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
 
 ```diff
@@ -1549,7 +1574,7 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current note, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
@@ -1777,7 +1802,7 @@ emit_event_in_private_log(
 This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
 Drop the `from` argument when calling these.
 
-Example n TypeScript test:
+Example in TypeScript test:
 
 ```diff
 - await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
@@ -2054,11 +2079,10 @@ The following renamings have taken place:
 - `discovery` moved to `messages`: given that what is discovered are messages
 - `default_aes128` removed
 
-Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
+Most contracts barely used these modules directly. The frequently used `encode_and_encrypt` function imports remain unchanged:
 
-```diff
-- use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-+ use dep::aztec::messages::logs::note::encode_and_encrypt_note;
+```rust
+use dep::aztec::messages::logs::note::encode_and_encrypt_note;
 ```
 
 ### [noir-contracts] Reference Noir contracts directory structure change
@@ -2117,7 +2141,7 @@ This means that if your portal were hard-coding `1` it will now fail when insert
 Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
 
 New Deployments of the protocol do not preserve former state/across each other.
-This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existent contracts.
 To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
 This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
 
@@ -2127,11 +2151,11 @@ Both of these issues were in the token portal and the uniswap portal, so if you 
 
 ### [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
 
-It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
+It's common that we need block metadata of a block in which leaves were inserted when querying indexes of these tree leaves.
 For this reason we now return that information along with the indexes.
 This allows us to reduce the number of individual AztecNode queries.
 
-Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
+Along with this change, `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions were removed as all their uses can now be replaced with the newly modified `findLeavesIndexes` function.
 
 ### [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
@@ -3509,7 +3533,7 @@ Extended syntax for more use cases:
 
 ```rust
 // The contract we're testing
-env.deploy_self("ContractName"); // We have to provide ContractName since nargo it's ready to support multi-contract files
+env.deploy_self("ContractName"); // We have to provide ContractName since nargo isn't ready to support multi-contract files
 
 // A contract in a workspace
 env.deploy("../path/to/workspace@package_name", "ContractName"); // This format allows locating the artifact in the root workspace target folder, regardless of internal code organization

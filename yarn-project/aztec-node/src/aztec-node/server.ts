@@ -41,14 +41,7 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type BlockParameter,
-  type CheckpointedL2Block,
-  type DataInBlock,
-  L2BlockHash,
-  L2BlockNew,
-  type L2BlockSource,
-} from '@aztec/stdlib/block';
+import { type BlockParameter, type DataInBlock, L2Block, L2BlockHash, type L2BlockSource } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -576,7 +569,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param block - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
    */
-  public async getBlock(block: BlockParameter): Promise<L2BlockNew | undefined> {
+  public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
     if (L2BlockHash.isL2BlockHash(block)) {
       return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
     }
@@ -584,7 +577,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (blockNumber === BlockNumber.ZERO) {
       return this.buildInitialBlock();
     }
-    return await this.blockSource.getL2BlockNew(blockNumber);
+    return await this.blockSource.getL2Block(blockNumber);
   }
 
   /**
@@ -592,17 +585,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  public async getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
     const initialBlockHash = await this.#getInitialHeaderHash();
     if (blockHash.equals(Fr.fromBuffer(initialBlockHash.toBuffer()))) {
       return this.buildInitialBlock();
     }
-    return await this.blockSource.getL2BlockNewByHash(blockHash);
+    return await this.blockSource.getL2BlockByHash(blockHash);
   }
 
-  private buildInitialBlock(): L2BlockNew {
+  private buildInitialBlock(): L2Block {
     const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
-    return L2BlockNew.empty(initialHeader);
+    return L2Block.empty(initialHeader);
   }
 
   /**
@@ -610,8 +603,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param archive - The archive root being requested.
    * @returns The requested block.
    */
-  public async getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
-    return await this.blockSource.getL2BlockNewByArchive(archive);
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    return await this.blockSource.getL2BlockByArchive(archive);
   }
 
   /**
@@ -620,24 +613,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param limit - The maximum number of blocks to obtain.
    * @returns The blocks requested.
    */
-  public async getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+  public async getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
+    return (await this.blockSource.getBlocks(from, BlockNumber(limit))) ?? [];
   }
 
-  public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
-    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  public async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getCheckpoints(from, limit)) ?? [];
   }
 
-  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
-  }
-
-  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
-  }
-
-  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
-    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -700,15 +685,44 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+  public async getPrivateLogsByTags(
+    tags: SiloedTag[],
+    page?: number,
+    referenceBlock?: L2BlockHash,
+  ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
+        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPrivateLogsByTags(tags, page);
   }
 
-  public getPublicLogsByTagsFromContract(
+  public async getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    referenceBlock?: L2BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
+        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
@@ -756,21 +770,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node.');
-
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
-    }
+    const txStatus = await this.p2pClient.getTxStatus(txHash);
+    const isKnownToPool = txStatus === 'pending' || txStatus === 'mined';
 
+    // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
-    if (settledTxReceipt) {
-      txReceipt = settledTxReceipt;
-    }
 
-    return txReceipt;
+    if (settledTxReceipt) {
+      // If the archiver has the receipt then return it.
+      return settledTxReceipt;
+    } else if (isKnownToPool) {
+      // If the tx is in the pool but not in the archiver, it's pending.
+      // This handles race conditions between archiver and p2p, where the archiver
+      // has pruned the block in which a tx was mined, but p2p has not caught up yet.
+      return new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
+    } else {
+      // Otherwise, if we don't know the tx, we consider it dropped.
+      return new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
+    }
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
@@ -976,12 +996,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The L2 to L1 messages (empty array if the epoch is not found).
    */
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
-    // Assumes `getBlocksForEpoch` returns blocks in ascending order of block number.
-    const blocks = await this.blockSource.getBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2BlockNew[][] = [];
+    // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
+    const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
+    const blocksInCheckpoints: L2Block[][] = [];
     let previousSlotNumber = SlotNumber.ZERO;
     let checkpointIndex = -1;
-    for (const block of blocks) {
+    for (const checkpointedBlock of checkpointedBlocks) {
+      const block = checkpointedBlock.block;
       const slotNumber = block.header.globalVariables.slotNumber;
       if (slotNumber !== previousSlotNumber) {
         checkpointIndex++;

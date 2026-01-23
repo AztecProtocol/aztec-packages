@@ -3,7 +3,7 @@ import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
-import { Pedersen, StandardTree, newTree } from '../index.js';
+import { Poseidon, StandardTree, newTree } from '../index.js';
 import { FullTreeSnapshotBuilder } from './full_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
@@ -15,7 +15,7 @@ describe('FullSnapshotBuilder', () => {
   beforeEach(async () => {
     db = openTmpStore();
     const deserializer: FromBuffer<Buffer> = { fromBuffer: b => b };
-    tree = await newTree(StandardTree, db, new Pedersen(), 'test', deserializer, 4);
+    tree = await newTree(StandardTree, db, new Poseidon(), 'test', deserializer, 4);
     snapshotBuilder = new FullTreeSnapshotBuilder(db, tree, deserializer);
   });
 

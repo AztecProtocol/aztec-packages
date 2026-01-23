@@ -75,6 +75,8 @@ export type L1ContractsConfig = {
   manaTarget: bigint;
   /** The proving cost per mana */
   provingCostPerMana: bigint;
+  /** The initial ETH per fee asset price (with 1e12 precision) */
+  initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
 } & L1TxUtilsConfig;
@@ -225,6 +227,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
     ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_PROVING_COST_PER_MANA)),
+  },
+  initialEthPerFeeAsset: {
+    env: 'AZTEC_INITIAL_ETH_PER_FEE_ASSET',
+    description: 'The initial ETH per fee asset price (with 1e12 precision)',
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_INITIAL_ETH_PER_FEE_ASSET)),
   },
   exitDelaySeconds: {
     env: 'AZTEC_EXIT_DELAY_SECONDS',

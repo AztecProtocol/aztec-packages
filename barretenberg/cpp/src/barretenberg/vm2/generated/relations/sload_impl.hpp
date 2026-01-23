@@ -20,7 +20,7 @@ void sloadImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // SLOAD_FF_OUTPUT_TAG
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sload)) *
-                   (CView(constants_MEM_TAG_FF) - static_cast<View>(in.get(C::execution_mem_tag_reg_1_)));
+                   (CView(constants_MEM_TAG_FF) - static_cast<View>(in.get(C::execution_mem_tag_reg_2_)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
 }

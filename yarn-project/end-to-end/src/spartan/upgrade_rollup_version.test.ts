@@ -135,6 +135,7 @@ describe('spartan_upgrade_rollup_version', () => {
         slashAmountMedium: l1Config.slashAmountMedium,
         slashAmountLarge: l1Config.slashAmountLarge,
         governanceVotingDuration: l1Config.governanceVotingDuration,
+        initialEthPerFeeAsset: l1Config.initialEthPerFeeAsset,
       },
     );
 

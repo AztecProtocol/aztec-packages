@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type {
   ICheckpointBlockBuilder,
@@ -77,7 +77,7 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
 
-    const block = await L2BlockNew.random(
+    const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
@@ -125,7 +125,7 @@ describe('EpochPruneWatcher', () => {
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const block = await L2BlockNew.random(
+    const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
@@ -187,7 +187,7 @@ describe('EpochPruneWatcher', () => {
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const blockFromL1 = await L2BlockNew.random(
+    const blockFromL1 = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 1,
@@ -195,7 +195,7 @@ describe('EpochPruneWatcher', () => {
       },
     );
 
-    const blockFromBuilder = await L2BlockNew.random(
+    const blockFromBuilder = await L2Block.random(
       BlockNumber(13), // block number
       {
         txsPerBlock: 1,

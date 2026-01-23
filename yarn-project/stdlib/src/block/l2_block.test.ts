@@ -4,21 +4,21 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { BlockHeader } from '../tx/block_header.js';
-import { L2BlockNew } from './l2_block_new.js';
+import { L2Block } from './l2_block.js';
 
-describe('L2BlockNew', () => {
+describe('L2Block', () => {
   it('can serialize an L2 block with logs to a buffer and back', async () => {
-    const block = await L2BlockNew.random(BlockNumber(42));
+    const block = await L2Block.random(BlockNumber(42));
 
     const buffer = block.toBuffer();
-    const recovered = L2BlockNew.fromBuffer(buffer);
+    const recovered = L2Block.fromBuffer(buffer);
 
     expect(recovered).toEqual(block);
   });
 
   it('convert to and from json', async () => {
-    const block = await L2BlockNew.random(BlockNumber(42));
-    const parsed = L2BlockNew.schema.parse(JSON.parse(jsonStringify(block)));
+    const block = await L2Block.random(BlockNumber(42));
+    const parsed = L2Block.schema.parse(JSON.parse(jsonStringify(block)));
     expect(parsed).toEqual(block);
   });
 
@@ -39,7 +39,7 @@ describe('L2BlockNew', () => {
       '0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9',
     );
     emptyBlockHeader.state.partial.publicDataTree.nextAvailableLeafIndex = 128;
-    const emptyBlock = L2BlockNew.empty(emptyBlockHeader);
+    const emptyBlock = L2Block.empty(emptyBlockHeader);
     const emptyBlockHash = await emptyBlock.hash();
     expect(emptyBlockHash.equals(GENESIS_BLOCK_HEADER_HASH)).toBeTruthy();
   });
