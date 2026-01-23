@@ -143,19 +143,17 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
-    // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
+    // Get eta challenge and compute powers (eta, eta², eta³)
+    FF eta = transcript->template get_challenge<FF>("eta");
     prover_instance->relation_parameters.eta = eta;
-    prover_instance->relation_parameters.eta_two = eta_two;
-    prover_instance->relation_parameters.eta_three = eta_three;
+    prover_instance->relation_parameters.compute_eta_powers();
 
     WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
                                                                      prover_instance->memory_read_records,
                                                                      prover_instance->memory_write_records,
-                                                                     eta,
-                                                                     eta_two,
-                                                                     eta_three);
+                                                                     prover_instance->relation_parameters.eta,
+                                                                     prover_instance->relation_parameters.eta_two,
+                                                                     prover_instance->relation_parameters.eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = prover_instance->commitment_key.start_batch();

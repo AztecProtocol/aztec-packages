@@ -123,11 +123,9 @@ template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::complete_prover_instance_for_test(
     const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst)
 {
-    // Generate random eta, beta and gamma
+    // Generate random eta, beta and gamma, compute eta powers
     prover_inst->relation_parameters.eta = FF::random_element();
-    prover_inst->relation_parameters.eta = FF::random_element();
-    prover_inst->relation_parameters.eta_two = FF::random_element();
-    prover_inst->relation_parameters.eta_three = FF::random_element();
+    prover_inst->relation_parameters.compute_eta_powers(); // eta_two = eta², eta_three = eta³
     prover_inst->relation_parameters.beta = FF::random_element();
     prover_inst->relation_parameters.gamma = FF::random_element();
 

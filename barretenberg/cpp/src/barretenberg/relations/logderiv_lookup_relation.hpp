@@ -23,10 +23,13 @@ namespace bb {
  *
  * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
  *
- * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
- * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
- * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift (read note for
+ * where write_term = table_col_1 + \gamma + table_col_2 * \gamma^2 + table_col_3 * \gamma^3 + table_index * \gamma^4
+ * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \gamma^2 + derived_table_entry_3 * \gamma^3
+ * + table_index * \gamma^4, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift (read note for
  explanation).
+ *
+ * Note: Using powers of gamma (instead of eta) separates lookup encoding from memory encoding, which is
+ * important for soundness since memory uses eta powers.
  * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
  * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details).
  *
@@ -134,9 +137,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
-    // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
+    // Compute table_1 + gamma + table_2 * gamma² + table_3 * gamma³ + table_4 * gamma⁴
     // table_1,2,3 correspond to the (maximum) three columns of the lookup table and table_4 is the unique identifier
     // of the lookup table table_index
+    // Note: Using gamma powers instead of eta separates lookup encoding from memory encoding for soundness
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
@@ -144,9 +148,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        const auto eta = ParameterCoefficientAccumulator(params.eta);
-        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
-        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
+        // Compute gamma powers inline (γ², γ³, γ⁴)
+        const auto gamma_two = gamma * gamma;
+        const auto gamma_three = gamma_two * gamma;
+        const auto gamma_four = gamma_three * gamma;
 
         auto table_1 = CoefficientAccumulator(in.table_1);
         auto table_2 = CoefficientAccumulator(in.table_2);
@@ -154,7 +159,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto table_4 = CoefficientAccumulator(in.table_4);
 
         // degree          1     0           1         0          1         0        =   1
-        auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
+        auto result = (table_2 * gamma_two) + (table_3 * gamma_three) + (table_4 * gamma_four);
         result += table_1;
         result += gamma;
         return Accumulator(result);
@@ -167,9 +172,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        const auto eta = ParameterCoefficientAccumulator(params.eta);
-        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
-        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
+        // Compute gamma powers inline (γ², γ³, γ⁴)
+        const auto gamma_two = gamma * gamma;
+        const auto gamma_three = gamma_two * gamma;
+        const auto gamma_four = gamma_three * gamma;
 
         auto w_1 = CoefficientAccumulator(in.w_l);
         auto w_2 = CoefficientAccumulator(in.w_r);
@@ -194,12 +200,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // degree                                         1              1          1 = 2
         auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
         //                              1           0    = 1
-        auto table_index_entry = table_index * eta_three;
+        auto table_index_entry = table_index * gamma_four;
 
-        // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
+        // (w_1 + γ + q_2*w_1_shift) + γ²(w_2 + q_m*w_2_shift) + γ³(w_3 + q_c*w_3_shift) + γ⁴*q_index.
         // deg 2 or 3
         // degree                            2              0                      2                    0   =   2
-        auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
+        auto result = Accumulator(derived_table_entry_2) * gamma_two + Accumulator(derived_table_entry_3) * gamma_three;
         result += Accumulator(derived_table_entry_1 + table_index_entry);
         return result;
     }
