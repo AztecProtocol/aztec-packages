@@ -11,7 +11,6 @@ import {
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -633,23 +632,28 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetMembershipWitness(
-    foreignBlockHash: ForeignCallSingle,
-    foreignTreeId: ForeignCallSingle,
-    foreignLeafValue: ForeignCallSingle,
-  ) {
+  async utilityGetNoteHashMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
     const blockHash = L2BlockHash.fromString(foreignBlockHash);
-    const treeId = fromSingle(foreignTreeId).toNumber();
     const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockHash, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, leafValue);
 
     if (!witness) {
-      throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockHash}.`,
-      );
+      throw new Error(`Note hash ${leafValue} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
-    return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
+    return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  async utilityGetArchiveMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
+    const leafValue = fromSingle(foreignLeafValue);
+
+    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(blockHash, leafValue);
+
+    if (!witness) {
+      throw new Error(`Block hash ${leafValue} not found in the archive tree at block ${blockHash.toString()}.`);
+    }
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetLowNullifierMembershipWitness(
