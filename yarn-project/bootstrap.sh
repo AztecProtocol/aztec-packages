@@ -28,53 +28,83 @@ function get_projects {
 
 function format {
   local arg="-w"
-  local package=""
-  local pattern="./*/src"
+  local packages=()
 
-  # Check if first arg is a format option
-  if [ "${1:-}" == "--check" ]; then
-    arg="--check"
-    shift 1
-  elif [ "${1:-}" == "-w" ] || [ "${1:-}" == "--write" ]; then
-    arg="-w"
-    shift 1
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg="--check"
+        ;;
+      -w|--write)
+        arg="-w"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Build the paths array to search
+  local paths=()
+  if [ ${#packages[@]} -eq 0 ]; then
+    paths=("./*/src")
+  else
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+      paths+=("./$pkg/src")
+    done
   fi
 
-  # Check if next arg is a package name (doesn't start with -)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    pattern="./$package/src"
-  fi
-
-  find $pattern -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' 2>/dev/null | \
+  find "${paths[@]}" -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
     parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {
   local arg="--fix"
-  local package=""
+  local packages=()
 
-  # Check if first arg is a lint option
-  if [ "${1-}" == "--check" ]; then
-    arg=""
-    shift 1
-  elif [ "${1-}" == "--fix" ]; then
-    arg="--fix"
-    shift 1
-  fi
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg=""
+        ;;
+      --fix)
+        arg="--fix"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
 
-  # Check if next arg is a package name (and not empty)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    shift 1
-  fi
-
-  if [ -n "$package" ]; then
-    # Lint single package
-    cd "$package" && ../node_modules/.bin/eslint "$@" --cache $arg ./src
+  if [ ${#packages[@]} -gt 0 ]; then
+    # Validate packages exist
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+    done
+    # Lint specified packages in parallel (use at most half of CPU cores)
+    printf '%s\n' "${packages[@]}" | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   else
-    # Lint all packages
-    get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+    # Lint all packages in parallel (use at most half of CPU cores)
+    get_projects | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   fi
 }
 
