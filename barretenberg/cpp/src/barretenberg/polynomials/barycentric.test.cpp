@@ -1,0 +1,99 @@
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "univariate.hpp"
+#include <gtest/gtest.h>
+
+using namespace bb;
+
+template <class FF> class BarycentricDataTests : public testing::Test {};
+
+using FieldTypes = testing::Types<bb::fr>;
+TYPED_TEST_SUITE(BarycentricDataTests, FieldTypes);
+
+#define BARYCENTIC_DATA_TESTS_TYPE_ALIASES using FF = TypeParam;
+
+/**
+ * @brief Ensure auxilliary arrays (e.g. big_domain) are computed at compile time if possible (i.e. if FF is a native
+ * field)
+ *
+ */
+TYPED_TEST(BarycentricDataTests, CompileTimeComputation)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    const size_t domain_size(2);
+    const size_t num_evals(10);
+
+    static_assert(BarycentricData<FF, domain_size, num_evals>::big_domain[5] == 5);
+}
+
+TYPED_TEST(BarycentricDataTests, Extend)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    const size_t domain_size(2);
+    const size_t num_evals(10);
+    auto f = Univariate<FF, domain_size>({ 1, 2 });
+    auto expected_result = Univariate<FF, num_evals>({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+    auto result = f.template extend_to<num_evals>();
+    EXPECT_EQ(result, expected_result);
+}
+
+TYPED_TEST(BarycentricDataTests, SelfExtend)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    static constexpr size_t initial_size(2);
+    static constexpr size_t domain_size(10);
+    auto f = Univariate<FF, domain_size>({ 1, 2, 0, 0, 0, 0, 0, 0, 0, 0 });
+    auto expected_result = Univariate<FF, domain_size>({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+    f.template self_extend_from<initial_size>();
+    EXPECT_EQ(f, expected_result);
+}
+
+TYPED_TEST(BarycentricDataTests, Evaluate)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    const size_t domain_size(2);
+    auto f = Univariate<FF, domain_size>({ 1, 2 });
+    FF u = 5;
+    FF expected_result = 6;
+    auto result = f.evaluate(u);
+    EXPECT_EQ(result, expected_result);
+}
+
+TYPED_TEST(BarycentricDataTests, BarycentricData2to3)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+
+    const size_t domain_size = 2;
+    const size_t num_evals = 3;
+    auto barycentric = BarycentricData<FF, domain_size, num_evals>();
+    std::array<FF, 3> expected_big_domain{ { 0, 1, 2 } };
+    std::array<FF, 2> expected_denominators{ { -1, 1 } };
+    std::array<FF, 3> expected_full_numerator_values{ { 0, 0, 2 } };
+    EXPECT_EQ(barycentric.big_domain, expected_big_domain);
+    EXPECT_EQ(barycentric.lagrange_denominators, expected_denominators);
+    EXPECT_EQ(barycentric.full_numerator_values, expected_full_numerator_values);
+
+    // e1(X) = 1*(1-X) + 2*X = 1 + X
+    Univariate<FF, 2> e1{ { 1, 2 } };
+    FF u = FF::random_element();
+    FF calculated_val_at_u = e1.evaluate(u);
+    EXPECT_EQ(u + 1, calculated_val_at_u);
+
+    Univariate<FF, 3> ext1 = e1.template extend_to<num_evals>();
+    Univariate<FF, 3> expected{ { 1, 2, 3 } };
+    EXPECT_EQ(ext1, expected);
+}
+
+TYPED_TEST(BarycentricDataTests, BarycentricData5to6)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+
+    const size_t domain_size = 5;
+    const size_t num_evals = 6;
+
+    // Note: we are able to represent a degree 4 polynomial with 5 points thus this
+    // extension will succeed. It would fail for values on a polynomial of degree > 4.
+    Univariate<FF, domain_size> e1{ { 1, 3, 25, 109, 321 } }; // X^4 + X^3 + 1
+    Univariate<FF, num_evals> ext1 = e1.template extend_to<num_evals>();
+    Univariate<FF, num_evals> expected{ { 1, 3, 25, 109, 321, 751 } };
+    EXPECT_EQ(ext1, expected);
+}

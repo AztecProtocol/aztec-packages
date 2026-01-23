@@ -1,0 +1,27 @@
+[package]
+name = "barretenberg-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+ffi = ["barretenberg-rs/ffi"]
+
+[dependencies]
+barretenberg-rs = { path = "../barretenberg-rs", default-features = false, features = ["native", "async"] }
+
+# Serialization
+serde.workspace = true
+rmp-serde.workspace = true
+
+# Testing and benchmarking
+criterion.workspace = true
+
+# Async runtime
+tokio = { workspace = true, features = ["test-util"] }
+
+# Utilities
+hex.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }

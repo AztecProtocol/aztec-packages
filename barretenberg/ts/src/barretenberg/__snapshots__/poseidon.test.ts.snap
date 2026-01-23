@@ -1,0 +1,40 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`poseidon sync poseidonHash 1`] = `
+{
+  "hash": Uint8Array [
+    43,
+    202,
+    235,
+    109,
+    88,
+    187,
+    56,
+    186,
+    247,
+    83,
+    213,
+    140,
+    60,
+    150,
+    97,
+    143,
+    234,
+    130,
+    22,
+    51,
+    69,
+    41,
+    94,
+    180,
+    14,
+    136,
+    52,
+    78,
+    235,
+    12,
+    226,
+    161,
+  ],
+}
+`;

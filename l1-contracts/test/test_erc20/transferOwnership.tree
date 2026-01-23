@@ -1,0 +1,12 @@
+TransferOwnershipTest
+├── when the caller is not the owner
+│   └── it reverts
+└── when the caller is the owner
+    ├── when the new owner is the zero address
+    │   └── it reverts
+    └── when the new owner is not the zero address
+        ├── it removes the old owner as a minter
+        ├── it adds the new owner as a minter
+        ├── it transfers the ownership to the new owner
+        └── it emits a OwnershipTransferred event
+

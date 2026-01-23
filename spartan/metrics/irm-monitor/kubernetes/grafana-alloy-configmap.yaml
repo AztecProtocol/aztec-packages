@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alloy-config
+data:
+  config.alloy: |
+    // Scrape metrics from the irm-monitor service
+    prometheus.scrape "irm_monitor" {
+      targets = [{
+        __address__ = "localhost:8080",
+      }]
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      job_name   = "irm-monitor"
+      metrics_path = "/metrics"
+      scrape_interval = "30s"
+    }
+
+    // Remote write to Grafana Cloud
+    prometheus.remote_write "grafana_cloud" {
+      endpoint {
+        url = "https://prometheus-prod-55-prod-gb-south-1.grafana.net/api/prom/push"
+        basic_auth {
+          username = "2476101"
+          password_file = "/etc/alloy/secret/grafana-cloud-password"
+        }
+      }
+    }

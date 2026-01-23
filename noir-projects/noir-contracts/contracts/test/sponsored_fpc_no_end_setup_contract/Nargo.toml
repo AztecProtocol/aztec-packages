@@ -1,0 +1,8 @@
+[package]
+name = "sponsored_fpc_no_end_setup_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }

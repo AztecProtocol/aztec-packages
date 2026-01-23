@@ -1,0 +1,50 @@
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+
+import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
+
+/** Configuration of the L1GlobalReader. */
+export interface L1ReaderConfig {
+  /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
+  l1RpcUrls: string[];
+  /** The RPC Url of the ethereum debug host for trace and debug methods. */
+  l1DebugRpcUrls: string[];
+  /** The chain ID of the ethereum host. */
+  l1ChainId: number;
+  /** The deployed l1 contract addresses */
+  l1Contracts: L1ContractAddresses;
+  /** The polling interval viem uses in ms */
+  viemPollingIntervalMS: number;
+}
+
+export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
+  l1Contracts: {
+    description: 'The deployed L1 contract addresses',
+    nested: l1ContractAddressesMapping,
+  },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    parseEnv: (val: string) => +val,
+    description: 'The chain ID of the ethereum host.',
+  },
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
+    description: 'List of URLs of Ethereum RPC nodes that services will connect to (comma separated).',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
+  },
+  l1DebugRpcUrls: {
+    env: 'ETHEREUM_DEBUG_HOSTS',
+    description: 'The RPC Url of the ethereum debug host for trace and debug methods.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
+  },
+  viemPollingIntervalMS: {
+    env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1_000),
+  },
+};
+
+export function getL1ReaderConfigFromEnv(): L1ReaderConfig {
+  return getConfigFromMappings<L1ReaderConfig>(l1ReaderConfigMappings);
+}

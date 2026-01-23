@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Global MessageDelivery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">MessageDelivery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module message_delivery</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageDeliveryEnum.html">MessageDeliveryEnum</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MessageDelivery.html">MessageDelivery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">message_delivery</a></div>
+<h1>Global <span class="global">MessageDelivery</span></h1>
+<pre><code>pub global MessageDelivery: <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html" class="struct">MessageDeliveryEnum</a>;</code></pre>
+
+<div class="comments">
+<p>Specifies how to deliver a message to a recipient.</p>
+<p>All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+read their contents. This enum instead configures which <strong>guarantees</strong> exist regarding delivery.</p>
+<p>There are two aspects to delivery guarantees:</p>
+<ul>
+<li>the medium on which the message is sent (off-chain or on-chain)</li>
+<li>whether the contract constrains the message to be constructed correctly</li>
+</ul>
+<p>For scenarios where the sender is incentivized to deliver the message correctly, use
+<a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN">MessageDeliveryEnum::OFFCHAIN</a> (the cheapest delivery option, but requiring that sender and recipient can
+communicate off-chain) or <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_UNCONSTRAINED">MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED</a>. If the sender cannot be trusted to send the
+message to the recipient, use <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED">MessageDeliveryEnum::ONCHAIN_CONSTRAINED</a>.</p></div>
+</main>
+</span>
+</body>
+</html>

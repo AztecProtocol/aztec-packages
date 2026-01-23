@@ -1,0 +1,15 @@
+export {
+  Tx,
+  TxExecutionRequest,
+  TxExecutionResult,
+  TxHash,
+  TxReceipt,
+  TxStatus,
+  SortedTxStatuses,
+  Capsule,
+  HashedValues,
+  GlobalVariables,
+  TxProfileResult,
+  ExecutionPayload,
+  mergeExecutionPayloads,
+} from '@aztec/stdlib/tx';

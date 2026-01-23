@@ -1,0 +1,2 @@
+^barretenberg/ts/.*$
+^barretenberg/ts/bootstrap.sh

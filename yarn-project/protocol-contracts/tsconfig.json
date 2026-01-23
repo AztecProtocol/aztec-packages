@@ -1,0 +1,21 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
+    }
+  ],
+  "include": ["src", "artifacts/*.d.json.ts"],
+  "exclude": ["src/scripts"]
+}

@@ -1,0 +1,98 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#include "./plookup.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+
+namespace bb::stdlib {
+
+using plookup::ColumnIdx;
+using plookup::MultiTableId;
+using namespace bb;
+
+template <typename Builder>
+plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulators(const MultiTableId id,
+                                                                                   const field_t<Builder>& key_a,
+                                                                                   const field_t<Builder>& key_b,
+                                                                                   const bool is_2_to_1_lookup)
+{
+    Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
+    const plookup::ReadData<bb::fr> lookup_data =
+        plookup::get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
+
+    plookup::ReadData<field_t<Builder>> lookup;
+
+    // If both keys are constant (or key_b unused), we can directly create constant field elements
+    if (key_a.is_constant() && (key_b.is_constant() || !is_2_to_1_lookup)) {
+        for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
+            lookup[ColumnIdx::C1].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C1][i]));
+            lookup[ColumnIdx::C2].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C2][i]));
+            lookup[ColumnIdx::C3].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C3][i]));
+        }
+    } else {
+        // At least one key needs witness constraints, so create plookup gates
+        uint32_t lhs_index = key_a.get_witness_index();
+        uint32_t rhs_index = key_b.get_witness_index();
+
+        if (key_a.is_constant()) {
+            lhs_index = ctx->put_constant_variable(key_a.get_value());
+        }
+        if (key_b.is_constant() && is_2_to_1_lookup) {
+            rhs_index = ctx->put_constant_variable(key_b.get_value());
+        }
+
+        auto key_b_witness = std::make_optional(rhs_index);
+        if (rhs_index == stdlib::IS_CONSTANT) {
+            key_b_witness = std::nullopt;
+        }
+
+        const auto accumulator_witnesses =
+            ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
+
+        for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
+            lookup[ColumnIdx::C1].emplace_back(
+                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C1][i]));
+            lookup[ColumnIdx::C2].emplace_back(
+                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C2][i]));
+            lookup[ColumnIdx::C3].emplace_back(
+                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C3][i]));
+        }
+    }
+    return lookup;
+}
+
+template <typename Builder>
+std::pair<field_t<Builder>, field_t<Builder>> plookup_read<Builder>::read_pair_from_table(const MultiTableId id,
+                                                                                          const field_t<Builder>& key)
+{
+    const auto lookup = get_lookup_accumulators(id, key);
+
+    return { lookup[ColumnIdx::C2][0], lookup[ColumnIdx::C3][0] };
+}
+
+template <typename Builder>
+field_t<Builder> plookup_read<Builder>::read_from_2_to_1_table(const MultiTableId id,
+                                                               const field_t<Builder>& key_a,
+                                                               const field_t<Builder>& key_b)
+{
+    const auto lookup = get_lookup_accumulators(id, key_a, key_b, /*is_2_to_1_lookup=*/true);
+
+    return lookup[ColumnIdx::C3][0];
+}
+
+template <typename Builder>
+field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableId id, const field_t<Builder>& key_a)
+{
+    const auto lookup = get_lookup_accumulators(id, key_a);
+
+    return lookup[ColumnIdx::C2][0];
+}
+
+template class plookup_read<bb::UltraCircuitBuilder>;
+template class plookup_read<bb::MegaCircuitBuilder>;
+} // namespace bb::stdlib

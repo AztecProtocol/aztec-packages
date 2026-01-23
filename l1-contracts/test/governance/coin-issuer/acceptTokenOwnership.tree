@@ -1,0 +1,11 @@
+AcceptTokenOwnershipTest
+├── given caller is not owner
+│   └── it reverts
+├── given caller is owner but no ownership transfer pending
+│   └── it reverts because ownership was already accepted
+├── given caller is owner and ownership transfer pending
+│   ├── it successfully accepts ownership of the token
+│   ├── it updates the token owner to the CoinIssuer
+│   └── it clears the pendingOwner
+└── given multiple acceptance attempts
+    └── it should fail on second attempt since ownership already accepted

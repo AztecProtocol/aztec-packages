@@ -1,0 +1,58 @@
+node:
+  node:
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "1.5"
+        memory: "6Gi"
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 1Gi
+
+broker:
+  replicaCount: 1
+  node:
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2Gi"
+      limits:
+        cpu: "1.5"
+        memory: "6Gi"
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 1Gi
+
+agent:
+  replicaCount: 2
+
+  node:
+    resources:
+      requests:
+        cpu: "0.125"
+        memory: "0.25Gi"
+      limits:
+        cpu: "0.5"
+        memory: "1Gi"
+
+  # No GKE-specific nodeSelector/affinity/tolerations for dev profile
+  # This allows dev profile to work on KIND and other non-GKE clusters
+  # Use prover-resources-prod.yaml for GKE deployments with spot instances

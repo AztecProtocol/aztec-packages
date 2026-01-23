@@ -1,0 +1,6 @@
+global:
+  namespace: "smoke"
+
+proverBrokerKill:
+  enabled: true
+  percent: 100

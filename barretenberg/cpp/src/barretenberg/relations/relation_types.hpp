@@ -1,0 +1,113 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "nested_containers.hpp"
+#include <algorithm>
+
+template <typename T>
+concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
+
+namespace bb {
+
+template <typename T>
+concept HasSubrelationLinearlyIndependentMember = requires(T) {
+    { std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT) } -> std::convertible_to<bool>;
+};
+
+/**
+ * @brief Check whether a given subrelation is linearly independent from the other subrelations.
+ *
+ * @details More often than not, we want multiply each subrelation contribution by a power of the relation
+ * separator challenge. In cases where we wish to define a subrelation that merges into another, we encode this
+ * in a boolean array `SUBRELATION_LINEARLY_INDEPENDENT` in the relation. If no such array is defined, then the
+ * default case where all subrelations are independent is engaged.
+ */
+template <typename Relation, size_t subrelation_index> constexpr bool subrelation_is_linearly_independent()
+{
+    if constexpr (HasSubrelationLinearlyIndependentMember<Relation>) {
+        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
+    } else {
+        return true;
+    }
+}
+
+/**
+ * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the
+ * verifier.
+ *
+ * @details The sumcheck prover and verifier accumulate the contributions from each relation (really, each sub-relation)
+ * into, respectively, Univariates and individual field elements. When performing relation arithmetic on
+ * Univariates, we introduce UnivariateViews to reduce full length Univariates to the minimum required length
+ * and to avoid unnecessary copies.
+ *
+ * To share the relation arithmetic, we introduce simple structs that specify two types: Accumulators and
+ * AccumulatorViews. For the prover, who accumulates Univariates, these are respectively std::tuple<Univariate>
+ * and std::tuple<UnivariateView>. For the verifier, who accumulates FFs, both types are simply aliases for
+ * std::array<FF> (since no "view" type is necessary). The containers std::tuple and std::array are needed to
+ * accommodate multiple sub-relations within each relation, where, for efficiency, each sub-relation has its own
+ * specified degree.
+ *
+ * @note We use some funny terminology: we use the term "length" for 1 + the degree of a relation. When the relation is
+ * regarded as a polynomial in all of its arguments, we refer to this length as the "total length", and when we
+ * hold the relation parameters constant we refer to it as a "partial length."
+ *
+ */
+
+/**
+ * @brief Check if the relation has a static skip method to determine if accumulation of its result can be
+ * optimized away based on a single check
+ *
+ * @details The skip function should return true if relation can be skipped and false if it can't
+ * @tparam Relation The relation type
+ * @tparam AllEntities The type containing UnivariateViews with witness and selector values
+ */
+template <typename Relation, typename AllEntities>
+concept isSkippable = requires(const AllEntities& input) {
+    { Relation::skip(input) } -> std::same_as<bool>;
+};
+
+/**
+ * @brief Check if the flavor has a static skip method to determine if accumulation of all relations can be skipped for
+ * a given row
+ *
+ * @details The skip function should return true if relation can be skipped and false if it can't
+ * @tparam Flavor The flavor type
+ * @tparam ProverPolynomialsOrPartiallyEvaluatedMultivariates The type containing polynomials with witness and selector
+ * values
+ */
+template <typename Flavor, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+concept isRowSkippable =
+    requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& input, const EdgeType edge_idx) {
+        { Flavor::skip_entire_row(input, edge_idx) } -> std::same_as<bool>;
+    };
+
+/**
+ * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
+ * contribution of a given relation to the corresponding accumulator.
+ *
+ * @tparam FF
+ * @tparam RelationImpl Base class that implements the arithmetic for a given relation (or set of sub-relations)
+ */
+template <typename RelationImpl> class Relation : public RelationImpl {
+  public:
+    using FF = typename RelationImpl::FF;
+
+    static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
+                                                                RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
+
+    using SumcheckTupleOfUnivariatesOverSubrelations =
+        TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+
+    using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+
+    // These are commonly needed, most importantly, for explicitly instantiating
+    // compute_foo_numerator/denomintor.
+    using UnivariateAccumulator0 = std::tuple_element_t<0, SumcheckTupleOfUnivariatesOverSubrelations>;
+    using ValueAccumulator0 = std::tuple_element_t<0, SumcheckArrayOfValuesOverSubrelations>;
+};
+} // namespace bb

@@ -1,0 +1,10 @@
+ScopeTest
+├── when domain is valid and scope is valid
+│   └── it emits {ValidatorAdded} event
+├── when domain is valid and scope is invalid
+│   └── it reverts
+├── when domain is invalid but scope is valid
+│   └── it reverts
+└── when domain is invalid and scope is invalid
+    └── it reverts
+

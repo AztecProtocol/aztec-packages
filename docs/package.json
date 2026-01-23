@@ -1,0 +1,94 @@
+{
+  "name": "aztec-docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && docusaurus build",
+    "validate:redirects": "./scripts/validate_redirect_targets.sh",
+    "clean": "./scripts/clean.sh",
+    "dev:netlify": "yarn netlify dev",
+    "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
+    "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
+    "preprocess:move": "sh scripts/move_processed.sh",
+    "serve": "docusaurus serve",
+    "spellcheck": "yarn cspell",
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
+    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}",
+    "test": "node --test src/preprocess/__tests__/*.test.js",
+    "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
+  },
+  "dependencies": {
+    "@cookbookdev/docsbot": "^4.25.15",
+    "@docusaurus/core": "3.9.1",
+    "@docusaurus/plugin-content-docs": "3.9.1",
+    "@docusaurus/plugin-ideal-image": "3.9.1",
+    "@docusaurus/preset-classic": "3.9.1",
+    "@docusaurus/theme-mermaid": "3.9.1",
+    "@getbrevo/brevo": "^3.0.1",
+    "clsx": "^2.1.1",
+    "docusaurus-theme-search-typesense": "0.25.0",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "6.0.3",
+    "react-player": "^2.16.1",
+    "rehype-katex": "7",
+    "remark-math": "6"
+  },
+  "devDependencies": {
+    "@docusaurus/tsconfig": "3.9.1",
+    "@tsconfig/docusaurus": "^1.0.7",
+    "cspell": "^8.19.4",
+    "docusaurus-plugin-llms": "^0.2.0",
+    "dotenv": "^16.6.1",
+    "netlify-cli": "^23.7.3"
+  },
+  "cspell": {
+    "import": [
+      "../cspell.json"
+    ],
+    "dictionaryDefinitions": [
+      {
+        "name": "docs-words",
+        "path": "./docs-words.txt",
+        "addWords": true
+      }
+    ],
+    "dictionaries": [
+      "docs-words"
+    ],
+    "files": [
+      "./docs/**/{*.md,*.md?}",
+      "./docs-developers/**/{*.md,*.md?}",
+      "./docs-network/**/{*.md,*.md?}",
+      "./developer_versioned_docs/**/{*.md,*.md?}",
+      "./network_versioned_docs/**/{*.md,*.md?}",
+      "./internal_notes/**/{*.md,*.md?}",
+      "./src/components/Snippets/*.js",
+      "./processed-docs/**/{*.md,*.md?}"
+    ],
+    "ignorePaths": [
+      "node_modules",
+      "processed-docs-cache",
+      "/docs-words.txt"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "resolutions": {
+    "tar-fs": "^3.1.1",
+    "ws@npm:8.13.0": "npm:8.17.1",
+    "path-to-regexp@npm:^1.7.0": "npm:1.9.0"
+  },
+  "packageManager": "yarn@4.5.2"
+}

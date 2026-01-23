@@ -1,0 +1,52 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+
+import { setup } from './fixtures/utils.js';
+
+describe('e2e_double_spend', () => {
+  let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
+
+  let logger: Logger;
+  let teardown: () => Promise<void>;
+
+  let contract: TestContract;
+
+  beforeAll(async () => {
+    // Setup environment
+    ({
+      teardown,
+      wallet,
+      accounts: [defaultAccountAddress],
+      logger,
+    } = await setup(1));
+
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+
+    logger.info(`Test contract deployed at ${contract.address}`);
+  });
+
+  afterAll(() => teardown());
+
+  describe('double spends', () => {
+    it('emits a public nullifier and then tries to emit the same nullifier', async () => {
+      const nullifier = new Fr(1);
+      await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait();
+
+      // We try emitting again, but our TX is dropped due to trying to emit a duplicate nullifier
+      // first confirm that it fails simulation
+      await expect(
+        contract.methods.emit_nullifier_public(nullifier).simulate({ from: defaultAccountAddress }),
+      ).rejects.toThrow(/Attempted to emit duplicate nullifier/);
+      // if we skip simulation before submitting the tx,
+      // tx will be included in a block but with app logic reverted
+      await expect(
+        contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait(),
+      ).rejects.toThrow(TxExecutionResult.APP_LOGIC_REVERTED);
+    });
+  });
+});

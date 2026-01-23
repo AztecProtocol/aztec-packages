@@ -1,0 +1,1 @@
+barretenberg_module(flavor polynomials srs stdlib_poseidon2)

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+
+state_path=$1
+
+if [ ! -d "$state_path" ]; then
+    echo_stderr "State path $state_path does not exist."
+    exit
+fi
+
+iid=$(cat $state_path/iid 2>/dev/null || true)
+sir=$(cat $state_path/sir 2>/dev/null || true)
+
+export AWS_DEFAULT_REGION=us-east-2
+
+if [ -n "$iid" ]; then
+    echo "Terminating instance: $iid..."
+    dump_fail "aws ec2 terminate-instances --instance-ids $iid" > /dev/null
+fi
+
+if [ -n "$sir" ]; then
+    echo "Terminating spot request: $sir..."
+    dump_fail "aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir" > /dev/null
+fi
+
+rm -rf $state_path

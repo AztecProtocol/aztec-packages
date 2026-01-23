@@ -1,0 +1,762 @@
+#!/usr/bin/env bash
+# Usage: ./bootstrap.sh <full|fast|check|clean>"
+#   full: Bootstrap the repo from scratch.
+#   fast: Bootstrap the repo using CI cache where possible to save time building.
+#   check: Check required toolchains and versions are installed.
+#   clean: Force a complete clean of the repo. Erases untracked files, be careful!
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+
+# Enable abbreviated output by default.
+export DENOISE=${DENOISE:-1}
+
+# Number of TXE servers to run when testing.
+export NUM_TXES=8
+
+export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
+# Cleanup function. Called on script exit.
+function cleanup {
+  set +e
+  if [ -n "${test_engine_pid:-}" ]; then
+    echo "Sending SIGTERM to test engine process group..."
+    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    wait $test_engine_pid
+    test_engine_pid=
+  fi
+  if [ -n "${make_pid:-}" ]; then
+    echo "Sending SIGTERM to make process..."
+    kill -SIGTERM $make_pid &>/dev/null
+    wait $make_pid
+    make_pid=
+  fi
+  if [ -n "${txe_pids:-}" ]; then
+    echo "Sending SIGTERM to TXE processes..."
+    kill -SIGTERM $txe_pids &>/dev/null
+    wait $txe_pids
+    txe_pids=
+  fi
+}
+trap cleanup EXIT
+
+function encourage_dev_container {
+  echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
+}
+
+# Checks for required utilities, toolchains and their versions.
+# Developers should probably use the dev container in /build-images to ensure the smoothest experience.
+function check_toolchains {
+  # Check for various required utilities.
+  for util in jq parallel awk git curl zstd; do
+    if ! command -v $util > /dev/null; then
+      encourage_dev_container
+      echo "Utility $util not found."
+      echo "Installation: sudo apt install $util"
+      exit 1
+    fi
+  done
+  if ! command -v ldid > /dev/null; then
+    encourage_dev_container
+    echo "Utility ldid not found."
+    echo "Install from https://github.com/ProcursusTeam/ldid."
+    exit 1
+  fi
+  if ! yq --version | grep "version v4" > /dev/null; then
+    encourage_dev_container
+    echo "yq v4 not installed."
+    echo "Installation: https://github.com/mikefarah/yq/#install"
+    exit 1
+  fi
+  # Check cmake version.
+  local cmake_min_version="3.24"
+  local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
+  if [[ "$(printf '%s\n' "$cmake_min_version" "$cmake_installed_version" | sort -V | head -n1)" != "$cmake_min_version" ]]; then
+    encourage_dev_container
+    echo "Minimum cmake version 3.24 not found."
+    exit 1
+  fi
+  # Check clang version.
+  if ! clang++-20 --version | grep "clang version 20." > /dev/null; then
+    encourage_dev_container
+    echo "clang 16 not installed."
+    echo "Installation: sudo apt install clang-20"
+    exit 1
+  fi
+  # Check zig version.
+  if ! zig version | grep "0.15.1" > /dev/null; then
+    encourage_dev_container
+    echo "zig 0.15.1 not installed."
+    echo "Install in /opt/zig."
+    exit 1
+  fi
+  # Check rustup installed.
+  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
+  if ! command -v rustup > /dev/null; then
+    encourage_dev_container
+    echo "Rustup not installed."
+    echo "Installation:"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $rust_version"
+    exit 1
+  fi
+  if ! rustup show | grep $rust_version > /dev/null; then
+    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+    # is desirable.
+    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+  fi
+  # Check wasi-sdk version.
+  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
+    encourage_dev_container
+    echo "wasi-sdk-27 not found at /opt/wasi-sdk."
+    echo "Use dev container, build from source, or you can install linux x86 version with:"
+    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk"
+    exit 1
+  fi
+  # Check foundry version.
+  local foundry_version="v1.4.1"
+  for tool in forge anvil; do
+    if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
+      echo "$tool not in PATH or incorrect version (requires $foundry_version)."
+      if [ "${CI:-0}" -eq 1 ]; then
+        echo "Attempting install of required foundry version $foundry_version"
+        curl -L https://foundry.paradigm.xyz | bash
+        ~/.foundry/bin/foundryup -i $foundry_version
+      else
+        encourage_dev_container
+        echo "Installation: https://book.getfoundry.sh/getting-started/installation"
+        echo "  curl -L https://foundry.paradigm.xyz | bash"
+        echo "  foundryup -i $foundry_version"
+        exit 1
+      fi
+    fi
+  done
+  # Check Node.js version.
+  local node_min_version="24.12.0"
+  local node_installed_version=$(node --version | cut -d 'v' -f 2)
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+    encourage_dev_container
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
+    exit 1
+  fi
+  # Check for required npm globals.
+  for util in corepack solhint; do
+    if ! command -v $util > /dev/null; then
+      encourage_dev_container
+      echo "$util not found."
+      echo "Installation: npm install --global $util"
+      exit 1
+    fi
+  done
+}
+
+function versions {
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
+}
+
+# Install pre-commit git hooks.
+function install_hooks {
+  hooks_dir=$(git rev-parse --git-path hooks)
+  rm -f $hooks_dir/*
+
+  cat <<EOF >$hooks_dir/pre-commit
+#!/usr/bin/env bash
+set -euo pipefail
+(cd barretenberg/cpp && ./format.sh staged)
+./yarn-project/precommit.sh
+./noir/precommit.sh
+./noir-projects/precommit.sh
+./yarn-project/constants/precommit.sh
+EOF
+  chmod +x $hooks_dir/pre-commit
+
+  cat <<EOF >$hooks_dir/post-merge
+#!/usr/bin/env bash
+set -euo pipefail
+git submodule update --init --recursive
+EOF
+  chmod +x $hooks_dir/post-merge
+}
+
+function sort_by_cpus {
+  awk '
+    {
+      cpus = 0;  # Default value
+      # Split line on space, take first field ($1)
+      split($1, subfields, ":");  # Split first field on :
+      for (i in subfields) {
+        split(subfields[i], arr, "=");
+        if (arr[1] == "CPUS") {
+          cpus = arr[2];
+          break;
+        }
+      }
+      # Print padded CPUS value followed by original line
+      printf "%010d %s\n", cpus, $0
+    }
+  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
+}
+
+function test_cmds {
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
+}
+
+function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
+  # Starting txe servers with incrementing port numbers.
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    port=$((45730 + i))
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process $existing_pid on port: $port"
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
+    fi
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    txe_pids+="$! "
+  done
+
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      local j=0
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
+        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+        sleep 1
+        j=$((j+1))
+      done
+  done
+}
+
+export test_cmds_file="/tmp/test_cmds"
+
+function test_engine_start {
+  # This trickery is to overcome an oddity in parallel.
+  # Turns out when we hold an open pipe to parallel, like we do using tail below,
+  # parallel will only process the result of job N when it receives a new job *after* job N has completed.
+  # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
+  # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
+  while ! grep -Eq '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
+  # Continuously stream the test cmds into parallelize.
+  DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
+}
+export -f test_engine_start
+
+function prep {
+  pull_submodules
+  check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
+
+  rm -f $test_cmds_file
+}
+
+function build_and_test {
+  local target=${1:-}
+
+  prep
+  echo_header "build and test"
+
+  # Start the test engine.
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  # put it in it's own process group via background subshell, we can terminate on cleanup.
+  (color_prefix "test-engine" "denoise test_engine_start") &
+  test_engine_pid=$!
+  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+
+  # Start the build.
+  if [ -z "$target" ]; then
+    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
+  fi
+  make $target &
+  make_pid=$!
+
+  # As soon as one of the above fails, terminate the other (as part of exit cleanup).
+  while [ -n "$make_pid" ] || [ -n "$test_engine_pid" ]; do
+    # This will return success only if build or test succeeds.
+    # Otherwise it's an error, which is an exit, which means we enter cleanup.
+    wait -p finished -n $make_pid $test_engine_pid &>/dev/null
+
+    # If make succeeded, start txes and add tests that depend on them.
+    if [ "$finished" == "$make_pid" ]; then
+      make_pid=
+
+      if [ -z "${1:-}" ]; then
+        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
+        start_txes
+        make noir-projects-txe-tests
+      fi
+
+      # Signal tests complete, handled by parallel -E STOP.
+      echo STOP >> $test_cmds_file
+    fi
+
+    if [ "$finished" == "$test_engine_pid" ]; then
+      test_engine_pid=
+    fi
+  done
+
+  return 0
+}
+
+function test {
+  echo_header "test all"
+
+  start_txes
+
+  # We will start half as many jobs as we have cpu's.
+  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
+  # and also that half the cpus are logical, not physical.
+  echo "Gathering tests to run..."
+  tests=$(test_cmds $@)
+
+  # Note: Capturing strips last newline. The echo re-adds it.
+  local num
+  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+  echo "Gathered $num tests."
+
+  echo "$tests" | parallelize
+}
+
+function pull_submodules {
+  echo_header "pull submodules"
+  # If it's an old standalone noir clone, nuke it.
+  if [ -d "noir/noir-repo/.git" ]; then
+    echo "Removing old noir clone..."
+    rm -rf noir/noir-repo
+  fi
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
+}
+
+function build {
+  prep
+
+  # These projects are dependent on each other and must be built linearly.
+  serial_projects=(
+    noir
+    avm-transpiler
+    barretenberg
+    noir-projects
+    l1-contracts
+    yarn-project
+    release-image
+  )
+  # These projects can be built in parallel.
+  parallel_cmds=(
+    yarn-project/end-to-end/bootstrap.sh
+    boxes/bootstrap.sh
+    playground/bootstrap.sh
+    docs/bootstrap.sh
+    aztec-up/bootstrap.sh
+  )
+
+  local start_building=false
+  for project in "${serial_projects[@]}"; do
+    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
+    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
+    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+
+    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
+    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
+      start_building=true
+      continue
+    fi
+
+    # Build the project if we should be building
+    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
+      $project/bootstrap.sh ${1:-}
+    fi
+
+    # Stop the build if we've reached BOOTSTRAP_TO
+    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
+    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
+      return
+    fi
+  done
+
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+}
+
+function bench_cmds {
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+}
+
+function build_bench {
+  # TODO bench for arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
+    barretenberg/cpp \
+    yarn-project/end-to-end
+}
+export -f build_bench
+
+function bench_merge {
+  find . -path "*/bench-out/*.bench.json" -type f -print0 | \
+  xargs -0 -I{} bash -c '
+    dir=$1; \
+    dir=${dir#./}; \
+    dir=${dir%/bench-out*}; \
+    jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
+  ' _ {} | jq -s "add // []" > bench-out/bench.json
+
+}
+
+function bench {
+  # TODO bench for arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+  echo_header "bench all"
+  build_bench
+  find . -type d -iname bench-out | xargs rm -rf
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
+function release_github {
+  # Add an easy link for comparing to previous release.
+  local compare_link=""
+  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
+    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
+  fi
+  # Legacy releases. TODO: Eventually remove.
+  if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
+    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
+  fi
+  # Determine if this is a prerelease (has a prerelease tag like -rc.1, -alpha, etc.)
+  local is_prerelease=false
+  if [ -n "$(semver prerelease $REF_NAME)" ]; then
+    is_prerelease=true
+  fi
+  # Ensure we have a commit release.
+  if ! gh release view "$REF_NAME" &>/dev/null; then
+    local prerelease_flag=""
+    if $is_prerelease; then
+      prerelease_flag="--prerelease"
+    fi
+    do_or_dryrun gh release create "$REF_NAME" \
+      $prerelease_flag \
+      --target $COMMIT_HASH \
+      --title "$REF_NAME" \
+      --notes "$compare_link"
+  elif ! $is_prerelease; then
+    # Release exists but this is not a prerelease version - ensure it's marked as a full release
+    do_or_dryrun gh release edit "$REF_NAME" --prerelease=false
+  fi
+}
+
+function release {
+  # Our releases are controlled by the REF_NAME environment variable, which should be a valid semver (but can have a leading v).
+  # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
+  # Our steps:
+  #   barretenberg/cpp => upload binaries to github release
+  #   barretenberg/ts
+  #     + noir
+  #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
+  #   aztec-up => upload scripts to prod if dist tag is latest
+  #   playground => publish if dist tag is latest.
+  #   release-image => push docker image to dist tag.
+  #   boxes/l1-contracts/aztec-nr => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
+
+  echo_header "release all"
+  set -x
+
+  # Ensure we have a github release for our REF_NAME.
+  # This is in case were are not going through release-please.
+  release_github
+
+  projects=(
+    barretenberg/cpp
+    barretenberg/ts
+    noir
+    l1-contracts
+    noir-projects/aztec-nr
+    yarn-project
+    boxes
+    aztec-up
+    playground
+    release-image
+  )
+  if [ $(arch) == arm64 ]; then
+    projects=(
+      release-image
+    )
+  fi
+
+  for project in "${projects[@]}"; do
+    $project/bootstrap.sh release
+  done
+}
+
+function release_dryrun {
+  DRY_RUN=1 release
+}
+
+# Handle our command line arguments.
+# All the commands that start with ci-* are intended to be callable from
+# a fresh repo. They are ideal for calling into from github actions on a new runner
+# Current flow: ci3.yml -> .github/ci3.sh -> ci.sh -> this script on a fresh EC2 runner.
+case "$cmd" in
+  "clean")
+    echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
+    echo -n "Continue? [y/n] "
+    read user_input
+    if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
+      echo "Exiting without cleaning"
+      exit 1
+    fi
+
+    # Remove hooks and submodules.
+    rm -rf .git/hooks/*
+    rm -rf .git/modules/*
+    for submodule in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+      rm -rf $submodule
+    done
+
+    # Remove all untracked files, directories, nested repos, and .gitignore files.
+    git clean -ffdx
+  ;;
+  "check")
+    check_toolchains
+    echo "Toolchains look good! 🎉"
+  ;;
+  "")
+    install_hooks
+    build
+  ;;
+
+  ######################################
+  # VARIANTS ON NORMAL PULL-REQUEST CI #
+  ######################################
+  "ci-fast")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    build
+    test
+    ;;
+  "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache-makefile")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build_and_test
+    bench
+    ;;
+
+  ##########################################
+  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
+  ##########################################
+  "ci-network-deploy")
+    # Args: <env_file> <namespace> [docker_image]
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    deploy_exit_code=0
+    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
+    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    exit $deploy_exit_code
+    ;;
+  "ci-network-tests")
+    # Args: <env_file> <namespace>
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    build
+    # Set up environment for tests
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_tests "${env_file}"
+    ;;
+  "ci-network-upgrade-test")
+    # Args: <env_file> <namespace>
+    # Runs the upgrade_rollup_version test on its own instance.
+    # Estimated runtime: 90-120 minutes (governance voting + 2 epoch lag + proving)
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    build
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_upgrade_test "${env_file}"
+    ;;
+  "ci-network-kind")
+    # Args: <test_command>
+    # Runs a KIND-based spartan test.
+    # test_command is the spartan/bootstrap.sh command (e.g., test-kind-upgrade-rollup-version)
+    export CI=1
+    test_command="${1:?test_command is required}"
+    build
+    spartan/bootstrap.sh kind
+    spartan/bootstrap.sh "$test_command"
+    ;;
+  "ci-network-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run benchmarks
+    spartan/bootstrap.sh network_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
+  "ci-network-teardown")
+    # Args: <env_file> <namespace>
+    # Tears down a deployed network.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    # Set up environment for teardown
+    export NAMESPACE="$namespace"
+    denoise "spartan/bootstrap.sh network_teardown ${env_file}"
+    ;;
+
+  ############
+  # RELEASES #
+  ############
+  "ci-release")
+    export CI=1
+    export USE_TEST_CACHE=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    build
+    release
+    ;;
+
+  ##########################
+  # MERGE TRAIN CI SUBSETS #
+  ##########################
+  "ci-docs")
+    export CI=1
+    export USE_TEST_CACHE=1
+    ./bootstrap.sh
+    docs/bootstrap.sh ci
+    ;;
+  "ci-barretenberg")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/bootstrap.sh ci
+    ;;
+"ci-barretenberg-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    pull_submodules
+    noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    barretenberg/bootstrap.sh ci
+    ;;
+
+  #######################
+  # AVM QA ONE OFF JOBS #
+  #######################
+  "ci-avm-inputs-collection")
+    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
+    export CI=1
+    # Use tree hash for tarball name - consistent across all environments
+    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
+    build
+    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
+    ;;
+  "ci-avm-check-circuit")
+    # Nightly job: Download cached AVM inputs and run check-circuit on each
+    export CI=1
+    # Use tree hash for tarball name - consistent across all environments
+    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
+    build
+    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
+    ;;
+  ##########################################
+  # ROLLUP UPGRADE DEPLOYMENT              #
+  ##########################################
+  "ci-deploy-rollup-upgrade")
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address> [KEY=VALUE...]
+    export CI=1
+    build
+    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
+
+  ##############################################
+  # Default handler, calls our above functions #
+  ##############################################
+  *)
+    default_cmd_handler "$@"
+    ;;
+esac

@@ -1,0 +1,113 @@
+{
+  "name": "@aztec/bb-prover",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/index.js",
+    "./client/bundle": "./dest/prover/client/bundle.js",
+    "./client/lazy": "./dest/prover/client/lazy.js",
+    "./client": "./dest/prover/client/bb_private_kernel_prover.js",
+    "./verifier": "./dest/verifier/index.js",
+    "./test": "./dest/test/index.js",
+    "./config": "./dest/config.js"
+  },
+  "bin": {
+    "bb-cli": "./dest/bb/index.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "BB Prover",
+    "tsconfig": "./tsconfig.json"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "scripts": {
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "bb": "node --no-warnings ./dest/bb/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/bb.js": "portal:../../barretenberg/ts",
+    "@aztec/constants": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-types": "portal:../../noir/packages/types",
+    "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
+    "@aztec/world-state": "workspace:^",
+    "commander": "^12.1.0",
+    "pako": "^2.1.0",
+    "source-map-support": "^0.5.21",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@aztec/ethereum": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@types/source-map-support": "^0.5.10",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3",
+    "viem": "npm:@aztec/viem@2.38.2"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=20.10"
+  }
+}

@@ -1,0 +1,88 @@
+import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils/config';
+import {
+  type ConfigMappingsType,
+  SecretValue,
+  booleanConfigHelper,
+  getConfigFromMappings,
+} from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
+
+/**
+ * The configuration of the rollup transaction publisher.
+ */
+export type TxSenderConfig = L1ReaderConfig & {
+  /**
+   * The private key to be used by the publisher.
+   */
+  publisherPrivateKeys?: SecretValue<`0x${string}`>[];
+
+  /**
+   * Publisher addresses to be used with a remote signer
+   */
+  publisherAddresses?: EthAddress[];
+};
+
+/**
+ * Configuration of the L1Publisher.
+ */
+export type PublisherConfig = L1TxUtilsConfig &
+  BlobClientConfig & {
+    /** True to use publishers in invalid states (timed out, cancelled, etc) if no other is available */
+    publisherAllowInvalidStates?: boolean;
+    /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1 */
+    fishermanMode?: boolean;
+    /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
+    publisherForwarderAddress?: EthAddress;
+  };
+
+export const getTxSenderConfigMappings: (
+  scope: 'PROVER' | 'SEQ',
+) => ConfigMappingsType<Omit<TxSenderConfig, 'l1Contracts'>> = (scope: 'PROVER' | 'SEQ') => ({
+  ...l1ReaderConfigMappings,
+  publisherPrivateKeys: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the publisher.',
+    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
+    defaultValue: [],
+    fallback: [scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`],
+  },
+  publisherAddresses: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
+    description: 'The addresses of the publishers to use with remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    defaultValue: [],
+  },
+});
+
+export function getTxSenderConfigFromEnv(scope: 'PROVER' | 'SEQ'): Omit<TxSenderConfig, 'l1Contracts'> {
+  return getConfigFromMappings(getTxSenderConfigMappings(scope));
+}
+
+export const getPublisherConfigMappings: (
+  scope: 'PROVER' | 'SEQ',
+) => ConfigMappingsType<PublisherConfig & L1TxUtilsConfig> = scope => ({
+  publisherAllowInvalidStates: {
+    description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
+    env: scope === `PROVER` ? `PROVER_PUBLISHER_ALLOW_INVALID_STATES` : `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
+    ...booleanConfigHelper(true),
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
+    ...booleanConfigHelper(false),
+  },
+  publisherForwarderAddress: {
+    env: scope === `PROVER` ? `PROVER_PUBLISHER_FORWARDER_ADDRESS` : `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
+    description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+  },
+  ...l1TxUtilsConfigMappings,
+  ...blobClientConfigMapping,
+});
+
+export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {
+  return getConfigFromMappings(getPublisherConfigMappings(scope));
+}

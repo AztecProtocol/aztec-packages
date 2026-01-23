@@ -1,0 +1,561 @@
+import { css } from '@emotion/react';
+import welcomeIconURL from '../../../assets/welcome_icon.svg';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
+import { useNotifications } from '@toolpad/core/useNotifications';
+import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
+import { AztecContext } from '../../../aztecContext';
+import { useContext, useEffect, useState } from 'react';
+import { PREDEFINED_CONTRACTS } from '../../../constants';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { loadContractArtifact } from '@aztec/aztec.js/abi';
+import { useTransaction } from '../../../hooks/useTransaction';
+import {
+  convertFromUTF8BufferAsString,
+  formatFrAsString,
+  parseAliasedBuffersAsString,
+} from '../../../utils/conversion';
+import { filterDeployedAliasedContracts } from '../../../utils/contracts';
+import { parse } from 'buffer-json';
+import { trackButtonClick } from '../../../utils/matomo';
+import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
+import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
+import { colors, commonStyles } from '../../../global.styles';
+
+const container = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  flex: 1,
+  transition: 'width 0.3s ease-in',
+  backgroundColor: colors.background.paper,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderLight,
+  borderRadius: commonStyles.borderRadius,
+  position: 'relative',
+  overflow: 'hidden',
+  maxHeight: 'calc(100vh - 280px)',
+  '@media (max-width: 1100px)': {
+    width: 'auto',
+    maxHeight: 'none',
+  },
+});
+
+const contentScroll = css({
+  overflowY: 'auto',
+  padding: '2rem',
+  width: '100%',
+  height: '100%',
+  '@media (max-width: 1100px)': {
+    padding: '1rem',
+  },
+});
+
+const cardsContainer = css({
+  display: 'flex',
+  flexDirection: 'row',
+  gap: '24px',
+  width: '100%',
+  '& > *': {
+    flex: '1 1 0px', // Makes all children equal width
+  },
+  '@media (max-width: 900px)': {
+    flexDirection: 'column',
+  },
+});
+
+const featureCard = css({
+  background: `${commonStyles.glassVeryDark} !important`,
+  border: commonStyles.borderNormal,
+  borderRadius: commonStyles.borderRadius,
+  padding: '25px',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+});
+
+const cardIcon = css({
+  width: '50px',
+  height: '50px',
+  marginBottom: '35px',
+});
+
+const cardTitle = css({
+  fontFamily: 'Geist, sans-serif',
+  fontWeight: 700,
+  fontSize: '24px',
+  lineHeight: '100%',
+  letterSpacing: '0.02em',
+  color: colors.primary.main,
+  marginBottom: '12px',
+});
+
+const cardDescription = css({
+  fontFamily: 'Geist, sans-serif',
+  fontWeight: 400,
+  fontSize: '13px',
+  lineHeight: '110%',
+  letterSpacing: '0.01em',
+  color: colors.text.primary,
+  opacity: 0.9,
+  paddingTop: '1rem',
+  paddingBottom: '2rem',
+});
+
+const cardButton = css({
+  width: '200px',
+  height: '48px',
+  borderRadius: commonStyles.borderRadius,
+  display: 'flex',
+  '&:disabled': {
+    backgroundColor: colors.primary.main,
+    opacity: 0.5,
+  },
+});
+
+const welcomeCardContainer = css({
+  display: 'flex',
+  width: '100%',
+  minHeight: '200px',
+  borderRadius: commonStyles.borderRadius,
+  position: 'relative',
+  marginBottom: '1.5rem',
+  '& > div': {
+    flexDirection: 'row',
+  },
+  '@media (max-width: 900px)': {
+    height: 'auto',
+    padding: '0.5rem',
+    '& > div': {
+      flexDirection: 'column',
+    },
+  },
+});
+
+// Account Abstraction icon
+const AccountAbstractionIcon = () => (
+  <div style={{ position: 'relative', width: '50px', height: '50px' }}>
+    <div
+      style={{
+        position: 'absolute',
+        width: '30px',
+        height: '30px',
+        left: '3.22px',
+        top: '4.79px',
+        background: colors.secondary.main,
+        borderRadius: '50%',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '6px',
+        height: '6px',
+        left: '6.86px',
+        top: '16.79px',
+        background: colors.primary.main,
+        borderRadius: '50%',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '27.12px',
+        height: '27.12px',
+        left: '19.66px',
+        top: '18.09px',
+        background: colors.primary.main,
+        borderRadius: '3.2455px',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '6px',
+        height: '6px',
+        left: '38.84px',
+        top: '37.23px',
+        background: colors.secondary.main,
+        borderRadius: '50%',
+      }}
+    />
+  </div>
+);
+
+// Private Voting icon
+const PrivateVotingIcon = () => (
+  <div style={{ position: 'relative', width: '50px', height: '50px' }}>
+    <div
+      style={{
+        position: 'absolute',
+        width: '40.75px',
+        height: '27.12px',
+        left: 'calc(50% - 40.75px/2)',
+        top: '18.45px',
+        background: colors.primary.main,
+        borderRadius: '3.2455px',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '25.98px',
+        height: '27.12px',
+        left: 'calc(50% - 25.98px/2 - 0.57px)',
+        top: '4.41px',
+        background: colors.secondary.main,
+        borderRadius: '3.2455px',
+        transform: 'rotate(-90deg)',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '6px',
+        height: '6px',
+        left: '22px',
+        top: '8.42px',
+        background: colors.primary.main,
+        borderRadius: '50%',
+      }}
+    />
+  </div>
+);
+
+// Private Tokens icon
+const PrivateTokensIcon = () => (
+  <div style={{ position: 'relative', width: '50px', height: '50px' }}>
+    <div
+      style={{
+        position: 'absolute',
+        width: '20.44px',
+        height: '20.44px',
+        left: '3.8px',
+        top: '3.8px',
+        background: colors.primary.main,
+        borderRadius: '50%',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '20.44px',
+        height: '20.44px',
+        left: '25.76px',
+        top: '3.8px',
+        background: colors.secondary.main,
+        borderRadius: '50%',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '20.44px',
+        height: '20.44px',
+        left: '3.8px',
+        top: '25.76px',
+        background: colors.secondary.main,
+        borderRadius: '50%',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        width: '20.44px',
+        height: '20.44px',
+        left: '25.76px',
+        top: '25.76px',
+        background: colors.primary.main,
+        borderRadius: '50%',
+      }}
+    />
+  </div>
+);
+
+export function Landing() {
+  const {
+    setCurrentContractArtifact,
+    setShowContractInterface,
+    setDefaultContractCreationParams,
+    setCurrentContractAddress,
+    setFrom,
+    node,
+    embeddedWalletSelected,
+    playgroundDB,
+    from,
+    wallet,
+    currentTx,
+    network,
+  } = useContext(AztecContext);
+
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isLoadingPrivateVoting, setIsLoadingPrivateVoting] = useState(false);
+  const [isLoadingPrivateTokens, setIsLoadingPrivateTokens] = useState(false);
+
+  const { sendTx } = useTransaction();
+  const notifications = useNotifications();
+
+  // If the transaction is cancelled, reset the accounts loading state
+  useEffect(() => {
+    if (!currentTx) {
+      setIsCreatingAccount(false);
+    }
+  }, [currentTx]);
+
+  async function handleContractButtonClick(contractValue: string) {
+    trackButtonClick(`Check Out ${contractValue}`, 'Landing Page');
+
+    let contractArtifactJSON;
+    let defaultContractCreationParams;
+
+    switch (contractValue) {
+      case PREDEFINED_CONTRACTS.SIMPLE_VOTING: {
+        ({ PrivateVotingContractArtifact: contractArtifactJSON } = await import(
+          '@aztec/noir-contracts.js/PrivateVoting'
+        ));
+
+        defaultContractCreationParams = {
+          initializer: 'constructor',
+          alias: 'My Voting Contract',
+        };
+
+        // Fetch the first account to use as the admin
+        const accounts = await wallet.getAccounts();
+        const currentAccount = accounts.find(account => account.item.equals(from));
+
+        if (currentAccount) {
+          defaultContractCreationParams.admin = {
+            id: currentAccount.item.toString(),
+            label: `${currentAccount.alias} (${formatFrAsString(currentAccount.item.toString())})`,
+          };
+        }
+        break;
+      }
+      case PREDEFINED_CONTRACTS.SIMPLE_TOKEN: {
+        ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import('@aztec/noir-contracts.js/SimpleToken'));
+        defaultContractCreationParams = {
+          initializer: 'constructor',
+          name: 'My Token',
+          symbol: 'TST',
+          decimals: 18,
+          alias: 'My Token',
+        };
+        break;
+      }
+    }
+
+    let deployedContractAddress = null;
+    const aliasedContracts = await playgroundDB.listAliases('contracts');
+    if (wallet && aliasedContracts.length > 0) {
+      const contracts = parseAliasedBuffersAsString(aliasedContracts);
+      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+      for (const contract of deployedContracts) {
+        const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contract.item}`);
+        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+        if (contractArtifact.name === contractArtifactJSON.name) {
+          deployedContractAddress = AztecAddress.fromString(contract.item);
+          break;
+        }
+      }
+    }
+
+    const contractArtifact = await loadContractArtifact(contractArtifactJSON);
+    setCurrentContractArtifact(contractArtifact);
+
+    if (deployedContractAddress) {
+      setCurrentContractAddress(deployedContractAddress);
+    } else {
+      setDefaultContractCreationParams(defaultContractCreationParams);
+    }
+    setShowContractInterface(true);
+  }
+
+  async function handleCreateAccountButtonClick() {
+    trackButtonClick('Create Account', 'Landing Page');
+    setIsCreatingAccount(true);
+
+    try {
+      const salt = Fr.random();
+      const secretKey = Fr.random();
+      const signingKey = randomBytes(32);
+      const accountCount = (await wallet.getAccounts()).length;
+      const accountName = `My Account ${accountCount + 1}`;
+      const accountManager = await (wallet as EmbeddedWallet).createAndStoreAccount(
+        accountName,
+        'ecdsasecp256r1',
+        secretKey,
+        salt,
+        signingKey,
+      );
+      const address = accountManager.address;
+
+      notifications.show('Account created. Deploying...', {
+        severity: 'success',
+      });
+
+      const paymentMethod = await prepareForFeePayment(
+        wallet,
+        network.sponsoredFPC?.address,
+        network.sponsoredFPC?.version,
+      );
+
+      const deployMethod = await accountManager.getDeployMethod();
+      const opts: DeployAccountOptions = {
+        from: AztecAddress.ZERO,
+        fee: {
+          paymentMethod,
+        },
+        skipClassPublication: true,
+        skipInstancePublication: true,
+      };
+
+      const txReceipt = await sendTx(`Deploy account contract`, deployMethod, address, opts);
+
+      if (txReceipt?.hasExecutionSucceeded()) {
+        setFrom(address);
+      }
+    } catch (e) {
+      console.error(e);
+      setIsCreatingAccount(false);
+    } finally {
+      setIsCreatingAccount(false);
+    }
+  }
+
+  return (
+    <div css={container}>
+      <div css={contentScroll}>
+        <div css={welcomeCardContainer}>
+          <div css={featureCard}>
+            <div>
+              <div css={cardTitle}>Deploy Privacy-Preserving Smart Contracts</div>
+              <div css={cardDescription}>
+                Get started deploying and interacting with smart contracts on Aztec. Create an aztec account, try one of
+                our default contracts or upload your own and interact with public and private functions made possible by
+                client-side ZK proofs created in your browser.
+              </div>
+            </div>
+            <div
+              style={{
+                width: '40%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginLeft: '1rem',
+              }}
+            >
+              <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '140px' }} />
+            </div>
+          </div>
+        </div>
+
+        <div css={cardsContainer}>
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <AccountAbstractionIcon />
+              </div>
+              <div css={cardTitle}>Account Abstraction</div>
+              <div css={cardDescription}>
+                Aztec's native account abstraction turns every account into a smart contract, enabling highly flexible
+                and programmable user identities that unlock features like gas sponsorship, nonce abstraction (setting
+                your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g.
+                passkeys.{' '}
+              </div>
+            </Box>
+
+            <Tooltip
+              title={
+                !wallet || !embeddedWalletSelected ? 'Connect to a network and use a wallet to create an account' : ''
+              }
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={handleCreateAccountButtonClick}
+                  disabled={isCreatingAccount || !wallet}
+                >
+                  {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <PrivateVotingIcon />
+              </div>
+              <div css={cardTitle}>Private Voting</div>
+              <div css={cardDescription}>
+                Developers can seamlessly integrate public and private functions to unlock use cases like private
+                voting. Voters can hide their address and cast their votes privately through a private function, which
+                internally calls a public function to update the vote count transparently.{' '}
+              </div>
+            </Box>
+
+            <Tooltip
+              title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''}
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={async () => {
+                    setIsLoadingPrivateVoting(true);
+                    await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+                    setIsLoadingPrivateVoting(false);
+                  }}
+                  disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount}
+                >
+                  {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <PrivateTokensIcon />
+              </div>
+              <div css={cardTitle}>Private Tokens</div>
+              <div css={cardDescription}>
+                Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling
+                you to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer
+                tokens from private to public, all without revealing your address or even the amount and recipient (in
+                case of private transfer), all the while maintaining the total supply of tokens publicly.
+              </div>
+            </Box>
+
+            <Tooltip
+              title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''}
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={async () => {
+                    setIsLoadingPrivateTokens(true);
+                    await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
+                    setIsLoadingPrivateTokens(false);
+                  }}
+                  disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount}
+                >
+                  {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

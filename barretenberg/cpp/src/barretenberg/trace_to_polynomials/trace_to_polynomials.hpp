@@ -1,0 +1,51 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+
+namespace bb {
+
+template <class Flavor> class TraceToPolynomials {
+    using Builder = typename Flavor::CircuitBuilder;
+    using Polynomial = typename Flavor::Polynomial;
+    using FF = typename Flavor::FF;
+    using ExecutionTrace = typename Builder::ExecutionTrace;
+    using Wires = std::array<std::vector<uint32_t>, Builder::NUM_WIRES>;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+
+  public:
+    static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
+
+    /**
+     * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
+     * @note By default, this method constructs an execution trace that is sorted by gate type.
+     *
+     * @param builder
+     */
+    static void populate(Builder& builder, ProverPolynomials&);
+
+  private:
+    /**
+     * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
+     * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
+     */
+    static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder,
+                                                                                               ProverPolynomials&);
+
+    /**
+     * @brief Construct and add the goblin ecc op wires to the proving key
+     * @details The ecc op wires vanish everywhere except on the ecc op block, where they contain a copy of the ecc op
+     * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
+     */
+    static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
+        requires IsMegaFlavor<Flavor>;
+};
+
+} // namespace bb

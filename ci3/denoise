@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+source $ci3/source_redis
+source $ci3/source_cache
+
+# Ensure a command is passed
+if [ "$#" != 1 ]; then
+  echo "Usage: $0 <command>"
+  exit 1
+fi
+
+cmd=$1
+
+if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
+  set -e
+  exec bash -c "$cmd"
+  exit 0
+fi
+
+function cleanup {
+  set +e
+  if [ -n "${publish_pid:-}" ]; then
+    kill $publish_pid &>/dev/null
+    wait $publish_pid
+    publish_pid=
+  fi
+  if [ -n "${job_pid:-}" ]; then
+    kill $job_pid &>/dev/null
+    wait $job_pid
+    job_pid=
+  fi
+  if [ -n "${tail_pid:-}" ]; then
+    kill $tail_pid &>/dev/null
+    wait $tail_pid
+    tail_pid=
+  fi
+}
+trap cleanup SIGINT SIGTERM
+# Remove file on exit, so we can publish even after SIGINT or SIGTERM.
+trap 'cleanup; rm -f $outfile' EXIT
+
+dots_per_line=${DENOISE_WIDTH:-64}
+dot_count=0
+status="in-progress"
+time="in-progress"
+
+# We don't want to lose color just because we're wrapping.
+export FORCE_COLOR=${FORCE_COLOR:-1}
+
+# If stdout is connected to a terminal, print singular dots for each line.
+[ -t 1 ] && realtime=1 || realtime=0
+
+key=$(uuid)
+url=http://ci.aztec-labs.com/$key
+outfile=/tmp/$key
+touch $outfile
+
+function format_log_output {
+  if [ -n "${PARENT_LOG_ID:-}" ]; then
+    echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
+  fi
+  echo "Command: $cmd"
+  echo "Date: $(date)"
+  echo "Status: $status"
+  echo "Took: ${time}"
+  echo
+  cat $outfile
+}
+
+function publish_log {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function publish_log_final {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  while [ -f $outfile ]; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
+      publish_log
+    fi
+    sleep 5
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  live_publish_log &
+  publish_pid=$!
+  log_info="(${yellow}${url}${reset})"
+fi
+
+# Dot logging.
+set +e
+echo -e "Executing: $cmd ${log_info:-}"
+echo -n "   0 "
+tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
+  while IFS= read -r line; do
+    dot_count=$((dot_count+1))
+    [ $realtime -eq 1 ] && printf "."
+    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+      [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
+      printf "\n%4s " "$dot_count"
+    fi
+  done
+) &
+tail_pid=$!
+
+# Execute the command in background.
+PARENT_LOG_ID=$key bash -c "$cmd" 2>&1 | redact > $outfile &
+job_pid=$!
+
+# Wait for the job to finish and get its exit status.
+wait $job_pid
+status=$?
+
+time="${SECONDS}s"
+[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
+publish_log_final
+
+# Handle non-zero exit status
+if [ "$status" -ne 0 ]; then
+  # Print "interrupted" on SIGINT or SIGTERM.
+  if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
+    echo -e ". ${yellow}interrupted${reset} ($time)"
+  else
+    if [ -t 1 ]; then
+      echo -e "\nCommand exited with status $status. Dumping output:"
+      cat $outfile
+    fi
+    echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
+  fi
+else
+  echo -e ". ${green}done${reset} ($time)"
+fi
+
+exit $status

@@ -1,0 +1,573 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: 458fb330efa8c470567ab4b84a8a92a58b00586a}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// 4433c06ae693451c6f69a2f63b7da6628078d872}
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+#include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "../witness/witness.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
+#include <functional>
+
+namespace bb::stdlib {
+// Base case: only one pointer
+template <typename T> T* validate_context(T* ptr)
+{
+    return ptr;
+}
+
+// Variadic version: compare first with the rest
+template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
+{
+    T* tail = validate_context(rest...);
+    if (!first) {
+        return tail; // first is null, rely on tail
+    }
+    if (!tail) {
+        return first; // tail is null, use first
+    }
+    BB_ASSERT(first == tail, "Pointers refer to different builder objects!");
+    return first;
+}
+
+template <typename T, typename Container> T* validate_context(const Container& elements)
+{
+    T* result = nullptr;
+    for (const auto& element : elements) {
+        result = validate_context<T>(result, element.get_context());
+    }
+    return result;
+}
+
+template <typename Builder> class bool_t;
+template <typename Builder_> class field_t {
+  public:
+    using Builder = Builder_;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
+
+    // Friend declarations for classes that need direct witness_index access
+    template <typename B> friend class bool_t;
+    template <typename B, typename T> friend class bigfield;
+    template <typename B> friend void mark_witness_as_used(const field_t<B>& field);
+
+    mutable Builder* context = nullptr;
+
+    /**
+     * `additive_constant` and `multiplicative_constant` are constant scaling factors applied to a field_t object.
+     *
+     * The 'value' represented by a field_t is calculated as:
+     *   - For `field_t`s with `witness_index = IS_CONSTANT`:
+     *       `this.additive_constant`
+     *   - For non-constant `field_t`s:
+     *       `this.context->variables[this.witness_index] * this.multiplicative_constant + this.additive_constant`
+     *
+     * We track these scaling factors, because we can apply the same scaling factors to Plonk wires when creating
+     * gates. I.e. if we want to multiply a wire by a constant, or add a constant, we do not need to add extra gates
+     * to do this. Instead, we track the scaling factors, and apply them to the relevant wires when adding
+     * constraints.
+     *
+     * This also makes constant field_t objects effectively free. (Where 'constant' is a circuit constant, not a C++
+     * constant!).
+     * E.g. the following 3 lines of code add 0 constraints into a circuit:
+     *
+     *    field_t foo = 1;
+     *    field_t bar = 5;
+     *    field_t bar *= foo;
+     *
+     * Similarly if we add in:
+     *
+     *    field_t zip = witness_t(context, 10);
+     *    zip *= bar + foo;
+     *
+     * The above adds 0 constraints, the only effect is that `zip`'s scaling factors have been modified. However if
+     * we now add:
+     *
+     *    field_t zap = witness_t(context, 50);
+     *    zip *= zap;
+     *
+     * This will add a constraint, as both zip and zap map to circuit witnesses.
+     **/
+    mutable bb::fr additive_constant;
+    mutable bb::fr multiplicative_constant;
+
+  private:
+    /**
+     * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
+     * assigned to wires when creating constraints. `witness_index` describes a location in this container. I.e. it
+     * 'points' to a circuit variable.
+     *
+     * A witness is not the same thing as a 'wire' in a circuit. Multiple wires can be assigned to the same witness via
+     * Plonk's copy constraints. Alternatively, a witness might not be assigned to any wires! This case would be similar
+     * to an unused variable in a regular program
+     *
+     * E.g. if we write `field_t foo = witness_t(context, 100)`, this will add the value `100` into `context`'s list of
+     * circuit `variables`. However if we do not use `foo` in any operations, then this value will never be assigned to
+     * a wire in a circuit.
+     *
+     * For a more in depth example, consider the following code:
+     *
+     * field_t foo = witness_t(context, 10);
+     * field_t bar = witness_t(context, 50);
+     * field_t baz = foo * (bar + 7);
+     *
+     * This will add 3 new circuit witnesses (10, 50, 570) to `variables`. One constraint will also be created, that
+     * validates `baz` has been correctly constructed. The builder will assign `foo, bar, baz` to wires `w_1, w_2, w_3`
+     * in a new gate which checks that:
+     *
+     *      w_1 * w_2 + w_1 * 7 - w_3 = 0
+     *
+     * If any of `foo, bar, baz` are used in future arithmetic, copy constraints will be automatically applied,
+     * this ensure that all gate wires that map to `foo`, for example, will contain the same value.
+     *
+     * If witness_index == IS_CONSTANT, the object represents a constant value.
+     * i.e. a value that's hardcoded in the circuit, that a prover cannot change by modifying their witness transcript.
+     *
+     * A Plonk gate is a mix of witness values and selector values. e.g. the regular PLONK arithmetic gate checks that:
+     *
+     *      w_1 * w_2 * q_m + w_1 * q_1 + w_2 * q_2 + w_3 * q_3 + q_c = 0
+     *
+     * The `w` value are wires, the `q` values are selector constants. If a field object contains a `witness_index`, it
+     * will be assigned to `w` values when constraints are applied. If it's a circuit constant, it will be assigned to
+     * `q` values.
+     *
+     * TLDR: witness_index is a pseudo pointer to a circuit witness
+     *
+     * @warning Direct access to witness_index is for internal use only! External code should use get_witness_index()
+     * which returns a normalized witness index. Direct access may return a witness that doesn't contain the actual
+     * value due to non-trivial multiplicative_constant/additive_constant, which can lead to soundness bugs.
+     * Only access directly when you understand the implications (e.g., checking exact representation equality,
+     * or in performance-critical code like bigfield that carefully manages scaling factors).
+     **/
+    mutable uint32_t witness_index = IS_CONSTANT;
+
+  public:
+    mutable OriginTag tag{};
+
+    field_t(Builder* parent_context = nullptr);
+    field_t(Builder* parent_context, const bb::fr& value);
+
+    field_t(const int value)
+        : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+    {}
+
+    // NOLINTNEXTLINE(google-runtime-int) intended behavior
+    field_t(const unsigned long long value)
+        : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+    {}
+
+    field_t(const unsigned int value)
+        : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+
+    {}
+
+    // NOLINTNEXTLINE(google-runtime-int) intended behavior
+    field_t(const unsigned long value)
+        : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+    {}
+
+    // Construct a constant circuit element from a native field element
+    field_t(const bb::fr& value)
+        : context(nullptr)
+        , additive_constant(value)
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+    {}
+
+    // Construct a constant circuit element from a uint256t, that is implicitly converted to a native field element
+    field_t(const uint256_t& value)
+        : context(nullptr)
+        , additive_constant(value)
+        , multiplicative_constant(bb::fr::one())
+        , witness_index(IS_CONSTANT)
+    {}
+
+    field_t(const witness_t<Builder>& value);
+
+    // field_t copy constructor
+    field_t(const field_t& other)
+        : context(other.context)
+        , additive_constant(other.additive_constant)
+        , multiplicative_constant(other.multiplicative_constant)
+        , witness_index(other.witness_index)
+        , tag(other.tag)
+    {}
+
+    // field_t move constructor
+    field_t(field_t&& other) noexcept
+        : context(other.context)
+        , additive_constant(other.additive_constant)
+        , multiplicative_constant(other.multiplicative_constant)
+        , witness_index(other.witness_index)
+        , tag(other.tag)
+    {}
+
+    // Copy constructor from a bool_t
+    field_t(const bool_t<Builder>& other);
+
+    ~field_t() = default;
+
+    static constexpr bool is_composite = false;
+    static constexpr uint256_t modulus = bb::fr::modulus;
+
+    static field_t from_witness_index(Builder* ctx, uint32_t witness_index);
+
+    explicit operator bool_t<Builder>() const;
+
+    field_t& operator=(const field_t& other)
+    {
+        if (this == &other) {
+            return *this;
+        }
+        additive_constant = other.additive_constant;
+        multiplicative_constant = other.multiplicative_constant;
+        witness_index = other.witness_index;
+        context = other.context;
+        tag = other.tag;
+        return *this;
+    }
+
+    field_t& operator=(field_t&& other) noexcept
+    {
+        additive_constant = other.additive_constant;
+        multiplicative_constant = other.multiplicative_constant;
+        witness_index = other.witness_index;
+        context = other.context;
+        tag = other.tag;
+        return *this;
+    }
+
+    static field_t copy_as_new_witness(Builder& context, field_t const& other)
+    {
+        auto result = field_t<Builder>(witness_t<Builder>(&context, other.get_value()));
+        result.assert_equal(other, "field_t::copy_as_new_witness, assert_equal");
+        result.tag = other.tag;
+        return result;
+    }
+
+    field_t operator+(const field_t& other) const;
+    field_t operator-(const field_t& other) const;
+    field_t operator*(const field_t& other) const;
+    field_t operator/(const field_t& other) const;
+    bool_t<Builder> operator==(const field_t& other) const;
+    bool_t<Builder> operator!=(const field_t& other) const;
+
+    field_t divide_no_zero_check(const field_t& other) const;
+
+    field_t sqr() const { return operator*(*this); }
+
+    field_t pow(const uint32_t& exponent) const;
+    // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
+    field_t pow(const field_t& exponent) const;
+
+    field_t operator+=(const field_t& other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+    field_t operator-=(const field_t& other)
+    {
+        *this = *this - other;
+        return *this;
+    }
+    field_t operator*=(const field_t& other)
+    {
+        *this = *this * other;
+        return *this;
+    }
+    field_t operator/=(const field_t& other)
+    {
+        *this = *this / other;
+        return *this;
+    }
+
+    // Prefix increment (++x)
+    field_t& operator++()
+    {
+        *this = *this + 1;
+        return *this;
+    };
+
+    // Postfix increment (x++)
+    // NOLINTNEXTLINE
+    field_t operator++(const int)
+    {
+        field_t this_before_operation = field_t(*this);
+        *this = *this + 1;
+        return this_before_operation;
+    };
+
+    /**
+     * Compute 1 / (*this)
+     */
+    field_t invert() const
+    {
+        // Since the numerator is a constant 1, the constraint
+        //      (this.v * this.mul + this.add) * inverse.v == 1;
+        // created by applying `assert_is_not_zero` to `*this` coincides with the constraint created by
+        // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
+        auto* ctx = get_context();
+        if (is_constant()) {
+            BB_ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+        }
+
+        if (get_value().is_zero() && !ctx->failed()) {
+            ctx->failure("field_t::invert denominator is 0");
+        }
+
+        return field_t(fr::one()).divide_no_zero_check(*this);
+    }
+
+    field_t operator-() const
+    {
+        field_t result(*this);
+        result.additive_constant.self_neg();
+        if (!is_constant()) {
+            result.multiplicative_constant.self_neg();
+        }
+        return result;
+    }
+
+    void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
+    OriginTag get_origin_tag() const { return tag; };
+
+    /**
+     * @brief Set the free witness flag for the field element's tag
+     */
+    void set_free_witness_tag() { tag.set_free_witness(); }
+
+    /**
+     * @brief Unset the free witness flag for the field element's tag
+     */
+    void unset_free_witness_tag() const { tag.unset_free_witness(); }
+
+    void clear_round_provenance() const { tag.clear_round_provenance(); }
+
+    field_t conditional_negate(const bool_t<Builder>& predicate) const;
+
+    void assert_equal(const field_t& rhs, std::string const& msg = "field_t::assert_equal") const;
+
+    void assert_not_equal(const field_t& rhs, std::string const& msg = "field_t::assert_not_equal") const;
+
+    void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
+
+    static field_t conditional_assign_internal(const bool_t<Builder>& predicate,
+                                               const field_t& lhs,
+                                               const field_t& rhs);
+
+    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs)
+    {
+        return conditional_assign_internal(predicate, lhs, rhs).normalize();
+    }
+
+    static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
+                                                           const field_t& T1,
+                                                           const field_t& T2,
+                                                           const field_t& T3);
+    static field_t select_from_two_bit_table(const std::array<field_t, 4>& table,
+                                             const bool_t<Builder>& t1,
+                                             const bool_t<Builder>& t0);
+
+    static std::array<field_t, 8> preprocess_three_bit_table(const field_t& T0,
+                                                             const field_t& T1,
+                                                             const field_t& T2,
+                                                             const field_t& T3,
+                                                             const field_t& T4,
+                                                             const field_t& T5,
+                                                             const field_t& T6,
+                                                             const field_t& T7);
+    static field_t select_from_three_bit_table(const std::array<field_t, 8>& table,
+                                               const bool_t<Builder>& t2,
+                                               const bool_t<Builder>& t1,
+                                               const bool_t<Builder>& t0);
+
+    static void evaluate_linear_identity(const field_t& a,
+                                         const field_t& b,
+                                         const field_t& c,
+                                         const field_t& d,
+                                         const std::string& msg = "field_t::evaluate_linear_identity");
+    static void evaluate_polynomial_identity(const field_t& a,
+                                             const field_t& b,
+                                             const field_t& c,
+                                             const field_t& d,
+                                             const std::string& msg = "field_t::evaluate_polynomial_identity");
+
+    static field_t accumulate(const std::vector<field_t>& input);
+
+    field_t madd(const field_t& to_mul, const field_t& to_add) const;
+
+    field_t add_two(const field_t& add_b, const field_t& add_c) const;
+
+    [[nodiscard]] field_t normalize() const;
+
+    bb::fr get_value() const;
+
+    Builder* get_context() const { return context; }
+
+    std::pair<field_t<Builder>, field_t<Builder>> no_wrap_split_at(
+        const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
+
+    bool_t<Builder> is_zero() const;
+
+    void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
+    void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
+    void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
+    bool is_constant() const { return witness_index == IS_CONSTANT; }
+    bool is_normalized() const
+    {
+        return (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero())));
+    };
+    uint32_t set_public() const
+    {
+        BB_ASSERT(!is_constant());
+        return context->set_public_input(normalize().witness_index);
+    }
+
+    /**
+     * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
+     * value becomes hard-coded as an element of the q_c selector vector).
+     */
+    void convert_constant_to_fixed_witness(Builder* ctx)
+    {
+        BB_ASSERT(is_constant());
+        BB_ASSERT(ctx);
+        context = ctx;
+        (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
+        context->fix_witness(witness_index, get_value());
+        unset_free_witness_tag();
+    }
+
+    static field_t from_witness(Builder* ctx, const bb::fr& input)
+    {
+        auto result = field_t(witness_t<Builder>(ctx, input));
+        result.set_free_witness_tag();
+        return result;
+    }
+
+    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename T> static field_t from_witness(Builder* ctx, const T& input) = delete;
+
+    static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return limbs[0];
+    }
+
+    /**
+     * Fix a witness. The value of a witness is constrained with a selector.
+     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
+     * its commitment.
+     */
+    void fix_witness()
+    {
+        BB_ASSERT(!is_constant());
+        BB_ASSERT(context);
+        // Normalize first to ensure witness_index points to a witness that contains the actual value
+        // (i.e., multiplicative_constant = 1, additive_constant = 0)
+        *this = normalize();
+        // Let     a := *this;
+        //       q_l :=  1
+        //       q_c := -*this.get_value()
+        // Create an aritmetic gate constraining
+        //       a.v * q_l - q_c = 0
+        context->fix_witness(witness_index, get_value());
+        unset_free_witness_tag();
+    }
+
+    /**
+     * @brief Get the witness index of the current field element.
+     *
+     * @details This method normalizes the field element in place and returns the witness index of the normalized
+     * representation, such that the witness actually contains the value it represents (multiplicative_constant = 1,
+     * additive_constant = 0).
+     *
+     * Note: the normalization may add gates to the circuit, but this is the safest option that prevents soundness
+     * vulnerabilities from using witness indices that don't contain the actual field value.
+     *
+     * Within the field_t class implementation, the raw witness_index member can be accessed directly
+     * when needed (e.g., for checking if two fields share the exact same representation).
+     *
+     * @return uint32_t The witness index of the normalized element
+     */
+    uint32_t get_witness_index() const { return normalize().witness_index; }
+
+    /**
+     * @brief Check if two field elements have the same witness index (for identity checks).
+     *
+     * @details Checks if two field elements share the exact same witness_index representation.
+     * Used for optimization checks like "if inputs are identical, skip computation".
+     * Does NOT check value equality - use operator== for that.
+     *
+     * @param a First field element
+     * @param b Second field element
+     * @return bool True if both elements reference the same witness
+     */
+    static bool witness_indices_match(const field_t& a, const field_t& b) { return a.witness_index == b.witness_index; }
+
+    /**
+     * @brief Return (a < b) as bool circuit type.
+     *        This method *assumes* that both a and b are < 2^{num_bits}
+     *        i.e. it is not checked here, we assume this has been done previously
+     *
+     */
+    template <size_t num_bits> bool_t<Builder> ranged_less_than(const field_t<Builder>& other) const
+    {
+
+        const auto& a = (*this);
+        const auto& b = other;
+        auto* ctx = validate_context(a.context, b.context);
+        if (a.is_constant() && b.is_constant()) {
+            return uint256_t(a.get_value()) < uint256_t(b.get_value());
+        }
+
+        // Let q = (a < b)
+        // Assume both a and b are < K where K = 2^{num_bits}
+        //    q == 1 <=>  0 < b - a - 1     < K
+        //    q == 0 <=>  0 < b - a + K - 1 < K
+        // i.e. for any bool value of q:
+        //    (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
+        //     q * (b - a - b + a) + b - a + K - 1 - (K - 1) * q - q = r < K
+        //     b - a + (K - 1) - K * q = r < K
+
+        static constexpr uint256_t range_constant = (uint256_t(1) << num_bits);
+        // Since in the worst case scenario
+        //     r = K - 1 + (K - 1) = 2 * K - 2,
+        // to ensure that it never wraps around the field modulus, we impose that it's smaller than half the modulus
+        static_assert(range_constant < bb::fr::modulus >> 1,
+                      "ranged_less_than: 2^num_bits must be less than half the field modulus.");
+
+        bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
+        bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
+        field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
+        predicate_valid.create_range_constraint(num_bits);
+        return predicate;
+    }
+
+    // Aliases used in Relations' `accumulate` methods
+    using View = field_t;
+    using CoefficientAccumulator = field_t;
+
+    // Alias used in `biggroup` and `CycleGroup`
+    using native = bb::fr;
+};
+
+template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)
+{
+    return os << v.get_value();
+}
+} // namespace bb::stdlib

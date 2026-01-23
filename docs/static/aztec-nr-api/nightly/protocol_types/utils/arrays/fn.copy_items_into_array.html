@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function copy_items_into_array documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">copy_items_into_array</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module arrays</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ClaimedLengthArray.html">ClaimedLengthArray</a></div></li>
+<li><a href="struct.SortedTuple.html">SortedTuple</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.array_length.html">array_length</a></div></li>
+<li><a href="fn.array_length_until.html">array_length_until</a></div></li>
+<li><a href="fn.array_merge.html">array_merge</a></div></li>
+<li><a href="fn.array_padded_with.html">array_padded_with</a></div></li>
+<li><a href="fn.assert_trailing_zeros.html">assert_trailing_zeros</a></div></li>
+<li><a href="fn.check_permutation.html">check_permutation</a></div></li>
+<li><a href="fn.copy_items_into_array.html">copy_items_into_array</a></div></li>
+<li><a href="fn.find_first_index.html">find_first_index</a></div></li>
+<li><a href="fn.find_last_index.html">find_last_index</a></div></li>
+<li><a href="fn.get_sorted_tuples.html">get_sorted_tuples</a></div></li>
+<li><a href="fn.subarray.html">subarray</a></div></li>
+<li><a href="fn.trimmed_array_length_hint.html">trimmed_array_length_hint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">arrays</a></div>
+<h1>Function <span class="fn">copy_items_into_array</span></h1>
+<pre><code>pub fn copy_items_into_array&lt;T, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    array1: [T; N],
+    start_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    array2: [T; M],
+    num_items_to_copy: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+) -> [T; N]
+<div class="where-clause">where
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></pre>
+
+<div class="comments">
+<p>Copies up to <code>num_items_to_copy</code> items from <code>array2</code> into <code>array1</code>, starting at <code>start_index</code>, and returns a new
+array with the modifications.</p>
+<ul>
+<li>Fails if writing <code>array2[i]</code> into <code>array1[start_index + i]</code> would exceed the bounds of <code>array1</code>.</li>
+<li>Only the first <code>num_items_to_copy</code> elements of <code>array2</code> are copied.</li>
+<li>At most <code>array2.len()</code> items from <code>array2</code> will be copied.</li>
+</ul>
+<p>Note: This function may silently stop copying from <code>array2</code> once <code>array2</code> ends. It's the caller's responsibility to
+ensure that <code>num_items_to_copy</code> is not greater than <code>array2.len()</code> if this is desired.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

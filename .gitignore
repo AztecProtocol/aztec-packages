@@ -1,0 +1,33 @@
+dest
+node_modules
+.cache
+.pnp.cjs
+.pnp.loader.mjs
+build/
+.idea
+cmake-build-debug
+.terraform*
+terraform.tfstate*
+.bootstrapped
+.tsbuildinfo
+bench-out
+dumped-avm-circuit-inputs
+
+# Local Netlify folder
+.netlify
+
+.graphite*
+.DS_Store
+
+# tmux
+tmux-client-*.log
+.supermavenignore
+
+# parallel
+joblog.txt
+.logged_test_flakes
+
+docs/.yarn/install-state.gz
+docs/docs/protocol-specs/public-vm/gen/
+
+__pycache__

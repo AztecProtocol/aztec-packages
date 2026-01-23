@@ -1,0 +1,46 @@
+# CI for Aztec Network Scenarios.
+# Manually triggered to deploy and test a network.
+name: Test Network Scenarios
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_image:
+        description: Complete docker image to use (e.g., aztecprotocol/aztec:some-tag)
+        required: true
+        type: string
+      namespace:
+        description: Kubernetes namespace to use (will be sanitized for k8s naming)
+        required: true
+        type: string
+      env_file:
+        description: Network configuration to use (local, devnet, testnet, next-scenario, tps-scenario)
+        required: false
+        type: string
+        default: next-scenario
+
+concurrency:
+  group: test-network-scenarios-${{ inputs.namespace }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 360
+          NO_SPOT: 1
+        run: |
+          namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+          ./.github/ci3.sh network-deploy "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}"

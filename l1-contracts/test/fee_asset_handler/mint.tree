@@ -1,0 +1,4 @@
+MintTest
+└── when anyone calls mint
+    ├── it mints the mint amount to the recipient
+    └── it emits {Minted} event

@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+tsconfig.tsbuildinfo
+
+scripts/.store
+./deployed-contract.json
+./wallet-info.json
+
+contracts/target
+codegenCache.json
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+artifacts
+.env
+
+
+release-out

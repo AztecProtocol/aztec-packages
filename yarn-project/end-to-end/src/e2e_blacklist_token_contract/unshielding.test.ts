@@ -1,0 +1,136 @@
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { Fr } from '@aztec/aztec.js/fields';
+
+import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
+
+describe('e2e_blacklist_token_contract unshielding', () => {
+  const t = new BlacklistTokenContractTest('unshielding');
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
+
+  beforeAll(async () => {
+    await t.setup();
+    // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
+    await t.applyMint();
+    // Have to destructure again to ensure we have latest refs.
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
+  }, 600_000);
+
+  afterAll(async () => {
+    await t.teardown();
+  });
+
+  afterEach(async () => {
+    await t.tokenSim.check();
+  });
+
+  it('on behalf of self', async () => {
+    const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const amount = balancePriv / 2n;
+    expect(amount).toBeGreaterThan(0n);
+
+    await asset.methods.unshield(adminAddress, adminAddress, amount, 0).send({ from: adminAddress }).wait();
+
+    tokenSim.transferToPublic(adminAddress, adminAddress, amount);
+  });
+
+  it('on behalf of other', async () => {
+    const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const amount = balancePriv0 / 2n;
+    const authwitNonce = Fr.random();
+    expect(amount).toBeGreaterThan(0n);
+
+    // We need to compute the message we want to sign and add it to the wallet as approved
+    const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+
+    // Both wallets are connected to same node and PXE so we could just insert directly
+    // But doing it in two actions to show the flow.
+    const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
+
+    await action.send({ from: otherAddress, authWitnesses: [witness] }).wait();
+    tokenSim.transferToPublic(adminAddress, otherAddress, amount);
+
+    // Perform the transfer again, should fail
+    const txReplay = asset.methods
+      .unshield(adminAddress, otherAddress, amount, authwitNonce)
+      .send({ from: otherAddress, authWitnesses: [witness] });
+    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    // @todo @LHerskind This error is weird?
+  });
+
+  describe('failure cases', () => {
+    it('on behalf of self (more than balance)', async () => {
+      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const amount = balancePriv + 1n;
+      expect(amount).toBeGreaterThan(0n);
+
+      await expect(
+        asset.methods.unshield(adminAddress, adminAddress, amount, 0).simulate({ from: adminAddress }),
+      ).rejects.toThrow('Assertion failed: Balance too low');
+    });
+
+    it('on behalf of self (invalid authwit nonce)', async () => {
+      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const amount = balancePriv + 1n;
+      expect(amount).toBeGreaterThan(0n);
+
+      await expect(
+        asset.methods.unshield(adminAddress, adminAddress, amount, 1).simulate({ from: adminAddress }),
+      ).rejects.toThrow(
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
+      );
+    });
+
+    it('on behalf of other (more than balance)', async () => {
+      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const amount = balancePriv0 + 2n;
+      const authwitNonce = Fr.random();
+      expect(amount).toBeGreaterThan(0n);
+
+      // We need to compute the message we want to sign and add it to the wallet as approved
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+
+      // Both wallets are connected to same node and PXE so we could just insert directly
+      // But doing it in two actions to show the flow.
+      const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
+
+      await expect(action.simulate({ from: otherAddress, authWitnesses: [witness] })).rejects.toThrow(
+        'Assertion failed: Balance too low',
+      );
+    });
+
+    it('on behalf of other (invalid designated caller)', async () => {
+      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const amount = balancePriv0 + 2n;
+      const authwitNonce = Fr.random();
+      expect(amount).toBeGreaterThan(0n);
+
+      // We need to compute the message we want to sign and add it to the wallet as approved
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+      const expectedMessageHash = await computeAuthWitMessageHash(
+        { caller: blacklistedAddress, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
+      );
+
+      // Both wallets are connected to same node and PXE so we could just insert directly
+      // But doing it in two actions to show the flow.
+      const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
+
+      await expect(action.simulate({ from: blacklistedAddress, authWitnesses: [witness] })).rejects.toThrow(
+        `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
+      );
+    });
+
+    it('unshield from blacklisted account', async () => {
+      await expect(
+        asset.methods.unshield(blacklistedAddress, adminAddress, 1n, 0).simulate({ from: blacklistedAddress }),
+      ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
+    });
+
+    it('unshield to blacklisted account', async () => {
+      await expect(
+        asset.methods.unshield(adminAddress, blacklistedAddress, 1n, 0).simulate({ from: adminAddress }),
+      ).rejects.toThrow('Assertion failed: Blacklisted: Recipient');
+    });
+  });
+});

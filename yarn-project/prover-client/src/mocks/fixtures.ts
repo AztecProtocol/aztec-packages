@@ -1,0 +1,122 @@
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
+import type { FieldsOf } from '@aztec/foundation/types';
+import { fileURLToPath } from '@aztec/foundation/url';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import { CheckpointConstantData } from '@aztec/stdlib/rollup';
+import { GlobalVariables } from '@aztec/stdlib/tx';
+
+import { promises as fs } from 'fs';
+import path from 'path';
+
+const {
+  BB_RELEASE_DIR = 'cpp/build/bin',
+  TEMP_DIR = '/tmp',
+  BB_BINARY_PATH = '',
+  BB_WORKING_DIRECTORY = '',
+  BB_SKIP_CLEANUP = '',
+  NOIR_RELEASE_DIR = 'noir-repo/target/release',
+  ACVM_BINARY_PATH = '',
+  ACVM_WORKING_DIRECTORY = '',
+} = process.env;
+
+// Determines if we have access to the bb binary and a tmp folder for temp files
+export const getEnvironmentConfig = async (logger: Logger) => {
+  try {
+    const expectedBBPath = BB_BINARY_PATH
+      ? BB_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/', BB_RELEASE_DIR)}/bb-avm`;
+    await fs.access(expectedBBPath, fs.constants.R_OK);
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    logger.info(`Found native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+
+    const expectedAcvmPath = ACVM_BINARY_PATH
+      ? ACVM_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
+    await fs.access(expectedAcvmPath, fs.constants.R_OK);
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
+    await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    logger.info(`Found native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+
+    const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
+    bbSkipCleanup && logger.verbose(`Not going to clean up BB working directory ${bbWorkingDirectory} after run`);
+
+    return {
+      acvmWorkingDirectory,
+      bbWorkingDirectory,
+      expectedAcvmPath,
+      expectedBBPath,
+      directoryToCleanup: ACVM_WORKING_DIRECTORY && BB_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+      bbSkipCleanup,
+    };
+  } catch (err) {
+    logger.info(`Native BB not available: ${err}`);
+    return undefined;
+  }
+};
+
+export async function getSimulator(
+  config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
+  logger?: Logger,
+): Promise<CircuitSimulator> {
+  if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
+    try {
+      await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
+      await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
+      logger?.info(
+        `Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`,
+      );
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
+    } catch {
+      logger?.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
+    }
+  }
+  logger?.info('Using WASM ACVM simulation');
+  return new WASMSimulatorWithBlobs();
+}
+
+export const makeGlobals = (
+  blockNumber: number,
+  slotNumber = blockNumber,
+  overrides: Partial<FieldsOf<GlobalVariables> & FieldsOf<CheckpointConstantData>> = {},
+) => {
+  const checkpointConstants = makeCheckpointConstants(slotNumber, overrides);
+  return GlobalVariables.from({
+    chainId: checkpointConstants.chainId,
+    version: checkpointConstants.version,
+    blockNumber: BlockNumber(blockNumber) /** block number */,
+    slotNumber: SlotNumber(slotNumber) /** slot number */,
+    timestamp: BigInt(blockNumber * 123) /** block number * 123 as pseudo-timestamp for testing */,
+    coinbase: checkpointConstants.coinbase,
+    feeRecipient: checkpointConstants.feeRecipient,
+    gasFees: checkpointConstants.gasFees,
+    ...overrides,
+  });
+};
+
+export const makeCheckpointConstants = (
+  slotNumber: number,
+  overrides: Partial<FieldsOf<CheckpointConstantData>> = {},
+) => {
+  return CheckpointConstantData.from({
+    chainId: Fr.ZERO,
+    version: Fr.ZERO,
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    proverId: Fr.ZERO,
+    slotNumber: SlotNumber(slotNumber),
+    coinbase: EthAddress.ZERO,
+    feeRecipient: AztecAddress.ZERO,
+    gasFees: GasFees.empty(),
+    ...overrides,
+  });
+};

@@ -1,0 +1,1 @@
+barretenberg_module(ext_starknet_crypto_poseidon ecc)

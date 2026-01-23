@@ -1,0 +1,366 @@
+{{- define "chart.podTemplate" }}
+metadata:
+  labels:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    app: node
+  annotations:
+    {{- /* Recreate the pods on every upgrade in order to refresh configmaps and secrets */}}
+    rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  {{- if .Values.serviceAccount.create }}
+  serviceAccountName: {{ include "chart.serviceAccountName" . }}
+  {{- end }}
+
+  {{- if .Values.hostNetwork }}
+  dnsPolicy: ClusterFirstWithHostNet
+  hostNetwork: true
+  {{- end }}
+
+  {{- if .Values.affinity }}
+  affinity:
+    {{- toYaml .Values.affinity | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.nodeSelector | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.tolerations }}
+  tolerations:
+    {{- toYaml .Values.tolerations | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.topologySpreadConstraints }}
+  topologySpreadConstraints:
+    {{- toYaml .Values.topologySpreadConstraints | nindent 4 }}
+  {{- end }}
+
+  initContainers:
+  {{- if .Values.initContainers }}
+    {{- tpl (toYaml .Values.initContainers | nindent 4) $ }}
+  {{- end }}
+  {{- if .Values.service.p2p.nodePortEnabled }}
+    - name: init-nodeport
+      image: registry.suse.com/suse/kubectl:1.33
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+      command:
+        - /bin/bash
+        - -c
+        - |
+          export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
+          export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
+
+          echo "export P2P_BROADCAST_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
+
+          cat /shared/init-nodeport;
+      env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+  {{- end }}
+  containers:
+    - name: aztec
+      image: "{{ .Values.global.aztecImage.repository }}:{{ .Values.global.aztecImage.tag | default .Chart.AppVersion }}"
+      imagePullPolicy: {{ .Values.global.aztecImage.pullPolicy }}
+      command:
+        - /bin/bash
+        - -c
+        - |
+          if [ -f /shared/init-nodeport ]; then
+            source /shared/init-nodeport;
+          fi
+
+          if [ -n "${DATA_DIRECTORY:-}" ]; then
+            mkdir -p "$DATA_DIRECTORY"
+          fi
+
+          if [ -n "${CRS_PATH:-}" ]; then
+            mkdir -p "$CRS_PATH"
+          fi
+
+          {{- if .Values.service.p2p.publicIP }}
+            export P2P_QUERY_FOR_IP=true
+          {{- else }}
+            export P2P_IP=$(hostname -i)
+          {{- end }}
+
+          {{- if .Values.node.enableInspector }}
+          start_cmd=("node" "--inspect=0.0.0.0:9229" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
+          {{- else }}
+          start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
+          {{- end }}
+          source /scripts/setup-otel-resource.sh
+
+          {{- if .Values.node.preStartScript }}
+          {{ .Values.node.preStartScript | nindent 10 }}
+          {{- end }}
+          "${start_cmd[@]}"
+      startupProbe:
+        httpGet:
+          path: /status
+          port: {{ .Values.service.rpc.port }}
+        periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.node.startupProbe.timeoutSeconds }}
+        initialDelaySeconds: {{ .Values.node.startupProbe.initialDelaySeconds }}
+        failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+        - name: scripts
+          mountPath: /scripts/
+        {{- if .Values.node.configMap.extraScriptsEnabled }}
+        - name: extra-scripts
+          mountPath: /extra-scripts/
+        {{- end }}
+        {{- if .Values.node.secret.filesEnabled }}
+        - name: secrets
+          mountPath: /secrets/
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: {{ .Values.node.storage.dataDirectory }}
+        {{- end }}
+      envFrom:
+        {{- if .Values.node.configMap.envEnabled }}
+        - configMapRef:
+            name: {{ include "chart.fullname" . }}-env
+        {{- end }}
+        {{- if .Values.node.secret.envEnabled }}
+        - secretRef:
+            name: {{ include "chart.fullname" . }}-env
+        {{- end }}
+      env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: K8S_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NAMESPACE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: VALIDATOR_HA_NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        {{- if .Values.global.customAztecNetwork.l1ChainId }}
+        - name: L1_CHAIN_ID
+          value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.registryContractAddress }}
+        - name: REGISTRY_CONTRACT_ADDRESS
+          value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.slashFactoryContractAddress }}
+        - name: SLASH_FACTORY_CONTRACT_ADDRESS
+          value: "{{ .Values.global.customAztecNetwork.slashFactoryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}
+        - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+          value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.aztecNetwork }}
+        - name: NETWORK
+          value: "{{ .Values.global.aztecNetwork }}"
+        {{- end }}
+        - name: NODE_OPTIONS
+          value: {{ join " " .Values.node.nodeJsOptions | quote }}
+        - name: AZTEC_PORT
+          value: "{{ .Values.service.rpc.port }}"
+        - name: AZTEC_ADMIN_PORT
+          value: "{{ .Values.service.admin.port }}"
+        - name: LOG_LEVEL
+          value: "{{ .Values.node.logLevel }}"
+        - name: LOG_JSON
+          value: "1"
+        - name: P2P_ENABLED
+          value: "{{ .Values.service.p2p.enabled }}"
+        - name: P2P_PORT
+          value: "{{ .Values.service.p2p.port }}"
+        - name: P2P_BROADCAST_PORT
+          value: "{{ .Values.service.p2p.announcePort }}"
+        - name: PROVER_REAL_PROOFS
+          value: "{{ .Values.node.proverRealProofs }}"
+        - name: SENTINEL_ENABLED
+          value: "{{ .Values.node.sentinel.enabled }}"
+        {{- if .Values.node.slash.minPenaltyPercentage }}
+        - name: SLASH_MIN_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.minPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPenaltyPercentage }}
+        - name: SLASH_MAX_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.maxPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsAlways }}
+        - name: SLASH_VALIDATORS_ALWAYS
+          value: {{ join "," .Values.node.slash.validatorsAlways | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsNever }}
+        - name: SLASH_VALIDATORS_NEVER
+          value: {{ join "," .Values.node.slash.validatorsNever | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.prunePenalty }}
+        - name: SLASH_PRUNE_PENALTY
+          value: {{ .Values.node.slash.prunePenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.dataWithholdingPenalty }}
+        - name: SLASH_DATA_WITHHOLDING_PENALTY
+          value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityPenalty }}
+        - name: SLASH_INACTIVITY_PENALTY
+          value: {{ .Values.node.slash.inactivityPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityTargetPercentage }}
+        - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
+          value: {{ .Values.node.slash.inactivityTargetPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.invalidBlockPenalty }}
+        - name: SLASH_INVALID_BLOCK_PENALTY
+          value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
+        - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+          value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
+        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.unknownPenalty }}
+        - name: SLASH_UNKNOWN_PENALTY
+          value: {{ .Values.node.slash.unknownPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.gracePeriodL2Slots }}
+        - name: SLASH_GRACE_PERIOD_L2_SLOTS
+          value: {{ .Values.node.slash.gracePeriodL2Slots | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.offenseExpirationRounds }}
+        - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
+          value: {{ .Values.node.slash.offenseExpirationRounds | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPayloadSize }}
+        - name: SLASH_MAX_PAYLOAD_SIZE
+          value: {{ .Values.node.slash.maxPayloadSize | quote }}
+        {{- end }}
+        {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
+        - name: ETHEREUM_HOSTS
+          value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
+        {{- end }}
+        {{- if gt (len .Values.global.l1ConsensusUrls) 0 }}
+        - name: L1_CONSENSUS_HOST_URLS
+          value: {{ join "," .Values.global.l1ConsensusUrls | quote }}
+        - name: L1_CONSENSUS_HOST_API_KEYS
+          value: {{ join "," .Values.global.l1ConsensusHostApiKeys | quote }}
+        - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
+          value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
+        {{- end }}
+        - name: DATA_DIRECTORY
+          value: "{{ .Values.node.storage.dataDirectory }}/data"
+        - name: CRS_PATH
+          value: "{{ .Values.node.storage.dataDirectory }}/crs"
+        - name: DATA_STORE_MAP_SIZE_KB
+          value: {{ .Values.node.storage.dataStoreMapSize | quote }}
+        - name: WS_DB_MAP_SIZE_KB
+          value: {{ .Values.node.storage.worldStateMapSize | quote }}
+        - name: USE_GCLOUD_LOGGING
+          value: {{ .Values.global.useGcloudLogging | quote }}
+        - name: SPONSORED_FPC
+          value: {{ .Values.global.sponsoredFPC | quote }}
+        - name: TEST_ACCOUNTS
+          value: {{ .Values.global.testAccounts | quote }}
+        {{- if .Values.global.otelCollectorEndpoint }}
+        {{- if .Values.node.otelIncludeMetrics }}
+        - name: OTEL_INCLUDE_METRICS
+          value: {{ .Values.node.otelIncludeMetrics | quote }}
+        {{- end }}
+        {{- if .Values.node.otelExcludeMetrics }}
+        - name: OTEL_EXCLUDE_METRICS
+          value: {{ .Values.node.otelExcludeMetrics | quote }}
+        {{- end }}
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/metrics"
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/traces"
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/logs"
+        {{- end }}
+        {{- if .Values.node.coinbase }}
+        - name: COINBASE
+          value: {{ .Values.node.coinbase | quote }}
+        - name: PROVER_ID
+          value: {{ .Values.node.coinbase | quote }}
+        {{- end }}
+        {{- range $key, $value := .Values.node.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+      ports:
+        - containerPort: {{ .Values.service.rpc.port }}
+          name: rpc
+        {{- if .Values.service.admin.enabled }}
+        - containerPort: {{ .Values.service.admin.port }}
+          name: admin
+        {{- end }}
+        {{- if .Values.service.p2p.enabled }}
+        - containerPort: {{ .Values.service.p2p.port }}
+          protocol: TCP
+          name: p2p-tcp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
+        - containerPort: {{ .Values.service.p2p.port }}
+          protocol: UDP
+          name: p2p-udp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
+        {{- end }}
+      resources:
+        {{- toYaml .Values.node.resources | nindent 8 }}
+  volumes:
+    - name: shared
+      emptyDir: {}
+    - name: scripts
+      configMap:
+        name: {{ include "chart.fullname" . }}-scripts
+    {{- if .Values.node.configMap.extraScriptsEnabled }}
+    - name: extra-scripts
+      configMap:
+        name: {{ include "chart.fullname" . }}-extra-scripts
+    {{- end }}
+    {{- if .Values.node.secret.filesEnabled }}
+    - name: secrets
+      secret:
+        secretName: {{ include "chart.fullname" . }}-files
+    {{- end }}
+    {{- if .Values.persistence.enabled }}
+    {{- if .Values.persistence.existingClaim }}
+    - name: data
+      persistentVolumeClaim:
+        claimName: {{ .Values.persistence.existingClaim }}
+    {{- else if not .Values.statefulSet.enabled }}
+    - name: data
+      emptyDir: {}
+    {{/* else the statefulSet's volume claim templates is expected to set something up for the pod to use */}}
+    {{- end }}
+    {{- end }}
+{{- end }}

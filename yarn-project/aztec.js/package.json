@@ -1,0 +1,127 @@
+{
+  "name": "@aztec/aztec.js",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./abi": "./dest/api/abi.js",
+    "./account": "./dest/api/account.js",
+    "./addresses": "./dest/api/addresses.js",
+    "./authorization": "./dest/api/authorization.js",
+    "./block": "./dest/api/block.js",
+    "./contracts": "./dest/api/contract.js",
+    "./crypto": "./dest/api/crypto.js",
+    "./deployment": "./dest/api/deployment.js",
+    "./ethereum": "./dest/api/ethereum.js",
+    "./events": "./dest/api/events.js",
+    "./fee": "./dest/api/fee.js",
+    "./fee/testing": "./dest/api/fee_testing.js",
+    "./fields": "./dest/api/fields.js",
+    "./keys": "./dest/api/keys.js",
+    "./log": "./dest/api/log.js",
+    "./messaging": "./dest/api/messaging.js",
+    "./node": "./dest/api/node.js",
+    "./note": "./dest/api/note.js",
+    "./protocol": "./dest/api/protocol.js",
+    "./trees": "./dest/api/trees.js",
+    "./tx": "./dest/api/tx.js",
+    "./utils": "./dest/api/utils.js",
+    "./wallet": "./dest/api/wallet.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Aztec.js",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "build:ts": "../scripts/tsc.sh",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts ./src/contract/protocol_contracts",
+    "generate": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_protocol_contract_types.ts && run -T prettier -w src/contract/protocol_contracts",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json",
+    "./package.local.json"
+  ],
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/constants": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "axios": "^1.12.0",
+    "tslib": "^2.4.0",
+    "viem": "npm:@aztec/viem@2.38.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@aztec/builder": "workspace:^",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "process": "^0.11.10",
+    "resolve-typescript-plugin": "^2.0.1",
+    "stream-browserify": "^3.0.0",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3",
+    "util": "^0.12.5"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=20.10"
+  }
+}

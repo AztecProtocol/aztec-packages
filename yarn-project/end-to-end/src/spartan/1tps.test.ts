@@ -1,0 +1,144 @@
+// TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
+import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
+import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
+
+import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
+
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccountsWithTokens,
+} from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
+
+const config = { ...setupEnvironment(process.env) };
+describe('token transfer test', () => {
+  jest.setTimeout(10 * 60 * 2000); // 20 minutes
+
+  const logger = createLogger(`e2e:spartan-test:transfer`);
+  const MINT_AMOUNT = 1000n;
+
+  const ROUNDS = 1n;
+
+  let testAccounts: TestAccounts;
+  let wallet: TestWallet;
+  const forwardProcesses: ChildProcess[] = [];
+  let cleanup: undefined | (() => Promise<void>);
+
+  afterAll(async () => {
+    await cleanup?.();
+    forwardProcesses.forEach(p => p.kill());
+  });
+
+  beforeAll(async () => {
+    logger.info('Starting port forward for PXE');
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+
+    const {
+      wallet: _wallet,
+      aztecNode,
+      cleanup: _cleanup,
+    } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+    cleanup = _cleanup;
+    wallet = _wallet;
+
+    // Setup wallets
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
+
+    expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
+  });
+
+  it('can get info', async () => {
+    const name = readFieldCompressedString(
+      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+    );
+    expect(name).toBe(testAccounts.tokenName);
+  });
+
+  it('can transfer 1 token privately and publicly', async () => {
+    const recipient = testAccounts.recipientAddress;
+    const transferAmount = 1n;
+
+    for (const acc of testAccounts.accounts) {
+      expect(MINT_AMOUNT).toBe(
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress }),
+      );
+    }
+
+    expect(0n).toBe(
+      await testAccounts.tokenContract.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testAccounts.tokenAdminAddress }),
+    );
+
+    const defaultAccountAddress = testAccounts.accounts[0];
+
+    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+    const txs: ProvenTx[] = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        proveInteraction(
+          wallet,
+          testAccounts.tokenContract.methods.transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0),
+          {
+            from: testAccounts.tokenAdminAddress,
+            fee: { paymentMethod: sponsor },
+          },
+        ),
+      ),
+    );
+
+    const sentTxs: SentTx[] = [];
+
+    // dump all txs at requested TPS
+    const TPS = 1;
+    logger.info(`Sending ${txs.length} txs at a rate of ${TPS} tx/s`);
+    while (txs.length > 0) {
+      const start = performance.now();
+
+      const chunk = txs.splice(0, TPS);
+      sentTxs.push(...chunk.map(tx => tx.send()));
+      logger.info(`Sent txs: [${(await Promise.all(chunk.map(tx => tx.getTxHash()))).map(h => h.toString())}]`);
+
+      const end = performance.now();
+      const delta = end - start;
+      if (1000 - delta > 0) {
+        await sleep(1000 - delta);
+      }
+    }
+
+    await Promise.all(
+      sentTxs.map(async sentTx => {
+        await sentTx.wait({ timeout: 600 });
+        const receipt = await sentTx.getReceipt();
+        logger.info(`tx ${receipt.txHash} included in block: ${receipt.blockNumber}`);
+      }),
+    );
+
+    const recipientBalance = await testAccounts.tokenContract.methods
+      .balance_of_public(recipient)
+      .simulate({ from: testAccounts.tokenAdminAddress });
+    logger.info(`recipientBalance: ${recipientBalance}`);
+    // expect(recipientBalance).toBe(100n * transferAmount);
+
+    // for (const w of testAccounts.wallets) {
+    //   expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
+    //     await testAccounts.tokenContract.methods.balance_of_public(w.getAddress()).simulate(),
+    //   );
+    // }
+
+    // expect(ROUNDS * transferAmount * BigInt(testAccounts.wallets.length)).toBe(
+    //   await testAccounts.tokenContract.methods.balance_of_public(recipient).simulate(),
+    // );
+  });
+});

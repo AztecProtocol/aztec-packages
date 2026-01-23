@@ -1,0 +1,11 @@
+[package]
+name = "spam_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+uint_note = { path = "../../../../aztec-nr/uint-note" }
+token_portal_content_hash_lib = { path = "../../libs/token_portal_content_hash_lib" }
+balance_set = { path = "../../../../aztec-nr/balance-set" }

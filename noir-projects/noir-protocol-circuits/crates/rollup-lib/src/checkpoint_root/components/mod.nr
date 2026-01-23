@@ -1,0 +1,5 @@
+mod checkpoint_root_inputs_validator;
+mod checkpoint_rollup_public_inputs_composer;
+
+pub use checkpoint_rollup_public_inputs_composer::CheckpointRollupPublicInputsComposer;
+pub use checkpoint_root_inputs_validator::CheckpointRootInputsValidator;

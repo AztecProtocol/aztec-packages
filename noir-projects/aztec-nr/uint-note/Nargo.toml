@@ -1,0 +1,8 @@
+[package]
+name = "uint_note"
+authors = ["aztec-labs"]
+compiler_version = ">=0.18.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../aztec" }

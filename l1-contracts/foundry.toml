@@ -1,0 +1,101 @@
+[profile.default]
+src = 'src'
+test = 'test'
+script = 'script'
+out = 'out'
+libs = ['lib']
+# NOTE!: This line defines the solc version used.
+# It is downloaded by bootstrap.sh, but the version string here is parsed.
+solc = "./solc-0.8.30"
+evm_version = 'prague'
+optimizer = true
+match_path = "test/**/*.t.sol"
+# Helper to get all the contract names in the src/governance and src/core directories
+# find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
+gas_reports = [
+  "BN254KeyTest",
+  "CoinIssuer",
+  "FeeJuicePortal",
+  "Governance",
+  "TestGov",
+  "GovernanceProposer",
+  "GSE",
+  "Inbox",
+  "Multicall3",
+  "Outbox",
+  "Registry",
+  "RewardDistributor",
+  "Rollup",
+  "RollupCore",
+  "Slasher",
+  "RollupWithPreheating",
+  "EmpireSlashingProposer",
+  "TallySlashingProposer",
+  "MultiAdder",
+]
+
+remappings = [
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src",
+  "@test/=test",
+  "@zkpassport/=lib/circuits/src/solidity/src/",
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/mock/libraries",
+]
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+fs_permissions = [
+  { access = "read", path = "./test/fixtures/bn254_constants.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/fee_data_points.json" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json" },
+  { access = "read", path = "./test/fixtures/boosted_rewards/shares.json" },
+  { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
+  { access = "read", path = "./script/registration_data.json" },
+  # Network defaults - copied from spartan/environments/default.json by bootstrap.sh
+  { access = "read", path = "./generated/default.json" }
+]
+no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
+
+[fmt]
+line_length = 120
+tab_width = 2
+variable_override_spacing = false
+wrap_comments = true
+number_underscore = "thousands"
+override_spacing = false
+
+[lint]
+ignore = ["./lib/**"]
+exclude_lints = [
+  "unused-import",   # Mostly in test code
+  "incorrect-shift", # Throws warnings on construction of bitmasks
+  "asm-keccak256", # https://github.com/AztecProtocol/aztec-packages/issues/16808
+
+  # Silencing due to just being style changes
+  "mixed-case-variable",
+  "mixed-case-function",
+  "screaming-snake-case-const",
+  "screaming-snake-case-immutable",
+]
+
+[rpc_endpoints]
+mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
+
+[profile.production]
+remappings = [
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src",
+  "@test/=test",
+  "@zkpassport/=lib/circuits/src/solidity/src/",
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/core/libraries/rollup/",
+]

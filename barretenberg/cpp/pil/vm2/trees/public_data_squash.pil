@@ -1,0 +1,89 @@
+include "../ff_gt.pil";
+include "../precomputed.pil";
+
+// Utility trace to perform left squashing of public data writes.
+// Sorted by leaf_slot, and then by clk.
+// Write to public inputs is true in the first write to a leaf slot.
+// The final value is the value written last to the given leaf slot.
+// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+// | sel | leaf_slot | value | clk | write_to_pi |  leaf_slot_increase  | check_clock | clk_diff | final_value |
+// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+// |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
+// |   1 |        27 |     1 |   5 |           1 |                    0 |           1 |        7 |           2 |
+// |   1 |        27 |     2 |  12 |           0 |                    1 |           0 |        0 |           2 |
+// |   1 |        50 |    42 |   7 |           1 |                    0 |           0 |        0 |          42 |
+// |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
+// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+//
+namespace public_data_squash;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // We can only activate next sel if the current row is on or is the first row
+    pol START = sel' * (1 - sel);
+    #[START_CONDITION]
+    START * (1 - precomputed.first_row) = 0;
+    pol END = sel * (1 - sel');
+    pol NOT_END = sel * sel';
+
+    pol commit leaf_slot;
+    pol commit value;
+    pol commit clk;
+    pol commit write_to_public_inputs;
+    write_to_public_inputs * (1 - write_to_public_inputs) = 0;
+
+    // ====== SORTING ======
+    // Leaf slot must not decrease
+    // Later on, we constrain that if leaf slot is the same, the clock must not decrease.
+    // Leaf slot increase is on if next row will have a higher leaf slot
+    pol commit leaf_slot_increase;
+    leaf_slot_increase * (1 - leaf_slot_increase) = 0;
+    // !end && !leaf_slot_increase ==> next leaf_slot is the same
+    #[CHECK_SAME_LEAF_SLOT]
+    NOT_END * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0;
+
+    #[LEAF_SLOT_INCREASE_FF_GT]
+    leaf_slot_increase { leaf_slot', leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // Our 32 bit clock must not decrease for the same leaf slot
+    pol commit check_clock;
+    check_clock = NOT_END * (1 - leaf_slot_increase);
+
+    pol CLK_DIFF = check_clock * (clk' - clk);
+
+    pol commit clk_diff_lo;
+    pol commit clk_diff_hi;
+    #[CLK_DIFF_DECOMP]
+    CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
+
+    #[CLK_DIFF_RANGE_LO]
+    check_clock { clk_diff_lo }
+    in precomputed.sel_range_16 { precomputed.clk };
+
+    #[CLK_DIFF_RANGE_HI]
+    check_clock { clk_diff_hi }
+    in precomputed.sel_range_16 { precomputed.clk };
+
+    // ====== SQUASHING ======
+    // We write to public inputs the first ocurrence of a leaf slot, but with the last ocurrence value
+
+    // Next write to public inputs is on if this row is leaf_slot_increase (next leaf slot will be higher) or if it's START (this sel is off next sel is on)
+    // Otherwise, it's off
+    write_to_public_inputs' = leaf_slot_increase + START;
+
+    // This column will be checked at the last ocurrence of a leaf slot
+    pol commit final_value;
+
+    // Check clock is on for all rows where the next leaf slot is the same. In those cases, we need to check propagation.
+    #[FINAL_VALUE_PROPAGATION]
+    check_clock * (final_value - final_value') = 0;
+
+    // We need to validate the final value when the leaf slot section ends
+    pol LEAF_SLOT_END = leaf_slot_increase + END;
+
+    #[FINAL_VALUE_CHECK]
+    LEAF_SLOT_END * (final_value - value) = 0;

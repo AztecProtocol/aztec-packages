@@ -1,0 +1,114 @@
+use crate::{
+    abis::{PaddedSideEffects, PrivateKernelResetHints},
+    components::{
+        reset_output_composer::{ResetOutputComposer, ResetOutputHints},
+        reset_output_validator::ResetOutputValidator,
+    },
+};
+use dep::types::{
+    abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+    constants::{
+        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
+    },
+    PrivateKernelCircuitPublicInputs,
+};
+
+pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
+    [PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX];
+
+/// The Private Kernel Reset circuit performs cleanup, validation, and siloing on accumulated transaction data.
+///
+/// This circuit may be invoked multiple times during private execution to validate pending requests and reduce the size
+/// of accumulated data by squashing transient side effects.
+///
+/// Siloing of side effects, however, must be performed at most once for a transaction. The Reset circuit is therefore
+/// required to be called exactly once with siloing enabled before transitioning to the Tail(-to-Public) circuit. This
+/// siloing call does not need to occur immediately before the Tail circuit, but it must be the final Reset that
+/// operates on side effects that require siloing - no additional silo-relevant side effects may be added in subsequent
+/// private function calls.
+///
+/// It performs:
+/// - Read request validation: Verifies note hash and nullifier read requests against pending data (from this
+///   transaction) or settled data (from historical state via membership proofs)
+/// - Key validation: Validates key derivation requests used for nullifier key generation
+/// - Transient data squashing: Removes note hash/nullifier pairs where a note is created and nullified within the
+///   current transaction, along with their associated logs
+/// - Siloing: Applies contract-specific siloing to note hashes, nullifiers, and logs for scoping and privacy
+/// - Padding: Pads accumulated arrays to obscure their true sizes for privacy
+///
+/// The Reset circuit is parameterized by the number of each type of operation to perform, allowing multiple "variants"
+/// optimized for different transaction patterns.
+///
+/// The vk indexes of all the reset variants are allocated after the PRIVATE_KERNEL_RESET_VK_INDEX.
+
+pub struct PrivateKernelResetCircuitPrivateInputs<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
+    previous_kernel: PrivateKernelData,
+    padded_side_effects: PaddedSideEffects,
+    hints: PrivateKernelResetHints<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen>,
+}
+
+impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> PrivateKernelResetCircuitPrivateInputs<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen> {
+    pub fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        padded_side_effects: PaddedSideEffects,
+        hints: PrivateKernelResetHints<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen>,
+    ) -> Self {
+        Self {
+            previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
+            padded_side_effects,
+            hints,
+        }
+    }
+
+    unconstrained fn generate_output<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32, let KeyValidationAmount: u32>(
+        self,
+    ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints) {
+        // Many hints are generated within this `new` call.
+        let composer = ResetOutputComposer::new(
+            self.previous_kernel.public_inputs,
+            self.padded_side_effects,
+            self.hints.transient_data_squashing_hints,
+            self.hints.note_hash_read_request_hints.read_request_actions,
+            self.hints.nullifier_read_request_hints.read_request_actions,
+        );
+        (
+            composer
+                .finish::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>(),
+            composer.hints,
+        )
+    }
+
+    pub fn execute<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+        self,
+    ) -> PrivateKernelCircuitPublicInputs {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        // Validate inputs.
+
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify(false);
+            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
+
+        // Generate output.
+        // Safety: The output is validated below by ResetOutputValidator.
+        let (output, output_hints) = unsafe {
+            self
+                .generate_output::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>()
+        };
+
+        // Validate output.
+        if dep::types::validate::should_validate_output() {
+            ResetOutputValidator::new(
+                output,
+                previous_public_inputs,
+                self.padded_side_effects,
+                self.hints,
+                output_hints,
+            )
+                .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount, TransientDataSquashingAmount, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>();
+        }
+
+        output
+    }
+}

@@ -1,0 +1,21 @@
+{{- if .Values.bootNodeFailure.enabled }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-boot-node-failure
+  namespace: {{ default .Values.global.chaosMeshNamespace .Values.global.chaosResourceNamespace }}
+  labels:
+    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  action: pod-failure
+  mode: all
+  selector:
+    namespaces:
+      - {{ .Values.global.targetNamespace }}
+    labelSelectors:
+      app.kubernetes.io/component: boot-node
+  duration: {{ .Values.bootNodeFailure.duration }}
+{{- end }}

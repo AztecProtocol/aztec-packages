@@ -1,0 +1,416 @@
+import type { Archiver } from '@aztec/archiver';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import { memoize } from '@aztec/foundation/decorators';
+import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { P2PClient } from '@aztec/p2p';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { ChainConfig } from '@aztec/stdlib/config';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  type EpochProverManager,
+  EpochProvingJobTerminalState,
+  type ProverNodeApi,
+  type Service,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
+import {
+  Attributes,
+  L1Metrics,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
+
+import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
+import type { SpecificProverNodeConfig } from './config.js';
+import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
+import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
+import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
+import type { ProverPublisherFactory } from './prover-publisher-factory.js';
+
+type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
+type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
+
+/**
+ * An Aztec Prover Node is a standalone process that monitors the unfinalized chain on L1 for unproven epochs,
+ * fetches their txs from the p2p network or external nodes, re-executes their public functions, creates a rollup
+ * proof for the epoch, and submits it to L1.
+ */
+export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
+  private log = createLogger('prover-node');
+  private dateProvider = new DateProvider();
+
+  private jobs: Map<string, EpochProvingJob> = new Map();
+  private config: ProverNodeOptions;
+  private jobMetrics: ProverNodeJobMetrics;
+  private rewardsMetrics: ProverNodeRewardsMetrics;
+
+  public readonly tracer: Tracer;
+
+  protected publisher: ProverNodePublisher | undefined;
+
+  constructor(
+    protected readonly prover: EpochProverManager,
+    protected readonly publisherFactory: ProverPublisherFactory,
+    protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
+    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly contractDataSource: ContractDataSource,
+    protected readonly worldState: WorldStateSynchronizer,
+    protected readonly p2pClient: Pick<P2PClient<P2PClientType.Prover>, 'getTxProvider'> & Partial<Service>,
+    protected readonly epochsMonitor: EpochMonitor,
+    protected readonly rollupContract: RollupContract,
+    protected readonly l1Metrics: L1Metrics,
+    config: Partial<ProverNodeOptions> = {},
+    protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
+  ) {
+    this.config = {
+      proverNodePollingIntervalMs: 1_000,
+      proverNodeMaxPendingJobs: 100,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
+      txGatheringIntervalMs: 1_000,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 100,
+      txGatheringTimeoutMs: 120_000,
+      proverNodeFailedEpochStore: undefined,
+      proverNodeEpochProvingDelayMs: undefined,
+      ...compact(config),
+    };
+
+    this.validateConfig();
+
+    const meter = telemetryClient.getMeter('ProverNode');
+    this.tracer = telemetryClient.getTracer('ProverNode');
+
+    this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
+
+    this.rewardsMetrics = new ProverNodeRewardsMetrics(meter, this.prover.getProverId(), rollupContract);
+  }
+
+  public getProverId() {
+    return this.prover.getProverId();
+  }
+
+  public getP2P() {
+    return this.p2pClient;
+  }
+
+  /**
+   * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
+   * @param epochNumber - The epoch number that was just completed.
+   * @returns false if there is an error, true otherwise
+   */
+  async handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean> {
+    try {
+      this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
+        jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
+      });
+      const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
+      if (activeJobs.length > 0) {
+        this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
+          activeJobs: activeJobs.map(job => job.uuid),
+        });
+        return true;
+      }
+      await this.startProof(epochNumber);
+      return true;
+    } catch (err) {
+      if (err instanceof EmptyEpochError) {
+        this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
+      } else {
+        this.log.error(`Error handling epoch completed`, err);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Starts the prover node so it periodically checks for unproven epochs in the unfinalized chain from L1 and
+   * starts proving jobs for them.
+   */
+  async start() {
+    this.epochsMonitor.start(this);
+    await this.publisherFactory.start();
+    this.publisher = await this.publisherFactory.create();
+    await this.rewardsMetrics.start();
+    this.l1Metrics.start();
+    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
+  }
+
+  /**
+   * Stops the prover node and all its dependencies.
+   */
+  async stop() {
+    this.log.info('Stopping ProverNode');
+    await this.epochsMonitor.stop();
+    await this.prover.stop();
+    await tryStop(this.p2pClient);
+    await tryStop(this.l2BlockSource);
+    await tryStop(this.publisherFactory);
+    this.publisher?.interrupt();
+    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
+    await this.worldState.stop();
+    this.rewardsMetrics.stop();
+    this.l1Metrics.stop();
+    await this.telemetryClient.stop();
+    this.log.info('Stopped ProverNode');
+  }
+
+  /** Returns world state status. */
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const { syncSummary } = await this.worldState.status();
+    return syncSummary;
+  }
+
+  /** Returns archiver status. */
+  public getL2Tips() {
+    return this.l2BlockSource.getL2Tips();
+  }
+
+  /**
+   * Starts a proving process and returns immediately.
+   */
+  public async startProof(epochNumber: EpochNumber) {
+    const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
+    void this.runJob(job);
+  }
+
+  private async runJob(job: EpochProvingJob) {
+    const epochNumber = job.getEpochNumber();
+    const ctx = { id: job.getId(), epochNumber, state: undefined as EpochProvingJobState | undefined };
+
+    try {
+      await job.run();
+      const state = job.getState();
+      ctx.state = state;
+
+      if (state === 'reorg') {
+        this.log.warn(`Running new job for epoch ${epochNumber} due to reorg`, ctx);
+        await this.createProvingJob(epochNumber);
+      } else if (state === 'failed') {
+        this.log.error(`Job for ${epochNumber} exited with state ${state}`, ctx);
+        await this.tryUploadEpochFailure(job);
+      } else {
+        this.log.verbose(`Job for ${epochNumber} exited with state ${state}`, ctx);
+      }
+    } catch (err) {
+      this.log.error(`Error proving epoch ${epochNumber}`, err, ctx);
+    } finally {
+      this.jobs.delete(job.getId());
+    }
+  }
+
+  protected async tryUploadEpochFailure(job: EpochProvingJob) {
+    if (this.config.proverNodeFailedEpochStore) {
+      return await uploadEpochProofFailure(
+        this.config.proverNodeFailedEpochStore,
+        job.getId(),
+        job.getProvingData(),
+        this.l2BlockSource as Archiver,
+        this.worldState,
+        assertRequired(pick(this.config, 'l1ChainId', 'rollupVersion', 'dataDirectory')),
+        this.log,
+      );
+    }
+  }
+
+  /**
+   * Returns the prover instance.
+   */
+  public getProver() {
+    return this.prover;
+  }
+
+  /**
+   * Returns an array of jobs being processed.
+   */
+  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
+    return Promise.resolve(
+      Array.from(this.jobs.entries()).map(([uuid, job]) => ({
+        uuid,
+        status: job.getState(),
+        epochNumber: job.getEpochNumber(),
+      })),
+    );
+  }
+
+  protected async getActiveJobsForEpoch(
+    epochNumber: EpochNumber,
+  ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
+    const jobs = await this.getJobs();
+    return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
+  }
+
+  private checkMaximumPendingJobs() {
+    const { proverNodeMaxPendingJobs: maxPendingJobs } = this.config;
+    if (maxPendingJobs > 0 && this.jobs.size >= maxPendingJobs) {
+      throw new Error(`Maximum pending proving jobs ${maxPendingJobs} reached. Cannot create new job.`);
+    }
+  }
+
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
+  private async createProvingJob(epochNumber: EpochNumber, opts: { skipEpochCheck?: boolean } = {}) {
+    this.checkMaximumPendingJobs();
+
+    this.publisher = await this.publisherFactory.create();
+
+    // Gather all data for this epoch
+    const epochData = await this.gatherEpochData(epochNumber);
+    const fromCheckpoint = epochData.checkpoints[0].number;
+    const toCheckpoint = epochData.checkpoints.at(-1)!.number;
+    const fromBlock = epochData.checkpoints[0].blocks[0].number;
+    const toBlock = epochData.checkpoints.at(-1)!.blocks.at(-1)!.number;
+    this.log.verbose(
+      `Creating proving job for epoch ${epochNumber} for checkpoint range ${fromCheckpoint} to ${toCheckpoint} and block range ${fromBlock} to ${toBlock}`,
+    );
+
+    // Fast forward world state to right before the target block and get a fork
+    await this.worldState.syncImmediate(toBlock);
+
+    // Create a processor factory
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      this.dateProvider,
+      this.telemetryClient,
+    );
+
+    // Set deadline for this job to run. It will abort if it takes too long.
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    const deadline = new Date(Number(deadlineTs) * 1000);
+    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, this.publisher, opts);
+    this.jobs.set(job.getId(), job);
+    return job;
+  }
+
+  @memoize
+  private getL1Constants() {
+    return this.l2BlockSource.getL1Constants();
+  }
+
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
+  private async gatherEpochData(epochNumber: EpochNumber): Promise<EpochProvingJobData> {
+    const checkpoints = await this.gatherCheckpoints(epochNumber);
+    const txArray = await this.gatherTxs(epochNumber, checkpoints);
+    const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
+    const l1ToL2Messages = await this.gatherMessages(epochNumber, checkpoints);
+    const [firstBlock] = checkpoints[0].blocks;
+    const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, firstBlock.number - 1);
+    const [lastPublishedCheckpoint] = await this.l2BlockSource.getPublishedCheckpoints(checkpoints.at(-1)!.number, 1);
+    const attestations = lastPublishedCheckpoint?.attestations ?? [];
+
+    return { checkpoints, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
+  }
+
+  private async gatherCheckpoints(epochNumber: EpochNumber) {
+    const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
+    if (checkpoints.length === 0) {
+      throw new EmptyEpochError(epochNumber);
+    }
+    return checkpoints;
+  }
+
+  private async gatherTxs(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {
+    const deadline = new Date(this.dateProvider.now() + this.config.txGatheringTimeoutMs);
+    const txProvider = this.p2pClient.getTxProvider();
+    const blocks = checkpoints.flatMap(checkpoint => checkpoint.blocks);
+    const txsByBlock = await Promise.all(blocks.map(block => txProvider.getTxsForBlock(block, { deadline })));
+    const txs = txsByBlock.map(({ txs }) => txs).flat();
+    const missingTxs = txsByBlock.map(({ missingTxs }) => missingTxs).flat();
+
+    if (missingTxs.length === 0) {
+      this.log.verbose(`Gathered all ${txs.length} txs for epoch ${epochNumber}`, { epochNumber });
+      return txs;
+    }
+
+    throw new Error(`Txs not found for epoch ${epochNumber}: ${missingTxs.map(hash => hash.toString()).join(', ')}`);
+  }
+
+  private async gatherMessages(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {
+    const messages = await Promise.all(checkpoints.map(c => this.l1ToL2MessageSource.getL1ToL2Messages(c.number)));
+    const messageCount = sum(messages.map(m => m.length));
+    this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
+    const messagesByCheckpoint: Record<CheckpointNumber, Fr[]> = {};
+    for (let i = 0; i < checkpoints.length; i++) {
+      messagesByCheckpoint[checkpoints[i].number] = messages[i];
+    }
+    return messagesByCheckpoint;
+  }
+
+  private async gatherPreviousBlockHeader(epochNumber: EpochNumber, previousBlockNumber: number) {
+    const header = await (previousBlockNumber === 0
+      ? this.worldState.getCommitted().getInitialHeader()
+      : this.l2BlockSource.getBlockHeader(BlockNumber(previousBlockNumber)));
+
+    if (!header) {
+      throw new Error(`Previous block header ${previousBlockNumber} not found for proving epoch ${epochNumber}`);
+    }
+
+    this.log.verbose(`Gathered previous block header ${header.getBlockNumber()} for epoch ${epochNumber}`);
+    return header;
+  }
+
+  /** Extracted for testing purposes. */
+  protected doCreateEpochProvingJob(
+    data: EpochProvingJobData,
+    deadline: Date | undefined,
+    publicProcessorFactory: PublicProcessorFactory,
+    publisher: ProverNodePublisher,
+    opts: { skipEpochCheck?: boolean } = {},
+  ) {
+    const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit, proverNodeDisableProofPublish } = this.config;
+    return new EpochProvingJob(
+      data,
+      this.worldState,
+      this.prover.createEpochProver(),
+      publicProcessorFactory,
+      publisher,
+      this.l2BlockSource,
+      this.jobMetrics,
+      deadline,
+      { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+    );
+  }
+
+  /** Extracted for testing purposes. */
+  protected async triggerMonitors() {
+    await this.epochsMonitor.work();
+  }
+
+  private validateConfig() {
+    if (
+      this.config.proverNodeFailedEpochStore &&
+      (!this.config.dataDirectory || !this.config.l1ChainId || this.config.rollupVersion === undefined)
+    ) {
+      this.log.warn(
+        `Invalid prover-node config (missing dataDirectory, l1ChainId, or rollupVersion)`,
+        pick(this.config, 'proverNodeFailedEpochStore', 'dataDirectory', 'l1ChainId', 'rollupVersion'),
+      );
+      throw new Error(
+        'All of dataDirectory, l1ChainId, and rollupVersion are required if proverNodeFailedEpochStore is set.',
+      );
+    }
+  }
+}
+
+class EmptyEpochError extends Error {
+  constructor(epochNumber: EpochNumber) {
+    super(`No blocks found for epoch ${epochNumber}`);
+    this.name = 'EmptyEpochError';
+  }
+}

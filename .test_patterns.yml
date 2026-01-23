@@ -1,0 +1,368 @@
+# Describes tests that we either:
+#   - Outright skip.
+#   - Run and alert owners on failure.
+# To outright skip a test add a "skip: true" property.
+# Only do this for tests that are currently expected to fail constantly and the noise is unbearable!
+# Otherwise, tests must have owner(s). Owners are identified by their Slack id, (profile, three dots, copy member id).
+# If there is no owner for failed test the build will fail, regardless of if it matches in this file.
+# When a failing test matches one or more of the "regex" properties below,
+# a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
+
+names:
+  - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
+  - alex: &alex "U05QWV669JB"
+  - charlie: &charlie "UKUMA5J7K"
+  - david: &david "U03T2QRT1NW"
+  - grego: &grego "U0689QRCE9L"
+  - lasse: &lasse "U03E5SYLY3Z"
+  - leila: &leila "UBLTU1NJ3"
+  - luke: &luke "U03JYU7AQET"
+  - mitch: &mitch "U06AY5G1NRK"
+  - palla: &palla "U04TPBU26E8"
+  - phil: &phil "U02G4KAD57Y"
+  - sean: &sean "U04DT239VQU"
+  - tom: &tom "U04LLT331NK"
+  - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
+  - esau: &esau "U067FJ9A4Q1"
+  - saleel: &saleel "U07KJ0AV20J"
+  - nico: &nico "U06D2QSLY10"
+  - lucas: &lucas "U05MW7WQ8LQ"
+  - suyash: &suyash "U08QFSL6LPM"
+
+flake_groups:
+  # flake_error_threshold: Only use during times of expected instability (eg. pre-release crunch).
+  # Threshold of 5 = tolerate at most 4 flakes before failing the build.
+  # DO NOT expand use of this feature without buy-in from the team. It's a last resort, not a standard practice.
+  - id: e2e-p2p-epoch-flakes
+    name: "E2E P2P and Epoch Tests"
+    flake_error_threshold: 5
+
+tests:
+  # barretenberg
+  #
+  # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
+  # Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
+  # Logic failed: field_t::range_constraint
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
+  # Value of: result.valid
+  #   Actual: false
+  # Expected: true
+  - regex: "join_split_example_tests"
+    error_regex: "field_t::range_constraint"
+    owners:
+      - *luke
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "call_indirect to a null table entry"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "Input is not large enough"
+    owners:
+      - *adam
+  # https://gist.github.com/spalladino/4fd3d2abd7b7fb05be2e556649868626
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
+    error_regex: "Aborted.*core dumped"
+    owners:
+      - *adam
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
+    owners:
+      - *luke
+
+  # noir
+  # Something to do with how I run the tests now. Think these are fine in nextest.
+  - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
+    skip: true
+    owners:
+      - *charlie
+  - regex: "noir_lsp-.* requests::"
+    skip: true
+    owners:
+      - *charlie
+  # Sometimes see this on ARM. But not when run on it's own...
+  - regex: "tests::debug_ram_blowup_regression"
+    skip: true
+    owners:
+      - *charlie
+
+  # AD: hit this flake
+  # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
+  # 18:04:38 Brillig loops: 11
+  # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
+    error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    owners:
+      - *tom
+
+  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
+    error_regex: "Failed to solve brillig function"
+    owners:
+      - *nico
+
+  # e2e tests skipped
+  - regex: "testbench/port_change.test.ts"
+    skip: true
+    owners:
+      - *sean
+  # bricked in new version of anvil added to build image (foundry 1.4.1).
+  - regex: "src/composed/uniswap_trade_on_l1_from_l2.test.ts"
+    skip: true
+    owners:
+      - *alex
+  - regex: "src/e2e_fees/private_payments"
+    owners:
+      - *phil
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
+    owners:
+      - *charlie
+  - regex: "src/e2e_lending_contract"
+    error_regex: "✕ Depositing"
+    owners:
+      - *lasse
+  - regex: "src/e2e_lending_contract"
+    error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
+  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
+    error_regex: "Failed to advance block"
+    owners:
+      - *palla
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
+    error_regex: "✕ Claim secret is enough to consume the message"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Someone else can mint funds to me on my behalf"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Publicly deposit funds"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+    error_regex: "✕ Can't claim funds"
+    owners:
+      - *lasse
+  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    owners:
+      - *palla
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
+    owners:
+      - *spyros
+
+  # yarn-project tests
+  - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "Failed to fetch dynamically imported module"
+    owners:
+      - *alex
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
+    owners:
+      - *esau
+  - regex: "slasher/src/slasher_client.test.ts"
+    error_regex: "ContractFunctionExecutionError: The contract function"
+    owners:
+      - *mitch
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Received number of calls: 1"
+    owners:
+      - *palla
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Failed to commit transaction: InitialBlockNumberNotSequentialError: Cannot insert new block"
+    owners:
+      - *palla
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    owners:
+      - *phil
+      - *palla
+
+  # Nightly GKE tests
+  - regex: "spartan/bootstrap.sh"
+    owners:
+      - *alex
+
+  # aztec-up
+  - regex: "aztec-up/scripts/run_test.sh"
+    error_regex: "Is the docker daemon running"
+    owners:
+      - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
+  - regex: "aztec-up/scripts/run_test.sh bridge_and_claim"
+    error_regex: "Cannot satisfy constraint"
+    owners:
+      - *adam
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+    error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
+    owners:
+      - *adam
+
+  # boxes
+  - regex: "vanilla-all-browsers box boxes"
+    error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
+    owners:
+      - *saleel
+
+  # Example http://ci.aztec-labs.com/18db8adf0db50928
+  # This seems to be an error in acvm wasm/js
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "call_indirect to a null table entry"
+    owners:
+      - *adam
+
+  # Example http://ci.aztec-labs.com/1752518c2215134c
+  # This seems to be a flake in how this is set up. TODO redo boxes.
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "expect.locator..toBeVisible.."
+    owners:
+      - *adam
+
+  # Example http://ci.aztec-labs.com/cd76b19670ab613f
+  # related to wasm proving browser flakes potentially
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "Out of bounds memory access (evaluating 'this.exports"
+    owners:
+      - *adam
+
+  - regex: "run_compose_test vite-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "tests/browser.spec.ts"
+    error_regex: "Error: locator\\.click: Test timeout of"
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test vanilla-all-browsers box boxes"
+    error_regex: "Tag mismatch at offset 0|app_logic_reverted|public bytecode has not been transpiled"
+    owners:
+      - *david
+
+  - regex: "amm_flow.sh"
+    owners:
+      - *grego
+
+  # Slack testing.
+  - regex: "nonsense to match"
+    error_regex: "something else"
+    owners:
+      - *charlie
+      - *adam
+
+  # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
+  # This is a temporary measure while team bandwidth is constrained
+  # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
+  - regex: "src/e2e_p2p/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *phil
+
+  - regex: "src/e2e_epochs/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "p2p/src/client/test/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+      - *phil
+
+  - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
+    error_regex: "core dumped"
+    owners:
+      - *adam
+
+  # http://ci.aztec-labs.com/b2a907fbce046b94
+  - regex: "src/e2e_simple.test.ts"
+    error_regex: "Failed to send L1 transaction: FormattedViemError: Error: Transaction timed out before sending"
+    owners:
+      - *palla
+
+  - regex: "src/e2e_token_bridge_tutorial.test.ts"
+    error_regex: "Error: Unable to find low leaf for block"
+    owners:
+      - *leila
+
+  # http://ci.aztec-labs.com/61d96be1402847b1
+  - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a test"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/963635a09039594f
+  # http://ci.aztec-labs.com/d3b12131764bce18
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
+
+  - regex: "validator-ha-signer/src/db/postgres.test.ts"
+    error_regex: "FailureMessage Object"
+    owners:
+      - *spyros
+
+  # http://ci.aztec-labs.com/e8228a36afda93b8
+  # Test passed but there was an error on stopping
+  - regex: "playground/scripts/run_test.sh"
+    error_regex: "playground-1\\s+\\|\\s+1 passed \\("
+    owners:
+      - *adam
+
+  # http://ci.aztec-labs.com/21afdb4a42f3474d
+  # Test passed but there was an error on stopping
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose"
+    error_regex: "tried to kill container, but did not receive an exit event"
+    owners:
+      - *adam
+
+  - regex: "cd l1-contracts && forge test"
+    error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
+    owners:
+      - *lasse

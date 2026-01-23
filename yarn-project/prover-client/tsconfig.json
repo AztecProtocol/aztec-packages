@@ -1,0 +1,50 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../world-state"
+    },
+    {
+      "path": "../noir-contracts.js"
+    }
+  ],
+  "include": ["src", "../bb-prover/src/test/test_circuit_prover.ts"]
+}

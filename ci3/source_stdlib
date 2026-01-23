@@ -1,0 +1,51 @@
+# A tiny stdlib of useful functions that don't warrant having their own file.
+
+# TODO: This should be hash_str.
+# We need to find places we're using hash_str to generate content hashes, and replace with pure cache_content_hash calls.
+function hash_str_orig {
+  set -euo pipefail
+  echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+}
+
+function hash_str {
+  set -eu
+  if [[ "$*" == *"disabled-cache"* ]]; then
+    # We want to propagate cache being disabled so that cache_upload and cache_download can catch this
+    echo "disabled-cache"
+  else
+    echo "$*" | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+  fi
+}
+
+function echo_stderr {
+  echo $@ >&2
+}
+
+function uuid {
+  dd if=/dev/urandom count=8 bs=1 status=none | xxd -p
+}
+
+function get_num_cpus {
+  if [ -f /sys/fs/cgroup/cpu.max ]; then
+    read cpu_quota cpu_period < /sys/fs/cgroup/cpu.max
+    if [[ "$cpu_quota" == "max" ]]; then
+      nproc
+    else
+      echo $((cpu_quota / cpu_period))
+    fi
+  else
+    nproc
+  fi
+}
+
+function get_num_cpus_max {
+  local jobs=$(get_num_cpus)
+  [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
+  echo $jobs
+}
+
+function aws_get_meta_data {
+  curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
+}
+
+export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max

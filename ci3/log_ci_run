@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_refname
+source $ci3/source_redis
+source $ci3/source_color
+
+status=${1:-RUNNING}
+key=${2:-}
+
+if [ -z "${RUN_ID:-}" ]; then
+  echo_stderr "No RUN_ID set in log_ci_run. This ci run won't be seen on the dashboards."
+  exit
+fi
+
+if [ -z "$CI_DASHBOARD:-}" ]; then
+  # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
+  # CI runs are grouped by:
+  # - The 'release' group if tagged with a semver.
+  # - Or by the target branch of the merge queue they enter.
+  # - Or in the 'prs' group.
+  if semver check "$REF_NAME"; then
+    range_key="ci-run-releases"
+  elif [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+    range_key="ci-run-$TARGET_BRANCH"
+  else
+    range_key="ci-run-prs"
+  fi
+else
+  range_key="ci-run-$CI_DASHBOARD"
+fi
+
+if [ -z "$key" ]; then
+  key=$(date +%s%3N)
+  msg=$(git log -1 --pretty=format:"%s")
+  author="$(git log -1 --pretty=format:"%an")"
+  name=$REF_NAME
+  [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
+
+  # If this is github merge queue, just keep the queue name.
+  if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
+    name="${BASH_REMATCH[1]} (queue)"
+  fi
+
+  msg=$(pr_link "$msg")
+
+  json=$(jq -c -j -n \
+      --argjson timestamp "$key" \
+      --arg run_id "${RUN_ID:-}" \
+      --arg job_id "${JOB_ID:-}" \
+      --arg status "$status" \
+      --arg msg "$msg" \
+      --arg name "$name" \
+      --arg author "$author" \
+      --arg arch "$(arch)" \
+      --argjson spot "$spot" \
+      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot}')
+  # echo "$json" >&2
+  redis_cli ZADD $range_key $key "$json" &>/dev/null
+  redis_cli SETEX hb-$key 60 1 &>/dev/null
+
+  # To keep only the last 1000 entries (by score).
+  redis_cli ZREMRANGEBYRANK $range_key 0 -1001 &>/dev/null
+
+  echo $key
+else
+  # Retrieve the current entry.
+  old_json=$(redis_cli ZRANGEBYSCORE $range_key $key $key)
+  # Compute duration.
+  now=$(date +%s%3N)
+  json=$(echo "$old_json" | jq -c -j \
+      --arg status "$status" \
+      --argjson complete "$now" \
+      '. * { status: $status, complete: $complete }')
+  # echo "$json" >&2
+  # Remove the old entry.
+  redis_cli ZREM $range_key "$old_json" &>/dev/null
+  # Add the updated entry with the same key.
+  redis_cli ZADD $range_key $key "$json" &>/dev/null
+fi

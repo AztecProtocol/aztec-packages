@@ -1,0 +1,243 @@
+import type { Archiver } from '@aztec/archiver';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { addL1Validator } from '@aztec/cli/l1/validators';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { Signature } from '@aztec/foundation/eth-signature';
+import { sleep } from '@aztec/foundation/sleep';
+import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+
+import { jest } from '@jest/globals';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { getContract } from 'viem';
+
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { createNodes } from '../fixtures/setup_p2p_test.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { submitTransactions } from './shared.js';
+
+const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
+
+// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
+const NUM_VALIDATORS = 4;
+const NUM_TXS_PER_NODE = 2;
+const BOOT_NODE_UDP_PORT = 4500;
+
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
+
+jest.setTimeout(1000 * 60 * 10);
+
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
+
+describe('e2e_p2p_network', () => {
+  let t: P2PNetworkTest;
+  let nodes: AztecNodeService[];
+
+  beforeEach(async () => {
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_network',
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
+      basePort: BOOT_NODE_UDP_PORT,
+      metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
+        listenAddress: '127.0.0.1',
+      },
+    });
+
+    await t.setup();
+    await t.addBootstrapNode();
+  });
+
+  afterEach(async () => {
+    await t.stopNodes(nodes);
+    await t.teardown();
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
+    }
+  });
+
+  afterAll(async () => {
+    if (CHECK_ALERTS) {
+      const checker = new GrafanaClient(t.logger);
+      await checker.runAlertCheck(qosAlerts);
+    }
+  });
+
+  it('should rollup txs from all peers (and add the validators without cheating)', async () => {
+    // create the bootstrap node for the network
+    if (!t.bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
+
+    t.ctx.aztecNodeConfig.validatorReexecute = true;
+
+    expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
+
+    const { validators } = t.getValidators();
+
+    const rollupWrapper = RollupContract.getFromL1ContractsValues(t.ctx.deployL1ContractsValues);
+
+    const rollup = getContract({
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: t.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    const zkPassportVerifier = getContract({
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.zkPassportVerifierAddress!.toString(),
+      abi: MockZKPassportVerifierAbi,
+      client: t.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    expect((await rollupWrapper.getAttesters()).length).toBe(0);
+
+    // Use the base account as the withdrawer for all validators in this test
+    const withdrawerAddress = EthAddress.fromString(t.baseAccount.address);
+
+    // Add the validators to the rollup using the same function as the CLI
+    for (let i = 0; i < validators.length; i++) {
+      const validator = validators[i];
+      const mockPassportProof = ZkPassportProofParams.random().toBuffer();
+      await addL1Validator({
+        rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
+        chainId: t.ctx.aztecNodeConfig.l1ChainId,
+        privateKey: t.baseAccountPrivateKey,
+        mnemonic: undefined,
+        attesterAddress: EthAddress.fromString(validator.attester.toString()),
+        withdrawerAddress,
+        stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+        proofParams: mockPassportProof,
+        blsSecretKey: Fr.random().toBigInt(),
+        log: t.logger.info,
+        debugLogger: t.logger,
+      });
+
+      // mock nullifiers - increment the id in the mock zk passport verifier
+      t.logger.info('Incrementing unique identifier in mock zk passport verifier');
+      await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: await zkPassportVerifier.write.incrementUniqueIdentifier(),
+      });
+    }
+
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await rollup.write.flushEntryQueue(),
+    });
+
+    const attestersImmedatelyAfterAdding = await rollupWrapper.getAttesters();
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
+
+    // Check that the validators are added correctly
+    for (const validator of validators) {
+      const info = await rollupWrapper.getAttesterView(validator.attester.toString());
+      expect(info.config.withdrawer.toChecksumString()).toBe(withdrawerAddress.toChecksumString());
+    }
+
+    // Wait for the validators to be added to the rollup
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
+      EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
+    );
+
+    // Changes have now taken effect
+    const attesters = await rollupWrapper.getAttesters();
+    expect(attesters.length).toBe(validators.length);
+    expect(attesters.length).toBe(NUM_VALIDATORS);
+
+    // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
+        to: t.baseAccount.address,
+        value: 1n,
+        account: t.baseAccount,
+      }),
+    });
+
+    // Set the system time in the node, only after we have warped the time and waited for a block
+    // Time is only set in the NEXT block
+    t.ctx.dateProvider!.setTime(Number(timestamp) * 1000);
+
+    // create our network of nodes and submit txs into each of them
+    // the number of txs per node and the number of txs per rollup
+    // should be set so that the only way for rollups to be built
+    // is if the txs are successfully gossiped around the nodes.
+    const txsSentViaDifferentNodes: SentTx[][] = [];
+    t.logger.info('Creating nodes');
+    nodes = await createNodes(
+      t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider!,
+      t.bootstrapNodeEnr,
+      NUM_VALIDATORS,
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+    );
+
+    // wait a bit for peers to discover each other
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
+
+    t.logger.info('Submitting transactions');
+    for (const node of nodes) {
+      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
+      txsSentViaDifferentNodes.push(txs);
+    }
+
+    t.logger.info('Waiting for transactions to be mined');
+    // now ensure that all txs were successfully mined
+    await Promise.all(
+      txsSentViaDifferentNodes.flatMap((txs, i) =>
+        txs.map(async (tx, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
+          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        }),
+      ),
+    );
+    t.logger.info('All transactions mined');
+
+    // Gather signers from attestations downloaded from L1
+    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
+    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
+    const [publishedCheckpoint] = await dataStore.getPublishedCheckpoints(CheckpointNumber(blockNumber), 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
+    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
+    t.logger.info(`Attestation signers`, { signers });
+
+    // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
+    const validatorAddresses = nodes.flatMap(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(v => v.toString()),
+    );
+    t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
+    for (const signer of signers) {
+      expect(validatorAddresses).toContain(signer);
+    }
+  });
+});

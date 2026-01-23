@@ -1,0 +1,7 @@
+global:
+  namespace: "smoke"
+
+validatorKill:
+  enabled: true
+  percent: 25
+  duration: 60s

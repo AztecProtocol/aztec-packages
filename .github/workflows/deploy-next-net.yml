@@ -1,0 +1,72 @@
+# Deploy next-net environment
+# This workflow deploys the next-net environment with a specified version
+# Runs nightly with the latest nightly tag, or can be manually triggered with any image
+name: Deploy Next Net
+
+on:
+  schedule:
+    # Run every night at 4:00 AM UTC, after the nightly tag has been created
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag (e.g., 2.3.4, 3.0.0-nightly.20251004-amd64, or leave empty for latest nightly)'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-next-net-${{ inputs.image_tag || 'nightly' }}
+  cancel-in-progress: true
+
+jobs:
+  get-image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.determine_tag.outputs.TAG }}
+      semver: ${{ steps.determine_tag.outputs.SEMVER }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Determine image tag
+        id: determine_tag
+        run: |
+          if [[ -n "${{ inputs.image_tag }}" ]]; then
+            # Manual trigger with specified tag
+            TAG="${{ inputs.image_tag }}"
+            echo "Using manually specified tag: $TAG"
+
+            # Extract semver (remove -amd64 suffix if present, remove -nightly.YYYYMMDD if present)
+            SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-nightly\.[0-9]\{8\}//')
+          else
+            # Scheduled nightly run - get latest nightly tag
+            current_version=$(jq -r '."."' .release-please-manifest.json)
+            echo "Current version: $current_version"
+
+            # Format the tag as: <current_version>-nightly.<YYYYMMDD>-amd64
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)-amd64"
+
+            # Check if the tag exists on docker hub
+            TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag)
+            if [[ "$TAGS" != *"not found"* ]]; then
+              TAG="$nightly_tag"
+              SEMVER="$current_version"
+              echo "Using nightly tag: $TAG"
+            else
+              echo "Error: Tag $nightly_tag not published to docker hub"
+              exit 1
+            fi
+          fi
+
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "SEMVER=$SEMVER" >> "$GITHUB_OUTPUT"
+
+  deploy-next-net:
+    needs: get-image-tag
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: next-net
+      semver: ${{ needs.get-image-tag.outputs.semver }}
+      docker_image_tag: ${{ needs.get-image-tag.outputs.tag }}
+      ref: ${{ github.ref }}
+    secrets: inherit

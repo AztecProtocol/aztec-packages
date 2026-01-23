@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+# Find 'num_ports' free ports between 9000 and 10000
+# Read first arg, default to 1 port
+num_ports="${1:-1}"
+echo $(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n "$num_ports")

@@ -1,0 +1,25 @@
+bot:
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "8"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  node:
+    resources:
+      requests:
+        cpu: "7"
+        memory: "16Gi"

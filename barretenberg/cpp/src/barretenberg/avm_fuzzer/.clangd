@@ -1,0 +1,9 @@
+CompileFlags:
+  CompilationDatabase: ../../../build-fuzzing-avm
+  Add:
+    - "-I/usr/lib/llvm-20/lib/clang/20/include"
+  Remove:
+    - "-Xclang"
+    - "-include-pch"
+    - "*cmake_pch*"
+    - "-Winvalid-pch"

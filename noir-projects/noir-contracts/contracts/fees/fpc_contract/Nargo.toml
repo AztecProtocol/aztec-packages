@@ -1,0 +1,10 @@
+[package]
+name = "fpc_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+token = { path = "../../app/token_contract" }
+uint_note = { path = "../../../../aztec-nr/uint-note" }

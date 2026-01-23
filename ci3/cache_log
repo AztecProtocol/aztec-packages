@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Runs the given command.
+# If a redis cache is available, redirect input into a cache log.
+# If DUP=1 then we duplicate input also to stdout.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+source $ci3/source_cache
+
+name=$1
+
+key=${2:-$(uuid)}
+dup=${DUP:-0}
+outfile=/tmp/$key
+touch $outfile
+trap 'rm -f $outfile' EXIT
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)" >>$outfile
+else
+  echo -e "Parent Log: none" >>$outfile
+fi
+echo -e "Started: $(date)" >>$outfile
+echo -e "Completed: in-progress" >>$outfile
+echo -e "Took: in-progress\n" >>$outfile
+
+function finalize_log {
+  # Use sed to update the header.
+  sed -i "3c Completed: $(date)" "$outfile"
+  sed -i "4c Took: ${SECONDS}s" "$outfile"
+}
+
+function publish_log {
+  cat $outfile | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function publish_log_final {
+  finalize_log
+  cat $outfile | cache_persistent $key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  while [ -f $outfile ]; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
+      publish_log
+    fi
+    for i in {1..5}; do
+      [ ! -f $outfile ] && break
+      sleep 1
+    done
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  log_str="$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
+  echo_stderr -e "$log_str"
+  live_publish_log &
+  if [ "$dup" -eq 1 ]; then
+    redact | tee -a $outfile
+    # Print a second line if the log is long enough.
+    # This is to avoid having to scroll up to see the log id.
+    if [ "$(cat $outfile | wc -l)" -ge 16 ]; then
+      echo_stderr -e "$log_str"
+    fi
+  else
+    redact | cat >>$outfile
+  fi
+  publish_log_final
+else
+  if [ "$dup" -eq 1 ]; then
+    redact | cat
+  else
+    cat >/dev/null
+  fi
+fi

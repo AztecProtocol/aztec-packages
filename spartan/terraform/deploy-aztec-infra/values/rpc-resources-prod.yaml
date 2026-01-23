@@ -1,0 +1,37 @@
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+  cores: "2"
+
+replicaCount: 1
+
+node:
+  resources:
+    requests:
+      cpu: "0.5"
+      memory: "2Gi"
+    limits:
+      cpu: "1.5"
+      memory: "6Gi"
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 16Gi
+
+service:
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: true
+  headless:
+    enabled: false

@@ -1,0 +1,119 @@
+# Create a pull request to update Noir submodule to latest nightly
+name: Pull from noir repo
+
+# Don't allow multiple of these running at once:
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+on:
+  schedule:
+    # Run every morning at 8 AM UTC
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The git reference to update to (default: latest nightly)"
+        required: false
+        type: string
+
+jobs:
+  update_noir_submodule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          submodules: true
+
+      - name: Set git config
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Get current and latest Noir versions
+        id: noir_versions
+        run: |
+          # Get current submodule commit
+          CURRENT_COMMIT=$(git -C noir/noir-repo rev-parse HEAD)
+          CURRENT_TAG=$(git -C noir/noir-repo describe --tags --exact-match 2>/dev/null || echo "unknown")
+          echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+          echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+
+          # Get latest nightly tag
+          if [[ "${{ github.event.inputs.ref }}" != "" ]]; then
+            LATEST_NIGHTLY="${{ github.event.inputs.ref }}"
+          else
+            # Fetch all tags and get latest nightly
+            git -C noir/noir-repo fetch --tags
+            LATEST_NIGHTLY=$(git -C noir/noir-repo tag -l 'nightly-*' | sort -V | tail -1)
+          fi
+          echo "latest_nightly=$LATEST_NIGHTLY" >> $GITHUB_OUTPUT
+
+          # Check if update is needed
+          if [[ "$CURRENT_TAG" == "$LATEST_NIGHTLY" ]]; then
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update submodule to latest nightly
+        if: steps.noir_versions.outputs.update_needed == 'true'
+        run: |
+          cd noir/noir-repo
+          git fetch --tags
+          git checkout ${{ steps.noir_versions.outputs.latest_nightly }}
+          cd ../..
+          # Update Cargo.lock if needed, but don't fail if transpiler no longer builds
+          cargo check --manifest-path avm-transpiler/Cargo.toml || true
+          git add noir/noir-repo avm-transpiler/Cargo.lock
+
+      - name: Check for existing PR
+        if: steps.noir_versions.outputs.update_needed == 'true'
+        id: check_pr
+        run: |
+          export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head bump-noir --json url --jq ".[0].url")
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Create or update branch
+        if: steps.noir_versions.outputs.update_needed == 'true'
+        run: |
+          BRANCH=bump-noir
+          git checkout -B $BRANCH
+          git commit -m "chore: Update Noir to ${{ steps.noir_versions.outputs.latest_nightly }}"
+          git push -f origin $BRANCH
+
+      - name: Create or update PR
+        if: steps.noir_versions.outputs.update_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          PR_BODY="Automated update of Noir submodule to latest nightly.
+
+          **Current**: ${{ steps.noir_versions.outputs.current_tag }}
+          **New**: ${{ steps.noir_versions.outputs.latest_nightly }}
+
+          [View changes in noir-lang/noir](https://github.com/noir-lang/noir/compare/${{ steps.noir_versions.outputs.current_commit }}...${{ steps.noir_versions.outputs.latest_nightly }})"
+
+          if [[ "${{ steps.check_pr.outputs.pr_url }}" == "" ]]; then
+            gh pr create \
+              --repo AztecProtocol/aztec-packages \
+              --title "chore: Update Noir to ${{ steps.noir_versions.outputs.latest_nightly }}" \
+              --body "$PR_BODY" \
+              --base $BRANCH_NAME \
+              --head bump-noir
+          else
+            echo "Updating existing PR"
+            gh pr edit "${{ steps.check_pr.outputs.pr_url }}" \
+              --title "chore: Update Noir to ${{ steps.noir_versions.outputs.latest_nightly }}" \
+              --body "$PR_BODY"
+          fi
+
+      - name: No update needed
+        if: steps.noir_versions.outputs.update_needed == 'false'
+        run: |
+          echo "Already on latest nightly: ${{ steps.noir_versions.outputs.current_tag }}"

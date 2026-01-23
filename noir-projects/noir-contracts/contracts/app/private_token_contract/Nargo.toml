@@ -1,0 +1,11 @@
+[package]
+name = "private_token_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+balance_set = { path = "../../../../aztec-nr/balance-set" }
+uint_note = { path = "../../../../aztec-nr/uint-note" }
+address_note = { path = "../../../../aztec-nr/address-note" }

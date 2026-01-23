@@ -1,0 +1,66 @@
+name: Create Release Branch
+
+# Take the current version from the release-please-manifest.json file on `next`,
+# and create a release branch for it. Then update the release-please-manifest.json file on `next` to the next version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: "Source commit SHA from next branch"
+        required: true
+        type: string
+
+env:
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+jobs:
+  create-release-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.inputs.source_commit }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "AztecBot"
+          git config --global user.email "tech@aztecprotocol.com"
+
+      - name: Create release branch
+        run: |
+          # Get the version from the release-please-manifest.json file
+          CURRENT_VERSION=$(jq -r '."."' .release-please-manifest.json)
+
+          # grab major version
+          CURRENT_MAJOR_VERSION="${CURRENT_VERSION%%.*}"
+
+          # create branch name
+          BRANCH_NAME="v${CURRENT_MAJOR_VERSION}"
+
+          # Check if branch already exists
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Error: Branch $BRANCH_NAME already exists"
+            exit 1
+          fi
+
+          # Create and push the branch
+          git checkout -b "$BRANCH_NAME"
+          git push origin "$BRANCH_NAME"
+
+          # increment major version
+          NEXT_MAJOR_VERSION=$((CURRENT_MAJOR_VERSION + 1))
+          NEXT_VERSION="${NEXT_MAJOR_VERSION}.0.0"
+
+          # update release-please-manifest.json on `next` branch
+          git fetch origin next
+          git checkout -B next origin/next
+          jq --arg version "$NEXT_VERSION" '.["."] = $version' .release-please-manifest.json > temp.json && mv temp.json .release-please-manifest.json
+          git add .release-please-manifest.json
+          git commit -m "chore(release): update release-please-manifest.json to $NEXT_VERSION"
+          git push origin next

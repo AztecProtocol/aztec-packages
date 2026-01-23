@@ -1,0 +1,50 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../builder"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../key-store"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-test-contracts.js"
+    }
+  ],
+  "include": ["src"]
+}

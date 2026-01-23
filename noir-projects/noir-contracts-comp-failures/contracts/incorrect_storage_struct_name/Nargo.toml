@@ -1,0 +1,8 @@
+[package]
+name = "incorrect_storage_struct_name"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
