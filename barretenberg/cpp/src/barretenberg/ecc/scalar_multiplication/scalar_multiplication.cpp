@@ -550,7 +550,7 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
     std::span<ScalarField> scalar_span(scalar_ptr, num_scalars);
 
-    // Wrap into a size-1 batch and delegate to the general method that properly handles mullti-threading
+    // Wrap into a size-1 batch and delegate to the general method that properly handles multi-threading
     std::array<std::span<const AffineElement>, 1> points_batch{ points.subspan(scalars.start_index) };
     std::array<std::span<ScalarField>, 1> scalars_batch{ scalar_span };
 

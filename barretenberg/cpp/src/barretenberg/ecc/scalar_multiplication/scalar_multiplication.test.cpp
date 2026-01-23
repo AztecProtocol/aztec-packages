@@ -470,7 +470,8 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
     void test_duplicate_points()
     {
-        const size_t num_pts = 10;
+        // Use enough points to trigger Pippenger (> PIPPENGER_THRESHOLD = 16)
+        const size_t num_pts = 32;
         AffineElement base_point = generators[0];
 
         std::vector<AffineElement> points(num_pts, base_point);
@@ -483,7 +484,9 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
 
         PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
-        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+        // Duplicate points are an edge case (P + P requires doubling, not addition).
+        // Must use handle_edge_cases=true for correctness with Pippenger.
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
 
         AffineElement expected(base_point * scalar_sum);
         EXPECT_EQ(result, expected);

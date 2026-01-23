@@ -6,7 +6,12 @@ The Pippenger algorithm computes multi-scalar multiplications:
 
 $$\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$$
 
-**Complexity**: $O(\frac{q}{c}(n + 2^c))$ group operations. With optimal $c \approx \frac{1}{2} \log_2 n$, this is roughly $O(n \cdot q / \log n)$, vs $O(n \cdot q)$ for naive scalar multiplication.
+**Complexity**: Let $q = \lceil \log_2(\text{field modulus}) \rceil$ be the scalar bit-length, $|A|$ the cost of a group addition, and $|D|$ the cost of a doubling.
+
+- **Pippenger**: $O\left(\frac{q}{c} \cdot \left((n + 2^c) \cdot |A| + c \cdot |D|\right)\right)$
+- **Naive**: $O(n \cdot q \cdot |D| + n \cdot q \cdot |A| / 2)$
+
+With $c \approx \frac{1}{2} \log_2 n$, Pippenger achieves roughly $O(n \cdot q / \log n)$ vs $O(n \cdot q)$ for naive scalar multiplication.
 
 ## Algorithm
 
@@ -117,7 +122,7 @@ A `BitVector` bitmap tracks which buckets are populated, avoiding expensive full
 
 ### Point Scheduling (Affine Variant Only)
 
-Entries are packed as `(point_index << 32) | bucket_index` and sorted via **in-place MSD radix sort**. Sorting groups points by bucket, enabling efficient batch processing. The sort also detects entries with `bucket_index == 0` during the final radix pass, allowing zero-bucket entries to be skipped without a separate scan.
+Entries are packed as `(point_index << 32) | bucket_index` into 64-bit values. Since bucket indices fit in $c$ bits (typically 8-16), they occupy only the lowest bits of the packed entry. An **in-place MSD radix sort** on the low $c$ bits groups points by bucket for efficient batch processing. The sort also detects entries with `bucket_index == 0` during the final radix pass, allowing zero-bucket entries to be skipped without a separate scan.
 
 ### Batched Affine Addition
 
