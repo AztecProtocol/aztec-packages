@@ -110,7 +110,7 @@ namespace scalar_mul;
 
     // Needs to be committed because it's used in the #[DOUBLE] lookup
     pol commit sel_not_end; // @boolean (since end and sel are boolean)
-    // sel_not_end = sel & !end (since end => sel)
+    // sel_not_end = sel & !end (since end ==> sel, sel * end == end and so sel * (1 - end) = sel - end)
     sel_not_end = sel - end;
 
     // Input consistency
