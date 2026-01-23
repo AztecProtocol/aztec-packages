@@ -144,6 +144,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     std::cout << "[ECDSA] Step 7: Checking if result is point at infinity" << std::endl;
     auto result_is_infinity = result.is_point_at_infinity();
     std::cout << "[ECDSA] result.is_point_at_infinity() witness value: " << result_is_infinity.get_value() << std::endl;
+    result_is_infinity.assert_equal(
+        bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
 
     // Step 8.
     // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
