@@ -148,6 +148,17 @@ case "$cmd" in
     export INSTANCE_POSTFIX="n-teardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
     ;;
+  network-upgrade-test)
+    # Args: <scenario> <namespace>
+    # Runs the upgrade_rollup_version test on its own 64 CPU instance.
+    # Estimated runtime: 90-120 minutes (governance voting + 2 epoch lag + proving)
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-upgrade-test"
+    export AWS_SHUTDOWN_TIME=180 # 3 hours for upgrade test
+    export CPUS=64
+    export INSTANCE_POSTFIX="n-upgrade"
+    bootstrap_ec2 "./bootstrap.sh ci-network-upgrade-test $*"
+    ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
     # Args: <registry_address>

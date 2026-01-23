@@ -628,6 +628,17 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
     ;;
+  "ci-network-upgrade-test")
+    # Args: <env_file> <namespace>
+    # Runs the upgrade_rollup_version test on its own instance.
+    # Estimated runtime: 90-120 minutes (governance voting + 2 epoch lag + proving)
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    build
+    export NAMESPACE="$namespace"
+    spartan/bootstrap.sh network_upgrade_test "${env_file}"
+    ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
     # Deploys network and runs benchmarks. Cleanup should be done separately.

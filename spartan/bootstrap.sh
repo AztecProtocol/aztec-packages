@@ -119,6 +119,26 @@ function network_tests {
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
+function network_upgrade_test {
+  local env_file="$1"
+  echo_header "spartan upgrade rollup version test"
+
+  # Run the upgrade_rollup_version test on its own dedicated instance.
+  # This test takes 90-120 minutes due to:
+  # - Governance proposer voting phase (~5 min)
+  # - Governance proposal voting phase (~8 min)
+  # - 2 epoch lag for validator committee formation (~26 min)
+  # - Epoch proving (~30-45 min)
+  export SCENARIO_TESTS=1
+  source_network_env $env_file
+
+  gcp_auth
+
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=180m"
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  echo $prefix $run_test_script simple src/spartan/upgrade_rollup_version.test.ts | parallelize 1
+}
+
 function network_bench_cmds {
   local high_value_tps=0.1
   local low_value_tps_list=(0.1 0.2 0.5 1 2)
@@ -208,7 +228,7 @@ case "$cmd" in
     single_test $test_file
     ;;
 
-  network_tests|network_bench)
+  network_tests|network_bench|network_upgrade_test)
     env_file="$1"
     $cmd $env_file
     ;;
