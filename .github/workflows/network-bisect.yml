@@ -1,28 +1,31 @@
-# Finds the commit that broke network tests using binary search.
+# Finds the commit that broke network tests via binary search.
 name: Network Bisect
 
 on:
   workflow_dispatch:
     inputs:
       good_commit:
-        description: "Known good commit (tests pass)"
+        description: "Known good commit"
         required: true
-        type: string
       bad_commit:
-        description: "Known bad commit (tests fail)"
+        description: "Known bad commit"
         required: true
-        type: string
+
+env:
+  NAMESPACE: bisect-${{ github.run_id }}
 
 jobs:
-  bisect:
+  step-1:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      done: ${{ steps.run.outputs.done }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Bisect
-        env:
+        with: { fetch-depth: 0 }
+      - name: Run
+        id: run
+        env: &secrets
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -31,39 +34,122 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           NO_SPOT: 1
         run: |
-          good="${{ inputs.good_commit }}" bad="${{ inputs.bad_commit }}"
-          namespace="bisect-${{ github.run_id }}"
+          ./spartan/scripts/network_bisect.ts step "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" "$NAMESPACE" --state=state.json | tee out.txt
+          grep "^done=" out.txt >> $GITHUB_OUTPUT || echo "done=false" >> $GITHUB_OUTPUT
+          grep "^culprit=" out.txt >> $GITHUB_OUTPUT || true
+      - uses: actions/upload-artifact@v4
+        with: { name: state-1, path: state.json, if-no-files-found: ignore }
 
-          for step in {1..5}; do
-            mapfile -t commits < <(git rev-list --ancestry-path "$good".."$bad" | tac)
-            n=${#commits[@]}
+  step-2:
+    needs: step-1
+    if: needs.step-1.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      done: ${{ steps.run.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: state-1 }
+      - name: Run
+        id: run
+        env: *secrets
+        run: |
+          ./spartan/scripts/network_bisect.ts step "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" "$NAMESPACE" --state=state.json | tee out.txt
+          grep "^done=" out.txt >> $GITHUB_OUTPUT || echo "done=false" >> $GITHUB_OUTPUT
+          grep "^culprit=" out.txt >> $GITHUB_OUTPUT || true
+      - uses: actions/upload-artifact@v4
+        with: { name: state-2, path: state.json, if-no-files-found: ignore }
 
-            if ((n == 0)); then echo "::error::No commits between good and bad"; exit 1; fi
-            if ((n == 1)); then
-              echo "::notice::CULPRIT: ${commits[0]}"
-              git log -1 --oneline "${commits[0]}"
-              if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
-                subj=$(git log -1 --format="%s" "${commits[0]}" | head -c 80)
-                curl -sX POST https://slack.com/api/chat.postMessage \
-                  -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H "Content-type: application/json" \
-                  -d "{\"channel\":\"#alerts-next-scenario\",\"text\":\"Bisect: ${commits[0]:0:7} - $subj\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
-              fi
-              exit 0
-            fi
+  step-3:
+    needs: [step-1, step-2]
+    if: needs.step-2.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      done: ${{ steps.run.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: state-2 }
+      - name: Run
+        id: run
+        env: *secrets
+        run: |
+          ./spartan/scripts/network_bisect.ts step "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" "$NAMESPACE" --state=state.json | tee out.txt
+          grep "^done=" out.txt >> $GITHUB_OUTPUT || echo "done=false" >> $GITHUB_OUTPUT
+          grep "^culprit=" out.txt >> $GITHUB_OUTPUT || true
+      - uses: actions/upload-artifact@v4
+        with: { name: state-3, path: state.json, if-no-files-found: ignore }
 
-            mid="${commits[$((n/2))]}"
-            echo "::group::Step $step: ${mid:0:7} ($n commits)"
-            git checkout "$mid"
-            if ./.github/ci3.sh network-deploy next-scenario "$namespace"; then
-              good="$mid"; echo "PASS"
-            else
-              bad="$mid"; echo "FAIL"
-            fi
-            ./.github/ci3.sh network-teardown next-scenario "$namespace" || true
-            echo "::endgroup::"
+  step-4:
+    needs: [step-1, step-2, step-3]
+    if: needs.step-3.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      done: ${{ steps.run.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: state-3 }
+      - name: Run
+        id: run
+        env: *secrets
+        run: |
+          ./spartan/scripts/network_bisect.ts step "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" "$NAMESPACE" --state=state.json | tee out.txt
+          grep "^done=" out.txt >> $GITHUB_OUTPUT || echo "done=false" >> $GITHUB_OUTPUT
+          grep "^culprit=" out.txt >> $GITHUB_OUTPUT || true
+      - uses: actions/upload-artifact@v4
+        with: { name: state-4, path: state.json, if-no-files-found: ignore }
+
+  step-5:
+    needs: [step-1, step-2, step-3, step-4]
+    if: needs.step-4.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      done: ${{ steps.run.outputs.done }}
+      culprit: ${{ steps.run.outputs.culprit }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: state-4 }
+      - name: Run
+        id: run
+        env: *secrets
+        run: |
+          ./spartan/scripts/network_bisect.ts step "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" "$NAMESPACE" --state=state.json | tee out.txt
+          grep "^done=" out.txt >> $GITHUB_OUTPUT || echo "done=false" >> $GITHUB_OUTPUT
+          grep "^culprit=" out.txt >> $GITHUB_OUTPUT || true
+
+  report:
+    needs: [step-1, step-2, step-3, step-4, step-5]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          for i in 1 2 3 4 5; do
+            culprit="${{ needs.step-1.outputs.culprit }}${{ needs.step-2.outputs.culprit }}${{ needs.step-3.outputs.culprit }}${{ needs.step-4.outputs.culprit }}${{ needs.step-5.outputs.culprit }}"
+            [ -n "$culprit" ] && break
           done
-
-          echo "::warning::Incomplete after 5 steps (good=${good:0:7} bad=${bad:0:7})"
+          if [ -n "$culprit" ]; then
+            echo "CULPRIT: $culprit"
+            git log -1 --oneline "$culprit"
+            [ -n "$SLACK_BOT_TOKEN" ] && curl -sX POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H "Content-type: application/json" \
+              -d "{\"channel\":\"#alerts-next-scenario\",\"text\":\"Bisect: $culprit\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+          else
+            echo "Bisect incomplete after 5 steps"
+          fi

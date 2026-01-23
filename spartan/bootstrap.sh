@@ -63,7 +63,7 @@ function gke {
 }
 
 function test_cmds {
-  : # no unit tests
+  echo "TIMEOUT=60 $root/spartan/scripts/network_bisect.ts test"
 }
 
 function network_test_cmds {
