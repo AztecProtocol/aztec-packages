@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type CheckpointAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
@@ -28,10 +28,10 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT);
   }
 
-  override async validate(message: CheckpointAttestation): Promise<PeerErrorSeverity | undefined> {
+  override async validate(message: CheckpointAttestation): Promise<ValidationResult> {
     // First run the standard validation
     const baseValidationResult = await super.validate(message);
-    if (baseValidationResult !== undefined) {
+    if (baseValidationResult.result !== 'accept') {
       // Track base validation failures (invalid signature, wrong committee, etc.)
       this.invalidAttestationCounter.add(1, {
         [Attributes.ERROR_TYPE]: 'base_validation_failed',
@@ -45,7 +45,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     const proposer = message.getProposer();
 
     if (!attester || !proposer) {
-      return undefined;
+      return { result: 'accept' };
     }
 
     const proposalId = message.archive.toString();
@@ -74,7 +74,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
         });
 
         // Return error to reject the message, but LibP2PService won't penalize in fisherman mode
-        return PeerErrorSeverity.LowToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
     } else {
       // We might receive attestations before proposals in some cases
@@ -83,6 +83,6 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       );
     }
 
-    return undefined;
+    return { result: 'accept' };
   }
 }

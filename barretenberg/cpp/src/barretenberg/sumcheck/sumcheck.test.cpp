@@ -131,7 +131,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-        auto transcript = Flavor::Transcript::prover_init_empty();
+        auto transcript = Flavor::Transcript::test_prover_init_empty();
 
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -182,7 +182,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-        auto transcript = Flavor::Transcript::prover_init_empty();
+        auto transcript = Flavor::Transcript::test_prover_init_empty();
 
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -233,7 +233,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         // SumcheckTestFlavor doesn't need complex relation parameters (no permutation, lookup, etc.)
         RelationParameters<FF> relation_parameters{};
-        auto prover_transcript = Flavor::Transcript::prover_init_empty();
+        auto prover_transcript = Flavor::Transcript::test_prover_init_empty();
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> prover_gate_challenges(virtual_log_n);
@@ -256,7 +256,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             output = sumcheck_prover.prove();
         }
 
-        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);
 
         FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -299,7 +299,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         // SumcheckTestFlavor doesn't need complex relation parameters
         RelationParameters<FF> relation_parameters{};
-        auto prover_transcript = Flavor::Transcript::prover_init_empty();
+        auto prover_transcript = Flavor::Transcript::test_prover_init_empty();
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         auto prover_gate_challenges =
@@ -322,7 +322,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             output = sumcheck_prover.prove();
         }
 
-        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);
 
         FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
 

@@ -100,8 +100,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
         manifest_expected.add_challenge(round, "alpha");
-        round++;
-
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 
@@ -281,7 +279,7 @@ TYPED_TEST(MegaTranscriptTests, ChallengeGenerationTest)
     using Flavor = TypeParam;
     using FF = Flavor::FF;
     // initialized with random value sent to verifier
-    auto transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::test_prover_init_empty();
     // test a bunch of challenges
     std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
     auto challenges = transcript->template get_challenges<FF>(challenge_labels);

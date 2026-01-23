@@ -107,7 +107,7 @@ namespace sha256;
 
     // Propagate initial state values across all rounds.
     // Initial states must be propagated correctly becuse they are used in the `last` row
-    // when adding to the compression output.  `last` is mutually exclusive to `perform_round` but 
+    // when adding to the compression output. `last` is mutually exclusive to `perform_round` but
     // these constraints don't need to use `last`  because on the 64th row of `perform_round` we
     // will constrain the next row (i.e. the `last` row) to be correct.
     #[PROPAGATE_INIT_A]
@@ -289,9 +289,9 @@ namespace sha256;
 
     pol commit w_s_1;
     #[W_S_1_XOR_1]
-    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel, u32_tag, u32_tag }
+    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ========== START OF COMPRESSION BLOCK ==================
 
