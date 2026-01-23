@@ -4,3 +4,4 @@ export * from './make-enrs.js';
 export * from './make-test-p2p-clients.js';
 export * from './reqresp-nodes.js';
 export * from './mock-pubsub.js';
+export * from './test_tx_provider.js';
