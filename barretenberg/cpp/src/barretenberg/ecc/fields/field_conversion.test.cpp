@@ -193,7 +193,9 @@ TEST_F(FieldConversionTest, AcceptCanonicalPointAtInfinity)
 
 /**
  * @brief Test that points not on the curve are rejected.
+ * @note Skipped in WASM builds because death tests (EXPECT_DEATH) aren't supported.
  */
+#ifndef __wasm__
 TEST_F(FieldConversionTest, RejectPointNotOnCurve)
 {
     // Test for BN254: (1, 4) is not on the curve
@@ -208,5 +210,6 @@ TEST_F(FieldConversionTest, RejectPointNotOnCurve)
         EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec), "on_curve");
     }
 }
+#endif
 
 } // namespace bb::field_conversion_tests
