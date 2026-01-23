@@ -155,6 +155,7 @@ export interface IPrivateExecutionOracle {
   ): void;
   privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number): Promise<void>;
   privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void>;
+  privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean>;
   privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number): void;
   privateCallPrivateFunction(
     targetContractAddress: AztecAddress,
