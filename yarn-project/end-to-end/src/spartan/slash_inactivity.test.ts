@@ -12,10 +12,10 @@ import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch
 
 import { jest } from '@jest/globals';
 import assert from 'assert';
-import type { ChildProcess } from 'child_process';
 
 import {
   ChainHealth,
+  type ServiceEndpoint,
   getL1DeploymentAddresses,
   getPublicViemClient,
   getSequencersConfig,
@@ -34,7 +34,7 @@ describe('slash inactivity test', () => {
 
   const logger = createLogger(`e2e:slash-inactivity`);
 
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
@@ -47,7 +47,9 @@ describe('slash inactivity test', () => {
   beforeAll(async () => {
     await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
-    ({ client } = await getPublicViemClient(config, forwardProcesses));
+    const viemResult = await getPublicViemClient(config);
+    client = viemResult.client;
+    endpoints.push({ url: viemResult.url, process: viemResult.process });
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     constants = await rollup.getRollupConstants();
@@ -60,7 +62,7 @@ describe('slash inactivity test', () => {
     await updateSequencersConfig(config, { disabledValidators: [] });
     monitor.removeAllListeners();
     await monitor.stop();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   /** Returns the committee for the next epoch. If not defined yet, waits until it is. */
