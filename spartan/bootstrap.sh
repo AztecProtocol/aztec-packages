@@ -321,9 +321,9 @@ case "$cmd" in
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-upgrade-rollup-version")
-    OVERRIDES="bot.enabled=false" \
+    OVERRIDES="${OVERRIDES:-bot.enabled=false}" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_k8s.sh kind src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
+      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
