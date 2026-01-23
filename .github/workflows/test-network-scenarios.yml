@@ -39,7 +39,7 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 360
+          AWS_SHUTDOWN_TIME: 540
           NO_SPOT: 1
         run: |
           namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
