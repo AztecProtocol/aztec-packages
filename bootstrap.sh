@@ -639,6 +639,16 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_upgrade_test "${env_file}"
     ;;
+  "ci-network-kind")
+    # Args: <test_command>
+    # Runs a KIND-based spartan test.
+    # test_command is the spartan/bootstrap.sh command (e.g., test-kind-upgrade-rollup-version)
+    export CI=1
+    test_command="${1:?test_command is required}"
+    build
+    spartan/bootstrap.sh kind
+    spartan/bootstrap.sh "$test_command"
+    ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
     # Deploys network and runs benchmarks. Cleanup should be done separately.

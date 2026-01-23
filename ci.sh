@@ -30,6 +30,7 @@ function print_usage {
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "network-kind"          "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -158,6 +159,17 @@ case "$cmd" in
     export CPUS=64
     export INSTANCE_POSTFIX="n-upgrade"
     bootstrap_ec2 "./bootstrap.sh ci-network-upgrade-test $*"
+    ;;
+  network-kind)
+    # Args: <test_command>
+    # Runs a KIND-based spartan test on a 64 CPU instance.
+    # test_command is the spartan/bootstrap.sh command (e.g., test-kind-upgrade-rollup-version)
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-network-kind-${1:?test_command is required}"
+    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
+    export CPUS=64
+    export INSTANCE_POSTFIX="n-kind"
+    bootstrap_ec2 "./bootstrap.sh ci-network-kind $*"
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
