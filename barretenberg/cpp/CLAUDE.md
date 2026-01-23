@@ -103,3 +103,24 @@ BB_VERBOSE=1 yarn-project/scripts/run_test.sh ivc-integration/src/rollup_ivc_int
 ````
 
 When making barretenberg changes, ensure these tests still pass.
+
+## Benchmarking:
+
+**IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.
+
+To run benchmarks for a specific target:
+```bash
+cd barretenberg/cpp
+./scripts/benchmark_remote.sh <target_name>
+```
+
+Common benchmark targets:
+- `pippenger_bench` - MSM/Pippenger benchmarks
+- `ultra_honk_bench` - Ultra Honk prover benchmarks
+- `commitment_schemes_bench` - Commitment scheme benchmarks
+
+The remote benchmark script:
+- Runs on a dedicated benchmarking machine for consistent results
+- Automatically builds the target if needed
+- Returns performance metrics and timing data
+- Should be used instead of local benchmarks for performance validation
