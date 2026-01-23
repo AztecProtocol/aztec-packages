@@ -8,11 +8,10 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
-import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   type L1ToL2MessageSource,
   computeCheckpointOutHash,
@@ -78,7 +77,7 @@ export class BlockProposalHandler {
     private worldState: WorldStateSynchronizer,
     private blockSource: L2BlockSource & L2BlockSink,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private txProvider: TxProvider,
+    private txProvider: ITxProvider,
     private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
     private config: ValidatorClientFullConfig,
@@ -160,9 +159,9 @@ export class BlockProposalHandler {
       return { isValid: false, reason: 'parent_block_not_found' };
     }
 
-    // Check that the parent block's slot is less than the proposal's slot (should not happen, but we check anyway)
-    if (parentBlockHeader !== 'genesis' && parentBlockHeader.getSlot() >= slotNumber) {
-      this.log.warn(`Parent block slot is greater than or equal to proposal slot, skipping processing`, {
+    // Check that the parent block's slot is not greater than the proposal's slot.
+    if (parentBlockHeader !== 'genesis' && parentBlockHeader.getSlot() > slotNumber) {
+      this.log.warn(`Parent block slot is greater than proposal slot, skipping processing`, {
         parentBlockSlot: parentBlockHeader.getSlot().toString(),
         proposalSlot: slotNumber.toString(),
         ...proposalInfo,
@@ -475,6 +474,7 @@ export class BlockProposalHandler {
 
     // Fork before the block to be built
     const parentBlockNumber = BlockNumber(blockNumber - 1);
+    await this.worldState.syncImmediate(parentBlockNumber);
     using fork = await this.worldState.fork(parentBlockNumber);
 
     // Build checkpoint constants from proposal (excludes blockNumber and timestamp which are per-block)

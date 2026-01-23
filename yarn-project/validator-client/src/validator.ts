@@ -18,7 +18,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
+import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -26,11 +26,12 @@ import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSour
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
+  ITxProvider,
   Validator,
   ValidatorClientFullConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -184,7 +185,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     p2pClient: P2P,
     blockSource: L2BlockSource & L2BlockSink,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    txProvider: TxProvider,
+    txProvider: ITxProvider,
     keyStoreManager: KeystoreManager,
     blobClient: BlobClientInterface,
     dateProvider: DateProvider = new DateProvider(),
@@ -642,13 +643,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return { isValid: false, reason: 'archive_mismatch' };
       }
 
-      // Check that the accumulated out hash matches the value in the proposal.
-      const computedOutHash = computedCheckpoint.getCheckpointOutHash();
-      const proposalOutHash = proposal.checkpointHeader.epochOutHash;
-      if (!computedOutHash.equals(proposalOutHash)) {
+      // Check that the accumulated epoch out hash matches the value in the proposal.
+      // The epoch out hash is the accumulated hash of all checkpoint out hashes in the epoch.
+      const checkpointOutHash = computedCheckpoint.getCheckpointOutHash();
+      const computedEpochOutHash = accumulateCheckpointOutHashes([...previousCheckpointOutHashes, checkpointOutHash]);
+      const proposalEpochOutHash = proposal.checkpointHeader.epochOutHash;
+      if (!computedEpochOutHash.equals(proposalEpochOutHash)) {
         this.log.warn(`Epoch out hash mismatch`, {
-          proposalOutHash: proposalOutHash.toString(),
-          computedOutHash: computedOutHash.toString(),
+          proposalEpochOutHash: proposalEpochOutHash.toString(),
+          computedEpochOutHash: computedEpochOutHash.toString(),
+          checkpointOutHash: checkpointOutHash.toString(),
+          previousCheckpointOutHashes: previousCheckpointOutHashes.map(h => h.toString()),
           ...proposalInfo,
         });
         return { isValid: false, reason: 'out_hash_mismatch' };
@@ -739,7 +744,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
-    options: BlockProposalOptions,
+    options: BlockProposalOptions = {},
   ): Promise<BlockProposal> {
     // TODO(palla/mbps): Prevent double proposals properly
     // if (this.previousProposal?.slotNumber === blockHeader.globalVariables.slotNumber) {
@@ -771,7 +776,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     archive: Fr,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
-    options: CheckpointProposalOptions,
+    options: CheckpointProposalOptions = {},
   ): Promise<CheckpointProposal> {
     this.log.info(`Assembling checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
     return await this.validationService.createCheckpointProposal(

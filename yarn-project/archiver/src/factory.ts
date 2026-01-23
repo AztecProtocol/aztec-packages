@@ -157,7 +157,8 @@ export async function createArchiver(
   return archiver;
 }
 
-async function registerProtocolContracts(store: KVArchiverDataStore) {
+/** Registers protocol contracts in the archiver store. */
+export async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();

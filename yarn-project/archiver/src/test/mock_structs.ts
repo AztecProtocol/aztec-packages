@@ -46,24 +46,40 @@ export function makeInboxMessage(
 }
 
 export function makeInboxMessages(
-  count: number,
+  totalCount: number,
   opts: {
     initialHash?: Buffer16;
     initialCheckpointNumber?: CheckpointNumber;
+    messagesPerCheckpoint?: number;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
   } = {},
 ): InboxMessage[] {
-  const { initialHash = Buffer16.ZERO, overrideFn = msg => msg, initialCheckpointNumber = 1 } = opts;
+  const {
+    initialHash = Buffer16.ZERO,
+    overrideFn = msg => msg,
+    initialCheckpointNumber = CheckpointNumber(1),
+    messagesPerCheckpoint = 1,
+  } = opts;
+
   const messages: InboxMessage[] = [];
   let rollingHash = initialHash;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < totalCount; i++) {
+    const msgIndex = i % messagesPerCheckpoint;
+    const checkpointNumber = CheckpointNumber.fromBigInt(
+      BigInt(initialCheckpointNumber) + BigInt(i) / BigInt(messagesPerCheckpoint),
+    );
     const leaf = Fr.random();
-    const checkpointNumber = CheckpointNumber(i + initialCheckpointNumber);
-    const message = overrideFn(makeInboxMessage(rollingHash, { leaf, checkpointNumber }), i);
+    const message = overrideFn(
+      makeInboxMessage(rollingHash, {
+        leaf,
+        checkpointNumber,
+        index: InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(msgIndex),
+      }),
+      i,
+    );
     rollingHash = message.rollingHash;
     messages.push(message);
   }
-
   return messages;
 }
 
