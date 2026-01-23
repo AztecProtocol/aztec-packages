@@ -15,7 +15,7 @@ static const char HONK_ZK_CONTRACT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
 interface IVerifier {
-    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
 
 type Fr is uint256;
@@ -68,7 +68,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), v)
-            mstore(add(free, 0x80), sub(MODULUS, 2))
+            mstore(add(free, 0x80), sub(MODULUS, 2)) 
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -92,7 +92,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), b)
-            mstore(add(free, 0x80), v)
+            mstore(add(free, 0x80), v) 
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -447,11 +447,11 @@ library ZKTranscriptLib {
         round0[1 + publicInputsSize + 6] = bytes32(proof.w3.x);
         round0[1 + publicInputsSize + 7] = bytes32(proof.w3.y);
 
+        // Get single eta challenge and compute powers (eta, eta², eta³)
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        (eta, etaTwo) = splitChallenge(previousChallenge);
-        previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-
-        (etaThree,) = splitChallenge(previousChallenge);
+        (eta, ) = splitChallenge(previousChallenge);
+        etaTwo = eta * eta;
+        etaThree = etaTwo * eta;
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
@@ -834,20 +834,28 @@ library RelationsLib {
         Fr write_term;
         Fr read_term;
 
+        // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding
+        // Note: Using gamma powers instead of eta separates lookup encoding from memory encoding for soundness
+        Fr gamma_two = rp.gamma * rp.gamma;
+        Fr gamma_three = gamma_two * rp.gamma;
+        Fr gamma_four = gamma_three * rp.gamma;
+
         // Calculate the write term (the table accumulation)
+        // write_term = table_1 + γ + table_2 * γ² + table_3 * γ³ + table_4 * γ⁴
         {
-            write_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * rp.eta)
-                + (wire(p, WIRE.TABLE_3) * rp.etaTwo) + (wire(p, WIRE.TABLE_4) * rp.etaThree);
+            write_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * gamma_two)
+                + (wire(p, WIRE.TABLE_3) * gamma_three) + (wire(p, WIRE.TABLE_4) * gamma_four);
         }
 
-        // Calculate the write term
+        // Calculate the read term
+        // read_term = derived_entry_1 + γ + derived_entry_2 * γ² + derived_entry_3 * γ³ + q_index * γ⁴
         {
             Fr derived_entry_1 = wire(p, WIRE.W_L) + rp.gamma + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_L_SHIFT));
             Fr derived_entry_2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_R_SHIFT);
             Fr derived_entry_3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_O_SHIFT);
 
-            read_term = derived_entry_1 + (derived_entry_2 * rp.eta) + (derived_entry_3 * rp.etaTwo)
-                + (wire(p, WIRE.Q_O) * rp.etaThree);
+            read_term = derived_entry_1 + (derived_entry_2 * gamma_two) + (derived_entry_3 * gamma_three)
+                + (wire(p, WIRE.Q_O) * gamma_four);
         }
 
         Fr read_inverse = wire(p, WIRE.LOOKUP_INVERSES) * write_term;

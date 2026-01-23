@@ -105,12 +105,11 @@ library TranscriptLib {
         round0[1 + publicInputsSize + 4] = bytes32(proof.w3.x);
         round0[1 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
+        // Get single eta challenge and compute powers (eta, eta², eta³)
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        (eta, etaTwo) = splitChallenge(previousChallenge);
-
-        previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-        Fr unused;
-        (etaThree, unused) = splitChallenge(previousChallenge);
+        (eta, ) = splitChallenge(previousChallenge);
+        etaTwo = eta * eta;
+        etaThree = etaTwo * eta;
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
