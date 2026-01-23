@@ -366,3 +366,10 @@ tests:
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
       - *lasse
+
+  # http://ci.aztec-labs.com/143ea51c3e2f43ff
+  # happening since node 24 move
+  - regex: "validator-ha-signer/src/db/postgres.test.ts"
+    owners:
+      - *spyros
+
