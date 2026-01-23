@@ -73,6 +73,8 @@ class AvmRecursiveFlavor {
     template <typename Builder> class TemplatedTranscript : public StdlibTranscript<Builder> {
         using Base = StdlibTranscript<Builder>;
         using FF = stdlib::field_t<Builder>;
+        using StdlibCurve = stdlib::bn254<Builder>;
+        using StdlibCommitment = typename StdlibCurve::AffineElement;
 
       private:
         /**
@@ -116,21 +118,15 @@ class AvmRecursiveFlavor {
                 }
             }
 
-            size_t proof_idx = 0;
-            std::span<const stdlib::field_t<Builder>> proof_span = stdlib_proof;
-
-            constexpr size_t num_frs_comm = NativeFlavor::NUM_FRS_COM;
             for (const auto& wire_label : challenges.get_wires_labels()) {
-                transcript->add_element_frs_to_hash_buffer(wire_label, proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(wire_label);
             }
 
             [[maybe_unused]] auto [_beta, _gamma] =
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
             for (const auto& derived_label : challenges.get_derived_labels()) {
-                transcript->add_element_frs_to_hash_buffer(derived_label, proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(derived_label);
             }
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -138,18 +134,17 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] const FF _initial_gate_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge");
 
+            using SumcheckUnivariate = std::array<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
             for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; i++) {
                 std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
-                transcript->add_element_frs_to_hash_buffer(
-                    round_univariate_label, proof_span.subspan(proof_idx, AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH));
-                proof_idx += AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<SumcheckUnivariate>(round_univariate_label);
                 [[maybe_unused]] FF _round_challenge =
                     transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(i));
             }
 
-            transcript->add_element_frs_to_hash_buffer("Sumcheck:evaluations",
-                                                       proof_span.subspan(proof_idx, NUM_ALL_ENTITIES));
-            proof_idx += NUM_ALL_ENTITIES;
+            [[maybe_unused]] auto _evals =
+                transcript->template receive_from_prover<std::array<FF, NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
 
             [[maybe_unused]] auto _unshifted_challenges =
                 transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
@@ -157,28 +152,25 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
             for (size_t i = 1; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
-                transcript->add_element_frs_to_hash_buffer("Gemini:FOLD_" + std::to_string(i),
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<StdlibCommitment>("Gemini:FOLD_" + std::to_string(i));
             }
 
             [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
             for (size_t i = 1; i <= MAX_AVM_TRACE_LOG_SIZE; ++i) {
-                transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), proof_span[proof_idx++]);
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<FF>("Gemini:a_" + std::to_string(i));
             }
 
             [[maybe_unused]] const FF _shplonk_batching_challenge =
                 transcript->template get_challenge<FF>("Shplonk:nu");
 
-            transcript->add_element_frs_to_hash_buffer("Shplonk:Q", proof_span.subspan(proof_idx, num_frs_comm));
-            proof_idx += num_frs_comm;
+            [[maybe_unused]] auto _shplonk_q = transcript->template receive_from_prover<StdlibCommitment>("Shplonk:Q");
 
             [[maybe_unused]] const FF _shplonk_evaluation_challenge =
                 transcript->template get_challenge<FF>("Shplonk:z");
 
-            transcript->add_element_frs_to_hash_buffer("KZG:W", proof_span.subspan(proof_idx, num_frs_comm));
-            proof_idx += num_frs_comm;
+            [[maybe_unused]] auto _kzg_w = transcript->template receive_from_prover<StdlibCommitment>("KZG:W");
 
             [[maybe_unused]] const FF _masking_challenge =
                 transcript->template get_challenge<FF>("KZG:masking_challenge");
