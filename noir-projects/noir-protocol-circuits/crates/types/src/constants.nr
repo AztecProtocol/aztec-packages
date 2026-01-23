@@ -1136,7 +1136,7 @@ pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAG
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (9 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (39 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
