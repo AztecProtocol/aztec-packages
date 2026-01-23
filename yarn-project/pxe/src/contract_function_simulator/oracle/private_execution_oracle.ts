@@ -47,7 +47,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
+import { ensureContractSynced, executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -528,9 +528,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.aztecNode, this.contractStore, this.anchorBlockHeader);
-
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
+    await ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      this.utilityExecutor,
+      this.aztecNode,
+      this.contractStore,
+      this.anchorBlockHeader,
+    );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
