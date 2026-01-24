@@ -112,14 +112,14 @@ Use the Aztec CLI's keystore utility to generate both your private and public ke
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC
 ```
 
 **Relevant parameters:**
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
-- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xfb243b9112bb65785a4a8edaf32529accf003614` for Sepolia testnet)
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac` for Sepolia testnet)
 - `--l1-rpc-urls`: Your Ethereum Sepolia L1 RPC endpoint
   - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
 - `--count`: Number of validator identities to generate (default: 1)
@@ -198,7 +198,7 @@ For deterministic key generation or to recreate keys later, provide your own mne
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your twelve word mnemonic phrase here"
 ```
@@ -211,7 +211,7 @@ To generate multiple validator identities (useful for delegated staking provider
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --count 5
 ```
