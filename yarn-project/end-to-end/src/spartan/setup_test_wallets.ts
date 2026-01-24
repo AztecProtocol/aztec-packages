@@ -116,6 +116,56 @@ export async function deploySponsoredTestAccountsWithTokens(
   };
 }
 
+async function deployAccountWithDiagnostics(
+  account: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any },
+  paymentMethod: SponsoredFeePaymentMethod,
+  aztecNode: AztecNode,
+  logger: Logger,
+  accountLabel: string,
+): Promise<void> {
+  const deployMethod = await account.getDeployMethod();
+  const sentTx = deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+  const txHash = await sentTx.getTxHash();
+
+  try {
+    await sentTx.wait({ timeout: 2400 });
+    logger.info(`${accountLabel} deployed at ${account.address}`);
+  } catch (error) {
+    const blockNumber = await aztecNode.getBlockNumber();
+    let receipt;
+    try {
+      receipt = await aztecNode.getTxReceipt(txHash);
+    } catch {
+      receipt = 'unavailable';
+    }
+    logger.error(`${accountLabel} deployment failed`, {
+      txHash: txHash.toString(),
+      receipt: JSON.stringify(receipt),
+      currentBlockNumber: blockNumber,
+      error: String(error),
+    });
+    throw error;
+  }
+}
+
+async function deployAccountsInBatches(
+  accounts: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any }[],
+  paymentMethod: SponsoredFeePaymentMethod,
+  aztecNode: AztecNode,
+  logger: Logger,
+  labelPrefix: string,
+  batchSize = 2,
+): Promise<void> {
+  for (let i = 0; i < accounts.length; i += batchSize) {
+    const batch = accounts.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map((account, idx) =>
+        deployAccountWithDiagnostics(account, paymentMethod, aztecNode, logger, `${labelPrefix}${i + idx + 1}`),
+      ),
+    );
+  }
+}
+
 export async function deploySponsoredTestAccounts(
   wallet: TestWallet,
   aztecNode: AztecNode,
@@ -129,15 +179,9 @@ export async function deploySponsoredTestAccounts(
   await registerSponsoredFPC(wallet);
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-  const recipientDeployMethod = await recipientAccount.getDeployMethod();
-  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 });
-  await Promise.all(
-    fundedAccounts.map(async a => {
-      const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
-      logger.info(`Account deployed at ${a.address}`);
-    }),
-  );
+
+  await deployAccountWithDiagnostics(recipientAccount, paymentMethod, aztecNode, logger, 'Recipient account');
+  await deployAccountsInBatches(fundedAccounts, paymentMethod, aztecNode, logger, 'Funded account ', 2);
 
   return {
     aztecNode,
