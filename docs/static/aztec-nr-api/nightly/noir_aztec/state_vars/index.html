@@ -35,6 +35,7 @@
 <li><a href="../macros/index.html">macros</a></div></li>
 <li><a href="../messages/index.html">messages</a></div></li>
 <li><a href="../note/index.html">note</a></div></li>
+<li><a href="../nullifier/index.html">nullifier</a></div></li>
 <li><a href="../oracle/index.html">oracle</a></div></li>
 <li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
 <li><a href="../state_vars/index.html">state_vars</a></div></li>
@@ -50,6 +51,12 @@
 <h1>Module <span id="mod" class="module">state_vars</span></h1>
 <div class="comments">
 <p>Storage for contract state.</p>
+<p>Contracts store their state in <em>state variables</em>. In Solidity, a state variable is simply any value declared inside
+a contract, e.g. <code>contract Token { uint256 totalSupply; }</code>, and they can be one of many kinds (primitive values,
+mappings, arrays, immutable, etc.).</p>
+<p>Due to Aztec contracts being able to store both public and private state, there are many more different types of
+state variables, each with their nuance and use cases. Understanding these is key to understanding how a contract
+works.</p>
 </div>
 <h2 id="re-exports">Re-exports</h2><ul class="item-list">
 <li><div class="item-name"><code>pub use noir_aztec::state_vars::map::<a href="../../noir_aztec/state_vars/map/struct.Map.html" class="struct">Map</a>;</code></div></li>
@@ -74,7 +81,7 @@ storing it:</div></li>
 <li><div class="item-name"><a href="struct.PrivateSet.html" class="struct">PrivateSet</a></div><div class="item-description">PrivateSet is an owned state variable type, which enables you to read, mutate, and write private state. Because it
 is &quot;owned,&quot; you must wrap a PrivateSet inside an Owned state variable when storing it:</div></li>
 <li><div class="item-name"><a href="struct.PublicImmutable.html" class="struct">PublicImmutable</a></div><div class="item-description">PublicImmutable</div></li>
-<li><div class="item-name"><a href="struct.PublicMutable.html" class="struct">PublicMutable</a></div><div class="item-description">PublicMutable</div></li>
+<li><div class="item-name"><a href="struct.PublicMutable.html" class="struct">PublicMutable</a></div><div class="item-description">Mutable public values.</div></li>
 <li><div class="item-name"><a href="struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a></div><div class="item-description">A state variable that holds a single private value that is set once and remains unchanged forever (unlike
 <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html">crate::state_vars::private_immutable::PrivateImmutable</a>, which holds one private value <em>per account</em> - hence
 the name 'single').</div></li>
