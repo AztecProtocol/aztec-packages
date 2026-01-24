@@ -26,6 +26,7 @@ concurrency:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 540
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
