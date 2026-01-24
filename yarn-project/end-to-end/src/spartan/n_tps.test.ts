@@ -223,18 +223,6 @@ describe('sustained N TPS test', () => {
       benchScenario: process.env.BENCH_SCENARIO,
     });
     const spartanDir = `${getGitProjectRoot()}/spartan`;
-    logger.info('Installing chaos mesh chart', {
-      name: CHAOS_MESH_NAME,
-      namespace: config.NAMESPACE,
-      valuesFile: 'network-requirements.yaml',
-    });
-    const chaosMeshInstallation = installChaosMeshChart({
-      logger,
-      targetNamespace: config.NAMESPACE,
-      instanceName: CHAOS_MESH_NAME,
-      valuesFile: 'network-requirements.yaml',
-      helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
-    });
 
     const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
     endpoints.push(rpcEndpoint);
@@ -294,9 +282,23 @@ describe('sustained N TPS test', () => {
       .deployed();
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
-    logger.info(`Awaiting chaos mesh installation`);
-    await chaosMeshInstallation;
+    logger.info('Installing chaos mesh chart', {
+      name: CHAOS_MESH_NAME,
+      namespace: config.NAMESPACE,
+      valuesFile: 'network-requirements.yaml',
+    });
+    await installChaosMeshChart({
+      logger,
+      targetNamespace: config.NAMESPACE,
+      instanceName: CHAOS_MESH_NAME,
+      valuesFile: 'network-requirements.yaml',
+      helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    });
     logger.info('Chaos mesh installation complete');
+
+    logger.info('Waiting for network to stabilize after chaos mesh installation...');
+    await sleep(30 * 1000);
+    logger.info('Network stabilization wait complete');
 
     logger.info(`Test setup complete`);
   });
