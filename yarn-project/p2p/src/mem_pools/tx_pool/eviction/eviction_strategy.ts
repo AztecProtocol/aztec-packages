@@ -149,6 +149,62 @@ export class FeePayerTxInfo {
 }
 
 /**
+ * Metadata about a transaction for pre-pending validation.
+ * Contains the essential fields needed to validate without loading the full Tx.
+ */
+export interface TxValidationFields {
+  /** Transaction hash as string */
+  txHash: string;
+  /** Hash of the anchor block header */
+  anchorBlockHeaderHash: string;
+  /** Fee payer address as string */
+  feePayer: string;
+  /** Maximum fee the tx is willing to pay */
+  feeLimit: bigint;
+}
+
+/**
+ * Context for pre-pending filter operations.
+ */
+export type PrePendingFilterContext =
+  | {
+      event: 'CHAIN_PRUNED';
+      /** The latest valid block number after the prune */
+      blockNumber: BlockNumber;
+    }
+  | {
+      event: 'UNPROTECT';
+    };
+
+/**
+ * Result of a pre-pending filter operation.
+ */
+export interface PrePendingFilterResult {
+  /** Transaction hashes that are valid and can be added to pending */
+  valid: string[];
+  /** Transaction hashes that are invalid and should be deleted */
+  invalid: string[];
+}
+
+/**
+ * Strategy interface for filtering transactions before they enter the pending pool.
+ * Used during reorgs (un-mining) and slot transitions (unprotecting) to avoid
+ * adding transactions to pending indices only to immediately remove them.
+ */
+export interface PrePendingFilter {
+  readonly name: string;
+
+  /**
+   * Filters transactions, returning which are invalid and should not be added to pending.
+   *
+   * @param txs - Transaction metadata to validate
+   * @param ctx - Context about why we're filtering (reorg vs unprotect)
+   * @returns Set of tx hashes that are INVALID (should not be added to pending)
+   */
+  filterInvalid(txs: TxValidationFields[], ctx: PrePendingFilterContext): Promise<Set<string>>;
+}
+
+/**
  * Read-only access to pool state for pre-add eviction checks.
  * Passed to pre-add rules during the addTxs transaction.
  */

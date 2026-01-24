@@ -13,7 +13,11 @@ import {
   type PreAddEvictionResult,
   type PreAddEvictionRule,
   type PreAddPoolAccess,
+  type PrePendingFilter,
+  type PrePendingFilterContext,
+  type PrePendingFilterResult,
   type TxPoolOperations,
+  type TxValidationFields,
 } from './eviction_strategy.js';
 
 export class EvictionManager {
@@ -21,6 +25,9 @@ export class EvictionManager {
 
   /** Pre-add eviction rules (run inside addTxs transaction) */
   private preAddRules: PreAddEvictionRule[] = [];
+
+  /** Pre-pending filters (run before restoring txs to pending after reorg/unprotect) */
+  private prePendingFilters: PrePendingFilter[] = [];
 
   constructor(
     private txPool: TxPoolOperations,
@@ -105,6 +112,68 @@ export class EvictionManager {
 
   public registerPreAddRule(rule: PreAddEvictionRule) {
     this.preAddRules.push(rule);
+  }
+
+  public registerPrePendingFilter(filter: PrePendingFilter) {
+    this.prePendingFilters.push(filter);
+  }
+
+  /**
+   * Filters transactions before they are restored to pending state.
+   * Used during reorgs (un-mining) and slot transitions (unprotecting) to avoid
+   * adding transactions to pending indices only to immediately remove them.
+   *
+   * @param txs - Transaction metadata to validate
+   * @param ctx - Context about why we're filtering
+   * @returns Result with valid and invalid tx hashes
+   */
+  public async filterValidForPending(
+    txs: TxValidationFields[],
+    ctx: PrePendingFilterContext,
+  ): Promise<PrePendingFilterResult> {
+    if (txs.length === 0) {
+      return { valid: [], invalid: [] };
+    }
+
+    // Collect all invalid tx hashes from all filters
+    const allInvalid = new Set<string>();
+
+    for (const filter of this.prePendingFilters) {
+      try {
+        const invalidFromFilter = await filter.filterInvalid(txs, ctx);
+        for (const txHash of invalidFromFilter) {
+          allInvalid.add(txHash);
+        }
+      } catch (err) {
+        this.log.warn(`Pre-pending filter ${filter.name} unexpected error: ${String(err)}`, {
+          err,
+          filterName: filter.name,
+          event: ctx.event,
+        });
+        // On error, don't filter out any txs - let them go to pending and be evicted later if needed
+      }
+    }
+
+    // Partition into valid and invalid
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    for (const tx of txs) {
+      if (allInvalid.has(tx.txHash)) {
+        invalid.push(tx.txHash);
+      } else {
+        valid.push(tx.txHash);
+      }
+    }
+
+    if (invalid.length > 0) {
+      this.log.verbose(`Pre-pending filter: ${invalid.length} invalid, ${valid.length} valid`, {
+        event: ctx.event,
+        invalidCount: invalid.length,
+        validCount: valid.length,
+      });
+    }
+
+    return { valid, invalid };
   }
 
   public updateConfig(config: TxPoolOptions): void {
