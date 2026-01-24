@@ -122,6 +122,7 @@ jobs:
   # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
   ci-network-scenario:
     runs-on: ubuntu-latest
+    timeout-minutes: 540
     # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
     # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
     needs: ci
