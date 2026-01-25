@@ -120,7 +120,7 @@ function network_tests {
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1 2)
+  local low_value_tps_list=(0.1 0.2 0.5 1)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
