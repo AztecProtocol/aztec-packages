@@ -130,3 +130,23 @@ The remote benchmark script:
 - Automatically builds the target if needed
 - Returns performance metrics and timing data
 - Should be used instead of local benchmarks for performance validation
+
+## Verification Keys
+
+To check whether vks have changed first build barretenberg native code:
+
+```bash
+cd barretenberg/cpp
+./bootstrap.sh build_native
+```
+and then run:
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh
+```
+
+If the vks have changed, you can update them using the script `./test_chonk_standalone_vks_havent_changed.sh ` with one of the following flags:
+- `--update_fast`, this flag updates the vks without regenerating the msgpack inputs
+- `--update_inputs`, this flag updates the vks and the msgpack inputs
+
+Both flags run proof test on the msgpack inputs to ensure that we can prove with the new vks. In case a proof test fails, the inputs for which proving has failed are saved to `yarn-project/end-to-end/xample-app-ivc-inputs-out` under a folder with name equal to the flow for which the proof test failed.
