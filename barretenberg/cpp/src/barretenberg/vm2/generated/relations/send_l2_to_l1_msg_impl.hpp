@@ -51,7 +51,7 @@ void send_l2_to_l1_msgImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
                    ((FF(1) - static_cast<View>(in.get(C::execution_sel_l2_to_l1_msg_limit_error))) *
                         (FF(1) - static_cast<View>(in.get(C::execution_is_static))) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_too_large_recipient_error))) -
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_too_large_recipient_error))) -
                     (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<3>(evals) += (tmp * scaling_factor);
     }

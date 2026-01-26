@@ -190,7 +190,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfRecipientTooLarge)
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
         { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
-        { C::execution_too_large_recipient_error, 1 },
+        { C::execution_sel_too_large_recipient_error, 1 },
         { C::execution_sel_l2_to_l1_msg_limit_error, 0 },
         { C::execution_is_static, 0 },
         { C::execution_sel_opcode_error, 1 },

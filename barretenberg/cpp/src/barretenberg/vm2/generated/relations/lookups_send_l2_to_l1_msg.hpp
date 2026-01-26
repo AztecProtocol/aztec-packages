@@ -24,7 +24,7 @@ struct lookup_send_l2_to_l1_msg_recipient_check_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_max_eth_address_value,
-        ColumnAndShifts::execution_too_large_recipient_error
+        ColumnAndShifts::execution_sel_too_large_recipient_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
