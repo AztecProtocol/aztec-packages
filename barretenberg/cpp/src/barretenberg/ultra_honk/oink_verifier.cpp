@@ -114,9 +114,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_r
 template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenge and compute powers (eta, eta², eta³)
-    FF eta = transcript->template get_challenge<FF>("eta");
-    relation_parameters.eta = eta;
-    relation_parameters.compute_eta_powers();
+    relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     // Get commitments to lookup argument polynomials and fourth wire
     witness_comms.lookup_read_counts =
@@ -134,9 +132,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inv
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
-    relation_parameters.beta = beta;
+    relation_parameters.compute_beta_powers(beta);
     relation_parameters.gamma = gamma;
-    relation_parameters.compute_beta_powers();
 
     witness_comms.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);

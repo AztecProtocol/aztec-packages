@@ -33,14 +33,16 @@ template <typename T> struct RelationParameters {
     T beta_cube{ 0 };
 
     // Compute eta powers from a single eta challenge
-    void compute_eta_powers()
+    void compute_eta_powers(const T& eta_challenge)
     {
+        eta = eta_challenge;
         eta_two = eta * eta;
         eta_three = eta_two * eta;
     }
 
-    void compute_beta_powers()
+    void compute_beta_powers(const T& beta_challenge)
     {
+        beta = beta_challenge;
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
     }
@@ -66,10 +68,8 @@ template <typename T> struct RelationParameters {
     static RelationParameters get_random()
     {
         RelationParameters result;
-        result.eta = T::random_element();
-        result.compute_eta_powers(); // eta_two = eta², eta_three = eta³
-        result.beta = T::random_element();
-        result.compute_beta_powers(); // beta_sqr = beta², beta_cube = beta³
+        result.compute_eta_powers(T::random_element());  // eta, eta_two = eta², eta_three = eta³
+        result.compute_beta_powers(T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *

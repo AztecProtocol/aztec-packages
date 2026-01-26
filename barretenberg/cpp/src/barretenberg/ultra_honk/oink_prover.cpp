@@ -144,9 +144,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenge and compute powers (eta, eta², eta³)
-    FF eta = transcript->template get_challenge<FF>("eta");
-    prover_instance->relation_parameters.eta = eta;
-    prover_instance->relation_parameters.compute_eta_powers();
+    prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
                                                                      prover_instance->memory_read_records,
@@ -180,9 +178,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
-    prover_instance->relation_parameters.beta = beta;
+    prover_instance->relation_parameters.compute_beta_powers(beta);
     prover_instance->relation_parameters.gamma = gamma;
-    prover_instance->relation_parameters.compute_beta_powers();
 
     // Compute the inverses used in log-derivative lookup relations
     WitnessComputation<Flavor>::compute_logderivative_inverses(
