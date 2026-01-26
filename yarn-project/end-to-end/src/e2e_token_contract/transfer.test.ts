@@ -28,13 +28,13 @@ describe('e2e_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const tx = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress }).wait();
+    const txReceipt = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress });
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
       contractAddress: asset.address,
-      fromBlock: tx.blockNumber!,
-      toBlock: BlockNumber(tx.blockNumber! + 1),
+      fromBlock: txReceipt.blockNumber!,
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
       scopes: [account1Address],
     });
 
@@ -45,9 +45,9 @@ describe('e2e_token_contract transfer private', () => {
         amount: amount,
       },
       metadata: {
-        l2BlockNumber: tx.blockNumber,
-        l2BlockHash: tx.blockHash,
-        txHash: tx.txHash,
+        l2BlockNumber: txReceipt.blockNumber,
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
       },
     });
   });
@@ -59,7 +59,7 @@ describe('e2e_token_contract transfer private', () => {
 
     const nonDeployed = await CompleteAddress.random();
 
-    await asset.methods.transfer(nonDeployed.address, amount).send({ from: adminAddress }).wait();
+    await asset.methods.transfer(nonDeployed.address, amount).send({ from: adminAddress });
 
     // Add the account as balance we should change, but since we don't have the key,
     // we cannot decrypt, and instead we simulate a transfer to address(0)
@@ -71,7 +71,7 @@ describe('e2e_token_contract transfer private', () => {
     const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer(adminAddress, amount).send({ from: adminAddress }).wait();
+    await asset.methods.transfer(adminAddress, amount).send({ from: adminAddress });
     tokenSim.transferPrivate(adminAddress, adminAddress, amount);
   });
 

@@ -1,8 +1,10 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -109,9 +111,9 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
     );
-    const sentTxs = await Promise.all(txs.map(tx => tx.send()));
-    logger.warn(`Sent ${sentTxs.length} transactions`, {
-      txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, {
+      txs: txHashes,
     });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -123,7 +125,10 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
 
     // Wait until all txs are mined with a generous timeout
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT + 4);
-    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait({ timeout }))), timeout * 1000);
+    await executeTimeout(
+      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
+      timeout * 1000,
+    );
     logger.warn(`All txs have been mined`);
 
     // Wait for at least one checkpoint to be mined
@@ -132,7 +137,7 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     logger.warn(`Checkpoint ${targetCheckpoint} has been mined`);
 
     // Get the checkpoints from the archiver
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${publishedCheckpoints.length} checkpoints from archiver`);
 
     // Log checkpoint information and verify MBPS
@@ -198,9 +203,9 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i + 100, 1n, false), { from: context.accounts[0] }),
     );
-    const sentTxs = await Promise.all(txs.map(tx => tx.send()));
-    logger.warn(`Sent ${sentTxs.length} transactions`, {
-      txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, {
+      txs: txHashes,
     });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -212,7 +217,10 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT + 6);
-    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait({ timeout }))), timeout * 1000);
+    await executeTimeout(
+      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
+      timeout * 1000,
+    );
     logger.warn(`All txs have been mined`);
 
     // Wait for at least 2 checkpoints
@@ -225,7 +233,7 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     );
 
     // Get the checkpoints from the archiver
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${publishedCheckpoints.length} checkpoints from archiver`);
 
     // Collect all blocks from all checkpoints

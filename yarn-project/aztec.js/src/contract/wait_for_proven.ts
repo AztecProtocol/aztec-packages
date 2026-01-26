@@ -2,7 +2,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxReceipt } from '@aztec/stdlib/tx';
 
-import { DefaultWaitOpts } from './sent_tx.js';
+import { DefaultWaitOpts } from './wait_opts.js';
 
 /**
  * Options for waiting for a transaction to be proven.

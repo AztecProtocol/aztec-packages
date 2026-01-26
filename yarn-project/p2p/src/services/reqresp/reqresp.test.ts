@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2BlockNew, type L2BlockSource } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
@@ -374,7 +374,7 @@ describe('ReqResp', () => {
     it('should handle block requests', async () => {
       const blockNumber = 1;
       const blockNumberFr = Fr.ONE;
-      const block = await L2BlockNew.random(BlockNumber(blockNumber));
+      const block = await L2Block.random(BlockNumber(blockNumber));
 
       const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
       l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
@@ -398,7 +398,7 @@ describe('ReqResp', () => {
       );
       expectSuccess(resp);
 
-      const res = L2BlockNew.fromBuffer(resp.data);
+      const res = L2Block.fromBuffer(resp.data);
       expect(res).toEqual(block);
     });
   });

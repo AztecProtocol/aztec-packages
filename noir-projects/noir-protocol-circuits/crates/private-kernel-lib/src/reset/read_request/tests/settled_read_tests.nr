@@ -60,6 +60,17 @@ fn duplicate_settled_read_requests() {
     assert_array_eq(builder.propagated_read_requests.array, []);
 }
 
+#[test(should_fail_with = "Settled read request must have zero contract address")]
+fn with_non_zero_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    // Add a read request with a non-zero contract address.
+    builder.add_settled_read(1);
+    builder.read_requests.array[0].contract_address.inner = 99;
+
+    builder.validate();
+}
+
 #[test(should_fail_with = "Hinted test leaf preimage does not match read request")]
 fn hint_points_to_wrong_leaf_preimage() {
     let mut builder = TestBuilder::new();

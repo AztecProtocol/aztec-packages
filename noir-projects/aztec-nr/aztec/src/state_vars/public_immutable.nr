@@ -172,7 +172,7 @@ impl<T> PublicImmutable<T, PublicContext> {
         WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
-    fn is_initialized(self) -> bool {
+    pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
 
         // Safety: it is safe to assume that the state variable has been initialized if the initialization nullifier

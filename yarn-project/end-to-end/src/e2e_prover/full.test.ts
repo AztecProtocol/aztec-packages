@@ -1,7 +1,8 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { waitForProven } from '@aztec/aztec.js/contracts';
-import { Tx, TxExecutionResult, TxReceipt } from '@aztec/aztec.js/tx';
+import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { Tx, TxExecutionResult } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
@@ -111,15 +112,13 @@ describe('full_prover', () => {
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
       logger.info(`Sending private tx`);
-      const txPrivate = privateProvenTx.send();
-      await txPrivate.wait({ timeout: 300, interval: 10 });
+      const txPrivateReceipt = await privateProvenTx.send({ wait: { timeout: 300, interval: 10 } });
 
       logger.info(`Sending public tx`);
-      const txPublic = publicProvenTx.send();
-      await txPublic.wait({ timeout: 300, interval: 10 });
+      const txPublicReceipt = await publicProvenTx.send({ wait: { timeout: 300, interval: 10 } });
 
       logger.info(`Both txs have been mined`);
-      const txs = [txPrivate, txPublic];
+      const receipts = [txPrivateReceipt, txPublicReceipt];
 
       // Flag the transfers on the token simulator
       tokenSim.transferPrivate(sender, recipient, privateSendAmount);
@@ -137,8 +136,7 @@ describe('full_prover', () => {
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
       await Promise.all(
-        txs.map(async tx => {
-          const receipt = await tx.wait({ timeout: 300, interval: 10 });
+        receipts.map(async receipt => {
           await waitForProven(t.aztecNode, receipt, { provenTimeout: 3000 });
         }),
       );
@@ -158,7 +156,7 @@ describe('full_prover', () => {
 
       // Get all checkpoints that were proven in this epoch
       const numCheckpointsProven = Number(newProvenCheckpointNumber) - Number(oldProvenCheckpointNumber);
-      const publishedCheckpoints = await t.aztecNode.getPublishedCheckpoints(
+      const publishedCheckpoints = await t.aztecNode.getCheckpoints(
         CheckpointNumber(Number(oldProvenCheckpointNumber) + 1),
         numCheckpointsProven,
       );
@@ -203,8 +201,7 @@ describe('full_prover', () => {
     // and we have more than one block in the epoch we end up proving
     logger.info(`Sending private txs`);
     // First block, one private tx
-    const firstTxPrivate = firstPrivateProvenTx.send();
-    await firstTxPrivate.wait({ timeout: 300, interval: 10 });
+    const firstTxPrivateReceipt = await firstPrivateProvenTx.send({ wait: { timeout: 300, interval: 10 } });
 
     // Create and send a set of 3 txs for the second block,
     // so we end up with three blocks and have merge and block-merge circuits
@@ -216,16 +213,16 @@ describe('full_prover', () => {
     const secondBlockProvenTxs = await Promise.all(
       secondBlockInteractions.map(p => proveInteraction(provenWallet, p, { from: sender })),
     );
-    const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
-    await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10 })));
+    const secondBlockReceipts = await Promise.all(
+      secondBlockProvenTxs.map(p => p.send({ wait: { timeout: 300, interval: 10 } })),
+    );
 
     logger.info(`Sending public tx`);
     // Third block, one public tx
-    const txPublic = publicProvenTx.send();
-    await txPublic.wait({ timeout: 300, interval: 10 });
+    const txPublicReceipt = await publicProvenTx.send({ wait: { timeout: 300, interval: 10 } });
 
     logger.info(`All txs have been mined`);
-    const txs = [firstTxPrivate, ...secondBlockTxs, txPublic];
+    const receipts = [firstTxPrivateReceipt, ...secondBlockReceipts, txPublicReceipt];
 
     // Flag the transfers on the token simulator
     tokenSim.transferPrivate(sender, recipient, privateSendAmount);
@@ -241,8 +238,7 @@ describe('full_prover', () => {
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);
     await Promise.all(
-      txs.map(async tx => {
-        const receipt = await tx.wait({ timeout: 300, interval: 10 });
+      receipts.map(async receipt => {
         await waitForProven(t.aztecNode, receipt, { provenTimeout: 1500 });
       }),
     );
@@ -288,12 +284,9 @@ describe('full_prover', () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
-    const sentPrivateTx = privateInteraction.send({ from: sender });
-    const sentPublicTx = publicInteraction.send({ from: sender });
-
     const results = await Promise.allSettled([
-      sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
-      sentPublicTx.wait({ timeout: 10, interval: 0.1 }),
+      privateInteraction.send({ from: sender, wait: { timeout: 10, interval: 0.1 } }),
+      publicInteraction.send({ from: sender, wait: { timeout: 10, interval: 0.1 } }),
     ]);
 
     expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(TX_ERROR_INVALID_PROOF);
@@ -324,32 +317,27 @@ describe('full_prover', () => {
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
       const data = provenTx.data;
-      const invalidTxs = await Promise.all(
-        Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
-          // Use a random ChonkProof and alter the public tx data to generate a unique invalid tx hash
-          const invalidProvenTx = new ProvenTx(
-            aztecNode,
-            await Tx.create({
-              data: new PrivateKernelTailCircuitPublicInputs(
-                data.constants,
-                data.gasUsed.add(new Gas(i + 1, 0)),
-                data.feePayer,
-                data.includeByTimestamp,
-                data.forPublic,
-                data.forRollup,
-              ),
-              chonkProof: ChonkProof.random(),
-              contractClassLogFields: provenTx.contractClassLogFields,
-              publicFunctionCalldata: provenTx.publicFunctionCalldata,
-            }),
-            [],
-          );
-          return invalidProvenTx.send();
-        }),
-      );
-
-      logger.info(`Sending proven tx`);
-      const validTx = provenTx.send();
+      const txPromises = Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
+        // Use a random ChonkProof and alter the public tx data to generate a unique invalid tx hash
+        const invalidProvenTx = new ProvenTx(
+          aztecNode,
+          await Tx.create({
+            data: new PrivateKernelTailCircuitPublicInputs(
+              data.constants,
+              data.gasUsed.add(new Gas(i + 1, 0)),
+              data.feePayer,
+              data.includeByTimestamp,
+              data.forPublic,
+              data.forRollup,
+            ),
+            chonkProof: ChonkProof.random(),
+            contractClassLogFields: provenTx.contractClassLogFields,
+            publicFunctionCalldata: provenTx.publicFunctionCalldata,
+          }),
+          [],
+        );
+        return invalidProvenTx.send({ wait: NO_WAIT });
+      }).concat([provenTx.send({ wait: NO_WAIT })]); // Add the valid tx at the end
 
       // Flag the valid transfer on the token simulator
       tokenSim.transferPrivate(sender, recipient, sendAmount);
@@ -359,10 +347,10 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const results = await Promise.allSettled([
-        ...invalidTxs.map(tx => tx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true })),
-        validTx.wait({ timeout: 300, interval: 10 }),
-      ]);
+      const results = await Promise.allSettled(txPromises);
+
+      const validTxHash = provenTx.getTxHash();
+      await waitForTx(aztecNode, validTxHash, { timeout: 300, interval: 10 });
 
       // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {
@@ -370,7 +358,7 @@ describe('full_prover', () => {
       }
 
       // Assert that the valid tx is successfully sent and mined
-      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<TxReceipt>).value;
+      const validTxReceipt = await aztecNode.getTxReceipt(validTxHash);
       expect(validTxReceipt.executionResult).toBe(TxExecutionResult.SUCCESS);
 
       logger.info(`Valid tx was mined and invalid txs were dropped by P2P node`);

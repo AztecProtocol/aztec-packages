@@ -318,22 +318,21 @@ export class ContractStore {
     };
   }
 
-  // Synchronize target contract data
-  public async syncPrivateState(
+  public async syncState(
     contractAddress: AztecAddress,
     functionToInvokeAfterSync: FunctionSelector | null,
     utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
   ) {
     // Protocol contracts don't have private state to sync
     if (!isProtocolContract(contractAddress)) {
-      const syncPrivateStateFunctionCall = await this.getFunctionCall('sync_private_state', [], contractAddress);
-      if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncPrivateStateFunctionCall.selector)) {
+      const syncStateFunctionCall = await this.getFunctionCall('sync_state', [], contractAddress);
+      if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncStateFunctionCall.selector)) {
         throw new Error(
-          'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
+          'Forbidden `sync_state` invocation. `sync_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
         );
       }
 
-      return utilityExecutor(syncPrivateStateFunctionCall);
+      return utilityExecutor(syncStateFunctionCall);
     }
   }
 }

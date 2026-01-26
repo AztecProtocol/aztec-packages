@@ -120,15 +120,15 @@ function network_tests {
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1 2)
+  local low_value_tps_list=(0.1 0.2 0.5 1)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
     local high_label=${high_value_tps/./_}
     local scenario="low_${low_label}_high_${high_label}"
-    local test_duration=1800 #30 mins
-    local timeout=7200 #2 hours
-    echo "$hash:TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+    local test_duration=600 #10 mins
+    local timeout=3600 #1 hour
+    echo "$hash:TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
   done
 }
 

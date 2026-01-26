@@ -87,7 +87,7 @@ Generate 5 validators with the publisher private key from Step 1:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --count 5 \
   --publishers 0x7988a4a779f058a0
@@ -255,7 +255,7 @@ For testing or simpler setups, you can create a single validator that uses its a
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC
 ```
 
@@ -341,7 +341,7 @@ For deterministic key generation or to recreate keys from an existing mnemonic:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your existing twelve word mnemonic phrase here" \
   --count 5 \
@@ -358,7 +358,7 @@ Specify custom directory and filename:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --count 5 \
   --publishers 0x7988a4a779f058a0 \

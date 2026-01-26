@@ -453,8 +453,8 @@ describe('Private Execution test suite', () => {
         returnTypes: functionArtifact.returnTypes,
       };
     });
-    contractStore.syncPrivateState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
-      await contractStore.getFunctionCall('sync_private_state', [], contractAddress);
+    contractStore.syncState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
+      await contractStore.getFunctionCall('sync_state', [], contractAddress);
     });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
@@ -745,7 +745,7 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], childAddress);
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [], childAddress);
     });
   });
 

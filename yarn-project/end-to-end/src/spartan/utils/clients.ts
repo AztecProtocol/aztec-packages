@@ -8,34 +8,35 @@ import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
 import type { TestConfig } from './config.js';
-import { startPortForward } from './k8s.js';
-import { getSequencers } from './nodes.js';
+import { type ServiceEndpoint, getEthereumEndpoint, getRPCEndpoint } from './k8s.js';
 
 const logger = createLogger('e2e:k8s-utils');
 
 /**
- * Returns a public viem client to the eth execution node. If it was part of a local eth devnet,
- * it first port-forwards the service and points to it. Otherwise, just uses the external RPC url.
+ * Returns a public viem client to the eth execution node.
+ * Tries external IP first, falls back to port-forward.
+ * If CREATE_ETH_DEVNET is false, uses the external RPC url from L1_RPC_URLS_JSON.
+ *
+ * @param env - Test environment config
+ * @param forcePortForward - If true, skip external IP and use port-forward directly
+ * @returns URL, client, and optional process (if port-forward was used). Caller must kill process when done.
  */
 export async function getPublicViemClient(
   env: TestConfig,
-  /** If set, will push the new process into it */
-  processes?: ChildProcess[],
-): Promise<{ url: string; client: ViemPublicClient; process?: ChildProcess }> {
+  forcePortForward?: boolean,
+): Promise<{
+  url: string;
+  client: ViemPublicClient;
+  process?: ChildProcess;
+}> {
   const { NAMESPACE, CREATE_ETH_DEVNET, L1_RPC_URLS_JSON } = env;
   if (CREATE_ETH_DEVNET) {
-    logger.info(`Creating port forward to eth execution node`);
-    const { process, port } = await startPortForward({
-      resource: `svc/${NAMESPACE}-eth-execution`,
-      namespace: NAMESPACE,
-      containerPort: 8545,
+    logger.info(`Connecting to eth execution node in namespace ${NAMESPACE}`);
+    const endpoint = await getEthereumEndpoint(NAMESPACE, forcePortForward);
+    const client: ViemPublicClient = createPublicClient({
+      transport: fallback([http(endpoint.url, { batch: false })]),
     });
-    const url = `http://127.0.0.1:${port}`;
-    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(url, { batch: false })]) });
-    if (processes) {
-      processes.push(process);
-    }
-    return { url, client, process };
+    return { url: endpoint.url, client, process: endpoint.process };
   } else {
     logger.info(`Connecting to the eth execution node at ${L1_RPC_URLS_JSON}`);
     if (!L1_RPC_URLS_JSON) {
@@ -48,20 +49,20 @@ export async function getPublicViemClient(
   }
 }
 
-/** Queries an Aztec node for the L1 deployment addresses */
-export async function getL1DeploymentAddresses(env: TestConfig): Promise<L1ContractAddresses> {
-  let forwardProcess: ChildProcess | undefined;
+/**
+ * Queries an Aztec node for the L1 deployment addresses.
+ *
+ * @param env - Test environment config
+ * @param forcePortForward - If true, skip external IP and use port-forward directly
+ */
+export async function getL1DeploymentAddresses(
+  env: TestConfig,
+  forcePortForward?: boolean,
+): Promise<L1ContractAddresses> {
+  let endpoint: ServiceEndpoint | undefined;
   try {
-    const [sequencer] = await getSequencers(env.NAMESPACE);
-    const { process, port } = await startPortForward({
-      resource: `pod/${sequencer}`,
-      namespace: env.NAMESPACE,
-      containerPort: 8080,
-    });
-
-    forwardProcess = process;
-    const url = `http://127.0.0.1:${port}`;
-    const node = createAztecNodeClient(url);
+    endpoint = await getRPCEndpoint(env.NAMESPACE, forcePortForward);
+    const node = createAztecNodeClient(endpoint.url);
     return await retry(
       () => node.getNodeInfo().then(i => i.l1ContractAddresses),
       'get node info',
@@ -69,38 +70,31 @@ export async function getL1DeploymentAddresses(env: TestConfig): Promise<L1Contr
       logger,
     );
   } finally {
-    forwardProcess?.kill();
+    endpoint?.process?.kill();
   }
 }
 
-/** Returns a client to the RPC of the given sequencer (defaults to first) */
+/**
+ * Returns a client to the RPC node.
+ * Tries external IP first, falls back to port-forward.
+ *
+ * @param env - Test environment config
+ * @param forcePortForward - If true, skip external IP and use port-forward directly
+ */
 export async function getNodeClient(
   env: TestConfig,
-  index: number = 0,
-): Promise<{ node: ReturnType<typeof createAztecNodeClient>; port: number; process: ChildProcess }> {
+  forcePortForward?: boolean,
+): Promise<{ node: ReturnType<typeof createAztecNodeClient>; url: string; process?: ChildProcess }> {
   const namespace = env.NAMESPACE;
-  const containerPort = 8080;
-  const sequencers = await getSequencers(namespace);
-  const sequencer = sequencers[index];
-  if (!sequencer) {
-    throw new Error(`No sequencer found at index ${index} in namespace ${namespace}`);
-  }
 
-  const { process, port } = await startPortForward({
-    resource: `pod/${sequencer}`,
-    namespace,
-    containerPort,
-  });
-
-  const url = `http://localhost:${port}`;
+  const endpoint = await getRPCEndpoint(namespace, forcePortForward);
   await retry(
-    () => fetch(`${url}/status`).then(res => res.status === 200),
-    'forward port',
+    () => fetch(`${endpoint.url}/status`).then(res => res.status === 200),
+    'check RPC endpoint',
     makeBackoff([1, 1, 2, 6]),
     logger,
     true,
   );
-
-  const client = createAztecNodeClient(url);
-  return { node: client, port, process };
+  const client = createAztecNodeClient(endpoint.url);
+  return { node: client, url: endpoint.url, process: endpoint.process };
 }

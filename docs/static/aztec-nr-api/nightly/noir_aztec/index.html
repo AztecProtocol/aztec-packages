@@ -21,6 +21,7 @@
 <ul class="sidebar-list">
 <li><a href="#re-exports">Re-exports</a></li>
 <li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
 </ul>
 <h3>Crates</h3>
 <ul class="sidebar-list">
@@ -49,12 +50,12 @@ you already know which module you're interested in, just navigate to it directly
 <p>Here are some frequently used modules:</p>
 <ul>
 <li><a href="../noir_aztec/macros/index.html"><code>macros</code></a>: the attributes applied to contract functions, such as
-<a href=""><code>[#external]</code></a> and <a href=""><code>[#initializer]</code></a>,
-as well as definition of contract types such as <a href=""><code>[#storage]</code></a> and
+<a href="../noir_aztec/macros/functions/fn.external.html"><code>[#external]</code></a> and <a href="../noir_aztec/macros/functions/fn.initializer.html"><code>[#initializer]</code></a>,
+as well as definition of contract types such as <a href="../noir_aztec/macros/storage/fn.storage.html"><code>[#storage]</code></a> and
 <a href=""><code>[#event]</code></a>.</li>
 <li><a href="../noir_aztec/state_vars/index.html"><code>state_vars</code></a>: types for on-chain storage of contract state, such as
-<a href="../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html"><code>PrivateMutable</code></a>,
-<a href="../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html"><code>PublicMutable</code></a> and <a href="../noir_aztec/state_vars/map/struct.Map.html"><code>Map</code></a>.</li>
+<a href="../noir_aztec/state_vars/struct.PrivateMutable.html"><code>PrivateMutable</code></a>,
+<a href="../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a> and <a href="../noir_aztec/state_vars/map/struct.Map.html"><code>Map</code></a>.</li>
 <li><a href="../noir_aztec/test/index.html"><code>test</code></a>: for writing Aztec tests in Noir using
 <a href="../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a> and <a href="../noir_aztec/test/mocks/index.html">mocks</a>.</li>
 </ul></div>
@@ -64,7 +65,6 @@ as well as definition of contract types such as <a href=""><code>[#storage]</cod
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="authwit/index.html" class="module">authwit</a></div><div class="item-description">Authorization.</div></li>
 <li><div class="item-name"><a href="context/index.html" class="module">context</a></div><div class="item-description">Private, public and utility execution contexts.</div></li>
-<li><div class="item-name"><a href="contract_self/index.html" class="module">contract_self</a></div><div class="item-description">The <code>self</code> contract value.</div></li>
 <li><div class="item-name"><a href="event/index.html" class="module">event</a></div><div class="item-description">Event traits and utilities.</div></li>
 <li><div class="item-name"><a href="hash/index.html" class="module">hash</a></div><div class="item-description">Aztec hash functions.</div></li>
 <li><div class="item-name"><a href="history/index.html" class="module">history</a></div><div class="item-description">Proofs of Aztec history.</div></li>
@@ -72,11 +72,15 @@ as well as definition of contract types such as <a href=""><code>[#storage]</cod
 <li><div class="item-name"><a href="macros/index.html" class="module">macros</a></div><div class="item-description">Definition of Aztec contract functions, storage, notes and events.</div></li>
 <li><div class="item-name"><a href="messages/index.html" class="module">messages</a></div><div class="item-description">Message encoding, encryption, delivery and processing.</div></li>
 <li><div class="item-name"><a href="note/index.html" class="module">note</a></div><div class="item-description">Note traits and utilities.</div></li>
+<li><div class="item-name"><a href="nullifier/index.html" class="module">nullifier</a></div><div class="item-description">Nullifier-related utilities.</div></li>
 <li><div class="item-name"><a href="oracle/index.html" class="module">oracle</a></div><div class="item-description">Standard PXE oracles.</div></li>
 <li><div class="item-name"><a href="publish_contract_instance/index.html" class="module">publish_contract_instance</a></div><div class="item-description">Public contract deployment.</div></li>
 <li><div class="item-name"><a href="state_vars/index.html" class="module">state_vars</a></div><div class="item-description">Storage for contract state.</div></li>
 <li><div class="item-name"><a href="test/index.html" class="module">test</a></div><div class="item-description">The <a href="../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a> utility and mock types.</div></li>
 <li><div class="item-name"><a href="utils/index.html" class="module">utils</a></div><div class="item-description">Miscellaneous utilities.</div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.ContractSelf.html" class="struct">ContractSelf</a></div><div class="item-description">Core interface for interacting with aztec-nr contract features.</div></li>
 </ul>
 </main>
 </span>

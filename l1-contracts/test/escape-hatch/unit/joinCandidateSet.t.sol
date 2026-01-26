@@ -4,13 +4,41 @@ pragma solidity >=0.8.27;
 
 import {EscapeHatchBase, EscapeHatchConfig} from "../base.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IEscapeHatchCore, Status, CandidateInfo, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
+import {IEscapeHatchCore, Status, CandidateInfo, Hatch, Epoch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 
 contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
+  function test_GivenSystemIsInEarlyPeriod() external {
+    // it should revert {EscapeHatch__HatchTooEarly}
+
+    // At epoch 0, targetHatch = 1 (LAG_IN_HATCHES = 1)
+    // getSetTimestamp(1) computes firstEpoch = _getFirstEpoch(1-1) = epoch 0
+    // Since epoch 0 < LAG_IN_EPOCHS_FOR_SET_SIZE (2), it reverts
+    Epoch currentEpoch = _getCurrentEpoch();
+    Hatch currentHatch = escapeHatch.getCurrentHatch();
+    assertEq(Epoch.unwrap(currentEpoch), 0, "Should be at epoch 0");
+    assertEq(Hatch.unwrap(currentHatch), 0, "Should be at hatch 0");
+
+    Hatch targetHatch = currentHatch + Hatch.wrap(escapeHatch.getLagInHatches());
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.EscapeHatch__HatchTooEarly.selector, targetHatch));
+    escapeHatch.getSetTimestamp(targetHatch);
+
+    _mintAndApprove(CANDIDATE1, DEFAULT_BOND_SIZE);
+    vm.expectRevert(abi.encodeWithSelector(Errors.EscapeHatch__HatchTooEarly.selector, targetHatch));
+    vm.prank(CANDIDATE1);
+    escapeHatch.joinCandidateSet();
+  }
+
+  modifier givenSystemIsPastEarlyPeriod() {
+    assertGt(Hatch.unwrap(escapeHatch.getCurrentHatch()), 0);
+    _;
+  }
+
   function test_GivenCallerIsAlreadyInCandidateSet(EscapeHatchConfig memory _config)
     external
     givenValidConfig(_config)
+    givenSystemIsPastEarlyPeriod
   {
     // it should revert {EscapeHatch__AlreadyInCandidateSet}
     _joinCandidateSetWithConfig(CANDIDATE1);
@@ -30,6 +58,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
   function test_GivenCallerHasNon_NONEStatus(EscapeHatchConfig memory _config)
     external
     givenValidConfig(_config)
+    givenSystemIsPastEarlyPeriod
     givenCallerIsNotInCandidateSet
   {
     // it should revert {EscapeHatch__InvalidStatus}
@@ -75,6 +104,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
   function test_RevertGiven_CallerHasInsufficientBondTokenBalance(EscapeHatchConfig memory _config)
     external
     givenValidConfig(_config)
+    givenSystemIsPastEarlyPeriod
     givenCallerIsNotInCandidateSet
     givenCallerHasNONEStatus
   {
@@ -98,6 +128,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
   function test_RevertGiven_CallerHasNotApprovedBondToken(EscapeHatchConfig memory _config)
     external
     givenValidConfig(_config)
+    givenSystemIsPastEarlyPeriod
     givenCallerIsNotInCandidateSet
     givenCallerHasNONEStatus
     givenCallerHasSufficientBondTokenBalance
@@ -113,6 +144,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
   function test_GivenCallerHasApprovedBondToken(EscapeHatchConfig memory _config)
     external
     givenValidConfig(_config)
+    givenSystemIsPastEarlyPeriod
     givenCallerIsNotInCandidateSet
     givenCallerHasNONEStatus
     givenCallerHasSufficientBondTokenBalance

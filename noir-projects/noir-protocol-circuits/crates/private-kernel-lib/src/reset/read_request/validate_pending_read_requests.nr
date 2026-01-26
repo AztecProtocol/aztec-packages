@@ -14,33 +14,33 @@ impl PendingReadHint {
     }
 }
 
-// Validates that "pending" read requests (reads of values emitted earlier in the same transaction) are valid.
-//
-// Context:
-// - Pending values are those produced within the current transaction. This array contains values that may be emitted
-//   before or after the read requests were made.
-// - Each `PendingReadHint` provides indices to link a read request with its corresponding pending value.
-// - Unused hints must be marked with `read_request_index == ReadRequestLen`.
-//
-// Invariants checked:
-// 1. If a hint is active (its `read_request_index` is not `ReadRequestLen`):
-//    - The `pending_value_index` must be within the claimed length.
-//    - The pending value must match the corresponding read request.
-//    - The pending value must be emitted before the read request (i.e., the pending value's counter is less than the
-//      read request's counter).
-// 2. If a hint is inactive (its `read_request_index == ReadRequestLen`):
-//    - It is ignored (no validation performed).
-//
-// More info here:
-// - https://discourse.aztec.network/t/to-read-or-not-to-read/178
-// - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
+/// Validates that "pending" read requests (reads of values emitted earlier in the same transaction) are valid.
+///
+/// Context:
+/// - Pending values are those produced within the current transaction. This array contains values that may be emitted
+///   before or after the read requests were made.
+/// - Each `PendingReadHint` provides indices to link a read request with its corresponding pending value.
+/// - Unused hints must be marked with `read_request_index == ReadRequestLen`.
+///
+/// Invariants checked:
+/// 1. If a hint is active (its `read_request_index` is NOT `ReadRequestLen`):
+///    - The `pending_value_index` must be within the claimed length.
+///    - The pending value must match the corresponding read request.
+///    - The pending value must be emitted before the read request (i.e., the pending value's counter is less than the
+///      read request's counter).
+/// 2. If a hint is inactive (its `read_request_index` is `ReadRequestLen`):
+///    - It is ignored (no validation performed).
+///
+/// More info here:
+/// - https://discourse.aztec.network/t/to-read-or-not-to-read/178
+/// - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 pub fn validate_pending_read_requests<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    pending_values: ClaimedLengthArray<Value, PendingValueLen>,
+    pending_values: ClaimedLengthArray<Scoped<Counted<Value>>, PendingValueLen>,
     hints: [PendingReadHint; PendingReadHintsLen],
 )
 where
-    Value: Readable + Ordered,
+    Value: Readable,
 {
     for hint in hints {
         let read_request_index = hint.read_request_index;
@@ -53,8 +53,18 @@ where
 
             let read_request = read_requests.array[read_request_index];
             let pending_value = pending_values.array[hint.pending_value_index];
-            pending_value.assert_match_read_request(read_request);
 
+            // Validate that the pending value matches the read request.
+            pending_value.innermost().assert_match_read_request(read_request.innermost());
+
+            // Validate that the pending value has the same contract address as the read request.
+            assert_eq(
+                pending_value.contract_address,
+                read_request.contract_address,
+                "Contract address of the pending value does not match read request",
+            );
+
+            // Validate that the pending value was emitted before the read request.
             assert(
                 pending_value.counter() < read_request.counter(),
                 "Pending value must be emitted before the read request",

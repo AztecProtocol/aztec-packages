@@ -13,14 +13,14 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
   function _setupProposerWithFakeRollup() internal returns (Hatch) {
     _deployWithFakeRollup();
 
+    // Warp to safe epoch to avoid HatchTooEarly when joining
+    _warpToSafeEpoch();
+
     // Add candidate and set up as proposer
     _joinCandidateSetWithConfig(CANDIDATE1);
 
-    // Warp to safe epoch to avoid underflow in selectCandidates
-    _warpToSafeEpoch();
-
-    // Warp forward a bit more to ensure snapshot is stable
-    _warpForwardEpochs(3);
+    // Warp forward to ensure candidate is in snapshot
+    _warpForwardEpochs(config.frequency);
 
     // Select candidates
     escapeHatch.selectCandidates();

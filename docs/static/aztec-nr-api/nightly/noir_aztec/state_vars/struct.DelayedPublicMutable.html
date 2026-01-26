@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct DelayedPublicMutable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">DelayedPublicMutable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct DelayedPublicMutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_current_delay">get_current_delay</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_scheduled_delay">get_scheduled_delay</a></li>
+<li><a href="#get_scheduled_value">get_scheduled_value</a></li>
+<li><a href="#schedule_and_return_value_change">schedule_and_return_value_change</a></li>
+<li><a href="#schedule_delay_change">schedule_delay_change</a></li>
+<li><a href="#schedule_value_change">schedule_value_change</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>">StateVariable&lt;M+1, Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="map/index.html">map</a></div></li>
+<li><a href="owned/index.html">owned</a></div></li>
+<li><a href="owned_state_variable/index.html">owned_state_variable</a></div></li>
+<li><a href="state_variable/index.html">state_variable</a></div></li>
+<li><a href="storage/index.html">storage</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">DelayedPublicMutable</span></h1>
+<pre><code>pub struct DelayedPublicMutable&lt;T, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="schedule_value_change" class="code-header">pub fn <a href="#schedule_value_change"><span class="fn">schedule_value_change</span></a>(self, new_value: T)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="schedule_and_return_value_change" class="code-header">pub fn <a href="#schedule_and_return_value_change"><span class="fn">schedule_and_return_value_change</span></a>(self, new_value: T) -> <a href="../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="schedule_delay_change" class="code-header">pub fn <a href="#schedule_delay_change"><span class="fn">schedule_delay_change</span></a>(self, new_delay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="get_current_delay" class="code-header">pub fn <a href="#get_current_delay"><span class="fn">get_current_delay</span></a>(self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a>
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="get_scheduled_value" class="code-header">pub fn <a href="#get_scheduled_value"><span class="fn">get_scheduled_value</span></a>(self) -> (T, <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code id="get_scheduled_delay" class="code-header">pub fn <a href="#get_scheduled_delay"><span class="fn">get_scheduled_delay</span></a>(self) -> (<a href="../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub unconstrained fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>"><code class="code-header">impl&lt;Context, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, Context&gt;
+<div class="where-clause">where
+    <a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, InitialDelay&gt;: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

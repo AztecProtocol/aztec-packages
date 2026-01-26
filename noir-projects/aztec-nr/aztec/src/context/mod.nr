@@ -22,3 +22,6 @@ pub mod gas;
 
 mod note_existence_request;
 pub use note_existence_request::NoteExistenceRequest;
+
+mod nullifier_existence_request;
+pub use nullifier_existence_request::NullifierExistenceRequest;

@@ -4,34 +4,61 @@
  * This module provides ECDH key exchange and AES-GCM encryption primitives
  * for establishing secure communication channels between dApps and wallet extensions.
  *
- * The crypto flow:
+ * ## Security Model
+ *
+ * The crypto flow uses HKDF for key derivation with domain separation:
+ *
  * 1. Both parties generate ECDH key pairs using {@link generateKeyPair}
  * 2. Public keys are exchanged (exported via {@link exportPublicKey}, imported via {@link importPublicKey})
- * 3. Both parties derive the same shared secret using {@link deriveSharedKey}
- * 4. Messages are encrypted/decrypted using {@link encrypt} and {@link decrypt}
+ * 3. Both parties derive keys using {@link deriveSessionKeys}:
+ *    - ECDH produces raw shared secret
+ *    - HKDF expands the secret into 512 bits using concatenated public keys as salt
+ *    - The 512 bits are split: first 256 bits for AES-GCM, second 256 bits for HMAC
+ * 4. Fingerprint is computed as HMAC(HMAC_KEY, "aztec-wallet-verification-verificationHash")
+ * 5. Messages are encrypted/decrypted using {@link encrypt} and {@link decrypt}
+ *
+ * This design ensures:
+ * - The encryption key is never exposed (verificationHash uses separate HMAC key)
+ * - Public keys are bound to the derived keys via HKDF salt
+ * - Single HKDF derivation with domain-separated output splitting
+ *
+ * ## Curve Choice
+ *
+ * We use P-256 (secp256r1) because it's the only ECDH curve with broad Web Crypto API
+ * support across all browsers. X25519 would be preferable for its simplicity and
+ * resistance to implementation errors, but it lacks universal browser support.
  *
  * @example
  * ```typescript
- * // Party A
+ * // Party A (dApp)
  * const keyPairA = await generateKeyPair();
  * const publicKeyA = await exportPublicKey(keyPairA.publicKey);
  *
- * // Party B
+ * // Party B (wallet)
  * const keyPairB = await generateKeyPair();
  * const publicKeyB = await exportPublicKey(keyPairB.publicKey);
  *
- * // Exchange public keys, then derive shared secret
+ * // Exchange public keys, then derive session keys
+ * // App side: isApp = true
  * const importedB = await importPublicKey(publicKeyB);
- * const sharedKeyA = await deriveSharedKey(keyPairA.privateKey, importedB);
+ * const sessionA = await deriveSessionKeys(keyPairA, importedB, true);
+ *
+ * // Wallet side: isApp = false
+ * const importedA = await importPublicKey(publicKeyA);
+ * const sessionB = await deriveSessionKeys(keyPairB, importedA, false);
+ *
+ * // Both parties compute the same verificationHash for verification
+ * const verificationHashA = sessionA.verificationHash;
+ * const emojiA = hashToEmoji(verificationHashA);
  *
  * // Encrypt and decrypt
- * const encrypted = await encrypt(sharedKeyA, { message: 'hello' });
- * const decrypted = await decrypt(sharedKeyB, encrypted);
+ * const encrypted = await encrypt(sessionA.encryptionKey, JSON.stringify({ message: 'hello' }));
+ * const decrypted = await decrypt(sessionB.encryptionKey, encrypted);
  * ```
  *
  * @packageDocumentation
  */
-import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { EMOJI_ALPHABET, EMOJI_ALPHABET_SIZE } from './emoji_alphabet.js';
 
 /**
  * Exported public key in JWK format for transmission over untrusted channels.
@@ -75,10 +102,30 @@ export interface SecureKeyPair {
 }
 
 /**
+ * Session keys derived from ECDH key exchange.
+ *
+ * Contains both the encryption key and the verification hash (verificationHash)
+ * computed from a separate HMAC key.
+ */
+export interface SessionKeys {
+  /** AES-256-GCM key for message encryption/decryption */
+  encryptionKey: CryptoKey;
+  /** Hex-encoded verificationHash for verification */
+  verificationHash: string;
+}
+
+/** P-256 coordinate size in bytes */
+const P256_COORDINATE_SIZE = 32;
+
+// HKDF info string for key derivation
+const HKDF_INFO = new TextEncoder().encode('Aztec Wallet DAPP Key derivation');
+const FINGERPRINT_DATA = new TextEncoder().encode('aztec-wallet-verification-verificationHash');
+
+/**
  * Generates an ECDH P-256 key pair for key exchange.
  *
- * The generated key pair can be used to derive a shared secret with another
- * party's public key using {@link deriveSharedKey}.
+ * The generated key pair can be used to derive session keys with another
+ * party's public key using {@link deriveSessionKeys}.
  *
  * @returns A new ECDH key pair
  *
@@ -95,8 +142,8 @@ export async function generateKeyPair(): Promise<SecureKeyPair> {
       name: 'ECDH',
       namedCurve: 'P-256',
     },
-    true, // extractable (needed to export public key)
-    ['deriveKey'],
+    true, // extractable (needed to export public key and derive bits)
+    ['deriveBits'],
   );
   return {
     publicKey: keyPair.publicKey,
@@ -133,16 +180,16 @@ export async function exportPublicKey(publicKey: CryptoKey): Promise<ExportedPub
 /**
  * Imports a public key from JWK format.
  *
- * Used to import the other party's public key for deriving a shared secret.
+ * Used to import the other party's public key for deriving session keys.
  *
  * @param exported - The public key in JWK format
- * @returns A CryptoKey that can be used with {@link deriveSharedKey}
+ * @returns A CryptoKey that can be used with {@link deriveSessionKeys}
  *
  * @example
  * ```typescript
- * // Receive exported public key from other party
- * const theirPublicKey = await importPublicKey(receivedPublicKey);
- * const sharedKey = await deriveSharedKey(myPrivateKey, theirPublicKey);
+ * // App side: receive wallet's public key and derive session
+ * const walletPublicKey = await importPublicKey(receivedWalletKey);
+ * const session = await deriveSessionKeys(appKeyPair, walletPublicKey, true);
  * ```
  */
 export function importPublicKey(exported: ExportedPublicKey): Promise<CryptoKey> {
@@ -158,67 +205,171 @@ export function importPublicKey(exported: ExportedPublicKey): Promise<CryptoKey>
       name: 'ECDH',
       namedCurve: 'P-256',
     },
-    false,
+    true, // extractable - needed for deriveSessionKeys to export for salt. Safe for public keys.
     [],
   );
 }
 
 /**
- * Derives a shared AES-256-GCM key from ECDH key exchange.
+ * Decodes a base64url-encoded coordinate to fixed-size bytes.
  *
- * Both parties will derive the same shared key when using their own private key
- * and the other party's public key. This is the core of ECDH key agreement.
+ * For P-256, coordinates are always 32 bytes. This function ensures
+ * consistent serialization regardless of leading zeros.
  *
- * @param privateKey - Your ECDH private key
- * @param publicKey - The other party's ECDH public key
- * @returns An AES-256-GCM key for encryption/decryption
+ * @param base64url - Base64url-encoded coordinate
+ * @param size - Expected size in bytes (32 for P-256)
+ * @returns Fixed-size Uint8Array, left-padded with zeros if needed
+ */
+function decodeCoordinateFixedSize(base64url: string, size: number): Uint8Array {
+  const decoded = base64UrlToBytes(base64url);
+  if (decoded.length === size) {
+    return decoded;
+  }
+  if (decoded.length > size) {
+    throw new Error(`Invalid P-256 coordinate: expected ${size} bytes, got ${decoded.length}`);
+  }
+  // Left-pad with zeros
+  const padded = new Uint8Array(size);
+  padded.set(decoded, size - decoded.length);
+  return padded;
+}
+
+/**
+ * Creates HKDF salt from public keys with fixed ordering by party role.
+ *
+ * The app's public key always comes first, followed by the wallet's public key.
+ * This ensures both parties produce the same salt.
+ *
+ * @param appKey - The app's public key in exported format
+ * @param walletKey - The wallet's public key in exported format
+ * @returns Concatenated bytes: app_x || app_y || wallet_x || wallet_y (128 bytes for P-256)
+ */
+function createSaltFromPublicKeys(appKey: ExportedPublicKey, walletKey: ExportedPublicKey): ArrayBuffer {
+  // Fixed ordering: app first, then wallet
+  // Each coordinate is fixed at 32 bytes for P-256
+  const appX = decodeCoordinateFixedSize(appKey.x, P256_COORDINATE_SIZE);
+  const appY = decodeCoordinateFixedSize(appKey.y, P256_COORDINATE_SIZE);
+  const walletX = decodeCoordinateFixedSize(walletKey.x, P256_COORDINATE_SIZE);
+  const walletY = decodeCoordinateFixedSize(walletKey.y, P256_COORDINATE_SIZE);
+
+  // Total: 4 * 32 = 128 bytes
+  const salt = new Uint8Array(4 * P256_COORDINATE_SIZE);
+  salt.set(appX, 0);
+  salt.set(appY, P256_COORDINATE_SIZE);
+  salt.set(walletX, 2 * P256_COORDINATE_SIZE);
+  salt.set(walletY, 3 * P256_COORDINATE_SIZE);
+
+  return salt.buffer as ArrayBuffer;
+}
+
+/**
+ * Derives session keys from ECDH key exchange using HKDF.
+ *
+ * This is the main key derivation function that produces:
+ * 1. An AES-256-GCM encryption key (first 256 bits)
+ * 2. An HMAC key for verificationHash computation (second 256 bits)
+ * 3. A verificationHash computed as HMAC(hmacKey, "aztec-wallet-verification-verificationHash")
+ *
+ * The keys are derived using a single HKDF call that produces 512 bits,
+ * then split into the two keys.
+ *
+ * @param ownKeyPair - The caller's ECDH key pair (private for ECDH, public for salt)
+ * @param peerPublicKey - The peer's ECDH public key (for ECDH and salt)
+ * @param isApp - true if caller is the app, false if caller is the wallet
+ * @returns Session keys containing encryption key and verificationHash
  *
  * @example
  * ```typescript
- * // Both parties derive the same key
- * const sharedKeyA = await deriveSharedKey(privateKeyA, publicKeyB);
- * const sharedKeyB = await deriveSharedKey(privateKeyB, publicKeyA);
- * // sharedKeyA and sharedKeyB are equivalent
+ * // App side
+ * const sessionA = await deriveSessionKeys(appKeyPair, walletPublicKey, true);
+ * // Wallet side
+ * const sessionB = await deriveSessionKeys(walletKeyPair, appPublicKey, false);
+ * // sessionA.verificationHash === sessionB.verificationHash
  * ```
  */
-export function deriveSharedKey(privateKey: CryptoKey, publicKey: CryptoKey): Promise<CryptoKey> {
-  return crypto.subtle.deriveKey(
+export async function deriveSessionKeys(
+  ownKeyPair: SecureKeyPair,
+  peerPublicKey: CryptoKey,
+  isApp: boolean,
+): Promise<SessionKeys> {
+  // Step 1: ECDH to get raw shared secret
+  const sharedSecretBits = await crypto.subtle.deriveBits(
     {
       name: 'ECDH',
-      public: publicKey,
+      public: peerPublicKey,
     },
-    privateKey,
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    true, // extractable - needed for hashing
-    ['encrypt', 'decrypt'],
+    ownKeyPair.privateKey,
+    256,
   );
+
+  // Step 2: Import shared secret as HKDF key material
+  const hkdfKey = await crypto.subtle.importKey('raw', sharedSecretBits, { name: 'HKDF' }, false, ['deriveBits']);
+
+  // Step 3: Export public keys and create salt (app first, wallet second)
+  const ownExportedKey = await exportPublicKey(ownKeyPair.publicKey);
+  const peerExportedKey = await exportPublicKey(peerPublicKey);
+  const appPublicKey = isApp ? ownExportedKey : peerExportedKey;
+  const walletPublicKey = isApp ? peerExportedKey : ownExportedKey;
+  const salt = createSaltFromPublicKeys(appPublicKey, walletPublicKey);
+
+  // Step 4: Derive 512 bits in a single HKDF call
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt,
+      info: HKDF_INFO,
+    },
+    hkdfKey,
+    512, // 256 bits for GCM + 256 bits for HMAC
+  );
+
+  // Step 5: Split into GCM key (first 256 bits) and HMAC key (second 256 bits)
+  const gcmKeyBits = derivedBits.slice(0, 32);
+  const hmacKeyBits = derivedBits.slice(32, 64);
+
+  // Step 6: Import GCM key
+  const encryptionKey = await crypto.subtle.importKey('raw', gcmKeyBits, { name: 'AES-GCM', length: 256 }, false, [
+    'encrypt',
+    'decrypt',
+  ]);
+
+  // Step 7: Import HMAC key
+  const hmacKey = await crypto.subtle.importKey('raw', hmacKeyBits, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+
+  // Step 8: Compute verificationHash as HMAC of fixed string
+  const verificationHashBytes = await crypto.subtle.sign('HMAC', hmacKey, FINGERPRINT_DATA);
+
+  // Convert to hex string
+  const verificationHash = arrayBufferToHex(verificationHashBytes);
+
+  return {
+    encryptionKey,
+    verificationHash,
+  };
 }
 
 /**
  * Encrypts data using AES-256-GCM.
  *
- * The data is JSON serialized before encryption. A random 12-byte IV is
- * generated for each encryption operation.
+ * A random 12-byte IV is generated for each encryption operation.
  *
  * AES-GCM provides both confidentiality and authenticity - any tampering
  * with the ciphertext will cause decryption to fail.
  *
- * @param key - The AES-GCM key (from {@link deriveSharedKey})
- * @param data - The data to encrypt (will be JSON serialized)
+ * @param key - The AES-GCM key (from {@link deriveSessionKeys})
+ * @param data - The string data to encrypt (caller is responsible for serialization)
  * @returns The encrypted payload with IV and ciphertext
  *
  * @example
  * ```typescript
- * const encrypted = await encrypt(sharedKey, { action: 'transfer', amount: 100 });
+ * const encrypted = await encrypt(session.encryptionKey, JSON.stringify({ action: 'transfer', amount: 100 }));
  * // encrypted.iv and encrypted.ciphertext are base64 strings
  * ```
  */
-export async function encrypt(key: CryptoKey, data: unknown): Promise<EncryptedPayload> {
+export async function encrypt(key: CryptoKey, data: string): Promise<EncryptedPayload> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(jsonStringify(data));
+  const encoded = new TextEncoder().encode(data);
 
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
 
@@ -234,7 +385,7 @@ export async function encrypt(key: CryptoKey, data: unknown): Promise<EncryptedP
  * The decrypted data is JSON parsed before returning.
  *
  * @typeParam T - The expected type of the decrypted data
- * @param key - The AES-GCM key (from {@link deriveSharedKey})
+ * @param key - The AES-GCM key (from {@link deriveSessionKeys})
  * @param payload - The encrypted payload from {@link encrypt}
  * @returns The decrypted and parsed data
  *
@@ -242,7 +393,7 @@ export async function encrypt(key: CryptoKey, data: unknown): Promise<EncryptedP
  *
  * @example
  * ```typescript
- * const decrypted = await decrypt<{ action: string; amount: number }>(sharedKey, encrypted);
+ * const decrypted = await decrypt<{ action: string; amount: number }>(session.encryptionKey, encrypted);
  * console.log(decrypted.action); // 'transfer'
  * ```
  */
@@ -283,93 +434,66 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 /**
- * Emoji alphabet for visual verification of shared secrets.
- * 32 distinct, easily recognizable emojis for anti-spoofing verification.
+ * Converts base64url string to Uint8Array.
  * @internal
  */
-const EMOJI_ALPHABET = [
-  '🔵',
-  '🟢',
-  '🔴',
-  '🟡',
-  '🟣',
-  '🟠',
-  '⚫',
-  '⚪',
-  '🌟',
-  '🌙',
-  '☀️',
-  '🌈',
-  '🔥',
-  '💧',
-  '🌸',
-  '🍀',
-  '🦋',
-  '🐬',
-  '🦊',
-  '🐼',
-  '🦁',
-  '🐯',
-  '🐸',
-  '🦉',
-  '🎵',
-  '🎨',
-  '🎯',
-  '🎲',
-  '🔔',
-  '💎',
-  '🔑',
-  '🏆',
-];
+function base64UrlToBytes(base64url: string): Uint8Array {
+  // Convert base64url to base64
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  // Add padding if needed
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 /**
- * Hashes a shared AES key to a hex string for verification.
- *
- * This extracts the raw key material and hashes it with SHA-256,
- * returning the first 16 bytes as a hex string.
- *
- * @param sharedKey - The AES-GCM shared key (must be extractable)
- * @returns A hex string representation of the hash
- *
- * @example
- * ```typescript
- * const hash = await hashSharedSecret(sharedKey);
- * const emoji = hashToEmoji(hash);
- * ```
+ * Converts ArrayBuffer to hex string.
+ * @internal
  */
-export async function hashSharedSecret(sharedKey: CryptoKey): Promise<string> {
-  const rawKey = await crypto.subtle.exportKey('raw', sharedKey);
-  const hash = await crypto.subtle.digest('SHA-256', rawKey);
-  const bytes = new Uint8Array(hash.slice(0, 16));
+function arrayBufferToHex(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
   return Array.from(bytes)
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
 /**
+ * Default grid size for emoji verification display.
+ * 3x3 grid = 9 emojis = 72 bits of security.
+ */
+export const DEFAULT_EMOJI_GRID_SIZE = 9;
+
+/**
  * Converts a hex hash to an emoji sequence for visual verification.
  *
- * This is used for anti-MITM verification - both the dApp and wallet
- * independently compute the same emoji sequence from the shared secret.
+ * This is used for verification - both the dApp and wallet
+ * independently compute the same emoji sequence from the derived keys.
  * Users can visually compare the sequences to detect interception.
  *
- * Similar to SAS (Short Authentication String) in ZRTP/Signal.
+ * With a 256-emoji alphabet and 9 emojis (3x3 grid), this provides
+ * 72 bits of security (9 * 8 = 72 bits), making brute-force attacks
+ * computationally infeasible.
  *
- * @param hash - Hex string from {@link hashSharedSecret}
- * @param length - Number of emojis to generate (default: 4)
+ * @param hash - Hex string from verification hash (64 chars = 32 bytes)
+ * @param count - Number of emojis to generate (default: 9 for 3x3 grid)
  * @returns A string of emojis representing the hash
  *
  * @example
  * ```typescript
- * const hash = await hashSharedSecret(sharedKey);
- * const emoji = hashToEmoji(hash); // e.g., "🔵🦋🎯🐼"
- * // Display to user for verification
+ * const session = await deriveSessionKeys(...);
+ * const emoji = hashToEmoji(session.verificationHash); // e.g., "🔵🦋🎯🐼🌟🎲🦊🐸💎"
+ * // Display as 3x3 grid to user for verification
  * ```
  */
-export function hashToEmoji(hash: string, length: number = 4): string {
-  const bytes: number[] = [];
-  for (let i = 0; i < hash.length && bytes.length < length; i += 2) {
-    bytes.push(parseInt(hash.slice(i, i + 2), 16));
+export function hashToEmoji(hash: string, count: number = DEFAULT_EMOJI_GRID_SIZE): string {
+  const emojis: string[] = [];
+  for (let i = 0; i < hash.length && emojis.length < count; i += 2) {
+    const byteValue = parseInt(hash.slice(i, i + 2), 16);
+    emojis.push(EMOJI_ALPHABET[byteValue % EMOJI_ALPHABET_SIZE]);
   }
-  return bytes.map(b => EMOJI_ALPHABET[b % EMOJI_ALPHABET.length]).join('');
+  return emojis.join('');
 }

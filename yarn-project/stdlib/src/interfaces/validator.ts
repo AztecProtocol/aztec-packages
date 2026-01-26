@@ -55,8 +55,7 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
   /** Skip checkpoint proposal validation and always attest (default: true) */
   skipCheckpointProposalValidation?: boolean;
 
-  // TODO(palla/mbps): Change default to false once block sync is stable
-  /** Skip pushing re-executed blocks to archiver (default: true) */
+  /** Skip pushing re-executed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
 };
 

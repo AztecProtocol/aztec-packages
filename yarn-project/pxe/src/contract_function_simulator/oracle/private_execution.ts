@@ -14,6 +14,7 @@ import {
 import {
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
+  type FunctionCall,
   type FunctionSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
@@ -180,7 +181,7 @@ export async function readCurrentClassId(
  * provider (i.e. PXE's own storage).
  * @param header - The header of the block at which to verify the current class id.
  */
-export async function verifyCurrentClassId(
+async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   aztecNode: AztecNode,
   contractStore: ContractStore,
@@ -197,4 +198,22 @@ export async function verifyCurrentClassId(
       `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,
     );
   }
+}
+
+/**
+ * Ensures the contract's private state is synchronized and that the PXE holds the current class artifact for
+ * the contract.
+ */
+export async function ensureContractSynced(
+  contractAddress: AztecAddress,
+  functionToInvokeAfterSync: FunctionSelector | null,
+  utilityExecutor: (call: FunctionCall) => Promise<any>,
+  aztecNode: AztecNode,
+  contractStore: ContractStore,
+  header: BlockHeader,
+): Promise<void> {
+  await Promise.all([
+    contractStore.syncState(contractAddress, functionToInvokeAfterSync, utilityExecutor),
+    verifyCurrentClassId(contractAddress, aztecNode, contractStore, header),
+  ]);
 }

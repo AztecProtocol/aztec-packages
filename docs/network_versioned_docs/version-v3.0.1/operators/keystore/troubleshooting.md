@@ -75,7 +75,7 @@ If you generated keys with version 2.1.4 and need to regenerate them from your m
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your twelve word mnemonic phrase here" \
   --count 5 \

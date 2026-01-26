@@ -330,41 +330,6 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
 }
 
 /**
- * @brief Compute (a + b) mod 2^32 with circuit constraints.
- *
- * Constrains: result = a + b - overflow * 2^32, where overflow is range-checked to overflow_bits.
- *
- * @param overflow_bits Number of bits for overflow range constraint. Must accommodate max(a + b) / 2^32.
- *
- * @warning Marked `unsafe` since result is not explicitly range-constrained herein because it is typically used
- * downstream in lookup tables which implicitly impose the 32-bit range.
- */
-template <typename Builder>
-field_t<Builder> SHA256<Builder>::add_normalize_unsafe(const field_t<Builder>& a,
-                                                       const field_t<Builder>& b,
-                                                       size_t overflow_bits)
-{
-    using field_pt = field_t<Builder>;
-    using witness_pt = witness_t<Builder>;
-
-    Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
-
-    uint256_t sum = a.get_value() + b.get_value();
-    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]); // lower 32 bits
-
-    if (a.is_constant() && b.is_constant()) {
-        return field_pt(ctx, normalized_sum);
-    }
-
-    fr overflow_value = fr((sum - normalized_sum) >> 32);
-    field_pt overflow = witness_pt(ctx, overflow_value);
-
-    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr(1ULL << 32ULL)));
-    overflow.create_range_constraint(overflow_bits);
-    return result;
-}
-
-/**
  * @brief Apply the SHA-256 compression function to a single 512-bit message block.
  *
  * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
@@ -423,11 +388,13 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
         h = g;
         g = f;
         f = e;
-        e.normal = add_normalize_unsafe(d.normal, T1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
+        e.normal =
+            hash_utils::add_normalize_unsafe(d.normal, T1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
         d = c;
         c = b;
         b = a;
-        a.normal = add_normalize_unsafe(T1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
+        a.normal =
+            hash_utils::add_normalize_unsafe(T1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
     }
 
     // Apply range constraints to `a` and `e` which are the only outputs of the previous loop not already
@@ -439,14 +406,14 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // Add round results into previous block output.
     // Overflow bits = 1 since each summand is constrained to 32 bits.
     std::array<field_pt, 8> output;
-    output[0] = add_normalize_unsafe(a.normal, h_init[0], /*overflow_bits=*/1);
-    output[1] = add_normalize_unsafe(b.normal, h_init[1], /*overflow_bits=*/1);
-    output[2] = add_normalize_unsafe(c.normal, h_init[2], /*overflow_bits=*/1);
-    output[3] = add_normalize_unsafe(d.normal, h_init[3], /*overflow_bits=*/1);
-    output[4] = add_normalize_unsafe(e.normal, h_init[4], /*overflow_bits=*/1);
-    output[5] = add_normalize_unsafe(f.normal, h_init[5], /*overflow_bits=*/1);
-    output[6] = add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
-    output[7] = add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
+    output[0] = hash_utils::add_normalize_unsafe(a.normal, h_init[0], /*overflow_bits=*/1);
+    output[1] = hash_utils::add_normalize_unsafe(b.normal, h_init[1], /*overflow_bits=*/1);
+    output[2] = hash_utils::add_normalize_unsafe(c.normal, h_init[2], /*overflow_bits=*/1);
+    output[3] = hash_utils::add_normalize_unsafe(d.normal, h_init[3], /*overflow_bits=*/1);
+    output[4] = hash_utils::add_normalize_unsafe(e.normal, h_init[4], /*overflow_bits=*/1);
+    output[5] = hash_utils::add_normalize_unsafe(f.normal, h_init[5], /*overflow_bits=*/1);
+    output[6] = hash_utils::add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
+    output[7] = hash_utils::add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
 
     // The final add_normalize outputs are not consumed by lookup tables, so they must be explicitly range-constrained.
     // (Within the compression loop, lookup tables provide implicit 32-bit constraints on add_normalize outputs.)

@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { SecretValue } from '@aztec/foundation/config';
 import type { TestWallet } from '@aztec/test-wallet/server';
@@ -17,6 +18,7 @@ describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
   let wallet: TestWallet;
+  let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
 
   const deploymentsPerBlock = 8;
@@ -39,6 +41,7 @@ describe('e2e_l1_with_wall_time', () => {
       teardown,
       logger,
       wallet,
+      aztecNode,
       accounts: [defaultAccountAddress],
     } = await setup(1, {
       initialValidators,
@@ -50,11 +53,11 @@ describe('e2e_l1_with_wall_time', () => {
 
   it('should produce blocks with a bunch of transactions', async () => {
     for (let i = 0; i < numberOfBlocks; i++) {
-      const txs = await submitTxsTo(wallet, defaultAccountAddress, deploymentsPerBlock, logger);
+      const txHashes = await submitTxsTo(wallet, defaultAccountAddress, deploymentsPerBlock, logger);
       await Promise.all(
-        txs.map(async (tx, j) => {
-          logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait();
+        txHashes.map((hash, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${hash.toString()} to be mined`);
+          return waitForTx(aztecNode, hash);
         }),
       );
     }

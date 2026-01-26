@@ -89,7 +89,7 @@ function mockEpochCache(): EpochCacheInterface {
   return {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
+    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, nowMs: 0n }),
     computeProposerIndex: () => 0n,
     getCurrentAndNextSlot: () => ({
       currentSlot: SlotNumber.ZERO,

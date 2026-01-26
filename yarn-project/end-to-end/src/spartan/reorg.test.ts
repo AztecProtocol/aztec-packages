@@ -8,7 +8,6 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import {
   type TestAccounts,
@@ -18,11 +17,12 @@ import {
 } from './setup_test_wallets.js';
 import {
   ChainHealth,
+  type ServiceEndpoint,
   applyProverFailure,
+  getEthereumEndpoint,
   getGitProjectRoot,
+  getRPCEndpoint,
   setupEnvironment,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
 } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
@@ -51,7 +51,7 @@ describe('reorg test', () => {
   const SETUP_EPOCHS = 2;
   const TRANSFER_AMOUNT = 1n;
   let ETHEREUM_HOSTS: string[];
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let rpcUrl: string;
   let wallet: TestWallet;
   let spartanDir: string;
@@ -64,18 +64,17 @@ describe('reorg test', () => {
   afterAll(async () => {
     await health.teardown();
     await cleanup?.();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
     await health.setup();
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethProcess);
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint, ethEndpoint);
 
-    rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    rpcUrl = rpcEndpoint.url;
+    ETHEREUM_HOSTS = [ethEndpoint.url];
     spartanDir = `${getGitProjectRoot()}/spartan`;
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));

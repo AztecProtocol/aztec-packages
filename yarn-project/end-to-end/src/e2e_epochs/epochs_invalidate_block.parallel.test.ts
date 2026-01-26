@@ -1,6 +1,8 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
@@ -108,7 +110,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Send a transaction so the sequencer builds a block
     logger.warn('Sending transaction to trigger block building');
-    const sentTx = contract.methods.spam(1, 1n, false).send({ from: context.accounts[0] });
+    const sentTx = await contract.methods.spam(1, 1n, false).send({ from: context.accounts[0], wait: NO_WAIT });
 
     // Disable skipCollectingAttestations after the first L2 block is mined
     test.monitor.once('checkpoint', ({ checkpointNumber }) => {
@@ -165,7 +167,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     );
 
     // Verify the transaction was eventually included
-    const receipt = await sentTx.wait({ timeout: 30 });
+    const receipt = await waitForTx(context.aztecNode, sentTx, { timeout: 30 });
     expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
@@ -454,7 +456,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -510,7 +512,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });

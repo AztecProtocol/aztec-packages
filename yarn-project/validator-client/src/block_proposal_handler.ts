@@ -1,6 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,7 +10,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -44,7 +45,7 @@ export type BlockProposalValidationFailureReason =
   | 'unknown_error';
 
 type ReexecuteTransactionsResult = {
-  block: L2BlockNew;
+  block: L2Block;
   failedTxs: FailedTx[];
   reexecutionTimeMs: number;
   totalManaUsed: number;
@@ -146,8 +147,8 @@ export class BlockProposalHandler {
 
     // Check that the proposal is from the current proposer, or the next proposer
     // This should have been handled by the p2p layer, but we double check here out of caution
-    const invalidProposal = await this.blockProposalValidator.validate(proposal);
-    if (invalidProposal) {
+    const validationResult = await this.blockProposalValidator.validate(proposal);
+    if (validationResult.result !== 'accept') {
       this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
       return { isValid: false, reason: 'invalid_proposal' };
     }
@@ -219,15 +220,15 @@ export class BlockProposalHandler {
     let reexecutionResult;
     if (shouldReexecute) {
       // Compute the previous checkpoint out hashes for the epoch.
-      // TODO(mbps): This assumes one block per checkpoint, which is only true for now.
-      // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch all
-      // the blocks.
+      // TODO(leila/mbps): There can be a more efficient way to get the previous checkpoint out
+      // hashes without having to fetch all the blocks.
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-      const previousBlocks = (await this.blockSource.getBlocksForEpoch(epoch))
-        .filter(b => b.number < blockNumber)
-        .sort((a, b) => a.number - b.number);
-      const previousCheckpointOutHashes = previousBlocks.map(b =>
-        computeCheckpointOutHash([b.body.txEffects.map(tx => tx.l2ToL1Msgs)]),
+      const checkpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
+        .filter(b => b.block.number < blockNumber)
+        .sort((a, b) => a.block.number - b.block.number);
+      const blocksByCheckpoint = chunkBy(checkpointedBlocks, b => b.checkpointNumber);
+      const previousCheckpointOutHashes = blocksByCheckpoint.map(checkpointBlocks =>
+        computeCheckpointOutHash(checkpointBlocks.map(b => b.block.body.txEffects.map(tx => tx.l2ToL1Msgs))),
       );
 
       try {
@@ -248,7 +249,6 @@ export class BlockProposalHandler {
     }
 
     // If we succeeded, push this block into the archiver (unless disabled)
-    // TODO(palla/mbps): Change default to false once block sync is stable.
     if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
       await this.blockSource.addBlock(reexecutionResult?.block);
     }
@@ -316,7 +316,7 @@ export class BlockProposalHandler {
     // TODO(palla/mbps): The block header should include the checkpoint number to avoid this lookup,
     // or at least the L2BlockSource should return a different struct that includes it.
     const parentBlockNumber = parentBlockHeader.getBlockNumber();
-    const parentBlock = await this.blockSource.getL2BlockNew(parentBlockNumber);
+    const parentBlock = await this.blockSource.getL2Block(parentBlockNumber);
     if (!parentBlock) {
       this.log.warn(`Parent block ${parentBlockNumber} not found in archiver`, proposalInfo);
       return { reason: 'invalid_proposal' };
@@ -357,7 +357,7 @@ export class BlockProposalHandler {
    */
   private validateNonFirstBlockInCheckpoint(
     proposal: BlockProposal,
-    parentBlock: L2BlockNew,
+    parentBlock: L2Block,
     proposalInfo: object,
   ): CheckpointComputationResult | undefined {
     const proposalGlobals = proposal.blockHeader.globalVariables;
@@ -436,29 +436,6 @@ export class BlockProposalHandler {
     return new Date(nextSlotTimestampSeconds * 1000);
   }
 
-  /**
-   * Gets all prior blocks in the same checkpoint (same slot and checkpoint number) up to but not including upToBlockNumber.
-   */
-  private async getBlocksInCheckpoint(
-    slot: SlotNumber,
-    upToBlockNumber: BlockNumber,
-    checkpointNumber: CheckpointNumber,
-  ): Promise<L2BlockNew[]> {
-    const blocks: L2BlockNew[] = [];
-    let currentBlockNumber = BlockNumber(upToBlockNumber - 1);
-
-    while (currentBlockNumber >= INITIAL_L2_BLOCK_NUM) {
-      const block = await this.blockSource.getL2BlockNew(currentBlockNumber);
-      if (!block || block.header.getSlot() !== slot || block.checkpointNumber !== checkpointNumber) {
-        break;
-      }
-      blocks.unshift(block);
-      currentBlockNumber = BlockNumber(currentBlockNumber - 1);
-    }
-
-    return blocks;
-  }
-
   private getReexecuteFailureReason(err: any) {
     if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
@@ -492,8 +469,9 @@ export class BlockProposalHandler {
     const slot = proposal.slotNumber;
     const config = this.checkpointsBuilder.getConfig();
 
-    // Get prior blocks in this checkpoint (same slot and checkpoint number)
-    const priorBlocks = await this.getBlocksInCheckpoint(slot, blockNumber, checkpointNumber);
+    // Get prior blocks in this checkpoint (same slot before current block)
+    const allBlocksInSlot = await this.blockSource.getBlocksForSlot(slot);
+    const priorBlocks = allBlocksInSlot.filter(b => b.number < blockNumber && b.header.getSlot() === slot);
 
     // Fork before the block to be built
     const parentBlockNumber = BlockNumber(blockNumber - 1);

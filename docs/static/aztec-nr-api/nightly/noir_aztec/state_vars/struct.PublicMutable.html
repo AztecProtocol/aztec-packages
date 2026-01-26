@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct PublicMutable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicMutable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PublicMutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#read">read</a></li>
+<li><a href="#read">read</a></li>
+<li><a href="#write">write</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>">StateVariable&lt;M, Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="map/index.html">map</a></div></li>
+<li><a href="owned/index.html">owned</a></div></li>
+<li><a href="owned_state_variable/index.html">owned_state_variable</a></div></li>
+<li><a href="state_variable/index.html">state_variable</a></div></li>
+<li><a href="storage/index.html">storage</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">PublicMutable</span></h1>
+<pre><code>pub struct PublicMutable&lt;T, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Mutable public values.</p>
+<p>This is the most basic public state variable. It is equivalent to a non-<code>immutable</code> non-<code>constant</code> Solidity state
+variable.</p>
+<h2>Access Patterns</h2>
+<p>A value stored in a <code>PublicMutable</code> can be read and written from public contract functions. It is not possible to
+read or write another contract's <code>PublicMutable</code> values directly: the only way to achieve this is to call a public
+function on that contract.</p>
+<p>It is not possible to read or write a <code>PublicMutable</code> from private contract functions. It is possible however for a
+private function to <a href="../../noir_aztec/struct.ContractSelf.html#structfield.enqueue_self">enqueue a public call to itself</a> in which it
+performs the required operation.</p>
+<p>For an immutable variant which can be read from private functions, see
+<a href="../../noir_aztec/state_vars/struct.PublicImmutable.html">PublicImmutable</a>.</p>
+<p>For a mutable (with restrictions) variant which can be read from private functions see
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html">DelayedPublicMutable</a>.</p>
+<h2>Privacy</h2>
+<p><code>PublicMutable</code> provides zero privacy. All write and read operations are public: the entire network can see these
+accesses and the data involved.</p>
+<h2>Use Cases</h2>
+<p>This is suitable for any kind of global state that needs to be accessible by everyone. For example, a token may have
+a public total supply, or a voting contract may have public vote tallies.</p>
+<p>Note that contracts having public values does not necessarily mean the the actions that update these values must
+themselves be wholly public. For example, the token could allow for private minting and burning, and casting a vote
+could be kept private: these private functions would enqueue a public function that writes to the <code>PublicMutable</code>.</p>
+<p>Similarly, private functions can enqueue a public call in which the <code>PublicMutable</code> is checked to meet some
+condition. For example, a private action might be executable only if the vote count has exceeded some threshold, in
+which case the private function would enqueue a public function that reads from the <code>PublicMutable</code>.</p>
+<p>Such patterns preserve the privacy of the account that executed the action, as well as details related to the
+private execution itself, but they <em>do</em> reveal that the transaction interacted with the <code>PublicMutable</code> value (and
+hence that the contract was called), as all accesses to it are public. The
+<a href="../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> attribute is very useful when implementing this.</p>
+<h2>Examples</h2>
+<p>Declaring a <code>PublicMutable</code> in the the contract's <a href="../../noir_aztec/macros/storage/fn.storage.html">storage</a> struct requires
+specifying the type <code>T</code> that is stored in the variable:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    total_supply: PublicMutable&lt;u128, Context&gt;,
+    public_balances: Map&lt;AztecAddress, PublicMutable&lt;u128, Context&gt;, Context&gt;,
+
+    vote_tallies: Map&lt;ElectionId, PublicMutable&lt;u128, Context&gt;, Context&gt;,
+}</code></pre>
+<h2>Requirements</h2>
+<p>The type <code>T</code> stored in the <code>PublicMutable</code> must implement the <code>Packable</code> trait.</p>
+<h2>Implementation Details</h2>
+<p>Values are packed and stored directly in the public storage tree, with no overhead. A <code>PublicMutable</code> therefore
+takes up as many storage slots as the packing length of the stored type <code>T</code>.</p>
+<p>Private reads are not possible because private functions do not have access to the current network state, only the
+<em>past</em> state at the anchor block. They <em>can</em> perform historical reads of <code>PublicMutable</code> values at past times, but
+they have no way to guarantee that the value has not changed since then.
+<a href="../../noir_aztec/state_vars/struct.PublicImmutable.html">PublicImmutable</a> and
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html">DelayedPublicMutable</a> are examples of public state variables that <em>can</em> be
+read privately by restricting mutation.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current value.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.PublicMutable.html#write">write</a> has never been called, then this returns the default empty public storage
+value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>PublicMutable</code> has ever been initialized or not other than by testing for the
+zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>PublicMutable</code>.</p>
+<h4>Examples</h4>
+<p>A public getter that returns the current value:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> get_total_supply() -&gt; u128 {
+    self.storage.total_supply.read()
+}</code></pre>
+<p>An <a href="../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> helper that asserts a condition a private function requires:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> execute_proposal(election_id: ElectionId) {
+    self.enqueue_self._assert_vote_passed(election_id);
+
+    <span class="comment">// execute the proposal - this remains private</span>
+}
+
+#[external(<span class="string">"public"</span>)]
+#[only_self]
+<span class="kw">fn</span> _assert_vote_passed(election_id: ElectionId) {
+    <span class="kw">assert</span>(self.storage.vote_tallies.at(election_id).read() &gt;= VOTE_PASSED_THRESHOLD);
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
+</div><code id="write" class="code-header">pub fn <a href="#write"><span class="fn">write</span></a>(self, value: T)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Stores a new value.</p>
+<p>The old value is overridden and cannot be recovered. The new value can be immediately retrieved by
+<a href="../../noir_aztec/state_vars/struct.PublicMutable.html#read">read</a>.</p>
+<h4>Examples</h4>
+<p>A public setter that updates the current value:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> mint_tokens(recipient: AztecAddress, amount: u128) {
+    <span class="kw">let</span> current_recipient_balance = self.storage.public_balances.at(recipient).read();
+    self.storage.public_balances.at(recipient).write(current_recipient_balance + amount);
+
+    <span class="kw">let</span> current_supply = self.storage.total_supply.read();
+    self.storage.total_supply.write(current_supply + amount);
+}</code></pre>
+<p>An <a href="../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> helper that updates public state trigered by a private
+function:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> vote_for_proposal(election_id: ElectionId, votes: u128) {
+    <span class="comment">// validate the sender can cast this many votes - this remains private</span>
+
+    self.enqueue_self._tally_vote(election_id, votes);
+}
+
+#[external(<span class="string">"public"</span>)]
+#[only_self]
+<span class="kw">fn</span> _tally_vote(election_id: ElectionId, votes: u128) {
+    <span class="kw">let</span> current = self.storage.vote_tallies.read();
+    self.storage.vote_tallies.write(current + votes);
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SSTORE</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the value at the anchor block.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.PublicMutable.html#write">write</a> has never been called, then this returns the default empty public storage
+value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>PublicMutable</code> has ever been initialized or not other than by testing for the
+zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>PublicMutable</code>.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_total_supply() -&gt; u128 {
+    self.storage.total_supply.read()
+}</code></pre></div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

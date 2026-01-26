@@ -27,7 +27,7 @@ import { L2BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2BlockNew } from '../block/l2_block_new.js';
+import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
@@ -78,13 +78,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export interface AztecNode
   extends Pick<
     L2BlockSource,
-    | 'getBlocks'
-    | 'getL2BlocksNew'
-    | 'getPublishedBlocks'
-    | 'getPublishedCheckpoints'
-    | 'getBlockHeader'
-    | 'getL2Tips'
-    | 'getCheckpointedBlocks'
+    'getBlocks' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
   > {
   /**
    * Returns the tips of the L2 chain.
@@ -233,21 +227,21 @@ export interface AztecNode
    * @param number - The block number or 'latest'.
    * @returns The requested block.
    */
-  getBlock(number: BlockParameter): Promise<L2BlockNew | undefined>;
+  getBlock(number: BlockParameter): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its hash.
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its archive root.
    * @param archive - The archive root being requested.
    * @returns The requested block.
    */
-  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
   /**
    * Method to fetch the latest block number synchronized by the node.
@@ -260,6 +254,12 @@ export interface AztecNode
    * @returns The block number.
    */
   getProvenBlockNumber(): Promise<BlockNumber>;
+
+  /**
+   * Fetches the latest checkpointed block number.
+   * @returns The block number.
+   */
+  getCheckpointedBlockNumber(): Promise<BlockNumber>;
 
   /**
    * Method to determine if the node is ready to accept transactions.
@@ -280,7 +280,7 @@ export interface AztecNode
    * @param limit - The maximum number of blocks to return.
    * @returns The blocks requested.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
    * Method to fetch the current min fees.
@@ -577,15 +577,17 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(EpochNumberSchema)
     .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2BlockNew.schema.optional()),
+  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 
-  getBlockByHash: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
+  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
+  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(BlockNumberSchema),
 
   getProvenBlockNumber: z.function().returns(BlockNumberSchema),
+
+  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
 
   isReady: z.function().returns(z.boolean()),
 
@@ -594,26 +596,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2BlockNew.schema)),
+    .returns(z.array(L2Block.schema)),
 
-  getPublishedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
-
-  getPublishedCheckpoints: z
+  getCheckpoints: z
     .function()
     .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
     .returns(z.array(PublishedCheckpoint.schema)),
 
-  getL2BlocksNew: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2BlockNew.schema)),
-
   getCheckpointedBlocks: z
     .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(z.boolean()))
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),

@@ -311,8 +311,82 @@ test_quiet_success_output() {
   fi
 }
 
+test_watch_mode_emits_js() {
+  log "\nTest 8: Watch mode emits JS on file change"
+  clean_build_artifacts
+
+  # Start watch mode in background
+  (cd "$test_root/pkg-a" && ../scripts/tsc.sh -w) &
+  watch_pid=$!
+
+  # Wait for initial build
+  local timeout=10
+  while [[ ! -f "$test_root/pkg-a/dest/index.js" && $timeout -gt 0 ]]; do
+    sleep 0.5
+    ((timeout--))
+  done
+
+  check_file "$test_root/pkg-a/dest/index.js" "Initial JS file generated in watch mode"
+
+  if [[ -f "$test_root/pkg-a/dest/index.js" ]]; then
+    # Record original content
+    local original_content
+    original_content=$(cat "$test_root/pkg-a/dest/index.js")
+
+    # Wait a bit for swc to be ready for changes
+    sleep 1
+
+    # Modify the source file
+    cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+
+// New function added in watch mode
+export function newFunction(): string {
+  return "watch mode works";
+}
+EOF
+
+    # Wait for rebuild
+    sleep 3
+
+    # Check if JS was updated with new function
+    if grep -q "newFunction" "$test_root/pkg-a/dest/index.js" 2>/dev/null; then
+      pass "Watch mode rebuilt JS with changes"
+    else
+      fail "Watch mode did not rebuild JS (swc --watch missing?)"
+    fi
+  fi
+
+  # Cleanup: kill watch process
+  kill $watch_pid 2>/dev/null || true
+  wait $watch_pid 2>/dev/null || true
+
+  # Restore original source
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+}
+
 test_quiet_error_output() {
-  log "\nTest 8: Quiet error output (only failed command output shown)"
+  log "\nTest 9: Quiet error output (only failed command output shown)"
   clean_build_artifacts
 
   # Introduce a type error
@@ -380,6 +454,7 @@ main() {
   test_no_emit
   test_type_error_detection
   test_quiet_success_output
+  test_watch_mode_emits_js
   test_quiet_error_output
 
   log "\n=== Results ==="

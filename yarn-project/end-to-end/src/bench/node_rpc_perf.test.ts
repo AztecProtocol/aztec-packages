@@ -150,9 +150,9 @@ describe('e2e_node_rpc_perf', () => {
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n)
-      .send({ from: ownerAddress })
-      .deployed({ timeout: 600 });
+    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+      from: ownerAddress,
+    });
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
@@ -189,8 +189,7 @@ describe('e2e_node_rpc_perf', () => {
         from: ownerAddress,
       });
 
-      const sentTx = provenTx.send();
-      const receipt = await sentTx.wait({ timeout: 600 });
+      const receipt = await provenTx.send({ wait: { timeout: 600 } });
       txHashes.push(receipt.txHash);
       logger.verbose(`Transaction ${receipt.txHash} included in block ${receipt.blockNumber}`);
       logger.info(`Block ${block + 1}/${BLOCKS_TO_BUILD} built`);
@@ -310,10 +309,10 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getPublishedBlocks (5 blocks)', async () => {
+    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getPublishedBlocks', () => aztecNode.getPublishedBlocks(fromBlock, 5));
-      addResult('getPublishedBlocks_5', stats);
+      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
+      addResult('getCheckpointedBlocks_5', stats);
       expect(stats.avg).toBeLessThan(5000);
     });
 

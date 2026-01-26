@@ -268,7 +268,7 @@ For tests that exercise re-execution:
 ```typescript
 // Mock parent block lookup
 blockSource.getBlockHeaderByArchive.mockResolvedValue(parentBlockHeader);
-blockSource.getL2BlockNew.mockResolvedValue({
+blockSource.getL2Block.mockResolvedValue({
   checkpointNumber: CheckpointNumber(1),
   indexWithinCheckpoint: 0,
   header: { globalVariables: parentGlobalVariables },

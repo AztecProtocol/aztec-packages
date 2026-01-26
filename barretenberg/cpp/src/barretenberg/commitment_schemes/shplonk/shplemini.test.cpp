@@ -33,7 +33,7 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-    using IPA = IPA<typename Flavor::Curve, log_n>;
+    using IPA = bb::IPA<typename Flavor::Curve, log_n>;
 
     // Witness polynomials array: [0]=Concatenated(G), [1]=GrandSum(A), [2]=unused, [3]=Quotient(Q)
     enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 3 };
