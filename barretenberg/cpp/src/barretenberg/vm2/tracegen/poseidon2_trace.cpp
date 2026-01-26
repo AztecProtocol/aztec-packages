@@ -271,6 +271,12 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
     const simulation::EventEmitterInterface<simulation::Poseidon2PermutationMemoryEvent>::Container& perm_mem_events,
     TraceContainer& trace)
 {
+
+    // We rely on this assertion in circuit for the write memory tag.
+    // Namely, we pass `precomputed.zero` as the tag for the write memory operation.
+    // See the 4 lookups #[POS_WRITE_MEM_0] ... #[POS_WRITE_MEM_3] in poseidon2_mem.pil.
+    static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
+
     uint32_t row = 0;
 
     for (const auto& event : perm_mem_events) {
