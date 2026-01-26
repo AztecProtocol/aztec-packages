@@ -335,7 +335,7 @@ describe('KVArchiverDataStore', () => {
       await store.addCheckpoints(publishedCheckpoints);
       const lastCheckpoint = publishedCheckpoints[publishedCheckpoints.length - 1];
       const lastBlock = lastCheckpoint.checkpoint.blocks[0];
-      const blockHash = await lastBlock.header.hash();
+      const blockHash = (await lastBlock.header.hash()).toField();
       const archive = lastBlock.archive.root;
 
       // Verify block and header exist before removing
@@ -639,7 +639,7 @@ describe('KVArchiverDataStore', () => {
       // Check each block by its hash
       for (let i = 0; i < checkpoint.checkpoint.blocks.length; i++) {
         const block = checkpoint.checkpoint.blocks[i];
-        const blockHash = await block.header.hash();
+        const blockHash = (await block.header.hash()).toField();
         const retrievedBlock = await store.getCheckpointedBlockByHash(blockHash);
 
         expect(retrievedBlock).toBeDefined();
@@ -797,8 +797,8 @@ describe('KVArchiverDataStore', () => {
       await store.addProposedBlocks([block1, block2]);
 
       // getBlockByHash should work for uncheckpointed blocks
-      const hash1 = await block1.header.hash();
-      const hash2 = await block2.header.hash();
+      const hash1 = (await block1.header.hash()).toField();
+      const hash2 = (await block2.header.hash()).toField();
 
       const retrieved1 = await store.getBlockByHash(hash1);
       expect(retrieved1!.equals(block1)).toBe(true);
@@ -874,7 +874,7 @@ describe('KVArchiverDataStore', () => {
       });
       await store.addProposedBlocks([block1]);
 
-      const hash = await block1.header.hash();
+      const hash = (await block1.header.hash()).toField();
 
       // getCheckpointedBlockByHash should return undefined
       expect(await store.getCheckpointedBlockByHash(hash)).toBeUndefined();
@@ -1666,7 +1666,7 @@ describe('KVArchiverDataStore', () => {
     it('retrieves a block by its hash', async () => {
       const expectedCheckpoint = publishedCheckpoints[5];
       const expectedBlock = expectedCheckpoint.checkpoint.blocks[0];
-      const blockHash = await expectedBlock.header.hash();
+      const blockHash = (await expectedBlock.header.hash()).toField();
       const retrievedBlock = await store.getCheckpointedBlockByHash(blockHash);
 
       expect(retrievedBlock).toBeDefined();
@@ -1707,7 +1707,7 @@ describe('KVArchiverDataStore', () => {
 
     it('retrieves a block header by its hash', async () => {
       const expectedBlock = publishedCheckpoints[7].checkpoint.blocks[0];
-      const blockHash = await expectedBlock.header.hash();
+      const blockHash = (await expectedBlock.header.hash()).toField();
       const retrievedHeader = await store.getBlockHeaderByHash(blockHash);
 
       expect(retrievedHeader).toBeDefined();
@@ -1833,7 +1833,7 @@ describe('KVArchiverDataStore', () => {
       const expectedTx: IndexedTxEffect = {
         data,
         l2BlockNumber: block.number,
-        l2BlockHash: L2BlockHash.fromField(await block.header.hash()),
+        l2BlockHash: await block.header.hash(),
         txIndexInBlock,
       };
       const actualTx = await store.getTxEffect(data.txHash);
@@ -2732,7 +2732,7 @@ describe('KVArchiverDataStore', () => {
 
     it('returns block hash on public log ids', async () => {
       const targetBlock = publishedCheckpoints[0].checkpoint.blocks[0];
-      const expectedBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const expectedBlockHash = await targetBlock.header.hash();
 
       const logs = (await store.getPublicLogs({ fromBlock: targetBlock.number, toBlock: targetBlock.number + 1 })).logs;
 
@@ -2790,7 +2790,7 @@ describe('KVArchiverDataStore', () => {
       const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
       const numLogsInTx = targetBlock.body.txEffects[targetTxIndex].publicLogs.length;
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
-      const targetBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const targetBlockHash = await targetBlock.header.hash();
 
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
@@ -2882,7 +2882,7 @@ describe('KVArchiverDataStore', () => {
       const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
       const numLogsInTx = targetBlock.body.txEffects[targetTxIndex].publicLogs.length;
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
-      const targetBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const targetBlockHash = await targetBlock.header.hash();
 
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
@@ -2935,7 +2935,7 @@ describe('KVArchiverDataStore', () => {
       expect(result.logs).toHaveLength(1);
 
       const [{ id, log }] = result.logs;
-      const expectedBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const expectedBlockHash = await targetBlock.header.hash();
 
       expect(id.blockHash.equals(expectedBlockHash)).toBe(true);
       expect(id.blockNumber).toEqual(targetBlock.number);
@@ -3320,7 +3320,7 @@ describe('KVArchiverDataStore', () => {
       await store.addProposedBlocks([block1, block2]);
 
       // Verify block2 is retrievable by hash and archive before removal
-      const block2Hash = await block2.header.hash();
+      const block2Hash = (await block2.header.hash()).toField();
       const block2Archive = block2.archive.root;
 
       expect(await store.getBlockByHash(block2Hash)).toBeDefined();
@@ -3346,7 +3346,7 @@ describe('KVArchiverDataStore', () => {
       }
 
       // Verify block1's data is still intact
-      const block1Hash = await block1.header.hash();
+      const block1Hash = (await block1.header.hash()).toField();
       const block1Archive = block1.archive.root;
 
       expect(await store.getBlockByHash(block1Hash)).toBeDefined();

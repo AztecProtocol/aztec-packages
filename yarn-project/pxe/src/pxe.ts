@@ -18,7 +18,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -399,7 +398,7 @@ export class PXE {
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
+    const anchorBlockHash = await anchorBlockHeader.hash();
     const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
     const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
