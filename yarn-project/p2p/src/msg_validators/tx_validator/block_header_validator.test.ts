@@ -27,11 +27,12 @@ describe('BlockHeaderTxValidator', () => {
     );
 
     const goodTx = await mockTxForRollup();
-    archiveSource.getArchiveIndices.mockImplementation(async (archives: Fr[]) => {
-      if (archives[0].equals(await goodTx.data.constants.anchorBlockHeader.hash())) {
-        return [1n];
+    const goodTxHeaderHash = (await goodTx.data.constants.anchorBlockHeader.hash()).toField();
+    archiveSource.getArchiveIndices.mockImplementation((archives: Fr[]) => {
+      if (archives[0].equals(goodTxHeaderHash)) {
+        return Promise.resolve([1n]);
       } else {
-        return [undefined];
+        return Promise.resolve([undefined]);
       }
     });
     await expect(txValidator.validateTx(goodTx)).resolves.toEqual({ result: 'valid' } satisfies TxValidationResult);
