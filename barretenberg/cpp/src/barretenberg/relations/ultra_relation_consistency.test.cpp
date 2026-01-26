@@ -640,14 +640,15 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
         u1 *= v1;
 
         // multiply with internal matrix
+        // Uses D_i - 1 values: result[i] = (D_i - 1) * x[i] + sum = D_i * x[i] + (sum of other elements)
         auto sum = u1 + w_2 + w_3 + w_4;
-        auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+        auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
         t0 += sum;
-        auto t1 = w_2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+        auto t1 = w_2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
         t1 += sum;
-        auto t2 = w_3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+        auto t2 = w_3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
         t2 += sum;
-        auto t3 = w_4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+        auto t3 = w_4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[3];
         t3 += sum;
 
         expected_values[0] = q_poseidon2_internal * (t0 - w_1_shift);

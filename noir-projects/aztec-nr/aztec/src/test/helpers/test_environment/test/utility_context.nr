@@ -1,6 +1,6 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
-use crate::oracle::notes::check_nullifier_exists;
+use crate::oracle::nullifiers::check_nullifier_exists;
 use protocol_types::{address::AztecAddress, traits::FromField};
 
 #[test]

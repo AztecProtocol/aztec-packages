@@ -313,7 +313,6 @@ comptime fn generate_process_message() -> Quoted {
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
 
-            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);     
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash_and_nullifier,

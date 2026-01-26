@@ -428,7 +428,10 @@ export class CheckpointProposalJob implements Traceable {
       // Sync the proposed block to the archiver to make it available
       // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
       // Eventually we should refactor the checkpoint builder to not need a separate long-lived fork
-      await this.syncProposedBlockToArchiver(block);
+      // Fire and forget - don't block the critical path, but log errors
+      this.syncProposedBlockToArchiver(block).catch(err => {
+        this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
+      });
 
       // If this is the last block, exit the loop now so we start collecting attestations
       if (timingInfo.isLastBlock) {

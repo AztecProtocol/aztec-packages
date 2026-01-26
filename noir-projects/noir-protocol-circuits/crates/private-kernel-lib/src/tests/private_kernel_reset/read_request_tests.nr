@@ -53,7 +53,7 @@ fn wrong_hint_for_pending_note_hash_read_request() {
     builder.failed();
 }
 
-#[test(should_fail_with = "Contract address of the note hash does not match read request")]
+#[test(should_fail_with = "Contract address of the pending value does not match read request")]
 fn mismatch_pending_note_hash_contract_address() {
     let mut builder = TestBuilder::new();
 
@@ -174,7 +174,7 @@ fn wrong_hint_for_pending_nullifier_read_request() {
     builder.failed();
 }
 
-#[test(should_fail_with = "Contract address of the nullifier does not match read request")]
+#[test(should_fail_with = "Contract address of the pending value does not match read request")]
 fn mismatch_pending_nullifier_contract_address() {
     let mut builder = TestBuilder::new();
 
@@ -204,20 +204,36 @@ fn wrong_hint_for_settled_nullifier_read_request() {
     builder.failed();
 }
 
+#[test(should_fail_with = "Settled read request must have zero contract address")]
+fn non_zero_contract_address_for_settled_nullifier_read_request() {
+    let mut builder = TestBuilder::new();
+
+    builder.read_settled_nullifier(1);
+
+    // Change the contract address to a non-zero value.
+    let mut request = builder.previous_kernel.nullifier_read_requests.pop();
+    request.contract_address = AztecAddress::from_field(1);
+    builder.previous_kernel.nullifier_read_requests.push(request);
+
+    builder.failed();
+}
+
 #[test(should_fail_with = "Membership check failed: leaf for read request not found in tree")]
 fn settled_nullifier_read_request_non_existing_leaf() {
     let mut builder = TestBuilder::new();
 
     builder.read_settled_nullifier(1);
-    // Change the read request to read a value that does not exist in the nullifier tree.
+
+    // Change the read request to read a siloed value that does not exist in the nullifier tree.
+    let siloed_nonexistent_nullifier =
+        compute_siloed_nullifier(builder.previous_kernel.contract_address, 99);
     let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-    read_request.inner.inner = 99;
+    read_request.inner.inner = siloed_nonexistent_nullifier;
     builder.previous_kernel.nullifier_read_requests.push(read_request);
 
-    // Change the hint to a different value.
+    // Change the hint's preimage to match the read request value.
     let mut hint = builder.nullifier_read_request_hints.settled_read_hints.pop();
-    hint.leaf_preimage.nullifier =
-        compute_siloed_nullifier(builder.previous_kernel.contract_address, 99);
+    hint.leaf_preimage.nullifier = siloed_nonexistent_nullifier;
     builder.nullifier_read_request_hints.settled_read_hints.push(hint);
 
     builder.failed();

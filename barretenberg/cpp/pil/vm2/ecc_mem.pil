@@ -1,12 +1,38 @@
+include "constants_gen.pil";
 include "ecc.pil";
 include "gt.pil";
+include "memory.pil";
+include "precomputed.pil";
 
 /**
- * This handles the memory writes when the ECCADD opcode is executed by user code.
- * The reads are handled by the registers in the execution trace.
+ * This handles the memory writes when the ECADD opcode is executed by user code.
+ * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
+ * and the claimed result point, R = P + Q, is written to memory addresses within range.
+ * The reads of P and Q are handled by the registers in the execution trace. The correctness
+ * of point addition is handled by the ECC subtrace.
+ *
  * This trace writes the resulting embedded curve point to the addresses {dst,
  * dst + 1, and dst + 2 }. Embedded curve points consist of the tuple of types
  * {x: FF, y: FF, is_inf: U1 }.
+ *
+ * PRECONDITIONS: Input point coordinates have tag checked FF coordinates and U1 is_inf
+ * flag (see Memory I/O below for details).
+ *
+ * USAGE: Dispatching lookup defined in execution.pil:
+ *        #[DISPATCH_TO_ECC_ADD]
+ *        sel_exec_dispatch_ecc_add {
+ *          precomputed.clk, context_id,
+ *          register[0], register[1], register[2], // Point P
+ *          register[3], register[4], register[5], // Point Q
+ *          rop[6], // Dst address
+ *          sel_opcode_error // Error
+ *        } is ecc_add_mem.sel {
+ *          ecc_add_mem.execution_clk, ecc_add_mem.space_id,
+ *          ecc_add_mem.p_x, ecc_add_mem.p_y, ecc_add_mem.p_is_inf, // Point P
+ *          ecc_add_mem.q_x, ecc_add_mem.q_y, ecc_add_mem.q_is_inf, // Point Q
+ *          ecc_add_mem.dst_addr[0], // Dst address
+ *          ecc_add_mem.err // Error
+ *        };
  *
  * Opcode operands (relevant in EXECUTION when interacting with this gadget):
  * - rop[0]: p_x_addr
@@ -42,9 +68,24 @@ include "gt.pil";
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
  * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
- *     satisfy the grumpkin curve equation (SW form: Y^2 = X^3 − 17)
+ *     satisfy the Grumpkin curve equation (SW form: Y^2 = X^3 − 17)
  *
- * N.B This subtrace writes the values within a single row (i.e. 3 output columns)
+ * TRACE SHAPE: This subtrace writes the values within 1 single row (i.e. 3 output columns)
+ *
+ * INTERACTIONS:
+ *  execution.pil <-> ecc_mem.pil <-> memory.pil
+ *                                --> ecc.pil
+ *                                --> gt.pil
+ * This subtrace is looked up by:
+ * - execution.pil: To constrain the dispatch permutation for the ECADD opcode (#[DISPATCH_TO_ECC_ADD]). Includes memory
+ *                  reads (register[0] to register[5]), the initial write address (rop[6]), and error flag (sel_opcode_error).
+ *
+ * This subtrace looks up:
+ * - memory.pil: To write the output point values (res_x, res_y, res_is_inf) to memory with standard write permutations
+ *               (#[WRITE_MEM_i] for i = 0, 1, 2).
+ * - ecc.pil: To retrieve the output point R as the result of adding the points P and Q read from memory
+ *            (#[INPUT_OUTPUT_ECC_ADD]). See below for details on infinity points.
+ * - gt.pil: To constrain that the maximum written memory address is within range (#[CHECK_DST_ADDR_IN_RANGE]).
  *
  * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by
  * other subtraces internally (e.g., address derivation). We re-map any input infinity points to (0, 0)
@@ -69,6 +110,7 @@ namespace ecc_add_mem;
     dst_addr[1] = sel * (dst_addr[0] + 1);
     dst_addr[2] = sel * (dst_addr[0] + 2);
 
+    // p_is_inf, q_is_inf are constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
     pol commit p_x, p_y, p_is_inf;
     pol commit q_x, q_y, q_is_inf;
 
@@ -104,7 +146,7 @@ namespace ecc_add_mem;
     #[P_CURVE_EQN]
     p_is_on_curve_eqn = sel * (P_Y2 - (P_X3 - 17)) * (1 - p_is_inf); // Infinity considered as on curve
     // If p_is_on_curve_eqn != 0,  sel_p_not_on_curve_err = 1
-    pol commit p_is_on_curve_eqn_inv;
+    pol commit p_is_on_curve_eqn_inv; // @zero-check
     #[P_ON_CURVE_CHECK]
     sel * (p_is_on_curve_eqn * ((1 - sel_p_not_on_curve_err) * (1 - p_is_on_curve_eqn_inv) + p_is_on_curve_eqn_inv) - sel_p_not_on_curve_err) = 0;
 
@@ -115,7 +157,7 @@ namespace ecc_add_mem;
     #[Q_CURVE_EQN]
     q_is_on_curve_eqn = sel * (Q_Y2 - (Q_X3 - 17)) * (1 - q_is_inf); // Infinity considered as on curve
     // If q_is_on_curve_eqn != 0,  sel_q_not_on_curve_err = 1
-    pol commit q_is_on_curve_eqn_inv;
+    pol commit q_is_on_curve_eqn_inv; // @zero-check
     #[Q_ON_CURVE_CHECK]
     sel * (q_is_on_curve_eqn * ((1 - sel_q_not_on_curve_err) * (1 - q_is_on_curve_eqn_inv) + q_is_on_curve_eqn_inv) - sel_q_not_on_curve_err) = 0;
 
@@ -125,7 +167,7 @@ namespace ecc_add_mem;
     ///////////////////////////////////////////////////////////////////////
     // Dispatch inputs to ecc add and retrieve outputs
     ///////////////////////////////////////////////////////////////////////
-    pol commit res_x, res_y, res_is_inf;
+    pol commit res_x, res_y, res_is_inf; // res_is_inf is constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
@@ -158,7 +200,7 @@ namespace ecc_add_mem;
     ////////////////////////////////////////////////
     #[WRITE_MEM_0]
     sel_should_exec {
-        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag=0*/ precomputed.zero, /*rw=1*/ sel_should_exec
     } is
     memory.sel_ecc_write[0] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
@@ -166,7 +208,7 @@ namespace ecc_add_mem;
 
     #[WRITE_MEM_1]
     sel_should_exec {
-        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag=0*/ precomputed.zero, /*rw=1*/ sel_should_exec
     } is
     memory.sel_ecc_write[1] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
