@@ -151,7 +151,7 @@ function check_toolchains {
 
 function versions {
   local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
-  noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  noir_version=$(git -C noir/noir-repo describe --tags HEAD)
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
   cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
