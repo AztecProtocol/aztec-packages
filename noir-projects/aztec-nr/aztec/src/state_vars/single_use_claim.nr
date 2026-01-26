@@ -8,11 +8,13 @@ use crate::{
     keys::getters::{get_nsk_app, get_public_keys},
     nullifier::utils::compute_nullifier_existence_request,
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::owned_state_variable::OwnedStateVariable,
+    state_vars::OwnedStateVariable,
 };
 
 mod test;
 
+/// Private right to perform an action.
+///
 /// A private state variable type that represents a right each user can exercise at most once.
 ///
 /// Because it is _owned_, you must wrap a [SingleUseClaim] inside an [crate::state_vars::owned::Owned] state variable

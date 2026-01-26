@@ -65,7 +65,8 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    uint32_t real_var_idx = builder.real_variable_index[var_idx];
+                    // Use .at() for bounds checking - fuzzer found OOB with malformed ACIR
+                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);

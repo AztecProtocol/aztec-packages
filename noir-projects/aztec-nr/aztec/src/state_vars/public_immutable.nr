@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::state_variable::StateVariable,
+    state_vars::StateVariable,
     utils::WithHash,
 };
 use protocol_types::{
@@ -8,67 +8,89 @@ use protocol_types::{
     traits::Packable,
 };
 
-/// # PublicImmutable
+/// Immutable public values.
 ///
-/// PublicImmutable is a public state variable type for values that are set once
-/// during initialization and remain permanently unchanged.
+/// This is one of the most basic public state variables. It is similar to an `immutable` or `constant` Solidity state
+/// variable.
 ///
-/// You can declare a state variable of type PublicImmutable within your contract's
-/// [storage](crate::macros::storage::storage) struct:
+/// It represents a public value of type `T` that can be initialized **just once** during the lifetime of the contract,
+/// allowing this single value to be read.
 ///
-/// E.g.:
-/// `your_variable: PublicImmutable<T, Context>`
+/// Unlike Solidity's `immutable` or `constant`, a `PublicImmutable`'s initialization does not need to occur during
+/// contract initialization - it can happen at any point in time (but only once). This also makes it possible to have a
+/// [Map](crate::state_vars::Map) of `PublicImmutable`s.
 ///
-/// PublicImmutable stores an immutable value in public state which can be _read_
-/// from public, utility and even _private_ execution contexts.
+/// ## Access Patterns
 ///
-/// The methods of PublicImmutable are:
-/// - `initialize`
-/// - `read`
-/// (see the methods' own doc comments for more info).
+/// A value stored in a `PublicImmutable` can be read and initialized from public contract functions.
 ///
-/// # Generic Parameters:
+/// Unlike [PublicMutable](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from a
+/// private contract function, though it is not possible to initialize one. A common pattern is to have these functions
+/// [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the initialization
+/// operation is performed.
 ///
-/// * `T` - The type of value stored (must implement Packable).
-/// * `Context` - The execution context (PublicContext, PrivateContext, or UtilityContext).
+/// For a mutable (with restrictions) variant which also can be read from private functions see
+/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable).
 ///
-/// # Advanced
+/// ## Privacy
 ///
-/// PublicImmutable leverages `WithHash<T>` to enable efficient private reads of
-/// public storage. The `WithHash` wrapper optimizes reads by hashing values that would
-/// be larger than a single field into a single field, then proving inclusion of only
-/// the hash in public storage.
+/// `PublicImmutable` provides zero privacy in terms of the value stored and any public accesses: the entire network can
+/// see these and the data involved.
 ///
-/// This optimization is particularly valuable when T packs to multiple fields,
-/// as it maintains "almost constant" verification overhead regardless of the
-/// original data size.
+/// Reading a `PublicImmutable` from a private contract function however is completely private, and leaks zero
+/// information about the fact that the value was read.
 ///
-/// ## Optimizing private reads in your contract
-/// Since reading T from public immutable storage in private contexts has "almost
-/// constant" constraint costs regardless of T's size, it's recommended to group
-/// multiple values into a single struct when they are to be read together. This is
-/// typically useful for configuration data set during contract initialization. E.g.:
+/// ## Use Cases
+///
+/// This is suitable for any kind of fixed global configuration that needs to be accessible by private contract
+/// functions, such as token decimals, related contracts in a multi-contract configuration, etc.
+///
+/// It is also useful for fixed per-user configuration by combining it with a [Map](crate::state_vars::Map), e.g. a
+/// registry of their account types.
+///
+/// `PublicImmutable`'s main limitation is the immutability, which in many cases leads to
+/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable) being used instead. But in those cases where fixed
+/// values are not a problem, this is a fine choice for storage.
+///
+/// ## Examples
+///
+/// Declaring a `PublicImmutable` in the the contract's [storage](crate::macros::storage::storage) struct requires
+/// specifying the type `T` that is stored in the variable:
 ///
 /// ```noir
-/// use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
-/// use std::meta::derive;
+/// #[storage]
+/// struct Storage<Context> {
+///     decimals: PublicImmutable<u8, Context>,
 ///
-/// #[derive(Eq, Packable)]
-/// pub struct Config \{
-///     pub address_1: AztecAddress,
-///     pub value_1: u128,
-///     pub value_2: u64,
-///     ...
+///     account_types: Map<AztecAddress, PublicImmutable<AccountType, Context>, Context>,
 /// }
 /// ```
 ///
+/// ## Requirements
+///
+/// The type `T` stored in the `PublicImmutable` must implement the `Packable` trait.
+///
+/// ## Implementation Details
+///
+/// Values are packed and stored directly in the public storage tree, along with the hash of the packed representation.
+/// A `PublicImmutable` therefore takes up as many storage slots as the packing length of the stored type `T`, plus one.
+/// This hash allows for efficient private reads, such that only a single public storage value is read. For more
+/// details, see [WithHash](crate::utils::WithHash).
+///
+/// An initialization nullifier prevents re-initialization of the `PublicImmutable`. This allows reading an initialized
+/// `PublicImmutable` from a private contract function, since the value is guaranteed to not change.
+///
+/// Private contract functions however **cannot** determine that a `PublicImmutable` has not been initialized, as they do
+/// not have access to the current network state, only the _past_ state at the anchor block. They _can_ perform
+/// historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
+/// that it has not been emitted since then.
 pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-/// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
-/// fields.
+// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
+// fields.
 impl<T, Context, let M: u32> StateVariable<M + 1, Context> for PublicImmutable<T, Context>
 where
     T: Packable<N = M>,
@@ -84,64 +106,72 @@ where
 }
 
 impl<T, Context> PublicImmutable<T, Context> {
-    pub fn compute_initialization_nullifier(self) -> Field {
+    /// Returns the inner nullifier emitted during initialization.
+    pub fn compute_initialization_inner_nullifier(self) -> Field {
         poseidon2_hash_with_separator([self.storage_slot], DOM_SEP__INITIALIZATION_NULLIFIER)
     }
 }
 
 impl<T> PublicImmutable<T, PublicContext> {
-    /// Initializes a PublicImmutable state variable instance with a permanent value.
+    /// Stores a permanent value.
     ///
-    /// This function sets the immutable value for this state variable. It can only
-    /// be called once per PublicImmutable. Subsequent calls will fail because the
-    /// initialization nullifier will already exist.
+    /// This function can only be called once on a given `PublicImmutable`: subsequent calls will fail with a duplicate
+    /// nullifier.
     ///
-    /// # Arguments
-    /// * `value` - The permanent value to store in this PublicImmutable.
+    /// ## Examples
     ///
-    /// # Panics
-    /// Panics if the value is already initialized.
+    /// Contract initialization:
+    /// ```noir
+    /// #[external("public")]
+    /// #[initializer]
+    /// fn initialize(decimals: u8) {
+    ///     self.storage.decimals.iniitalize(decimals);
+    /// }
+    /// ```
     ///
-    /// # Advanced
+    /// Non-initializer initialization:
+    /// ```noir
+    /// // Can only be called once per account
+    /// #[external("public")]
+    /// fn set_account_type(account_type: AccountType) {
+    ///     self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+    /// }
+    /// ```
     ///
-    /// This function performs the following operations:
-    /// - Creates and emits an initialization nullifier to mark this storage slot
-    ///   as initialized. This prevents double-initialization.
-    /// - Wraps the value in `WithHash<T>` for efficient private reads.
-    /// - Stores the wrapped value in Aztec's public data tree.
+    /// ## Cost
     ///
-    /// docs:start:public_immutable_struct_write
+    /// The `SSTORE` AVM opcode is invoked a number of times equal to `T`'s packed length plus one, and the
+    /// `EMITNULLIFIER` AVM opcode is invoked once.
     pub fn initialize(self, value: T)
     where
         T: Packable + Eq,
     {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
-        // the value from being initialized again as a nullifier can be included only once.
-        let nullifier = self.compute_initialization_nullifier();
+        // the value from being initialized again as each nullifier can be emitted only once.
+        let nullifier = self.compute_initialization_inner_nullifier();
         self.context.push_nullifier(nullifier);
 
         self.context.storage_write(self.storage_slot, WithHash::new(value));
     }
 
-    /// Reads the permanent value stored in this PublicImmutable state variable.
+    /// Reads the permanent value.
     ///
-    /// # Returns
-    /// * `T` - The permanent value stored in this PublicImmutable.
+    /// This function reverts the transaction if the `PublicImmutable` is not initialized.
     ///
-    /// # Panics
-    /// Panics if the value is not initialized.
+    /// ## Examples
     ///
-    /// # Advanced
+    /// A public getter that returns the permanent value:
+    /// ```noir
+    /// #[external("public")]
+    /// fn get_decimals() -> u8 {
+    ///     self.storage.decimals.read()
+    /// }
+    /// ```
     ///
-    /// This function performs the following operations:
-    /// - Checks that the state variable has been initialized by verifying the
-    ///   initialization nullifier exists
-    /// - Reads the `WithHash<T>` wrapper from public storage
-    /// - Extracts and returns the original value T
+    /// ## Cost
     ///
-    /// The function will panic if called on an uninitialized PublicImmutable.
-    ///
-    /// docs:start:public_immutable_struct_read
+    /// The `SLOAD` AVM opcode is invoked a number of times equal to `T`'s packed length, and the
+    /// `NULLIFIEREXISTS` AVM opcode is invoked once.
     pub fn read(self) -> T
     where
         T: Packable + Eq,
@@ -150,21 +180,28 @@ impl<T> PublicImmutable<T, PublicContext> {
         WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
-    /// Reads the value stored in this PublicImmutable without checking if the value
-    /// is initialized.
+    /// Reads the permanent value, skipping the initialization check.
     ///
-    /// This function bypasses the initialization check and directly reads from
-    /// storage.
-    /// If the PublicImmutable has not been initialized, this will return a
-    /// zeroed value.
-    /// However, if the variable is _known_ to be initialized, this is cheaper
-    /// to call than `read`.
+    /// This is cheaper than [PublicImmutable::read], but it should only be used if the `PublicImmutable` is known to be
+    /// initialized.
     ///
-    /// # Returns
+    /// If the `PublicImmutable` is not initialized, this returns the default empty public storage value, which is all
+    /// zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
-    /// * `T` - The value stored in this PublicImmutable, or empty/default values if
-    ///         uninitialized.
+    /// ## Examples
     ///
+    /// A public getter that returns the permanent value:
+    /// ```noir
+    /// #[external("public")]
+    /// fn get_decimals() -> u8 {
+    ///     // This call is safe because `decimals` is initialized in the contract's initializer function
+    ///     self.storage.decimals.read_unsafe()
+    /// }
+    /// ```
+    ///
+    /// ## Cost
+    ///
+    /// The `SLOAD` AVM opcode is invoked a number of times equal to `T`'s packed length.
     pub fn read_unsafe(self) -> T
     where
         T: Packable + Eq,
@@ -172,8 +209,25 @@ impl<T> PublicImmutable<T, PublicContext> {
         WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
+    /// Returns true if the `PublicImmutable` has been initialized.
+    ///
+    /// ## Examples:
+    ///
+    /// Conditional initialization:
+    /// ```noir
+    /// #[external("public")]
+    /// fn set_account_type_if_not_set(account_type: AccountType) {
+    ///     if !self.storage.account_types.at(self.msg_sender()).is_initialized() {
+    ///         self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// ## Cost
+    ///
+    /// The `NULLIFIEREXISTS` AVM opcode is invoked once.
     pub fn is_initialized(self) -> bool {
-        let nullifier = self.compute_initialization_nullifier();
+        let nullifier = self.compute_initialization_inner_nullifier();
 
         // Safety: it is safe to assume that the state variable has been initialized if the initialization nullifier
         // exists because the nullifier was emitted in a public function, at the same time the state variable's public
@@ -184,15 +238,18 @@ impl<T> PublicImmutable<T, PublicContext> {
 }
 
 impl<T> PublicImmutable<T, UtilityContext> {
-    /// Reads the permanent value stored in this PublicImmutable state variable.
+    /// Reads the permanent value.
     ///
-    /// Notice that this function is executable only within a UtilityContext, which
-    /// is an unconstrained environment on the user's local device.
+    /// This function throws if the `PublicImmutable` is not initialized.
     ///
-    /// # Returns
+    /// ## Examples
     ///
-    /// * `T` - The permanent value stored in this PublicImmutable.
-    ///
+    /// ```noir
+    /// #[external("utility")]
+    /// fn get_decimals() -> u8 {
+    ///     self.storage.decimals.read()
+    /// }
+    /// ```
     pub unconstrained fn read(self) -> T
     where
         T: Packable + Eq,
@@ -203,34 +260,48 @@ impl<T> PublicImmutable<T, UtilityContext> {
 }
 
 impl<T> PublicImmutable<T, &mut PrivateContext> {
-    /// Reads the permanent value stored in this PublicImmutable from the anchor
-    /// block.
+    /// Reads the permanent value.
     ///
-    /// Private functions execute asynchronously and offchain. When a user begins
-    /// private execution, their view of the chain 'branches off' from the current
-    /// public state, since public state continues to advance while they execute
-    /// privately. Therefore, private functions read from a historical snapshot of
-    /// public state rather than the current state.
+    /// This function throws if the `PublicImmutable` is not initialized.
     ///
-    /// # Returns
+    /// ## Examples
     ///
-    /// * `T` - The permanent value stored in this PublicImmutable at the historical
-    ///         block referenced by the private context.
+    /// ```noir
+    /// #[external("private")]
+    /// fn get_decimals() -> u8 {
+    ///     self.storage.decimals.read()
+    /// }
+    /// ```
     ///
-    /// # Advanced
+    /// ## Cost
     ///
-    /// This function performs a historical read using the block header from the private
-    /// context. The `WithHash` optimization is particularly valuable here because it
-    /// reduces the number of required inclusion proofs by proving membership of
-    /// only the hash instead of the full packed value.
+    /// A historical public storage read at the anchor block is performed for a single storage slot, **regardless of
+    /// `T`'s packed length**. This is because [PublicImmutable::initialize] stores not just the value but also its
+    /// hash: this function obtains the preimage from an oracle and proves that it matches the hash from public storage.
     ///
-    /// The historical read mechanism:
-    /// - Uses an oracle to obtain the value from the anchor block
-    /// - Proves inclusion of the value's hash in the public data tree
-    /// - Proves that the root of this public data tree is correct, relative to the
-    ///   anchor block header.
-    /// - Verifies that the oracle-provided value matches the stored hash
+    /// Because of this reason it is convenient to group together all of a contract's public immutable values that are
+    /// read privately in a single type `T`:
     ///
+    /// ```noir
+    /// // Bad: reading both `decimals` and `symbol` will require two historical public storage reads
+    /// #[storage]
+    /// struct Storage<Context> {
+    ///     decimals: PublicImmutable<u8, Context>,
+    ///     symbol: PubicImmutable<FieldCompressedString, Context>,
+    /// }
+    ///
+    /// // Good: both `decimals` and `symbol` are retrieved in a single historical public storage read
+    /// #[derive(Packable)]
+    /// struct Config {
+    ///     decimals: u8,
+    ///     symbol: FieldCompressedString,
+    /// }
+    ///
+    /// #[storage]
+    /// struct Storage<Context> {
+    ///     config: PublicImmutable<Config, Context>,
+    /// }
+    /// ```
     pub fn read(self) -> T
     where
         T: Packable + Eq,
