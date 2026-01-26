@@ -88,3 +88,15 @@ export class BlockNotFoundError extends Error {
     super(`Failed to find expected block number ${blockNumber}`);
   }
 }
+
+export class CannotOverwriteCheckpointedBlockError extends Error {
+  constructor(
+    public readonly blockNumber: number,
+    public readonly lastCheckpointedBlock: number,
+  ) {
+    super(
+      `Cannot add block ${blockNumber}: would overwrite checkpointed data (checkpointed up to block ${lastCheckpointedBlock})`,
+    );
+    this.name = 'CannotOverwriteCheckpointedBlockError';
+  }
+}
