@@ -5,7 +5,6 @@ import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
-  BuildBlockInCheckpointResult,
   FullNodeBlockBuilderConfig,
   ICheckpointBlockBuilder,
   ICheckpointsBuilder,
@@ -15,6 +14,7 @@ import type {
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
+import type { BuildBlockInCheckpointResultWithTimer } from '@aztec/validator-client';
 
 /**
  * A fake CheckpointBuilder for testing that implements the same interface as the real one.
@@ -35,6 +35,8 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     timestamp: bigint;
     opts: PublicProcessorLimits;
   }> = [];
+  /** Track all consumed transaction hashes across buildBlock calls */
+  public consumedTxHashes: Set<string> = new Set();
   public completeCheckpointCalled = false;
   public getCheckpointCalled = false;
 
@@ -69,16 +71,16 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     return this.constants;
   }
 
-  buildBlock(
-    _pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+  async buildBlock(
+    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
     opts: PublicProcessorLimits,
-  ): Promise<BuildBlockInCheckpointResult> {
+  ): Promise<BuildBlockInCheckpointResultWithTimer> {
     this.buildBlockCalls.push({ blockNumber, timestamp, opts });
 
     if (this.errorOnBuild) {
-      return Promise.reject(this.errorOnBuild);
+      throw this.errorOnBuild;
     }
 
     let block: L2Block;
@@ -97,7 +99,20 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       this.builtBlocks.push(block);
     }
 
-    return Promise.resolve({
+    // Check that no pending tx has already been consumed
+    for await (const tx of pendingTxs) {
+      const hash = tx.getTxHash().toString();
+      if (this.consumedTxHashes.has(hash)) {
+        throw new Error(`Transaction ${hash} was already consumed in a previous block`);
+      }
+    }
+
+    // Add used txs to consumed set
+    for (const tx of usedTxs) {
+      this.consumedTxHashes.add(tx.getTxHash().toString());
+    }
+
+    return {
       block,
       publicGas: Gas.empty(),
       publicProcessorDuration: 0,
@@ -106,7 +121,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       usedTxs,
       failedTxs: [],
       usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,
-    });
+    };
   }
 
   completeCheckpoint(): Promise<Checkpoint> {
@@ -170,6 +185,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     this.usedTxsPerBlock = [];
     this.blockIndex = 0;
     this.buildBlockCalls = [];
+    this.consumedTxHashes.clear();
     this.completeCheckpointCalled = false;
     this.getCheckpointCalled = false;
     this.errorOnBuild = undefined;
