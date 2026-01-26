@@ -75,6 +75,9 @@ using CubeRootFieldTypes = ::testing::Types<bb::fq, bb::fr, secp256k1::fq, secp2
 // Fields whose modulus is 256 bits.
 using TwoFiftySixBitFieldTypes = ::testing::Types<secp256k1::fq, secp256k1::fr>;
 
+// Fields whose modulus is 254 bits (BN254 fq and fr).
+using TwoFiftyFourBitFieldTypes = ::testing::Types<bb::fq, bb::fr>;
+
 TYPED_TEST_SUITE(PrimeFieldTest, PrimeFieldTypes);
 
 template <typename> class PrimeFieldSqrtTest : public ::testing::Test {};
@@ -85,6 +88,9 @@ TYPED_TEST_SUITE(PrimeFieldCubeRootTest, CubeRootFieldTypes);
 
 template <typename> class PrimeFieldTwoFiftySixTest : public ::testing::Test {};
 TYPED_TEST_SUITE(PrimeFieldTwoFiftySixTest, TwoFiftySixBitFieldTypes);
+
+template <typename> class PrimeFieldTwoFiftyFourTest : public ::testing::Test {};
+TYPED_TEST_SUITE(PrimeFieldTwoFiftyFourTest, TwoFiftyFourBitFieldTypes);
 // ================================
 // Compile-time Tests (Prime Field Specific)
 // ================================
@@ -619,4 +625,104 @@ TYPED_TEST(PrimeFieldTest, Msgpack)
     F a = F::random_element();
     auto [actual, expected] = msgpack_roundtrip(a);
     EXPECT_EQ(actual, expected);
+}
+
+// ================================
+// Montgomery Form Conversion Tests (254-bit fields)
+// ================================
+
+/**
+ * Test that from_montgomery_form produces results in the valid range, [0, 2p - 1], WITHOUT needing further reduction.
+ */
+TYPED_TEST(PrimeFieldTwoFiftyFourTest, FromMontgomeryFormNoReductionNeeded)
+{
+    using F = TypeParam;
+    constexpr uint256_t two_p = F::modulus + F::modulus;
+
+    // Test 1: Random elements
+    for (size_t i = 0; i < 100; i++) {
+        F a = F::random_element();
+
+        // Get internal limbs before conversion
+        uint256_t a_internal(a.data[0], a.data[1], a.data[2], a.data[3]);
+
+        // Verify input is in [0, 2p) range (coarse representation)
+        ASSERT_LT(a_internal, two_p) << "Input not in coarse form";
+
+        F result = a.from_montgomery_form();
+
+        // Check result is already in [0, 2p) range
+        uint256_t result_internal(result.data[0], result.data[1], result.data[2], result.data[3]);
+        EXPECT_LT(result_internal, two_p) << "Result of from_montgomery_form exceeds [0, 2p) range";
+    }
+
+    // Test 2: Edge cases - elements near the boundary 2p
+    // Construct elements with internal representation near 2p - 1
+    for (uint64_t offset = 1; offset <= 10; offset++) {
+        // Create element with internal representation = (2p - offset)
+        // We do this by adding (p - 1) + (p - offset + 1) = 2p - offset
+        F p_minus_one(F::modulus - 1);
+        p_minus_one.self_from_montgomery_form();
+        F p_minus_offset_plus_one(F::modulus - offset + 1);
+        p_minus_offset_plus_one.self_from_montgomery_form();
+        F a = p_minus_one + p_minus_offset_plus_one;
+
+        // Verify we have internal representation near 2p
+        uint256_t a_internal(a.data[0], a.data[1], a.data[2], a.data[3]);
+        ASSERT_LT(a_internal, two_p) << "Test setup: element not in valid range";
+
+        F result = a.from_montgomery_form();
+
+        uint256_t result_internal(result.data[0], result.data[1], result.data[2], result.data[3]);
+        EXPECT_LT(result_internal, two_p)
+            << "Edge case: Result of from_montgomery_form exceeds [0, 2p) for offset " << offset;
+    }
+}
+
+/**
+ * Test that to_montgomery_form produces results in the valid range, [0, 2p - 1], WITHOUT needing further reduction.
+ */
+TYPED_TEST(PrimeFieldTwoFiftyFourTest, ToMontgomeryFormNoReductionNeeded)
+{
+    using F = TypeParam;
+    constexpr uint256_t two_p = F::modulus + F::modulus;
+
+    // Test 1: Random elements
+    for (size_t i = 0; i < 100; i++) {
+        F a = F::random_element();
+
+        // Get internal limbs before conversion
+        uint256_t a_internal(a.data[0], a.data[1], a.data[2], a.data[3]);
+
+        // Verify input is in [0, 2p) range (coarse representation)
+        ASSERT_LT(a_internal, two_p) << "Input not in coarse form";
+
+        F result = a.to_montgomery_form();
+
+        // Check result is already in [0, 2p) range
+        uint256_t result_internal(result.data[0], result.data[1], result.data[2], result.data[3]);
+        EXPECT_LT(result_internal, two_p) << "Result of to_montgomery_form exceeds [0, 2p) range";
+    }
+
+    // Test 2: Edge cases - elements near the boundary 2p
+    // Construct elements with internal representation near 2p - 1
+    for (uint64_t offset = 1; offset <= 10; offset++) {
+        // Create element with internal representation = (2p - offset)
+        // We do this by adding (p - 1) + (p - offset + 1) = 2p - offset
+        F p_minus_one(F::modulus - 1);
+        p_minus_one.self_from_montgomery_form();
+        F p_minus_offset_plus_one(F::modulus - offset + 1);
+        p_minus_offset_plus_one.self_from_montgomery_form();
+        F a = p_minus_one + p_minus_offset_plus_one;
+
+        // Verify we have internal representation near 2p
+        uint256_t a_internal(a.data[0], a.data[1], a.data[2], a.data[3]);
+        ASSERT_LT(a_internal, two_p) << "Test setup: element not in valid range";
+
+        F result = a.to_montgomery_form();
+
+        uint256_t result_internal(result.data[0], result.data[1], result.data[2], result.data[3]);
+        EXPECT_LT(result_internal, two_p)
+            << "Edge case: Result of to_montgomery_form exceeds [0, 2p) for offset " << offset;
+    }
 }
