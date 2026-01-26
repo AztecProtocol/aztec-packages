@@ -1,14 +1,48 @@
-import { ExtensionProvider, ExtensionWallet } from '../providers/extension/index.js';
+import type { ChainInfo } from '@aztec/aztec.js/account';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+
+import { type DiscoveredWallet, ExtensionProvider, ExtensionWallet } from '../extension/provider/index.js';
+import { WalletMessageType } from '../types.js';
 import type {
   DiscoverWalletsOptions,
+  DiscoverySession,
   ExtensionWalletConfig,
+  PendingConnection,
   ProviderDisconnectionCallback,
   WalletManagerConfig,
   WalletProvider,
 } from './types.js';
 
 /**
- * Manager for wallet discovery, configuration, and connection
+ * Manager for wallet discovery, configuration, and connection.
+ *
+ * This is the main entry point for dApps to discover and connect to wallets.
+ *
+ * @example Basic usage with async iterator
+ * ```typescript
+ * const discovery = WalletManager.configure({ extensions: { enabled: true } })
+ *   .getAvailableWallets({ chainInfo, appId: 'my-app' });
+ *
+ * // Iterate over discovered wallets
+ * for await (const provider of discovery.wallets) {
+ *   console.log(`Found wallet: ${provider.name}`);
+ * }
+ *
+ * // Or cancel early when done
+ * discovery.cancel();
+ * ```
+ *
+ * @example With callback for discovered wallets
+ * ```typescript
+ * const discovery = manager.getAvailableWallets({
+ *   chainInfo,
+ *   appId: 'my-app',
+ *   onWalletDiscovered: (provider) => console.log(`Found: ${provider.name}`),
+ * });
+ *
+ * // Wait for discovery to complete or cancel it
+ * await discovery.done;
+ * ```
  */
 export class WalletManager {
   private config: WalletManagerConfig = {
@@ -33,65 +67,177 @@ export class WalletManager {
 
   /**
    * Discovers all available wallets for a given chain and version.
-   * Only returns wallets that support the requested chain and version.
-   * @param options - Discovery options including chain info and timeout
-   * @returns Array of wallet providers with baked-in chain info
+   *
+   * Returns a `DiscoverySession` with:
+   * - `wallets`: AsyncIterable to iterate over discovered wallets
+   * - `done`: Promise that resolves when discovery completes or is cancelled
+   * - `cancel()`: Function to stop discovery immediately
+   *
+   * If `onWalletDiscovered` callback is provided, wallets are also streamed via callback.
+   *
+   * @param options - Discovery options including chain info, appId, and timeout
+   * @returns A cancellable discovery session
    */
-  async getAvailableWallets(options: DiscoverWalletsOptions): Promise<WalletProvider[]> {
-    const providers: WalletProvider[] = [];
-    const { chainInfo } = options;
+  getAvailableWallets(options: DiscoverWalletsOptions): DiscoverySession {
+    const { chainInfo, appId } = options;
+    const abortController = new AbortController();
+
+    const pendingProviders: WalletProvider[] = [];
+    let pendingResolve: ((result: IteratorResult<WalletProvider>) => void) | null = null;
+    let completed = false;
+
+    const { promise: donePromise, resolve: resolveDone } = promiseWithResolvers<void>();
+
+    const markComplete = () => {
+      completed = true;
+      resolveDone();
+      if (pendingResolve) {
+        const resolve = pendingResolve;
+        pendingResolve = null;
+        resolve({ value: undefined, done: true });
+      }
+    };
 
     if (this.config.extensions?.enabled) {
-      const discoveredWallets = await ExtensionProvider.discoverExtensions(chainInfo, options.timeout);
       const extensionConfig = this.config.extensions;
 
-      for (const { info, port, sharedKey } of discoveredWallets) {
-        if (!this.isExtensionAllowed(info.id, extensionConfig)) {
-          continue;
-        }
+      void ExtensionProvider.discoverWallets(chainInfo, {
+        appId,
+        timeout: options.timeout,
+        signal: abortController.signal,
+        onWalletDiscovered: discoveredWallet => {
+          const provider = this.createProviderFromDiscoveredWallet(discoveredWallet, chainInfo, extensionConfig);
+          if (!provider) {
+            return;
+          }
 
-        let extensionWallet: ExtensionWallet | null = null;
+          // Call user's callback if provided
+          options.onWalletDiscovered?.(provider);
 
-        const provider: WalletProvider = {
-          id: info.id,
-          type: 'extension',
-          name: info.name,
-          icon: info.icon,
-          metadata: {
-            version: info.version,
-            verificationHash: info.verificationHash,
-          },
-          connect: (appId: string) => {
-            extensionWallet = ExtensionWallet.create(info, chainInfo, port, sharedKey, appId);
-            return Promise.resolve(extensionWallet.getWallet());
-          },
-          disconnect: async () => {
-            if (extensionWallet) {
-              await extensionWallet.disconnect();
-              extensionWallet = null;
-            }
-          },
-          onDisconnect: (callback: ProviderDisconnectionCallback) => {
-            if (extensionWallet) {
-              return extensionWallet.onDisconnect(callback);
-            }
-            return () => {};
-          },
-          isDisconnected: () => {
-            if (extensionWallet) {
-              return extensionWallet.isDisconnected();
-            }
-            return true;
-          },
-        };
-
-        providers.push(provider);
-      }
+          // Also queue for async iterator
+          if (pendingResolve) {
+            const resolve = pendingResolve;
+            pendingResolve = null;
+            resolve({ value: provider, done: false });
+          } else {
+            pendingProviders.push(provider);
+          }
+        },
+      }).then(markComplete);
+    } else {
+      markComplete();
     }
 
-    // TODO: Add web wallet discovery when implemented
+    const wallets: AsyncIterable<WalletProvider> = {
+      // eslint-disable-next-line jsdoc/require-jsdoc
+      [Symbol.asyncIterator](): AsyncIterator<WalletProvider> {
+        return {
+          // eslint-disable-next-line jsdoc/require-jsdoc
+          next(): Promise<IteratorResult<WalletProvider>> {
+            if (pendingProviders.length > 0) {
+              return Promise.resolve({ value: pendingProviders.shift()!, done: false });
+            }
 
-    return providers;
+            if (completed) {
+              return Promise.resolve({ value: undefined, done: true });
+            }
+
+            return new Promise(resolve => {
+              pendingResolve = resolve;
+            });
+          },
+        };
+      },
+    };
+
+    return {
+      wallets,
+      done: donePromise,
+      cancel: () => abortController.abort(),
+    };
+  }
+
+  /**
+   * Creates a WalletProvider from a discovered wallet.
+   * Returns null if the wallet is not allowed by config.
+   * @param discoveredWallet - The discovered wallet from extension discovery.
+   * @param chainInfo - Network information.
+   * @param extensionConfig - Extension wallet configuration.
+   */
+  private createProviderFromDiscoveredWallet(
+    discoveredWallet: DiscoveredWallet,
+    chainInfo: ChainInfo,
+    extensionConfig: ExtensionWalletConfig,
+  ): WalletProvider | null {
+    const { info } = discoveredWallet;
+
+    if (!this.isExtensionAllowed(info.id, extensionConfig)) {
+      return null;
+    }
+
+    let extensionWallet: ExtensionWallet | null = null;
+
+    const provider: WalletProvider = {
+      id: info.id,
+      type: 'extension',
+      name: info.name,
+      icon: info.icon,
+      metadata: {
+        version: info.version,
+      },
+      establishSecureChannel: async (connectAppId: string): Promise<PendingConnection> => {
+        const connection = await discoveredWallet.establishSecureChannel();
+
+        provider.metadata = {
+          ...provider.metadata,
+          verificationHash: connection.info.verificationHash,
+        };
+
+        return {
+          verificationHash: connection.info.verificationHash!,
+          confirm: () => {
+            return Promise.resolve(
+              ExtensionWallet.create(
+                connection.info.id,
+                connection.port,
+                connection.sharedKey,
+                chainInfo,
+                connectAppId,
+              ),
+            );
+          },
+          cancel: () => {
+            // Send disconnect to terminate the session on the extension side
+            // but keep the port open so we can retry key exchange
+            connection.port.postMessage({
+              type: WalletMessageType.DISCONNECT,
+              requestId: discoveredWallet.requestId,
+            });
+            // Don't close the port - allow retry with fresh key exchange
+          },
+        };
+      },
+      disconnect: async () => {
+        if (extensionWallet) {
+          await extensionWallet.disconnect();
+          extensionWallet = null;
+        }
+      },
+      onDisconnect: (callback: ProviderDisconnectionCallback) => {
+        if (extensionWallet) {
+          return extensionWallet.onDisconnect(callback);
+        }
+        return () => {};
+      },
+      isDisconnected: () => {
+        if (extensionWallet) {
+          return extensionWallet.isDisconnected();
+        }
+        return true;
+      },
+    };
+
+    return provider;
   }
 
   /**
