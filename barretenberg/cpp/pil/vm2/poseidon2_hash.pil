@@ -65,7 +65,7 @@ include "precomputed.pil";
  */
 namespace poseidon2_hash;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -98,13 +98,13 @@ namespace poseidon2_hash;
 
     // === Control Flow within Subtrace ===
     // Start of a poseidon2 computation
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
     // When we end a poseidon, the next row must naturally have a start
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // The last row of hashing for the given input
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
 
     // Selector must be 1 in end row
@@ -127,16 +127,17 @@ namespace poseidon2_hash;
     // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
     start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
 
-    // If we still have rounds to perform, the num_perm_rounds_rem is decremented
+    // If we still have rounds to perform, `num_perm_rounds_rem` is decremented.
     sel * (1 - LATCH_CONDITION) * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
-    // Need an additional helper that holds the inverse of the num_perm_rounds_rem;
+    // Need an additional helper that holds the inverse of num_perm_rounds_rem.
     pol commit num_perm_rounds_rem_inv;
     pol NEXT_ROUND_COUNT = num_perm_rounds_rem - 1;
-    // end == 1 when the (num_perm_rounds_rem - 1) == 0
+    // end == 1 <==> (num_perm_rounds_rem - 1) == 0
     sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_inv) + num_perm_rounds_rem_inv) - 1 + end) = 0;
 
     // Prevention of an invalid padding:
-    // Note that on a finite field, once can always devide by 3 and a malicious prover can set an incorrect padding value,
+    // Note that in a finite field, we can always divide by 3. For any padding value (0,1,2), we can set
+    // `num_perm_rounds_rem := 3^(-1) * PADDED_LEN`. Hence, a malicious prover can set an incorrect padding value,
     // setting `padding` so that `PADDED_LEN` is not a multiple of 3 over the integers. If this happens,
     // on `start == 1`, `num_perm_rounds_rem` must be huge, i.e., larger than p/3 (more than 250 bits).
     // This cannot happen because to satisfy the current subtrace constraints, the attacker must decrement `num_perm_rounds_rem`
