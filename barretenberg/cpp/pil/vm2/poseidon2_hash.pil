@@ -130,11 +130,11 @@ namespace poseidon2_hash;
 
     // If we still have rounds to perform, `num_perm_rounds_rem` is decremented.
     sel * (1 - LATCH_CONDITION) * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
-    // Need an additional helper that holds the inverse of num_perm_rounds_rem.
-    pol commit num_perm_rounds_rem_inv;
+    // Need an additional helper that holds the inverse of num_perm_rounds_rem - 1.
+    pol commit num_perm_rounds_rem_min_one_inv;
     pol NEXT_ROUND_COUNT = num_perm_rounds_rem - 1;
     // end == 1 <==> (num_perm_rounds_rem - 1) == 0
-    sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_inv) + num_perm_rounds_rem_inv) - 1 + end) = 0;
+    sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_min_one_inv) + num_perm_rounds_rem_min_one_inv) - 1 + end) = 0;
 
     // Prevention of an invalid padding:
     // Note that in a finite field, we can always divide by 3. For any padding value (0,1,2), we can set
