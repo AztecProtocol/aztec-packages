@@ -36,7 +36,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
      * @brief The size of a Chonk proof without backend-added public inputs
      */
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /*mega_proof*/ ProofLayout::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
+        /*mega_proof*/ ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
         /*merge_proof*/ MERGE_PROOF_SIZE +
         /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
         /*ipa proof*/ IPA_PROOF_LENGTH +
@@ -49,7 +49,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
                                            /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
-        ProofLayout::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
+        ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
 
     // Default constructor
     ChonkProof_() = default;

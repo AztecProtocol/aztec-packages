@@ -21,8 +21,8 @@ enum class TamperType {
  */
 template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs)
 {
-    size_t num_frs = ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + num_public_inputs;
-    // ProofLayout::Honk already includes IPA for rollup flavors, but export_proof adds it again,
+    size_t num_frs = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + num_public_inputs;
+    // ProofLength::Honk already includes IPA for rollup flavors, but export_proof adds it again,
     // so we subtract it here
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_frs -= IPA_PROOF_LENGTH;

@@ -32,11 +32,17 @@ Bootstrap modes:
   ninja <test>
   NOTE: DO NOT add the -j flag, default is optimal.
   where test is based on what you're working on:
-  - `./bin/ultra_honk_tests` - Ultra Honk circuit tests
-  - `./bin/chonk_tests` - Chonk tests
-  - `./bin/api_tests` - API/CLI tests
-  - `./bin/stdlib_*_tests` - Standard library tests
-  - `./bin/crypto_*_tests` - Cryptographic primitive tests
+  - `ultra_honk_tests` - Ultra Honk circuit tests
+  - `chonk_tests` - Chonk tests
+  - `dsl_tests` - ACIR/DSL tests (acir_format/, mock_verifier_inputs)
+  - `hypernova_tests` - HyperNova folding tests
+  - `eccvm_tests` - ECCVM circuit tests
+  - `translator_vm_tests` - Translator circuit tests
+  - `goblin_tests` - Goblin tests
+  - `stdlib_*_tests` - Standard library tests
+  - `crypto_*_tests` - Cryptographic primitive tests
+
+  To find test targets: `ninja -t targets | grep "_tests:" | grep -v cmake`
 
 ### Barretenberg module components:
 

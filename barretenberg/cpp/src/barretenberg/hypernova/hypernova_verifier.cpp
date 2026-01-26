@@ -95,7 +95,7 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
 
     // Derive num_public_inputs from proof size (instance-to-accum proof structure)
     const size_t num_public_inputs =
-        ProofLayout::HypernovaInstanceToAccum<Flavor>::derive_num_public_inputs(proof.size(), Flavor::VIRTUAL_LOG_N);
+        ProofLength::HypernovaInstanceToAccum<Flavor>::derive_num_public_inputs(proof.size(), Flavor::VIRTUAL_LOG_N);
 
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);
 
@@ -122,7 +122,7 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
     // Derive num_public_inputs from proof size (folding proof structure includes batching)
     const size_t num_public_inputs =
-        ProofLayout::HypernovaFolding<Flavor, MultilinearBatchingFlavor>::derive_num_public_inputs(
+        ProofLength::HypernovaFolding<Flavor, MultilinearBatchingFlavor>::derive_num_public_inputs(
             proof.size(), Flavor::VIRTUAL_LOG_N);
 
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);

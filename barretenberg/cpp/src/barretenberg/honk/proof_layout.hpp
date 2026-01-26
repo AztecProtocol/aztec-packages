@@ -10,10 +10,9 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include <cstddef>
 
-namespace bb::ProofLayout {
+namespace bb::ProofLength {
 
 /**
  * @brief Codec constants computed from Flavor types.
@@ -176,4 +175,4 @@ template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
     }
 };
 
-} // namespace bb::ProofLayout
+} // namespace bb::ProofLength
