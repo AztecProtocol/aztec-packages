@@ -323,19 +323,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     startStorageSlot: Fr,
     numberOfElements: number,
   ) {
-    const values = [];
+    const slots = Array(numberOfElements)
+      .fill(0)
+      .map((_, i) => new Fr(startStorageSlot.value + BigInt(i)));
 
-    // TODO: why do we serialize these requests? This should probably a single call
-    // Privacy considerations?
-    for (let i = 0n; i < numberOfElements; i++) {
-      const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
+    const values = await Promise.all(
+      slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
+    );
 
-      this.log.debug(
-        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
-      );
-      values.push(value);
-    }
+    this.log.debug(
+      `Oracle storage read: slots=[${slots.map(slot => slot.toString()).join(', ')}] address=${contractAddress.toString()} values=[${values.join(', ')}]`,
+    );
+
     return values;
   }
 
