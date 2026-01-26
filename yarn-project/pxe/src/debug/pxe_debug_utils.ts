@@ -41,7 +41,7 @@ export class PXEDebugUtils {
     }
 
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    const call = await this.contractStore.getFunctionCall('sync_private_state', [], filter.contractAddress);
+    const call = await this.contractStore.getFunctionCall('sync_state', [], filter.contractAddress);
     await this.#pxe.simulateUtility(call);
 
     return this.noteStore.getNotes(filter, randomBytes(8).toString('hex'));

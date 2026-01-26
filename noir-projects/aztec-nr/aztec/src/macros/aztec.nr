@@ -16,7 +16,7 @@ use crate::macros::{
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `sync_private_state` utility function.
+/// the `sync_state` utility function.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
@@ -34,9 +34,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // We generate ABI exports for all the external functions in the contract.
     let fn_abi_exports = create_fn_abi_exports(m);
 
-    // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
-    // functions only if they are not already implemented. If they are implemented we just insert empty
-    // quotes.
+    // We generate `_compute_note_hash_and_nullifier`, `sync_state` and `process_message` functions only if they are
+    // not already implemented. If they are implemented we just insert empty quotes.
     let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
         f.name() == quote { _compute_note_hash_and_nullifier }
     }) {
@@ -44,10 +43,10 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-    let sync_private_state_fn_and_abi_export = if !m.functions().any(|f| {
-        f.name() == quote { sync_private_state }
+    let sync_state_fn_and_abi_export = if !m.functions().any(|f| {
+        f.name() == quote { sync_state }
     }) {
-        generate_sync_private_state()
+        generate_sync_state()
     } else {
         quote {}
     };
@@ -69,7 +68,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $fn_abi_exports
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
-        $sync_private_state_fn_and_abi_export
+        $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
     }
 }
@@ -231,9 +230,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
             /// tree with `note_nonce`.
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
-            /// and so it can be used to call functions from that module such as `discover_new_messages`, 
-            /// `do_process_message` and `attempt_note_discovery`.
+            /// The signature of this function notably matches the
+            /// `aztec::messages::discovery::ComputeNoteHashAndNullifier` type, and so it can be used to call functions
+            /// from that module such as `do_sync_state` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -276,20 +275,20 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-comptime fn generate_sync_private_state() -> Quoted {
+comptime fn generate_sync_state() -> Quoted {
     quote {
-        pub struct sync_private_state_parameters {}
+        pub struct sync_state_parameters {}
 
         #[abi(functions)]
-        pub struct sync_private_state_abi {
-            parameters: sync_private_state_parameters,
+        pub struct sync_state_abi {
+            parameters: sync_state_parameters,
         }
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn sync_private_state() {
+        unconstrained fn sync_state() {
             let address = aztec::context::UtilityContext::new().this_address();
             
-            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);
+            aztec::messages::discovery::do_sync_state(address, _compute_note_hash_and_nullifier);
         }
     }
 }

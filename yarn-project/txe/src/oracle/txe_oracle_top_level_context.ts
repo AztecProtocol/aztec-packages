@@ -301,7 +301,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call);
     };
 
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, utilityExecutor);
+    await this.contractStore.syncState(targetContractAddress, functionSelector, utilityExecutor);
 
     const blockNumber = await this.txeGetNextBlockNumber();
 
@@ -645,7 +645,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, async call => {
+    await this.contractStore.syncState(targetContractAddress, functionSelector, async call => {
       await this.executeUtilityCall(call);
     });
 
