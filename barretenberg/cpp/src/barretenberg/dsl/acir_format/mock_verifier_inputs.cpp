@@ -81,13 +81,13 @@ HonkProof create_mock_multilinear_batch_proof()
     HonkProof proof;
 
     // Populate mock witness accumulator commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
 
     // Accumulator multivariate challenges
     populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
     // Witness accumulator polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();

@@ -141,9 +141,9 @@ template <typename Flavor> struct MultilinearBatching {
 
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
-        return /* accumulator commitments */ (Flavor::NUM_WITNESS_ENTITIES / 2 * num_frs_in_comm) +
+        return /* accumulator commitments */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm) +
                /* multivariate challenges */ (log_n * num_frs_in_scalar) +
-               /* witness evaluations */ (Flavor::NUM_WITNESS_ENTITIES / 2 * num_frs_in_scalar) +
+               /* accumulator evaluations */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_scalar) +
                Sumcheck<Flavor>::LENGTH(log_n);
     }
 };

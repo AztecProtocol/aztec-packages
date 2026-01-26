@@ -31,7 +31,6 @@ class MultilinearBatchingFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
-    using Codec = FrCodec;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
     // sizes in the Chonk context.
@@ -47,12 +46,13 @@ class MultilinearBatchingFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
-    // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 4;
+    // Number of witness commitments/evaluations sent in proof (non_shifted_accumulator + shifted_accumulator).
+    // Note: eq polynomials are precomputed from challenges, not sent as commitments.
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
-    // Number of accumulator evaluations sent in the proof (non_shifted + shifted)
-    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
+    // Number of accumulator evaluations sent in the proof (non_shifted + shifted) - same as NUM_WITNESS_ENTITIES
+    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -77,9 +77,9 @@ class MultilinearBatchingFlavor {
 
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS()
     {
-        return /*accumulator commitments*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_comm) +
+        return /*accumulator commitments*/ (NUM_WITNESS_ENTITIES * num_frs_comm) +
                /*multivariate challenges*/ (VIRTUAL_LOG_N * num_frs_fr) +
-               /*witness evaluations*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_fr) +
+               /*accumulator evaluations*/ (NUM_WITNESS_ENTITIES * num_frs_fr) +
                /*sumcheck univariates*/ (VIRTUAL_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
                /*sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr);
     }

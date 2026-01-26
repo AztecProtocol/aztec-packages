@@ -35,9 +35,9 @@ class MultilinearBatchingRecursiveFlavor {
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
 
-    // The total number of witness entities not including shifts.
+    // Number of witness commitments/evaluations sent in proof (non_shifted_accumulator + shifted_accumulator).
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
-    // Number of accumulator evaluations sent in the proof (non_shifted + shifted)
+    // Number of accumulator evaluations sent in the proof (non_shifted + shifted) - same as NUM_WITNESS_ENTITIES
     static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = NativeFlavor::NUM_ACCUMULATOR_EVALUATIONS;
 
     // define the tuple of Relations that comprise the Sumcheck relation
