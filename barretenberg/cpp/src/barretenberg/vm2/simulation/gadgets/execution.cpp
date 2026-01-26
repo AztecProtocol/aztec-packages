@@ -1673,6 +1673,11 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
 
     get_gas_tracker().consume_gas();
 
+    // We need to check this first, since the circuit will always lookup ff_gt it even if another opcode error happens.
+    if (greater_than.gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))) {
+        throw OpcodeExecutionException("SENDL2TOL1MSG: Recipient address is too large");
+    }
+
     if (context.get_is_static()) {
         throw OpcodeExecutionException(
             "SENDL2TOL1MSG: Static call cannot update the state. Cannot send L2 to L1 message in static context");

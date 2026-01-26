@@ -107,6 +107,7 @@ pub fn validate_previous_kernel_for_tail(
     let nullifiers = previous_kernel_public_inputs.end.nullifiers;
     let private_logs = previous_kernel_public_inputs.end.private_logs;
     let contract_class_logs_hashes = previous_kernel_public_inputs.end.contract_class_logs_hashes;
+    let l2_to_l1_msgs = previous_kernel_public_inputs.end.l2_to_l1_msgs;
     let private_call_stack = previous_kernel_public_inputs.end.private_call_stack;
     let public_call_requests = previous_kernel_public_inputs.end.public_call_requests;
     let public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
@@ -116,6 +117,7 @@ pub fn validate_previous_kernel_for_tail(
     validate_siloed_values(note_hashes, "note hashes");
     validate_siloed_values(nullifiers, "nullifiers");
     validate_siloed_values(private_logs, "private logs");
+    l2_to_l1_msgs.for_each(|msg| msg.innermost().recipient.validate());
 
     validate_no_transient_data(previous_kernel_public_inputs);
 
