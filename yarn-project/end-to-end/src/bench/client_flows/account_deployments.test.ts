@@ -34,7 +34,7 @@ describe('Deployment benchmark', () => {
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
     const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send({ from: adminAddress }).wait();
+    await publishContractClassInteraction.send({ from: adminAddress });
   });
 
   afterAll(async () => {
@@ -91,7 +91,7 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await deploymentInteraction.send(options).wait();
+            const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
             expect(tx.transactionFee!).toBeGreaterThan(0n);
           }
         });

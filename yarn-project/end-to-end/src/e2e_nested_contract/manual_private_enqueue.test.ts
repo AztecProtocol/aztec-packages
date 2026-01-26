@@ -19,8 +19,8 @@ describe('e2e_nested_contract manual_enqueue', () => {
   });
 
   beforeEach(async () => {
-    parentContract = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
-    childContract = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    parentContract = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress });
+    childContract = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(async () => {
@@ -30,24 +30,21 @@ describe('e2e_nested_contract manual_enqueue', () => {
   it('enqueues a single public call', async () => {
     await parentContract.methods
       .enqueue_call_to_child(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
   });
 
   it('enqueues multiple public calls', async () => {
     await parentContract.methods
       .enqueue_call_to_child_twice(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
   });
 
   it('enqueues a public call with nested public calls', async () => {
     await parentContract.methods
       .enqueue_call_to_pub_entry_point(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
   });
 
@@ -58,8 +55,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
         await childContract.methods.pub_inc_value.selector(),
         42n,
       )
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
   });
 });

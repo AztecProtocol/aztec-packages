@@ -130,9 +130,7 @@ export const uniswapL1L2TestSuite = (
         client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
-      uniswapL2Contract = await UniswapContract.deploy(wallet, uniswapPortalAddress)
-        .send({ from: ownerAddress })
-        .deployed();
+      uniswapL2Contract = await UniswapContract.deploy(wallet, uniswapPortalAddress).send({ from: ownerAddress });
 
       const registryAddress = (await aztecNode.getNodeInfo()).l1ContractAddresses.registryAddress;
 
@@ -209,8 +207,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
-        .wait();
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] });
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
       const swapPrivateContent = sha256ToField([
@@ -428,10 +425,10 @@ export const uniswapL1L2TestSuite = (
     //       ownerEthAddress,
     //       nonceForSwap,
     //     );
-    //   await ownerWallet.setPublicAuthWit({ caller: sponsorAddress, action }, true).send().wait();
+    //   await ownerWallet.setPublicAuthWit({ caller: sponsorAddress, action }, true).send();
 
     //   // 4.2 Call swap_public from user2 on behalf of owner
-    //   const uniswapL2Interaction = await action.send().wait();
+    //   const uniswapL2Interaction = await action.send();
 
     //   const swapPublicContent = sha256ToField([
     //     Buffer.from(
@@ -649,8 +646,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .send({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] })
-          .wait(),
+          .send({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] }),
       ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
@@ -675,7 +671,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       // No approval to call `swap` but should work even without it:
       const [_, secretHashForDepositingSwappedDai] = await generateClaimSecret();
@@ -694,8 +690,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO, // nonce for swap -> doesn't matter
         )
-        .send({ from: ownerAddress })
-        .wait();
+        .send({ from: ownerAddress });
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
     });
@@ -725,7 +720,7 @@ export const uniswapL1L2TestSuite = (
         { caller: approvedUser, action },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       await expect(action.simulate({ from: sponsorAddress })).rejects.toThrow(/unauthorized/);
     });
@@ -747,7 +742,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       await expect(
         uniswapL2Contract.methods
@@ -804,8 +799,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
-        .wait();
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] });
 
       const swapPrivateContent = sha256ToField([
         Buffer.from(
@@ -918,7 +912,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
@@ -936,8 +930,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO,
         )
-        .send({ from: ownerAddress })
-        .wait();
+        .send({ from: ownerAddress });
 
       const swapPublicContent = sha256ToField([
         Buffer.from(

@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { sleep } from '@aztec/foundation/sleep';
 
 import fs from 'fs';
@@ -50,7 +51,7 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   it('should re-discover stored peers without bootstrap node', async () => {
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider!,
@@ -109,18 +110,15 @@ describe('e2e_p2p_rediscovery', () => {
     // now ensure that all txs were successfully mined
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          const txHash = await tx.getTxHash();
-          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
-          return tx
-            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
-            .then(() => {
-              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
-            })
-            .catch(err => {
-              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
-              throw err;
-            });
+        txs.map(async (txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash: txHash.toString() });
+          try {
+            await waitForTx(newNodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
+            t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash: txHash.toString() });
+          } catch (err) {
+            t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash: txHash.toString() });
+            throw err;
+          }
         }),
       ),
     );

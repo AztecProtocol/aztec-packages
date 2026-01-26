@@ -17,7 +17,6 @@ describe('e2e_nested_contract manual', () => {
   it('performs nested calls', async () => {
     await parentContract.methods
       .entry_point(childContract.address, await childContract.methods.value.selector())
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
   });
 });

@@ -71,7 +71,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       },
       true,
     );
-    await validateActionInteraction.send().wait();
+    await validateActionInteraction.send();
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
@@ -123,8 +123,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     logger.info("user2 consumes owner's message on L2 Publicly");
     await l2Bridge.methods
       .claim_public(ownerAddress, bridgeAmount, claim.claimSecret, messageLeafIndex)
-      .send({ from: user2Address })
-      .wait();
+      .send({ from: user2Address });
 
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);

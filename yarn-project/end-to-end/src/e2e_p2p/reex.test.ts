@@ -1,7 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { Tx } from '@aztec/aztec.js/tx';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { Tx, TxHash } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
@@ -30,7 +30,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 describe('e2e_p2p_reex', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let txs: SentTx[];
+  let txs: TxHash[];
 
   beforeAll(async () => {
     nodes = [];
@@ -243,9 +243,9 @@ describe('e2e_p2p_reex', () => {
 
         // We ensure that the transactions are NOT mined in the next slot
         const txResults = await Promise.allSettled(
-          txs.map(async (tx: SentTx, i: number) => {
-            t.logger.info(`Waiting for tx ${i}: ${(await tx.getTxHash()).toString()} to be mined`);
-            return await tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
+          txs.map(async (txHash: TxHash, i: number) => {
+            t.logger.info(`Waiting for tx ${i}: ${txHash.toString()} to be mined`);
+            return await waitForTx(nodes[0], txHash, { timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
           }),
         );
 
