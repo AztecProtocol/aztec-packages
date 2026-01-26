@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-export bb=$(./find-bb)
+export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
