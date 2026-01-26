@@ -90,23 +90,38 @@ export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNo
   const results = [];
 
   for (const sequencer of sequencers) {
-    const { process, port } = await startPortForward({
-      resource: `pod/${sequencer}`,
-      namespace,
-      containerPort: adminContainerPort,
-    });
+    // Wrap port-forward + fetch in a retry to handle flaky port-forwards
+    const result = await retry(
+      async () => {
+        const { process, port } = await startPortForward({
+          resource: `pod/${sequencer}`,
+          namespace,
+          containerPort: adminContainerPort,
+        });
 
-    const url = `http://localhost:${port}`;
-    await retry(
-      () => fetch(`${url}/status`).then(res => res.status === 200),
-      'forward node admin port',
-      makeBackoff([1, 1, 2, 6]),
+        try {
+          const url = `http://localhost:${port}`;
+          // Quick health check before using the connection
+          const statusRes = await fetch(`${url}/status`);
+          if (statusRes.status !== 200) {
+            throw new Error(`Admin endpoint returned status ${statusRes.status}`);
+          }
+          const client = createAztecNodeAdminClient(url);
+          return { result: await fn(client), process };
+        } catch (err) {
+          // Kill the port-forward before retrying
+          process.kill();
+          throw err;
+        }
+      },
+      'connect to node admin',
+      makeBackoff([1, 2, 4, 8]),
       logger,
       true,
     );
-    const client = createAztecNodeAdminClient(url);
-    results.push(await fn(client));
-    process.kill();
+
+    results.push(result.result);
+    result.process.kill();
   }
 
   return results;

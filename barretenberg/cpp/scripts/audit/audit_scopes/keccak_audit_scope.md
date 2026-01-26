@@ -1,7 +1,7 @@
 # External Audit Scope: Keccak
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Commit hash: 89a12920681072efff1eed881589aad16347e0d6
 
 ### Files to audit
 

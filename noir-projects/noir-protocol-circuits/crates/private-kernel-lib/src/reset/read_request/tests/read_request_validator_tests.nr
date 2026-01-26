@@ -54,14 +54,14 @@ fn clears_partial_read_requests() {
     );
 }
 
-#[test(should_fail_with = "pending_read_hints length does not match PendingReadAmount")]
+#[test(should_fail_with = "PendingReadAmount should match the length of the hints array")]
 fn validate_amount_less_than_pending_read_hints() {
     let builder = TestBuilder::new_mixed();
     // Validate 1 less than the `pending_read_hints` array length.
     builder.validate_with_amount::<PENDING_READ_HINTS_LEN - 1, SETTLED_READ_HINTS_LEN>();
 }
 
-#[test(should_fail_with = "pending_read_hints length does not match PendingReadAmount")]
+#[test(should_fail_with = "PendingReadAmount should match the length of the hints array")]
 fn validate_amount_greater_than_pending_read_hints() {
     let builder = TestBuilder::new_mixed();
     // Validate 1 more than the `pending_read_hints` array length.
@@ -111,14 +111,14 @@ fn validate_with_zero_pending_read_amount_hints_non_empty() {
     builder.validate_with_amount::<0, SETTLED_READ_HINTS_LEN>();
 }
 
-#[test(should_fail_with = "settled_read_hints length does not match SettledReadAmount")]
+#[test(should_fail_with = "SettledReadAmount should match the length of the hints array")]
 fn validate_with_fewer_settled_read_amount_fails() {
     let mut builder = TestBuilder::new_mixed();
     // Validate 1 less than the `settled_read_hints` array length.
     builder.validate_with_amount::<PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN - 1>();
 }
 
-#[test(should_fail_with = "settled_read_hints length does not match SettledReadAmount")]
+#[test(should_fail_with = "SettledReadAmount should match the length of the hints array")]
 fn validate_with_more_settled_read_amount_fails() {
     let mut builder = TestBuilder::new_mixed();
     // Validate 1 more than the `settled_read_hints` array length.

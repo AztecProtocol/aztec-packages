@@ -85,7 +85,7 @@ import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { Oracle } from './oracle/oracle.js';
-import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
+import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 
@@ -137,12 +137,6 @@ export class ContractFunctionSimulator {
     jobId: string,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-
-    await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
-      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobId),
-    );
-
-    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
 
@@ -268,8 +262,6 @@ export class ContractFunctionSimulator {
     scopes: AztecAddress[] | undefined,
     jobId: string,
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.aztecNode, this.contractStore, anchorBlockHeader);
-
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {

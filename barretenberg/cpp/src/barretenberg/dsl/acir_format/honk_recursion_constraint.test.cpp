@@ -72,7 +72,7 @@ class HonkRecursionConstraintTestingFunctions {
         }
 
         return true;
-    });
+    }());
 
     // Check that if IsRootRollup is true, then we set the parameters correctly
     static_assert([]() {
@@ -81,7 +81,7 @@ class HonkRecursionConstraintTestingFunctions {
         }
 
         return true;
-    });
+    }());
 
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
@@ -171,23 +171,24 @@ class HonkRecursionConstraintTestingFunctions {
     {
         // Lambda to offset the recursion constraint by the current size of the witness vector
         auto offset_recursion_constraint = [](RecursionConstraint& honk_recursion_constraint, const size_t offset) {
-            auto shift_by_offset = [&offset](std::vector<uint32_t>& indices) {
-                for (auto& witness_idx : indices) {
-                    witness_idx += offset;
+            uint32_t uint32_offset = static_cast<uint32_t>(offset);
+            auto shift_by_offset = [&uint32_offset](std::vector<uint32_t>& indices) {
+                for (auto& index : indices) {
+                    index += uint32_offset;
                 }
             };
 
             shift_by_offset(honk_recursion_constraint.key);
             shift_by_offset(honk_recursion_constraint.proof);
             shift_by_offset(honk_recursion_constraint.public_inputs);
-            honk_recursion_constraint.key_hash += offset;
-            honk_recursion_constraint.predicate.index += offset;
+            honk_recursion_constraint.key_hash += uint32_offset;
+            honk_recursion_constraint.predicate.index += uint32_offset;
         };
 
         for (auto [constraint, witnesses] : zip_view(constraints, witness_vectors)) {
             offset_recursion_constraint(constraint, witness_values.size());
             // If this is the root rollup, we need to set the proof type to ROOT_ROLLUP_HONK
-            constraint.proof_type = IsRootRollup ? ROOT_ROLLUP_HONK : constraint.proof_type;
+            constraint.proof_type = IsRootRollup ? static_cast<uint32_t>(ROOT_ROLLUP_HONK) : constraint.proof_type;
             witness_values.insert(witness_values.end(), witnesses.begin(), witnesses.end());
         }
 

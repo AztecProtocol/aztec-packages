@@ -105,13 +105,13 @@ export class BlacklistTokenContractTest {
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
 
     this.logger.verbose(`Deploying TokenContract...`);
-    this.asset = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress)
-      .send({ from: this.adminAddress })
-      .deployed();
+    this.asset = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress).send({
+      from: this.adminAddress,
+    });
     this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
     this.logger.verbose(`Deploying bad account...`);
-    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress }).deployed();
+    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
     await this.crossTimestampOfChange();
@@ -171,14 +171,12 @@ export class BlacklistTokenContractTest {
     const adminMinterRole = new Role().withAdmin().withMinter();
     await this.asset.methods
       .update_roles(this.adminAddress, adminMinterRole.toNoirStruct())
-      .send({ from: this.adminAddress })
-      .wait();
+      .send({ from: this.adminAddress });
 
     const blacklistRole = new Role().withBlacklisted();
     await this.asset.methods
       .update_roles(this.blacklistedAddress, blacklistRole.toNoirStruct())
-      .send({ from: this.adminAddress })
-      .wait();
+      .send({ from: this.adminAddress });
 
     await this.crossTimestampOfChange();
 
@@ -187,16 +185,15 @@ export class BlacklistTokenContractTest {
     );
 
     this.logger.verbose(`Minting ${amount} publicly...`);
-    await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress }).wait();
+    await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress });
 
     this.logger.verbose(`Minting ${amount} privately...`);
     const secret = Fr.random();
     const secretHash = await computeSecretHash(secret);
-    const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress }).wait();
+    const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress });
 
     await this.addPendingShieldNoteToPXE(asset, this.adminAddress, amount, secretHash, receipt.txHash);
-    const txClaim = asset.methods.redeem_shield(this.adminAddress, amount, secret).send({ from: this.adminAddress });
-    await txClaim.wait();
+    await asset.methods.redeem_shield(this.adminAddress, amount, secret).send({ from: this.adminAddress });
     this.logger.verbose(`Minting complete.`);
 
     tokenSim.mintPublic(this.adminAddress, amount);

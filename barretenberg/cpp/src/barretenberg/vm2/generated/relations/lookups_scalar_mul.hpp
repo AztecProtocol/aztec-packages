@@ -25,7 +25,7 @@ struct lookup_scalar_mul_to_radix_settings_ {
         ColumnAndShifts::scalar_mul_scalar,
         ColumnAndShifts::scalar_mul_bit,
         ColumnAndShifts::scalar_mul_bit_idx,
-        ColumnAndShifts::scalar_mul_bit_radix
+        ColumnAndShifts::scalar_mul_const_two
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::to_radix_value,
@@ -45,7 +45,7 @@ struct lookup_scalar_mul_double_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SCALAR_MUL_DOUBLE";
     static constexpr std::string_view RELATION_NAME = "scalar_mul";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
-    static constexpr Column SRC_SELECTOR = Column::scalar_mul_not_end;
+    static constexpr Column SRC_SELECTOR = Column::scalar_mul_sel_not_end;
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_scalar_mul_double_counts;
     static constexpr Column INVERSES = Column::lookup_scalar_mul_double_inv;

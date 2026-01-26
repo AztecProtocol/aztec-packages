@@ -6,7 +6,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "../base/Base.sol";
 import {OracleInput} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  MAX_FEE_ASSET_PRICE_MODIFIER,
+  MAX_FEE_ASSET_PRICE_MODIFIER_BPS,
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -30,8 +30,8 @@ struct L1FeesModel {
 }
 
 struct FeeHeaderModel {
+  uint256 eth_per_fee_asset;
   uint256 excess_mana;
-  uint256 fee_asset_price_numerator;
   uint256 mana_used;
 }
 
@@ -63,7 +63,7 @@ struct CheckpointHeaderModel {
 }
 
 struct TestPointOutputs {
-  uint256 fee_asset_price_at_execution;
+  uint256 eth_per_fee_asset_at_execution;
   L1FeesModel l1_fee_oracle_output;
   L1GasOracleValuesModel l1_gas_oracle_values;
   ManaMinFeeComponentsModel mana_min_fee_components_in_fee_asset;
@@ -128,8 +128,8 @@ contract FeeModelTestPoints is TestBase {
   }
 
   function assertEq(FeeHeaderModel memory a, FeeHeaderModel memory b) internal pure {
+    assertEq(a.eth_per_fee_asset, b.eth_per_fee_asset, "eth_per_fee_asset mismatch");
     assertEq(a.excess_mana, b.excess_mana, "excess_mana mismatch");
-    assertEq(a.fee_asset_price_numerator, b.fee_asset_price_numerator, "fee_asset_price_numerator mismatch");
     assertEq(a.mana_used, b.mana_used, "mana_used mismatch");
   }
 

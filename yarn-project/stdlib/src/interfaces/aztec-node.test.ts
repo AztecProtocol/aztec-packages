@@ -233,6 +233,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(BlockNumber(1));
   });
 
+  it('getCheckpointedBlockNumber', async () => {
+    const response = await context.client.getCheckpointedBlockNumber();
+    expect(response).toBe(BlockNumber(1));
+  });
+
   it('isReady', async () => {
     const response = await context.client.isReady();
     expect(response).toBe(true);
@@ -680,6 +685,9 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(BlockNumber(1));
   }
   getProvenBlockNumber(): Promise<BlockNumber> {
+    return Promise.resolve(BlockNumber(1));
+  }
+  getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
   }
   isReady(): Promise<boolean> {

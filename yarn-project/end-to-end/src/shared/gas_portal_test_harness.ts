@@ -127,7 +127,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claimer: AztecAddress, claim: L2AmountClaim) {
     this.logger.info('Consuming messages on L2 Privately');
     const { claimAmount, claimSecret, messageLeafIndex } = claim;
-    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer }).wait();
+    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer });
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {

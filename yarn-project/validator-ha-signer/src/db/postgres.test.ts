@@ -4,6 +4,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import type { QueryResult } from 'pg';
 
 import { Pool } from '../test/pglite_pool.js';
@@ -34,15 +37,18 @@ describe('PostgreSQL Queries', () => {
   const NODE_ID = 'node-1';
   const LOCK_TOKEN = 'test-lock-token-12345';
   const SIGNATURE = '0xsignature';
+  let tmpDir: string;
 
   beforeEach(async () => {
-    db = new PGlite();
+    tmpDir = await mkdtemp(join(tmpdir(), 'pglite-'));
+    db = await PGlite.create(tmpDir);
 
     await setupTestSchema(db);
   });
 
   afterEach(async () => {
     await db.close();
+    await rm(tmpDir, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 });
   });
 
   describe('INSERT_OR_GET_DUTY', () => {

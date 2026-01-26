@@ -321,7 +321,7 @@ export class P2PNetworkTest {
       throw new Error('Call setupAccount before deploying spam contract');
     }
 
-    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! }).deployed();
+    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! });
     this.spamContract = spamContract;
   }
 
@@ -351,14 +351,19 @@ export class P2PNetworkTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setup(0, {
-      ...this.setupOptions,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
-      aztecTargetCommitteeSize: 0,
-      l1ContractsArgs: this.deployL1ContractsArgs,
-    });
+    this.context = await setup(
+      0,
+      {
+        ...this.setupOptions,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+        aztecTargetCommitteeSize: 0,
+        l1ContractsArgs: this.deployL1ContractsArgs,
+      },
+      // Use checkpointed chain tip for PXE to avoid issues with blocks being dropped due to pruned anchor blocks.
+      { syncChainTip: 'checkpointed' },
+    );
     this.ctx = this.context;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();

@@ -287,7 +287,8 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             });
             // add a read row, to make sure we can intersperse the operations, as expected.
             uint32_t random_read_index =
-                engine.get_random_uint32() % array_length; // a random index to read from in my ROM array.
+                engine.get_random_uint32() %
+                static_cast<uint32_t>(array_length); // a random index to read from in my ROM array.
             circuit_builder.read_RAM_array(ram_table_id, index_witness_indices[random_read_index]);
         }
     }

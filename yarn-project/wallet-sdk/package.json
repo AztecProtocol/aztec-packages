@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./base-wallet": "./dest/base-wallet/index.js",
-    "./providers/extension": "./dest/providers/extension/index.js",
+    "./extension/handlers": "./dest/extension/handlers/index.js",
+    "./extension/provider": "./dest/extension/provider/index.js",
     "./crypto": "./dest/crypto.js",
     "./types": "./dest/types.js",
     "./manager": "./dest/manager/index.js"

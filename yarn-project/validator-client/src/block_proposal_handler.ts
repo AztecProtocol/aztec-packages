@@ -147,8 +147,8 @@ export class BlockProposalHandler {
 
     // Check that the proposal is from the current proposer, or the next proposer
     // This should have been handled by the p2p layer, but we double check here out of caution
-    const invalidProposal = await this.blockProposalValidator.validate(proposal);
-    if (invalidProposal) {
+    const validationResult = await this.blockProposalValidator.validate(proposal);
+    if (validationResult.result !== 'accept') {
       this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
       return { isValid: false, reason: 'invalid_proposal' };
     }
@@ -249,7 +249,6 @@ export class BlockProposalHandler {
     }
 
     // If we succeeded, push this block into the archiver (unless disabled)
-    // TODO(palla/mbps): Change default to false once block sync is stable.
     if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
       await this.blockSource.addBlock(reexecutionResult?.block);
     }

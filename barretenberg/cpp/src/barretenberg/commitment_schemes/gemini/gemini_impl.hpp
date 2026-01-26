@@ -154,8 +154,6 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // at least 1
         size_t num_used_threads = std::min(n_l / efficient_operations_per_thread, num_threads);
         num_used_threads = num_used_threads ? num_used_threads : 1;
-        size_t chunk_size = n_l / num_used_threads;
-        size_t last_chunk_size = (n_l % chunk_size) ? (n_l % num_used_threads) : chunk_size;
 
         // Opening point is the same for all
         const Fr u_l = multilinear_challenge[l];
@@ -163,11 +161,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
 
-        parallel_for(num_used_threads, [&](size_t i) {
-            size_t current_chunk_size = (i == (num_used_threads - 1)) ? last_chunk_size : chunk_size;
-            for (std::ptrdiff_t j = (std::ptrdiff_t)(i * chunk_size);
-                 j < (std::ptrdiff_t)((i * chunk_size) + current_chunk_size);
-                 j++) {
+        parallel_for(num_used_threads, [&](ThreadChunk chunk) {
+            for (size_t j : chunk.range(n_l)) {
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
                 //            = Aₗ₊₁[j]

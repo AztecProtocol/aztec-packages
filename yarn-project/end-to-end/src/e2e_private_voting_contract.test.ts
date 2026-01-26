@@ -25,7 +25,7 @@ describe('e2e_voting_contract', () => {
       accounts: [owner],
     } = await setup(1));
 
-    votingContract = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner }).deployed();
+    votingContract = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner });
 
     logger.info(`Counter contract deployed at ${votingContract.address}`);
   });
@@ -37,9 +37,9 @@ describe('e2e_voting_contract', () => {
       const candidate = new Fr(1);
       const electionId = { id: Fr.random() };
 
-      await votingContract.methods.start_vote(electionId).send({ from: owner }).wait();
+      await votingContract.methods.start_vote(electionId).send({ from: owner });
 
-      await votingContract.methods.cast_vote(electionId, candidate).send({ from: owner }).wait();
+      await votingContract.methods.cast_vote(electionId, candidate).send({ from: owner });
       expect(await votingContract.methods.get_tally(electionId, candidate).simulate({ from: owner })).toBe(1n);
 
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
@@ -48,9 +48,9 @@ describe('e2e_voting_contract', () => {
         /Nullifier collision|duplicate.*nullifier/,
       );
       // if we skip simulation, tx fails
-      await expect(
-        votingContract.methods.cast_vote(electionId, candidate).send({ from: owner }).wait(),
-      ).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
+      await expect(votingContract.methods.cast_vote(electionId, candidate).send({ from: owner })).rejects.toThrow(
+        TX_ERROR_EXISTING_NULLIFIER,
+      );
     });
   });
 });

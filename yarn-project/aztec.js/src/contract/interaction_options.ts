@@ -2,10 +2,11 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, OffchainEffect, SimulationStats } from '@aztec/stdlib/tx';
+import type { Capsule, OffchainEffect, SimulationStats, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { ProfileOptions, SendOptions, SimulateOptions } from '../wallet/index.js';
+import type { WaitOpts } from './wait_opts.js';
 
 /**
  * Options used to tweak the simulation and add gas estimation capabilities
@@ -55,13 +56,45 @@ export type RequestInteractionOptions = {
 };
 
 /**
- * Represents options for calling a (constrained) function in a contract.
+ * Constant for explicitly not waiting for transaction confirmation.
+ * We use this instead of false to avoid confusion with falsy checks.
  */
-export type SendInteractionOptions = RequestInteractionOptions & {
+export const NO_WAIT = 'NO_WAIT' as const;
+
+/**
+ * Type for the NO_WAIT constant.
+ */
+export type NoWait = typeof NO_WAIT;
+
+/**
+ * Type for wait options in interactions.
+ * - NO_WAIT symbol: Don't wait for confirmation, return TxHash immediately
+ * - WaitOpts object: Wait with custom options and return receipt/result
+ * - undefined: Wait with default options and return receipt/result
+ */
+export type InteractionWaitOptions = NoWait | WaitOpts | undefined;
+
+/**
+ * Base options for calling a (constrained) function in a contract, without wait parameter.
+ */
+export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
   /** The sender's Aztec address. */
   from: AztecAddress;
   /** The fee options for the transaction. */
   fee?: InteractionFeeOptions;
+};
+
+/**
+ * Represents options for calling a (constrained) function in a contract.
+ */
+export type SendInteractionOptions<W extends InteractionWaitOptions = undefined> = SendInteractionOptionsWithoutWait & {
+  /**
+   * Whether to wait for the transaction to be mined.
+   * - undefined (default): wait with default options and return TxReceipt
+   * - WaitOpts object: wait with custom options and return TxReceipt
+   * - NO_WAIT: return txHash immediately without waiting
+   */
+  wait?: W;
 };
 
 /**
@@ -111,10 +144,21 @@ export type SimulationReturn<T extends boolean | undefined> = T extends true
   : any;
 
 /**
+ * Represents the result type of sending a transaction.
+ * If `wait` is NO_WAIT, returns TxHash immediately without waiting.
+ * If `wait` is undefined or WaitOpts, returns TReturn (defaults to TxReceipt) after waiting.
+ */
+export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait ? TxHash : TReturn;
+
+/**
  * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into
  * SendOptions, which are the ones that can be serialized and forwarded to the wallet
+ * @param options - The send interaction options with optional wait parameter
+ * @returns The send options to forward to the wallet
  */
-export function toSendOptions(options: SendInteractionOptions): SendOptions {
+export function toSendOptions<W extends InteractionWaitOptions = undefined>(
+  options: SendInteractionOptions<W>,
+): SendOptions<W> {
   return {
     ...options,
     fee: {
@@ -126,6 +170,7 @@ export function toSendOptions(options: SendInteractionOptions): SendOptions {
         ...options.fee?.gasSettings,
       },
     },
+    wait: options.wait, // Pass through wait option
   };
 }
 

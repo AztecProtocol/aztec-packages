@@ -1,7 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -99,9 +101,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
     );
-    const sentTxs = await Promise.all(txs.map(tx => tx.send()));
-    logger.warn(`Sent ${sentTxs.length} transactions`, {
-      txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, {
+      txs: txHashes,
     });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -113,7 +115,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT + 3);
-    await Promise.all(sentTxs.map(tx => tx.wait({ timeout })));
+    await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All txs have been mined`);
 
     // Check all blocks mined by the sequencers have under the expected max number of transactions.

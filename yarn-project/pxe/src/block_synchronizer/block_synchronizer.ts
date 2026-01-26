@@ -9,8 +9,9 @@ import {
   type L2BlockStreamEventHandler,
 } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { PXEConfig } from '../config/index.js';
+import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -32,7 +33,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
-    config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
+    private config: Partial<BlockSynchronizerConfig> = {},
     loggerOrSuffix?: string | Logger,
   ) {
     this.log =
@@ -42,7 +43,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>>) {
+  protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       batchSize: config.l2BlockBatchSize,
       // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
@@ -57,19 +58,51 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const lastBlock = event.blocks.at(-1)!;
-        this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
-          blockHash: lastBlock.hash(),
-          archive: lastBlock.archive.root.toString(),
-          header: lastBlock.header.toInspect(),
-        });
-        await this.anchorBlockStore.setHeader(lastBlock.header);
+        if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
+          const lastBlock = event.blocks.at(-1)!;
+          await this.updateAnchorBlockHeader(lastBlock.header);
+        }
+        break;
+      }
+      case 'chain-checkpointed': {
+        if (this.config.syncChainTip === 'checkpointed') {
+          // Get the last block header from the checkpoint
+          const lastBlock = event.checkpoint.checkpoint.blocks.at(-1)!;
+          await this.updateAnchorBlockHeader(lastBlock.header);
+        }
+        break;
+      }
+      case 'chain-proven': {
+        if (this.config.syncChainTip === 'proven') {
+          const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
+          if (blockHeader) {
+            await this.updateAnchorBlockHeader(blockHeader);
+          }
+        }
+        break;
+      }
+      case 'chain-finalized': {
+        if (this.config.syncChainTip === 'finalized') {
+          const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
+          if (blockHeader) {
+            await this.updateAnchorBlockHeader(blockHeader);
+          }
+        }
         break;
       }
       case 'chain-pruned': {
+        const currentAnchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();
+        if (currentAnchorBlockNumber <= event.block.number) {
+          this.log.verbose(
+            `Ignoring prune event to block ${event.block.number} greater than current anchor block ${currentAnchorBlockNumber}`,
+            { pruneEvent: event, currentAnchorBlockHeader: currentAnchorBlockHeader.toInspect() },
+          );
+          return;
+        }
+
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
 
-        const oldAnchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
         // forward.
@@ -83,13 +116,19 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
         // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.noteStore.rollback(event.block.number, oldAnchorBlockNumber);
-          await this.privateEventStore.rollback(event.block.number, oldAnchorBlockNumber);
-          await this.anchorBlockStore.setHeader(newAnchorBlockHeader);
+          await this.noteStore.rollback(event.block.number, currentAnchorBlockNumber);
+          await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
+          await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
       }
     }
+  }
+
+  /** Updates the anchor block header to the target block */
+  private async updateAnchorBlockHeader(blockHeader: BlockHeader) {
+    this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
+    await this.anchorBlockStore.setHeader(blockHeader);
   }
 
   /**

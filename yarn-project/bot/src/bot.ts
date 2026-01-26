@@ -1,5 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall, SentTx } from '@aztec/aztec.js/contracts';
+import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -48,7 +49,7 @@ export class Bot extends BaseBot {
     this.config = { ...this.config, ...config };
   }
 
-  protected async createAndSendTx(logCtx: object): Promise<SentTx> {
+  protected async createAndSendTx(logCtx: object): Promise<TxHash> {
     const { privateTransfersPerTx, publicTransfersPerTx, feePaymentMethod } = this.config;
     const { token, recipient, wallet } = this;
 
@@ -75,7 +76,7 @@ export class Bot extends BaseBot {
     await batch.simulate({ from: this.defaultAccountAddress });
 
     this.log.verbose(`Sending transaction`, logCtx);
-    return batch.send(opts);
+    return batch.send({ ...opts, wait: NO_WAIT });
   }
 
   public async getBalances() {

@@ -85,13 +85,11 @@ export class TokenContractTest {
       TokenContractTest.TOKEN_NAME,
       TokenContractTest.TOKEN_SYMBOL,
       TokenContractTest.TOKEN_DECIMALS,
-    )
-      .send({ from: this.adminAddress })
-      .deployed();
+    ).send({ from: this.adminAddress });
     this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
     this.logger.verbose(`Deploying bad account...`);
-    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress }).deployed();
+    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
     this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
@@ -130,7 +128,7 @@ export class TokenContractTest {
     const amount = 10000n;
 
     this.logger.verbose(`Minting ${amount} publicly...`);
-    await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress }).wait();
+    await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
     tokenSim.mintPublic(adminAddress, amount);
 
     const publicBalance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });

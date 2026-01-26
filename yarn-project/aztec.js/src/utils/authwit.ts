@@ -5,16 +5,18 @@ import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, Funct
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
-import type { TxProfileResult } from '@aztec/stdlib/tx';
+import type { TxHash, TxProfileResult, TxReceipt } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
+  InteractionWaitOptions,
   ProfileInteractionOptions,
   SendInteractionOptions,
+  SendInteractionOptionsWithoutWait,
+  SendReturn,
   SimulateInteractionOptions,
   SimulationReturn,
 } from '../contract/interaction_options.js';
-import type { SentTx } from '../contract/sent_tx.js';
 import type { Wallet } from '../wallet/index.js';
 
 /** Intent with an inner hash */
@@ -286,9 +288,19 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * Overrides the send method, adding the sender of the authwit (authorizer) as from
    * and preventing misuse
    * @param options - An optional object containing 'fee' options information
-   * @returns A SentTx instance for tracking the transaction status and information.
+   * @returns A TxReceipt (if wait is true/undefined) or TxHash (if wait is false)
    */
-  public override send(options: Omit<SendInteractionOptions, 'from'> = {}): SentTx {
+  // Overload for when wait is not specified at all - returns TxReceipt
+  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxReceipt>;
+  // Generic overload for explicit wait values
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override send<W extends InteractionWaitOptions>(
+    options?: Omit<SendInteractionOptions<W>, 'from'>,
+  ): Promise<SendReturn<W>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override send(
+    options?: Omit<SendInteractionOptions<InteractionWaitOptions>, 'from'>,
+  ): Promise<TxReceipt | TxHash> {
     return super.send({ ...options, from: this.from });
   }
 

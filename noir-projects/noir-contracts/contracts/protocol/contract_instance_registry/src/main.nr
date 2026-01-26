@@ -4,6 +4,7 @@ use aztec::macros::aztec;
 pub contract ContractInstanceRegistry {
     use aztec::{
         macros::{events::event, functions::{external, view}, storage::storage},
+        nullifier::utils::compute_nullifier_existence_request,
         protocol_types::{
             address::{AztecAddress, PartialAddress},
             constants::{
@@ -104,10 +105,11 @@ pub contract ContractInstanceRegistry {
         universal_deploy: bool,
     ) {
         // contract class must be published in order to publish an instance
-        self.context.assert_nullifier_exists(
+        let nullifier_existence_request = compute_nullifier_existence_request(
             contract_class_id.to_field(),
             CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
         );
+        self.context.assert_nullifier_exists(nullifier_existence_request);
 
         let deployer = if universal_deploy {
             AztecAddress::zero()

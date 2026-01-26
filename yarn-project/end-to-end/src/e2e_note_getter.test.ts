@@ -34,18 +34,18 @@ describe('e2e_note_getter', () => {
     let contract: NoteGetterContract;
 
     beforeAll(async () => {
-      contract = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress }).deployed();
+      contract = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress });
     });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
       await Promise.all(
         Array(10)
           .fill(0)
-          .map((_, i) => contract.methods.insert_note(i).send({ from: defaultAddress }).wait()),
+          .map((_, i) => contract.methods.insert_note(i).send({ from: defaultAddress })),
       );
 
       // We insert a note with value 5 twice to better test the comparators
-      await contract.methods.insert_note(5).send({ from: defaultAddress }).wait();
+      await contract.methods.insert_note(5).send({ from: defaultAddress });
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
         contract.methods.read_note_values(defaultAddress, Comparator.EQ, 5).simulate({ from: defaultAddress }),
@@ -78,7 +78,7 @@ describe('e2e_note_getter', () => {
     const makeTxHybrid = false;
 
     beforeAll(async () => {
-      contract = await TestContract.deploy(wallet).send({ from: defaultAddress }).deployed();
+      contract = await TestContract.deploy(wallet).send({ from: defaultAddress });
       owner = defaultAddress;
     });
 
@@ -118,19 +118,13 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods
-          .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
+        await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('does not return nullified notes', async () => {
-        await contract.methods
-          .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
-        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
+        await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
       });
@@ -140,19 +134,13 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods
-          .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
+        await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('returns nullified notes', async () => {
-        await contract.methods
-          .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
-        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
+        await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
@@ -160,15 +148,11 @@ describe('e2e_note_getter', () => {
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods
-          .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
+        await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await contract.methods
           .call_create_note(VALUE + 1, owner, storageSlot, makeTxHybrid)
-          .send({ from: defaultAddress })
-          .wait();
-        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
+          .send({ from: defaultAddress });
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
 
         // We now fetch multiple notes, and get both the active and the nullified one.
         const viewNotesManyResult = await contract.methods

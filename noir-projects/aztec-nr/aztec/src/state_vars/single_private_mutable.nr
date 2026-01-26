@@ -7,7 +7,7 @@ use crate::{
         note_interface::{NoteHash, NoteType},
         NoteMessage,
     },
-    oracle::notes::check_nullifier_exists,
+    oracle::nullifiers::check_nullifier_exists,
     state_vars::state_variable::StateVariable,
 };
 
