@@ -141,7 +141,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     const size_t log_n = compute_log_n();
 
     // Derive num_public_inputs from proof size using centralized proof layout
-    const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
+    const size_t num_public_inputs = ProofLayout::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();

@@ -1,5 +1,5 @@
 #include "ultra_honk.test.hpp"
-#include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/honk/proof_layout.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 
 #include <gtest/gtest.h>
@@ -44,7 +44,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     Proof ultra_proof = prover.construct_proof();
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
     size_t expected_proof_length =
-        ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
+        ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 

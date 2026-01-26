@@ -31,6 +31,7 @@ class MultilinearBatchingFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
+    using Codec = FrCodec;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
     // sizes in the Chonk context.
@@ -43,7 +44,7 @@ class MultilinearBatchingFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-<<<<<<< HEAD
+
     // ============ PROOF STRUCTURE CONSTANTS ============
     // Number of accumulator commitments sent in proof (non_shifted + shifted).
     // Note: instance commitments are computed by verifier from Oink witness commitments.
@@ -51,7 +52,7 @@ class MultilinearBatchingFlavor {
     static constexpr size_t NUM_ACCUMULATOR_COMMITMENTS = 2;
     // Number of accumulator evaluations sent in proof (non_shifted + shifted).
     static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
-=======
+
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
@@ -78,18 +79,6 @@ class MultilinearBatchingFlavor {
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
-
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
-
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS()
-    {
-        return /*accumulator commitments*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_comm) +
-               /*multivariate challenges*/ (VIRTUAL_LOG_N * num_frs_fr) +
-               /*witness evaluations*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_fr) +
-               /*sumcheck univariates*/ (VIRTUAL_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-               /*sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr);
-    }
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.

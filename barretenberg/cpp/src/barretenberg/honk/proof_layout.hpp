@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -93,6 +94,7 @@ template <typename Flavor> struct Shplemini {
 /**
  * @brief Full Honk proof layout (used by UltraVerifier).
  * @details Honk proof = Oink + Sumcheck + Shplemini.
+ *          Note: IPA proof is handled separately for rollup flavors (appended by prover, split by verifier).
  */
 template <typename Flavor> struct Honk {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
@@ -132,26 +134,26 @@ template <typename Flavor> struct HypernovaInstanceToAccum {
 
 /**
  * @brief MultilinearBatching proof layout (used by HyperNova folding).
- * @details Contains: accumulator commitments, challenges, evaluations, and batching sumcheck.
- *          Reuses Sumcheck<Flavor>::LENGTH for the sumcheck portion.
+ * @details Batches two accumulators (from previous fold + incoming instance) into one.
+ *          Contains: accumulator commitments, multivariate challenges, evaluations, and sumcheck.
+ *          Note: This protocol has no public inputs.
  */
 template <typename Flavor> struct MultilinearBatching {
     static constexpr size_t num_frs_in_scalar = CodecConstants<Flavor>::num_frs_in_scalar;
     static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
 
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        return /* accumulator commitments */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm) +
-               /* multivariate challenges */ (log_n * num_frs_in_scalar) +
-               /* accumulator evaluations */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_scalar) +
-               Sumcheck<Flavor>::LENGTH(log_n);
-    }
+    static constexpr size_t LENGTH =
+        /* accumulator commitments (non_shifted + shifted) */ (Flavor::NUM_ACCUMULATOR_COMMITMENTS * num_frs_in_comm) +
+        /* multivariate challenges */ (Flavor::VIRTUAL_LOG_N * num_frs_in_scalar) +
+        /* accumulator evaluations (non_shifted + shifted) */
+        (Flavor::NUM_ACCUMULATOR_EVALUATIONS * num_frs_in_scalar) + Sumcheck<Flavor>::LENGTH(Flavor::VIRTUAL_LOG_N);
 };
 
 /**
  * @brief Hypernova folding proof layout.
  * @details Used when folding an incoming instance with an existing accumulator.
- *          Contains: Oink + gate challenge + Sumcheck + MultilinearBatching proof.
+ *          Contains: instance-to-accumulator proof (Oink + Sumcheck) + MultilinearBatching proof.
+ *          Note: gate challenges are derived, not sent in the proof.
  * @tparam Flavor The outer flavor (e.g., MegaFlavor)
  * @tparam BatchingFlavor The batching flavor (e.g., MultilinearBatchingFlavor)
  */
@@ -159,7 +161,7 @@ template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
         return HypernovaInstanceToAccum<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) +
-               MultilinearBatching<BatchingFlavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
+               MultilinearBatching<BatchingFlavor>::LENGTH;
     }
 
     static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
