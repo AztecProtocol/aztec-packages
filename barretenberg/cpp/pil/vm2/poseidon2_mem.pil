@@ -2,6 +2,7 @@ include "poseidon2_perm.pil";
 include "constants_gen.pil";
 include "precomputed.pil";
 include "gt.pil";
+include "memory.pil";
 
 /**
  * This handles the memory reads/writes when the POSEIDON2PERM opcode is executed

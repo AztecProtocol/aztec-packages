@@ -1,14 +1,68 @@
 include "poseidon2_perm.pil";
+include "precomputed.pil";
 
-// Performs the poseidon2 full hash
-// === Usage Tips ===
-//    - To constrain the result of a poseidon hash over a single row (i.e. 3 or fewer inputs), lookup the inputs,
-//      output, end (= 1), and start (= 1). This trace constrains that when start = end = 1, we have a single row.
-//    - Over multiple rows, use num_perm_rounds_rem against the decrementing counter to ensure that each round is
-//      computed in the correct order (at end = 1, num_perm_rounds_rem is constrained to be 1 => can equivalently
-//      lookup the end selector for the final row).
-//    - Over multiple rows, lookup the start selector at the expected first row to ensure no extra rows are prepended.
-//      Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
+/** Performs the poseidon2 full hash
+ * === Usage Tips ===
+ *    - SINGLE ROW: To constrain the result of a poseidon hash over a single row (i.e. 3 or fewer inputs), lookup the inputs,
+ *      output, end (= 1), and start (= 1). This trace constrains that when start = end = 1, we have a single row.
+ *
+ *      Example (nullifier_check.pil):
+ *             should_silo { sel, siloing_separator, address, nullifier, siloed_nullifier }
+ *   in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1,
+ *                           poseidon2_hash.input_2, poseidon2_hash.output };
+ *
+ *    - MULTIPLE ROWS:
+ *       - Lookup the inputs and output values for each row.
+ *       - Use num_perm_rounds_rem against the decrementing counter to ensure that each round is
+ *         computed in the correct order (at end = 1, num_perm_rounds_rem is constrained to be 1 => can equivalently
+ *         lookup the end selector for the final row).
+ *       - Over multiple rows, lookup the start selector at the expected first row to ensure no extra rows are prepended.
+ *         Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
+ *         Pass also `num_perm_rounds_rem` explicitly at the start row.
+ *
+ *      Example (address_derivation.pil):
+ *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
+ *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_five }
+ *             in poseidon2_hash.start { input_0, input_1, input_2, output, num_perm_rounds_rem };
+ *
+ *             sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
+ *             in poseidon2_hash.sel { input_0, input_1, input_2, output, num_perm_rounds_rem };
+ *              .....
+ *
+ *             sel { precomputed.zero, precomputed.zero, precomputed.zero, public_keys_hash }
+ *             in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+ *
+ *
+ * === Trace Shape ===
+ * This subtrace is a multi-rows computation. The trace shape is as follows:
+ *
+ * +------+-------+-----+--------+-----------+---------------------+
+ * | sel  | start | end |padding | input_len | num_perm_rounds_rem |
+ * +------+-------+-----+--------+-----------+---------------------+
+ * |   1  |   1   |  0  |   2    |    22     |     8               |
+ * |   1  |   0   |  0  |   unc  |    unc    |     7               |
+ * .................................................................
+ * |   1  |   1   |  1  |   unc  |    unc    |     1               |
+ * +------+-------+--------------+-----------+---------------------+
+ *
+ * The number of rows for a computation is ceil(input_len/3) rows.
+ *
+ * No errors are expected in this subtrace.
+ *
+ * This subtrace interacts with the poseidon2_perm.pil subtrace and is used by many other subtraces:
+ * - address_derivation.pil
+ * - bc_hashing.pil
+ * - calldata_hashing.pil
+ * - class_id_derivation.pil
+ * - merkle_check.pil
+ * - note_hash_tree_check.pil
+ * - nullifier_check.pil
+ * - public_data_check.pil
+ * - retrieved_bytecodes_tree_check.pil
+ * - tx.pil
+ * - update_check.pil
+ * - written_public_data_slots_tree_check.pil
+ */
 namespace poseidon2_hash;
 
     pol commit sel;
