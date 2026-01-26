@@ -6,7 +6,7 @@ import { schemaHasMethod } from '@aztec/foundation/schemas';
 import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { type EncryptedPayload, decrypt, encrypt } from '../../crypto.js';
-import { type WalletInfo, type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
+import { type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
 
 /**
  * Internal type representing a wallet method call before encryption.
@@ -26,30 +26,30 @@ export type DisconnectCallback = () => void;
 
 /**
  * A wallet implementation that communicates with browser extension wallets
- * using a secure encrypted MessageChannel.
+ * using an encrypted MessageChannel.
  *
- * This class uses a pre-established secure channel from the discovery phase:
+ * This class uses a secure channel established after discovery:
  *
- * 1. **MessageChannel**: A private communication channel created during discovery,
- *    not visible to other scripts on the page (unlike window.postMessage).
+ * 1. **MessageChannel**: Created during discovery and transferred via window.postMessage.
+ *    Note: The port transfer is visible to page scripts, but security comes from encryption.
  *
- * 2. **ECDH Key Exchange**: The shared secret was derived during discovery using
- *    Elliptic Curve Diffie-Hellman key exchange.
+ * 2. **ECDH Key Exchange**: The shared secret was derived after discovery using
+ *    Elliptic Curve Diffie-Hellman key exchange over the MessagePort.
  *
  * 3. **AES-GCM Encryption**: All messages are encrypted using AES-256-GCM,
- *    providing both confidentiality and authenticity.
+ *    providing both confidentiality and authenticity. This is what secures the channel.
  *
  * @example
  * ```typescript
- * // Discovery returns wallets with secure channel components
- * const wallets = await ExtensionProvider.discoverExtensions(chainInfo);
- * const { info, port, sharedKey } = wallets[0];
+ * // Discover and establish secure channel to a wallet
+ * const discoveredWallets = await ExtensionProvider.discoverWallets(chainInfo, { appId: 'my-dapp' });
+ * const connection = await discoveredWallets[0].establishSecureChannel();
  *
  * // User can verify emoji if desired
- * console.log('Verify:', hashToEmoji(info.verificationHash!));
+ * console.log('Verify:', hashToEmoji(connection.info.verificationHash!));
  *
- * // Create wallet using the discovered components
- * const wallet = await ExtensionWallet.create(info, chainInfo, port, sharedKey, 'my-dapp');
+ * // Create wallet using the connection
+ * const wallet = ExtensionWallet.create(connection.info.id, connection.port, connection.sharedKey, chainInfo, 'my-dapp');
  *
  * // All subsequent calls are encrypted
  * const accounts = await wallet.getAccounts();
@@ -77,81 +77,56 @@ export class ExtensionWallet {
     private sharedKey: CryptoKey,
   ) {}
 
-  /** Cached Wallet proxy instance */
-  private walletProxy: Wallet | null = null;
-
   /**
-   * Creates an ExtensionWallet instance that communicates with a browser extension
+   * Creates a Wallet that communicates with a browser extension
    * over a secure encrypted MessageChannel.
    *
-   * @param walletInfo - The wallet info from ExtensionProvider.discoverExtensions()
-   * @param chainInfo - The chain information (chainId and version) for request context
-   * @param port - The MessagePort for private communication with the wallet
+   * @param extensionId - The unique identifier of the wallet extension
+   * @param port - The MessagePort for encrypted communication with the wallet
    * @param sharedKey - The derived AES-256-GCM shared key for encryption
+   * @param chainInfo - The chain information (chainId and version) for request context
    * @param appId - Application identifier used to identify the requesting dApp to the wallet
-   * @returns The ExtensionWallet instance. Use {@link getWallet} to get the Wallet interface.
+   * @returns A Wallet interface where all method calls are encrypted
    *
    * @example
    * ```typescript
-   * const wallets = await ExtensionProvider.discoverExtensions(chainInfo);
-   * const { info, port, sharedKey } = wallets[0];
-   * const extensionWallet = ExtensionWallet.create(
-   *   info,
-   *   { chainId: Fr(31337), version: Fr(0) },
-   *   port,
-   *   sharedKey,
+   * const discoveredWallets = await ExtensionProvider.discoverWallets(chainInfo, { appId: 'my-defi-app' });
+   * const connection = await discoveredWallets[0].establishSecureChannel();
+   * const wallet = ExtensionWallet.create(
+   *   connection.info.id,
+   *   connection.port,
+   *   connection.sharedKey,
+   *   chainInfo,
    *   'my-defi-app'
    * );
    *
-   * // Register disconnect handler
-   * extensionWallet.onDisconnect(() => console.log('Disconnected!'));
-   *
-   * // Get the Wallet interface for dApp usage
-   * const wallet = extensionWallet.getWallet();
    * const accounts = await wallet.getAccounts();
    * ```
    */
   static create(
-    walletInfo: WalletInfo,
-    chainInfo: ChainInfo,
+    extensionId: string,
     port: MessagePort,
     sharedKey: CryptoKey,
+    chainInfo: ChainInfo,
     appId: string,
-  ): ExtensionWallet {
-    const wallet = new ExtensionWallet(chainInfo, appId, walletInfo.id, port, sharedKey);
+  ): Wallet {
+    const wallet = new ExtensionWallet(chainInfo, appId, extensionId, port, sharedKey);
 
-    // Set up message handler - all messages are now encrypted
-    wallet.port.onmessage = (event: MessageEvent<EncryptedPayload>) => {
-      void wallet.handleEncryptedResponse(event.data);
+    // Set up message handler for encrypted responses and unencrypted control messages
+    wallet.port.onmessage = (event: MessageEvent) => {
+      const data = event.data;
+      // Check for unencrypted disconnect notification
+      if (data && typeof data === 'object' && 'type' in data && data.type === WalletMessageType.DISCONNECT) {
+        wallet.handleDisconnect();
+        return;
+      }
+      // Otherwise treat as encrypted payload
+      void wallet.handleEncryptedResponse(data as EncryptedPayload);
     };
 
     wallet.port.start();
 
-    return wallet;
-  }
-
-  /**
-   * Returns a Wallet interface that proxies all method calls through the secure channel.
-   *
-   * The returned Wallet can be used directly by dApps - all method calls are automatically
-   * encrypted and sent to the wallet extension.
-   *
-   * @returns A Wallet implementation that encrypts all communication
-   *
-   * @example
-   * ```typescript
-   * const extensionWallet = ExtensionWallet.create(info, chainInfo, port, sharedKey, 'my-app');
-   * const wallet = extensionWallet.getWallet();
-   * const accounts = await wallet.getAccounts();
-   * ```
-   */
-  getWallet(): Wallet {
-    if (this.walletProxy) {
-      return this.walletProxy;
-    }
-
-    // Create a Proxy that intercepts wallet method calls and forwards them to the extension
-    this.walletProxy = new Proxy(this, {
+    return new Proxy(wallet, {
       get: (target, prop) => {
         if (schemaHasMethod(WalletSchema, prop.toString())) {
           return async (...args: unknown[]) => {
@@ -166,8 +141,6 @@ export class ExtensionWallet {
         }
       },
     }) as unknown as Wallet;
-
-    return this.walletProxy;
   }
 
   /**
@@ -187,18 +160,6 @@ export class ExtensionWallet {
       const response = await decrypt<WalletResponse>(this.sharedKey, encrypted);
 
       const { messageId, result, error, walletId: responseWalletId } = response;
-
-      // Check for disconnect notification from the wallet backend
-      // This is sent as an encrypted error response with a special type
-      if (
-        error &&
-        typeof error === 'object' &&
-        'type' in error &&
-        (error.type as WalletMessageType) === WalletMessageType.SESSION_DISCONNECTED
-      ) {
-        this.handleDisconnect();
-        return;
-      }
 
       if (!messageId || !responseWalletId) {
         return;
@@ -254,8 +215,7 @@ export class ExtensionWallet {
       walletId: this.extensionId,
     };
 
-    // Encrypt the message and send over the private MessageChannel
-    const encrypted = await encrypt(this.sharedKey, message);
+    const encrypted = await encrypt(this.sharedKey, jsonStringify(message));
     this.port.postMessage(encrypted);
 
     const { promise, resolve, reject } = promiseWithResolvers<unknown>();
@@ -274,27 +234,22 @@ export class ExtensionWallet {
     }
     this.disconnected = true;
 
-    // Close the port to prevent any further messages
     if (this.port) {
       this.port.onmessage = null;
       this.port.close();
     }
 
-    // Reject all pending requests
-    // Note: These rejections should be caught by the callers, but we log them
-    // here to help with debugging if they become unhandled
     const error = new Error('Wallet disconnected');
     for (const { reject } of this.inFlight.values()) {
       reject(error);
     }
     this.inFlight.clear();
 
-    // Notify registered callbacks
     for (const callback of this.disconnectCallbacks) {
       try {
         callback();
       } catch {
-        // Ignore errors in callbacks
+        // Ignore errors on disconnect callbacks
       }
     }
   }
@@ -343,37 +298,24 @@ export class ExtensionWallet {
    *
    * @example
    * ```typescript
-   * const wallet = await provider.connect('my-app');
+   * const extensionWallet = ExtensionWallet.create(extensionId, port, sharedKey, chainInfo, 'my-app');
    * // ... use wallet ...
-   * await wallet.disconnect(); // Clean disconnect when done
+   * await extensionWallet.disconnect(); // Clean disconnect when done
    * ```
    */
+  // eslint-disable-next-line require-await -- async for interface compatibility
   async disconnect(): Promise<void> {
     if (this.disconnected) {
       return;
     }
 
-    // Send disconnect message to extension before closing
-    if (this.port && this.sharedKey) {
-      try {
-        const message = {
-          type: WalletMessageType.DISCONNECT,
-          messageId: globalThis.crypto.randomUUID(),
-          chainInfo: this.chainInfo,
-          appId: this.appId,
-          walletId: this.extensionId,
-          args: [],
-        };
-        const encrypted = await encrypt(this.sharedKey, message);
-        this.port.postMessage(encrypted);
-      } catch {
-        // Ignore errors sending disconnect message
-      }
+    if (this.port) {
+      // Send unencrypted disconnect - control messages don't need encryption
+      this.port.postMessage({
+        type: WalletMessageType.DISCONNECT,
+      });
     }
 
     this.handleDisconnect();
-    if (this.port) {
-      this.port.close();
-    }
   }
 }
