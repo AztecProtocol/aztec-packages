@@ -98,8 +98,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     // Compute table_1 + gamma + table_2 * β + table_3 * β² + table_4 * β³
     // table_1,2,3 correspond to the (maximum) three columns of the lookup table and table_4 is the unique identifier
     // of the lookup table table_index
-    // Note: gamma (log-derivative offset) must be independent of β (batching challenge) for soundness.
-    // See LOGDERIV_LOOKUP_RELATION_README.md for the Fiat-Shamir security analysis.
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {

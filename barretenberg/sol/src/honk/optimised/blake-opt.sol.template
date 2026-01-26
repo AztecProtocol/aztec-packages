@@ -1932,25 +1932,27 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                   LOGUP WIDGET EVALUATION                  */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // Note: Using beta powers for column batching and gamma for offset ensures soundness
+                // beta and gamma must be independent challenges (they come from splitting the same hash)
                 {
                     let gamma := mload(GAMMA_CHALLENGE)
-                    // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding
-                    let gamma_two := mulmod(gamma, gamma, p)
-                    let gamma_three := mulmod(gamma_two, gamma, p)
-                    let gamma_four := mulmod(gamma_three, gamma, p)
+                    let beta := mload(BETA_CHALLENGE)
+                    // Compute beta powers inline (β², β³) for lookup column batching
+                    let beta_sqr := mulmod(beta, beta, p)
+                    let beta_cube := mulmod(beta_sqr, beta, p)
 
-                    // write_term = table_1 + γ + table_2 * γ² + table_3 * γ³ + table_4 * γ⁴
+                    // write_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
                     let t0 :=
-                        addmod(addmod(mload(TABLE1_EVAL_LOC), gamma, p), mulmod(mload(TABLE2_EVAL_LOC), gamma_two, p), p)
+                        addmod(addmod(mload(TABLE1_EVAL_LOC), gamma, p), mulmod(mload(TABLE2_EVAL_LOC), beta, p), p)
                     let t1 :=
                         addmod(
-                            mulmod(mload(TABLE3_EVAL_LOC), gamma_three, p),
-                            mulmod(mload(TABLE4_EVAL_LOC), gamma_four, p),
+                            mulmod(mload(TABLE3_EVAL_LOC), beta_sqr, p),
+                            mulmod(mload(TABLE4_EVAL_LOC), beta_cube, p),
                             p
                         )
                     let write_term := addmod(t0, t1, p)
 
-                    // read_term = derived_entry_1 + γ + derived_entry_2 * γ² + derived_entry_3 * γ³ + q_index * γ⁴
+                    // read_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
                     t0 := addmod(
                         addmod(mload(W1_EVAL_LOC), gamma, p),
                         mulmod(mload(QR_EVAL_LOC), mload(W1_SHIFT_EVAL_LOC), p),
@@ -1959,9 +1961,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                     t1 := addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
                     let t2 := addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_SHIFT_EVAL_LOC), p), p)
 
-                    let read_term := addmod(t0, mulmod(t1, gamma_two, p), p)
-                    read_term := addmod(read_term, mulmod(t2, gamma_three, p), p)
-                    read_term := addmod(read_term, mulmod(mload(QO_EVAL_LOC), gamma_four, p), p)
+                    let read_term := addmod(t0, mulmod(t1, beta, p), p)
+                    read_term := addmod(read_term, mulmod(t2, beta_sqr, p), p)
+                    read_term := addmod(read_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
 
                     let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), write_term, p)
                     let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), read_term, p)

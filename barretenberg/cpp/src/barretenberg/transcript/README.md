@@ -549,9 +549,6 @@ ROUND 0 - PREAMBLE (challenge_generation_phase=false, round_index=0)
 └──────────────────────────────────┘    2. Hash: c₀ = Poseidon2(current_round_data)
          │                               3. Split to [127-bit, 127-bit]
          │                               4. Clear current_round_data
-         ▼                               5. Set reception_phase = false
-    eta (then compute eta² and eta³)     6. Assign tag: OriginTag(42, 0, is_submitted=false)
-    tag = OriginTag(42, 0, false)          round_provenance = 0x0001...0000 (bit 0 upper)
          │                               5. Set challenge_generation_phase = true
          ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
     eta, eta_two, eta_three                round_provenance = 0x0001...0000 (bit 0 upper)
