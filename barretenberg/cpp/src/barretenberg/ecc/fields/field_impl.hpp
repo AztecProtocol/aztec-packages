@@ -268,6 +268,9 @@ template <class T> constexpr bool field<T>::operator<(const field& other) const 
 
 template <class T> constexpr bool field<T>::operator==(const field& other) const noexcept
 {
+    // for both 254-bit fields and 256-bit fields, there are at most two representatives for each element of the prime
+    // field. This is because for 254-bit fields, the internal representation is in [0, 2*p) and for 256-bit feilds, the
+    // internal representation is an arbitrary `uint256_t`.
     const field left = reduce_once();
     const field right = other.reduce_once();
     return (left.data[0] == right.data[0]) && (left.data[1] == right.data[1]) && (left.data[2] == right.data[2]) &&
@@ -278,58 +281,39 @@ template <class T> constexpr bool field<T>::operator!=(const field& other) const
 {
     return (!operator==(other));
 }
+// to/from montgomery form methods.
+// We note that we do not need to perform extra reductions to run the from/to montgomery form algorithms. In the case of
+// 254-bit fields, one way of saying this is: by the analysis in the field documentation, as the constant we are
+// multiplying by (aR) is less than p (r_squared, one_raw), for any 256-bit number, the Montgomery multiplication
+// algorithm will yield something in the range [0, 2p), i.e., in coarse form, as desired. For 256-bit fields, that this
+// is true again follows from the fact that the constant we are multiplying by is less than p; hence the output of
+// Montgomery multiplication of aR with a field element whose internal representation is 256-bits will again be
+// 256-bits. For more details, plesae see the field documentation.
 
 template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexcept
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-
-    // For 254-bit fields (coarse representation), note that r_squared < p. Therefore, by the analysis in the field
-    // documentation, if bR < p, then any 256-bit value of aR will satisfy that the high-bits of Montgomery
-    // multiplication are less than 2p.
-    // For 256-bit fields, we don't need reduction for the standard reason.
     return *this * r_squared;
 }
 
 template <class T> constexpr field<T> field<T>::from_montgomery_form() const noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
-    // For 254-bit fields, reduce to [0, 2p) range after multiplication.
-    // For 256-bit fields, skip reduction as any 256-bit value is valid.
-    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        return operator*(one_raw).reduce_once();
-    } else {
-        return operator*(one_raw);
-    }
+    return operator*(one_raw);
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-
-    // For 254-bit fields (coarse representation), we need to reduce the input to [0, 2p) range.
-    // For 256-bit fields, we allow any 256-bit number and skip reduction.
-    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        self_reduce_once();
-        self_reduce_once();
-        self_reduce_once();
-        *this *= r_squared;
-        self_reduce_once();
-    } else {
-        *this *= r_squared;
-    }
+    *this *= r_squared;
 }
 
 template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
     *this *= one_raw;
-    // For 254-bit fields, reduce to [0, 2p) range after multiplication.
-    // For 256-bit fields, skip reduction as any 256-bit value is valid.
-    if constexpr (T::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        self_reduce_once();
-    }
 }
 
 template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
@@ -392,7 +376,6 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
     return pow(modulus_minus_two);
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) noexcept
 {
     batch_invert(std::span{ coeffs, n });
@@ -403,6 +386,14 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
     batch_invert<decltype(coeffs)>(coeffs);
 }
 
+/**
+ * @brief Batch invert a collection of field elements using Montgomery's trick.
+ *
+ * @details This function is intentionally not parallelized. In scenarios involving large computations
+ * (e.g., grand_product_library), multithreading is handled at a higher level. For sparse vectors,
+ * other optimizations ensure we don't pay excessive costs.
+ * @note This function implicitly assumes that the vector is small. If the vector is big, multithread.
+ */
 template <class T>
 template <typename C>
     requires requires(C& c) {
@@ -415,8 +406,8 @@ void field<T>::batch_invert(C& coeffs) noexcept
 
     std::vector<field> temporaries;
     std::vector<bool> skipped;
-    temporaries.reserve(n);
-    skipped.reserve(n);
+    temporaries.resize(n);
+    skipped.resize(n);
 
     field accumulator = one();
     for (size_t i = 0; i < n; ++i) {
@@ -428,23 +419,6 @@ void field<T>::batch_invert(C& coeffs) noexcept
             accumulator *= coeffs[i];
         }
     }
-
-    // std::vector<field> temporaries;
-    // std::vector<bool> skipped;
-    // temporaries.reserve(n);
-    // skipped.reserve(n);
-
-    // field accumulator = one();
-    // for (size_t i = 0; i < n; ++i) {
-    //     temporaries.emplace_back(accumulator);
-    //     if (coeffs[i].is_zero()) {
-    //         skipped.emplace_back(true);
-    //     } else {
-    //         skipped.emplace_back(false);
-    //         accumulator *= coeffs[i];
-    //     }
-    // }
-
     accumulator = accumulator.invert();
 
     field T0;
@@ -740,7 +714,7 @@ constexpr std::array<field<T>, field<T>::COSET_GENERATOR_SIZE> field<T>::compute
     }
     return result;
 }
-
+// constructs the smallest quadratic non-residue for a prime field. For fq and fr, these happen to be primitive roots.
 template <class T> constexpr field<T> field<T>::multiplicative_generator() noexcept
 {
     field target(1);
