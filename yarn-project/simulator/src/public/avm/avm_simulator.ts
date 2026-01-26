@@ -15,6 +15,7 @@ import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
+import { type CallData, ReturnDataArray } from './calldata.js';
 import { AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
 import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
@@ -49,7 +50,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
     context.provideSimulator = AvmSimulator.build;
-    this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
+    this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata.read(0)})`);
     // Turn on tallying if explicitly enabled or if trace logging
     if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
@@ -74,7 +75,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     transactionFee: Fr,
     globals: GlobalVariables,
     isStaticCall: boolean,
-    calldata: Fr[],
+    calldata: CallData,
     allocatedGas: Gas,
     config: PublicSimulatorConfig,
   ) {
@@ -183,7 +184,9 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
-      const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
+      const revertReason = reverted
+        ? await revertReasonFromExplicitRevert(output.bestEffortReadAll(), this.context)
+        : undefined;
       const results = new AvmContractCallResult(
         reverted,
         output,
@@ -220,7 +223,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       // Note: "exceptional halts" cannot return data, hence [].
       const results = new AvmContractCallResult(
         /*reverted=*/ true,
-        /*output=*/ [],
+        /*output=*/ new ReturnDataArray([]),
         noGasLeft,
         revertReason,
         machineState.instrCounter,
@@ -250,7 +253,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     this.log.warn(message);
     return new AvmContractCallResult(
       /*reverted=*/ true,
-      /*output=*/ [],
+      /*output=*/ new ReturnDataArray([]),
       /*gasLeft=*/ { l2Gas: 0, daGas: 0 }, // consumes all allocated gas
       revertReason,
     );

@@ -361,12 +361,13 @@ constexpr SStoreMutationConfig BASIC_SSTORE_MUTATION_CONFIGURATION = SStoreMutat
     { SStoreMutationOptions::slot, 1 },
 });
 
-enum class SLoadMutationOptions { slot_index, slot_address, result_address };
-using SLoadMutationConfig = WeightedSelectionConfig<SLoadMutationOptions, 3>;
+enum class SLoadMutationOptions { slot_index, slot_address, contract_address_address, result_address };
+using SLoadMutationConfig = WeightedSelectionConfig<SLoadMutationOptions, 4>;
 
 constexpr SLoadMutationConfig BASIC_SLOAD_MUTATION_CONFIGURATION = SLoadMutationConfig({
     { SLoadMutationOptions::slot_index, 1 },
     { SLoadMutationOptions::slot_address, 1 },
+    { SLoadMutationOptions::contract_address_address, 1 },
     { SLoadMutationOptions::result_address, 1 },
 });
 

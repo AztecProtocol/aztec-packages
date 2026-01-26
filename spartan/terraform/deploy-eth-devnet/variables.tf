@@ -76,3 +76,9 @@ variable "RESOURCE_PROFILE" {
   }
 }
 
+variable "USE_LOAD_BALANCERS" {
+  description = "If true, use LoadBalancer service type for external access"
+  type        = bool
+  default     = false
+}
+

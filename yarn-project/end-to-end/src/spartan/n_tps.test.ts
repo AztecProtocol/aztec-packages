@@ -15,7 +15,6 @@ import { Tx } from '@aztec/stdlib/tx';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
@@ -28,9 +27,10 @@ import {
 } from './setup_test_wallets.js';
 import { TxInclusionMetrics } from './tx_metrics.js';
 import {
+  type ServiceEndpoint,
   getChartDir,
-  getExternalIP,
   getGitProjectRoot,
+  getRPCEndpoint,
   installChaosMeshChart,
   setupEnvironment,
   startPortForwardForPrometeheus,
@@ -107,7 +107,8 @@ describe('sustained N TPS test', () => {
 
   let metrics: TxInclusionMetrics;
   let prometheusClient: PrometheusClient;
-  let childProcesses: ChildProcess[];
+  const endpoints: ServiceEndpoint[] = [];
+  let promProcess: ReturnType<typeof startPortForwardForPrometeheus> extends Promise<infer T> ? T : never;
 
   afterAll(async () => {
     logger.info('Collecting benchmark metrics and cleaning up...');
@@ -194,17 +195,16 @@ describe('sustained N TPS test', () => {
       logger.info('BENCH_OUTPUT not set; skipping benchmark JSON output');
     }
 
-    logger.info('Cleaning up wallets and child processes', {
+    logger.info('Cleaning up wallets and endpoints', {
       walletCount: testWallets?.length ?? 0,
-      childProcessCount: childProcesses?.length ?? 0,
+      endpointCount: endpoints?.length ?? 0,
     });
     for (const { cleanup } of testWallets!) {
       await cleanup();
     }
 
-    for (const proc of childProcesses) {
-      proc.kill();
-    }
+    endpoints.forEach(e => e.process?.kill());
+    promProcess?.process?.kill();
 
     await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
   });
@@ -222,8 +222,6 @@ describe('sustained N TPS test', () => {
       benchOutput: process.env.BENCH_OUTPUT,
       benchScenario: process.env.BENCH_SCENARIO,
     });
-    childProcesses = [];
-
     const spartanDir = `${getGitProjectRoot()}/spartan`;
     logger.info('Installing chaos mesh chart', {
       name: CHAOS_MESH_NAME,
@@ -238,17 +236,17 @@ describe('sustained N TPS test', () => {
       helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
     });
 
-    const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
-    const rpcUrl = `http://${rpcIP}:8080`;
-    logger.info('Resolved RPC endpoint', { rpcIP, rpcUrl });
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const rpcUrl = rpcEndpoint.url;
+    logger.info('Resolved RPC endpoint', { rpcUrl });
     aztecNode = createAztecNodeClient(rpcUrl);
 
-    const promPortForward = await startPortForwardForPrometeheus('metrics');
-    childProcesses.push(promPortForward.process);
-    logger.info('Started Prometheus port-forward', { port: promPortForward.port, pid: promPortForward.process.pid });
+    promProcess = await startPortForwardForPrometeheus('metrics');
+    logger.info('Started Prometheus port-forward', { port: promProcess.port, pid: promProcess.process.pid });
 
     prometheusClient = new PrometheusClient({
-      server: new URL(`http://127.0.0.1:${promPortForward.port}`),
+      server: new URL(`http://127.0.0.1:${promProcess.port}`),
     });
 
     metrics = new TxInclusionMetrics(aztecNode, logger);
