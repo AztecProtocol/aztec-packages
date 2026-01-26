@@ -1,7 +1,6 @@
 import { ProtocolContractAddress, isProtocolContract } from '@aztec/protocol-contracts';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -24,8 +23,7 @@ export async function readCurrentClassId(
   aztecNode: AztecNode,
   header: BlockHeader,
 ) {
-  const blockHashFr = await header.hash();
-  const blockHash = L2BlockHash.fromField(blockHashFr);
+  const blockHash = await header.hash();
   const timestamp = header.globalVariables.timestamp;
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>

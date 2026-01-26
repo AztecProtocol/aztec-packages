@@ -8,6 +8,7 @@ import times from 'lodash.times';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHeader } from '../../tx/block_header.js';
+import { L2BlockHash } from '../block_hash.js';
 import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2Block } from '../l2_block.js';
 import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
@@ -45,7 +46,8 @@ describe('L2BlockStream', () => {
       checkpointNumber: checkpointNum,
     }) as CheckpointedL2Block;
 
-  const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
+  const makeHeader = (number: number) =>
+    ({ hash: () => Promise.resolve(L2BlockHash.fromField(new Fr(number))) }) as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 

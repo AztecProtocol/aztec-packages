@@ -11,13 +11,14 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { L2BlockHash } from '../block/block_hash.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { GlobalVariables } from './global_variables.js';
 import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
 export class BlockHeader {
-  private _cachedHash?: Promise<Fr>;
+  private _cachedHash?: Promise<L2BlockHash>;
 
   constructor(
     /** Snapshot of archive before the block is applied. */
@@ -161,16 +162,18 @@ export class BlockHeader {
     return BlockHeader.fromBuffer(hexToBuffer(str));
   }
 
-  hash(): Promise<Fr> {
+  hash(): Promise<L2BlockHash> {
     if (!this._cachedHash) {
-      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH).then(fr =>
+        L2BlockHash.fromField(fr),
+      );
     }
     return this._cachedHash;
   }
 
   /** Manually set the hash for this block header if already computed */
   setHash(hashed: Fr) {
-    this._cachedHash = Promise.resolve(hashed);
+    this._cachedHash = Promise.resolve(L2BlockHash.fromField(hashed));
   }
 
   static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {

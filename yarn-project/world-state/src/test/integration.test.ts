@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -93,7 +94,8 @@ describe('world-state integration', () => {
   };
 
   const expectSynchedBlockHashMatches = async (number: number) => {
-    const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
+    const syncedBlockHashFr = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
+    const syncedBlockHash = syncedBlockHashFr ? L2BlockHash.fromField(syncedBlockHashFr) : undefined;
     const archiverBlockHash = await archiver.getBlockHeader(number).then(h => h?.hash());
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };

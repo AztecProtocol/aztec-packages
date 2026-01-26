@@ -48,7 +48,7 @@ export class L2BlockHash extends Buffer32 {
     return new L2BlockHash(reader.readBytes(L2BlockHash.SIZE));
   }
 
-  static override fromString(str: string): Buffer32 {
+  static override fromString(str: string): L2BlockHash {
     return new L2BlockHash(super.fromString(str).toBuffer());
   }
 
@@ -62,5 +62,9 @@ export class L2BlockHash extends Buffer32 {
 
   static override fromField(hash: Fr) {
     return new L2BlockHash(hash.toBuffer());
+  }
+
+  toField(): Fr {
+    return Fr.fromBuffer(this.toBuffer());
   }
 }
