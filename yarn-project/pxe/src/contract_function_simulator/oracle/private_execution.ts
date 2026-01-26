@@ -213,7 +213,7 @@ export async function ensureContractSynced(
   header: BlockHeader,
 ): Promise<void> {
   await Promise.all([
-    contractStore.syncPrivateState(contractAddress, functionToInvokeAfterSync, utilityExecutor),
+    contractStore.syncState(contractAddress, functionToInvokeAfterSync, utilityExecutor),
     verifyCurrentClassId(contractAddress, aztecNode, contractStore, header),
   ]);
 }
