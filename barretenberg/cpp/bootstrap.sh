@@ -66,6 +66,8 @@ function build_native {
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
+    # Build bb-external for barretenberg-rs FFI backend (not part of default targets)
+    cmake --build --preset $native_preset --target bb-external
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
