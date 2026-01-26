@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::owned_state_variable::OwnedStateVariable,
+    state_vars::OwnedStateVariable,
 };
 
 use protocol_types::{
@@ -20,6 +20,8 @@ use protocol_types::{
 
 mod test;
 
+/// Per-account mutable private state.
+///
 /// PrivateMutable is an owned state variable type that represents a private value that can be changed. Because it is
 /// "owned," you must wrap a PrivateMutable inside an Owned state variable when storing it:
 ///

@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::state_variable::StateVariable,
+    state_vars::StateVariable,
 };
 
 use protocol_types::{
@@ -20,6 +20,8 @@ use protocol_types::{
 
 mod test;
 
+/// Contract-wide mutable private state.
+///
 /// A state variable that holds a single private value that can be changed (unlike
 /// [crate::state_vars::private_mutable::PrivateMutable], which holds one private value _per account_ - hence
 /// the name 'single').

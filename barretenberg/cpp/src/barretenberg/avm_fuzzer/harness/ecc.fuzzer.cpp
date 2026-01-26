@@ -167,7 +167,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     }
     case 2: {
         // Set P to point at infinity
-        input.p.set_infinity();
+        // Note: using input.p.set_infinity() did not work here (input.p.is_point_at_infinity() == 0 afterwards)
+        input.p = AffinePoint::infinity();
         break;
     }
     case 3: {
@@ -259,7 +260,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     EmbeddedCurvePoint scalar_mul_result;
 
     try {
-        ecc.add(*mem, input.p, input.q, /* output_addr */ input.addresses[6]);
+        ecc.add(*mem, point_p, point_q, /* output_addr */ input.addresses[6]);
         scalar_mul_result = ecc.scalar_mul(input.p, FF(uint256_t(input.scalar)));
     } catch (std::exception& e) {
         // info("Caught exception during ECC add: {}", e.what());

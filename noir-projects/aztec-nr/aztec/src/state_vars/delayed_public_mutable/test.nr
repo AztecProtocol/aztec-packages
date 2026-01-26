@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::{delayed_public_mutable::DelayedPublicMutable, state_variable::StateVariable},
+    state_vars::{delayed_public_mutable::DelayedPublicMutable, StateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
 };
 use protocol_types::traits::Empty;

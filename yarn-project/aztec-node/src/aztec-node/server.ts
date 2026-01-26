@@ -1411,11 +1411,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   #getInitialHeaderHash(): Promise<L2BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer
-        .getCommitted()
-        .getInitialHeader()
-        .hash()
-        .then(hash => L2BlockHash.fromField(hash));
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
     }
     return this.initialHeaderHashPromise;
   }

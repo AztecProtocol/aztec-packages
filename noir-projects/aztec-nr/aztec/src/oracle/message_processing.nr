@@ -11,20 +11,20 @@ unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Fi
 
 // This must be a single oracle and not one for notes and one for events because the entire point is to validate
 // all notes and events in one go, minimizing node round-trips.
-pub(crate) unconstrained fn validate_enqueued_notes_and_events(
+pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
 ) {
-    validate_enqueued_notes_and_events_oracle(
+    validate_and_store_enqueued_notes_and_events_oracle(
         contract_address,
         note_validation_requests_array_base_slot,
         event_validation_requests_array_base_slot,
     );
 }
 
-#[oracle(utilityValidateEnqueuedNotesAndEvents)]
-unconstrained fn validate_enqueued_notes_and_events_oracle(
+#[oracle(utilityValidateAndStoreEnqueuedNotesAndEvents)]
+unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,

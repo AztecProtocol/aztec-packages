@@ -3,6 +3,7 @@ import {
   AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+  MAX_ETH_ADDRESS_VALUE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -368,6 +369,17 @@ describe('Accrued Substate', () => {
       ).execute(context);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledTimes(1);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(address, /*recipient=*/ value0, /*content=*/ value1);
+    });
+
+    it('Should revert if recipient is too large', async () => {
+      context.machineState.memory.set(value0Offset, new Field(new Fr(MAX_ETH_ADDRESS_VALUE + 1n)));
+      await expect(
+        new SendL2ToL1Message(
+          /*addressing_mode=*/ 0,
+          /*recipientOffset=*/ value0Offset,
+          /*contentOffset=*/ value1Offset,
+        ).execute(context),
+      ).rejects.toThrow(new InstructionExecutionError(`SENDL2TOL1MSG: Recipient address is too large`));
     });
   });
 

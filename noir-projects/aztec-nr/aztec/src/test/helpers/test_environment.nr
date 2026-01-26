@@ -18,7 +18,7 @@ use crate::{
         },
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
-        processing::{MessageContext, validate_enqueued_notes_and_events},
+        processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
     },
     note::{
         HintedNote,
@@ -947,7 +947,7 @@ impl TestEnvironment {
                 message_context,
             );
 
-            validate_enqueued_notes_and_events(context.this_address());
+            validate_and_store_enqueued_notes_and_events(context.this_address());
         });
     }
 }

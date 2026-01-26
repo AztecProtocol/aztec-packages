@@ -17,13 +17,5 @@ pub unconstrained fn get_propagated_read_requests<let ReadRequestLen: u32>(
         }
     }
 
-    // If not all read requests are propagated, we must still copy the first item beyond the claimed length into the
-    // propagated array to prevent incorrect equality assertions in `validate_propagated_read_requests`.
-    // See the implementation of `validate_propagated_read_requests` for more details.
-    if read_requests.length != ReadRequestLen {
-        let num_propagated = propagated_read_requests.length;
-        propagated_read_requests.array[num_propagated] = read_requests.array[read_requests.length];
-    }
-
     propagated_read_requests
 }

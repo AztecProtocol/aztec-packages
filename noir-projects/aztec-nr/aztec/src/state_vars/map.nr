@@ -1,7 +1,7 @@
-use crate::state_vars::state_variable::StateVariable;
+use crate::state_vars::StateVariable;
 use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 
-/// Map
+/// A key-value container for state variables.
 ///
 /// A key-value storage container that maps keys to state variables, similar
 /// to Solidity mappings.

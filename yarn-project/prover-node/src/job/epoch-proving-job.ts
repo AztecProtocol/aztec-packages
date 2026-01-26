@@ -363,7 +363,7 @@ export class EpochProvingJob implements Traceable {
     this.epochCheckPromise = new RunningPromise(
       async () => {
         const blockHeaders = await l2BlockSource.getCheckpointedBlockHeadersForEpoch(this.epochNumber);
-        const blockHashes = await Promise.all(blockHeaders.map(header => header.hash()));
+        const blockHashes = await Promise.all(blockHeaders.map(async header => (await header.hash()).toField()));
         const thisBlocks = this.checkpoints.flatMap(checkpoint => checkpoint.blocks);
         const thisBlockHashes = await Promise.all(thisBlocks.map(block => block.hash()));
         if (

@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
@@ -73,7 +72,7 @@ export class NoteService {
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
-    const anchorBlockHash = L2BlockHash.fromField(await (await this.anchorBlockStore.getBlockHeader()).hash());
+    const anchorBlockHash = await (await this.anchorBlockStore.getBlockHeader()).hash();
 
     const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
 
@@ -112,7 +111,7 @@ export class NoteService {
     await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
   }
 
-  public async storeNote(
+  public async validateAndStoreNote(
     contractAddress: AztecAddress,
     owner: AztecAddress,
     storageSlot: Fr,
@@ -145,7 +144,7 @@ export class NoteService {
     // logs up to the synced block making this only an additional safety check.
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
     const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
-    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
+    const anchorBlockHash = await anchorBlockHeader.hash();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.

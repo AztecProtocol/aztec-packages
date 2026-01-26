@@ -43,9 +43,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
-  public addBlocks(blocks: L2Block[]) {
+  public addProposedBlocks(blocks: L2Block[]) {
     this.l2Blocks.push(...blocks);
-    this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
+    this.log.verbose(`Added ${blocks.length} proposed blocks to the mock L2 block source`);
   }
 
   public removeBlocks(numBlocks: number) {
