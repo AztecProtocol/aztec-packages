@@ -242,7 +242,7 @@ The private fee payment flow is sophisticated. Let's walk through `fee_entrypoin
 
 **The flow:**
 
-1. **Pull max fee**: Transfer tokens from user's private balance to FPC's public balance. This requires an [authwit](../../aztec-nr/framework-description/accounts_and_authwit.md) from the user.
+1. **Pull max fee**: Transfer tokens from user's private balance to FPC's public balance. This requires an [authwit](../../aztec-nr/framework-description/how_to_use_authwit.md) from the user.
 
 2. **Prepare partial note**: Create an incomplete note that will hold the refund. We don't know the actual fee yet!
 
@@ -365,5 +365,5 @@ You've learned two patterns for fee payment on Aztec:
 ## Next Steps
 
 - Explore the production [FPC implementation](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/fees/fpc_contract)
-- Learn about [authentication witnesses](../../aztec-nr/framework-description/accounts_and_authwit.md) for authorizing transfers
+- Learn about [authentication witnesses](../../aztec-nr/framework-description/how_to_use_authwit.md) for authorizing transfers
 - Read about [transaction fees](../../foundational-topics/fees.md) in depth
