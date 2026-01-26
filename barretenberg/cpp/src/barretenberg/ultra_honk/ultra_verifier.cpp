@@ -13,11 +13,8 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_layout.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
@@ -82,25 +79,11 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     IO>::split_rollup_proof(const Proof& combined_proof) const
     requires(HasIPAAccumulator<Flavor>)
 {
-    // Use VK's num_public_inputs which includes both IO and any additional circuit public inputs
-    auto vk_ptr = verifier_instance->get_vk();
-    const size_t num_public_inputs = [&]() {
-        if constexpr (IsRecursive) {
-            return static_cast<size_t>(uint32_t(vk_ptr->num_public_inputs.get_value()));
-        } else {
-            return static_cast<size_t>(vk_ptr->num_public_inputs);
-        }
-    }();
+    // Split point: IPA proof is appended at the end
+    const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
 
-    // Calculate split point: Honk portion uses UltraFlavor layout (IPA is appended separately)
-    const size_t HONK_PROOF_LENGTH =
-        ProofLength::Honk<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraFlavor::VIRTUAL_LOG_N);
-    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-
-    // Extract proofs
-    Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_with_pub_inputs_length);
-    Proof ipa_proof(combined_proof.begin() + honk_proof_with_pub_inputs_length, combined_proof.end());
+    Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_length);
+    Proof ipa_proof(combined_proof.begin() + honk_proof_length, combined_proof.end());
 
     return std::make_pair(honk_proof, ipa_proof);
 }
