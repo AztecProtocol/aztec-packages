@@ -108,6 +108,12 @@ TxSimulationResult fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr
                                bb::avm2::fuzzer::FuzzerContractDB& contract_db,
                                FuzzerTxData& tx_data);
 
+// Run the prover fuzzer with fault injection: generate proving inputs, generate events, mutate events, fill
+// trace, check circuit. If mutated events pass check_circuit, throw an exception.
+void fuzz_prover_with_fault_injection(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                      bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                                      FuzzerTxData& tx_data);
+
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
 size_t mutate_tx_data(FuzzerContext& context,
