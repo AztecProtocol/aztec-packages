@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -133,7 +133,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, () => Promise.resolve(tx.getTxHash()));
+        return { node, txHash: tx.getTxHash() };
       }),
     );
 
@@ -141,9 +141,9 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     await Promise.all(
       sentTxs.flatMap((txs, i) =>
         txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j} ${(await tx.getTxHash()).toString()} to be mined`);
-          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
-          t.logger.info(`Tx ${i}-${j} ${(await tx.getTxHash()).toString()} has been mined`);
+          t.logger.info(`Waiting for tx ${i}-${j} ${tx.txHash.toString()} to be mined`);
+          await waitForTx(tx.node, tx.txHash, { timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
+          t.logger.info(`Tx ${i}-${j} ${tx.txHash.toString()} has been mined`);
         }),
       ),
     );

@@ -59,7 +59,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const contractWithWallet = TokenContract.at(token.address, wallet);
 
-    await contractWithWallet.methods.transfer(receiver, transferAmount).send({ from: accounts[senderIndex] }).wait();
+    await contractWithWallet.methods.transfer(receiver, transferAmount).send({ from: accounts[senderIndex] });
 
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectTokenBalance(wallet, token, accounts[i], expectedBalances[i], logger);

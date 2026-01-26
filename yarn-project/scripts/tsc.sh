@@ -30,17 +30,17 @@ $no_emit && tsgo_cmd+=" --noEmit" || tsgo_cmd+=" --emitDeclarationOnly"
 $watch && tsgo_cmd+=" --watch"
 for arg in "${extra_args[@]+"${extra_args[@]}"}"; do tsgo_cmd+=" $arg"; done
 
-swc_cmd="cd {} && $swc src -d dest --config-file=$root/.swcrc --strip-leading-paths"
-$watch && swc_cmd+=" --watch"
+swc_args="src -d dest --config-file=$root/.swcrc --strip-leading-paths"
+$watch && swc_args+=" --watch"
 
 # In watch mode, run with full output
 if $watch; then
   if $skip_swc; then
     exec $tsgo_cmd
   elif [[ -d "src" ]]; then
-    parallel --halt now,fail=1 ::: "$tsgo_cmd" "cd . && $swc src -d dest --config-file=$root/.swcrc --strip-leading-paths"
+    parallel --halt now,fail=1 ::: "$tsgo_cmd" "cd . && $swc $swc_args"
   else
-    { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc src -d dest --config-file=$root/.swcrc --strip-leading-paths"; done; } | parallel --halt now,fail=1 --line-buffered
+    { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc $swc_args"; done; } | parallel --halt now,fail=1 --line-buffered
   fi
   exit 0
 fi
@@ -67,8 +67,8 @@ run_parallel() {
 if $skip_swc; then
   run_parallel ::: "$tsgo_cmd"
 elif [[ -d "src" ]]; then
-  run_parallel ::: "$tsgo_cmd" "cd . && $swc src -d dest --config-file=$root/.swcrc --strip-leading-paths"
+  run_parallel ::: "$tsgo_cmd" "cd . && $swc $swc_args"
 else
-  { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc src -d dest --config-file=$root/.swcrc --strip-leading-paths"; done; } | run_parallel
+  { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc $swc_args"; done; } | run_parallel
 fi
 echo "Typescript build succeeded"

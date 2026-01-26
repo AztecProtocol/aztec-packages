@@ -60,22 +60,22 @@ const itShouldBehaveLikeAnAccountContract = (
       if (await accountManager.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.send({ from: AztecAddress.ZERO }).wait();
+        await deployMethod.send({ from: AztecAddress.ZERO });
       }
 
-      child = await ChildContract.deploy(wallet).send({ from: address }).deployed();
+      child = await ChildContract.deploy(wallet).send({ from: address });
     });
 
     afterAll(() => teardown());
 
     it('calls a private function', async () => {
       logger.info('Calling private function...');
-      await child.methods.value(42).send({ from: completeAddress.address }).wait({ interval: 0.1 });
+      await child.methods.value(42).send({ from: completeAddress.address });
     });
 
     it('calls a public function', async () => {
       logger.info('Calling public function...');
-      await child.methods.pub_inc_value(42).send({ from: completeAddress.address }).wait({ interval: 0.1 });
+      await child.methods.pub_inc_value(42).send({ from: completeAddress.address });
       const storedValue = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     });

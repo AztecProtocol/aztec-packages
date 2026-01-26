@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "additionalDirectories": ["../"],
+    "additionalDirectories": ["../", "/tmp"],
     "allow": [
       "Bash(yarn:*)",
       "Bash(forge:*)",
@@ -25,7 +25,13 @@
       "Bash(cd:*)",
       "Bash(grep:*)",
       "Bash(curl -XGET:*)",
-      "WebFetch(domain:ci.aztec-labs.com)"
+      "Bash(.claude/scripts/extract-test-logs.sh:*)",
+      "Bash(./ci.sh dlog:*)",
+      "WebFetch(domain:ci.aztec-labs.com)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

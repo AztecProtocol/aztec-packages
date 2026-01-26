@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { DeployOptions } from '@aztec/aztec.js/contracts';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -89,37 +90,55 @@ export async function deploy(
       };
     }
   } else {
-    const tx = deploy.send(deployOpts);
     if (verbose) {
       printProfileResult(stats, log);
     }
 
-    const txHash = await tx.getTxHash();
-    debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-    out.hash = txHash;
     const { address, partialAddress } = deploy;
     const instance = await deploy.getInstance();
-    if (!json) {
-      log(`Contract deployed at ${address?.toString()}`);
-      log(`Contract partial address ${(await partialAddress)?.toString()}`);
-      log(`Contract init hash ${instance.initializationHash.toString()}`);
-      log(`Deployment tx hash: ${txHash.toString()}`);
-      log(`Deployment salt: ${salt.toString()}`);
-      log(`Deployer: ${instance.deployer.toString()}`);
-    } else {
-      out.contract = {
-        address: address?.toString(),
-        partialAddress: (await partialAddress)?.toString(),
-        initializationHash: instance.initializationHash.toString(),
-        salt: salt.toString(),
-      };
-    }
+
     if (wait) {
-      const deployed = await tx.wait({ timeout });
+      const receipt = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
+      const txHash = receipt.txHash;
+      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+      out.hash = txHash;
+
       if (!json) {
-        log(`Transaction fee: ${deployed.transactionFee?.toString()}`);
+        log(`Contract deployed at ${address?.toString()}`);
+        log(`Contract partial address ${(await partialAddress)?.toString()}`);
+        log(`Contract init hash ${instance.initializationHash.toString()}`);
+        log(`Deployment tx hash: ${txHash.toString()}`);
+        log(`Deployment salt: ${salt.toString()}`);
+        log(`Deployer: ${instance.deployer.toString()}`);
+        log(`Transaction fee: ${receipt.transactionFee?.toString()}`);
       } else {
-        out.contract.transactionFee = deployed.transactionFee?.toString();
+        out.contract = {
+          address: address?.toString(),
+          partialAddress: (await partialAddress)?.toString(),
+          initializationHash: instance.initializationHash.toString(),
+          salt: salt.toString(),
+          transactionFee: receipt.transactionFee?.toString(),
+        };
+      }
+    } else {
+      const txHash = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+      out.hash = txHash;
+
+      if (!json) {
+        log(`Contract deployed at ${address?.toString()}`);
+        log(`Contract partial address ${(await partialAddress)?.toString()}`);
+        log(`Contract init hash ${instance.initializationHash.toString()}`);
+        log(`Deployment tx hash: ${txHash.toString()}`);
+        log(`Deployment salt: ${salt.toString()}`);
+        log(`Deployer: ${instance.deployer.toString()}`);
+      } else {
+        out.contract = {
+          address: address?.toString(),
+          partialAddress: (await partialAddress)?.toString(),
+          initializationHash: instance.initializationHash.toString(),
+          salt: salt.toString(),
+        };
       }
     }
   }

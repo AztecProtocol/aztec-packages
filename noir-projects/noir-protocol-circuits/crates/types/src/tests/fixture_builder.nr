@@ -946,6 +946,14 @@ impl FixtureBuilder {
         self.add_nullifier_read_request(value)
     }
 
+    pub fn add_read_request_for_settled_nullifier(&mut self, siloed_nullifier: Field) -> u32 {
+        let read_request_index = self.nullifier_read_requests.len();
+        let read_request =
+            Counted::new(siloed_nullifier, self.next_counter()).scope(AztecAddress::zero());
+        self.nullifier_read_requests.push(read_request);
+        read_request_index
+    }
+
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.nullifier_read_requests.len();
         for i in 0..self.nullifier_read_requests.max_len() {

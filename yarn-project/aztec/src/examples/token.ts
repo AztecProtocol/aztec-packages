@@ -32,14 +32,12 @@ async function main() {
   logger.info(`Fetched Alice and Bob accounts: ${alice.toString()}, ${bob.toString()}`);
 
   logger.info('Deploying Token...');
-  const token = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18)
-    .send({ from: alice })
-    .deployed();
+  const token = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18).send({ from: alice });
   logger.info('Token deployed');
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
-  await token.methods.mint_to_private(alice, ALICE_MINT_BALANCE).send({ from: alice }).wait();
+  await token.methods.mint_to_private(alice, ALICE_MINT_BALANCE).send({ from: alice });
 
   logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 
@@ -48,7 +46,7 @@ async function main() {
 
   // We will now transfer tokens from Alice to Bob
   logger.info(`Transferring ${TRANSFER_AMOUNT} tokens from Alice to Bob...`);
-  await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice }).wait();
+  await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice });
 
   // Check the new balances
   const aliceBalance = await token.methods.balance_of_private(alice).simulate({ from: alice });

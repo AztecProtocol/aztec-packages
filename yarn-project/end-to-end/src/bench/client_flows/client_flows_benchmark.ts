@@ -156,8 +156,7 @@ export class ClientFlowsBenchmark {
     const { claimSecret: secret, messageLeafIndex: index } = claim;
     await this.feeJuiceContract.methods
       .claim(address, claim.claimAmount, secret, index)
-      .send({ from: this.adminAddress })
-      .wait();
+      .send({ from: this.adminAddress });
   }
 
   /** Admin mints bananaCoin tokens privately to the target address and redeems them. */
@@ -252,9 +251,7 @@ export class ClientFlowsBenchmark {
       'BC',
       'BC',
       18n,
-    )
-      .send({ from: this.adminAddress })
-      .wait();
+    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
     this.bananaCoin = bananaCoin;
     this.bananaCoinInstance = bananaCoinInstance;
@@ -268,9 +265,7 @@ export class ClientFlowsBenchmark {
       'CBC',
       'CBC',
       18n,
-    )
-      .send({ from: this.adminAddress })
-      .wait();
+    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
     this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
     this.candyBarCoin = candyBarCoin;
     this.candyBarCoinInstance = candyBarCoinInstance;
@@ -286,9 +281,7 @@ export class ClientFlowsBenchmark {
       this.adminWallet,
       bananaCoin.address,
       this.adminAddress,
-    )
-      .send({ from: this.adminAddress })
-      .wait();
+    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
 
     this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
@@ -336,12 +329,10 @@ export class ClientFlowsBenchmark {
     const benchysAddress = benchysAccountManager.address;
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
     const behchysDeployMethod = await benchysAccountManager.getDeployMethod();
-    await behchysDeployMethod
-      .send({
-        from: AztecAddress.ZERO,
-        fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(benchysAddress, claim) },
-      })
-      .wait();
+    await behchysDeployMethod.send({
+      from: AztecAddress.ZERO,
+      fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(benchysAddress, claim) },
+    });
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
       secret: benchysAccount.getSecretKey(),
@@ -359,19 +350,15 @@ export class ClientFlowsBenchmark {
       'LPT',
       'LPT',
       18n,
-    )
-      .send({ from: this.adminAddress })
-      .wait();
+    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
     const { contract: amm, instance: ammInstance } = await AMMContract.deploy(
       this.adminWallet,
       this.bananaCoin.address,
       this.candyBarCoin.address,
       liquidityToken.address,
-    )
-      .send({ from: this.adminAddress })
-      .wait();
+    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
     this.logger.info(`AMM deployed at ${amm.address}`);
-    await liquidityToken.methods.set_minter(amm.address, true).send({ from: this.adminAddress }).wait();
+    await liquidityToken.methods.set_minter(amm.address, true).send({ from: this.adminAddress });
     this.liquidityToken = liquidityToken;
     this.liquidityTokenInstance = liquidityTokenInstance;
     this.amm = amm;

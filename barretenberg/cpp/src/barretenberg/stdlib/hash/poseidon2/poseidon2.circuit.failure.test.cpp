@@ -10,13 +10,13 @@ class Poseidon2FailureTests : public ::testing::Test {
   public:
     using Flavor = UltraFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
-    using SumcheckProver = SumcheckProver<Flavor>;
-    using SumcheckVerifier = SumcheckVerifier<Flavor>;
+    using SumcheckProver = bb::SumcheckProver<Flavor>;
+    using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using FF = Flavor::FF;
     using Builder = Flavor::CircuitBuilder;
     using Transcript = Flavor::Transcript;
     using SubrelationSeparator = Flavor::SubrelationSeparator;
-    using RelationParameters = RelationParameters<FF>;
+    using RelationParameters = bb::RelationParameters<FF>;
 
     void modify_selector(auto& selector)
     {

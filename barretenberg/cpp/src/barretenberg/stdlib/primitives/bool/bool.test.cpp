@@ -185,7 +185,8 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
         // Failure test
         Builder builder = Builder();
-        EXPECT_THROW_WITH_MESSAGE(auto new_bool = bool_ct(witness_ct(&builder, 2), use_range_constraint),
+        EXPECT_THROW_WITH_MESSAGE([[maybe_unused]] auto new_bool =
+                                      bool_ct(witness_ct(&builder, 2), use_range_constraint),
                                   "bool_t: witness value is not 0 or 1");
     }
     void test_AND()

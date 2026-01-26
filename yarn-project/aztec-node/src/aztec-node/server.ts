@@ -653,6 +653,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getProvenBlockNumber();
   }
 
+  public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
   /**
    * Method to fetch the version of the package.
    * @returns The node package version
@@ -770,11 +774,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const txStatus = await this.p2pClient.getTxStatus(txHash);
-    const isKnownToPool = txStatus === 'pending' || txStatus === 'mined';
+    // Check the tx pool status first. If the tx is known to the pool (pending or mined), we'll use that
+    // as a fallback if we don't find a settled receipt in the archiver.
+    const txPoolStatus = await this.p2pClient.getTxStatus(txHash);
+    const isKnownToPool = txPoolStatus === 'pending' || txPoolStatus === 'mined';
 
     // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);

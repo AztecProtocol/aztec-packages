@@ -8,7 +8,7 @@ import {
   TempCheckpointLog,
   CompressedTempCheckpointLogLib
 } from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {CompressedFeeHeader, FeeHeaderLib, FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -108,6 +108,28 @@ library STFLib {
     rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
     rollupStore.archives[0] = _genesisState.genesisArchiveRoot;
+  }
+
+  /**
+   * @notice Writes the genesis fee header at checkpoint 0
+   * @dev This sets the initial ethPerFeeAsset value that will be used as the starting point
+   *      for the fee asset price oracle. Must be called during rollup initialization.
+   * @param _initialEthPerFeeAsset The initial ETH per fee asset price (with 1e12 precision)
+   */
+  function writeGenesisFeeHeader(uint256 _initialEthPerFeeAsset) internal {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    // Write to checkpoint 0's slot in the circular buffer
+    rollupStore.tempCheckpointLogs[0] = TempCheckpointLog({
+        headerHash: bytes32(0),
+        blobCommitmentsHash: bytes32(0),
+        outHash: bytes32(0),
+        attestationsHash: bytes32(0),
+        payloadDigest: bytes32(0),
+        slotNumber: Slot.wrap(0),
+        feeHeader: FeeHeader({
+          excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, congestionCost: 0, proverCost: 0
+        })
+      }).compress();
   }
 
   /**

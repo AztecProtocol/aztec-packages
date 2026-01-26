@@ -8,16 +8,16 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { expect, jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import {
+  type ServiceEndpoint,
   applyValidatorKill,
   awaitCheckpointNumber,
+  getEthereumEndpoint,
   getGitProjectRoot,
+  getRPCEndpoint,
   getSequencers,
   setupEnvironment,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
   uninstallChaosMesh,
 } from './utils.js';
 
@@ -28,7 +28,7 @@ describe('validator ha', () => {
 
   const config = setupEnvironment(process.env);
   const { NAMESPACE } = config;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let spartanDir: string;
   let rollupCheatCodes: RollupCheatCodes;
 
@@ -40,24 +40,22 @@ describe('validator ha', () => {
   beforeAll(async () => {
     spartanDir = `${getGitProjectRoot()}/spartan`;
 
-    // Setup port forwards
-    const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(NAMESPACE);
-    forwardProcesses.push(rpcProcess);
-    const nodeUrl = `http://127.0.0.1:${rpcPort}`;
+    // Setup connections
+    const rpcEndpoint = await getRPCEndpoint(NAMESPACE);
+    endpoints.push(rpcEndpoint);
 
-    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(NAMESPACE);
-    forwardProcesses.push(ethProcess);
-    const ethereumHost = `http://127.0.0.1:${ethPort}`;
+    const ethEndpoint = await getEthereumEndpoint(NAMESPACE);
+    endpoints.push(ethEndpoint);
 
     // Setup rollup cheat codes for monitoring
-    const node = createAztecNodeClient(nodeUrl);
-    const ethCheatCodes = new EthCheatCodesWithState([ethereumHost], new DateProvider());
+    const node = createAztecNodeClient(rpcEndpoint.url);
+    const ethCheatCodes = new EthCheatCodesWithState([ethEndpoint.url], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, await node.getNodeInfo().then(n => n.l1ContractAddresses));
     await awaitCheckpointNumber(rollupCheatCodes, CheckpointNumber(INITIAL_CHECKPOINT_NUMBER + 1), 60 * 60, logger);
   });
 
   afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('survives random validator kills without stalling block production', async () => {

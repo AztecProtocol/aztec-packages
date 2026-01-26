@@ -36,10 +36,11 @@ describe('e2e_avm_simulator', () => {
     let secondAvmContract: AvmTestContract;
 
     beforeEach(async () => {
-      ({ contract: avmContract, instance: avmContractInstance } = await AvmTestContract.deploy(wallet)
-        .send({ from: defaultAccountAddress })
-        .wait());
-      secondAvmContract = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+      ({ contract: avmContract, instance: avmContractInstance } = await AvmTestContract.deploy(wallet).send({
+        from: defaultAccountAddress,
+        wait: { returnReceipt: true },
+      }));
+      secondAvmContract = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress });
     });
 
     describe('Assertions & error enriching', () => {
@@ -115,14 +116,14 @@ describe('e2e_avm_simulator', () => {
 
     describe('Storage', () => {
       it('Modifies storage (Field)', async () => {
-        await avmContract.methods.set_storage_single(20n).send({ from: defaultAccountAddress }).wait();
+        await avmContract.methods.set_storage_single(20n).send({ from: defaultAccountAddress });
         expect(await avmContract.methods.read_storage_single().simulate({ from: defaultAccountAddress })).toEqual(20n);
       });
 
       it('Modifies storage (Map)', async () => {
         const address = AztecAddress.fromBigInt(9090n);
-        await avmContract.methods.set_storage_map(address, 100).send({ from: defaultAccountAddress }).wait();
-        await avmContract.methods.add_storage_map(address, 100).send({ from: defaultAccountAddress }).wait();
+        await avmContract.methods.set_storage_map(address, 100).send({ from: defaultAccountAddress });
+        await avmContract.methods.add_storage_map(address, 100).send({ from: defaultAccountAddress });
         expect(await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).toEqual(
           200n,
         );
@@ -134,9 +135,7 @@ describe('e2e_avm_simulator', () => {
         await new BatchCall(wallet, [
           avmContract.methods.set_storage_map(address, 100),
           avmContract.methods.add_storage_map(address, 100),
-        ])
-          .send({ from: defaultAccountAddress })
-          .wait();
+        ]).send({ from: defaultAccountAddress });
         // On a separate tx, we check the result.
         expect(await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).toEqual(
           200n,
@@ -153,8 +152,7 @@ describe('e2e_avm_simulator', () => {
             avmContractInstance.currentContractClassId,
             avmContractInstance.initializationHash,
           )
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
     });
@@ -162,20 +160,17 @@ describe('e2e_avm_simulator', () => {
     describe('Nullifiers', () => {
       // Nullifier will not yet be siloed by the kernel.
       it('Emit and check in the same tx', async () => {
-        const tx = await avmContract.methods
-          .emit_nullifier_and_check(123456)
-          .send({ from: defaultAccountAddress })
-          .wait();
+        const tx = await avmContract.methods.emit_nullifier_and_check(123456).send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
       // Nullifier will have been siloed by the kernel, but we check against the unsiloed one.
       it('Emit and check in separate tx', async () => {
         const nullifier = new Fr(123456);
-        let tx = await avmContract.methods.new_nullifier(nullifier).send({ from: defaultAccountAddress }).wait();
+        let tx = await avmContract.methods.new_nullifier(nullifier).send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
 
-        tx = await avmContract.methods.assert_nullifier_exists(nullifier).send({ from: defaultAccountAddress }).wait();
+        tx = await avmContract.methods.assert_nullifier_exists(nullifier).send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
@@ -186,9 +181,7 @@ describe('e2e_avm_simulator', () => {
         await new BatchCall(wallet, [
           avmContract.methods.new_nullifier(nullifier),
           avmContract.methods.assert_nullifier_exists(nullifier),
-        ])
-          .send({ from: defaultAccountAddress })
-          .wait();
+        ]).send({ from: defaultAccountAddress });
       });
     });
 
@@ -202,10 +195,7 @@ describe('e2e_avm_simulator', () => {
 
       it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
         // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
-        const tx = await avmContract.methods
-          .nested_call_to_nothing_recovers()
-          .send({ from: defaultAccountAddress })
-          .wait();
+        const tx = await avmContract.methods.nested_call_to_nothing_recovers().send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
       it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
@@ -213,8 +203,7 @@ describe('e2e_avm_simulator', () => {
         await expect(
           avmContract.methods
             .create_same_nullifier_in_nested_call(avmContract.address, nullifier)
-            .send({ from: defaultAccountAddress })
-            .wait(),
+            .send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
 
@@ -222,8 +211,7 @@ describe('e2e_avm_simulator', () => {
         const nullifier = new Fr(1);
         const tx = await avmContract.methods
           .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
@@ -231,8 +219,7 @@ describe('e2e_avm_simulator', () => {
         const nullifier = new Fr(1);
         const tx = await avmContract.methods
           .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
@@ -240,8 +227,7 @@ describe('e2e_avm_simulator', () => {
         const nullifier = new Fr(1);
         const tx = await avmContract.methods
           .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
     });
@@ -251,7 +237,7 @@ describe('e2e_avm_simulator', () => {
     let avmContract: AvmInitializerTestContract;
 
     beforeEach(async () => {
-      avmContract = await AvmInitializerTestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+      avmContract = await AvmInitializerTestContract.deploy(wallet).send({ from: defaultAccountAddress });
     });
 
     describe('Storage', () => {

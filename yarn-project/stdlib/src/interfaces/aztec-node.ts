@@ -256,6 +256,12 @@ export interface AztecNode
   getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Fetches the latest checkpointed block number.
+   * @returns The block number.
+   */
+  getCheckpointedBlockNumber(): Promise<BlockNumber>;
+
+  /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
    */
@@ -580,6 +586,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlockNumber: z.function().returns(BlockNumberSchema),
 
   getProvenBlockNumber: z.function().returns(BlockNumberSchema),
+
+  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
 
   isReady: z.function().returns(z.boolean()),
 

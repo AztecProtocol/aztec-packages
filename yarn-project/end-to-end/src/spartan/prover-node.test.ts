@@ -1,11 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import type { ChildProcess } from 'child_process';
-
 import { AlertTriggeredError, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   ChainHealth,
+  type ServiceEndpoint,
   applyProverBrokerKill,
   applyProverKill,
   deleteResourceByLabel,
@@ -55,7 +54,7 @@ const enqueuedRootRollupJobs = {
 };
 
 describe('prover node recovery', () => {
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let alertChecker: GrafanaClient;
   let spartanDir: string;
   const health = new ChainHealth(config.NAMESPACE, logger);
@@ -64,36 +63,39 @@ describe('prover node recovery', () => {
     await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
     let promPort = 0;
-    let promProc: ChildProcess | undefined;
+    let promUrl = '';
+    let promProc: Awaited<ReturnType<typeof startPortForward>>['process'];
     {
-      const { process: p, port } = await startPortForward({
+      const result = await startPortForward({
         resource: `svc/metrics-prometheus-server`,
         namespace: 'metrics',
         containerPort: 80,
       });
-      promProc = p;
-      promPort = port;
+      promProc = result.process;
+      promPort = result.port;
+      promUrl = `http://127.0.0.1:${promPort}/api/v1`;
       if (promPort === 0) {
-        p.kill();
+        result.process.kill();
       }
     }
 
     if (promPort === 0) {
-      const { process: p, port } = await startPortForward({
+      const result = await startPortForward({
         resource: `svc/prometheus-server`,
         namespace: config.NAMESPACE,
         containerPort: 80,
       });
-      promProc = p;
-      promPort = port;
+      promProc = result.process;
+      promPort = result.port;
+      promUrl = `http://127.0.0.1:${promPort}/api/v1`;
     }
 
     if (!promProc || promPort === 0) {
       throw new Error('Unable to port-forward to Prometheus. Ensure the metrics stack is deployed.');
     }
 
-    forwardProcesses.push(promProc);
-    const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
+    endpoints.push({ url: promUrl, process: promProc });
+    const grafanaEndpoint = promUrl;
     const grafanaCredentials = '';
     alertChecker = new GrafanaClient(logger, { grafanaEndpoint, grafanaCredentials });
 
@@ -108,7 +110,7 @@ describe('prover node recovery', () => {
     };
     await cleanup('prover-kill');
     await cleanup('prover-broker-kill');
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('should recover after a crash', async () => {

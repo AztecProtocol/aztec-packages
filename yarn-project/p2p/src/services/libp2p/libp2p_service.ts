@@ -20,6 +20,7 @@ import {
   type Gossipable,
   P2PClientType,
   P2PMessage,
+  type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
   TopicType,
   createTopicString,
@@ -924,7 +925,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const validationFunc: () => Promise<ReceivedMessageValidationResult<CheckpointAttestation>> = async () => {
       const attestation = CheckpointAttestation.fromBuffer(payloadData);
       const pool = this.mempools.attestationPool;
-      const isValid = await this.validateCheckpointAttestation(source, attestation);
+      const validationResult = await this.validateCheckpointAttestation(source, attestation);
+      const isValid = validationResult.result === 'accept';
       const exists = isValid && (await pool.hasCheckpointAttestation(attestation));
 
       let canAdd = true;
@@ -943,9 +945,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         [Attributes.P2P_ID]: source.toString(),
       });
 
-      if (!isValid) {
+      if (validationResult.result === 'reject') {
         return { result: TopicValidatorResult.Reject };
-      } else if (exists) {
+      } else if (validationResult.result === 'ignore' || exists) {
         return { result: TopicValidatorResult.Ignore, obj: attestation };
       } else if (!canAdd) {
         this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
@@ -986,7 +988,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     const validationFunc: () => Promise<ReceivedMessageValidationResult<BlockProposal>> = async () => {
       const block = BlockProposal.fromBuffer(payloadData);
-      const isValid = await this.validateBlockProposal(source, block);
+      const validationResult = await this.validateBlockProposal(source, block);
+      const isValid = validationResult.result === 'accept';
       const pool = this.mempools.attestationPool;
 
       const exists = isValid && (await pool.hasBlockProposal(block));
@@ -1000,9 +1003,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         [Attributes.P2P_ID]: source.toString(),
       });
 
-      if (!isValid) {
+      if (validationResult.result === 'reject') {
         return { result: TopicValidatorResult.Reject };
-      } else if (exists) {
+      } else if (validationResult.result === 'ignore' || exists) {
         return { result: TopicValidatorResult.Ignore, obj: block };
       } else if (!canAdd) {
         this.peerManager.penalizePeer(source, PeerErrorSeverity.MidToleranceError);
@@ -1082,7 +1085,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // TODO(palla/mbps): This pattern is repeated across multiple message handlers, consider abstracting it.
     const validationFunc: () => Promise<ReceivedMessageValidationResult<CheckpointProposal>> = async () => {
       const checkpoint = CheckpointProposal.fromBuffer(payloadData);
-      const isValid = await this.validateCheckpointProposal(source, checkpoint);
+      const validationResult = await this.validateCheckpointProposal(source, checkpoint);
+      const isValid = validationResult.result === 'accept';
       const pool = this.mempools.attestationPool;
 
       const exists = isValid && (await pool.hasCheckpointProposal(checkpoint));
@@ -1096,9 +1100,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         [Attributes.P2P_ID]: source.toString(),
       });
 
-      if (!isValid) {
+      if (validationResult.result === 'reject') {
         return { result: TopicValidatorResult.Reject };
-      } else if (exists) {
+      } else if (validationResult.result === 'ignore' || exists) {
         return { result: TopicValidatorResult.Ignore, obj: checkpoint };
       } else if (!canAdd) {
         this.peerManager.penalizePeer(source, PeerErrorSeverity.MidToleranceError);
@@ -1576,15 +1580,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
-  public async validateCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation): Promise<boolean> {
-    const severity = await this.checkpointAttestationValidator.validate(attestation);
-    if (severity) {
+  public async validateCheckpointAttestation(
+    peerId: PeerId,
+    attestation: CheckpointAttestation,
+  ): Promise<P2PValidationResult> {
+    const result = await this.checkpointAttestationValidator.validate(attestation);
+
+    if (result.result === 'reject') {
       this.logger.debug(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
+      this.peerManager.penalizePeer(peerId, result.severity);
     }
 
-    return true;
+    return result;
   }
 
   /**
@@ -1596,15 +1603,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   @trackSpan('Libp2pService.validateBlockProposal', (_peerId, block) => ({
     [Attributes.SLOT_NUMBER]: block.slotNumber.toString(),
   }))
-  public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
-    const severity = await this.blockProposalValidator.validate(block);
-    if (severity) {
+  public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<P2PValidationResult> {
+    const result = await this.blockProposalValidator.validate(block);
+
+    if (result.result === 'reject') {
       this.logger.debug(`Penalizing peer ${peerId} for block proposal validation failure`);
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
+      this.peerManager.penalizePeer(peerId, result.severity);
     }
 
-    return true;
+    return result;
   }
 
   /**
@@ -1616,15 +1623,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   @trackSpan('Libp2pService.validateCheckpointProposal', (_peerId, checkpoint) => ({
     [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
   }))
-  public async validateCheckpointProposal(peerId: PeerId, checkpoint: CheckpointProposal): Promise<boolean> {
-    const severity = await this.checkpointProposalValidator.validate(checkpoint);
-    if (severity) {
+  public async validateCheckpointProposal(
+    peerId: PeerId,
+    checkpoint: CheckpointProposal,
+  ): Promise<P2PValidationResult> {
+    const result = await this.checkpointProposalValidator.validate(checkpoint);
+
+    if (result.result === 'reject') {
       this.logger.debug(`Penalizing peer ${peerId} for checkpoint proposal validation failure`);
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
+      this.peerManager.penalizePeer(peerId, result.severity);
     }
 
-    return true;
+    return result;
   }
 
   public getPeerScore(peerId: PeerId): number {

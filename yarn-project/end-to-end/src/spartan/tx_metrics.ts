@@ -1,4 +1,5 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Logger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
@@ -32,11 +33,18 @@ export class TxInclusionMetrics {
     | { txP50: number; txP95: number; attestationP50: number; attestationP95: number }
     | undefined;
 
-  constructor(private aztecNode: AztecNode) {}
+  constructor(
+    private aztecNode: AztecNode,
+    private logger?: Logger,
+  ) {}
 
   recordSentTx(tx: Tx, group: string): void {
     const txHash = tx.getTxHash().toString();
     const priorityFees = tx.getGasSettings().maxPriorityFeesPerGas;
+
+    if (this.data.has(txHash)) {
+      this.logger?.debug(`Overwriting tx inclusion data for ${txHash}`, { txHash, group });
+    }
 
     this.data.set(txHash, {
       txHash,
@@ -55,6 +63,11 @@ export class TxInclusionMetrics {
   async recordMinedTx(txReceipt: TxReceipt): Promise<void> {
     const { txHash, blockNumber } = txReceipt;
     if (!txReceipt.isMined() || !txReceipt.hasExecutionSucceeded() || !blockNumber) {
+      this.logger?.debug('Skipping mined tx record due to receipt status', {
+        txHash: txHash.toString(),
+        status: txReceipt.status,
+        blockNumber,
+      });
       return;
     }
 
@@ -64,9 +77,15 @@ export class TxInclusionMetrics {
 
     const block = await this.blocks.get(blockNumber)!;
     if (!block) {
+      this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
       return;
     }
-    const data = this.data.get(txHash.toString())!;
+    const data = this.data.get(txHash.toString());
+    if (!data) {
+      const message = `Missing sent tx record for mined tx ${txHash.toString()}`;
+      this.logger?.warn(message, { txHash: txHash.toString(), blockNumber });
+      throw new Error(message);
+    }
     data.blocknumber = blockNumber;
     data.minedAt = Number(block.header.globalVariables.timestamp);
     data.attestedAt = -1;

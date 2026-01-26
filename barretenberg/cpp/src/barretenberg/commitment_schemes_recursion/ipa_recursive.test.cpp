@@ -168,6 +168,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             for (size_t i = 0; i < poly_length / 2; ++i) {
                 poly.at(i) = Fr::zero();
             }
+            break;
         case PolyType::Sparse:
             // set a few coefficients to be non-zero
             for (size_t i = 0; i < std::min<size_t>(100, poly_length / 2); ++i) {

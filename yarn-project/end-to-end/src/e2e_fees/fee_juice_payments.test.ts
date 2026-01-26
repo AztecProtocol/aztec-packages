@@ -33,7 +33,7 @@ describe('e2e_fees Fee Juice payments', () => {
 
     // Alice pays for Bob's account contract deployment.
     const bobsDeployMethod = await bobsAccountManager.getDeployMethod();
-    await bobsDeployMethod.send({ from: aliceAddress }).wait();
+    await bobsDeployMethod.send({ from: aliceAddress });
     bobAddress = bobsAccountManager.address;
   });
 
@@ -56,7 +56,7 @@ describe('e2e_fees Fee Juice payments', () => {
 
     it('fails to send a tx', async () => {
       await expect(
-        feeJuiceContract.methods.check_balance(0n).send({ from: bobAddress, fee: { gasSettings } }).wait(),
+        feeJuiceContract.methods.check_balance(0n).send({ from: bobAddress, fee: { gasSettings } }),
       ).rejects.toThrow(/Invalid tx: Insufficient fee payer balance/i);
     });
 
@@ -65,8 +65,7 @@ describe('e2e_fees Fee Juice payments', () => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobAddress, claim);
       const receipt = await feeJuiceContract.methods
         .check_balance(0n)
-        .send({ from: bobAddress, fee: { gasSettings, paymentMethod } })
-        .wait();
+        .send({ from: bobAddress, fee: { gasSettings, paymentMethod } });
       const endBalance = await feeJuiceContract.methods.balance_of_public(bobAddress).simulate({ from: bobAddress });
 
       expect(endBalance).toBeGreaterThan(0n);
@@ -82,8 +81,7 @@ describe('e2e_fees Fee Juice payments', () => {
         .simulate({ from: aliceAddress });
       const { transactionFee } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
-        .send({ fee: { gasSettings }, from: aliceAddress })
-        .wait();
+        .send({ fee: { gasSettings }, from: aliceAddress });
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
@@ -97,8 +95,7 @@ describe('e2e_fees Fee Juice payments', () => {
         .simulate({ from: aliceAddress });
       const { transactionFee } = await bananaCoin.methods
         .transfer(bobAddress, 1n)
-        .send({ fee: { gasSettings }, from: aliceAddress })
-        .wait();
+        .send({ fee: { gasSettings }, from: aliceAddress });
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
