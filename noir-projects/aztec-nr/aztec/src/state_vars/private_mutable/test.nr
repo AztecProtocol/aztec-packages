@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    state_vars::{owned_state_variable::OwnedStateVariable, private_mutable::PrivateMutable},
+    state_vars::{OwnedStateVariable, private_mutable::PrivateMutable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
 use protocol_types::address::AztecAddress;

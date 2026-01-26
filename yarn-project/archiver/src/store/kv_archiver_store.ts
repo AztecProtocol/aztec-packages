@@ -25,7 +25,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { join } from 'path';
 
 import type { InboxMessage } from '../structs/inbox_message.js';
-import { BlockStore, type CheckpointData } from './block_store.js';
+import { BlockStore, type CheckpointData, type RemoveCheckpointsResult } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -235,12 +235,14 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * Append new proposed blocks to the store's list.
+   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * For checkpointed blocks (already published to L1), use addCheckpoints() instead.
+   * @param blocks - The proposed L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
-    return this.#blockStore.addBlocks(blocks, opts);
+  addProposedBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
+    return this.#blockStore.addProposedBlocks(blocks, opts);
   }
 
   /**
@@ -261,14 +263,12 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Unwinds checkpoints from the database
-   * @param from -  The tip of the chain, passed for verification purposes,
-   *                ensuring that we don't end up deleting something we did not intend
-   * @param checkpointsToUnwind - The number of checkpoints we are to unwind
-   * @returns True if the operation is successful
+   * Removes all checkpoints with checkpoint number > checkpointNumber.
+   * Also removes ALL blocks (both checkpointed and uncheckpointed) after the last block of the given checkpoint.
+   * @param checkpointNumber - Remove all checkpoints strictly after this one.
    */
-  unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
-    return this.#blockStore.unwindCheckpoints(from, checkpointsToUnwind);
+  removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<RemoveCheckpointsResult> {
+    return this.#blockStore.removeCheckpointsAfter(checkpointNumber);
   }
 
   /**
@@ -629,10 +629,11 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   /**
    * Removes all blocks with block number > blockNumber.
+   * Does not remove any associated checkpoints.
    * @param blockNumber - The block number to remove after.
    * @returns The removed blocks (for event emission).
    */
   removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    return this.#blockStore.unwindBlocksAfter(blockNumber);
+    return this.#blockStore.removeBlocksAfter(blockNumber);
   }
 }

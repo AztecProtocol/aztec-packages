@@ -31,6 +31,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { ensureContractSynced } from '../../contract_sync/index.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
@@ -47,7 +48,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { ensureContractSynced, executePrivateFunction } from './private_execution.js';
+import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**

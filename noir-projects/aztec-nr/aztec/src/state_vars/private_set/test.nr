@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
-    state_vars::{owned_state_variable::OwnedStateVariable, private_set::PrivateSet},
+    state_vars::{OwnedStateVariable, private_set::PrivateSet},
 };
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use protocol_types::{address::AztecAddress, traits::FromField};
