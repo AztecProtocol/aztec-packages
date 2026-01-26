@@ -427,13 +427,11 @@ constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION =
     { CalldataCopyMutationOptions::dst_address, 1 },
 });
 
-enum class SendL2ToL1MsgMutationOptions { recipient, recipient_address, content, content_address };
-using SendL2ToL1MsgMutationConfig = WeightedSelectionConfig<SendL2ToL1MsgMutationOptions, 4>;
+enum class SendL2ToL1MsgMutationOptions { recipient_address, content_address };
+using SendL2ToL1MsgMutationConfig = WeightedSelectionConfig<SendL2ToL1MsgMutationOptions, 2>;
 
 constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION = SendL2ToL1MsgMutationConfig({
-    { SendL2ToL1MsgMutationOptions::recipient, 1 },
     { SendL2ToL1MsgMutationOptions::recipient_address, 1 },
-    { SendL2ToL1MsgMutationOptions::content, 1 },
     { SendL2ToL1MsgMutationOptions::content_address, 1 },
 });
 

@@ -6,6 +6,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/eth_address.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
@@ -250,10 +251,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
     case InstructionGenerationOptions::CALLDATACOPY:
         return generate_calldatacopy_instruction(rng);
     case InstructionGenerationOptions::SENDL2TOL1MSG:
-        return { SENDL2TOL1MSG_Instruction{ .recipient = generate_random_field(rng),
-                                            .recipient_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                            .content = generate_random_field(rng),
-                                            .content_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_sendl2tol1msg_instruction(rng);
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
         return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
@@ -980,6 +978,31 @@ std::vector<FuzzInstruction> InstructionMutator::generate_calldatacopy_instructi
     return instructions;
 }
 
+std::vector<FuzzInstruction> InstructionMutator::generate_sendl2tol1msg_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+    if (!use_backfill) {
+        return { SENDL2TOL1MSG_Instruction{ .recipient_address = generate_variable_ref(rng),
+                                            .content_address = generate_variable_ref(rng) } };
+    }
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+
+    auto recipient_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = recipient_address,
+                                               .value = generate_random_eth_address(rng) });
+
+    auto content_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = content_address, .value = generate_random_field(rng) });
+
+    instructions.push_back(
+        SENDL2TOL1MSG_Instruction{ .recipient_address = recipient_address, .content_address = content_address });
+
+    return instructions;
+}
+
 void InstructionMutator::mutate_param_ref(ParamRef& param,
                                           std::mt19937_64& rng,
                                           std::optional<MemoryTag> default_tag,
@@ -1351,17 +1374,11 @@ void InstructionMutator::mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruct
 {
     SendL2ToL1MsgMutationOptions option = BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case SendL2ToL1MsgMutationOptions::recipient:
-        mutate_field(instruction.recipient, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
-        break;
     case SendL2ToL1MsgMutationOptions::recipient_address:
-        mutate_address_ref(instruction.recipient_address, rng, MAX_16BIT_OPERAND);
-        break;
-    case SendL2ToL1MsgMutationOptions::content:
-        mutate_field(instruction.content, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        mutate_param_ref(instruction.recipient_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case SendL2ToL1MsgMutationOptions::content_address:
-        mutate_address_ref(instruction.content_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.content_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     }
 }

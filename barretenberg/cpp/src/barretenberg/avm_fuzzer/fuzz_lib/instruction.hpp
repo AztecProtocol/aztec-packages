@@ -517,11 +517,9 @@ struct CALLDATACOPY_Instruction {
 };
 
 struct SENDL2TOL1MSG_Instruction {
-    bb::avm2::FF recipient;
-    AddressRef recipient_address;
-    bb::avm2::FF content;
-    AddressRef content_address;
-    MSGPACK_FIELDS(recipient, recipient_address, content, content_address);
+    ParamRef recipient_address;
+    ParamRef content_address;
+    MSGPACK_FIELDS(recipient_address, content_address);
 };
 
 struct EMITUNENCRYPTEDLOG_Instruction {
@@ -869,8 +867,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.dst_address;
             },
             [&](SENDL2TOL1MSG_Instruction arg) {
-                os << "SENDL2TOL1MSG_Instruction " << arg.recipient << " " << arg.recipient_address << " "
-                   << arg.content << " " << arg.content_address;
+                os << "SENDL2TOL1MSG_Instruction " << arg.recipient_address << " " << arg.content_address;
             },
             [&](EMITUNENCRYPTEDLOG_Instruction arg) {
                 os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
