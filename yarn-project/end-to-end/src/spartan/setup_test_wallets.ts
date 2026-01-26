@@ -1,10 +1,11 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
-import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { type AztecNode, createAztecNodeClient, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -84,11 +85,11 @@ export async function deploySponsoredTestAccountsWithTokens(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
-  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 });
+  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } });
   await Promise.all(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.address}`);
     }),
   );
@@ -124,11 +125,10 @@ async function deployAccountWithDiagnostics(
   accountLabel: string,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
-  const sentTx = deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
-  const txHash = await sentTx.getTxHash();
-
+  let txHash;
   try {
-    await sentTx.wait({ timeout: 2400 });
+    txHash = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {
     const blockNumber = await aztecNode.getBlockNumber();
@@ -219,7 +219,7 @@ export async function deployTestAccountsWithTokens(
     fundedAccounts.map(async (a, i) => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
       logger.info(`Account deployed at ${a.address}`);
     }),
   );
@@ -295,14 +295,19 @@ async function deployTokenAndMint(
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const tokenContract = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
-    .send({
-      from: admin,
-      fee: {
-        paymentMethod,
-      },
-    })
-    .deployed({ timeout: 600 });
+  const { contract: tokenContract } = await TokenContract.deploy(
+    wallet,
+    admin,
+    TOKEN_NAME,
+    TOKEN_SYMBOL,
+    TOKEN_DECIMALS,
+  ).send({
+    from: admin,
+    fee: {
+      paymentMethod,
+    },
+    wait: { timeout: 600, returnReceipt: true },
+  });
 
   const tokenAddress = tokenContract.address;
 
@@ -312,8 +317,7 @@ async function deployTokenAndMint(
     accounts.map(acc =>
       TokenContract.at(tokenAddress, wallet)
         .methods.mint_to_public(acc, mintAmount)
-        .send({ from: admin, fee: { paymentMethod } })
-        .wait({ timeout: 600 }),
+        .send({ from: admin, fee: { paymentMethod }, wait: { timeout: 600 } }),
     ),
   );
 
@@ -353,7 +357,7 @@ export async function performTransfers({
 
     const provenTxs = await Promise.all(txs);
 
-    await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
+    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
 
     logger.info(`Completed round ${i + 1} / ${rounds}`);
   }

@@ -33,7 +33,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     it('as minter', async () => {
       const amount = 10000n;
       tokenSim.mintPublic(adminAddress, amount);
-      await asset.methods.mint_public(adminAddress, amount).send({ from: adminAddress }).wait();
+      await asset.methods.mint_public(adminAddress, amount).send({ from: adminAddress });
     });
 
     describe('failure cases', () => {
@@ -88,12 +88,12 @@ describe('e2e_blacklist_token_contract mint', () => {
       it('mint_private as minter and redeem as recipient', async () => {
         const balanceBefore = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
 
-        const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: adminAddress }).wait();
+        const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: adminAddress });
         txHash = receipt.txHash;
 
         await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, txHash);
 
-        await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress }).wait();
+        await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
         tokenSim.mintPrivate(adminAddress, amount);
         const balanceAfter = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });

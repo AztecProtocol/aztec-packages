@@ -35,11 +35,11 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const receipt = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress }).wait();
+    const receipt = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress });
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, receipt.txHash);
-    await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress }).wait();
+    await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
     // Check that the result matches token sim
     tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
@@ -59,9 +59,9 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       { caller: otherAddress, action },
       true,
     );
-    await validateActionInteraction.send().wait();
+    await validateActionInteraction.send();
 
-    const receipt = await action.send({ from: otherAddress }).wait();
+    const receipt = await action.send({ from: otherAddress });
 
     // Check that replaying the shield should fail!
     await expect(
@@ -70,7 +70,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, receipt.txHash);
-    await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress }).wait();
+    await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
     // Check that the result matches token sim
     tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
@@ -113,7 +113,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
@@ -131,7 +131,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
       await expect(action.simulate({ from: blacklistedAddress })).rejects.toThrow(/unauthorized/);
     });

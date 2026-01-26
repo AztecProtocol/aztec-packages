@@ -1,9 +1,9 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { waitForProven } from '@aztec/aztec.js/contracts';
+import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
@@ -328,6 +328,7 @@ describe('e2e_multi_validator_node', () => {
       contractAddressSalt,
       skipClassPublication: true,
       skipInstancePublication: true,
+      wait: NO_WAIT,
     });
   };
 
@@ -398,7 +399,9 @@ describe('e2e_multi_validator_node', () => {
       return sendTx(ownerAddress, contractAddressSalt);
     });
 
-    const settledTransactions = await Promise.all(sentTransactionPromises.map(tx => tx.wait()));
+    const settledTransactions = await Promise.all(
+      sentTransactionPromises.map(async sentTransactionPromise => waitForTx(aztecNode, await sentTransactionPromise)),
+    );
 
     await Promise.all(
       settledTransactions.map(tx => {

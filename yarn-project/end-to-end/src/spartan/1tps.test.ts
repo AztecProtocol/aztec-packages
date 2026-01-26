@@ -1,9 +1,11 @@
 // TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type { TxHash } from '@aztec/stdlib/tx';
 import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
@@ -28,6 +30,7 @@ describe('token transfer test', () => {
 
   let testAccounts: TestAccounts;
   let wallet: TestWallet;
+  let aztecNode: AztecNode;
   const endpoints: ServiceEndpoint[] = [];
   let cleanup: undefined | (() => Promise<void>);
 
@@ -44,11 +47,12 @@ describe('token transfer test', () => {
 
     const {
       wallet: _wallet,
-      aztecNode,
+      aztecNode: _aztecNode,
       cleanup: _cleanup,
     } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     cleanup = _cleanup;
     wallet = _wallet;
+    aztecNode = _aztecNode;
 
     // Setup wallets
     testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
@@ -97,7 +101,7 @@ describe('token transfer test', () => {
       ),
     );
 
-    const sentTxs: SentTx[] = [];
+    const txHashes: TxHash[] = [];
 
     // dump all txs at requested TPS
     const TPS = 1;
@@ -106,8 +110,8 @@ describe('token transfer test', () => {
       const start = performance.now();
 
       const chunk = txs.splice(0, TPS);
-      sentTxs.push(...chunk.map(tx => tx.send()));
-      logger.info(`Sent txs: [${(await Promise.all(chunk.map(tx => tx.getTxHash()))).map(h => h.toString())}]`);
+      txHashes.push(...(await Promise.all(chunk.map(tx => tx.send({ wait: NO_WAIT })))));
+      logger.info(`Sent txs: [${txHashes.map(h => h.toString())}]`);
 
       const end = performance.now();
       const delta = end - start;
@@ -117,9 +121,8 @@ describe('token transfer test', () => {
     }
 
     await Promise.all(
-      sentTxs.map(async sentTx => {
-        await sentTx.wait({ timeout: 600 });
-        const receipt = await sentTx.getReceipt();
+      txHashes.map(async hash => {
+        const receipt = await waitForTx(aztecNode, hash, { timeout: 600 });
         logger.info(`tx ${receipt.txHash} included in block: ${receipt.blockNumber}`);
       }),
     );

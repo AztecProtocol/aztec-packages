@@ -137,18 +137,17 @@ describe('End-to-end tests for devnet', () => {
 
     const l2AccountDeployMethod = await l2AccountManager.getDeployMethod();
 
-    const txReceipt = await l2AccountDeployMethod
-      .send({
-        from: AztecAddress.ZERO,
-        fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
-            claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
-            claimSecret: Fr.fromHexString(claimSecret.value),
-            messageLeafIndex: BigInt(messageLeafIndex),
-          }),
-        },
-      })
-      .wait(waitOpts);
+    const txReceipt = await l2AccountDeployMethod.send({
+      from: AztecAddress.ZERO,
+      fee: {
+        paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
+          claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
+          claimSecret: Fr.fromHexString(claimSecret.value),
+          messageLeafIndex: BigInt(messageLeafIndex),
+        }),
+      },
+      wait: { ...waitOpts, returnReceipt: true },
+    });
 
     // disabled because the CLI process doesn't exit
     // const { txHash, address } = await cli<{ txHash: string; address: { value: string } }>('create-account', {
@@ -253,13 +252,15 @@ describe('End-to-end tests for devnet', () => {
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
     const [fundedAccountAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
-    const test = await TestContract.deploy(wallet)
-      .send({ from: fundedAccountAddress, universalDeploy: true, skipClassPublication: true })
-      .deployed();
+    const test = await TestContract.deploy(wallet).send({
+      from: fundedAccountAddress,
+      universalDeploy: true,
+      skipClassPublication: true,
+    });
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send({ from: fundedAccountAddress }).wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccountAddress, wait: waitOpts });
     }
   }
 });
