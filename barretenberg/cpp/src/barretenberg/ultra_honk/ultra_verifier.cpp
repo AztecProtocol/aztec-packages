@@ -92,8 +92,9 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
         }
     }();
 
-    // Calculate split point
-    const size_t HONK_PROOF_LENGTH = UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
+    // Calculate split point: Honk portion uses UltraFlavor layout (IPA is appended separately)
+    const size_t HONK_PROOF_LENGTH =
+        ProofLayout::Honk<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraFlavor::VIRTUAL_LOG_N);
     const std::ptrdiff_t honk_proof_with_pub_inputs_length =
         static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
 

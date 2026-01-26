@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
+#include "barretenberg/honk/proof_layout.hpp"
 
 namespace bb {
 
@@ -20,7 +21,9 @@ enum class TamperType {
  */
 template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs)
 {
-    size_t num_frs = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+    size_t num_frs = ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + num_public_inputs;
+    // ProofLayout::Honk already includes IPA for rollup flavors, but export_proof adds it again,
+    // so we subtract it here
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_frs -= IPA_PROOF_LENGTH;
     }

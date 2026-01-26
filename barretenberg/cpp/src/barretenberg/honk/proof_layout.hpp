@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -92,13 +93,20 @@ template <typename Flavor> struct Shplemini {
 
 /**
  * @brief Full Honk proof layout (used by UltraVerifier).
- * @details Honk proof = Oink + Sumcheck + Shplemini.
+ * @details Honk proof = Oink + Sumcheck + Shplemini (+ IPA for Rollup flavors).
  */
 template <typename Flavor> struct Honk {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
-        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
-               Shplemini<Flavor>::LENGTH(log_n);
+        size_t base_length = Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
+                             Shplemini<Flavor>::LENGTH(log_n);
+
+        // Rollup flavors include IPA proof
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            return base_length + IPA_PROOF_LENGTH;
+        } else {
+            return base_length;
+        }
     }
 
     /**

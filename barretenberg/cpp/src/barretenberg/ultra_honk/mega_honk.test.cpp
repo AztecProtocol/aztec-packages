@@ -5,6 +5,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/honk/proof_layout.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -74,7 +75,9 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
     UltraProver_<Flavor> prover(prover_instance, verification_key);
     HonkProof mega_proof = prover.construct_proof();
-    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + DefaultIO::PUBLIC_INPUTS_SIZE);
+    EXPECT_EQ(mega_proof.size(),
+              ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
+                  DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
 /**

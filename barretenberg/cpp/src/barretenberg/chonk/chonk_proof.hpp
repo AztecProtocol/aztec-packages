@@ -9,6 +9,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/honk/proof_layout.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -35,7 +36,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
      * @brief The size of a Chonk proof without backend-added public inputs
      */
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() +
+        /*mega_proof*/ ProofLayout::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
         /*merge_proof*/ MERGE_PROOF_SIZE +
         /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
         /*ipa proof*/ IPA_PROOF_LENGTH +
@@ -48,7 +49,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
                                            /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
-        MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
+        ProofLayout::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
 
     // Default constructor
     ChonkProof_() = default;
