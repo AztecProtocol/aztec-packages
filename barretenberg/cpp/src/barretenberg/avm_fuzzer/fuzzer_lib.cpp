@@ -283,6 +283,10 @@ void fuzz_prover_with_fault_injection(FuzzerWorldStateManager& ws_mgr,
         fuzz_info("simulate_fast_with_existing_ws threw an exception: ", e.what());
         return;
     }
+    if (fast_result.revert_code != RevertCode::OK) {
+        fuzz_info("simulate_fast_with_existing_ws reverted with code: ", static_cast<int>(fast_result.revert_code));
+        return;
+    }
 
     // 2. Run simulate_for_hint_collection
     ws_mgr.checkpoint();
