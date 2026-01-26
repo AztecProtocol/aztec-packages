@@ -118,7 +118,7 @@ describe('token transfer test', () => {
 
       logger.info(`Proved ${provenTxs.length} in round ${i} of ${ROUNDS}`);
 
-      await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
+      await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
       const currentSlot = await rollupCheatCodes.getSlot();
       expect(BigInt(currentSlot)).toBeLessThanOrEqual(BigInt(startSlot) + i + MAX_MISSED_SLOTS);
       const startEpoch = await rollupCheatCodes.getEpoch();

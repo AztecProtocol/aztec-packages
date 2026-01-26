@@ -199,7 +199,7 @@ describe('AMM benchmark', () => {
             );
 
             if (process.env.SANITY_CHECKS) {
-              const tx = await addLiquidityInteraction.send({ from: benchysAddress }).wait();
+              const tx = await addLiquidityInteraction.send({ from: benchysAddress });
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
 

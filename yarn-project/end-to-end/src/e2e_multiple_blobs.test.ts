@@ -1,9 +1,9 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall } from '@aztec/aztec.js/contracts';
+import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { broadcastPrivateFunction, broadcastUtilityFunction, publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
@@ -45,7 +45,7 @@ describe('e2e_multiple_blobs', () => {
     } = await setup(1));
     aztecNodeAdmin = maybeAztecNodeAdmin!;
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(() => teardown());
@@ -84,8 +84,13 @@ describe('e2e_multiple_blobs', () => {
     expect(provenTxs.length).toBe(TX_COUNT);
 
     // Send them simultaneously to be picked up by the sequencer
-    const receipts = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress }).wait()));
-
+    const txHashes = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress, wait: NO_WAIT })));
+    // Wait for all to be mined
+    const receipts = await Promise.all(
+      txHashes.map(txHash => {
+        return waitForTx(aztecNode, txHash);
+      }),
+    );
     // Check that all txs are in the same block.
     const blockNumber = receipts[0].blockNumber!;
     expect(receipts.every(r => r.blockNumber === blockNumber)).toBe(true);

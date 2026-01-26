@@ -88,7 +88,7 @@ describe('token transfer test', () => {
 
       const provenTxs = await Promise.all(txs);
 
-      await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
+      await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
     }
 
     for (const a of testAccounts.accounts) {
