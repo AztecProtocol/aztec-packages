@@ -333,6 +333,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(from_bytes.get_origin_tag(), submitted_value_origin_tag);
         }
 
+        // pow preserves tag (exponent is a constant, not a circuit variable)
+        EXPECT_EQ(a.pow(5).get_origin_tag(), submitted_value_origin_tag);
+
 #ifndef NDEBUG
         // Instant death tag causes exception
         {

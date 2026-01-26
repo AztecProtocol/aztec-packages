@@ -212,6 +212,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
         }
 
+        (void)instant_death_tag; // Used only in debug builds below
+
 #ifndef NDEBUG
         // Instant death tag causes exception on use
         affine_element input_death(element::random_element());
@@ -223,6 +225,23 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         pif_normal.set_origin_tag(constant_tag);
         element_ct death_point(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
         EXPECT_THROW(death_point + death_point, std::runtime_error);
+
+        // AUDITTODO: incomplete_assert_equal has inconsistent instant_death behavior between builders. (this was simply
+        // untested before).
+        //
+        // Design intent: assert_equal methods explicitly disable tag checking to allow comparing
+        // values from different transcript sources. So instant_death should NOT be triggered.
+        //
+        // Current behavior:
+        // - bigfield: instant_death IS triggered because bigfield::get_origin_tag()
+        //   merges 5 limb tags, which invokes the OriginTag merge constructor that checks for
+        //   instant_death. This happens BEFORE tags are cleared.
+        // - goblin_field: instant_death is NOT triggered because goblin_field::assert_equal
+        //   delegates to field_t::assert_equal on each limb, which saves tags individually without
+        //   merging.
+        //
+        // Potential fix: In bigfield::assert_equal, save/restore tags at the limb level instead of
+        // calling get_origin_tag() which merges tags.
 #endif
     }
 
