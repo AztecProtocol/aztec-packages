@@ -45,6 +45,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using NativeFlavor = MegaFlavor;
 
     using Transcript = StdlibTranscript<CircuitBuilder>;
+    using Codec = stdlib::StdlibCodec<FF>;
     static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
@@ -65,6 +66,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega
