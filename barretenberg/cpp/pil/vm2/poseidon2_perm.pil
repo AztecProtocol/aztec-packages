@@ -6,6 +6,20 @@ include "poseidon2_params.pil";
 //          which does not generate hpp/cpp files when we run `bb_pil`. We manually optimized
 //          the generated code to speed-up build time.
 
+/**
+ * This trace performs the poseidon2 permutation.
+ * This subtrace does not support any errors.
+ * Every permutation is computed on a single row.
+ * Usage:
+ *  sel_should_exec {
+ *       input[0], input[1], input[2], input[3],
+ *       output[0], output[1], output[2], output[3]
+ *   } in
+ *   poseidon2_perm.sel {
+ *       poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3,
+ *       poseidon2_perm.b_0, poseidon2_perm.b_1, poseidon2_perm.b_2, poseidon2_perm.b_3
+ *   };
+ */
 namespace poseidon2_perm;
 
     // Selector for poseidon2 operation

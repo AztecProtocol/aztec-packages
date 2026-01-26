@@ -176,7 +176,7 @@ namespace poseidon2_perm_mem;
     // Dispatch inputs to poseidon2 permutation trace and retrieve outputs
     ///////////////////////////////////////////////////////////////////////
     pol commit output[4];
-    pol commit sel_should_exec; // @boolean
+    pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
     #[INPUT_OUTPUT_POSEIDON2_PERM]
