@@ -3,12 +3,12 @@ use crate::{
     address::aztec_address::AztecAddress,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{
-        hash::compute_public_data_leaf_slot,
+        hash::compute_public_data_leaf_slot, public_data_storage_read,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
     delayed_public_mutable::delayed_public_mutable_values::DelayedPublicMutableValues,
     hash::poseidon2_hash,
-    merkle_tree::{conditionally_check_membership, membership::MembershipWitness},
+    merkle_tree::MembershipWitness,
     traits::Packable,
 };
 
@@ -45,14 +45,16 @@ where
         storage_slot,
     );
 
+    let public_data_leaf_slot =
+        compute_public_data_leaf_slot(contract_address, storage_slot_of_hash);
+
     // We attempt to read the storage slot.
     // If it's never been written to, the returned value will be `0`.
     // Otherwise, the returned value will be a hash of the delayed_public_mutable wrapper that contains
     // the `current_value` that we seek.
-    let hash = public_storage_historical_read(
-        historical_header,
-        storage_slot_of_hash,
-        contract_address,
+    let hash = public_data_storage_read(
+        historical_header.state.partial.public_data_tree.root,
+        public_data_leaf_slot,
         witness,
         leaf_preimage,
     );
@@ -80,51 +82,6 @@ where
     // The actual item (of type T, of packed length N fields) is stored in contiguous fields from the `storage_slot`.
     // The _hash_ of the item is stored at the end, at slot: `storage_slot + N`.
     start_storage_slot + <T as Packable>::N as Field
-}
-
-/// Read the value from public storage at the given `storage_slot` for the given `contract_address`.
-/// `historical_header` is the header of the block whose state we are reading the value from.
-/// `witness` is a hint to prove that the `leaf_preimage` exists in the tree.
-///
-/// The slot could either exist (has been initialized) in the tree or not:
-/// - If it's in the tree, `leaf_preimage` should be the preimage for the slot.
-/// - If it's not in the tree, `leaf_preimage` should be the preimage for the low leaf of the slot.
-///
-/// TODO: Move this to abis/public_data/storage/read.nr
-fn public_storage_historical_read(
-    historical_header: BlockHeader,
-    storage_slot: Field,
-    contract_address: AztecAddress,
-    witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
-    leaf_preimage: PublicDataTreeLeafPreimage,
-) -> Field {
-    let public_data_leaf_slot = compute_public_data_leaf_slot(contract_address, storage_slot);
-
-    // Use the given `leaf_preimage` hint to determine whether we are reading a slot that's been written to the tree or not.
-    let is_slot_in_tree = leaf_preimage.slot == public_data_leaf_slot;
-
-    let (_, is_expected_leaf, is_leaf_in_tree) = conditionally_check_membership(
-        public_data_leaf_slot,
-        is_slot_in_tree,
-        leaf_preimage,
-        witness,
-        historical_header.state.partial.public_data_tree.root,
-    );
-
-    // In the case of the state existing in the tree, `is_leaf_in_tree = true`.
-    // In the case of the state not existing in the tree, the above membership check was done against the _low_ leaf,
-    // so rather confusingly, we still expect `is_leaf_in_tree = true` (because it's a different kind of leaf in this case).
-    assert(is_leaf_in_tree, "Proving public value inclusion failed");
-    assert(
-        is_expected_leaf,
-        "The provided public data tree leaf preimage is not the correct leaf for the requested contract_address and storage slot",
-    );
-
-    if is_slot_in_tree {
-        leaf_preimage.value
-    } else {
-        0
-    }
 }
 
 mod tests {
@@ -161,6 +118,7 @@ mod tests {
         delayed_public_mutable: DelayedPublicMutableValues<ContractClassId, TEST_INITIAL_DELAY>,
         witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
         leaf_preimage: PublicDataTreeLeafPreimage,
+        public_data_tree: SingleSubtreeMerkleTree<4, 2, 40>,
     }
 
     impl TestBuilder {
@@ -177,7 +135,7 @@ mod tests {
             let current_timestamp = timestamp_of_change + 50;
             let delayed_public_mutable = DelayedPublicMutableValues::new(
                 ScheduledValueChange::new(
-                    ContractClassId::from_field(0),
+                    ContractClassId::from_field(13),
                     ContractClassId::from_field(96),
                     timestamp_of_change,
                 ),
@@ -245,6 +203,7 @@ mod tests {
                 delayed_public_mutable,
                 witness,
                 leaf_preimage,
+                public_data_tree,
             }
         }
 
@@ -279,7 +238,7 @@ mod tests {
 
         let current_value = builder.read_current_value();
 
-        assert_eq(current_value, ContractClassId::from_field(0));
+        assert_eq(current_value, ContractClassId::from_field(13));
     }
 
     #[test]
@@ -317,7 +276,7 @@ mod tests {
         let _ = builder.read_current_value();
     }
 
-    #[test(should_fail_with = "The provided public data tree leaf preimage is not the correct leaf for the requested contract_address and storage slot")]
+    #[test(should_fail_with = "The provided public data tree leaf preimage is not the correct leaf for the requested slot")]
     fn invalid_low_leaf() {
         let mut builder = TestBuilder::new();
 
@@ -334,6 +293,24 @@ mod tests {
         builder.delayed_public_mutable.svc.post = ContractClassId::from_field(999);
 
         let _ = builder.read_current_value();
+    }
+
+    #[test(should_fail_with = "Proving public value inclusion failed")]
+    fn bypass_updated_value_using_empty_low_leaf() {
+        let mut builder = TestBuilder::new();
+
+        // Use an empty leaf as the low leaf.
+        let leaf_index = builder.public_data_tree.get_next_available_index();
+        let witness = MembershipWitness {
+            leaf_index,
+            sibling_path: builder.public_data_tree.get_sibling_path(leaf_index),
+        };
+        builder.witness = witness;
+        builder.leaf_preimage = PublicDataTreeLeafPreimage::empty();
+
+        let current_value = builder.read_current_value();
+
+        assert_eq(current_value, ContractClassId::empty());
     }
 
 }

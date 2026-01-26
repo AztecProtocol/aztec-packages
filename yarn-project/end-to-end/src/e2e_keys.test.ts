@@ -45,7 +45,7 @@ describe('Keys', () => {
       initialFundedAccounts,
     } = await setup(1));
 
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
 
     secret = initialFundedAccounts[0].secret;
   });
@@ -77,15 +77,13 @@ describe('Keys', () => {
 
       await testContract.methods
         .call_create_note(noteValue, defaultAccountAddress, noteStorageSlot, false)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
       await testContract.methods
         .call_destroy_note(defaultAccountAddress, noteStorageSlot)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });

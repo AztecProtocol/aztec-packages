@@ -629,7 +629,7 @@ export async function setup(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await deployFundedSchnorrAccounts(wallet, aztecNodeService, accountsData);
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
@@ -921,13 +921,11 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   ).map(contractMetadata => contractMetadata.instance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
-      .send({ from: accountsToDeploy[0] })
-      .wait();
+    await (await publishContractClass(wallet, SchnorrAccountContractArtifact)).send({ from: accountsToDeploy[0] });
   }
   const requests = instances.map(instance => publishInstance(wallet, instance!));
   const batch = new BatchCall(wallet, requests);
-  await batch.send({ from: accountsToDeploy[0] }).wait();
+  await batch.send({ from: accountsToDeploy[0] });
 }
 
 /**
@@ -951,12 +949,10 @@ export const deployAccounts =
         deployedAccounts[i].signingKey,
       );
       const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod
-        .send({
-          from: AztecAddress.ZERO,
-          skipClassPublication: i !== 0, // Publish the contract class at most once.
-        })
-        .wait();
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        skipClassPublication: i !== 0, // Publish the contract class at most once.
+      });
     }
 
     return { deployedAccounts };
@@ -986,7 +982,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send({ from: accountsToDeploy[0] }).wait();
+  const txReceipt = await batch.send({ from: accountsToDeploy[0] });
   if (waitUntilProven) {
     if (!node) {
       throw new Error('Need to provide an AztecNode to wait for proven.');

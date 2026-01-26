@@ -18,6 +18,7 @@ import {
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
+import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
 import type {
   Aliased,
   BatchResults,
@@ -60,11 +61,6 @@ describe('WalletSchema', () => {
       chainId: expect.any(Fr),
       version: expect.any(Fr),
     });
-  });
-
-  it('getTxReceipt', async () => {
-    const result = await context.client.getTxReceipt(TxHash.random());
-    expect(result).toBeInstanceOf(TxReceipt);
   });
 
   it('getPrivateEvents', async () => {
@@ -205,11 +201,16 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
-    const opts: SendOptions = {
+
+    const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
-    };
-    const result = await context.client.sendTx(exec, opts);
-    expect(result).toBeInstanceOf(TxHash);
+    });
+    expect(resultWithWait).toBeInstanceOf(TxReceipt);
+    const resultWithoutWait = await context.client.sendTx(exec, {
+      from: await AztecAddress.random(),
+      wait: NO_WAIT,
+    });
+    expect(resultWithoutWait).toBeInstanceOf(TxHash);
   });
 
   it('createAuthWit', async () => {
@@ -281,7 +282,6 @@ describe('WalletSchema', () => {
 
     const methods: BatchedMethod[] = [
       { name: 'getChainInfo', args: [] },
-      { name: 'getTxReceipt', args: [TxHash.random()] },
       { name: 'getContractMetadata', args: [address1] },
       { name: 'getContractClassMetadata', args: [Fr.random()] },
       {
@@ -300,30 +300,29 @@ describe('WalletSchema', () => {
     ];
 
     const results = await context.client.batch(methods);
-    expect(results).toHaveLength(14);
+    expect(results).toHaveLength(13);
     expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
-    expect(results[1]).toEqual({ name: 'getTxReceipt', result: expect.any(TxReceipt) });
-    expect(results[2]).toEqual({
+    expect(results[1]).toEqual({
       name: 'getContractMetadata',
       result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
     });
-    expect(results[3]).toEqual({
+    expect(results[2]).toEqual({
       name: 'getContractClassMetadata',
       result: expect.objectContaining({ isArtifactRegistered: expect.any(Boolean) }),
     });
-    expect(results[4]).toEqual({ name: 'getPrivateEvents', result: expect.any(Array) });
-    expect(results[5]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
-    expect(results[6]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
-    expect(results[7]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
-    expect(results[8]).toEqual({
+    expect(results[3]).toEqual({ name: 'getPrivateEvents', result: expect.any(Array) });
+    expect(results[4]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
+    expect(results[5]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
+    expect(results[6]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
+    expect(results[7]).toEqual({
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
-    expect(results[9]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
-    expect(results[10]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
-    expect(results[11]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
-    expect(results[12]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
-    expect(results[13]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
+    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[9]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
+    expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
+    expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
 
@@ -352,10 +351,6 @@ class MockWallet implements Wallet {
         },
       },
     ] as PrivateEvent<T>[]);
-  }
-
-  getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {
-    return Promise.resolve(TxReceipt.empty());
   }
 
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
@@ -412,8 +407,14 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxProfileResult.random());
   }
 
-  sendTx(_exec: ExecutionPayload, _opts: SendOptions): Promise<TxHash> {
-    return Promise.resolve(TxHash.random());
+  sendTx<W extends InteractionWaitOptions = undefined>(
+    _exec: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    if (opts.wait === NO_WAIT) {
+      return Promise.resolve(TxHash.random()) as Promise<SendReturn<W>>;
+    }
+    return Promise.resolve(TxReceipt.empty()) as Promise<SendReturn<W>>;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {

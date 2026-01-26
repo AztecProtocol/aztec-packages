@@ -29,12 +29,15 @@ import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import type {
-  FeeEstimationOptions,
-  GasSettingsOption,
-  ProfileInteractionOptions,
-  SendInteractionOptions,
-  SimulateInteractionOptions,
+import {
+  type FeeEstimationOptions,
+  type GasSettingsOption,
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type ProfileInteractionOptions,
+  type SendInteractionOptionsWithoutWait,
+  type SendReturn,
+  type SimulateInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 
@@ -77,9 +80,14 @@ export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
  * a simplified version that only hints at the wallet whether the interaction contains a
  * fee payment method or not
  */
-export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
+export type SendOptions<W extends InteractionWaitOptions = undefined> = Omit<
+  SendInteractionOptionsWithoutWait,
+  'fee'
+> & {
   /** The fee options */
   fee?: GasSettingsOption;
+  /** Whether to wait for the transaction to be mined */
+  wait?: W;
 };
 
 /**
@@ -197,7 +205,6 @@ export type Wallet = {
     eventFilter: PrivateEventFilter,
   ): Promise<PrivateEvent<T>[]>;
   getChainInfo(): Promise<ChainInfo>;
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -211,7 +218,10 @@ export type Wallet = {
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
   simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
-  sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
+  sendTx<W extends InteractionWaitOptions = undefined>(
+    exec: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>>;
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
@@ -251,11 +261,19 @@ export const WalletSimulationFeeOptionSchema = GasSettingsOptionSchema.extend({
   estimateGas: optional(z.boolean()),
 });
 
+export const WaitOptsSchema = z.object({
+  ignoreDroppedReceiptsFor: optional(z.number()),
+  timeout: optional(z.number()),
+  interval: optional(z.number()),
+  dontThrowOnRevert: optional(z.boolean()),
+});
+
 export const SendOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
+  wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -324,7 +342,6 @@ const WalletMethodSchemas = {
     .function()
     .args()
     .returns(z.object({ chainId: schemas.Fr, version: schemas.Fr })),
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
   getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
   getContractClassMetadata: z.function().args(schemas.Fr).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
@@ -350,7 +367,10 @@ const WalletMethodSchemas = {
     .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)))
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
-  sendTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxHash.schema),
+  sendTx: z
+    .function()
+    .args(ExecutionPayloadSchema, SendOptionsSchema)
+    .returns(z.union([TxHash.schema, TxReceipt.schema])),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
 };
 

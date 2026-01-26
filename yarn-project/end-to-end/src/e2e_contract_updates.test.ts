@@ -110,12 +110,14 @@ describe('e2e_contract_updates', () => {
     }
     sequencer = maybeSequencer;
 
-    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0])
-      .send({ from: defaultAccountAddress, contractAddressSalt: salt })
-      .wait());
+    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
+      from: defaultAccountAddress,
+      contractAddressSalt: salt,
+      wait: { returnReceipt: true },
+    }));
 
     const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);
-    await registerMethod.send({ from: defaultAccountAddress }).wait();
+    await registerMethod.send({ from: defaultAccountAddress });
 
     updatedContractClassId = (await getContractClassFromArtifact(UpdatedContractArtifact)).id;
   });
@@ -129,21 +131,21 @@ describe('e2e_contract_updates', () => {
     expect(await contract.methods.get_public_value().simulate({ from: defaultAccountAddress })).toEqual(
       INITIAL_UPDATABLE_CONTRACT_VALUE,
     );
-    await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
     // Warp time to get past the timestamp of change where the update takes effect
     await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
     const updatedContract = UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
-    await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress }).wait();
+    await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress });
     // Read state that was changed by the previous tx
     expect(
       await updatedContract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
     ).toEqual(UPDATED_CONTRACT_PUBLIC_VALUE);
 
     // Call a public method with a new implementation
-    await updatedContract.methods.set_public_value().send({ from: defaultAccountAddress }).wait();
+    await updatedContract.methods.set_public_value().send({ from: defaultAccountAddress });
     expect(await updatedContract.methods.get_public_value().simulate({ from: defaultAccountAddress })).toEqual(
       UPDATED_CONTRACT_PUBLIC_VALUE,
     );
@@ -155,23 +157,20 @@ describe('e2e_contract_updates', () => {
     );
 
     // Increases the delay so it should happen immediately
-    await contract.methods
-      .set_update_delay(BigInt(MINIMUM_UPDATE_DELAY) + 1n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+    await contract.methods.set_update_delay(BigInt(MINIMUM_UPDATE_DELAY) + 1n).send({ from: defaultAccountAddress });
 
     expect(await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).toEqual(
       BigInt(MINIMUM_UPDATE_DELAY) + 1n,
     );
 
-    await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
     await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
     const updatedContract = UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
-    await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress }).wait();
+    await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress });
   });
 
   it('should not allow to change the delay to a value lower than the minimum', async () => {

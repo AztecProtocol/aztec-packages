@@ -17,6 +17,7 @@ export {
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
   WalletSimulationFeeOptionSchema,
+  WaitOptsSchema,
   SendOptionsSchema,
   SimulateOptionsSchema,
   ProfileOptionsSchema,

@@ -60,22 +60,19 @@ describe(`deploys and transfers a private only token`, () => {
     );
     const tokenInstance = await tokenDeployment.getInstance();
     await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
-    const token = await tokenDeployment
-      .send({
-        from: deployerAddress,
-        universalDeploy: true,
-        skipInstancePublication: true,
-        skipClassPublication: true,
-        skipInitialization: false,
-      })
-      .deployed({ timeout: 300 });
+    const token = await tokenDeployment.send({
+      from: deployerAddress,
+      universalDeploy: true,
+      skipInstancePublication: true,
+      skipClassPublication: true,
+      skipInitialization: false,
+    });
 
     logger.info(`Performing transfer.`);
 
     await token.methods
       .transfer(transferValue, deployerAddress, recipientAddress)
-      .send({ from: deployerAddress })
-      .wait({ timeout: 300 });
+      .send({ from: deployerAddress, wait: { timeout: 300 } });
 
     logger.info(`Transfer completed`);
 
