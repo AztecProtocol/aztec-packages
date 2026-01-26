@@ -64,13 +64,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 The FFI backend provides pre-built static libraries for:
 
-- `x86_64-unknown-linux-gnu`
-- `x86_64-apple-darwin`
-- `aarch64-apple-darwin`
-- `aarch64-apple-ios`
-- `aarch64-apple-ios-sim`
-- `aarch64-linux-android`
-- `x86_64-linux-android`
+- Linux x86_64 (glibc)
+- Linux arm64 (glibc)
+
+Additional targets (iOS, Android, macOS) are planned for future releases.
 
 ## API
 
