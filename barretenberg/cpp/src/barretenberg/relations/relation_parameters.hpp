@@ -22,15 +22,15 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
 
-    T eta{ 0 };                // Aux Memory (eta)
-    T eta_two{ 0 };            // Aux Memory (eta²)
-    T eta_three{ 0 };          // Aux Memory (eta³)
-    T beta{ 0 };               // Permutation + Lookup
-    T gamma{ 0 };              // Permutation + Lookup
-    T gamma_two{ 0 };          // Lookup (γ²)
-    T gamma_three{ 0 };        // Lookup (γ³)
-    T gamma_four{ 0 };         // Lookup (γ⁴)
+    T eta{ 0 };       // Aux Memory (eta)
+    T eta_two{ 0 };   // Aux Memory (eta²)
+    T eta_three{ 0 }; // Aux Memory (eta³)
+    T beta{ 0 };      // Permutation + Lookup (column batching)
+    T gamma{ 0 };     // Permutation + Lookup (log-derivative offset)
+
     T public_input_delta{ 0 }; // Permutation
+    // Powers of beta for lookup column batching (must be independent of gamma for soundness)
+    // See LOGDERIV_LOOKUP_RELATION_README.md for details on why beta must be independent of gamma
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
 
@@ -41,12 +41,11 @@ template <typename T> struct RelationParameters {
         eta_three = eta_two * eta;
     }
 
-    // Compute gamma powers for lookup encoding
-    void compute_gamma_powers()
+    // Compute powers of beta for lookup column batching
+    void compute_beta_powers()
     {
-        gamma_two = gamma * gamma;
-        gamma_three = gamma_two * gamma;
-        gamma_four = gamma_three * gamma;
+        beta_sqr = beta * beta;
+        beta_cube = beta_sqr * beta;
     }
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
@@ -73,10 +72,8 @@ template <typename T> struct RelationParameters {
         result.eta = T::random_element();
         result.compute_eta_powers(); // eta_two = eta², eta_three = eta³
         result.beta = T::random_element();
-        result.beta_sqr = result.beta * result.beta;
-        result.beta_cube = result.beta_sqr * result.beta;
+        result.compute_beta_powers(); // beta_sqr = beta², beta_cube = beta³
         result.gamma = T::random_element();
-        result.compute_gamma_powers(); // gamma_two = γ², gamma_three = γ³, gamma_four = γ⁴
         result.public_input_delta = T::random_element();
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr) *

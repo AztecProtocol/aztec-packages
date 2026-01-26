@@ -182,7 +182,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
-    prover_instance->relation_parameters.compute_gamma_powers();
+    prover_instance->relation_parameters.compute_beta_powers();
 
     // Compute the inverses used in log-derivative lookup relations
     WitnessComputation<Flavor>::compute_logderivative_inverses(

@@ -132,12 +132,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
  */
 template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
-    // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.compute_gamma_powers();
+    relation_parameters.compute_beta_powers();
 
     witness_comms.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);

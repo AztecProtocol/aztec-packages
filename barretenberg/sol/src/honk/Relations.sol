@@ -139,27 +139,27 @@ library RelationsLib {
         Fr write_term;
         Fr read_term;
 
-        // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding
-        Fr gamma_two = rp.gamma * rp.gamma;
-        Fr gamma_three = gamma_two * rp.gamma;
-        Fr gamma_four = gamma_three * rp.gamma;
+        // Use beta powers for table column encoding
+        Fr beta = rp.beta;
+        Fr beta_sqr = rp.betaSqr;
+        Fr beta_cube = rp.betaCube;
 
         // Calculate the write term (the table accumulation)
-        // write_term = table_1 + γ + table_2 * γ² + table_3 * γ³ + table_4 * γ⁴
+        // write_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
         {
-            write_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * gamma_two)
-                + (wire(p, WIRE.TABLE_3) * gamma_three) + (wire(p, WIRE.TABLE_4) * gamma_four);
+            write_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * beta)
+                + (wire(p, WIRE.TABLE_3) * beta_sqr) + (wire(p, WIRE.TABLE_4) * beta_cube);
         }
 
         // Calculate the read term
-        // read_term = derived_entry_1 + γ + derived_entry_2 * γ² + derived_entry_3 * γ³ + q_index * γ⁴
+        // read_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
         {
             Fr derived_entry_1 = wire(p, WIRE.W_L) + rp.gamma + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_L_SHIFT));
             Fr derived_entry_2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_R_SHIFT);
             Fr derived_entry_3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_O_SHIFT);
 
-            read_term = derived_entry_1 + (derived_entry_2 * gamma_two) + (derived_entry_3 * gamma_three)
-                + (wire(p, WIRE.Q_O) * gamma_four);
+            read_term = derived_entry_1 + (derived_entry_2 * beta) + (derived_entry_3 * beta_sqr)
+                + (wire(p, WIRE.Q_O) * beta_cube);
         }
 
         Fr read_inverse = wire(p, WIRE.LOOKUP_INVERSES) * write_term;

@@ -81,7 +81,8 @@ library ZKTranscriptLib {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
 
-        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
+        (rp.beta, rp.gamma, rp.betaSqr, rp.betaCube, nextPreviousChallenge) =
+            generateBetaGammaChallenges(previousChallenge, proof);
     }
 
     function generateEtaChallenge(
@@ -121,10 +122,10 @@ library ZKTranscriptLib {
         etaThree = etaTwo * eta;
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
+    function generateBetaGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
         internal
         pure
-        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
+        returns (Fr beta, Fr gamma, Fr betaSqr, Fr betaCube, Fr nextPreviousChallenge)
     {
         bytes32[7] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -137,6 +138,9 @@ library ZKTranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         (beta, gamma) = splitChallenge(nextPreviousChallenge);
+        // Compute beta powers for lookup column batching
+        betaSqr = beta * beta;
+        betaCube = betaSqr * beta;
     }
 
     // Alpha challenges non-linearise the gate contributions
