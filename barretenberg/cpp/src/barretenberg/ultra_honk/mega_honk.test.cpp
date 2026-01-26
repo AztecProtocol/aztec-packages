@@ -76,7 +76,7 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     UltraProver_<Flavor> prover(prover_instance, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(),
-              ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
+              ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
                   DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
