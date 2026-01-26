@@ -18,6 +18,9 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     std::array<field_ct, 8> hash_inputs; // previous  (or initial) hash state
     std::array<field_ct, 16> inputs;     // message block to compress
 
+    field_ct test = field_ct::from_witness(&builder, bb::fr::one());
+    test = test * test;
+
     // Get the witness assignment for each witness index.
     // It is assumed that the caller (Noir) separately constrains all 24 inputs (8 hash state + 16 message words) to 32
     // bits, e.g. via instantiating them as u32 types.
