@@ -2273,6 +2273,354 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
+
+    // Test that infinity representation is canonical (x=0, y=0) after all operations
+    static void test_infinity_canonical_representation()
+    {
+        Builder builder;
+
+        // Case 1: point_at_infinity() returns canonical form
+        {
+            element_ct inf = element_ct::point_at_infinity(&builder);
+            EXPECT_TRUE(inf.is_point_at_infinity().get_value());
+            // Verify coordinates are (0, 0)
+            EXPECT_EQ(fq(inf.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(inf.y().get_value().lo), fq(0));
+        }
+
+        // Case 2: P + (-P) = infinity with canonical coords
+        {
+            affine_element input(element::random_element());
+            element_ct P = element_ct::from_witness(&builder, input);
+            element_ct neg_P = -P;
+            element_ct result = P + neg_P;
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            // After standardization, coordinates should be (0, 0)
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Case 3: P - P = infinity with canonical coords
+        {
+            affine_element input(element::random_element());
+            element_ct P = element_ct::from_witness(&builder, input);
+            element_ct result = P - P;
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Case 4: infinity + infinity = infinity with canonical coords
+        {
+            element_ct inf1 = element_ct::point_at_infinity(&builder);
+            element_ct inf2 = element_ct::point_at_infinity(&builder);
+            element_ct result = inf1 + inf2;
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Case 5: 2 * infinity = infinity with canonical coords
+        {
+            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct result = inf.dbl();
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test chained operations involving infinity
+    static void test_infinity_chained_operations()
+    {
+        Builder builder;
+
+        // (a + infinity) - a = infinity
+        {
+            affine_element input(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input);
+            element_ct inf = element_ct::point_at_infinity(&builder);
+
+            element_ct temp = a + inf;
+            element_ct result = temp - a;
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // a + (b - b) = a
+        {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            element_ct zero = b - b; // Should be infinity
+            element_ct result = a + zero;
+
+            // Result should equal a
+            EXPECT_EQ(fq(result.x().get_value().lo), input_a.x);
+            EXPECT_EQ(fq(result.y().get_value().lo), input_a.y);
+            EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        }
+
+        // (infinity - infinity) + a = a
+        {
+            affine_element input(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input);
+            element_ct inf1 = element_ct::point_at_infinity(&builder);
+            element_ct inf2 = element_ct::point_at_infinity(&builder);
+
+            element_ct zero = inf1 - inf2;
+            element_ct result = zero + a;
+
+            EXPECT_EQ(fq(result.x().get_value().lo), input.x);
+            EXPECT_EQ(fq(result.y().get_value().lo), input.y);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test conditional_select with infinity points
+    static void test_conditional_select_with_infinity()
+    {
+        Builder builder;
+
+        affine_element input_a(element::random_element());
+        element_ct a = element_ct::from_witness(&builder, input_a);
+        element_ct inf = element_ct::point_at_infinity(&builder);
+
+        // Case 1: Select finite point when predicate is false
+        {
+            bool_ct pred(witness_ct(&builder, false));
+            element_ct result = a.conditional_select(inf, pred);
+
+            EXPECT_FALSE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), input_a.x);
+            EXPECT_EQ(fq(result.y().get_value().lo), input_a.y);
+        }
+
+        // Case 2: Select infinity when predicate is true
+        {
+            bool_ct pred(witness_ct(&builder, true));
+            element_ct result = a.conditional_select(inf, pred);
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        }
+
+        // Case 3: Select between two infinity points
+        {
+            element_ct inf2 = element_ct::point_at_infinity(&builder);
+            bool_ct pred(witness_ct(&builder, true));
+            element_ct result = inf.conditional_select(inf2, pred);
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test conditional_negate with infinity
+    static void test_conditional_negate_with_infinity()
+    {
+        Builder builder;
+
+        element_ct inf = element_ct::point_at_infinity(&builder);
+
+        // Negating infinity should still be infinity
+        {
+            bool_ct pred(witness_ct(&builder, true));
+            element_ct result = inf.conditional_negate(pred);
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Not negating infinity should still be infinity
+        {
+            bool_ct pred(witness_ct(&builder, false));
+            element_ct result = inf.conditional_negate(pred);
+
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test get_standard_form converts non-canonical infinity to canonical
+    static void test_get_standard_form_normalizes_infinity()
+    {
+        Builder builder;
+
+        // Create a point with non-zero coordinates but infinity flag set
+        affine_element input(element::random_element());
+        element_ct P = element_ct::from_witness(&builder, input);
+
+        // Manually set the infinity flag (simulating internal computation result)
+        P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+        // Before standardization, coords are non-zero
+        EXPECT_NE(fq(P.x().get_value().lo), fq(0));
+        EXPECT_NE(fq(P.y().get_value().lo), fq(0));
+        EXPECT_TRUE(P.is_point_at_infinity().get_value());
+
+        // After standardization, coords should be (0, 0)
+        element_ct standardized = P.get_standard_form();
+        EXPECT_TRUE(standardized.is_point_at_infinity().get_value());
+        EXPECT_EQ(fq(standardized.x().get_value().lo), fq(0));
+        EXPECT_EQ(fq(standardized.y().get_value().lo), fq(0));
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test auto-detection of infinity in 2-argument constructor
+    static void test_infinity_auto_detection_in_constructor()
+    {
+        Builder builder;
+
+        // Create element with (0, 0) coordinates - should auto-detect as infinity
+        auto x_zero = element_ct::BaseField::from_witness(&builder, fq(0));
+        auto y_zero = element_ct::BaseField::from_witness(&builder, fq(0));
+
+        element_ct point(x_zero, y_zero);
+
+        EXPECT_TRUE(point.is_point_at_infinity().get_value());
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test scalar multiplication edge cases with infinity
+    static void test_scalar_mul_infinity_edge_cases()
+    {
+        Builder builder;
+
+        // Case 1: 0 * P = infinity
+        {
+            affine_element input(element::random_element());
+            element_ct P = element_ct::from_witness(&builder, input);
+            scalar_ct zero = scalar_ct::from_witness(&builder, fr(0));
+
+            element_ct result = P * zero;
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Case 2: k * infinity = infinity
+        {
+            element_ct inf = element_ct::point_at_infinity(&builder);
+            fr scalar_val = fr::random_element();
+            scalar_ct k = scalar_ct::from_witness(&builder, scalar_val);
+
+            element_ct result = inf * k;
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+            EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+        }
+
+        // Case 3: 0 * infinity = infinity
+        {
+            element_ct inf = element_ct::point_at_infinity(&builder);
+            scalar_ct zero = scalar_ct::from_witness(&builder, fr(0));
+
+            element_ct result = inf * zero;
+            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test batch_mul where result cancels to infinity
+    static void test_batch_mul_complete_cancellation()
+    {
+        Builder builder;
+
+        // P*a + Q*b + P*(-a) + Q*(-b) = infinity
+        affine_element P(element::random_element());
+        affine_element Q(element::random_element());
+        fr a = fr::random_element();
+        fr b = fr::random_element();
+
+        std::vector<element_ct> points = {
+            element_ct::from_witness(&builder, P),
+            element_ct::from_witness(&builder, Q),
+            element_ct::from_witness(&builder, P),
+            element_ct::from_witness(&builder, Q),
+        };
+
+        std::vector<scalar_ct> scalars = { scalar_ct::from_witness(&builder, a),
+                                           scalar_ct::from_witness(&builder, b),
+                                           scalar_ct::from_witness(&builder, -a),
+                                           scalar_ct::from_witness(&builder, -b) };
+
+        element_ct result = element_ct::batch_mul(points, scalars, 0, true);
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
+        EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test addition with constant infinity
+    static void test_add_constant_infinity()
+    {
+        Builder builder;
+
+        // P + constant_infinity = P
+        affine_element input(element::random_element());
+        element_ct P = element_ct::from_witness(&builder, input);
+        element_ct const_inf = element_ct::point_at_infinity(&builder); // This is a constant
+
+        element_ct result = P + const_inf;
+
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(fq(result.x().get_value().lo), input.x);
+        EXPECT_EQ(fq(result.y().get_value().lo), input.y);
+
+        // constant_infinity + P = P
+        element_ct result2 = const_inf + P;
+        EXPECT_FALSE(result2.is_point_at_infinity().get_value());
+        EXPECT_EQ(fq(result2.x().get_value().lo), input.x);
+        EXPECT_EQ(fq(result2.y().get_value().lo), input.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test that witness infinity points (created via operations) work correctly
+    static void test_witness_infinity_from_operations()
+    {
+        Builder builder;
+
+        // Create infinity as P - P (witness-based infinity)
+        affine_element input(element::random_element());
+        element_ct P = element_ct::from_witness(&builder, input);
+        element_ct witness_inf = P - P;
+
+        // Use this witness infinity in operations
+        affine_element input2(element::random_element());
+        element_ct Q = element_ct::from_witness(&builder, input2);
+
+        // Q + witness_inf = Q
+        element_ct result = Q + witness_inf;
+        EXPECT_EQ(fq(result.x().get_value().lo), input2.x);
+        EXPECT_EQ(fq(result.y().get_value().lo), input2.y);
+
+        // witness_inf + Q = Q
+        element_ct result2 = witness_inf + Q;
+        EXPECT_EQ(fq(result2.x().get_value().lo), input2.x);
+        EXPECT_EQ(fq(result2.y().get_value().lo), input2.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
@@ -2758,4 +3106,55 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_large_number_of_points)
 {
     TestFixture::test_batch_mul_large_number_of_points();
+}
+
+// Point at Infinity Edge Case Tests
+TYPED_TEST(stdlib_biggroup, infinity_canonical_representation)
+{
+    TestFixture::test_infinity_canonical_representation();
+}
+
+TYPED_TEST(stdlib_biggroup, infinity_chained_operations)
+{
+    TestFixture::test_infinity_chained_operations();
+}
+
+TYPED_TEST(stdlib_biggroup, conditional_select_with_infinity)
+{
+    TestFixture::test_conditional_select_with_infinity();
+}
+
+TYPED_TEST(stdlib_biggroup, conditional_negate_with_infinity)
+{
+    TestFixture::test_conditional_negate_with_infinity();
+}
+
+TYPED_TEST(stdlib_biggroup, get_standard_form_normalizes_infinity)
+{
+    TestFixture::test_get_standard_form_normalizes_infinity();
+}
+
+TYPED_TEST(stdlib_biggroup, infinity_auto_detection_in_constructor)
+{
+    TestFixture::test_infinity_auto_detection_in_constructor();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, scalar_mul_infinity_edge_cases)
+{
+    TestFixture::test_scalar_mul_infinity_edge_cases();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_complete_cancellation)
+{
+    TestFixture::test_batch_mul_complete_cancellation();
+}
+
+TYPED_TEST(stdlib_biggroup, add_constant_infinity)
+{
+    TestFixture::test_add_constant_infinity();
+}
+
+TYPED_TEST(stdlib_biggroup, witness_infinity_from_operations)
+{
+    TestFixture::test_witness_infinity_from_operations();
 }

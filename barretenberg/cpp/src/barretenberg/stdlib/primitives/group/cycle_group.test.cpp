@@ -1845,4 +1845,260 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
 
     check_circuit_and_gate_count(builder, 2910); // +2 for batch_mul standardization
 }
+
+/**
+ * @brief Test chained operations involving infinity
+ *
+ * Tests that operations like (a + infinity) - a = infinity work correctly
+ */
+TYPED_TEST(CycleGroupTest, TestInfinityChainedOperations)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Case 1: (a + infinity) - a = infinity
+    {
+        auto input = TestFixture::generators[0];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, input);
+        cycle_group_ct inf = cycle_group_ct::constant_infinity(&builder);
+
+        cycle_group_ct temp = a + inf;
+        cycle_group_ct result = temp - a;
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.x().get_value() == 0);
+        EXPECT_TRUE(result.y().get_value() == 0);
+        EXPECT_TRUE(result.get_value().is_point_at_infinity());
+    }
+
+    // Case 2: a + (b - b) = a
+    {
+        auto input_a = TestFixture::generators[0];
+        auto input_b = TestFixture::generators[1];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, input_a);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, input_b);
+
+        cycle_group_ct zero = b - b; // Should be infinity
+        cycle_group_ct result = a + zero;
+
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_value().x, input_a.x);
+        EXPECT_EQ(result.get_value().y, input_a.y);
+    }
+
+    // Case 3: (infinity - infinity) + a = a
+    {
+        auto input = TestFixture::generators[0];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, input);
+        cycle_group_ct inf1 = cycle_group_ct::constant_infinity(&builder);
+        cycle_group_ct inf2 = cycle_group_ct::constant_infinity(&builder);
+
+        cycle_group_ct zero = inf1 - inf2;
+        cycle_group_ct result = zero + a;
+
+        EXPECT_EQ(result.get_value().x, input.x);
+        EXPECT_EQ(result.get_value().y, input.y);
+    }
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test conditional_assign with infinity points
+ *
+ * Tests that cycle_group::conditional_assign correctly handles infinity points
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignWithInfinity)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    auto input = TestFixture::generators[0];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, input);
+    cycle_group_ct inf = cycle_group_ct::constant_infinity(&builder);
+
+    // Case 1: Select finite point when predicate is false (returns rhs = a)
+    // conditional_assign(pred, lhs, rhs) returns lhs if pred is true, rhs otherwise
+    {
+        bool_ct pred(witness_ct(&builder, false));
+        cycle_group_ct result = cycle_group_ct::conditional_assign(pred, inf, a);
+
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_value().x, input.x);
+        EXPECT_EQ(result.get_value().y, input.y);
+    }
+
+    // Case 2: Select infinity when predicate is true (returns lhs = inf)
+    {
+        bool_ct pred(witness_ct(&builder, true));
+        cycle_group_ct result = cycle_group_ct::conditional_assign(pred, inf, a);
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.x().get_value() == 0);
+        EXPECT_TRUE(result.y().get_value() == 0);
+    }
+
+    // Case 3: Select between two infinity points
+    {
+        cycle_group_ct inf2 = cycle_group_ct::constant_infinity(&builder);
+        bool_ct pred(witness_ct(&builder, true));
+        cycle_group_ct result = cycle_group_ct::conditional_assign(pred, inf, inf2);
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.x().get_value() == 0);
+        EXPECT_TRUE(result.y().get_value() == 0);
+    }
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test that witness infinity (created via operations like P - P) works correctly
+ *
+ * This is different from constant_infinity() - it's an infinity point that
+ * resulted from circuit operations where the prover computes it.
+ */
+TYPED_TEST(CycleGroupTest, TestWitnessInfinityFromOperations)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create infinity as P - P (witness-based infinity)
+    auto input = TestFixture::generators[0];
+    cycle_group_ct P = cycle_group_ct::from_witness(&builder, input);
+    cycle_group_ct witness_inf = P - P;
+
+    EXPECT_TRUE(witness_inf.is_point_at_infinity().get_value());
+
+    // Use this witness infinity in operations
+    auto input2 = TestFixture::generators[1];
+    cycle_group_ct Q = cycle_group_ct::from_witness(&builder, input2);
+
+    // Q + witness_inf = Q
+    cycle_group_ct result = Q + witness_inf;
+    EXPECT_EQ(result.get_value().x, input2.x);
+    EXPECT_EQ(result.get_value().y, input2.y);
+
+    // witness_inf + Q = Q
+    cycle_group_ct result2 = witness_inf + Q;
+    EXPECT_EQ(result2.get_value().x, input2.x);
+    EXPECT_EQ(result2.get_value().y, input2.y);
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test batch_mul where all terms cancel to produce infinity
+ */
+TYPED_TEST(CycleGroupTest, TestBatchMulCompleteCancellation)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // P*a + Q*b + P*(-a) + Q*(-b) = infinity
+    auto P_val = TestFixture::generators[0];
+    auto Q_val = TestFixture::generators[1];
+    auto a = Group::Fr::random_element(&engine);
+    auto b = Group::Fr::random_element(&engine);
+
+    std::vector<cycle_group_ct> points = {
+        cycle_group_ct::from_witness(&builder, P_val),
+        cycle_group_ct::from_witness(&builder, Q_val),
+        cycle_group_ct::from_witness(&builder, P_val),
+        cycle_group_ct::from_witness(&builder, Q_val),
+    };
+
+    std::vector<cycle_scalar_ct> scalars = {
+        cycle_scalar_ct::from_witness(&builder, a),
+        cycle_scalar_ct::from_witness(&builder, b),
+        cycle_scalar_ct::from_witness(&builder, -a),
+        cycle_scalar_ct::from_witness(&builder, -b),
+    };
+
+    cycle_group_ct result = cycle_group_ct::batch_mul(points, scalars);
+
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    EXPECT_TRUE(result.x().get_value() == 0);
+    EXPECT_TRUE(result.y().get_value() == 0);
+    EXPECT_TRUE(result.get_value().is_point_at_infinity());
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test that infinity is correctly identified after operations
+ */
+TYPED_TEST(CycleGroupTest, TestInfinityCanonicalRepresentation)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Note: For grumpkin, native AffineElement uses x=modulus for infinity, not (0,0)
+    // The circuit representation uses (0,0) but get_value() returns native format
+
+    // Case 1: constant_infinity is correctly identified
+    {
+        cycle_group_ct inf = cycle_group_ct::constant_infinity(&builder);
+        EXPECT_TRUE(inf.is_point_at_infinity().get_value());
+        EXPECT_TRUE(inf.get_value().is_point_at_infinity());
+        // Circuit coordinates should be (0, 0)
+        EXPECT_EQ(inf.x().get_value(), 0);
+        EXPECT_EQ(inf.y().get_value(), 0);
+    }
+
+    // Case 2: P + (-P) returns infinity
+    {
+        auto input = TestFixture::generators[0];
+        cycle_group_ct P = cycle_group_ct::from_witness(&builder, input);
+        cycle_group_ct neg_P = -P;
+        cycle_group_ct result = P + neg_P;
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.x().get_value() == 0);
+        EXPECT_TRUE(result.y().get_value() == 0);
+        EXPECT_TRUE(result.get_value().is_point_at_infinity());
+    }
+
+    // Case 3: 2 * infinity returns infinity
+    {
+        cycle_group_ct inf = cycle_group_ct::constant_infinity(&builder);
+        cycle_group_ct result = inf.dbl();
+
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.x().get_value() == 0);
+        EXPECT_TRUE(result.y().get_value() == 0);
+        EXPECT_TRUE(result.get_value().is_point_at_infinity());
+    }
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test auto-detection of infinity in the 3-argument constructor
+ *
+ * When coordinates are (0, 0), the point should be auto-detected as infinity
+ */
+TYPED_TEST(CycleGroupTest, TestInfinityAutoDetectionInConstructor)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create element with (0, 0) coordinates - should auto-detect as infinity
+    using field_t = stdlib::field_t<Builder>;
+    auto x_zero = field_t::from_witness(&builder, typename field_t::native(0));
+    auto y_zero = field_t::from_witness(&builder, typename field_t::native(0));
+
+    // Use 3-arg constructor which should auto-detect infinity
+    cycle_group_ct point(x_zero, y_zero, /*assert_on_curve=*/false);
+
+    EXPECT_TRUE(point.is_point_at_infinity().get_value());
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
 #pragma GCC diagnostic pop
