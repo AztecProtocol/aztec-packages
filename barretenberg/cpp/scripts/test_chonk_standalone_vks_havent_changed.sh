@@ -13,11 +13,10 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="82e925f8"
+pinned_short_hash="2b022426"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-echo "$script_path"
 
 function update_pinned_hash_in_script {
     local new_hash=$1
@@ -56,7 +55,7 @@ function check_circuit_vks {
   local output
   local exit_code=0
 
-  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
+  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack") || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
     # Check if this is actually a VK change
@@ -83,9 +82,8 @@ function prove_and_verify_inputs {
   local flow_folder="$inputs_tmp_dir/$1"
   local proof_exit_code=0
 
-  # Test the new inputs before uploading
-      echo "Running proof test for $1..."
-  $bb prove --scheme chonk --ivc_inputs_path "$inputs_path" > /dev/null 2>&1 || prove_exit_code=$?
+  echo "Running proof test for $1..."
+  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || prove_exit_code=$?
 
   if [[ $proof_exit_code -ne 0 ]]; then
     echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
@@ -124,7 +122,22 @@ function extract_exit_code {
   fi
 }
 
-if [[ "${1:-}" == "--update_inputs" ]]; then
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  cat << EOF
+  Usage: $(basename "$0") [OPTIONS]
+
+  Options:
+      none                       Test that Chonk standalone VKs haven't changed
+      --update_inputs            Generate new IVC inputs and upload to S3
+      --prove_and_verify         Prove and verify current pinned inputs
+      -h, --help                 Show this help message
+
+  Description:
+      Tests that Chonk standalone VKs haven't changed by comparing
+      generated VKs with pinned reference inputs.
+EOF
+  exit 0
+elif [[ "${1:-}" == "--update_inputs" ]]; then
     # For easily rerunning the inputs generation
     set -eu
     trap 'rm -f bb-chonk-inputs.tar.gz' EXIT SIGINT
@@ -138,16 +151,6 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
 
     compress_and_upload ../../yarn-project/end-to-end/example-app-ivc-inputs-out
 
-    prove_exit_code=0
-    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_tmp_dir") || prove_exit_code=$?
-
-    if [[ $prove_exit_code -eq 1 ]]; then
-      echo "One or more flows failed the proof test after updating inputs. Please investigate."
-      exit 1
-    fi
-    exit 0
-elif [[ "${1:-}" == "--prove_and_verify_inputs" ]]; then
-    # Prove and verify the current pinned inputs
     prove_exit_code=0
     parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_tmp_dir") || prove_exit_code=$?
 
@@ -174,20 +177,35 @@ else
   fi
 
   ls "$inputs_tmp_dir"
-  exit_code=0
-  parallel --joblog "$inputs_tmp_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || true
 
-  extract_exit_code "$inputs_tmp_dir/joblog.log" || exit_code=$?
+  if [[ "${1:-}" == "--prove_and_verify" ]]; then
+    # Prove and verify the current pinned inputs
+    prove_exit_code=0
+    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_tmp_dir") || prove_exit_code=$?
 
-  if [[ $exit_code -eq 0 ]]; then
-    echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
-  elif [[ $exit_code -eq 1 ]]; then
-    # All flows had VK changes
-    echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
-    exit 1
+    if [[ $prove_exit_code -ne 0 ]]; then
+      echo "One or more flows failed the proof test after updating inputs. Please investigate."
+      exit 1
+    else
+      echo "All inputs were successfully proven and verified."
+    fi
+    exit 0
   else
-    # At least one real error
-    echo "Real error detected, please investigate."
-    exit $exit_code
+    exit_code=0
+    parallel --joblog "$inputs_tmp_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || true
+
+    extract_exit_code "$inputs_tmp_dir/joblog.log" || exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+      echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
+    elif [[ $exit_code -eq 1 ]]; then
+      # All flows had VK changes
+      echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+      exit 1
+    else
+      # At least one real error
+      echo "Real error detected, please investigate."
+      exit $exit_code
+    fi
   fi
 fi

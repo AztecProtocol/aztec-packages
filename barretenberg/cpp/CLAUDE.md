@@ -145,8 +145,4 @@ cd barretenberg/cpp/scripts
 ./test_chonk_standalone_vks_havent_changed.sh
 ```
 
-If the vks have changed, you can update them using the script `./test_chonk_standalone_vks_havent_changed.sh ` with one of the following flags:
-- `--update_fast`, this flag updates the vks without regenerating the msgpack inputs
-- `--update_inputs`, this flag updates the vks and the msgpack inputs
-
-Both flags run proof test on the msgpack inputs to ensure that we can prove with the new vks. In case a proof test fails, the inputs for which proving has failed are saved to `yarn-project/end-to-end/xample-app-ivc-inputs-out` under a folder with name equal to the flow for which the proof test failed.
+If the vks have changed, you can update them using the script `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`. You can verify the validity of the inputs using the command `./test_chonk_standalone_vks_havent_changed.sh --prove_and_verify`. If one of the proof test fails, the inputs for which proving has failed are saved to `yarn-project/end-to-end/xample-app-ivc-inputs-out` under a folder with name equal to the flow for which the proof test failed.
