@@ -7,3 +7,4 @@ export { NoteService } from '../../notes/note_service.js';
 export { ORACLE_VERSION } from '../../oracle_version.js';
 export { type PXECreationOptions } from '../pxe_creation_options.js';
 export { JobCoordinator } from '../../job_coordinator/job_coordinator.js';
+export { syncState } from '../../contract_sync/index.js';

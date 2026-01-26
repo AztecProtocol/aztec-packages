@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-named-as-default-member */
 import { keccak256String } from '@aztec/foundation/crypto/keccak';
 
 import { readFileSync } from 'fs';

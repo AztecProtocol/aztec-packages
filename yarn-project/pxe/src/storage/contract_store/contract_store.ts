@@ -3,7 +3,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { isProtocolContract } from '@aztec/protocol-contracts';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -316,23 +315,5 @@ export class ContractStore {
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };
-  }
-
-  public async syncState(
-    contractAddress: AztecAddress,
-    functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
-  ) {
-    // Protocol contracts don't have private state to sync
-    if (!isProtocolContract(contractAddress)) {
-      const syncStateFunctionCall = await this.getFunctionCall('sync_state', [], contractAddress);
-      if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncStateFunctionCall.selector)) {
-        throw new Error(
-          'Forbidden `sync_state` invocation. `sync_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
-        );
-      }
-
-      return utilityExecutor(syncStateFunctionCall);
-    }
   }
 }
