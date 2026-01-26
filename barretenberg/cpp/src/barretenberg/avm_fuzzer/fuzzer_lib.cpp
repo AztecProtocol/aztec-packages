@@ -301,6 +301,8 @@ void fuzz_prover_with_fault_injection(FuzzerWorldStateManager& ws_mgr,
     AvmSimulationHelper simulation_helper = AvmSimulationHelper();
     auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
 
+    // We cannot use libfuzzer's seed, because it's not defined on LLVMFuzzerTestOneInput step.
+    // So we use serialized tx data to generate a seed.
     auto [serialized_tx_data, serialized_tx_data_size] = msgpack_encode_buffer(tx_data);
     uint64_t seed = 0;
     for (size_t i = 0; i < std::min(serialized_tx_data_size, static_cast<size_t>(1024)); ++i) {
@@ -308,20 +310,20 @@ void fuzz_prover_with_fault_injection(FuzzerWorldStateManager& ws_mgr,
     }
     std::mt19937_64 rng(seed);
     bb::avm2::fuzzer::fault_injection(events, rng);
+
+    bool check_circuit_result = false;
     try {
         AvmTraceGenHelper tracegen_helper;
         tracegen::TraceContainer trace;
         tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
         AvmProvingHelper proving_helper;
-        bool check_circuit_result = proving_helper.check_circuit(std::move(trace));
-        if (check_circuit_result) {
-            throw std::runtime_error(
-                "check_circuit returned true in fuzzer with fault injection, this indicates a failure");
-        }
+        check_circuit_result = proving_helper.check_circuit(std::move(trace));
     } catch (const std::exception& e) {
         fuzz_info("check_circuit threw an exception: ", e.what());
-        return;
     }
+    BB_ASSERT(
+        !check_circuit_result,
+        "check_circuit returned true in fuzzer with fault injection, this indicates a successful fault injection");
 }
 
 // Initialize FuzzerTxData with sensible defaults
