@@ -688,7 +688,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -697,7 +697,7 @@ export class RPCTranslator {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
-    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,

@@ -162,7 +162,7 @@ impl MessageEncryption for AES128 {
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
-        // (This process is then reversed when processing the message in `do_process_message`)
+        // (This process is then reversed when processing the message in `process_message_ciphertext`)
         let plaintext_bytes = fields_to_bytes(plaintext);
 
         // *****************************************************************************
