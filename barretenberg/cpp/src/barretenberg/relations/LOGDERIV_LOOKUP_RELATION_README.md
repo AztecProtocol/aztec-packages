@@ -17,8 +17,8 @@ This is motivated by taking the derivative of the log of the grand product ident
 Using independent challenges $\gamma$ (offset) and $\beta$ (column batching):
 
 ```
-W = table_1 + γ + table_2·β + table_3·β² + table_4·β³
-R = derived_1 + γ + derived_2·β + derived_3·β² + table_index·β³
+W = γ + (table_1  + table_2·β + table_3·β² + table_4·β³)
+R = γ + (derived_1  + derived_2·β + derived_3·β² + table_index·β³)
 ```
 
 where `derived_i = w_i + step_size_i · w_i_shift` (see Accumulator Trick below).
