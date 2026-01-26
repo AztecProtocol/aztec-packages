@@ -191,8 +191,8 @@ namespace scalar_mul;
 
     // If end is true, conditional assign res as (bit = 1) point or (bit = 0) infinity (mapped to (0,0)).
     // Else, conditional assign res as (bit = 1) res' + temp, constrained by the lookup #[ADD], or unchanged from the next row.
-    end * (point_x * bit - res_x) = 0;
-    end * (point_y * bit - res_y) = 0;
+    end * (point_x * bit + ecc.INFINITY_X * (1 - bit) - res_x) = 0;
+    end * (point_y * bit + ecc.INFINITY_Y * (1 - bit) - res_y) = 0;
     end * ((point_inf - 1) * bit + 1 - res_inf) = 0;
 
     // Needs to be committed because it's used in the #[ADD] lookup
