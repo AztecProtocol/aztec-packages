@@ -530,62 +530,6 @@
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
       }
-    },
-    {
-      "name": "ios-arm64",
-      "displayName": "Build for iOS ARM64",
-      "description": "Cross-compile for iOS devices",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-ios-arm64",
-      "toolchainFile": "${sourceDir}/cmake/toolchains/aarch64-ios.cmake",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "MOBILE": "ON",
-        "AVM": "OFF",
-        "TRACY_ENABLE": "OFF"
-      }
-    },
-    {
-      "name": "ios-sim-arm64",
-      "displayName": "Build for iOS Simulator ARM64",
-      "description": "Cross-compile for iOS Simulator on Apple Silicon",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-ios-sim-arm64",
-      "toolchainFile": "${sourceDir}/cmake/toolchains/aarch64-ios-sim.cmake",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "MOBILE": "ON",
-        "AVM": "OFF",
-        "TRACY_ENABLE": "OFF"
-      }
-    },
-    {
-      "name": "android-arm64",
-      "displayName": "Build for Android ARM64",
-      "description": "Cross-compile for Android devices",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-android-arm64",
-      "toolchainFile": "${sourceDir}/cmake/toolchains/aarch64-android.cmake",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "MOBILE": "ON",
-        "AVM": "OFF",
-        "TRACY_ENABLE": "OFF"
-      }
-    },
-    {
-      "name": "android-x86_64",
-      "displayName": "Build for Android x86_64",
-      "description": "Cross-compile for Android emulator",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-android-x86_64",
-      "toolchainFile": "${sourceDir}/cmake/toolchains/x86_64-android.cmake",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "MOBILE": "ON",
-        "AVM": "OFF",
-        "TRACY_ENABLE": "OFF"
-      }
     }
   ],
   "buildPresets": [
@@ -772,26 +716,6 @@
     {
       "name": "zig-arm64-macos",
       "configurePreset": "zig-arm64-macos",
-      "inheritConfigureEnvironment": true
-    },
-    {
-      "name": "ios-arm64",
-      "configurePreset": "ios-arm64",
-      "inheritConfigureEnvironment": true
-    },
-    {
-      "name": "ios-sim-arm64",
-      "configurePreset": "ios-sim-arm64",
-      "inheritConfigureEnvironment": true
-    },
-    {
-      "name": "android-arm64",
-      "configurePreset": "android-arm64",
-      "inheritConfigureEnvironment": true
-    },
-    {
-      "name": "android-x86_64",
-      "configurePreset": "android-x86_64",
       "inheritConfigureEnvironment": true
     }
   ],
