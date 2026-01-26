@@ -695,7 +695,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_toradixbe_instruction(
                                               .value = static_cast<uint8_t>(is_output_bits ? 1 : 0) });
 
     // Generate value with num_limbs digits
-    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(1, 256)(rng);
+    uint32_t num_limbs = std::uniform_int_distribution<uint32_t>(0, 256)(rng);
     bb::avm2::FF value = 0;
     bb::avm2::FF exponent = 1;
     for (uint32_t i = 0; i < num_limbs; i++) {
@@ -704,9 +704,13 @@ std::vector<FuzzInstruction> InstructionMutator::generate_toradixbe_instruction(
         exponent *= radix;
     }
 
-    // 20% chance to truncate - reduce the number of limbs we request
+    // 20% chance to truncate - reduce the number of limbs we request or increment the value if we have 0 limbs
     if (std::uniform_int_distribution<int>(0, 4)(rng) == 0) {
-        num_limbs--;
+        if (num_limbs > 0) {
+            num_limbs--;
+        } else {
+            value++;
+        }
     }
 
     // SET the num_limbs (U32)
