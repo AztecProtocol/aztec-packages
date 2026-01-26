@@ -57,10 +57,11 @@ function run_proof_test_on_inputs {
     $bb prove --scheme chonk --ivc_inputs_path "$inputs_path" > /dev/null 2>&1 || prove_exit_code=$?
 
     if [[ $prove_exit_code -ne 0 ]]; then
-      echo "Proof test failed. Please re-run the script with flag --update_inputs."
-      exit 1
+      return 1
     fi
 }
+
+export -f run_proof_test_on_inputs
 
 # For easily rerunning the inputs generation
 if [[ "${1:-}" == "--update_inputs" ]]; then
@@ -100,6 +101,7 @@ function check_circuit_vks {
   local flow_folder="$inputs_tmp_dir/$1"
   local output
   local exit_code=0
+  local proof_exit_code=0
 
   if [[ "${2:-}" == "--update_inputs" ]]; then
     output=$($bb check --vk_policy=rewrite --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
@@ -112,6 +114,18 @@ function check_circuit_vks {
     if echo "$output" | grep -q "VK mismatch detected\|Expected precomputed vk"; then
       echo_stderr "Error: VK change detected in $flow_folder!"
       if [[ "${2:-}" == "--update_inputs" ]]; then
+        # Test the new inputs before uploading
+        run_proof_test_on_inputs "$flow_folder/ivc-inputs.msgpack" || proof_exit_code=$?
+
+        if [[ $proof_exit_code -ne 0 ]]; then
+          echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
+
+          flow="$(basename $flow_folder)"
+          cp "$flow_folder/ivc-inputs.msgpack" "$root/yarn-project/end-to-end/example-app-ivc-inputs-out/$flow/ivc-inputs.msgpack"
+          echo "Inputs copied in yarn-project for debugging"
+          exit 2
+        fi
+
         echo_stderr "Updating inputs with new VK."
       fi
       echo_stderr "$output"
@@ -130,44 +144,66 @@ function check_circuit_vks {
 
 export -f check_circuit_vks
 
+# Extract exit code from job logs of parallel execution
+function extract_exit_code {
+  local log_file="$1"
+  local exit_code=0
+
+  awk 'NR>1 { codes[$7]=1 } END {
+    has_other = 0;
+    has_one = 0;
+    for (code in codes) {
+      if (code != 0 && code != 1) has_other = 1;
+      if (code == 1) has_one = 1;
+    }
+    if (has_other) exit 2;
+    if (has_one) exit 1;
+    exit 0;
+  }' "$log_file" || exit_code=$?
+
+  if [[ $exit_code -eq 0 ]]; then
+    return 0
+  elif [[ $exit_code -eq 1 ]]; then
+    return 1
+  else
+    return 2
+  fi
+}
+
 # Run on one public and one private input.
 ls "$inputs_tmp_dir"
 
 if [[ "${1:-}" == "--update_fast" ]]; then
   exit_code=0
-  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+  parallel --joblog "$inputs_tmp_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") || true
+
+  extract_exit_code "$inputs_tmp_dir/joblog.log" || exit_code=$?
 
   if [[ $exit_code -eq 0 ]]; then
     echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
   elif [[ $exit_code -eq 1 ]]; then
-    # All flows that changed returned the same exit code (1)
-    # Test the new inputs before uploading
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
+    # All flows that changed returned exit code 0 or 1
+    echo "VK changes detected, uploading updated inputs..."
     compress_and_upload $inputs_tmp_dir
   else
-    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
-    # Test the new inputs before uploading
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
-    # Optimistically upload - real errors will persist on next run
-    echo "Mixed results detected (exit code: $exit_code). Uploading updated inputs..."
-    compress_and_upload $inputs_tmp_dir
+    # At least one real error
+    echo "Real error detected, please investigate."
   fi
 else
   exit_code=0
-  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+  parallel --joblog "$inputs_tmp_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || true
+
+  extract_exit_code "$inputs_tmp_dir/joblog.log" || exit_code=$?
 
   if [[ $exit_code -eq 0 ]]; then
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
     echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
   elif [[ $exit_code -eq 1 ]]; then
     # All flows had VK changes
     echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
     exit 1
   else
-    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
-    echo_stderr "Error: Mixed results or errors detected (exit code: $exit_code)."
-    echo_stderr "Some flows may have VK changes while others had errors."
-    echo_stderr "Please re-run with --update_inputs to update inputs, or investigate errors above."
+    # At least one real error
+    echo "Real error detected, please investigate."
     exit $exit_code
   fi
 fi
