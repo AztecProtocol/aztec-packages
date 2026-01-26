@@ -197,7 +197,7 @@ describe('NoteService', () => {
     expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), 'test');
   });
 
-  describe('storeNote', () => {
+  describe('validateAndStoreNote', () => {
     // Recipient is different from the owner because recipient refers to the
     // recipient of the message containing the note, while owner refers to the
     // owner of the note.
@@ -270,7 +270,7 @@ describe('NoteService', () => {
     });
 
     it('should store note if it exists in a tx effect', async () => {
-      await noteService.storeNote(
+      await noteService.validateAndStoreNote(
         contractAddress,
         owner,
         storageSlot,
@@ -302,7 +302,7 @@ describe('NoteService', () => {
 
     it('should throw if tx hash does not exist', async () => {
       await expect(
-        noteService.storeNote(
+        noteService.validateAndStoreNote(
           contractAddress,
           owner,
           storageSlot,
@@ -319,7 +319,7 @@ describe('NoteService', () => {
 
     it('should throw if note was not emitted in the tx', async () => {
       await expect(
-        noteService.storeNote(
+        noteService.validateAndStoreNote(
           contractAddress,
           owner,
           storageSlot,
@@ -338,7 +338,7 @@ describe('NoteService', () => {
       await setSyncedBlockNumber(BlockNumber(blockNumber - 1));
 
       await expect(
-        noteService.storeNote(
+        noteService.validateAndStoreNote(
           contractAddress,
           owner,
           storageSlot,
@@ -365,7 +365,7 @@ describe('NoteService', () => {
         return Promise.resolve([undefined]);
       });
 
-      await noteService.storeNote(
+      await noteService.validateAndStoreNote(
         contractAddress,
         owner,
         storageSlot,

@@ -112,7 +112,7 @@ export class NoteService {
     await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
   }
 
-  public async storeNote(
+  public async validateAndStoreNote(
     contractAddress: AztecAddress,
     owner: AztecAddress,
     storageSlot: Fr,

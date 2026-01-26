@@ -14,7 +14,7 @@ import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_sto
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
-describe('storeEvent', () => {
+describe('validateAndStoreEvent', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
   let randomness: Fr;
@@ -88,7 +88,7 @@ describe('storeEvent', () => {
       eventCommitment?: Fr;
     } = {},
   ) {
-    await eventService.storeEvent(
+    await eventService.validateAndStoreEvent(
       contractAddress,
       eventSelector,
       randomness,

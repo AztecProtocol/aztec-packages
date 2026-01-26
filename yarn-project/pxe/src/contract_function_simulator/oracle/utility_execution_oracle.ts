@@ -381,7 +381,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
    * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -403,7 +403,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
-      noteService.storeNote(
+      noteService.validateAndStoreNote(
         request.contractAddress,
         request.owner,
         request.storageSlot,
@@ -419,7 +419,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore, this.jobId);
     const eventStorePromises = eventValidationRequests.map(request =>
-      eventService.storeEvent(
+      eventService.validateAndStoreEvent(
         request.contractAddress,
         request.eventTypeId,
         request.randomness,
