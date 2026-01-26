@@ -1,6 +1,8 @@
-use crate::state_vars::{owned_state_variable::OwnedStateVariable, state_variable::StateVariable};
+use crate::state_vars::{OwnedStateVariable, StateVariable};
 use protocol_types::address::AztecAddress;
 
+/// Per-account state variable.
+///
 /// A wrapper state variable that is to be used with variables that implement the `OwnedStateVariable` trait.
 ///
 /// Example usage:

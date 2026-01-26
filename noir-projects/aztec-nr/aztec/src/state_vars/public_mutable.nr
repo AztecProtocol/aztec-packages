@@ -1,21 +1,22 @@
 use crate::context::{PublicContext, UtilityContext};
-use crate::state_vars::state_variable::StateVariable;
+use crate::state_vars::StateVariable;
 use dep::protocol_types::traits::Packable;
 
 /// Mutable public values.
 ///
-/// This is the most basic public state variable. It is equivalent to a non-`immutable` non-`constant` Solidity state
-/// variable.
+/// This is one of the most basic public state variables. It is equivalent to a non-`immutable` non-`constant` Solidity
+/// state variable.
+///
+/// It represents a public value of type `T` that can be written to repeatedly over the lifetime of the contract,
+/// allowing the last value that was written to be read.
 ///
 /// ## Access Patterns
 ///
-/// A value stored in a `PublicMutable` can be read and written from public contract functions. It is not possible to
-/// read or write another contract's `PublicMutable` values directly: the only way to achieve this is to call a public
-/// function on that contract.
+/// A value stored in a `PublicMutable` can be read and written from public contract functions.
 ///
-/// It is not possible to read or write a `PublicMutable` from private contract functions. It is possible however for a
-/// private function to [enqueue a public call to itself](crate::contract_self::ContractSelf::enqueue_self) in which it
-/// performs the required operation.
+/// It is not possible to read or write a `PublicMutable` from private contract functions. A common pattern is to have
+/// these functions [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the
+/// required operation is performed.
 ///
 /// For an immutable variant which can be read from private functions, see
 /// [PublicImmutable](crate::state_vars::PublicImmutable).
