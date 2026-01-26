@@ -336,7 +336,7 @@ describe('full_prover', () => {
           }),
           [],
         );
-        return invalidProvenTx.send({ wait: NO_WAIT });
+        return await invalidProvenTx.send({ wait: NO_WAIT });
       }).concat([provenTx.send({ wait: NO_WAIT })]); // Add the valid tx at the end
 
       // Flag the valid transfer on the token simulator
