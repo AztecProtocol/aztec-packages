@@ -49,8 +49,8 @@ const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:mempool_limiter');
 
-const TX_FLOOD_SIZE = 30;
-const TX_MEMPOOL_LIMIT = 25;
+const TX_FLOOD_SIZE = 15;
+const TX_MEMPOOL_LIMIT = 10;
 const CONCURRENCY = 5;
 
 describe('mempool limiter test', () => {
