@@ -189,10 +189,7 @@ describe('e2e_avm_simulator', () => {
       it('Should fail if emitting to an invalid ethereum address', async () => {
         const recipient = Fr.MAX_FIELD_VALUE;
         await expect(
-          avmContract.methods
-            .raw_l2_to_l1_msg({ address: recipient }, new Fr(1))
-            .send({ from: defaultAccountAddress })
-            .wait(),
+          avmContract.methods.raw_l2_to_l1_msg({ address: recipient }, new Fr(1)).send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
     });
