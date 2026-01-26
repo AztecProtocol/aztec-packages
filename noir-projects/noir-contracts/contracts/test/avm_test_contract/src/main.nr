@@ -690,6 +690,11 @@ pub contract AvmTest {
     }
 
     #[external("public")]
+    fn raw_l2_to_l1_msg(recipient: EthAddress, content: Field) {
+        self.context.message_portal(recipient, content)
+    }
+
+    #[external("public")]
     fn n_new_public_logs(num: u32) {
         for i in 0..num {
             self.context.emit_public_log(/*message=*/ [i as Field]);
