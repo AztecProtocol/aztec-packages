@@ -51,7 +51,7 @@ function compress_and_upload {
 
 function check_circuit_vks {
   set -eu
-  local flow_folder="$inputs_tmp_dir/$1"
+  local flow_folder="$inputs_dir/$1"
   local output
   local exit_code=0
 
@@ -79,7 +79,7 @@ export -f check_circuit_vks
 
 function prove_and_verify_inputs {
   set -eu
-  local flow_folder="$inputs_tmp_dir/$1"
+  local flow_folder="$inputs_dir/$1"
   local proof_exit_code=0
 
   echo "Running proof test for $1..."
@@ -138,6 +138,8 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 EOF
   exit 0
 elif [[ "${1:-}" == "--update_inputs" ]]; then
+    export inputs_dir="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
+
     # For easily rerunning the inputs generation
     set -eu
     trap 'rm -f bb-chonk-inputs.tar.gz' EXIT SIGINT
@@ -149,19 +151,21 @@ elif [[ "${1:-}" == "--update_inputs" ]]; then
     BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
     ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
 
-    compress_and_upload ../../yarn-project/end-to-end/example-app-ivc-inputs-out
+    compress_and_upload "$inputs_dir"
 
     prove_exit_code=0
-    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls ../../yarn-project/end-to-end/example-app-ivc-inputs-out) || prove_exit_code=$?
+    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_dir") || prove_exit_code=$?
 
     if [[ $prove_exit_code -eq 1 ]]; then
       echo "One or more flows failed the proof test after updating inputs. Please investigate."
       exit 1
     fi
+
+    echo "Inputs successfully updated."
     exit 0
 else
-  export inputs_tmp_dir=$(mktemp -d)
-  trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
+  export inputs_dir=$(mktemp -d)
+  trap 'rm -rf "$inputs_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
 
   echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
   if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
@@ -171,17 +175,17 @@ else
   fi
 
   echo "Extracting IVC inputs..."
-  if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_tmp_dir"; then
+  if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_dir"; then
       echo_stderr "Error: Failed to extract IVC inputs archive"
       exit 1
   fi
 
-  ls "$inputs_tmp_dir"
+  ls "$inputs_dir"
 
   if [[ "${1:-}" == "--prove_and_verify" ]]; then
     # Prove and verify the current pinned inputs
     prove_exit_code=0
-    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_tmp_dir") || prove_exit_code=$?
+    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_dir") || prove_exit_code=$?
 
     if [[ $prove_exit_code -ne 0 ]]; then
       echo "One or more flows failed the proof test after updating inputs. Please investigate."
@@ -192,9 +196,9 @@ else
     exit 0
   else
     exit_code=0
-    parallel --joblog "$inputs_tmp_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || true
+    parallel --joblog "$inputs_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_dir") || true
 
-    extract_exit_code "$inputs_tmp_dir/joblog.log" || exit_code=$?
+    extract_exit_code "$inputs_dir/joblog.log" || exit_code=$?
 
     if [[ $exit_code -eq 0 ]]; then
       echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
