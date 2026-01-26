@@ -26,11 +26,9 @@ template <typename T> struct RelationParameters {
     T eta_two{ 0 };   // Aux Memory (eta²)
     T eta_three{ 0 }; // Aux Memory (eta³)
     T beta{ 0 };      // Permutation + Lookup (column batching)
-    T gamma{ 0 };     // Permutation + Lookup (log-derivative offset)
+    T gamma{ 0 };     // Permutation + Lookup
 
     T public_input_delta{ 0 }; // Permutation
-    // Powers of beta for lookup column batching (must be independent of gamma for soundness)
-    // See LOGDERIV_LOOKUP_RELATION_README.md for details on why beta must be independent of gamma
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
 
@@ -41,7 +39,6 @@ template <typename T> struct RelationParameters {
         eta_three = eta_two * eta;
     }
 
-    // Compute powers of beta for lookup column batching
     void compute_beta_powers()
     {
         beta_sqr = beta * beta;
