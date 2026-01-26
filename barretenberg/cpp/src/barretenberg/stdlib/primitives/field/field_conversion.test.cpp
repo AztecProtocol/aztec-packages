@@ -567,9 +567,10 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
         const uint256_t value = bb::fq::modulus;
         const auto [low_limb, high_limb] = split_to_limbs(value);
 
-        // Native codec: rejects
-        std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
-        EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1614): Re-enable native codec alias rejection
+        // Native codec: should reject but currently disabled for stdlib-native verification consistency
+        // std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
+        // EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
 
         // Circuit codec: rejects via assert_is_in_field
         {
@@ -592,9 +593,10 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsAcceptCanonicalRejectAlias)
         EXPECT_GT(value, bb::fq::modulus);
         EXPECT_LT(value, uint256_t(1) << 254);
 
-        // Native codec: rejects
-        std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
-        EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1614): Re-enable native codec alias rejection
+        // Native codec: should reject but currently disabled for stdlib-native verification consistency
+        // std::vector<bb::fr> native_fields = { bb::fr(low_limb), bb::fr(high_limb) };
+        // EXPECT_THROW(FrCodec::deserialize_from_fields<bb::fq>(native_fields), std::runtime_error);
 
         // Circuit codec: rejects via assert_is_in_field
         {

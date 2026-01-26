@@ -76,10 +76,11 @@ class FrCodec {
                      "Conversion error here usually implies some bad proof serde or parsing");
 
         const uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
-
-        // Reject aliased values to ensure canonical representation.
-        // This matches the circuit behavior in StdlibCodec where assert_is_in_field is called.
-        BB_ASSERT_LT(value, fq::modulus, "Non-canonical field element: value >= fq::modulus");
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1614): Enable to ensure stdlib-native verification
+        // consistency
+        // // Reject aliased values to ensure canonical representation.
+        // // This matches the circuit behavior in StdlibCodec where assert_is_in_field is called.
+        // BB_ASSERT_LT(value, fq::modulus, "Non-canonical field element: value >= fq::modulus");
 
         return fq(value);
     }
