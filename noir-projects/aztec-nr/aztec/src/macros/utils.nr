@@ -103,12 +103,7 @@ impl AsStrQuote for Quoted {
         let string: str<_> = string.as_quoted_str!();
         let array = string.as_bytes();
         let total_len = array.len();
-        let result = unquote!(
-            quote {
-                string
-            },
-        );
-        (quote { $result }, total_len)
+        (quote { $string }, total_len)
     }
 }
 
