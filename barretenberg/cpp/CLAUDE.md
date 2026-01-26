@@ -133,16 +133,55 @@ The remote benchmark script:
 
 ## Verification Keys
 
-To check whether vks have changed first build barretenberg native code:
+**IMPORTANT**: When making barretenberg changes that could affect verification keys, you must verify that VKs haven't changed unexpectedly, or
+update them if the changes are intentional.
+
+### Checking if VKs have changed
+
+Prerequisites: Build barretenberg native code first.
 
 ```bash
 cd barretenberg/cpp
 ./bootstrap.sh build_native
 ```
-and then run:
+
+Run the VK check script from barretenberg/cpp/scripts:
+
 ```bash
 cd barretenberg/cpp/scripts
 ./test_chonk_standalone_vks_havent_changed.sh
 ```
 
-If the vks have changed, you can update them using the script `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`. You can verify the validity of the inputs using the command `./test_chonk_standalone_vks_havent_changed.sh --prove_and_verify`. If one of the proof test fails, the inputs for which proving has failed are saved to `yarn-project/end-to-end/xample-app-ivc-inputs-out` under a folder with name equal to the flow for which the proof test failed.
+Expected result: Script exits successfully if VKs are unchanged, or shows that VKs have changed.
+
+### Updating VKs (when changes are intentional)
+
+**IMPORTANT**: Never update the VKs without asking permission first. When asking for permission, explain why you think the VK update is to be expected.
+
+If VKs have changed and this is expected due to your modifications, update the stored VKs:
+
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh --update_inputs
+```
+
+### Verifying VK validity (proving the updated inputs)
+
+**IMPORTANT**: There is no need to verify the validity of the inputs after having updated them. The flag `update_inputs` verifies the new inputs.
+
+To verify the validity of the inputs pinned by the script `./test_chonk_standalone_vks_havent_changed.sh`, run:
+
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh --prove_and_verify
+```
+
+Note: If a proof test fails for a specific flow, the inputs are saved to:
+`yarn-project/end-to-end/example-app-ivc-inputs-out/<flow_name>`
+
+Typical workflow
+
+1. Make barretenberg changes
+2. Build native code: `cd barretenberg/cpp && ./bootstrap.sh build_native`
+3. Check VKs: `cd scripts && ./test_chonk_standalone_vks_havent_changed.sh`
+4. If VKs changed intentionally: `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`
