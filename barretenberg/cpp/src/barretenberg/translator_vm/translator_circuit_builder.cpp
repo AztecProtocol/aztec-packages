@@ -40,18 +40,12 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     const Fq& batching_challenge_v,
     const Fq& evaluation_input_x)
 {
-    // All parameters are well-described in the header, this is just for convenience
-    constexpr size_t TOP_STANDARD_MICROLIMB_BITS = NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS;
-    constexpr size_t TOP_Z_MICROLIMB_BITS = (NUM_Z_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
-    constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS =
-        (TranslatorCircuitBuilder::NUM_QUOTIENT_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
 
     /**
      * @brief A small function to transform a uint512_t element into its 4 68-bit limbs in Fr scalars
      *
      * @details Split and integer stored in uint512_T into 4 68-bit chunks (we assume that it is lower than 2²⁷²),
      * convert to Fr
-     *
      */
     auto uint512_t_to_limbs = [](const uint512_t& original) {
         return std::array<Fr, NUM_BINARY_LIMBS>{ Fr(original.slice(0, NUM_LIMB_BITS).lo),
@@ -61,79 +55,45 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     };
 
     /**
-     * @brief A method for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
-     *
+     * @brief A function for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
      */
     auto split_wide_limb_into_2_limbs = [](const Fr& wide_limb) {
         return std::array<Fr, NUM_Z_LIMBS>{ Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
                                             Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
     };
-    /**
-     * @brief A method to split a full 68-bit limb into 5 14-bit limb and 1 shifted limb for a more secure constraint
-     *
-     */
-    auto split_standard_limb_into_micro_limbs = [](const Fr& limb) {
-        static_assert(MICRO_LIMB_BITS == 14);
-        return std::array<Fr, NUM_MICRO_LIMBS>{
-            uint256_t(limb).slice(0, MICRO_LIMB_BITS),
-            uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
-                << (MICRO_LIMB_BITS - (NUM_LIMB_BITS % MICRO_LIMB_BITS)),
-        };
-    };
 
     /**
-     * @brief A method to split the top 50-bit limb into 4 14-bit limbs and 1 shifted limb for a more secure constraint
-     * (plus there is 1 extra space for other constraints)
+     * @brief A function to split a limb into microlimbs for range constraints
      *
+     * @details Splits a limb of arbitrary bit size into 14-bit microlimbs. For partial microlimbs,
+     * stores both the actual value and its shifted version for proper range constraint handling.
+     * Always returns NUM_MICRO_LIMBS (6) elements, padding with zeros if needed.
      */
-    auto split_top_limb_into_micro_limbs = [](const Fr& limb, const size_t last_limb_bits) {
+    auto split_limb_into_microlimbs = [](const Fr& limb, const size_t num_bits) {
         static_assert(MICRO_LIMB_BITS == 14);
-        return std::array<Fr, NUM_MICRO_LIMBS>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS)
-                                                    << (MICRO_LIMB_BITS - (last_limb_bits % MICRO_LIMB_BITS)),
-                                                0 };
+        size_t num_full_micro_limbs = num_bits / MICRO_LIMB_BITS;
+        size_t last_limb_bits = num_bits % MICRO_LIMB_BITS;
+        std::array<Fr, NUM_MICRO_LIMBS> microlimbs{};
+
+        // Fill in the full 14-bit microlimbs
+        for (size_t i = 0; i < num_full_micro_limbs; ++i) {
+            microlimbs[i] = uint256_t(limb).slice(i * MICRO_LIMB_BITS, (i + 1) * MICRO_LIMB_BITS);
+        }
+
+        // If there's a partial microlimb at the end, store both actual microlimb and its tail
+        if (last_limb_bits > 0) {
+            // Extract up to the next 14-bit boundary (actual)
+            microlimbs[num_full_micro_limbs] = uint256_t(limb).slice(num_full_micro_limbs * MICRO_LIMB_BITS,
+                                                                     (num_full_micro_limbs + 1) * MICRO_LIMB_BITS);
+
+            // Store the shifted version in the next slot (tail microlimb)
+            microlimbs[num_full_micro_limbs + 1] = uint256_t(microlimbs[num_full_micro_limbs])
+                                                   << (MICRO_LIMB_BITS - last_limb_bits);
+        }
+        return microlimbs;
     };
 
-    /**
-     * @brief A method for splitting the top 60-bit z limb into microlimbs (differs from the 68-bit limb by the shift in
-     * the last limb)
-     *
-     */
-    auto split_top_z_limb_into_micro_limbs = [](const Fr& limb, const size_t last_limb_bits) {
-        static_assert(MICRO_LIMB_BITS == 14);
-        return std::array<Fr, NUM_MICRO_LIMBS>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
-                                                uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
-                                                    << (MICRO_LIMB_BITS - (last_limb_bits % MICRO_LIMB_BITS)) };
-    };
-
-    /**
-     * @brief Split a 72-bit relation limb into 6 14-bit limbs (we can allow the slack here, since we only need to
-     * ensure non-overflow of the modulus)
-     *
-     */
-    auto split_relation_limb_into_micro_limbs = [](const Fr& limb) {
-        static_assert(MICRO_LIMB_BITS == 14);
-        return std::array<Fr, 6>{
-            uint256_t(limb).slice(0, MICRO_LIMB_BITS),
-            uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(5 * MICRO_LIMB_BITS, 6 * MICRO_LIMB_BITS),
-        };
-    };
-    //  x and powers of v are given to us in challenge form, so the verifier has to deal with this :)
+    // x and v are challenges: random values unknown at compile time, treated as witnesses.
     Fq v_squared = batching_challenge_v * batching_challenge_v;
     Fq v_cubed = v_squared * batching_challenge_v;
     Fq v_quarted = v_cubed * batching_challenge_v;
@@ -182,14 +142,23 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // The formula is `accumulator = accumulator⋅x + (op + v⋅p.x + v²⋅p.y + v³⋅z₁ + v⁴z₂)`. We need to compute the
     // remainder (new accumulator value)
-
-    const Fq remainder = previous_accumulator * evaluation_input_x + base_z_2 * v_quarted + base_z_1 * v_cubed +
-                         base_p_y * v_squared + base_p_x * batching_challenge_v + base_op;
+    // clang-format off
+    const Fq remainder = previous_accumulator * evaluation_input_x +
+                         base_op                                   +
+                         base_p_x * batching_challenge_v           +
+                         base_p_y * v_squared                      +
+                         base_z_1 * v_cubed                        +
+                         base_z_2 * v_quarted;
 
     // We also need to compute the quotient
-    uint512_t quotient_by_modulus = uint_previous_accumulator * uint_x + uint_z2 * uint_v_quarted +
-                                    uint_z1 * uint_v_cubed + uint_p_y * uint_v_squared + uint_p_x * uint_v + uint_op -
+    uint512_t quotient_by_modulus = uint_previous_accumulator * uint_x +
+                                    uint_op                            +
+                                    uint_p_x * uint_v                  +
+                                    uint_p_y * uint_v_squared          +
+                                    uint_z1  * uint_v_cubed            +
+                                    uint_z2  * uint_v_quarted          -
                                     uint512_t(remainder);
+    // clang-format on
 
     uint512_t quotient = quotient_by_modulus / uint512_t(Fq::modulus);
 
@@ -201,21 +170,33 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // We will divide by shift_2 instantly in the relation itself, but first we need to compute the low part (0*0) and
     // the high part (0*1, 1*0) multiplied by a single limb shift
-    Fr low_wide_relation_limb_part_1 = previous_accumulator_limbs[0] * x_witnesses[0] + op_code +
-                                       v_witnesses[0] * p_x_limbs[0] + v_squared_witnesses[0] * p_y_limbs[0] +
-                                       v_cubed_witnesses[0] * z_1_limbs[0] + v_quarted_witnesses[0] * z_2_limbs[0] +
-                                       quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[0] -
-                                       remainder_limbs[0]; // This covers the lowest limb
+    // clang-format off
+    Fr low_wide_relation_limb_part_1 =
+        previous_accumulator_limbs[0] * x_witnesses[0]            +
+        op_code                                                   +
+        p_x_limbs[0]                  * v_witnesses[0]            +
+        p_y_limbs[0]                  * v_squared_witnesses[0]    +
+        z_1_limbs[0]                  * v_cubed_witnesses[0]      +
+        z_2_limbs[0]                  * v_quarted_witnesses[0]    +
+        quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[0] -
+        remainder_limbs[0];
 
     Fr low_wide_relation_limb =
         low_wide_relation_limb_part_1 +
-        (previous_accumulator_limbs[1] * x_witnesses[0] + previous_accumulator_limbs[0] * x_witnesses[1] +
-         v_witnesses[1] * p_x_limbs[0] + p_x_limbs[1] * v_witnesses[0] + v_squared_witnesses[1] * p_y_limbs[0] +
-         v_squared_witnesses[0] * p_y_limbs[1] + v_cubed_witnesses[1] * z_1_limbs[0] +
-         z_1_limbs[1] * v_cubed_witnesses[0] + v_quarted_witnesses[1] * z_2_limbs[0] +
-         v_quarted_witnesses[0] * z_2_limbs[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[1] +
-         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[0] - remainder_limbs[1]) *
-            SHIFT_1;
+        (previous_accumulator_limbs[1] * x_witnesses[0]            +
+         previous_accumulator_limbs[0] * x_witnesses[1]            +
+         p_x_limbs[0]                  * v_witnesses[1]            +
+         p_x_limbs[1]                  * v_witnesses[0]            +
+         p_y_limbs[0]                  * v_squared_witnesses[1]    +
+         p_y_limbs[1]                  * v_squared_witnesses[0]    +
+         z_1_limbs[0]                  * v_cubed_witnesses[1]      +
+         z_1_limbs[1]                  * v_cubed_witnesses[0]      +
+         z_2_limbs[0]                  * v_quarted_witnesses[1]    +
+         z_2_limbs[1]                  * v_quarted_witnesses[0]    +
+         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[1] +
+         quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[0] -
+         remainder_limbs[1]) * SHIFT_1;
+    // clang-format on
 
     // Low bits have to be zero
     BB_ASSERT_EQ(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
@@ -224,28 +205,51 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // The high relation limb is the accumulation of the low limb divided by 2¹³⁶ and the combination of limbs with
     // indices (0*2,1*1,2*0) with limbs with indices (0*3,1*2,2*1,3*0) multiplied by 2⁶⁸
+    // clang-format off
+    Fr high_wide_relation_limb_part_1 =
+        low_wide_relation_limb_divided                            +
+        previous_accumulator_limbs[2] * x_witnesses[0]            +
+        previous_accumulator_limbs[1] * x_witnesses[1]            +
+        previous_accumulator_limbs[0] * x_witnesses[2]            +
+        p_x_limbs[0]                  * v_witnesses[2]            +
+        p_x_limbs[1]                  * v_witnesses[1]            +
+        p_x_limbs[2]                  * v_witnesses[0]            +
+        p_y_limbs[0]                  * v_squared_witnesses[2]    +
+        p_y_limbs[1]                  * v_squared_witnesses[1]    +
+        p_y_limbs[2]                  * v_squared_witnesses[0]    +
+        z_1_limbs[0]                  * v_cubed_witnesses[2]      +
+        z_1_limbs[1]                  * v_cubed_witnesses[1]      +
+        z_2_limbs[0]                  * v_quarted_witnesses[2]    +
+        z_2_limbs[1]                  * v_quarted_witnesses[1]    +
+        quotient_limbs[2]             * NEGATIVE_MODULUS_LIMBS[0] +
+        quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[1] +
+        quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[2] -
+        remainder_limbs[2];
 
     Fr high_wide_relation_limb =
-        low_wide_relation_limb_divided + previous_accumulator_limbs[2] * x_witnesses[0] +
-        previous_accumulator_limbs[1] * x_witnesses[1] + previous_accumulator_limbs[0] * x_witnesses[2] +
-        v_witnesses[2] * p_x_limbs[0] + v_witnesses[1] * p_x_limbs[1] + v_witnesses[0] * p_x_limbs[2] +
-        v_squared_witnesses[2] * p_y_limbs[0] + v_squared_witnesses[1] * p_y_limbs[1] +
-        v_squared_witnesses[0] * p_y_limbs[2] + v_cubed_witnesses[2] * z_1_limbs[0] +
-        v_cubed_witnesses[1] * z_1_limbs[1] + v_quarted_witnesses[2] * z_2_limbs[0] +
-        v_quarted_witnesses[1] * z_2_limbs[1] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[0] +
-        quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[2] -
-        remainder_limbs[2] +
-        (previous_accumulator_limbs[3] * x_witnesses[0] + previous_accumulator_limbs[2] * x_witnesses[1] +
-         previous_accumulator_limbs[1] * x_witnesses[2] + previous_accumulator_limbs[0] * x_witnesses[3] +
-         v_witnesses[3] * p_x_limbs[0] + v_witnesses[2] * p_x_limbs[1] + v_witnesses[1] * p_x_limbs[2] +
-         v_witnesses[0] * p_x_limbs[3] + v_squared_witnesses[3] * p_y_limbs[0] + v_squared_witnesses[2] * p_y_limbs[1] +
-         v_squared_witnesses[1] * p_y_limbs[2] + v_squared_witnesses[0] * p_y_limbs[3] +
-         v_cubed_witnesses[3] * z_1_limbs[0] + v_cubed_witnesses[2] * z_1_limbs[1] +
-         v_quarted_witnesses[3] * z_2_limbs[0] + v_quarted_witnesses[2] * z_2_limbs[1] +
-         quotient_limbs[3] * NEGATIVE_MODULUS_LIMBS[0] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[1] +
-         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[2] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[3] -
-         remainder_limbs[3]) *
-            SHIFT_1;
+        high_wide_relation_limb_part_1 +
+        (previous_accumulator_limbs[3] * x_witnesses[0]            +
+         previous_accumulator_limbs[2] * x_witnesses[1]            +
+         previous_accumulator_limbs[1] * x_witnesses[2]            +
+         previous_accumulator_limbs[0] * x_witnesses[3]            +
+         p_x_limbs[0]                  * v_witnesses[3]            +
+         p_x_limbs[1]                  * v_witnesses[2]            +
+         p_x_limbs[2]                  * v_witnesses[1]            +
+         p_x_limbs[3]                  * v_witnesses[0]            +
+         p_y_limbs[0]                  * v_squared_witnesses[3]    +
+         p_y_limbs[1]                  * v_squared_witnesses[2]    +
+         p_y_limbs[2]                  * v_squared_witnesses[1]    +
+         p_y_limbs[3]                  * v_squared_witnesses[0]    +
+         z_1_limbs[0]                  * v_cubed_witnesses[3]      +
+         z_1_limbs[1]                  * v_cubed_witnesses[2]      +
+         z_2_limbs[0]                  * v_quarted_witnesses[3]    +
+         z_2_limbs[1]                  * v_quarted_witnesses[2]    +
+         quotient_limbs[3]             * NEGATIVE_MODULUS_LIMBS[0] +
+         quotient_limbs[2]             * NEGATIVE_MODULUS_LIMBS[1] +
+         quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[2] +
+         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[3] -
+         remainder_limbs[3]) * SHIFT_1;
+    // clang-format on
 
     // Check that the results lower 136 bits are zero
     BB_ASSERT_EQ(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
@@ -261,43 +265,32 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_2_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> current_accumulator_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
-    // Split P_x into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        P_x_microlimbs[i] = split_standard_limb_into_micro_limbs(p_x_limbs[i]);
-    }
-    P_x_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(p_x_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
 
-    // Split P_y into microlimbs for range constraining
+    // Split all standard limbs (68-bit) into microlimbs for range constraining
     for (size_t i = 0; i < last_limb_index; i++) {
-        P_y_microlimbs[i] = split_standard_limb_into_micro_limbs(p_y_limbs[i]);
+        P_x_microlimbs[i] = split_limb_into_microlimbs(p_x_limbs[i], NUM_LIMB_BITS);
+        P_y_microlimbs[i] = split_limb_into_microlimbs(p_y_limbs[i], NUM_LIMB_BITS);
+        current_accumulator_microlimbs[i] = split_limb_into_microlimbs(remainder_limbs[i], NUM_LIMB_BITS);
+        quotient_microlimbs[i] = split_limb_into_microlimbs(quotient_limbs[i], NUM_LIMB_BITS);
     }
-    P_y_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(p_y_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
 
-    // Split z scalars into microlimbs for range constraining
+    // Split top limbs (varying bit sizes) into microlimbs
+    P_x_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_x_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    P_y_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_y_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    current_accumulator_microlimbs[last_limb_index] =
+        split_limb_into_microlimbs(remainder_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    quotient_microlimbs[last_limb_index] =
+        split_limb_into_microlimbs(quotient_limbs[last_limb_index], NUM_LAST_QUOTIENT_LIMB_BITS);
+
+    // Split z scalars into microlimbs (handled separately due to different limb count)
     for (size_t i = 0; i < NUM_Z_LIMBS - 1; i++) {
-        z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(z_1_limbs[i]);
-        z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(z_2_limbs[i]);
+        z_1_microlimbs[i] = split_limb_into_microlimbs(z_1_limbs[i], NUM_LIMB_BITS);
+        z_2_microlimbs[i] = split_limb_into_microlimbs(z_2_limbs[i], NUM_LIMB_BITS);
     }
     z_1_microlimbs[NUM_Z_LIMBS - 1] =
-        split_top_z_limb_into_micro_limbs(z_1_limbs[NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+        split_limb_into_microlimbs(z_1_limbs[NUM_Z_LIMBS - 1], NUM_Z_BITS - NUM_LIMB_BITS);
     z_2_microlimbs[NUM_Z_LIMBS - 1] =
-        split_top_z_limb_into_micro_limbs(z_2_limbs[NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
-
-    // Split current accumulator into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        current_accumulator_microlimbs[i] = split_standard_limb_into_micro_limbs(remainder_limbs[i]);
-    }
-    current_accumulator_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(remainder_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
-
-    // Split quotient into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        quotient_microlimbs[i] = split_standard_limb_into_micro_limbs(quotient_limbs[i]);
-    }
-    quotient_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(quotient_limbs[last_limb_index], TOP_QUOTIENT_MICROLIMB_BITS);
+        split_limb_into_microlimbs(z_2_limbs[NUM_Z_LIMBS - 1], NUM_Z_BITS - NUM_LIMB_BITS);
 
     // Start filling the witness container
     AccumulationInput input{
@@ -316,8 +309,10 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         .quotient_binary_limbs = quotient_limbs,
         .quotient_microlimbs = quotient_microlimbs,
         .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb_divided },
-        .relation_wide_microlimbs = { split_relation_limb_into_micro_limbs(low_wide_relation_limb_divided),
-                                      split_relation_limb_into_micro_limbs(high_wide_relation_limb_divided) },
+        .relation_wide_microlimbs = { split_limb_into_microlimbs(low_wide_relation_limb_divided,
+                                                                 RELATION_WIDE_LIMB_BITS),
+                                      split_limb_into_microlimbs(high_wide_relation_limb_divided,
+                                                                 RELATION_WIDE_LIMB_BITS) },
 
     };
 
@@ -336,11 +331,11 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
 
     // Check and insert x_hi and z_1 into wire 2
     BB_ASSERT_LTE(uint256_t(ultra_op.x_hi), MAX_HIGH_WIDE_LIMB_SIZE);
-    BB_ASSERT_LTE(uint256_t(ultra_op.z_1), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_1), MAX_Z_LIMB_SIZE);
 
     // Check and insert y_lo and z_2 into wire 3
     BB_ASSERT_LTE(uint256_t(ultra_op.y_lo), MAX_LOW_WIDE_LIMB_SIZE);
-    BB_ASSERT_LTE(uint256_t(ultra_op.z_2), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_2), MAX_Z_LIMB_SIZE);
 }
 
 void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const AccumulationInput& acc_step)
@@ -355,6 +350,7 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     BB_ASSERT_EQ(acc_step.ultra_op.y_hi, acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1);
     BB_ASSERT_EQ(acc_step.ultra_op.z_1, acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1);
     BB_ASSERT_EQ(acc_step.ultra_op.z_2, acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1);
+
     /**
      * @brief Check correctness of limbs values
      *
@@ -476,8 +472,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     top_quotient_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[NUM_MICRO_LIMBS - 1];
 
     /**
-     * @brief Put several values in sequential wires
-     *
+     * @brief A function to place an array of values into sequential wires starting from a given wire ID
      */
     auto lay_limbs_in_row = [this]<size_t array_size>(std::array<Fr, array_size> input, WireIds starting_wire) {
         size_t wire_index = starting_wire;
@@ -541,7 +536,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
-        for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
+        for (size_t i = WireIds::P_X_LOW_LIMBS; i < wires.size(); i++) {
             wires[i].push_back(zero_idx());
             wires[i].push_back(zero_idx());
         }
@@ -556,6 +551,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
+
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
@@ -574,13 +570,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             continue;
         }
         current_accumulator *= evaluation_input_x;
-        const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
+        const auto [x_fq, y_fq] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
             Fq(ultra_op.op_code.value()) +
             batching_challenge_v *
-                (x_256 + batching_challenge_v *
-                             (y_256 + batching_challenge_v *
-                                          (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
+                (x_fq + batching_challenge_v *
+                            (y_fq + batching_challenge_v *
+                                        (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
         accumulator_trace.push_back(current_accumulator);
     }
 
@@ -602,7 +598,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 wires[j].push_back(zero_idx());
             }
             size_t idx = 0;
-            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j <= ACCUMULATORS_BINARY_LIMBS_3; j++) {
                 wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
                 wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
                 idx++;
@@ -614,6 +610,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             increment_num_gates(2);
             continue;
         }
+
         Fq previous_accumulator{ 0 };
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
@@ -629,6 +626,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
+
     // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
     // whose ops are added to the op queue
     for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
