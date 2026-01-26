@@ -101,6 +101,8 @@ template <typename Builder> class cycle_group {
     }
     void standardize();
     void validate_on_curve() const;
+
+    // Public API operations - always return standardized (canonical) results
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
@@ -221,6 +223,14 @@ template <typename Builder> class cycle_group {
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,
                                                bool is_addition,
                                                const std::optional<AffineElement> hint) const;
+
+    // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
+    cycle_group dbl_internal(const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group add_internal(const cycle_group& other) const;
+    cycle_group subtract_internal(const cycle_group& other) const;
+    static cycle_group batch_mul_internal(const std::vector<cycle_group>& base_points,
+                                          const std::vector<cycle_scalar>& scalars,
+                                          const GeneratorContext& context = {});
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)

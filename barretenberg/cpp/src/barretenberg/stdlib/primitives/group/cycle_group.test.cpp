@@ -195,8 +195,7 @@ TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
     auto w27 = w10 - w11; // and here
     (void)w26;
     (void)w27;
-    // Gate count reduced: from_witness now uses constant _is_infinity
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 38);
 }
 
 /**
@@ -878,8 +877,7 @@ TYPED_TEST(CycleGroupTest, TestAddRegular)
     EXPECT_EQ(c.get_value(), expected);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    // Gate count reduced: from_witness now uses constant _is_infinity
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 36);
 }
 
 // Test addition with LHS point at infinity
@@ -971,8 +969,7 @@ TYPED_TEST(CycleGroupTest, TestAddInversePoints)
     EXPECT_TRUE(c.get_value().is_point_at_infinity());
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    // Gate count reduced: from_witness now uses constant _is_infinity
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 36);
 }
 
 // Test doubling (adding point to itself)
@@ -995,8 +992,7 @@ TYPED_TEST(CycleGroupTest, TestAddDoubling)
     EXPECT_EQ(c.get_value(), expected);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    // Gate count reduced: from_witness now uses constant _is_infinity
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 36);
 }
 
 TYPED_TEST(CycleGroupTest, TestAddConstantPoints)
@@ -1080,8 +1076,8 @@ TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
         EXPECT_EQ(result.get_value(), expected);
         EXPECT_FALSE(result.is_constant());
 
-        // Different gate count than pure witness addition
-        check_circuit_and_gate_count(builder, 20);
+        // Different gate count than pure witness addition, +2 for standardize()
+        check_circuit_and_gate_count(builder, 22);
     }
 }
 
@@ -1162,8 +1158,8 @@ TYPED_TEST(CycleGroupTest, TestAddInfinityResultLogic)
         EXPECT_EQ(result.get_value(), expected);
     }
 
-    // Gate count reduced: constant_infinity and from_witness changes
-    check_circuit_and_gate_count(builder, 80);
+    // Gate count: +2 per operator+ call (4 calls = +8), but some early exits reduce this
+    check_circuit_and_gate_count(builder, 84);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
@@ -1320,8 +1316,8 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    // Gate count reduced: constant_infinity and from_witness changes
-    check_circuit_and_gate_count(builder, 115);
+    // Gate count: operator- adds 2 gates per call (3 operator- calls = +6)
+    check_circuit_and_gate_count(builder, 121);
 }
 
 TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
@@ -1449,9 +1445,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
 
     // Gate count reduced: from_witness now uses constant _is_infinity
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4329); // Mega
+        check_circuit_and_gate_count(builder, 4331); // Mega: +2 for batch_mul standardization
     } else {
-        check_circuit_and_gate_count(builder, 4332); // Ultra
+        check_circuit_and_gate_count(builder, 4334); // Ultra: +2 for batch_mul standardization
     }
 }
 
@@ -1481,9 +1477,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
 
     // Gate count reduced: from_witness now uses constant _is_infinity
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3955); // Mega
+        check_circuit_and_gate_count(builder, 3957); // Mega: +2 for batch_mul standardization
     } else {
-        check_circuit_and_gate_count(builder, 3958); // Ultra
+        check_circuit_and_gate_count(builder, 3960); // +2 for batch_mul standardization // Ultra
     }
 }
 
@@ -1508,9 +1504,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
 
     // Gate count reduced: from_witness now uses constant _is_infinity
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3497); // Mega
+        check_circuit_and_gate_count(builder, 3499); // Mega: +2 for batch_mul standardization
     } else {
-        check_circuit_and_gate_count(builder, 3500); // Ultra
+        check_circuit_and_gate_count(builder, 3502); // +2 for batch_mul standardization // Ultra
     }
 }
 
@@ -1667,7 +1663,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseZeroScalars)
     EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
 
-    check_circuit_and_gate_count(builder, 2837);
+    check_circuit_and_gate_count(builder, 2839); // +2 for batch_mul standardization
 }
 
 TYPED_TEST(CycleGroupTest, TestMul)
@@ -1717,9 +1713,9 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
     // Gate count reduced: from_witness now uses constant _is_infinity
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 12613); // Mega
+        check_circuit_and_gate_count(builder, 12643); // Mega: +30 for operator* calls with standardization
     } else {
-        check_circuit_and_gate_count(builder, 12616); // Ultra
+        check_circuit_and_gate_count(builder, 12646); // Ultra: +30 for operator* calls with standardization
     }
 }
 
@@ -1804,9 +1800,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
             EXPECT_FALSE(result2.is_constant());
             // Gate count difference due to additional constants added by default in Mega builder
             if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-                check_circuit_and_gate_count(builder, 5285); // Mega
+                check_circuit_and_gate_count(builder, 5289); // Mega: +4 for operator* and batch_mul standardization
             } else {
-                check_circuit_and_gate_count(builder, 5288); // Ultra
+                check_circuit_and_gate_count(builder, 5292); // Ultra: +4 for operator* and batch_mul standardization
             }
         }
     };
@@ -1847,6 +1843,6 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
 
     EXPECT_EQ(result.get_value(), expected);
 
-    check_circuit_and_gate_count(builder, 2908);
+    check_circuit_and_gate_count(builder, 2910); // +2 for batch_mul standardization
 }
 #pragma GCC diagnostic pop

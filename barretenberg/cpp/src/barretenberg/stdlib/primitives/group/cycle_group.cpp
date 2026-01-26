@@ -311,14 +311,17 @@ template <typename Builder> void cycle_group<Builder>::standardize()
 }
 
 /**
- * @brief Evaluates a point doubling using Ultra ECC double gate (if non-constant)
+ * @brief Internal implementation of point doubling using Ultra ECC double gate (if non-constant)
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use dbl() for the public API which guarantees canonical output.
  *
  * @tparam Builder
  * @param hint native result of the doubling (optional; used to avoid modular inversions during witgen)
- * @return cycle_group<Builder> The doubled point
+ * @return cycle_group<Builder> The doubled point (may be non-canonical)
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::dbl_internal(const std::optional<AffineElement> hint) const
 {
     // If this is a constant point at infinity, return early
     if (this->is_constant_point_at_infinity()) {
@@ -381,6 +384,23 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result._y.set_origin_tag(OriginTag(_x.get_origin_tag(), _y.get_origin_tag()));
     }
 
+    return result;
+}
+
+/**
+ * @brief Evaluates a point doubling using Ultra ECC double gate (if non-constant)
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @tparam Builder
+ * @param hint native result of the doubling (optional; used to avoid modular inversions during witgen)
+ * @return cycle_group<Builder> The doubled point (canonical form)
+ */
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
+{
+    cycle_group result = dbl_internal(hint);
+    result.standardize();
     return result;
 }
 
@@ -560,16 +580,19 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 }
 
 /**
- * @brief Evaluate ECC point addition over `*this` and `other`.
+ * @brief Internal implementation of ECC point addition over `*this` and `other`.
  * @details This method uses complete addition i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both an addition (modified to avoid division by zero)
  * and and a doubling, then conditionally assign the result.
  *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator+ for the public API which guarantees canonical output.
+ *
  * @tparam Builder
  * @param other Point to add
- * @return cycle_group<Builder> Result of addition
+ * @return cycle_group<Builder> Result of addition (may be non-canonical)
  */
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::add_internal(const cycle_group& other) const
 {
     // If lhs is constant point at infinity, return the rhs and vice versa
     if (this->is_constant_point_at_infinity()) {
@@ -606,8 +629,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const field_t add_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
     const field_t add_result_y = lambda.madd(x1 - add_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
-    // Compute the doubling result
-    const cycle_group dbl_result = dbl();
+    // Compute the doubling result (using internal dbl to avoid extra standardization)
+    const cycle_group dbl_result = dbl_internal();
 
     // If the addition amounts to a doubling then the result is the doubling result, else the addition result.
     const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
@@ -634,16 +657,38 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 }
 
 /**
- * @brief Evaluate ECC point subtraction over `*this` and `other`.
+ * @brief Evaluate ECC point addition over `*this` and `other`.
+ * @details This method uses complete addition i.e. is compatible with all edge cases and is therefore expensive. To
+ * handle the possibility of x-coordinate collisions we evaluate both an addition (modified to avoid division by zero)
+ * and and a doubling, then conditionally assign the result.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @tparam Builder
+ * @param other Point to add
+ * @return cycle_group<Builder> Result of addition (canonical form)
+ */
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
+{
+    cycle_group result = add_internal(other);
+    result.standardize();
+    return result;
+}
+
+/**
+ * @brief Internal implementation of ECC point subtraction over `*this` and `other`.
  * @details This method uses complete subtraction i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both a subtraction (modified to avoid division by zero)
  * and a doubling, then conditionally assign the result.
  *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator- for the public API which guarantees canonical output.
+ *
  * @tparam Builder
  * @param other Point to subtract
- * @return cycle_group<Builder> Result of subtraction
+ * @return cycle_group<Builder> Result of subtraction (may be non-canonical)
  */
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::subtract_internal(const cycle_group& other) const
 {
     // If lhs is constant point at infinity, return -rhs
     if (this->is_constant_point_at_infinity()) {
@@ -682,8 +727,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const field_t sub_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
     const field_t sub_result_y = lambda.madd(x1 - sub_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
-    // Compute the doubling result
-    const cycle_group dbl_result = dbl();
+    // Compute the doubling result (using internal dbl to avoid extra standardization)
+    const cycle_group dbl_result = dbl_internal();
 
     // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
     // Note: The assumption here is that x1 == x2 && y1 != y2 implies y1 == -y2 which is true assuming that the points
@@ -713,6 +758,25 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
     return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
+}
+
+/**
+ * @brief Evaluate ECC point subtraction over `*this` and `other`.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases and is therefore expensive. To
+ * handle the possibility of x-coordinate collisions we evaluate both a subtraction (modified to avoid division by zero)
+ * and a doubling, then conditionally assign the result.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @tparam Builder
+ * @param other Point to subtract
+ * @return cycle_group<Builder> Result of subtraction (canonical form)
+ */
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
+{
+    cycle_group result = subtract_internal(other);
+    result.standardize();
+    return result;
 }
 
 /**
@@ -1004,9 +1068,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 }
 
 /**
- * @brief Multiscalar multiplication algorithm.
+ * @brief Internal implementation of multiscalar multiplication algorithm.
  *
- * @details Uses the Straus MSM algorithm. `batch_mul` splits inputs into three categories:
+ * @details Uses the Straus MSM algorithm. `batch_mul_internal` splits inputs into three categories:
  * Case 1. Point and scalar are both constant: scalar mul can be computed without constraints.
  * Case 2A. Point is constant and one of two specific generators, scalar is a witness: use fixed-base Straus with
  * plookup tables
@@ -1016,33 +1080,30 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  *
  * The results from all 3 categories are combined and returned as a single output point.
  *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use batch_mul() for the public API which guarantees canonical output.
+ *
  * @note Both the fixed and variable-base algorithms utilize an offset mechanism to avoid point at infinity edge cases.
  * The total offset is tracked and subtracted from the final result to yield the correct output.
  *
- * @note batch_mul can handle all known cases of trigger incomplete addition formula exceptions and other weirdness:
+ * @note batch_mul_internal can handle all known cases of trigger incomplete addition formula exceptions and other
+ * weirdness:
  *       1. some/all of the input points are points at infinity
  *       2. some/all of the input scalars are 0
  *       3. some/all input points are equal to each other
  *       4. output is the point at infinity
  *       5. input vectors are empty
  *
- * @note offset_generator_data is a pointer to precomputed offset generator list. There is a default parameter point
- * that points to a list with DEFAULT_NUM_GENERATORS generator points (8). If more offset generators are required, they
- * will be derived in-place which can be expensive. (num required offset generators is either num input points + 1 or
- * num input points + 2, depends on if one or both of _fixed_base_batch_mul_internal, _variable_base_batch_mul_internal
- * are called). If you're calling this function repeatedly and you KNOW you need >8 offset generators, it's faster to
- * create a `generator_data` object with the required size and pass it in as a parameter.
- *
  * @tparam Builder
  * @param scalars
  * @param base_points
- * @param offset_generator_data
- * @return cycle_group<Builder>
+ * @param context
+ * @return cycle_group<Builder> (may be non-canonical)
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
-                                                     const std::vector<cycle_scalar>& scalars,
-                                                     const GeneratorContext& context)
+cycle_group<Builder> cycle_group<Builder>::batch_mul_internal(const std::vector<cycle_group>& base_points,
+                                                              const std::vector<cycle_scalar>& scalars,
+                                                              const GeneratorContext& context)
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in batch mul!");
 
@@ -1156,13 +1217,61 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         // point may be the point at infinity.
         // Note about optimizations for posterity: An honest prover might hit the point at infinity, but won't
         // trigger the doubling edge case (since doubling edge case implies input points are also the offset generator
-        // points). We could do the following which would be slightly cheaper than operator-:
+        // points). We could do the following which would be slightly cheaper than subtract_internal:
         // 1. If x-coords match, assert y-coords do not match
         // 2. If x-coords match, return point at infinity, else unconditionally compute result - offset_accumulator.
-        result = result - AffineElement(offset_accumulator);
+        result = result.subtract_internal(AffineElement(offset_accumulator));
     }
     // Ensure the tag of the result is a union of all inputs
     result.set_origin_tag(result_tag);
+    return result;
+}
+
+/**
+ * @brief Multiscalar multiplication algorithm.
+ *
+ * @details Uses the Straus MSM algorithm. `batch_mul` splits inputs into three categories:
+ * Case 1. Point and scalar are both constant: scalar mul can be computed without constraints.
+ * Case 2A. Point is constant and one of two specific generators, scalar is a witness: use fixed-base Straus with
+ * plookup tables
+ * Case 2B. Point is constant but not one of two specific generators, scalar is a witness: use
+ * variable-base Straus using ROM tables.
+ * Case 3. Point is a witness, scalar is witness or constant: use variable-base Straus using ROM tables.
+ *
+ * The results from all 3 categories are combined and returned as a single output point.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @note Both the fixed and variable-base algorithms utilize an offset mechanism to avoid point at infinity edge cases.
+ * The total offset is tracked and subtracted from the final result to yield the correct output.
+ *
+ * @note batch_mul can handle all known cases of trigger incomplete addition formula exceptions and other weirdness:
+ *       1. some/all of the input points are points at infinity
+ *       2. some/all of the input scalars are 0
+ *       3. some/all input points are equal to each other
+ *       4. output is the point at infinity
+ *       5. input vectors are empty
+ *
+ * @note offset_generator_data is a pointer to precomputed offset generator list. There is a default parameter point
+ * that points to a list with DEFAULT_NUM_GENERATORS generator points (8). If more offset generators are required, they
+ * will be derived in-place which can be expensive. (num required offset generators is either num input points + 1 or
+ * num input points + 2, depends on if one or both of _fixed_base_batch_mul_internal, _variable_base_batch_mul_internal
+ * are called). If you're calling this function repeatedly and you KNOW you need >8 offset generators, it's faster to
+ * create a `generator_data` object with the required size and pass it in as a parameter.
+ *
+ * @tparam Builder
+ * @param scalars
+ * @param base_points
+ * @param offset_generator_data
+ * @return cycle_group<Builder> (canonical form)
+ */
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
+                                                     const std::vector<cycle_scalar>& scalars,
+                                                     const GeneratorContext& context)
+{
+    cycle_group result = batch_mul_internal(base_points, scalars, context);
+    result.standardize();
     return result;
 }
 

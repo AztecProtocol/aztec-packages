@@ -99,8 +99,15 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
     return *this;
 }
 
+/**
+ * @brief Internal implementation of ECC point addition.
+ * @details This method uses complete addition i.e. is compatible with all edge cases.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator+ for the public API which guarantees canonical output.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::add_internal(const element& other) const
 {
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
     // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
@@ -176,6 +183,19 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
 }
 
 /**
+ * @brief Evaluate ECC point addition over `*this` and `other`.
+ * @details This method uses complete addition i.e. is compatible with all edge cases.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
+{
+    element result = add_internal(other);
+    return result.get_standard_form();
+}
+
+/**
  * @brief Enforce x and y coordinates of a point to be (0, 0) in the case of point at infinity
  *
  * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
@@ -206,8 +226,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
     return result;
 }
 
+/**
+ * @brief Internal implementation of ECC point subtraction.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator- for the public API which guarantees canonical output.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::subtract_internal(const element& other) const
 {
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
     // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
@@ -268,6 +295,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     return result;
 }
 
+/**
+ * @brief Evaluate ECC point subtraction over `*this` and `other`.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+{
+    element result = subtract_internal(other);
+    return result.get_standard_form();
+}
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
 {
@@ -323,7 +362,13 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
     return { element(x_3, y_3, /*assert_on_curve=*/false), element(x_4, y_4, /*assert_on_curve=*/false) };
 }
 
-template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
+/**
+ * @brief Internal implementation of point doubling.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use dbl() for the public API which guarantees canonical output.
+ */
+template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl_internal() const
 {
     const bool_ct is_infinity = is_point_at_infinity();
 
@@ -380,6 +425,17 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     element result = element(x_3, y_3, /*assert_on_curve=*/false);
     result.set_point_at_infinity(is_infinity, /* add_to_used_witnesses */ true);
     return result;
+}
+
+/**
+ * @brief Evaluates a point doubling.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
+{
+    element result = dbl_internal();
+    return result.get_standard_form();
 }
 
 /**
@@ -823,7 +879,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
 }
 
 /**
- * @brief Generic batch multiplication that works for all elliptic curve types.
+ * @brief Internal implementation of generic batch multiplication that works for all elliptic curve types.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use batch_mul() for the public API which guarantees canonical output.
  *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.
@@ -833,7 +892,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
  * @param _scalars
  * @param max_num_bits The max of the bit lengths of the scalars.
  * @param with_edgecases Use when points are linearly dependent. Randomises them.
- * @return element<C, Fq, Fr, G>
+ * @return element<C, Fq, Fr, G> (may be non-canonical)
  *
  * @details This is an implementation of the Strauss algorithm for multi-scalar-multiplication (MSM).
  *          It uses the Non-Adjacent Form (NAF) representation of scalars and ROM lookups to
@@ -856,11 +915,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
  *          This lookup output is accumulated with the lookup outputs from the other 3 NAF entries.
  */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
-                                                       const std::vector<Fr>& _scalars,
-                                                       const size_t max_num_bits,
-                                                       const bool with_edgecases,
-                                                       const Fr& masking_scalar)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vector<element>& _points,
+                                                                const std::vector<Fr>& _scalars,
+                                                                const size_t max_num_bits,
+                                                                const bool with_edgecases,
+                                                                const Fr& masking_scalar)
 {
     // Sanity check input sizes
     BB_ASSERT_GT(_points.size(), 0ULL, "biggroup batch_mul: no points provided for batch multiplication");
@@ -991,7 +1050,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = accumulator_initialized ? accumulator + big_result : big_result;
+        accumulator = accumulator_initialized ? accumulator.add_internal(big_result) : big_result;
         accumulator_initialized = true;
     }
 
@@ -999,15 +1058,44 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         // Process small scalars
         const size_t effective_max_num_bits = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
         element small_result = element::process_strauss_msm_rounds(small_points, small_scalars, effective_max_num_bits);
-        accumulator = accumulator_initialized ? accumulator + small_result : small_result;
+        accumulator = accumulator_initialized ? accumulator.add_internal(small_result) : small_result;
         accumulator_initialized = true;
     }
 
     accumulator.set_origin_tag(tag);
     return accumulator;
 }
+
+/**
+ * @brief Generic batch multiplication that works for all elliptic curve types.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @tparam C The circuit builder type.
+ * @tparam Fq The field of definition of the points in `_points`.
+ * @tparam Fr The field of scalars acting on `_points`.
+ * @tparam G The group whose arithmetic is emulated by `element`.
+ * @param _points
+ * @param _scalars
+ * @param max_num_bits The max of the bit lengths of the scalars.
+ * @param with_edgecases Use when points are linearly dependent. Randomises them.
+ * @return element<C, Fq, Fr, G> (canonical form)
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
+                                                       const std::vector<Fr>& scalars,
+                                                       const size_t max_num_bits,
+                                                       const bool with_edgecases,
+                                                       const Fr& masking_scalar)
+{
+    element result = batch_mul_internal(points, scalars, max_num_bits, with_edgecases, masking_scalar);
+    return result.get_standard_form();
+}
+
 /**
  * Implements scalar multiplication operator.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
@@ -1020,10 +1108,13 @@ template <typename C, class Fq, class Fr, class G>
 /**
  * @brief Implements scalar multiplication that supports short scalars.
  * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
  * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
  * @param max_num_bits Positive integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
  * unspecified length.
- * @return element<C, Fq, Fr, G>
+ * @return element<C, Fq, Fr, G> (canonical form)
  */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {

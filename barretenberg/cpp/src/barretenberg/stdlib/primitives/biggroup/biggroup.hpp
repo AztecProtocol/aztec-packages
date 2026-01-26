@@ -442,6 +442,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq _y;
     bool_ct _is_infinity;
 
+    // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
+    element add_internal(const element& other) const;
+    element subtract_internal(const element& other) const;
+    element dbl_internal() const;
+    static element batch_mul_internal(const std::vector<element>& points,
+                                      const std::vector<Fr>& scalars,
+                                      const size_t max_num_bits = 0,
+                                      const bool with_edgecases = false,
+                                      const Fr& masking_scalar = Fr(1));
+
     /**
      * @brief Compute both add and subtract (a + b, a - b) results simultaneously
      * @details Only used internally for lookup table generation
