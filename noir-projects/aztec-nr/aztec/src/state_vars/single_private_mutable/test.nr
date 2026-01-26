@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    state_vars::{single_private_mutable::SinglePrivateMutable, state_variable::StateVariable},
+    state_vars::{single_private_mutable::SinglePrivateMutable, StateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
 

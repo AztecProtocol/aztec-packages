@@ -10,7 +10,7 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
-    state_vars::{owned_state_variable::OwnedStateVariable, PrivateSet},
+    state_vars::{OwnedStateVariable, PrivateSet},
 };
 use dep::uint_note::UintNote;
 use std::ops::Add;

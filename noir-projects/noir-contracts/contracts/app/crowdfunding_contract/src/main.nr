@@ -9,7 +9,7 @@ pub contract Crowdfunding {
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{Owned, PrivateSet, PublicImmutable, state_variable::StateVariable},
+        state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
