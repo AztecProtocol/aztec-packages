@@ -74,11 +74,9 @@ library TranscriptLib {
         uint256 publicInputsSize,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
-        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
+        (rp.eta, previousChallenge) = generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
 
-        (rp.beta, rp.gamma, rp.betaSqr, rp.betaCube, nextPreviousChallenge) =
-            generateBetaGammaChallenges(previousChallenge, proof);
+        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaGammaChallenges(previousChallenge, proof);
     }
 
     function generateEtaChallenge(
@@ -86,7 +84,7 @@ library TranscriptLib {
         bytes32[] calldata publicInputs,
         uint256 vkHash,
         uint256 publicInputsSize
-    ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
+    ) internal pure returns (Fr eta, Fr previousChallenge) {
         bytes32[] memory round0 = new bytes32[](1 + publicInputsSize + 6);
         round0[0] = bytes32(vkHash);
 
@@ -106,17 +104,14 @@ library TranscriptLib {
         round0[1 + publicInputsSize + 4] = bytes32(proof.w3.x);
         round0[1 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
-        // Get single eta challenge and compute powers (eta, eta², eta³)
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        (eta, ) = splitChallenge(previousChallenge);
-        etaTwo = eta * eta;
-        etaThree = etaTwo * eta;
+        (eta,) = splitChallenge(previousChallenge);
     }
 
     function generateBetaGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
         pure
-        returns (Fr beta, Fr gamma, Fr betaSqr, Fr betaCube, Fr nextPreviousChallenge)
+        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
         bytes32[7] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -129,9 +124,6 @@ library TranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         (beta, gamma) = splitChallenge(nextPreviousChallenge);
-        // Compute beta powers for lookup column batching
-        betaSqr = beta * beta;
-        betaCube = betaSqr * beta;
     }
 
     // Alpha challenges non-linearise the gate contributions
