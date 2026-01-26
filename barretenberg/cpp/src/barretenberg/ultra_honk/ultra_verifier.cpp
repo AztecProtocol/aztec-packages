@@ -44,9 +44,6 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
 template <typename Flavor, class IO>
 std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
 {
-    using FF = typename Flavor::FF;
-    using Curve = typename Flavor::Curve;
-
     // - Non-ZK flavors: all 1s (no masking needed)
     // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
     // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
@@ -116,11 +113,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    using FF = typename Flavor::FF;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 

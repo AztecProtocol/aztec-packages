@@ -82,7 +82,9 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
+    using PCS = typename Flavor::PCS;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = VerifierInstance_<Flavor>;
 
