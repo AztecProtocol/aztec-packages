@@ -191,6 +191,7 @@ class TranslatorFlavor {
     // length = 3.
     // The degree has to be further increased because the relation is multiplied by the Row Disabling Polynomial
     // total degree = sumcheck relation degree + 1 (PowZeta) + 1 (Lagrange)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1612): this should be + 1 (instead of + 2)
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");

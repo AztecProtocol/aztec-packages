@@ -93,7 +93,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         return microlimbs;
     };
 
-    // x and powers of v are given to us in challenge form, so the verifier has to deal with this :)
+    // x and v are challenges: random values unknown at compile time, treated as witnesses.
     Fq v_squared = batching_challenge_v * batching_challenge_v;
     Fq v_cubed = v_squared * batching_challenge_v;
     Fq v_quarted = v_cubed * batching_challenge_v;
