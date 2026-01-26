@@ -595,11 +595,12 @@ case "$cmd" in
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
   "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image]
+    # Args: <env_file> <namespace> [docker_image] [test_set]
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="${3:-}"
+    test_set="${4:-}"
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "$docker_image" ]; then
@@ -610,7 +611,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
