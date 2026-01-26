@@ -1,3 +1,4 @@
+#pragma once
 //! Mutates memory value
 //! 1) Mutate tag
 //! 2) Add/Subtract 1

@@ -15,7 +15,7 @@ MemoryValue mutate_memory_value(bb::avm2::MemoryValue& value,
     case MemoryValueMutationOptions::Tag: {
         auto mutated_tag = value.get_tag();
         mutate_memory_tag(mutated_tag, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
-        return MemoryValue::from_tag(mutated_tag, value.as_ff());
+        return MemoryValue::from_tag_truncating(mutated_tag, value.as_ff());
     }
     case MemoryValueMutationOptions::Add1:
         return MemoryValue::from_tag_truncating(value.get_tag(), value.as_ff() + 1);

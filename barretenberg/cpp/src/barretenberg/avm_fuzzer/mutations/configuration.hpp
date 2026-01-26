@@ -329,7 +329,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::CAST_8, 1 },
     { InstructionGenerationOptions::CAST_16, 1 },
     { InstructionGenerationOptions::SSTORE, 1 },
-    { InstructionGenerationOptions::SLOAD, 1 },
+    { InstructionGenerationOptions::SLOAD, 0 },
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
@@ -602,11 +602,17 @@ constexpr JumpIfToBlockMutationConfig BASIC_JUMP_IF_TO_BLOCK_MUTATION_CONFIGURAT
 // TODO(defkit): Implement fault injection for all events
 enum class FaultInjectionEventOptions {
     AluEvent,
+    BitwiseEvent,
+    RangeCheckEvent,
+    GtEvent,
 };
-using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 1>;
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 4>;
 
 constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
     { FaultInjectionEventOptions::AluEvent, 1 },
+    { FaultInjectionEventOptions::BitwiseEvent, 1 },
+    { FaultInjectionEventOptions::RangeCheckEvent, 1 },
+    { FaultInjectionEventOptions::GtEvent, 1 },
 });
 
 enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
@@ -629,4 +635,32 @@ constexpr FaultInjectionAluEventConfig BASIC_FAULT_INJECTION_ALU_EVENT_CONFIGURA
     { FaultInjectionAluEventOptions::Result, 80 }, // Mutates c
     { FaultInjectionAluEventOptions::Operation, 7 },
     { FaultInjectionAluEventOptions::FlipError, 3 },
+});
+
+enum class FaultInjectionBitwiseEventOptions { Operand, Result, Operation };
+using FaultInjectionBitwiseEventConfig = WeightedSelectionConfig<FaultInjectionBitwiseEventOptions, 3>;
+
+constexpr FaultInjectionBitwiseEventConfig BASIC_FAULT_INJECTION_BITWISE_EVENT_CONFIGURATION =
+    FaultInjectionBitwiseEventConfig({
+        { FaultInjectionBitwiseEventOptions::Operand, 100 },
+        { FaultInjectionBitwiseEventOptions::Result, 80 },
+        { FaultInjectionBitwiseEventOptions::Operation, 2 },
+    });
+
+enum class FaultInjectionRangeCheckEventOptions { Value, NumBits };
+using FaultInjectionRangeCheckEventConfig = WeightedSelectionConfig<FaultInjectionRangeCheckEventOptions, 2>;
+
+constexpr FaultInjectionRangeCheckEventConfig BASIC_FAULT_INJECTION_RANGE_CHECK_EVENT_CONFIGURATION =
+    FaultInjectionRangeCheckEventConfig({
+        { FaultInjectionRangeCheckEventOptions::Value, 1 },
+        { FaultInjectionRangeCheckEventOptions::NumBits, 1 },
+    });
+
+enum class FaultInjectionGtEventOptions { A, B, Result };
+using FaultInjectionGtEventConfig = WeightedSelectionConfig<FaultInjectionGtEventOptions, 3>;
+
+constexpr FaultInjectionGtEventConfig BASIC_FAULT_INJECTION_GT_EVENT_CONFIGURATION = FaultInjectionGtEventConfig({
+    { FaultInjectionGtEventOptions::A, 1 },
+    { FaultInjectionGtEventOptions::B, 1 },
+    { FaultInjectionGtEventOptions::Result, 1 },
 });
