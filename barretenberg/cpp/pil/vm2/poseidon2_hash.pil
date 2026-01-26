@@ -18,7 +18,8 @@ include "precomputed.pil";
  *         lookup the end selector for the final row).
  *       - Over multiple rows, lookup the start selector at the expected first row to ensure no extra rows are prepended.
  *         Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
- *         Pass also `num_perm_rounds_rem` explicitly at the start row.
+ *         Pass also `num_perm_rounds_rem` explicitly at the start row. // TODO(AVM-213): Require `input_len` explicitly
+ *                                                                      // at the start row.
  *
  *      Example (address_derivation.pil):
  *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
@@ -34,7 +35,7 @@ include "precomputed.pil";
  *
  *
  * === Trace Shape ===
- * This subtrace is a multi-rows computation. The trace shape is as follows:
+ * This subtrace is a multi-rows computation. The trace shape is as follows (where `unc` denotes an unconstrained value):
  *
  * +------+-------+-----+--------+-----------+---------------------+
  * | sel  | start | end |padding | input_len | num_perm_rounds_rem |
