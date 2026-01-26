@@ -343,12 +343,6 @@ tests:
     owners:
       - *adam
 
-  - regex: "validator-ha-signer/src/db/postgres.test.ts"
-    error_regex: "FailureMessage Object"
-    owners:
-      - *spyros
-      - *alex
-
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
   - regex: "playground/scripts/run_test.sh"
