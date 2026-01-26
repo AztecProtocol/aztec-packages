@@ -138,6 +138,14 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
     using Transcript = typename Flavor::Transcript;
     using DataType = typename Transcript::DataType;
 
+    // Validate VK size upfront before deserialization
+    const size_t expected_vk_size = VerificationKey::calc_num_data_types() * sizeof(bb::fr);
+    if (vk_bytes.size() != expected_vk_size) {
+        info(
+            "Proof verification failed: invalid VK size. Expected ", expected_vk_size, " bytes, got ", vk_bytes.size());
+        return false;
+    }
+
     std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
     auto vk_and_hash = std::make_shared<VKAndHash>(vk);
 
@@ -335,10 +343,13 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    std::vector<bb::fr> fields;
+
+    using VK = UltraFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
 
     // Standard UltraHonk flavors
-    auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
+    auto vk = from_buffer<VK>(verification_key);
+    std::vector<bb::fr> fields;
     fields = vk.to_field_elements();
 
     return { std::move(fields) };
@@ -347,10 +358,13 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    std::vector<bb::fr> fields;
+
+    using VK = MegaFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
 
     // MegaFlavor for private function verification keys
-    auto vk = from_buffer<MegaFlavor::VerificationKey>(verification_key);
+    auto vk = from_buffer<VK>(verification_key);
+    std::vector<bb::fr> fields;
     fields = vk.to_field_elements();
 
     return { std::move(fields) };
@@ -360,6 +374,8 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     using VK = UltraKeccakFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
 
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);

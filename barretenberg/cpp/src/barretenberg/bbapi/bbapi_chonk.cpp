@@ -62,6 +62,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         precomputed_vk = nullptr;
     } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
         if (!request.loaded_circuit_vk.empty()) {
+            validate_vk_size<Chonk::MegaVerificationKey>(request.loaded_circuit_vk);
             precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(request.loaded_circuit_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
@@ -132,8 +133,20 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+    validate_vk_size<VerificationKey>(vk);
+
     // Deserialize the hiding kernel verification key directly from buffer
-    auto hiding_kernel_vk = std::make_shared<Chonk::MegaVerificationKey>(from_buffer<Chonk::MegaVerificationKey>(vk));
+    auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
+
+    // Validate proof size using VK's num_public_inputs before expensive verification
+    const size_t expected_proof_size =
+        static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+    if (proof.size() != expected_proof_size) {
+        throw_or_abort("proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
+                       std::to_string(proof.size()));
+    }
 
     // Verify the proof using ChonkNativeVerifier
     auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
@@ -197,6 +210,8 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
         info("FAIL: Expected precomputed vk for function ", circuit.name);
         throw_or_abort("Missing precomputed VK");
     }
+
+    validate_vk_size<Chonk::MegaVerificationKey>(circuit.verification_key);
 
     // Deserialize directly from buffer
     auto precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(circuit.verification_key);
