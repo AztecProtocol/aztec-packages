@@ -26,7 +26,12 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
     // Haven't thought much about the lifecycle of this in the tx fuzzer. Maybe we want it in the serialized data?
     // Or we can regenerate from the serialized data.
     FuzzerContext context;
-    return mutate_tx_data(context, serialized_fuzzer_data, serialized_fuzzer_data_size, max_size, seed);
+    return mutate_tx_data(context,
+                          serialized_fuzzer_data,
+                          serialized_fuzzer_data_size,
+                          max_size,
+                          seed,
+                          FUZZER_TX_DATA_MUTATION_CONFIGURATION_WITHOUT_BYTECODE_MUTATION);
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)

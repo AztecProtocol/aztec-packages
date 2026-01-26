@@ -1,7 +1,9 @@
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 
 #include <array>
+#include <exception>
 #include <functional>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 
@@ -118,7 +120,22 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
     });
 
     // Do it!
-    bb::parallel_for(checks.size(), [&](size_t i) { checks[i](); });
+    std::exception_ptr first_exception = nullptr;
+    std::mutex exception_mutex;
+
+    bb::parallel_for(checks.size(), [&](size_t i) {
+        try {
+            checks[i]();
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(exception_mutex);
+            if (first_exception == nullptr) {
+                first_exception = std::current_exception();
+            }
+        }
+    });
+    if (first_exception != nullptr) {
+        std::rethrow_exception(first_exception);
+    }
 }
 
 } // namespace bb::avm2::constraining

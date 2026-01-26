@@ -284,11 +284,6 @@ void fuzz_prover_with_fault_injection(FuzzerWorldStateManager& ws_mgr,
         return;
     }
 
-    // If the transaction is reverted, we do not proceed
-    if (fast_result.revert_code != RevertCode::OK) {
-        return;
-    }
-
     // 2. Run simulate_for_hint_collection
     ws_mgr.checkpoint();
     TxSimulationResult hint_result = AVM_TRACK_TIME_V(
@@ -303,35 +298,29 @@ void fuzz_prover_with_fault_injection(FuzzerWorldStateManager& ws_mgr,
         .hints = hint_result.hints.value(),
     };
 
-    // 3. Collect and inject faults into events
-    AvmSimulationHelper simulation_helper;
-    simulation::EventsContainer events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    AvmSimulationHelper simulation_helper = AvmSimulationHelper();
+    auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
 
-    // Initialize RNG from serialized tx data
-    // We cannot get libfuzzer's seed, because it's not available in the LLVMFuzzerTestOneInput function.
-    // So we use the serialized tx data to initialize the RNG.
     auto [serialized_tx_data, serialized_tx_data_size] = msgpack_encode_buffer(tx_data);
     uint64_t seed = 0;
     for (size_t i = 0; i < std::min(serialized_tx_data_size, static_cast<size_t>(1024)); ++i) {
         seed = (31 * seed) + serialized_tx_data[i];
     }
     std::mt19937_64 rng(seed);
-    // bb::avm2::fuzzer::fault_injection(events, rng);
-
-    // 4. Generate trace and check circuit
-    // AvmTraceGenHelper tracegen_helper;
-    bool check_circuit_result = false;
+    bb::avm2::fuzzer::fault_injection(events, rng);
     try {
-        // tracegen::TraceContainer trace;
-        // tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
-        //  AvmProvingHelper avm_proving_helper;
-        //   check_circuit_result = proving_helper.check_circuit(std::move(trace));
+        AvmTraceGenHelper tracegen_helper;
+        tracegen::TraceContainer trace;
+        tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
+        AvmProvingHelper proving_helper;
+        bool check_circuit_result = proving_helper.check_circuit(std::move(trace));
+        if (check_circuit_result) {
+            throw std::runtime_error(
+                "check_circuit returned true in fuzzer with fault injection, this indicates a failure");
+        }
     } catch (const std::exception& e) {
+        fuzz_info("check_circuit threw an exception: ", e.what());
         return;
-    }
-    if (check_circuit_result) {
-        throw std::runtime_error(
-            "check_circuit returned true in fuzzer with fault injection, this indicates a failure");
     }
 }
 
@@ -407,7 +396,8 @@ size_t mutate_tx_data(FuzzerContext& context,
                       uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
-                      unsigned int seed)
+                      unsigned int seed,
+                      FuzzerTxDataMutationConfig mutation_config)
 {
     auto rng = std::mt19937_64(seed);
     FuzzerTxData tx_data;
@@ -462,7 +452,7 @@ size_t mutate_tx_data(FuzzerContext& context,
     }
 
     // Select mutation type (weighted against bytecode mutations) -- todo
-    FuzzerTxDataMutationType mutation_choice = FUZZER_TX_DATA_MUTATION_CONFIGURATION.select(rng);
+    FuzzerTxDataMutationType mutation_choice = mutation_config.select(rng);
 
     switch (mutation_choice) {
     case FuzzerTxDataMutationType::TxFuzzerDataMutation:

@@ -54,10 +54,10 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     try {
         AVM_TRACK_TIME("proving/check_circuit",
                        constraining::run_check_circuit(polynomials, num_rows, skippable_enabled));
-    } catch (std::runtime_error& e) {
-        // FIXME: This exception is never caught because it's thrown in a different thread.
-        // Execution never gets here!
+    } catch (const std::exception& e) {
+        // Exceptions from parallel threads are now properly propagated by run_check_circuit
         vinfo("Circuit check failed: ", e.what());
+        return false;
     }
 
     return true;

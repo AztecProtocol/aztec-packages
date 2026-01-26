@@ -82,6 +82,17 @@ constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = Fuz
     { FuzzerTxDataMutationType::ProtocolContractsMutation, 4 },
 });
 
+constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION_WITHOUT_BYTECODE_MUTATION =
+    FuzzerTxDataMutationConfig({
+        { FuzzerTxDataMutationType::TxFuzzerDataMutation, 50 },
+        { FuzzerTxDataMutationType::TxMutation, 0 },
+        { FuzzerTxDataMutationType::BytecodeMutation, 0 },
+        { FuzzerTxDataMutationType::ContractClassMutation, 0 },
+        { FuzzerTxDataMutationType::ContractInstanceMutation, 0 },
+        { FuzzerTxDataMutationType::GlobalVariablesMutation, 0 },
+        { FuzzerTxDataMutationType::ProtocolContractsMutation, 0 },
+    });
+
 // Build bytecode and contract artifacts from fuzzer data
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
@@ -120,7 +131,8 @@ size_t mutate_tx_data(FuzzerContext& context,
                       uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
-                      unsigned int seed);
+                      unsigned int seed,
+                      FuzzerTxDataMutationConfig mutation_config = FUZZER_TX_DATA_MUTATION_CONFIGURATION);
 
 void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data);
 
