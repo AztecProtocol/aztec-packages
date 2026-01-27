@@ -673,7 +673,8 @@ print("    static constexpr size_t rounds_p = {};".format(R_P_FIXED))
 print("    static constexpr size_t sbox_size = {};".format(FIELD_SIZE))
 
 # Efficient partial matrix (diagonal - 1)
-print("static constexpr std::array<FF, t> internal_matrix_diagonal = {")
+# These are D_i - 1 where D_i are the actual diagonal values of M_I
+print("static constexpr std::array<FF, t> internal_matrix_diagonal_minus_one = {")
 for val in MATRIX_PARTIAL_DIAGONAL_M_1:
     to_hex(val)
 print("};")
