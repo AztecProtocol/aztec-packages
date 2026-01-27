@@ -30,16 +30,10 @@ function slack_report {
 function build {
     if [ -n "${MAKEFILE_TARGET:-}" ]; then
         echo "Building target: $MAKEFILE_TARGET..."
-        if ! make $MAKEFILE_TARGET 2>&1 | tail -20; then
-            echo "Build failed"
-            return 1
-        fi
+        make $MAKEFILE_TARGET
     else
         echo "Building (full bootstrap)..."
-        if ! ./bootstrap.sh 2>&1 | tail -20; then
-            echo "Build failed"
-            return 1
-        fi
+        ./bootstrap.sh
     fi
 }
 
@@ -58,13 +52,9 @@ echo
 # If ALL fail, it's a real failure, not a flake
 # ============================================================
 echo "=== Step 1: Build and grind test $GRIND_RUNS times at HEAD ==="
-
-if ! build; then
-    exit 1
-fi
+build
 
 echo "Expecting all to fail if real failure, any pass if flake..."
-
 # --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
@@ -78,12 +68,47 @@ else
 fi
 
 # ============================================================
-# Step 2: Use git bisect to find the first bad commit
+# Step 2: Verify oldest commit is stable (not flaky)
+# ============================================================
+echo
+echo "=== Step 2: Verify oldest commit is stable ==="
+
+# Find the oldest commit to test (go back BISECT_MAX_DEPTH commits)
+good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
+    echo "Cannot go back $BISECT_MAX_DEPTH commits, using earliest available"
+    good_commit=$(git rev-list --max-parents=0 HEAD | head -1)
+}
+
+echo "Testing oldest commit: ${good_commit:0:8}..."
+git checkout $good_commit --quiet
+
+if ! build; then
+    git checkout $commit --quiet
+    slack_report ":warning: *Build Failed at Oldest Commit*\n*Test:* \`$test_cmd\`\nCannot build at ${good_commit:0:8}"
+    exit 1
+fi
+
+# Grind to check if oldest commit is stable
+echo "Grinding $bisect_runs times to verify stability..."
+if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
+    "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+    echo "Oldest commit is stable - proceeding with bisect"
+else
+    git checkout $commit --quiet
+    slack_report ":warning: *Flake Predates Search Range*\n*Test:* \`$test_cmd\`\nCommit ${good_commit:0:8} ($BISECT_MAX_DEPTH commits ago) is also flaky. The flake was introduced earlier."
+    exit 0
+fi
+
+# Return to original commit for bisect
+git checkout $commit --quiet
+
+# ============================================================
+# Step 3: Use git bisect to find the first bad commit
 # bisect bad = flaky (fails sometimes)
 # bisect good = stable (passes consistently)
 # ============================================================
 echo
-echo "=== Step 2: Git bisect to find flake source ==="
+echo "=== Step 3: Git bisect to find flake source ==="
 
 # Clean up any existing bisect
 git bisect reset &>/dev/null || true
@@ -94,11 +119,7 @@ git bisect start
 # Current commit is bad (flaky)
 git bisect bad "$commit"
 
-# Find a good commit (go back BISECT_MAX_DEPTH commits)
-good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
-    echo "Cannot go back $BISECT_MAX_DEPTH commits, using earliest available"
-    good_commit=$(git rev-list --max-parents=0 HEAD | head -1)
-}
+# Mark the verified good commit
 git bisect good "$good_commit"
 
 echo "Bisecting between ${good_commit:0:8} (good) and ${commit:0:8} (bad)..."
