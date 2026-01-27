@@ -1183,6 +1183,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.contractDataSource,
       new DateProvider(),
       this.telemetry,
+      this.log.getBindings(),
     );
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
@@ -1236,16 +1237,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
-      timestamp: nextSlotTimestamp,
-      blockNumber,
-      l1ChainId: this.l1ChainId,
-      rollupVersion: this.version,
-      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentMinFees(),
-      skipFeeEnforcement,
-      txsPermitted: !this.config.disableTransactions,
-    });
+    const validator = createValidatorForAcceptingTxs(
+      db,
+      this.contractDataSource,
+      verifier,
+      {
+        timestamp: nextSlotTimestamp,
+        blockNumber,
+        l1ChainId: this.l1ChainId,
+        rollupVersion: this.version,
+        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        gasFees: await this.getCurrentMinFees(),
+        skipFeeEnforcement,
+        txsPermitted: !this.config.disableTransactions,
+      },
+      this.log.getBindings(),
+    );
 
     return await validator.validateTx(tx);
   }

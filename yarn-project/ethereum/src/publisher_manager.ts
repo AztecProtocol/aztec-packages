@@ -1,5 +1,5 @@
 import { pick } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
@@ -28,13 +28,15 @@ const busyStates: TxUtilsState[] = [
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
-  private log = createLogger('publisher:manager');
+  private log: Logger;
   private config: { publisherAllowInvalidStates?: boolean };
 
   constructor(
     private publishers: UtilsType[],
     config: { publisherAllowInvalidStates?: boolean },
+    bindings?: LoggerBindings,
   ) {
+    this.log = createLogger('publisher:manager', bindings);
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
     this.config = pick(config, 'publisherAllowInvalidStates');

@@ -63,6 +63,7 @@ describe.each([
       simulator,
       new TestDateProvider(),
       getTelemetryClient(),
+      createLogger('simulator:public-processor'),
     );
 
     tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);

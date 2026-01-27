@@ -1,3 +1,4 @@
+import type { LoggerBindings } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -22,9 +23,10 @@ export async function createWorldStateSynchronizer(
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   client: TelemetryClient = getTelemetryClient(),
+  bindings?: LoggerBindings,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation);
+  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation, bindings);
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
@@ -42,6 +44,7 @@ export async function createWorldState(
     Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb' | 'l1Contracts'>,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+  bindings?: LoggerBindings,
 ) {
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
   const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
@@ -65,11 +68,14 @@ export async function createWorldState(
         wsTreeMapSizes,
         prefilledPublicData,
         instrumentation,
+        bindings,
       )
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),
         prefilledPublicData,
+        instrumentation,
+        bindings,
       );
 
   return merkleTrees;

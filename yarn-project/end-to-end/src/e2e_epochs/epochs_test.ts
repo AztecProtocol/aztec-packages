@@ -14,7 +14,7 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -211,14 +211,14 @@ export class EpochsTestContext {
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
-    const suffix = (this.proverNodes.length + 1).toString();
-    const proverNode = await withLogNameSuffix(suffix, () =>
+    const proverIndex = this.proverNodes.length + 1;
+    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
         { ...this.context.config },
         {
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+          proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
@@ -247,12 +247,13 @@ export class EpochsTestContext {
   private async createNode(
     opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
   ) {
-    const suffix = (this.nodes.length + 1).toString();
+    const nodeIndex = this.nodes.length + 1;
+    const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLogNameSuffix(suffix, () =>
+    const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
       AztecNodeService.createAndSync(
         {
           ...resolvedConfig,
