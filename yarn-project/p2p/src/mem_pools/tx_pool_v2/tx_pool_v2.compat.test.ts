@@ -45,7 +45,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
   const block0Id: L2BlockId = { number: BlockNumber(0), hash: '0x0' };
 
   const checkPendingTxConsistency = async () => {
-    const pendingTxHashCount = pool.getPendingTxHashes().length;
+    const pendingTxHashCount = (await pool.getPendingTxHashes()).length;
     expect(await pool.getPendingTxCount()).toEqual(pendingTxHashCount);
   };
 
@@ -102,8 +102,8 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.addPendingTxs([tx1]);
       const poolTx = await pool.getTxByHash(tx1.getTxHash());
       expect(poolTx!.getTxHash()).toEqual(tx1.getTxHash());
-      expect(pool.getTxStatus(tx1.getTxHash())).toEqual('pending');
-      expect(pool.getPendingTxHashes()).toEqual([tx1.getTxHash()]);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toEqual('pending');
+      expect(await pool.getPendingTxHashes()).toEqual([tx1.getTxHash()]);
       expect(await pool.getPendingTxCount()).toEqual(1);
     });
 
@@ -138,7 +138,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       // Delete a pending tx via handleFailedExecution - should be permanently deleted
       await pool.handleFailedExecution([pendingTx.getTxHash()]);
       expect(await pool.getTxByHash(pendingTx.getTxHash())).toBeUndefined();
-      expect(pool.getTxStatus(pendingTx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBeUndefined();
 
       expect(await pool.getPendingTxCount()).toEqual(0);
     });
@@ -152,12 +152,12 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
       const retrievedTx = await pool.getTxByHash(tx1.getTxHash());
       expect(retrievedTx?.getTxHash()).toEqual(tx1.getTxHash());
-      expect(pool.getTxStatus(tx1.getTxHash())).toEqual('mined');
-      const minedHashes = pool.getMinedTxHashes();
+      expect(await pool.getTxStatus(tx1.getTxHash())).toEqual('mined');
+      const minedHashes = await pool.getMinedTxHashes();
       expect(minedHashes.length).toEqual(1);
       expect(minedHashes[0][0]).toEqual(tx1.getTxHash());
       expect(minedHashes[0][1].number).toEqual(BlockNumber(1));
-      expect(pool.getPendingTxHashes()).toEqual([tx2.getTxHash()]);
+      expect(await pool.getPendingTxHashes()).toEqual([tx2.getTxHash()]);
       expect(await pool.getPendingTxCount()).toEqual(1);
     });
 
@@ -169,8 +169,8 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
 
       await pool.handlePrunedBlocks(block0Id);
-      expect(pool.getMinedTxHashes()).toEqual([]);
-      const pending = pool.getPendingTxHashes();
+      expect(await pool.getMinedTxHashes()).toEqual([]);
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toHaveLength(2);
       expect(pending).toEqual(expect.arrayContaining([tx1.getTxHash(), tx2.getTxHash()]));
       expect(await pool.getPendingTxCount()).toEqual(2);
@@ -187,14 +187,14 @@ describe('TxPoolV2 Compatibility Tests', () => {
       // For tx2, we can add it as mined directly
       await pool.addMinedTxs([tx2], block1Header);
 
-      const minedHashes = pool.getMinedTxHashes();
+      const minedHashes = await pool.getMinedTxHashes();
       expect(minedHashes.length).toBe(2);
 
       // reorg: both txs should now become available again
       await pool.handlePrunedBlocks(block0Id);
-      expect(pool.getMinedTxHashes()).toEqual([]);
+      expect(await pool.getMinedTxHashes()).toEqual([]);
       // Both should be pending now since tx2 was added via addMinedTxs
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toHaveLength(2);
       expect(pending).toEqual(expect.arrayContaining([tx1.getTxHash(), tx2.getTxHash()]));
     });
@@ -257,7 +257,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
       await pool.addPendingTxs([tx1, tx2, tx3, tx4]);
 
-      const poolTxHashes = pool.getPendingTxHashes();
+      const poolTxHashes = await pool.getPendingTxHashes();
       expect(poolTxHashes).toHaveLength(4);
       expect(poolTxHashes).toEqual([tx4, tx1, tx3, tx2].map(tx => tx.getTxHash()));
     });
@@ -280,7 +280,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.handleFinalizedBlock(block1Header);
 
       // Verify mined tx is deleted
-      expect(pool.getTxStatus(txs[0].getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txs[0].getTxHash())).toBeUndefined();
 
       // Verify remaining pending count
       expect(await pool.getPendingTxCount()).toBe(2);
@@ -346,40 +346,40 @@ describe('TxPoolV2 Compatibility Tests', () => {
     const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await pool.addPendingTxs([tx1, tx2, tx3]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx3.getTxHash(), tx2.getTxHash(), tx1.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx3.getTxHash(), tx2.getTxHash(), tx1.getTxHash()]);
 
     // once the tx pool count limit is reached, the lowest priority txs (tx1, tx2) should be evicted
     const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
     const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
     await pool.addPendingTxs([tx4, tx5]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
 
     // if another low priority tx is added after the tx pool count limit is reached, it should be evicted
     const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await pool.addPendingTxs([tx6]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
 
     // if a tx is deleted via handleFailedExecution, any txs can be added until the limit is reached
     await pool.handleFailedExecution([tx3.getTxHash()]);
     const tx7 = await mockTx(7, { maxPriorityFeesPerGas: new GasFees(2, 2) });
     await pool.addPendingTxs([tx7]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx7.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx7.getTxHash()]);
 
     // if a tx is mined, any txs can be added until the limit is reached
     await pool.handleMinedBlock([tx4.getTxHash()], block1Header);
     const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await pool.addPendingTxs([tx8]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
 
     // verify that the tx pool count limit is respected after mining and deletions
     const tx9 = await mockTx(9, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await pool.addPendingTxs([tx9]);
     await checkPendingTxConsistency();
-    expect(pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
   });
 
   it('respects the maximum transaction count configured', async () => {
@@ -399,7 +399,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.addPendingTxs(firstBatch);
 
     // we've just added 10 txs. They should all be available
-    expect(await toArray(sort(pool.getPendingTxHashes(), cmp))).toEqual(
+    expect(await toArray(sort(await pool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
           map(firstBatch, tx => tx.getTxHash()),
@@ -439,7 +439,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.addPendingTxs(firstBatch);
 
     // we've just added 10 txs. They should all be available
-    expect(await toArray(sort(pool.getPendingTxHashes(), cmp))).toEqual(
+    expect(await toArray(sort(await pool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
           map(firstBatch, tx => tx.getTxHash()),
@@ -450,10 +450,10 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
     // now set the limit to 5 txs
     const numRemainingTxs = 5;
-    pool.updateConfig({ maxPendingTxCount: numRemainingTxs });
+    await pool.updateConfig({ maxPendingTxCount: numRemainingTxs });
 
     // txs are not immediately evicted
-    expect(await toArray(sort(pool.getPendingTxHashes(), cmp))).toEqual(
+    expect(await toArray(sort(await pool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
           map(firstBatch, tx => tx.getTxHash()),
@@ -471,7 +471,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     // There should now just be numRemainingTxs txs in the pool
     expect(await pool.getPendingTxCount()).toEqual(finalExpectedPool.length);
 
-    expect(await toArray(sort(pool.getPendingTxHashes(), cmp))).toEqual(
+    expect(await toArray(sort(await pool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
           map(finalExpectedPool, tx => tx.getTxHash()),
@@ -504,7 +504,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
 
     // tx4 should be the only pending tx
-    expect(pool.getPendingTxHashes()).toEqual([tx4.getTxHash()]);
+    expect(await pool.getPendingTxHashes()).toEqual([tx4.getTxHash()]);
   });
 
   it('Evicts txs with an insufficient fee payer balance after a block is mined', async () => {
@@ -533,7 +533,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.addProtectedTxs([tx4], block1Header);
     await pool.handleMinedBlock([tx4.getTxHash()], block1Header);
 
-    const pendingTxHashes = pool.getPendingTxHashes();
+    const pendingTxHashes = await pool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
   });
@@ -558,7 +558,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.handleMinedBlock(txHashes, block1Header);
     await pool.handlePrunedBlocks(block0Id);
 
-    const pendingTxHashes = pool.getPendingTxHashes();
+    const pendingTxHashes = await pool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
   });
@@ -588,7 +588,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.handlePrunedBlocks(block0Id);
     await checkPendingTxConsistency();
 
-    const pendingTxHashes = pool.getPendingTxHashes();
+    const pendingTxHashes = await pool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
   });
@@ -675,7 +675,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       await pool.addPendingTxs([tx2]);
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx2.getTxHash());
     });
 
@@ -691,7 +691,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       await pool.addPendingTxs([tx2]);
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx2.getTxHash());
     });
 
@@ -706,7 +706,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       await pool.addPendingTxs([tx2]);
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx1.getTxHash());
       expect(pending).not.toContainEqual(tx2.getTxHash()); // tx2 has lower fee, should be rejected
     });
@@ -726,7 +726,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       setNullifier(tx3, 0, getNullifier(tx2, 0));
 
       await pool.addPendingTxs([tx3]);
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx2.getTxHash());
       expect(pending).not.toContainEqual(tx3.getTxHash());
       expect(pending.length).toBe(1);

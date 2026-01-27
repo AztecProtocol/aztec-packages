@@ -134,7 +134,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
 
       expect(result.accepted).toContainEqual(tx2.getTxHash());
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx2.getTxHash());
       expect(pending).not.toContainEqual(tx1.getTxHash());
     });
@@ -149,7 +149,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
 
       expect(result.rejected).toContainEqual(tx2.getTxHash());
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx1.getTxHash());
       expect(pending).not.toContainEqual(tx2.getTxHash());
     });
@@ -168,7 +168,7 @@ describe('TxPoolV2', () => {
     });
 
     it('respects maxPendingTxCount limit', async () => {
-      pool.updateConfig({ maxPendingTxCount: 3 });
+      await await pool.updateConfig({ maxPendingTxCount: 3 });
 
       const tx1 = await mockTxWithFee(1, 1);
       const tx2 = await mockTxWithFee(2, 2);
@@ -183,7 +183,7 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx4, tx5]);
       expect(await pool.getPendingTxCount()).toBe(3);
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx5.getTxHash());
       expect(pending).toContainEqual(tx4.getTxHash());
       expect(pending).toContainEqual(tx3.getTxHash());
@@ -221,30 +221,30 @@ describe('TxPoolV2', () => {
 
       await pool.addProtectedTxs([tx], slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
       expect(await pool.getPendingTxCount()).toBe(0); // Not in pending
     });
 
     it('updates existing pending transactions to protected', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
 
       await pool.addProtectedTxs([tx], slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
       expect(await pool.getPendingTxCount()).toBe(0);
     });
 
     it('does not modify mined transactions', async () => {
       const tx = await mockTx(1);
       await pool.addMinedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.addProtectedTxs([tx], slot2Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
   });
 
@@ -256,7 +256,7 @@ describe('TxPoolV2', () => {
       const missing = await pool.protectTxs([tx.getTxHash()], slot1Header);
 
       expect(missing).toHaveLength(0);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
     it('returns missing transaction hashes', async () => {
@@ -279,7 +279,7 @@ describe('TxPoolV2', () => {
 
       // Now add the tx via gossip - it should be immediately protected
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
     it('updates slot number when re-protecting via protectTxs', async () => {
@@ -288,19 +288,19 @@ describe('TxPoolV2', () => {
       // Add and protect for slot 1
       await pool.addPendingTxs([tx]);
       await pool.protectTxs([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Re-protect for slot 2 via protectTxs
       await pool.protectTxs([tx.getTxHash()], slot2Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(2) should NOT unprotect since slot was updated to 2
       await pool.prepareForSlot(SlotNumber(2));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(3) should unprotect
       await pool.prepareForSlot(SlotNumber(3));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('updates pre-protected slot when called again before tx arrives', async () => {
@@ -316,11 +316,11 @@ describe('TxPoolV2', () => {
 
       // Now add the tx - it should be protected for slot 2
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(2) should NOT unprotect since it's for slot 2
       await pool.prepareForSlot(SlotNumber(2));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
   });
 
@@ -331,7 +331,7 @@ describe('TxPoolV2', () => {
 
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
 
     it('marks pending transactions as mined', async () => {
@@ -340,7 +340,7 @@ describe('TxPoolV2', () => {
 
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getPendingTxCount()).toBe(0);
     });
 
@@ -391,7 +391,7 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([pendingTx]);
 
       expect(await pool.getPendingTxCount()).toBe(1);
-      expect(pool.getTxStatus(pendingTx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBe('pending');
 
       // Now give pendingTx the same nullifier as minedTx by manipulating the metadata
       // This simulates a situation where the nullifier wasn't visible before (e.g., from public execution)
@@ -439,11 +439,11 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock([minedTxFinal.getTxHash()], slot1Header);
 
       // The pending transaction should be deleted due to nullifier conflict
-      expect(pool.getTxStatus(pendingTxFinal.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(pendingTxFinal.getTxHash())).toBeUndefined();
       expect(await pool.getPendingTxCount()).toBe(0);
 
       // The mined transaction should still be there
-      expect(pool.getTxStatus(minedTxFinal.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(minedTxFinal.getTxHash())).toBe('mined');
     });
   });
 
@@ -451,11 +451,11 @@ describe('TxPoolV2', () => {
     it('unprotects transactions from earlier slots', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.prepareForSlot(SlotNumber(2));
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
     });
 
@@ -467,8 +467,8 @@ describe('TxPoolV2', () => {
 
       await pool.prepareForSlot(SlotNumber(2));
 
-      expect(pool.getTxStatus(tx1.getTxHash())).toBe('pending');
-      expect(pool.getTxStatus(tx2.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('protected');
     });
 
     it('keeps tx protected when re-protected for later slot before late prepareForSlot', async () => {
@@ -478,16 +478,16 @@ describe('TxPoolV2', () => {
 
       // Initially protected for slot 1
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Re-protected for slot 2 (new proposer takes over)
       await pool.addProtectedTxs([tx], slot2Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Late prepareForSlot(2) - tx should NOT be unprotected since it's now for slot 2
       await pool.prepareForSlot(SlotNumber(2));
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
     it('keeps tx protected when re-protected for even later slot', async () => {
@@ -509,15 +509,15 @@ describe('TxPoolV2', () => {
 
       // prepareForSlot(2) - tx should stay protected (it's for slot 3)
       await pool.prepareForSlot(SlotNumber(2));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(3) - tx should still be protected (current slot)
       await pool.prepareForSlot(SlotNumber(3));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(4) - NOW tx should be unprotected
       await pool.prepareForSlot(SlotNumber(4));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('cleans up stale pre-protected hash records', async () => {
@@ -531,7 +531,7 @@ describe('TxPoolV2', () => {
 
       // Now add the tx - it should be pending, not protected
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('is idempotent for same slot', async () => {
@@ -541,7 +541,7 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
       await pool.prepareForSlot(SlotNumber(2));
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
     });
   });
@@ -551,11 +551,11 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
     });
   });
@@ -567,7 +567,7 @@ describe('TxPoolV2', () => {
 
       await pool.handleFailedExecution([tx.getTxHash()]);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       expect(await pool.getPendingTxCount()).toBe(0);
     });
   });
@@ -580,19 +580,19 @@ describe('TxPoolV2', () => {
 
       await pool.handleFinalizedBlock(slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       expect(await pool.getTxByHash(tx.getTxHash())).toBeUndefined();
     });
 
     it('archives transactions if configured', async () => {
-      pool.updateConfig({ archivedTxLimit: 10 });
+      await pool.updateConfig({ archivedTxLimit: 10 });
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
 
       await pool.handleFinalizedBlock(slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       const archived = await pool.getArchivedTxByHash(tx.getTxHash());
       expect(archived).toBeDefined();
       expect(archived!.getTxHash()).toEqual(tx.getTxHash());
@@ -604,29 +604,29 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
 
     it('pending -> protected -> pending (slot passed)', async () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.prepareForSlot(SlotNumber(2));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('pending -> protected -> mined -> pending (reorg, still valid)', async () => {
@@ -635,33 +635,33 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx]);
       await pool.addProtectedTxs([tx], slot1Header);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('N/A -> protected -> mined -> deleted (req/resp flow)', async () => {
       const tx = await mockTx(1);
 
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
 
     it('N/A -> mined -> deleted (prover flow)', async () => {
       const tx = await mockTx(1);
 
       await pool.addMinedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
   });
 
@@ -673,7 +673,7 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([tx1, tx2, tx3]);
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending[0]).toEqual(tx2.getTxHash());
       expect(pending[1]).toEqual(tx3.getTxHash());
       expect(pending[2]).toEqual(tx1.getTxHash());
@@ -688,7 +688,7 @@ describe('TxPoolV2', () => {
       // Add in random order
       await pool.addPendingTxs([tx2, tx1, tx3]);
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toHaveLength(3);
 
       // All have the same fee, so they should be sorted by hash (highest first)
@@ -709,7 +709,7 @@ describe('TxPoolV2', () => {
       // Add in random order
       await pool.addPendingTxs([txLowFee2, txHighFee1, txMidFee, txLowFee1, txHighFee2]);
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toHaveLength(5);
 
       // Group by expected order: high fees first (sorted by hash), then mid, then low (sorted by hash)
@@ -736,7 +736,7 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
       await pool.handleMinedBlock([tx2.getTxHash()], slot2Header);
 
-      const mined = pool.getMinedTxHashes();
+      const mined = await pool.getMinedTxHashes();
       expect(mined).toHaveLength(2);
 
       // Find entries by tx hash and check block ID structure
@@ -768,7 +768,7 @@ describe('TxPoolV2', () => {
 
   describe('archive', () => {
     it('archives mined transactions on deletion', async () => {
-      pool.updateConfig({ archivedTxLimit: 5 });
+      await pool.updateConfig({ archivedTxLimit: 5 });
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
@@ -780,7 +780,7 @@ describe('TxPoolV2', () => {
     });
 
     it('enforces archivedTxLimit with FIFO eviction', async () => {
-      pool.updateConfig({ archivedTxLimit: 2 });
+      await pool.updateConfig({ archivedTxLimit: 2 });
 
       const txs = await timesAsync(5, i => mockTx(i + 1));
 
@@ -898,7 +898,7 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Simulate reorg - anchor block is no longer in archive
       db.findLeafIndices.mockResolvedValue([undefined]); // Block not found
@@ -906,7 +906,7 @@ describe('TxPoolV2', () => {
       await pool.handlePrunedBlocks(block0Id);
 
       // Tx should be deleted because its anchor block was pruned
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
 
     it('keeps txs with valid anchor blocks after reorg', async () => {
@@ -920,7 +920,7 @@ describe('TxPoolV2', () => {
       await pool.handlePrunedBlocks(block0Id);
 
       // Tx should be restored to pending
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('handles mixed valid/invalid anchor blocks in batch', async () => {
@@ -938,8 +938,8 @@ describe('TxPoolV2', () => {
       await pool.handlePrunedBlocks(block0Id);
 
       // Both should be restored to pending since they share valid anchor block
-      expect(pool.getTxStatus(txValid.getTxHash())).toBe('pending');
-      expect(pool.getTxStatus(txAlsoValid.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txValid.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txAlsoValid.getTxHash())).toBe('pending');
     });
 
     it('evicts all txs when shared anchor block is pruned', async () => {
@@ -955,8 +955,8 @@ describe('TxPoolV2', () => {
       await pool.handlePrunedBlocks(block0Id);
 
       // Both should be deleted since their anchor block was pruned
-      expect(pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
-      expect(pool.getTxStatus(tx2.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBeUndefined();
     });
   });
 
@@ -986,16 +986,16 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock([tx2.getTxHash()], slot2Header);
       await pool.handleMinedBlock([tx3.getTxHash()], slot3Header);
 
-      expect(pool.getTxStatus(tx1.getTxHash())).toBe('mined');
-      expect(pool.getTxStatus(tx2.getTxHash())).toBe('mined');
-      expect(pool.getTxStatus(tx3.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('mined');
 
       // Prune back to block 1 - tx2 and tx3 should be un-mined
       await pool.handlePrunedBlocks(block1Id);
 
-      expect(pool.getTxStatus(tx1.getTxHash())).toBe('mined');
-      expect(pool.getTxStatus(tx2.getTxHash())).toBe('pending');
-      expect(pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(2);
     });
 
@@ -1007,13 +1007,13 @@ describe('TxPoolV2', () => {
       // Mine, prune, re-mine cycle
       await pool.addPendingTxs([tx]);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       await pool.handleMinedBlock([tx.getTxHash()], slot2Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
 
     it('handles consecutive reorgs', async () => {
@@ -1026,15 +1026,15 @@ describe('TxPoolV2', () => {
 
       // First reorg to block 2
       await pool.handlePrunedBlocks(block2Id);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       // Re-mine in block 3
       await pool.handleMinedBlock([tx.getTxHash()], slot3Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Second reorg all the way to block 0
       await pool.handlePrunedBlocks(block0Id);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('cleans up indices properly through multiple state transitions', async () => {
@@ -1059,14 +1059,14 @@ describe('TxPoolV2', () => {
 
       // tx1 is pending again, tx2 should be evicted due to nullifier conflict
       // (depends on which has higher priority)
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx1.getTxHash()); // tx1 has higher fee
     });
   });
 
   describe('protected tx behavior', () => {
     it('protected txs are not evicted by low priority rule', async () => {
-      pool.updateConfig({ maxPendingTxCount: 2 });
+      await pool.updateConfig({ maxPendingTxCount: 2 });
 
       const tx1 = await mockTxWithFee(1, 1);
       const tx2 = await mockTxWithFee(2, 2);
@@ -1079,18 +1079,18 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx1, tx2]);
 
       // Protected tx should still exist
-      expect(pool.getTxStatus(txProtected.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(txProtected.getTxHash())).toBe('protected');
     });
 
     it('protected txs become pending on slot transition', async () => {
       const tx = await mockTx(1);
 
       await pool.addProtectedTxs([tx], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
       expect(await pool.getPendingTxCount()).toBe(0);
 
       await pool.prepareForSlot(SlotNumber(2));
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
     });
 
@@ -1099,17 +1099,17 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([tx]);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Try to protect - should remain mined
       await pool.addProtectedTxs([tx], slot2Header);
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
   });
 
   describe('pool size limits', () => {
     it('evicts lowest priority when adding beyond limit', async () => {
-      pool.updateConfig({ maxPendingTxCount: 3 });
+      await pool.updateConfig({ maxPendingTxCount: 3 });
 
       const txs = await Promise.all([
         mockTxWithFee(1, 10),
@@ -1121,11 +1121,11 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs(txs);
 
       expect(await pool.getPendingTxCount()).toBe(3);
-      expect(pool.getTxStatus(txs[3].getTxHash())).toBeUndefined(); // Lowest evicted
+      expect(await pool.getTxStatus(txs[3].getTxHash())).toBeUndefined(); // Lowest evicted
     });
 
     it('handles limit exactly at capacity', async () => {
-      pool.updateConfig({ maxPendingTxCount: 3 });
+      await pool.updateConfig({ maxPendingTxCount: 3 });
 
       const txs = await Promise.all([mockTxWithFee(1, 10), mockTxWithFee(2, 20), mockTxWithFee(3, 30)]);
 
@@ -1137,12 +1137,12 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx4]);
 
       expect(await pool.getPendingTxCount()).toBe(3);
-      expect(pool.getTxStatus(txs[0].getTxHash())).toBeUndefined(); // fee=10 evicted
-      expect(pool.getTxStatus(tx4.getTxHash())).toBe('pending'); // fee=15 kept
+      expect(await pool.getTxStatus(txs[0].getTxHash())).toBeUndefined(); // fee=10 evicted
+      expect(await pool.getTxStatus(tx4.getTxHash())).toBe('pending'); // fee=15 kept
     });
 
     it('new tx with lowest priority is rejected when pool is full', async () => {
-      pool.updateConfig({ maxPendingTxCount: 3 });
+      await pool.updateConfig({ maxPendingTxCount: 3 });
 
       const txs = await Promise.all([mockTxWithFee(1, 10), mockTxWithFee(2, 20), mockTxWithFee(3, 30)]);
 
@@ -1154,11 +1154,11 @@ describe('TxPoolV2', () => {
 
       // New tx should be evicted immediately
       expect(await pool.getPendingTxCount()).toBe(3);
-      expect(pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
     });
 
     it('unprotecting txs respects pool size limit', async () => {
-      pool.updateConfig({ maxPendingTxCount: 2 });
+      await pool.updateConfig({ maxPendingTxCount: 2 });
 
       const tx1 = await mockTxWithFee(1, 10);
       const tx2 = await mockTxWithFee(2, 20);
@@ -1194,7 +1194,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([txConflicting]);
       expect(result.accepted).toContainEqual(txConflicting.getTxHash());
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(txConflicting.getTxHash());
       expect(pending).not.toContainEqual(tx1.getTxHash());
       expect(pending).not.toContainEqual(tx2.getTxHash());
@@ -1216,7 +1216,7 @@ describe('TxPoolV2', () => {
       expect(result.rejected).toContainEqual(txConflicting.getTxHash());
 
       // Original txs should remain
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toContainEqual(tx1.getTxHash());
       expect(pending).toContainEqual(tx2.getTxHash());
     });
@@ -1225,8 +1225,8 @@ describe('TxPoolV2', () => {
   describe('edge cases', () => {
     it('handles empty pool operations gracefully', async () => {
       expect(await pool.getPendingTxCount()).toBe(0);
-      expect(pool.getPendingTxHashes()).toHaveLength(0);
-      expect(pool.getMinedTxHashes()).toHaveLength(0);
+      expect(await pool.getPendingTxHashes()).toHaveLength(0);
+      expect(await pool.getMinedTxHashes()).toHaveLength(0);
       expect(await pool.getLowestPriorityEvictable(10)).toHaveLength(0);
 
       // Operations on non-existent txs
@@ -1245,7 +1245,7 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
       await pool.handleFinalizedBlock(slot1Header);
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       expect(await pool.getTxByHash(tx.getTxHash())).toBeUndefined();
     });
 
@@ -1256,7 +1256,7 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
       await pool.handleMinedBlock([tx.getTxHash()], slot1Header); // Duplicate
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
 
     it('handles finalization of already-deleted tx', async () => {
@@ -1276,7 +1276,7 @@ describe('TxPoolV2', () => {
       // Should not throw or change anything
       await pool.prepareForSlot(SlotNumber(2));
 
-      expect(pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('handles large batch of txs', async () => {
@@ -1288,7 +1288,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getPendingTxCount()).toBe(100);
 
       // Verify ordering is correct (highest fee first)
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending[0]).toEqual(txs[99].getTxHash()); // fee=99
       expect(pending[99]).toEqual(txs[0].getTxHash()); // fee=0
     });
@@ -1299,7 +1299,7 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([txZeroFee, txLowFee]);
 
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending[0]).toEqual(txLowFee.getTxHash());
       expect(pending[1]).toEqual(txZeroFee.getTxHash());
     });
@@ -1318,7 +1318,7 @@ describe('TxPoolV2', () => {
       await pool.handleFailedExecution([tx3.getTxHash()]);
 
       // Check remaining txs are still accessible and ordered correctly
-      const pending = pool.getPendingTxHashes();
+      const pending = await pool.getPendingTxHashes();
       expect(pending).toHaveLength(2);
       expect(pending[0]).toEqual(tx2.getTxHash()); // fee=20
       expect(pending[1]).toEqual(tx1.getTxHash()); // fee=10
@@ -1378,11 +1378,11 @@ describe('TxPoolV2', () => {
 
       // Verify pool state unchanged
       expect(await pool.getPendingTxCount()).toBe(1);
-      expect(pool.getPendingTxHashes()[0]).toEqual(txExisting.getTxHash());
+      expect((await pool.getPendingTxHashes())[0]).toEqual(txExisting.getTxHash());
     });
 
     it('returns accepted when pool has capacity', async () => {
-      pool.updateConfig({ maxPendingTxCount: 10 });
+      await pool.updateConfig({ maxPendingTxCount: 10 });
       const tx = await mockTx(1);
 
       const result = await pool.canAddPendingTx(tx);

@@ -169,30 +169,102 @@ export class AztecKVTxPoolV2
     return this.#queue.put(() => this.#doHandleFinalizedBlock(block));
   }
 
-  // === Queries (can run outside queue since they're read-only) ===
+  // === Queries ===
+  // All queries go through the queue to ensure consistency with pending writes.
 
-  async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const buffer = await this.#txsDB.getAsync(txHash.toString());
-    return buffer ? Tx.fromBuffer(buffer) : undefined;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    return this.#queue.put(async () => {
+      const buffer = await this.#txsDB.getAsync(txHash.toString());
+      return buffer ? Tx.fromBuffer(buffer) : undefined;
+    });
   }
 
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return Promise.all(txHashes.map(h => this.getTxByHash(h)));
+    return this.#queue.put(async () => {
+      const results: (Tx | undefined)[] = [];
+      for (const h of txHashes) {
+        const buffer = await this.#txsDB.getAsync(h.toString());
+        results.push(buffer ? Tx.fromBuffer(buffer) : undefined);
+      }
+      return results;
+    });
   }
 
   hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
-    return Promise.all(txHashes.map(h => this.#txsDB.hasAsync(h.toString())));
+    return this.#queue.put(async () => {
+      const results: boolean[] = [];
+      for (const h of txHashes) {
+        results.push(await this.#txsDB.hasAsync(h.toString()));
+      }
+      return results;
+    });
   }
 
-  getTxStatus(txHash: TxHash): TxState | 'deleted' | undefined {
-    const meta = this.#metadata.get(txHash.toString());
-    if (!meta) {
-      return undefined;
-    }
-    return getTxState(meta);
+  getTxStatus(txHash: TxHash): Promise<TxState | 'deleted' | undefined> {
+    return this.#queue.put(() => {
+      const meta = this.#metadata.get(txHash.toString());
+      if (!meta) {
+        return undefined;
+      }
+      return getTxState(meta);
+    });
   }
 
-  getPendingTxHashes(): TxHash[] {
+  getPendingTxHashes(): Promise<TxHash[]> {
+    return this.#queue.put(() => this.#doGetPendingTxHashes());
+  }
+
+  getPendingTxCount(): Promise<number> {
+    return this.#queue.put(() => this.#doGetPendingTxCount());
+  }
+
+  getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
+    return this.#queue.put(() => {
+      const result: [TxHash, L2BlockId][] = [];
+      for (const [txHash, meta] of this.#metadata) {
+        if (meta.minedL2BlockId !== undefined) {
+          result.push([TxHash.fromString(txHash), meta.minedL2BlockId]);
+        }
+      }
+      return result;
+    });
+  }
+
+  getMinedTxCount(): Promise<number> {
+    return this.#queue.put(() => this.#doGetMinedTxCount());
+  }
+
+  isEmpty(): Promise<boolean> {
+    return this.#queue.put(() => this.#metadata.size === 0);
+  }
+
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    return this.#queue.put(() => this.#archive.getTxByHash(txHash));
+  }
+
+  getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
+    return this.#queue.put(() => this.#doGetLowestPriorityEvictable(limit));
+  }
+
+  // === Configuration ===
+
+  updateConfig(config: Partial<TxPoolV2Config>): Promise<void> {
+    return this.#queue.put(() => {
+      if (config.maxPendingTxCount !== undefined) {
+        this.#config.maxPendingTxCount = config.maxPendingTxCount;
+      }
+      if (config.archivedTxLimit !== undefined) {
+        this.#config.archivedTxLimit = config.archivedTxLimit;
+        this.#archive.updateLimit(config.archivedTxLimit);
+      }
+      // Update eviction rules with new config
+      this.#evictionManager.updateConfig(config);
+    });
+  }
+
+  // === Private Query Implementations ===
+
+  #doGetPendingTxHashes(): TxHash[] {
     // Sort priority fees descending (highest first), then sort hashes within each fee level descending
     const sortedFees = [...this.#pendingByPriority.keys()].sort((a, b) => (b > a ? 1 : b < a ? -1 : 0));
 
@@ -208,25 +280,15 @@ export class AztecKVTxPoolV2
     return result;
   }
 
-  getPendingTxCount(): Promise<number> {
+  #doGetPendingTxCount(): number {
     let count = 0;
     for (const hashes of this.#pendingByPriority.values()) {
       count += hashes.size;
     }
-    return Promise.resolve(count);
+    return count;
   }
 
-  getMinedTxHashes(): [TxHash, L2BlockId][] {
-    const result: [TxHash, L2BlockId][] = [];
-    for (const [txHash, meta] of this.#metadata) {
-      if (meta.minedL2BlockId !== undefined) {
-        result.push([TxHash.fromString(txHash), meta.minedL2BlockId]);
-      }
-    }
-    return result;
-  }
-
-  getMinedTxCount(): number {
+  #doGetMinedTxCount(): number {
     let count = 0;
     for (const meta of this.#metadata.values()) {
       if (meta.minedL2BlockId !== undefined) {
@@ -236,17 +298,9 @@ export class AztecKVTxPoolV2
     return count;
   }
 
-  isEmpty(): boolean {
-    return this.#metadata.size === 0;
-  }
-
-  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return this.#archive.getTxByHash(txHash);
-  }
-
-  getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
+  #doGetLowestPriorityEvictable(limit: number): TxHash[] {
     if (limit <= 0) {
-      return Promise.resolve([]);
+      return [];
     }
 
     // Sort priority fees ascending (lowest first)
@@ -267,21 +321,7 @@ export class AztecKVTxPoolV2
         }
       }
     }
-    return Promise.resolve(result);
-  }
-
-  // === Configuration ===
-
-  updateConfig(config: Partial<TxPoolV2Config>): void {
-    if (config.maxPendingTxCount !== undefined) {
-      this.#config.maxPendingTxCount = config.maxPendingTxCount;
-    }
-    if (config.archivedTxLimit !== undefined) {
-      this.#config.archivedTxLimit = config.archivedTxLimit;
-      this.#archive.updateLimit(config.archivedTxLimit);
-    }
-    // Update eviction rules with new config
-    this.#evictionManager.updateConfig(config);
+    return result;
   }
 
   // === Lifecycle ===
@@ -308,7 +348,7 @@ export class AztecKVTxPoolV2
     await this.#hydrateFromDatabase();
 
     this.#log.info(
-      `Transaction pool started with ${this.#metadata.size} transactions (${await this.getPendingTxCount()} pending, ${this.getMinedTxCount()} mined)`,
+      `Transaction pool started with ${this.#metadata.size} transactions (${this.#doGetPendingTxCount()} pending, ${this.#doGetMinedTxCount()} mined)`,
     );
   }
 

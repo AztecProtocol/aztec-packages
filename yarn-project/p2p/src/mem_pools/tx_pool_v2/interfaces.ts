@@ -172,6 +172,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   handleFinalizedBlock(block: BlockHeader): Promise<void>;
 
   // === Queries ===
+  // All queries go through the queue to ensure consistency with pending writes.
 
   /** Gets a transaction by its hash */
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
@@ -183,22 +184,22 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
   /** Gets the status of a transaction */
-  getTxStatus(txHash: TxHash): TxState | 'deleted' | undefined;
+  getTxStatus(txHash: TxHash): Promise<TxState | 'deleted' | undefined>;
 
   /** Gets pending transaction hashes sorted by priority (highest first) */
-  getPendingTxHashes(): TxHash[];
+  getPendingTxHashes(): Promise<TxHash[]>;
 
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;
 
   /** Gets mined transaction hashes with their block IDs */
-  getMinedTxHashes(): [TxHash, L2BlockId][];
+  getMinedTxHashes(): Promise<[TxHash, L2BlockId][]>;
 
   /** Gets the count of mined transactions */
-  getMinedTxCount(): number;
+  getMinedTxCount(): Promise<number>;
 
   /** Checks if the pool is empty */
-  isEmpty(): boolean;
+  isEmpty(): Promise<boolean>;
 
   /** Gets an archived transaction by its hash */
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
@@ -209,7 +210,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   // === Configuration ===
 
   /** Updates the pool configuration */
-  updateConfig(config: Partial<TxPoolV2Config>): void;
+  updateConfig(config: Partial<TxPoolV2Config>): Promise<void>;
 
   // === Lifecycle ===
 
