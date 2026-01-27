@@ -17,17 +17,11 @@ enum class TamperType {
 
 /**
  * @brief Compute the proof length for re-exporting after tampering
- * @details Excludes IPA proof length for flavors with IPA accumulator since it's added again by export_proof
+ * @details ProofLength::Honk excludes IPA (handled separately by prover/verifier for rollup flavors)
  */
 template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs)
 {
-    size_t num_frs = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + num_public_inputs;
-    // ProofLength::Honk already includes IPA for rollup flavors, but export_proof adds it again,
-    // so we subtract it here
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        num_frs -= IPA_PROOF_LENGTH;
-    }
-    return num_frs;
+    return ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + num_public_inputs;
 }
 
 /**

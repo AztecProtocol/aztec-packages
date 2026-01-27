@@ -91,18 +91,18 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(23177, 76);
+            return std::make_tuple(23178, 76);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(24328, 76);
+            return std::make_tuple(24329, 76);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(28048, 80);
+            return std::make_tuple(28049, 80);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(29301, 80);
+            return std::make_tuple(29302, 80);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
@@ -131,22 +131,22 @@ inline constexpr size_t CHONK_RECURSION_GATES = 2385456;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 25828;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 25829;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 848 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 89;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 60601;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 60603;
 inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1700 + MSM_ROWS_OFFSET;
 inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 179;
 
 // Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33758;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33760;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 96;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36897;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36899;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1341 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 

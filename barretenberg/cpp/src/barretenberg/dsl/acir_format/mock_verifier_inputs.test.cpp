@@ -31,7 +31,8 @@ static_assert(ProofLength::Honk<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraFla
               "Ultra Honk proof size changed");
 static_assert(ProofLength::Honk<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraZKFlavor::VIRTUAL_LOG_N) == 492,
               "UltraZK Honk proof size changed");
-static_assert(ProofLength::Honk<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraRollupFlavor::VIRTUAL_LOG_N) == 505,
+// UltraRollupFlavor has same base Honk proof length as UltraFlavor (IPA is handled separately)
+static_assert(ProofLength::Honk<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraRollupFlavor::VIRTUAL_LOG_N) == 441,
               "UltraRollup Honk proof size changed");
 
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,

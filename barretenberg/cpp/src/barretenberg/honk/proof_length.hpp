@@ -95,20 +95,14 @@ template <typename Flavor> struct Shplemini : CodecConstants<Flavor> {
 
 /**
  * @brief Full Honk proof layout (used by UltraVerifier).
- * @details Honk proof = Oink + Sumcheck + Shplemini (+ IPA for Rollup flavors).
+ * @details Honk proof = Oink + Sumcheck + Shplemini.
+ *          Note: IPA proof is handled separately for rollup flavors (appended by prover, split by verifier).
  */
 template <typename Flavor> struct Honk {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
-        size_t base_length = Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
-                             Shplemini<Flavor>::LENGTH(log_n);
-
-        // Rollup flavors include IPA proof
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            return base_length + IPA_PROOF_LENGTH;
-        } else {
-            return base_length;
-        }
+        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
+               Shplemini<Flavor>::LENGTH(log_n);
     }
 
     /**

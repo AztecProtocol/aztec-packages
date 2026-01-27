@@ -32,11 +32,15 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     HonkProof mega_proof;     // MegaZK proof of the hiding kernel circuit
     GoblinProof goblin_proof; // Goblin proof (Merge + ECCVM + IPA + Translator)
 
+    // Hiding kernel proof length (MegaZK with fixed circuit size)
+    static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
+        ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
+
     /**
      * @brief The size of a Chonk proof without backend-added public inputs
      */
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /*mega_proof*/ ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
+        /*mega_proof*/ HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
         /*merge_proof*/ MERGE_PROOF_SIZE +
         /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH +
         /*ipa proof*/ IPA_PROOF_LENGTH +
@@ -47,9 +51,6 @@ template <bool IsRecursive = false> struct ChonkProof_ {
      */
     static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS +
                                            /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
-
-    static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
-        ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
 
     // Default constructor
     ChonkProof_() = default;
