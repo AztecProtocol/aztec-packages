@@ -223,15 +223,12 @@ function build_release_dir {
   # Package amd64-macos
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
-  # Package static libraries for barretenberg-rs FFI backend
-  # Native x86_64 Linux library
+  # Package static libraries for FFI bindings
   if [ -f build/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-rs-$arch-linux.tar.gz -C build/lib libbb-external.a
+    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build/lib libbb-external.a
   fi
-
-  # Cross-compiled arm64 Linux library
   if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-rs-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
+    tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
   fi
 }
 
