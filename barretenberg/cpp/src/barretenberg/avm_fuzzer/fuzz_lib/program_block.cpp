@@ -1029,25 +1029,18 @@ void ProgramBlock::process_nullifierexists_instruction(NULLIFIEREXISTS_Instructi
 #ifdef DISABLE_NULLIFIEREXISTS_INSTRUCTION
     return;
 #endif
-    auto nullifier_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.nullifier_address);
-    auto contract_address_operand =
-        memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
+    auto siloed_nullifier_operand =
+        memory_manager.get_resolved_address_and_operand_16(instruction.siloed_nullifier_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
-    if (!nullifier_address_operand.has_value() || !contract_address_operand.has_value() ||
-        !result_address_operand.has_value()) {
+    if (!siloed_nullifier_operand.has_value() || !result_address_operand.has_value()) {
         return;
     }
 
-    preprocess_memory_addresses(nullifier_address_operand.value().first);
-    preprocess_memory_addresses(contract_address_operand.value().first);
+    preprocess_memory_addresses(siloed_nullifier_operand.value().first);
     preprocess_memory_addresses(result_address_operand.value().first);
-    auto get_contract_address_instruction =
-        GETENVVAR_Instruction{ .result_address = instruction.contract_address_address, .type = 0 };
-    this->process_getenvvar_instruction(get_contract_address_instruction);
 
     auto nullifierexists_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::NULLIFIEREXISTS)
-                                           .operand(nullifier_address_operand.value().second)
-                                           .operand(contract_address_operand.value().second)
+                                           .operand(siloed_nullifier_operand.value().second)
                                            .operand(result_address_operand.value().second)
                                            .build();
     instructions.push_back(nullifierexists_instruction);

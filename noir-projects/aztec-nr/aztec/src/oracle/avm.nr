@@ -46,8 +46,8 @@ pub unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> u1 {
 pub unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-pub unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
-    nullifier_exists_opcode(nullifier, address)
+pub unconstrained fn nullifier_exists(siloed_nullifier: Field) -> u1 {
+    nullifier_exists_opcode(siloed_nullifier)
 }
 pub unconstrained fn emit_nullifier(nullifier: Field) {
     emit_nullifier_opcode(nullifier)
@@ -161,7 +161,7 @@ unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> u
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
 #[oracle(avmOpcodeNullifierExists)]
-unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u1 {}
+unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> u1 {}
 
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
