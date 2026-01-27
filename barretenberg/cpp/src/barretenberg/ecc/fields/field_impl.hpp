@@ -282,38 +282,59 @@ template <class T> constexpr bool field<T>::operator!=(const field& other) const
     return (!operator==(other));
 }
 // to/from montgomery form methods.
-// We note that we do not need to perform extra reductions to run the from/to montgomery form algorithms. In the case of
-// 254-bit fields, one way of saying this is: by the analysis in the field documentation, as the constant we are
-// multiplying by (aR) is less than p (r_squared, one_raw), for any 256-bit number, the Montgomery multiplication
-// algorithm will yield something in the range [0, 2p), i.e., in coarse form, as desired. For 256-bit fields, that this
-// is true again follows from the fact that the constant we are multiplying by is less than p; hence the output of
-// Montgomery multiplication of aR with a field element whose internal representation is 256-bits will again be
-// 256-bits. For more details, plesae see the field documentation.
+// We note that we do not need to perform extra reductions to run the from/to montgomery form algorithms for the
+// non-WASM builds. In the case of 254-bit fields, one way of saying this is: by the analysis in the field
+// documentation, as the constant we are multiplying by (aR) is less than p (r_squared, one_raw), for any 256-bit
+// number, the Montgomery multiplication algorithm will yield something in the range [0, 2p), i.e., in coarse form, as
+// desired. For 256-bit fields, that this is true again follows from the fact that the constant we are multiplying by is
+// less than p; hence the output of Montgomery multiplication of aR with a field element whose internal representation
+// is 256-bits will again be 256-bits. For more details, plesae see the field documentation.
+//
+// Note: For WASM builds, we do need the extra reduce_once() to ensure correctness with the 29-bit limb Montgomery
+// multiplication implementation.
 
 template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexcept
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     return *this * r_squared;
+#else
+    return (*this * r_squared).reduce_once();
+#endif
 }
 
 template <class T> constexpr field<T> field<T>::from_montgomery_form() const noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     return operator*(one_raw);
+#else
+    return operator*(one_raw).reduce_once();
+#endif
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     *this *= r_squared;
+#else
+    *this *= r_squared;
+    self_reduce_once();
+#endif
 }
 
 template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     *this *= one_raw;
+#else
+    *this *= one_raw;
+    self_reduce_once();
+#endif
 }
 
 template <class T> constexpr field<T> field<T>::reduce_once() const noexcept

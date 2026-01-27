@@ -162,10 +162,15 @@ template <class Params_> struct alignas(32) field {
         *this = field(value);
     }
 
+    // Conversion operators to primitive types.
+    // Note: from_montgomery_form() may return values bigger than p (in the range of [0, 2p) for 254-bit fields,
+    // arbitrary 256-bit number for 256-bit fields.)
+    // We call reduce_once() to ensure canonical [0, p) representation.
+
     constexpr explicit operator bool() const
     {
-        field out = from_montgomery_form();
-        if (out.data[0] != 0 && out.data[0] != 1) {
+        field out = from_montgomery_form().reduce_once();
+        if (out.data[0] != 0 && out.data[0] != 1 && out.data[1] != 0 && out.data[2] != 0 && out.data[3] != 0) {
             bb::assert_failure("Cannot convert field element to bool unless it is 0 or 1");
         }
         return static_cast<bool>(out.data[0]);
@@ -173,31 +178,31 @@ template <class Params_> struct alignas(32) field {
 
     constexpr explicit operator uint8_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         return static_cast<uint8_t>(out.data[0]);
     }
 
     constexpr explicit operator uint16_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         return static_cast<uint16_t>(out.data[0]);
     }
 
     constexpr explicit operator uint32_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         return static_cast<uint32_t>(out.data[0]);
     }
 
     constexpr explicit operator uint64_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         return out.data[0];
     }
 
     constexpr explicit operator uint128_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         uint128_t lo = out.data[0];
         uint128_t hi = out.data[1];
         return (hi << 64) | lo;
@@ -205,7 +210,7 @@ template <class Params_> struct alignas(32) field {
 
     constexpr operator uint256_t() const noexcept
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form().reduce_once();
         return uint256_t(out.data[0], out.data[1], out.data[2], out.data[3]);
     }
 
