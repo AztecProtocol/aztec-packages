@@ -1,6 +1,6 @@
 use crate::{
     context::{PublicContext, UtilityContext},
-    history::public_storage::PublicStorageHistoricalRead,
+    history::storage::public_storage_historical_read,
     oracle,
 };
 use dep::protocol_types::{
@@ -74,7 +74,7 @@ where
         // The actual `value` (of type T, of packed length M fields) is stored in contiguous fields from the `storage_slot`.
         // The _hash_ of the `value` is stored at the end, at slot: `storage_slot + M`.
         let hash =
-            header_to_read_from.public_storage_historical_read(storage_slot + M as Field, address);
+            public_storage_historical_read(header_to_read_from, storage_slot + M as Field, address);
 
         if hash != 0 {
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");

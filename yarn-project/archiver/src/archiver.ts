@@ -68,7 +68,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   public readonly events: ArchiverEmitter;
 
   /** A loop in which we will be continually fetching new checkpoints. */
-  private runningPromise: RunningPromise;
+  protected runningPromise: RunningPromise;
 
   /** L1 synchronizer that handles fetching checkpoints and messages from L1. */
   private readonly synchronizer: ArchiverL1Synchronizer;

@@ -1,6 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    history::nullifier_inclusion::ProveNullifierInclusion,
+    history::nullifier::assert_nullifier_existed_by,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     messages::logs::partial_note::compute_partial_note_private_content_log,
@@ -236,12 +236,15 @@ impl PartialUintNote {
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent).
         let validity_commitment = self.compute_validity_commitment(completer);
-        // `prove_nullifier_inclusion` function expects the nullifier to be siloed (hashed with the address of
+        // `assert_nullifier_existed_by` function expects the nullifier to be siloed (hashed with the address of
         // the contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all
         // the nullifiers in the tree are siloed by the protocol.
         let siloed_validity_commitment =
             compute_siloed_nullifier(context.this_address(), validity_commitment);
-        context.get_anchor_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
+        assert_nullifier_existed_by(
+            context.get_anchor_block_header(),
+            siloed_validity_commitment,
+        );
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The

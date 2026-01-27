@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -14,7 +14,7 @@ import { loadLogsForRange } from './load_logs_for_range.js';
 // In tests where the anchor block behavior is not under examination, we use a high block number to ensure it occurs
 // after all logs.
 const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadLogsForRange', () => {
   // App contract address and secret to be used on the input of the loadLogsForRange function.

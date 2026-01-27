@@ -15,11 +15,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  BlockHash,
   CheckpointedL2Block,
   CommitteeAttestation,
   EthAddress,
   L2Block,
-  L2BlockHash,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
@@ -2819,7 +2819,7 @@ describe('KVArchiverDataStore', () => {
     it('"txHash" filter param is ignored when "afterLog" is set', async () => {
       // Get random txHash
       const txHash = TxHash.random();
-      const afterLog = new LogId(BlockNumber(1), L2BlockHash.random(), 0, 0);
+      const afterLog = new LogId(BlockNumber(1), BlockHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
       expect(response.logs.length).toBeGreaterThan(1);
@@ -2851,7 +2851,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(4), L2BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(4), BlockHash.random(), 0, 0),
         })
       ).logs;
       blockNumbers = new Set(logs.map(log => log.id.blockNumber));
@@ -2860,7 +2860,7 @@ describe('KVArchiverDataStore', () => {
       logs = (
         await store.getPublicLogs({
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(5), L2BlockHash.random(), 1, 0),
+          afterLog: new LogId(BlockNumber(5), BlockHash.random(), 1, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
@@ -2869,7 +2869,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(100), L2BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(100), BlockHash.random(), 0, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
