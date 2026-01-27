@@ -8,6 +8,8 @@ displayed_sidebar: conceptsSidebar
 
 Both sequencing and proving in the Aztec Network are intended to be fully decentralized.
 
+![Block Production Flow](/img/diagrams/block-production.png)
+
 ## Overview
 
 Block production in Aztec involves two key roles:
