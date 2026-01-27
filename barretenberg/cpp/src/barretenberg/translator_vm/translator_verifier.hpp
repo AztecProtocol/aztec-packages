@@ -33,7 +33,15 @@ template <typename Flavor> class TranslatorVerifier_ {
     using RelationParams = RelationParameters<FF>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
-    using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
+
+    // Helper to get CircuitBuilder only for recursive flavors (native flavors don't have CircuitBuilder)
+    template <typename F, bool Recursive = F::Curve::is_stdlib_type> struct GetBuilder {
+        using type = typename F::CircuitBuilder;
+    };
+    template <typename F> struct GetBuilder<F, false> {
+        using type = void;
+    };
+    using Builder = typename GetBuilder<Flavor>::type;
 
     // Use stdlib PairingPoints for recursive, native PairingPoints for native
     using PairingPoints =

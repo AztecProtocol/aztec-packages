@@ -1,4 +1,3 @@
-#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -19,7 +18,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
   public:
     using RecursiveFlavor = TranslatorRecursiveFlavor;
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
-    using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerProvingKey = TranslatorProvingKey;
     using InnerProver = TranslatorProver;
     using InnerVerifier = TranslatorVerifier;
@@ -62,23 +60,23 @@ class TranslatorRecursiveTests : public ::testing::Test {
         op_queue->eq_and_reset();
     }
 
-    // Construct a test circuit based on some random operations
-    static InnerBuilder generate_test_circuit(const InnerBF& batching_challenge_v,
-                                              const InnerBF& evaluation_challenge_x,
-                                              const size_t circuit_size_parameter = 500)
+    // Construct a test proving key based on some random operations
+    static std::shared_ptr<InnerProvingKey> generate_test_proving_key(const InnerBF& batching_challenge_v,
+                                                                      const InnerBF& evaluation_challenge_x,
+                                                                      const size_t circuit_size_parameter = 500)
     {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->no_op_ultra_only();
-        add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_START);
+        add_random_ops(op_queue, InnerFlavor::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_END);
+        add_random_ops(op_queue, InnerFlavor::NUM_RANDOM_OPS_END);
         op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
 
-        return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
+        return std::make_shared<InnerProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
     }
 
     // Helper to create native op queue commitments from proving key
@@ -160,10 +158,9 @@ class TranslatorRecursiveTests : public ::testing::Test {
         InnerBF batching_challenge_v = InnerBF::random_element();
         InnerBF evaluation_challenge_x = InnerBF::random_element();
 
-        // Create inner translator circuit and generate proof
-        InnerBuilder circuit_builder =
-            generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
-        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        // Create inner translator proving key and generate proof
+        auto proving_key =
+            generate_test_proving_key(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         InnerProver prover{ proving_key, prover_transcript };
         auto proof = prover.construct_proof();
 

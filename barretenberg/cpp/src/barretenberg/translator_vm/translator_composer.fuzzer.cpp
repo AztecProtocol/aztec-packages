@@ -4,9 +4,9 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/translator_vm/translator.fuzzer.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
@@ -32,13 +32,8 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     prover_transcript->export_proof();
     Fq translation_batching_challenge = prover_transcript->template get_challenge<Fq>("Translation:batching_challenge");
 
-    // Construct circuit
-    auto circuit_builder = TranslatorCircuitBuilder(translation_batching_challenge, x, op_queue);
-
-    // Check that the circuit passes
-    bool checked = TranslatorCircuitChecker::check(circuit_builder);
-    // Construct proof
-    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+    // Construct proving key directly from op queue (new interface)
+    auto proving_key = std::make_shared<TranslatorProvingKey>(translation_batching_challenge, x, op_queue);
     TranslatorProver prover(proving_key, prover_transcript);
     auto proof = prover.construct_proof();
 
@@ -61,7 +56,6 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         verifier_transcript, proof, x, translation_batching_challenge, accumulated_result, op_queue_commitments);
     auto verification_result = verifier.reduce_to_pairing_check();
     bool verified = verification_result.reduction_succeeded && verification_result.pairing_points.check();
-    (void)checked;
     (void)verified;
     return 0;
 }

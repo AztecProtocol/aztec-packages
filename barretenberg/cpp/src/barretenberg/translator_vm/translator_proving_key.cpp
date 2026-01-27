@@ -19,9 +19,10 @@ TranslatorProvingKey::TranslatorProvingKey(BF batching_challenge_v_,
                                            BF evaluation_input_x_,
                                            const std::shared_ptr<ECCOpQueue>& op_queue,
                                            const CommitmentKey& commitment_key,
-                                           bool avm_mode)
+                                           bool avm_mode_)
     : batching_challenge_v(batching_challenge_v_)
     , evaluation_input_x(evaluation_input_x_)
+    , avm_mode(avm_mode_)
 {
     BB_BENCH_NAME("TranslatorProvingKey(op_queue)");
 

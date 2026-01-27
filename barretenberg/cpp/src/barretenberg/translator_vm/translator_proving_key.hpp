@@ -30,7 +30,6 @@ namespace bb {
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
-    using Circuit = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -96,17 +95,18 @@ class TranslatorProvingKey {
     static constexpr auto MAX_Z_LIMB_SIZE = (uint256_t(1) << NUM_Z_BITS) - 1;
 
     // Number of no-ops at the start
-    static constexpr size_t NUM_NO_OPS_START = 1;
+    static constexpr size_t NUM_NO_OPS_START = Flavor::NUM_NO_OPS_START;
 
     // Number of random ops at the beginning of Translator trace
-    static constexpr size_t NUM_RANDOM_OPS_START = 3;
+    static constexpr size_t NUM_RANDOM_OPS_START = Flavor::NUM_RANDOM_OPS_START;
 
     // Number of random ops at the end of Translator trace
-    static constexpr size_t NUM_RANDOM_OPS_END = 2;
+    static constexpr size_t NUM_RANDOM_OPS_END = Flavor::NUM_RANDOM_OPS_END;
 
     // Shift constants for limb operations
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
-    static constexpr auto SHIFT_2 = uint256_t(1) << (NUM_LIMB_BITS << 1);
+    static constexpr auto SHIFT_2 = uint256_t(1) << (NUM_LIMB_BITS * 2);
+    static constexpr auto SHIFT_3 = uint256_t(1) << (NUM_LIMB_BITS * 3);
     static constexpr auto SHIFT_2_INVERSE = FF(SHIFT_2).invert();
 
     // Modulus constants for CRT computation
@@ -232,15 +232,7 @@ class TranslatorProvingKey {
         std::array<std::array<FF, NUM_MICRO_LIMBS>, NUM_RELATION_WIDE_LIMBS> relation_wide_microlimbs;
     };
 
-    // Static assertions to ensure circuit/flavor invariants are maintained
-    static_assert(Flavor::NUM_WIRES == Circuit::NUM_WIRES,
-                  "Wire count mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
-    static_assert(Flavor::RESULT_ROW == Circuit::RESULT_ROW,
-                  "Result row index mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
-    static_assert(Flavor::MICRO_LIMB_BITS == Circuit::MICRO_LIMB_BITS,
-                  "Micro limb bits mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
-    static_assert(Flavor::NUM_LIMB_BITS == Circuit::NUM_LIMB_BITS,
-                  "Limb bits mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
+    // Static assertions to ensure flavor invariants are maintained
     static_assert(DYADIC_CIRCUIT_SIZE == MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE,
                   "Dyadic circuit size must equal mini circuit size times interleaving group size");
     static_assert(DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING < MINI_CIRCUIT_SIZE,
@@ -252,12 +244,14 @@ class TranslatorProvingKey {
 
     std::shared_ptr<ProvingKey> proving_key;
 
-    // Challenge values from ECCVM, copied from the circuit builder during proving key construction.
-    // These must be stored here because the circuit builder goes out of scope after the proving key
-    // is created (see Goblin::prove_translator), but the prover needs them later in
+    // Challenge values from ECCVM, copied during proving key construction.
+    // These must be stored here because the prover needs them later in
     // execute_grand_product_computation_round() to set up relation parameters.
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
+
+    // Whether this proving key was constructed in AVM mode (no random ops at end)
+    bool avm_mode = false;
 
     // =============================================================================================
     // Constructors
@@ -266,52 +260,9 @@ class TranslatorProvingKey {
     TranslatorProvingKey() = default;
 
     /**
-     * @brief Construct from a TranslatorCircuitBuilder (legacy interface)
-     */
-    TranslatorProvingKey(const Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
-        : batching_challenge_v(circuit.batching_challenge_v)
-        , evaluation_input_x(circuit.evaluation_input_x)
-    {
-        BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
-        vinfo("Translator circuit size: ", circuit.num_gates());
-        BB_ASSERT_LTE(circuit.num_gates(),
-                      Flavor::MINI_CIRCUIT_SIZE,
-                      "The Translator circuit size has exceeded the fixed upper bound");
-
-        proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
-        auto wires = proving_key->polynomials.get_wires();
-
-        parallel_for(wires.size(), [&](size_t wire_idx) {
-            auto& wire_poly = wires[wire_idx];
-            const auto& wire = circuit.wires[wire_idx];
-            for (size_t i = 0; i < circuit.num_gates(); i++) {
-                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
-                    wire_poly.at(i) = circuit.get_variable(wire[i]);
-                } else {
-                    BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
-                }
-            }
-        });
-
-        // Add random values at the end for zero-knowledge (except for op queue wires)
-        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
-            auto& wire = wires[idx];
-            for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
-                wire.at(i) = FF::random_element();
-            }
-        }
-
-        compute_lagrange_polynomials();
-        compute_extra_range_constraint_numerator();
-        compute_interleaved_polynomials();
-        compute_translator_range_constraint_ordered_polynomials();
-    };
-
-    /**
-     * @brief Construct directly from an op queue and challenges (preferred interface)
+     * @brief Construct from an op queue and challenges
      *
-     * @details This constructor bypasses the TranslatorCircuitBuilder intermediate representation.
-     * It directly computes witness values and stores them in polynomials.
+     * @details This constructor directly computes witness values and stores them in polynomials.
      *
      * @param batching_challenge_v_ The batching challenge from ECCVM
      * @param evaluation_input_x_ The evaluation challenge from ECCVM

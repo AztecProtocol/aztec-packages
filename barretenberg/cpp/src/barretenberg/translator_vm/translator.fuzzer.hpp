@@ -7,13 +7,14 @@
 /**
  * @file translator.fuzzer.hpp
  * @author Rumata888
- * @brief Contains common procedures used by the circuit builder fuzzer and the composer fuzzer
+ * @brief Contains common procedures used by the translator composer fuzzer
  * @date 2024-02-25
  *
  */
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "translator_circuit_builder.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 using namespace bb;
 

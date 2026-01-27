@@ -16,7 +16,6 @@ namespace bb {
 class TranslatorProver {
   public:
     using Flavor = TranslatorFlavor;
-    using CircuitBuilder = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;

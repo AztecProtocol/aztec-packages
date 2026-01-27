@@ -23,7 +23,6 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
@@ -31,7 +30,6 @@ namespace bb {
 class TranslatorFlavor {
 
   public:
-    using CircuitBuilder = TranslatorCircuitBuilder;
     using Curve = curve::BN254;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
@@ -82,13 +80,65 @@ class TranslatorFlavor {
     // to bring the degree of relations down, while extending the length.
     static constexpr size_t DYADIC_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE;
 
+    // =============================================================================================
+    // Core Translator constants - these define the circuit structure
+    // =============================================================================================
+
+    // Number of bits in a binary limb (used for non-native field arithmetic)
+    // This is not a configurable value. Relations are specifically designed for it to be 68
+    static constexpr size_t NUM_LIMB_BITS = 68;
+
+    // For soundness we need to constrain the highest limb so that the whole value is at most 50 bits
+    static constexpr size_t NUM_LAST_LIMB_BITS = BF::modulus.get_msb() + 1 - (3 * NUM_LIMB_BITS);
+
+    // The bit size of microlimbs for the range constraints
+    static constexpr size_t MICRO_LIMB_BITS = 14;
+
+    // Number of wires in the translator circuit
+    static constexpr size_t NUM_WIRES = 81;
+
+    // Number of no-ops at the start of Translator trace
+    static constexpr size_t NUM_NO_OPS_START = 1;
+
+    // Number of random ops at the beginning of Translator trace
+    // Refer to [Merge protocol docs](../goblin/MERGE_PROTOCOL.md) for explanation of the randomness required at the
+    // start and end of the trace.
+    static constexpr size_t NUM_RANDOM_OPS_START = 3;
+
+    // Number of random ops at the end of Translator trace
+    static constexpr size_t NUM_RANDOM_OPS_END = 2;
+
+    // Index at which the accumulation result is stored in the circuit
+    static constexpr size_t RESULT_ROW = 8;
+
+    // The modulus of the target emulated field as a 512-bit integer
+    static constexpr uint512_t MODULUS_U512 = uint512_t(BF::modulus);
+
+    // The binary modulus used in the CRT computation (2²⁷²)
+    static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+
+    // Negated modulus of the target emulated field in the binary modulus (2²⁷² - q)
+    static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+
+    // Negated modulus of the target emulated field split into limbs
+    static constexpr std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+        FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
+        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+        -FF(BF::modulus)
+    };
+
+    // =============================================================================================
+    // End core constants
+    // =============================================================================================
+
     // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
-    // rows at a time. Note: NUM_MASKED_ROWS_END is defined below as it depends on CircuitBuilder.
-    static constexpr size_t DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING =
-        MINI_CIRCUIT_SIZE - (CircuitBuilder::NUM_RANDOM_OPS_END * 2);
+    // rows at a time.
+    static constexpr size_t DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING = MINI_CIRCUIT_SIZE - (NUM_RANDOM_OPS_END * 2);
     static constexpr size_t DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING =
-        DYADIC_CIRCUIT_SIZE - ((CircuitBuilder::NUM_RANDOM_OPS_END * 2) * INTERLEAVING_GROUP_SIZE);
+        DYADIC_CIRCUIT_SIZE - ((NUM_RANDOM_OPS_END * 2) * INTERLEAVING_GROUP_SIZE);
 
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
@@ -96,23 +146,12 @@ class TranslatorFlavor {
     // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
 
-    // Number of wires
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-
-    // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
-    // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
-    // responsible for checking it against the evaluations received from ECCVM.
-    static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
-
-    // Number of random ops found at he end of Translator trace multiplied by 2 as each accumulation gates occupies two
+    // Number of random ops found at the end of Translator trace multiplied by 2 as each accumulation gates occupies two
     // rows.
-    static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
+    static constexpr size_t NUM_MASKED_ROWS_END = NUM_RANDOM_OPS_END * 2;
 
     // Index at which random coefficients start (for zk) within Translator trace
-    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
-
-    // The bitness of the range constraint
-    static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
+    static constexpr size_t RANDOMNESS_START = 2 * NUM_NO_OPS_START;
 
     // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
     // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
@@ -122,16 +161,9 @@ class TranslatorFlavor {
                   "(TranslatorDeltaRangeConstraintRelation). ");
 
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr const std::array<FF, 5>& negative_modulus_limbs()
-    {
-        return CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
-    }
+    static constexpr const std::array<FF, 5>& negative_modulus_limbs() { return NEGATIVE_MODULUS_LIMBS; }
 
-    // Number of bits in a binary limb
-    // This is not a configurable value. Relations are sepcifically designed for it to be 68
-    static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
-
-    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
+    // Lowest possible size of the Translator mini circuit due to the design of range constraints.
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
     static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 

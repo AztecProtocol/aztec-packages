@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
@@ -155,7 +156,7 @@ class GoblinMockCircuits {
                 // Last circuit appended needs to begin with a no-op for translator to be shiftable
                 builder.queue_ecc_no_op();
                 // Add random ops at START for Translator ZK (lands at beginning of op queue table)
-                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+                randomise_op_queue(builder, TranslatorProvingKey::NUM_RANDOM_OPS_START);
                 // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
                 builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
             }
@@ -167,7 +168,7 @@ class GoblinMockCircuits {
         MegaCircuitBuilder builder{ goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(builder);
         // Add random ops at END for Translator ZK
-        randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
+        randomise_op_queue(builder, TranslatorProvingKey::NUM_RANDOM_OPS_END);
     }
 
     /**

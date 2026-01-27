@@ -115,10 +115,9 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
     }
 
-    constexpr size_t NUM_LIMB_BITS = Flavor::CircuitBuilder::NUM_LIMB_BITS;
-    constexpr size_t HIGH_WIDE_LIMB_WIDTH =
-        Flavor::CircuitBuilder::NUM_LIMB_BITS + Flavor::CircuitBuilder::NUM_LAST_LIMB_BITS;
-    constexpr size_t LOW_WIDE_LIMB_WIDTH = Flavor::CircuitBuilder::NUM_LIMB_BITS * 2;
+    constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
+    constexpr size_t HIGH_WIDE_LIMB_WIDTH = Flavor::NUM_LIMB_BITS + Flavor::NUM_LAST_LIMB_BITS;
+    constexpr size_t LOW_WIDE_LIMB_WIDTH = Flavor::NUM_LIMB_BITS * 2;
     constexpr size_t Z_LIMB_WIDTH = 128;
     constexpr size_t MICRO_LIMB_WIDTH = Flavor::MICRO_LIMB_BITS;
     constexpr size_t SHIFT_12_TO_14 = 4;
@@ -440,7 +439,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
 TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 {
     using Flavor = TranslatorFlavor;
-    using Builder = Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -501,8 +499,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
 
-    // Generating all the values is pretty tedious, so just use CircuitBuilder
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
+    // Create TranslatorProvingKey directly from op_queue (new interface)
+    auto proving_key = std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_input_x, op_queue);
 
     // The non-native field relation uses limbs of evaluation_input_x and powers of batching_challenge_v as inputs
     RelationParameters<FF> params;
@@ -523,41 +521,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
                                   uint_input_x.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
                                   uint_input_x };
 
-    // Create storage for polynomials
-    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
-
-    // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
-         i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;
-         i++) {
-        prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
-        prover_polynomials.p_x_low_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
-        prover_polynomials.p_x_high_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_HIGH_LIMBS][i]);
-        prover_polynomials.p_y_low_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_Y_LOW_LIMBS][i]);
-        prover_polynomials.p_y_high_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_Y_HIGH_LIMBS][i]);
-        prover_polynomials.z_low_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.Z_LOW_LIMBS][i]);
-        prover_polynomials.z_high_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.Z_HIGH_LIMBS][i]);
-        prover_polynomials.accumulators_binary_limbs_0.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_0][i]);
-        prover_polynomials.accumulators_binary_limbs_1.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_1][i]);
-        prover_polynomials.accumulators_binary_limbs_2.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_2][i]);
-        prover_polynomials.accumulators_binary_limbs_3.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_3][i]);
-        prover_polynomials.quotient_low_binary_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.QUOTIENT_LOW_BINARY_LIMBS][i]);
-        prover_polynomials.quotient_high_binary_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.QUOTIENT_HIGH_BINARY_LIMBS][i]);
-        prover_polynomials.relation_wide_limbs.at(i) =
-            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.RELATION_WIDE_LIMBS][i]);
-    }
+    // Get polynomials directly from proving key (new interface uses proving key instead of circuit builder)
+    ProverPolynomials& prover_polynomials = proving_key->proving_key->polynomials;
 
     // Fill in lagrange odd polynomial
     for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
