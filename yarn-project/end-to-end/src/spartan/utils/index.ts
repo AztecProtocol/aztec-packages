@@ -24,6 +24,7 @@ export {
   getServiceEndpoint,
   getRPCEndpoint,
   getEthereumEndpoint,
+  createResilientPrometheusConnection,
 } from './k8s.js';
 
 // Chaos Mesh
@@ -45,6 +46,7 @@ export { restartBot, installTransferBot, uninstallTransferBot } from './bot.js';
 // Node operations (sequencers, validators, pods)
 export {
   awaitCheckpointNumber,
+  waitForProvenToAdvance,
   getSequencers,
   updateSequencersConfig,
   getSequencersConfig,

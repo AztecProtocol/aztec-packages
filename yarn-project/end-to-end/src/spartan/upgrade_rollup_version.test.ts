@@ -26,7 +26,6 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
-  ChainHealth,
   type ServiceEndpoint,
   getEthereumEndpoint,
   getRPCEndpoint,
@@ -47,16 +46,13 @@ describe('spartan_upgrade_rollup_version', () => {
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
   const endpoints: ServiceEndpoint[] = [];
-  const health = new ChainHealth(config.NAMESPACE, debugLogger);
   jest.setTimeout(3 * 60 * 60 * 1000); // Governance flow can take a while
 
-  afterAll(async () => {
-    await health.teardown();
+  afterAll(() => {
     endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    await health.setup();
     const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
     const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
     endpoints.push(rpcEndpoint, ethEndpoint);
