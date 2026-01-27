@@ -55,18 +55,17 @@ class TranslatorTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for Translator verification
-     * @details The manifest has 43 rounds total:
+     * @details The manifest has 26 rounds total:
      * - Round 0: vk_hash, Gemini masking, 82 wire commitments -> beta challenge
      * - Round 1: (empty) -> gamma challenge
-     * - Round 2: Z_PERM -> Sumcheck:alpha challenge
-     * - Rounds 3-19: Gate challenges (17 rounds)
-     * - Round 20: Libra:concatenation_commitment + Sum -> Libra:Challenge
-     * - Rounds 21-37: Sumcheck univariates (17 rounds)
-     * - Round 38: Sumcheck evaluations + Libra commitments -> rho
-     * - Round 39: Gemini fold commitments -> Gemini:r
-     * - Round 40: Gemini evaluations + Libra evals -> Shplonk:nu
-     * - Round 41: Shplonk:Q -> Shplonk:z
-     * - Round 42: KZG:W -> KZG:masking_challenge
+     * - Round 2: Z_PERM -> Sumcheck:alpha + all gate challenges
+     * - Round 3: Libra:concatenation_commitment + Sum -> Libra:Challenge
+     * - Rounds 4-20: Sumcheck univariates (17 rounds)
+     * - Round 21: Sumcheck evaluations + Libra commitments -> rho
+     * - Round 22: Gemini fold commitments -> Gemini:r
+     * - Round 23: Gemini evaluations + Libra evals -> Shplonk:nu
+     * - Round 24: Shplonk:Q -> Shplonk:z
+     * - Round 25: KZG:W -> KZG:masking_challenge
      */
     static TranscriptManifest build_expected_translator_manifest()
     {
@@ -127,63 +126,60 @@ class TranslatorTests : public ::testing::Test {
         for (const auto& label : wire_labels) {
             manifest.add_entry(0, label, frs_per_G);
         }
+        // beta and gamma are consecutive challenges (no data between), so both in round 0
         manifest.add_challenge(0, "beta");
+        manifest.add_challenge(0, "gamma");
 
-        // Round 1: gamma challenge (no entries)
-        manifest.add_challenge(1, "gamma");
-
-        // Round 2: Z_PERM -> Sumcheck:alpha
-        manifest.add_entry(2, "Z_PERM", frs_per_G);
-        manifest.add_challenge(2, "Sumcheck:alpha");
-
-        // Rounds 3-19: Gate challenges (17 rounds)
+        // Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges (same round, no data between them)
+        manifest.add_entry(1, "Z_PERM", frs_per_G);
+        manifest.add_challenge(1, "Sumcheck:alpha");
         for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_challenge(3 + i, "Sumcheck:gate_challenge_" + std::to_string(i));
+            manifest.add_challenge(1, "Sumcheck:gate_challenge_" + std::to_string(i));
         }
 
-        // Round 20: Libra concatenation commitment + Sum -> Libra:Challenge
-        manifest.add_entry(20, "Libra:concatenation_commitment", frs_per_G);
-        manifest.add_entry(20, "Libra:Sum", 1);
-        manifest.add_challenge(20, "Libra:Challenge");
+        // Round 2: Libra concatenation commitment + Sum -> Libra:Challenge
+        manifest.add_entry(2, "Libra:concatenation_commitment", frs_per_G);
+        manifest.add_entry(2, "Libra:Sum", 1);
+        manifest.add_challenge(2, "Libra:Challenge");
 
-        // Rounds 21-37: Sumcheck univariates (17 rounds)
+        // Rounds 3-19: Sumcheck univariates (17 rounds)
         for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_entry(21 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
-            manifest.add_challenge(21 + i, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 
-        // Round 38: Sumcheck evaluations + Libra commitments -> rho
-        manifest.add_entry(38, "Sumcheck:evaluations", 188);
-        manifest.add_entry(38, "Libra:claimed_evaluation", 1);
-        manifest.add_entry(38, "Libra:grand_sum_commitment", frs_per_G);
-        manifest.add_entry(38, "Libra:quotient_commitment", frs_per_G);
-        manifest.add_challenge(38, "rho");
+        // Round 20: Sumcheck evaluations + Libra commitments -> rho
+        manifest.add_entry(20, "Sumcheck:evaluations", 188);
+        manifest.add_entry(20, "Libra:claimed_evaluation", 1);
+        manifest.add_entry(20, "Libra:grand_sum_commitment", frs_per_G);
+        manifest.add_entry(20, "Libra:quotient_commitment", frs_per_G);
+        manifest.add_challenge(20, "rho");
 
-        // Round 39: Gemini fold commitments -> Gemini:r
+        // Round 21: Gemini fold commitments -> Gemini:r
         for (size_t i = 1; i <= 16; ++i) {
-            manifest.add_entry(39, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+            manifest.add_entry(21, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
-        manifest.add_challenge(39, "Gemini:r");
+        manifest.add_challenge(21, "Gemini:r");
 
-        // Round 40: Gemini evaluations + Libra evals -> Shplonk:nu
+        // Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
         for (size_t i = 1; i <= 17; ++i) {
-            manifest.add_entry(40, "Gemini:a_" + std::to_string(i), 1);
+            manifest.add_entry(22, "Gemini:a_" + std::to_string(i), 1);
         }
-        manifest.add_entry(40, "Gemini:P_pos", 1);
-        manifest.add_entry(40, "Gemini:P_neg", 1);
-        manifest.add_entry(40, "Libra:concatenation_eval", 1);
-        manifest.add_entry(40, "Libra:shifted_grand_sum_eval", 1);
-        manifest.add_entry(40, "Libra:grand_sum_eval", 1);
-        manifest.add_entry(40, "Libra:quotient_eval", 1);
-        manifest.add_challenge(40, "Shplonk:nu");
+        manifest.add_entry(22, "Gemini:P_pos", 1);
+        manifest.add_entry(22, "Gemini:P_neg", 1);
+        manifest.add_entry(22, "Libra:concatenation_eval", 1);
+        manifest.add_entry(22, "Libra:shifted_grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:quotient_eval", 1);
+        manifest.add_challenge(22, "Shplonk:nu");
 
-        // Round 41: Shplonk:Q -> Shplonk:z
-        manifest.add_entry(41, "Shplonk:Q", frs_per_G);
-        manifest.add_challenge(41, "Shplonk:z");
+        // Round 23: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(23, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(23, "Shplonk:z");
 
-        // Round 42: KZG:W -> KZG:masking_challenge
-        manifest.add_entry(42, "KZG:W", frs_per_G);
-        manifest.add_challenge(42, "KZG:masking_challenge");
+        // Round 24: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(24, "KZG:W", frs_per_G);
+        manifest.add_challenge(24, "KZG:masking_challenge");
 
         return manifest;
     }
