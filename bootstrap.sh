@@ -602,6 +602,7 @@ case "$cmd" in
 
     # Fetch full history for bisect
     git fetch origin --unshallow || git fetch origin
+    prep
 
     # Run the bisect script
     $ci3/bisect_flake "$full_cmd" "$commit"
