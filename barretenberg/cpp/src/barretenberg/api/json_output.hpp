@@ -7,14 +7,11 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <iomanip>
+#include <nlohmann/json.hpp>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#ifndef __wasm__
-#include <nlohmann/json.hpp>
-#include <optional>
-#endif
 
 namespace bb {
 
@@ -31,7 +28,6 @@ inline std::string bytes_to_hex_string(const std::vector<uint8_t>& bytes)
     return ss.str();
 }
 
-#ifndef __wasm__
 /**
  * @brief Try to parse file content as JSON
  *
@@ -59,9 +55,7 @@ inline std::optional<nlohmann::json> try_parse_json(const std::vector<uint8_t>& 
         return std::nullopt;
     }
 }
-#endif
 
-#ifndef __wasm__
 /**
  * @brief Parse a hex string (with or without 0x prefix) to uint256_t
  */
@@ -78,7 +72,6 @@ inline uint256_t hex_string_to_uint256(const std::string& hex_str)
     }
     return uint256_t(str);
 }
-#endif
 
 /**
  * @brief Serializable structure for VK JSON output (msgpack-compatible)
@@ -113,7 +106,6 @@ struct VkJson {
         return ss.str();
     }
 
-#ifndef __wasm__
     static std::vector<uint8_t> parse_to_bytes(const nlohmann::json& json)
     {
         if (!json.contains("vk") || !json["vk"].is_array()) {
@@ -132,7 +124,6 @@ struct VkJson {
         }
         return result;
     }
-#endif
 };
 
 /**
@@ -170,7 +161,6 @@ struct ProofJson {
         return ss.str();
     }
 
-#ifndef __wasm__
     static std::vector<uint256_t> parse(const nlohmann::json& json)
     {
         if (!json.contains("proof") || !json["proof"].is_array()) {
@@ -183,7 +173,6 @@ struct ProofJson {
         }
         return result;
     }
-#endif
 };
 
 /**
@@ -217,7 +206,6 @@ struct PublicInputsJson {
         return ss.str();
     }
 
-#ifndef __wasm__
     static std::vector<uint256_t> parse(const nlohmann::json& json)
     {
         if (!json.contains("public_inputs") || !json["public_inputs"].is_array()) {
@@ -230,7 +218,6 @@ struct PublicInputsJson {
         }
         return result;
     }
-#endif
 };
 
 } // namespace bb
