@@ -379,12 +379,11 @@ constexpr GetEnvVarMutationConfig BASIC_GETENVVAR_MUTATION_CONFIGURATION = GetEn
     { GetEnvVarMutationOptions::type, 1 },
 });
 
-enum class NullifierExistsMutationOptions { nullifier_address, contract_address_address, result_address };
-using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 3>;
+enum class NullifierExistsMutationOptions { siloed_nullifier_address, result_address };
+using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 2>;
 
 constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION = NullifierExistsMutationConfig({
-    { NullifierExistsMutationOptions::nullifier_address, 1 },
-    { NullifierExistsMutationOptions::contract_address_address, 1 },
+    { NullifierExistsMutationOptions::siloed_nullifier_address, 1 },
     { NullifierExistsMutationOptions::result_address, 1 },
 });
 

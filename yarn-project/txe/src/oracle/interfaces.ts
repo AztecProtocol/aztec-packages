@@ -33,7 +33,7 @@ export interface IAvmExecutionOracle {
   avmOpcodeVersion(): Promise<Fr>;
   avmOpcodeEmitNullifier(nullifier: Fr): Promise<void>;
   avmOpcodeEmitNoteHash(noteHash: Fr): Promise<void>;
-  avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean>;
+  avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean>;
   avmOpcodeStorageWrite(slot: Fr, value: Fr): Promise<void>;
   avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
 }

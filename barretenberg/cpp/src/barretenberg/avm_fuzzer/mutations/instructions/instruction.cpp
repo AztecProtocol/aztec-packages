@@ -236,8 +236,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
     case InstructionGenerationOptions::EMITNULLIFIER:
         return { EMITNULLIFIER_Instruction{ .nullifier_address = generate_variable_ref(rng) } };
     case InstructionGenerationOptions::NULLIFIEREXISTS:
-        return { NULLIFIEREXISTS_Instruction{ .nullifier_address = generate_variable_ref(rng),
-                                              .contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+        return { NULLIFIEREXISTS_Instruction{ .siloed_nullifier_address = generate_variable_ref(rng),
                                               .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::L1TOL2MSGEXISTS:
         return { L1TOL2MSGEXISTS_Instruction{ .msg_hash_address = generate_variable_ref(rng),
@@ -1300,11 +1299,8 @@ void InstructionMutator::mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Ins
 {
     NullifierExistsMutationOptions option = BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case NullifierExistsMutationOptions::nullifier_address:
-        mutate_param_ref(instruction.nullifier_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
-        break;
-    case NullifierExistsMutationOptions::contract_address_address:
-        mutate_address_ref(instruction.contract_address_address, rng, MAX_16BIT_OPERAND);
+    case NullifierExistsMutationOptions::siloed_nullifier_address:
+        mutate_param_ref(instruction.siloed_nullifier_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case NullifierExistsMutationOptions::result_address:
         mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);

@@ -911,11 +911,10 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeNullifierExists(foreignInnerNullifier: ForeignCallSingle, foreignTargetAddress: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
+  async avmOpcodeNullifierExists(foreignSiloedNullifier: ForeignCallSingle) {
+    const siloedNullifier = fromSingle(foreignSiloedNullifier);
 
-    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(innerNullifier, targetAddress);
+    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(siloedNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }

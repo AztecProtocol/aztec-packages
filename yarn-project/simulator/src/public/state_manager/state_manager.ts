@@ -233,7 +233,15 @@ export class PublicPersistableStateManager {
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     this.log.trace(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+    return this.checkSiloedNullifierExists(siloedNullifier);
+  }
 
+  /**
+   * Check if a siloed nullifier exists.
+   * @param siloedNullifier - the siloed nullifier to check
+   * @returns exists - whether the nullifier exists in the nullifier set
+   */
+  public async checkSiloedNullifierExists(siloedNullifier: Fr): Promise<boolean> {
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
