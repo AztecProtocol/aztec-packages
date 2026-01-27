@@ -746,9 +746,9 @@ impl PrivateContext {
     ///
     /// ## Historical Notes
     ///
-    /// If you need to assert that a note existed _at some specific time in the past_, instead of simply proving that it
-    /// exists in the current anchor block, use
-    /// [crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion] instead.
+    /// If you need to assert that a note existed _by some specific block in the past_, instead of simply proving that it
+    /// exists by the current anchor block, use
+    /// [crate::history::note::assert_note_existed_by] instead.
     ///
     /// ## Cost
     ///
@@ -784,9 +784,9 @@ impl PrivateContext {
     ///
     /// ## Historical Nullifiers
     ///
-    /// If you need to assert that a nullifier existed _at some specific time in the past_, instead of simply proving
-    /// that it exists in the current anchor block, use
-    /// [crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion] instead.
+    /// If you need to assert that a nullifier existed _by some specific block in the past_, instead of simply proving
+    /// that it exists by the current anchor block, use
+    /// [crate::history::nullifier::assert_nullifier_existed_by] instead.
     ///
     /// ## Public vs Private
     ///
