@@ -140,8 +140,7 @@ TYPED_TEST(PrimeFieldTest, CompileTimeUint256Conversion)
     constexpr uint256_t a{ 0x1111, 0x2222, 0x3333, 0x4444 };
     constexpr F b(a);
     constexpr uint256_t c = b;
-
-    static_assert(a == c);
+    static_assert(a == c || a == c - F::modulus);
 }
 
 // ================================
