@@ -5,18 +5,6 @@
 // =====================
 
 /**
- * @file generic_lookup_relation.hpp
- * @author Rumata888
- * @brief This file contains the template for the generic lookup that can be specialized to enforce various
- * lookups (for explanation on how to define them, see "relation_definer.hpp")
- *
- * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
- * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
- * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
- * are being looked up from. In this relation template we use the following terminology:
- * + READ - the action of looking up the value in the table
- * + WRITE - the action of adding the value to the lookup table
- *
  * TODO(@Rumata888): Talk to Zac why "lookup_read_count" refers to the count of the looked up element in the multiset.
  * (The value is applied to the write predicate, so it is confusing).
  */
@@ -30,48 +18,116 @@
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
+
+// clang-format off
 /**
- * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
+ *
+ * @brief Generic implementation of a log-derivative based lookup relation
+ *
+ * @details The following is a generic implementation of a log-derivative based lookup relation that allows the
+ * implementor to highly customize the lookup operations performed. For ease of use, the struct implements a
+ * default lookup argument with column batching, see below for more details.
+ *
+ * The implementor is expected to provide two template parameters:
+ *  - FF_: the base field over which the relation is defined
+ *  - Settings: a struct that defines parameters and methods that allow the customization of the lookup relation.
+ *
+ * Write f_1, .., f_n for the columns to be looked up, and t_1, .., t_m for the table columns. The relation implements
+ * the log-derivative lookup argument for two cases:
+ *  - BASIC_LOOKUP/BASIC_TABLE: LOOKUP_SIZE := n = m and we wish to look up the multiset {(f_1(x), .., f_n(x)) : x \in
+ *                              H_N}, where H_N is the hypercube of size N, from the table {(t_1(y), .., t_n(y)) : y \in
+ *                              H_M}. In this case, we perform the lookup by batching together the f_i's and the t_i's:
+ *                              we define f(x) = \sum_i f_i * Y^i, t(x) = \sum_i t_i * Y^i, and we check the existence
+ *                              of a function \f$counts : B_N \rightarrow\f$ F such that
+ *                              \f[
+ *                                  \sum_{x \in H_N} \frac{1}{\gamma - f(x, \beta)} = \sum_{y \in H_M} \frac{counts(y)}{\gamma - t(y, \beta)}
+ *                              \f]
+ * - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: We allow looking up values that are computed arbitrarily from {f_1, .., f_n}
+ *                                       from values that are computed arbitrarily (and possibly in a different way) from {t_1, .., t_m}.
+ *
+ * In both cases, we rephrase the equation check in terms of two relations:
+ *  1) \f[ I(x) * \prod_{i=1}^{NUM_LOOKUPS_IN_ONE_ROW} lookup_entry(x) \cdot \prod_{i=0}^{NUM_TABLE_COLUMNS} table_entry(x) - inverse_exists(x) = 0 \f]
+ *  2) \f[ \sum_{i=0}^{NUM_LOOKUPS_IN_ONE_ROW} lookup_entry_predicate_i(x) * 1 / lookup_entry(x)
+ *                                              - \sum_{i=0}^{NUM_TABLE_COLUMNS} table_entry_predicate_i(x) * lookup_read_count_i(x) * 1 / table_entry(x) \f]
+ *
+ * Relation 1) ensures that the polynomial \f$I\f$ represent the inverse of the product of the entries to be looked up and the table entries.
+ * As this polynomial doesn't need to be defined everywhere, we set the result of the multiplication to be equal to the value of another
+ * polynomial: inverse_exist, which is set to 1 only if the inverse must be computed. Note that relation 1) is *independent*: it must be satisfied
+ * at every row in the trace.
+ *
+ * Relation 2) is a *dependent* relation, it is satisfied only when its values are summed over the entire trace. The result of the sum is the log-derivative
+ * expression that bear witness to the validity of the lookup. Note that the lookup and table entries are multiplied by predicates that enable specifying which table
+ * lookup/table entries the prover is allowed to use at any given row.
+ *
+ * The degrees of the above relations are:
+ * 1) The degree of relation 1) is MAX(1 + max(deg(lookup_entries)) + max(deg(table_entries)), deg(inverse_exists))
+ * 2) The degree of relation 2) is 2 + NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS. This is because we compute the inverses as:
+ *    \f[
+ *          1 / table_entry(x) = I(x) * \prod_{j \neq i} table_entry_j(x) * \prod_{i} lookup_entry_i(x)
+ *    \f]
+ *    whose degree is 1 + NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS - 1.
+ *
+ * // OLD STUFF ========================================================================================
+ * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
+ * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
+ * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
+ * are being looked up from. In this relation template we use the following terminology:
+ * + READ - the action of looking up the value in the table
+ * + WRITE - the action of adding the value to the lookup table
  *
  */
-
+// clang-format on
 template <typename Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
 
-    // Read terms specified how many maximum lookups can be performed in 1 row
-    static constexpr size_t READ_TERMS = Settings::READ_TERMS;
-
-    // Looked up entries can be a basic tuple, a scaled tuple or completely arbitrary
-    enum READ_TERM_TYPES { READ_BASIC_TUPLE = 0, READ_SCALED_TUPLE, READ_ARBITRARY };
-
-    // Write terms specifies how many insertions into the lookup table can be performed in 1 row
-    static constexpr size_t WRITE_TERMS = Settings::WRITE_TERMS;
-
-    // Entries put into the table are ever defined as a tuple or constructed arbitrarily
-    enum WRITE_TERM_TYPES { WRITE_BASIC_TUPLE = 0, WRITE_ARBITRARY };
-
-    // Lookup tuple size specifies how many values are bundled together to represent a single entry in the lookup table.
-    // For example, it would be 1 for a range constraint lookup, or 3 for XOR lookup
-    static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
+    /**
+     * We allow looking up multiple items per row from a variable number of table columns. Both these values are
+     * specified in Settings and are not bound to the real number of columns the lookup operates on. We allow looking up
+     * virtual columns (i.e., combinations of columns) from virtual table columns (i.e., combinations of table columns).
+     *
+     */
+    static constexpr size_t NUM_LOOKUPS_IN_ONE_ROW = Settings::READ_TERMS;
+    static constexpr size_t NUM_TABLE_COLUMNS = Settings::WRITE_TERMS;
 
     /**
-     * @brief Compute the maximum degree of read terms
+     * Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
+     * columns. We allow two types of lookups:
+     *  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
+     *                              t_m}
+     *  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: Looking up values that are computed arbitrarily from {f_1, .., f_n} from
+     *                                        values that are computed arbitrarily (and possibly in a different way)
+     *                                        from {t_1, .., t_m}
      *
-     * @details We need this to evaluate the length of the subrelations correctly
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_maximum_read_term_degree()
+    enum LOOKUP_TYPE { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
+    enum TABLE_TYPE { BASIC_TABLE, CUSTOMIZED_TABLE };
+
+    /**
+     * When performing a basic lookup, we batch columns for efficiency. This constant represents the number of columns
+     * to be batched together. For example, it would be 1 for a range constraint lookup, 3 for a XOR lookup.
+     *
+     */
+    static constexpr size_t LOOKUP_SIZE = Settings::LOOKUP_SIZE;
+
+    /**
+     * @brief Compute the maximum degree of a lookup term
+     *
+     */
+    static constexpr size_t compute_maximum_lookup_term_degree()
     {
         size_t maximum_degree = 0;
-        for (size_t i = 0; i < READ_TERMS; i++) {
+        for (size_t i = 0; i < NUM_LOOKUPS_IN_ONE_ROW; i++) {
             size_t current_degree = 0;
-            if (Settings::READ_TERM_TYPES[i] == READ_BASIC_TUPLE) {
+            switch (Settings::LOOKUP_TYPES[i]) {
+            case BASIC_LOOKUP:
                 current_degree = 1;
-            } else if (Settings::READ_TERM_TYPES[i] == READ_SCALED_TUPLE) {
-                current_degree = 2;
-            } else {
-                current_degree = Settings::READ_TERM_DEGREE;
+                break;
+            case CUSTOMIZED_LOOKUP:
+                current_degree = Settings::LOOKUP_TERM_DEGREES[i];
+                break;
+            default:
+                bb::assert_failure("Invalid lookup type");
             }
             maximum_degree = std::max(current_degree, maximum_degree);
         }
@@ -79,20 +135,23 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Compute the maximum degree of write terms
+     * @brief Compute the maximum degree of a table term
      *
-     * @details We need this to evaluate the length of the subrelations correctly
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_maximum_write_term_degree()
+    static constexpr size_t compute_maximum_table_term_degree()
     {
         size_t maximum_degree = 0;
-        for (size_t i = 0; i < WRITE_TERMS; i++) {
+        for (size_t i = 0; i < NUM_TABLE_COLUMNS; i++) {
             size_t current_degree = 0;
-            if (Settings::WRITE_TERM_TYPES[i] == WRITE_BASIC_TUPLE) {
+            switch (Settings::TABLE_TYPES[i]) {
+            case BASIC_TABLE:
                 current_degree = 1;
-            } else {
-                current_degree = Settings::WRITE_TERM_DEGREE;
+                break;
+            case CUSTOMIZED_TABLE:
+                current_degree = Settings::TABLE_TERM_DEGREES[i];
+                break;
+            default:
+                break;
             }
             maximum_degree = std::max(current_degree, maximum_degree);
         }
@@ -100,23 +159,23 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Compute the degree of of the product of read terms
+     * @brief Compute the degree of of the product of lookup terms
      *
-     * @details The degree of the inverse polynomial check subrelation is dependent on this value
-     *
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_read_term_product_degree()
+    static constexpr size_t compute_lookup_term_product_degree()
     {
         size_t accumulated_degree = 0;
-        for (size_t i = 0; i < READ_TERMS; i++) {
+        for (size_t i = 0; i < NUM_LOOKUPS_IN_ONE_ROW; i++) {
             size_t current_degree = 0;
-            if (Settings::READ_TERM_TYPES[i] == READ_BASIC_TUPLE) {
+            switch (Settings::LOOKUP_TYPES[i]) {
+            case BASIC_LOOKUP:
                 current_degree = 1;
-            } else if (Settings::READ_TERM_TYPES[i] == READ_SCALED_TUPLE) {
-                current_degree = 2;
-            } else {
-                current_degree = Settings::READ_TERM_DEGREE;
+                break;
+            case CUSTOMIZED_LOOKUP:
+                current_degree = Settings::LOOKUP_TERM_DEGREES[i];
+                break;
+            default:
+                bb::assert_failure("Invalid lookup type");
             }
             accumulated_degree += current_degree;
         }
@@ -124,47 +183,35 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Compute the degree of of the product of write terms
+     * @brief Compute the degree of of the product of table terms
      *
-     * @details The degree of the inverse polynomial check subrelation is dependent on this value
-     *
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_write_term_product_degree()
+    static constexpr size_t compute_table_term_product_degree()
     {
         size_t accumulated_degree = 0;
-        for (size_t i = 0; i < WRITE_TERMS; i++) {
+        for (size_t i = 0; i < NUM_TABLE_COLUMNS; i++) {
             size_t current_degree = 0;
-            if (Settings::WRITE_TERM_TYPES[i] == WRITE_BASIC_TUPLE) {
+            switch (Settings::TABLE_TYPES[i]) {
+            case BASIC_TABLE:
                 current_degree = 1;
-            } else {
-                current_degree = Settings::WRITE_TERM_DEGREE;
+                break;
+            case CUSTOMIZED_TABLE:
+                current_degree = Settings::TABLE_TERM_DEGREES[i];
+                break;
+            default:
+                break;
             }
             accumulated_degree += current_degree;
         }
         return accumulated_degree;
     }
 
-    // Read term degree is dependent on what type of read term we use
-    static constexpr size_t READ_TERM_DEGREE = compute_maximum_read_term_degree();
-    static_assert(READ_TERM_DEGREE != 0);
-
-    // Write  term degree is dependent on what type of write term we use
-    static constexpr size_t WRITE_TERM_DEGREE = compute_maximum_write_term_degree();
-
-    static_assert(WRITE_TERM_DEGREE != 0);
-
-    // Compute the length of the inverse polynomial correctness sub-relation MAX(product of terms * inverse, inverse
-    // exists polynomial) + 1;
+    // (Sub)relation lengths: equal to 1 + relation degree
     static constexpr size_t FIRST_SUBRELATION_LENGTH =
-        std::max((compute_read_term_product_degree() + compute_write_term_product_degree() + 1),
+        std::max((compute_lookup_term_product_degree() + compute_table_term_product_degree() + 1),
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
         1;
-
-    // Compute the length of the log-derived term subrelation MAX(read term * enable read, write term * write count *
-    // enable write)
-    static constexpr size_t SECOND_SUBRELATION_LENGTH = std::max(READ_TERM_DEGREE + 1, WRITE_TERM_DEGREE + 2);
-    // 1 + polynomial degree of this relation
+    static constexpr size_t SECOND_SUBRELATION_LENGTH = NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS + 3;
     static constexpr size_t LENGTH = std::max(FIRST_SUBRELATION_LENGTH, SECOND_SUBRELATION_LENGTH);
 
     // The structure of polynomial tuple returned from Settings' functions get_const_entities and get_nonconst_entities
