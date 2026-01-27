@@ -67,6 +67,8 @@ namespace bb {
  *    \f]
  *    whose degree is 1 + NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS - 1.
  *
+ * IMPORTANT: The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this relation.
+ *
  * // OLD STUFF ========================================================================================
  * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
  * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
@@ -179,7 +181,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      *  2) Next we have NUM_TABLE_COLUMNS polynomials representing the lookup read counts, i.e., how many times each
      *     table term has been read
      *  3) Next we have NUM_LOOKUPS_IN_ONE_ROW polynomials representing the lookup term predicates, which toggle
-     *     whether a lookup term can be looked up in this row or not
+     *     whether a lookup term can be looked up in this row or not.
      *  4) Next we have NUM_TABLE_COLUMNS polynomials representing the table term predicates, which toggle whether a
      *     table term can be looked up in this row or not
      * ====== VARIABLE PART ======
@@ -234,7 +236,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Returns the number of times a particular table value has been looked up
+     * @brief Get the number of times a particular table value has been looked up
      *
      * @details We assume lookup read counts are independent columns and therefore do not allow customization of this
      * method to the implementor.
@@ -252,75 +254,57 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Compute if the value from the first set exists in this row
+     * @brief Extract predicate enabling looking up a given lookup term at this row
      *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities>
+    static Accumulator get_lookup_term_predicate(const AllEntities& in)
 
     {
-        static_assert(read_index < READ_TERMS);
+        static_assert(lookup_index < NUM_LOOKUPS_IN_ONE_ROW);
         using View = typename Accumulator::View;
 
-        // The selector/wire value that determines that an element from the first set needs to be included. Can be
-        // different from the wire used in the write part.
-        return Accumulator(View(std::get<LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX + read_index>(
-            Settings::get_const_entities(in))));
+        return Accumulator(View(
+            std::get<LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + lookup_index>(Settings::get_const_entities(in))));
     }
 
     /**
-     * @brief Compute if the value from the second set exists in this row
+     * @brief Extract predicate enabling looking up a given table term at this row
      *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t column_index, typename AllEntities>
+    static Accumulator get_write_term_predicate(const AllEntities& in)
     {
 
-        static_assert(write_index < WRITE_TERMS);
+        static_assert(column_index < NUM_TABLE_COLUMNS);
         using View = typename Accumulator::View;
 
-        // The selector/wire value that determines that an element from the first set needs to be included. Can be
-        // different from the wire used in the write part.
-        return Accumulator(View(std::get<LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + write_index>(
-            Settings::get_const_entities(in))));
+        return Accumulator(View(
+            std::get<TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + column_index>(Settings::get_const_entities(in))));
     }
 
     /**
      * @brief Compute where the polynomials defining a particular read term are located
      *
-     * @details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
-     * depending on the type of read term different number of polynomials can be used to compute it. So we need to
-     * compute the offset in the tuple iteratively
-     *
-     * @param read_index Index of the read term
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_read_term_polynomial_offset(size_t read_index)
+    static constexpr size_t compute_lookup_term_polynomial_offset(size_t lookup_index)
     {
         // If it's the starting index, then there is nothing to compute, just get the starting index
-        if (read_index == 0) {
-            return LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX;
+        if (lookup_index == 0) {
+            return LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX;
         }
 
-        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear combination
-        // of polynomials)
-        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_BASIC_TUPLE) {
-            return compute_read_term_polynomial_offset(read_index - 1) + LOOKUP_TUPLE_SIZE;
+        switch (Settings::LOOKUP_TYPES[lookup_index - 1]) {
+        case BASIC_LOOKUP:
+            // If the previous lookup was a basic lookup, add lookup tuple size (it was using just a linear combination
+            // of polynomials)
+            return compute_lookup_term_polynomial_offset(lookup_index - 1) + LOOKUP_SIZE;
+        case CUSTOMIZED_LOOKUP:
+            // In case of customized lookup, no polynomials from the tuple are being used
+            return compute_lookup_term_polynomial_offset(lookup_index - 1);
+        default:
+            bb::assert_failure("Invalid lookup type");
         }
-
-        // If the previous term used scaled tuple lookup, add lookup tuple size x 3 (it was using just a linear
-        // combination of differences (current - previous⋅scale))
-
-        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_SCALED_TUPLE) {
-            return compute_read_term_polynomial_offset(read_index - 1) + 3 * LOOKUP_TUPLE_SIZE;
-        }
-        // In case of arbitrary read term, no polynomials from the tuple are being used
-        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_ARBITRARY) {
-            return compute_read_term_polynomial_offset(read_index - 1);
-        }
-        return SIZE_MAX;
     }
 
     /**
@@ -340,8 +324,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
             return compute_read_term_polynomial_offset(READ_TERMS);
         }
 
-        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear combination
-        // of polynomials)
+        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear
+        // combination of polynomials)
         if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_BASIC_TUPLE) {
             return compute_write_term_polynomial_offset(write_index - 1) + LOOKUP_TUPLE_SIZE;
         }
@@ -356,8 +340,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
-     * in the first set
+     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns
+     * is in the first set
      *
      * @tparam read_index The chosen polynomial relation
      *
@@ -402,8 +386,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
-     * in the second set
+     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns
+     * is in the second set
      *
      * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
      *
