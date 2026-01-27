@@ -136,7 +136,7 @@ To understand when a test started failing:
 4. Check the PR mentioned in the commit message to understand what changed
 5. Download logs from both passing and failing runs to compare:
    - Use hash from history (e.g., `2614d91ec48f4047` for passed, `10d5f47f04025f1c` for failed)
-   - `./ci.sh dlog <hash>` downloads the log
+   - `yarn ci dlog <hash> > /tmp/<hash>.log 2>&1` downloads the log to a local tmp file
 
 **Important**: Do NOT use `gh run list` - the history in the log file is more accurate for this specific test.
 
