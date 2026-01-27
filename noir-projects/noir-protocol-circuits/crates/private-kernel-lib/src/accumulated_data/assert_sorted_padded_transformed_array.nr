@@ -84,6 +84,7 @@ unconstrained fn get_num_padded_items<Value, let N: u32>(
 where
     Value: Ordered,
 {
+    // Q: where do we assert that the padding is contiguous and immediately after the proper data?
     let mut num_padded_items = 0;
     for i in original_array_length..CappedSize {
         if padded_items[i].counter() == MAX_U32_VALUE {
@@ -184,7 +185,7 @@ where
                 // - Items within the range [original_array.length, CappedSize) in the `sorted_padded_transformed_array`
                 //   are padded items, which must have a counter of `MAX_U32_VALUE` or 0.
                 // - Items within the range [0, original_array.length) in the `original_array` must not have a counter
-                //   of 0 (requirement of the parameter) or `MAX_U32_VALUE` (checked above).
+                //   of 0 (requirement of the parameter) or `MAX_U32_VALUE` (checked above [Q: Checked where, above? Checked in an earlier circuit, maybe? Or earlier in this circuit?]).
                 (original, sorted_index)
             };
 
@@ -195,7 +196,9 @@ where
             // Validate that the counter of the transformed item matches the counter of the original/padded item.
             assert_eq(from.counter(), to.counter(), "mapped item has mismatch counter");
 
-            if !should_be_padded {
+            // Q:
+            // This fn combines checks against output_array.array[to_index] (which is conditionally derived) and output_array.array[i], which makes
+            // it quite difficult to comprehend, and difficult to figure out if we're actually covering all inputs and outputs.
                 // Validate that counters within the range [0, original_array.length) are strictly increasing.
                 // Since all items within the range [0, original_array.length) in the `original_array` must have a
                 // unique counter (a requirement of the parameter), this check guarantees that all items in the

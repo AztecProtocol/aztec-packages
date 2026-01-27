@@ -44,7 +44,7 @@ pub fn validate_squashable_note_hash_nullifier_pair(
     // nullified when the transaction reverts.
     //
     // Note: No need to check the other way around. Since the nullifier counter must be larger than the note hash
-    // counter, it's not possible to have a non-revertible nullifier nullifying a revertible note hash.
+    // TODO: these can be strict `>`, right?
     if nullifier.counter() >= split_counter {
         assert(
             note_hash.counter() >= split_counter,

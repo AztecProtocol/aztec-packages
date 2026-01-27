@@ -6,7 +6,7 @@ use dep::types::{
 /// Creates the set of un-validated key validation requests to be propagated to the next circuit.
 pub unconstrained fn get_propagated_key_validation_requests<let N: u32>(
     key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N>,
-    key_validation_amount: u32,
+    key_validation_amount: u32, // TODO: Should this be a generic param, or is it ok here? Consider at least changing the case to PascalCase to make the reader's brain realise it's special.
 ) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N> {
     let mut propagated = ClaimedLengthArray::empty();
 

@@ -8,7 +8,7 @@ use types::traits::Empty;
 pub unconstrained fn check_padded_items<T, let N: u32>(
     padded_items: [T; N],
     num_original_items: u32,
-    capped_size: u32,
+    capped_size: u32, // Should this be passed as a generic parameter, or does it not matter?
 )
 where
     T: Empty,

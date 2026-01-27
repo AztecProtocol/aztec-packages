@@ -366,6 +366,7 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
+        // TODO: check if this abomination is still true:
         // BUG: If we delete this print, the resoluting note_hashes bounded vec is missing the original items.
         no_op(self.public_inputs.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;

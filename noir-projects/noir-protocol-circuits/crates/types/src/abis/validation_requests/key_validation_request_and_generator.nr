@@ -6,10 +6,12 @@ use crate::{
 };
 use std::meta::derive;
 
+// TODO: rename to KeyValidationRequestAndSeparator or KeyValidationRequestAndType or KeyValidationRequestAndKeyId ("Generator" is an artifact of using pedersen hashing). Ultimately, the "Separator"/"Type"/"Id" is conveying the type of keypair: Nullifier/Ivpk/Ovpk, etc. 
+// Can we simply call it a `KeyValidationRequest` and get rid of the other kind of `KeyValidationRequest`? Is there ever a time where we use the current KeyValidationRequest without its wrapper of KeyValidationRequestAndGenerator?
 #[derive(Deserialize, Eq, Serialize)]
 pub struct KeyValidationRequestAndGenerator {
     pub request: KeyValidationRequest,
-    pub sk_app_generator: Field,
+    pub sk_app_generator: Field, // TODO: Rename to `key_id`, as that's essentially what it is.
 }
 
 impl Empty for KeyValidationRequestAndGenerator {
