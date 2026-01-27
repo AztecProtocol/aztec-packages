@@ -77,7 +77,8 @@ class HonkRecursionConstraintTestingFunctions {
     // Check that if IsRootRollup is true, then we set the parameters correctly
     static_assert([]() {
         if constexpr (IsRootRollup) {
-            return HasIPAAccumulator<RecursiveFlavor> && N == 1 && LayerSizes[0] == 2;
+            // Root rollup requires N == 1 && LayerSizes[0] == 2 for 2 recursive verifications
+            return N == 1 && LayerSizes[0] == 2;
         }
 
         return true;
@@ -85,7 +86,10 @@ class HonkRecursionConstraintTestingFunctions {
 
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
-    using InnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>,
+    // Use the IsRootRollup template parameter to determine if we're testing rollup scenarios
+    // For rollup tests, we use RollupIO; otherwise we use DefaultIO
+    static constexpr bool UseRollupIO = IsRootRollup;
+    using InnerIO = std::conditional_t<UseRollupIO,
                                        bb::stdlib::recursion::honk::RollupIO,
                                        bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>>;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
@@ -95,7 +99,7 @@ class HonkRecursionConstraintTestingFunctions {
     // Determine the proof type of the "inner" circuits, i.e., the ones up to the level below the top. The proof type is
     // determined by the flavor with which we prove the circuits.
     static constexpr uint32_t InnerProofType = []() {
-        if constexpr (HasIPAAccumulator<InnerFlavor>) {
+        if constexpr (UseRollupIO) {
             return ROLLUP_HONK;
         } else if constexpr (InnerFlavor::HasZK) {
             return HONK_ZK;
@@ -235,7 +239,8 @@ class HonkRecursionConstraintTestingFunctions {
      */
     static ProgramMetadata generate_metadata()
     {
-        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> && !IsRootRollup };
+        // The outer circuit has IPA claims if using rollup IO and not the root rollup (which finalizes IPA)
+        return ProgramMetadata{ .has_ipa_claim = UseRollupIO && !IsRootRollup };
     }
 
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
@@ -346,7 +351,6 @@ class HonkRecursionConstraintTestWithPredicate
 using HonkRecursionTypesWithPredicate =
     testing::Types<HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
-                   HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>>;
 
@@ -436,20 +440,12 @@ class HonkRecursionConstraintTestWithoutPredicate
 };
 
 using HonkRecursionTypesWithoutPredicate = testing::Types<
-    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,       // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,     // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>, // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, true, 1, { 2 }>,  // Root circuit
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 1 }>,  // Double recursion on
-                                                                                                // one side
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 2 }>,  // Merge two circuits
-                                                                                                // that recursively
-                                                                                                // verify two circuits
-    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Random complex
-                                                                                                   // flow
+    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,      // Merge circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,    // Merge circuit
+    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, true, 1, { 2 }>,       // Root rollup circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 1 }>, // Double recursion
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 2 }>, // Merge two circuits
+    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Complex flow
 
 TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypesWithoutPredicate);
 

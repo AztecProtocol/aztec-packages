@@ -189,9 +189,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-                ipa_proof = circuit.ipa_proof;
-            }
+            // Copy IPA proof if present (data-driven, not flavor-dependent)
+            ipa_proof = circuit.ipa_proof;
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

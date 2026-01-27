@@ -68,9 +68,8 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
 {
     auto proof = transcript->export_proof();
 
-    // Add the IPA proof
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // The extra calculation is for the IPA proof length.
+    // Append IPA proof if present (data-driven, symmetric with split_rollup_proof on verifier side)
+    if (!prover_instance->ipa_proof.empty()) {
         BB_ASSERT_EQ(prover_instance->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
         proof.insert(proof.end(), prover_instance->ipa_proof.begin(), prover_instance->ipa_proof.end());
     }
@@ -189,7 +188,8 @@ template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraStarknetZKFlavor>;
 #endif
 template class UltraProver_<UltraKeccakZKFlavor>;
-template class UltraProver_<UltraRollupFlavor>;
+// UltraProver for rollup: uses UltraFlavor (IPA handling is data-driven via ipa_proof)
+// Note: No separate UltraRollupFlavor needed - RollupIO determines public inputs structure
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;

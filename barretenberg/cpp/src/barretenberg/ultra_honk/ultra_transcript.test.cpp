@@ -2,7 +2,6 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -22,12 +21,10 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraKeccakFlavor,
                                      UltraStarknetFlavor,
                                      UltraStarknetZKFlavor,
-                                     UltraRollupFlavor,
                                      UltraZKFlavor,
                                      UltraKeccakZKFlavor>;
 #else
-using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+using FlavorTypes = ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
 #endif
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:

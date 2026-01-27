@@ -15,7 +15,6 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
@@ -32,17 +31,15 @@
 
 namespace bb::bbapi {
 
-template <typename Flavor> acir_format::ProgramMetadata _create_program_metadata()
+template <typename IO> acir_format::ProgramMetadata _create_program_metadata()
 {
-    bool constexpr has_ipa_claim = IsAnyOf<Flavor, UltraRollupFlavor>;
-
-    return acir_format::ProgramMetadata{ .has_ipa_claim = has_ipa_claim };
+    return acir_format::ProgramMetadata{ .has_ipa_claim = IO::HasIPA };
 }
 
-template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
+template <typename Flavor, typename IO, typename Circuit = typename Flavor::CircuitBuilder>
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
-    const acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
+    const acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
 
     if (!witness.empty()) {
@@ -51,27 +48,27 @@ Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&&
     return acir_format::create_circuit<Circuit>(program, metadata);
 }
 
-template <typename Flavor>
+template <typename Flavor, typename IO>
 std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<uint8_t>&& bytecode,
                                                                   std::vector<uint8_t>&& witness)
 {
     // Measure function time and debug print
     auto initial_time = std::chrono::high_resolution_clock::now();
-    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(std::move(bytecode), std::move(witness));
+    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor, IO>(std::move(bytecode), std::move(witness));
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto final_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
     info("CircuitProve: Proving key computed in ", duration.count(), " ms");
     return prover_instance;
 }
-template <typename Flavor>
+template <typename Flavor, typename IO>
 CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                               std::vector<uint8_t>&& witness,
                               std::vector<uint8_t>&& vk_bytes)
 {
     using Proof = typename Flavor::Transcript::Proof;
 
-    auto prover_instance = _compute_prover_instance<Flavor>(std::move(bytecode), std::move(witness));
+    auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(bytecode), std::move(witness));
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (vk_bytes.empty()) {
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
@@ -84,20 +81,12 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     UltraProver_<Flavor> prover{ prover_instance, vk };
 
     Proof concat_pi_and_proof = prover.construct_proof();
-    // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
+    // Compute number of inner public inputs using IO type
     auto num_inner_public_inputs = [&]() {
         size_t num_public_inputs = prover.prover_instance->num_public_inputs();
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            BB_ASSERT_GTE(num_public_inputs,
-                          RollupIO::PUBLIC_INPUTS_SIZE,
-                          "Public inputs should contain a pairing point accumulator and an IPA claim.");
-            return num_public_inputs - RollupIO::PUBLIC_INPUTS_SIZE;
-        } else {
-            BB_ASSERT_GTE(num_public_inputs,
-                          DefaultIO::PUBLIC_INPUTS_SIZE,
-                          "Public inputs should contain a pairing point accumulator.");
-            return num_public_inputs - DefaultIO::PUBLIC_INPUTS_SIZE;
-        }
+        BB_ASSERT_GTE(
+            num_public_inputs, IO::PUBLIC_INPUTS_SIZE, "Public inputs should contain the expected IO structure.");
+        return num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
     }();
     CircuitComputeVk::Response vk_response;
     // Optimization over calling CircuitComputeVk separately - if vk not provided, we write it.
@@ -126,14 +115,13 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
              .vk = std::move(vk_response) };
 }
 
-template <typename Flavor>
+template <typename Flavor, typename IO>
 bool _verify(const std::vector<uint8_t>& vk_bytes,
              const std::vector<uint256_t>& public_inputs,
              const std::vector<uint256_t>& proof)
 {
     using VerificationKey = typename Flavor::VerificationKey;
     using VKAndHash = typename Flavor::VKAndHash;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
     using Verifier = UltraVerifier_<Flavor, IO>;
     using Transcript = typename Flavor::Transcript;
     using DataType = typename Transcript::DataType;
@@ -163,37 +151,37 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    // if the ipa accumulation flag is set we are using the UltraRollupFlavor
+    // if the ipa accumulation flag is set we are using RollupIO with UltraFlavor
     if (settings.ipa_accumulation) {
-        return _prove<UltraRollupFlavor>(
+        return _prove<UltraFlavor, RollupIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
-        return _prove<UltraZKFlavor>(
+        return _prove<UltraZKFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
-        return _prove<UltraFlavor>(
+        return _prove<UltraFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
-        return _prove<UltraKeccakZKFlavor>(
+        return _prove<UltraKeccakZKFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        return _prove<UltraKeccakFlavor>(
+        return _prove<UltraKeccakFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
 #ifdef STARKNET_GARAGA_FLAVORS
     }
     if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        return _prove<UltraStarknetFlavor>(
+        return _prove<UltraStarknetFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key()));
     }
     if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        return _prove<UltraStarknetZKFlavor>(
+        return _prove<UltraStarknetZKFlavor, DefaultIO>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key()));
 #endif
     }
@@ -207,9 +195,9 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     std::vector<uint256_t> vk_fields;
     std::vector<uint8_t> vk_hash_bytes;
 
-    // Helper lambda to compute VK, fields, and hash for a given flavor
-    auto compute_vk_and_fields = [&]<typename Flavor>() {
-        auto prover_instance = _compute_prover_instance<Flavor>(std::move(circuit.bytecode), {});
+    // Helper lambda to compute VK, fields, and hash for a given flavor and IO type
+    auto compute_vk_and_fields = [&]<typename Flavor, typename IO>() {
+        auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
         vk_bytes = to_buffer(*vk);
         if constexpr (IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
@@ -224,20 +212,20 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     };
 
     if (settings.ipa_accumulation) {
-        compute_vk_and_fields.template operator()<UltraRollupFlavor>();
+        compute_vk_and_fields.template operator()<UltraFlavor, RollupIO>();
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraZKFlavor>();
+        compute_vk_and_fields.template operator()<UltraZKFlavor, DefaultIO>();
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraFlavor>();
+        compute_vk_and_fields.template operator()<UltraFlavor, DefaultIO>();
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakZKFlavor>();
+        compute_vk_and_fields.template operator()<UltraKeccakZKFlavor, DefaultIO>();
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakFlavor>();
+        compute_vk_and_fields.template operator()<UltraKeccakFlavor, DefaultIO>();
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetZKFlavor>();
+        compute_vk_and_fields.template operator()<UltraStarknetZKFlavor, DefaultIO>();
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetFlavor>();
+        compute_vk_and_fields.template operator()<UltraStarknetFlavor, DefaultIO>();
 #endif
     } else {
         throw_or_abort("invalid proof type in _write_vk");
@@ -246,13 +234,14 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
 }
 
-template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
+template <typename Flavor, typename IO>
 CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gates_per_opcode)
 {
+    using Circuit = typename Flavor::CircuitBuilder;
     // Parse the circuit to get gate count information
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
 
-    acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
+    acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
     CircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
@@ -272,31 +261,31 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    // if the ipa accumulation flag is set we are using the UltraRollupFlavor
+    // if the ipa accumulation flag is set we are using RollupIO
     if (settings.ipa_accumulation) {
-        return _stats<UltraRollupFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraFlavor, RollupIO>(std::move(circuit.bytecode), include_gates_per_opcode);
     }
     if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
-        return _stats<UltraZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraZKFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
     }
     if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
-        return _stats<UltraFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
     }
     if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
-        return _stats<UltraKeccakZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraKeccakZKFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
     }
     if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        return _stats<UltraKeccakFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraKeccakFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
 #ifdef STARKNET_GARAGA_FLAVORS
     }
     if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        return _stats<UltraStarknetFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraStarknetFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
     }
     if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        return _stats<UltraStarknetZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+        return _stats<UltraStarknetZKFlavor, DefaultIO>(std::move(circuit.bytecode), include_gates_per_opcode);
 #endif
     }
     throw_or_abort("Invalid proving options specified in CircuitStats!");
@@ -308,22 +297,22 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
     const bool ipa_accumulation = settings.ipa_accumulation;
     bool verified = false;
 
-    // if the ipa accumulation flag is set we are using the UltraRollupFlavor
+    // if the ipa accumulation flag is set we are using RollupIO
     if (ipa_accumulation) {
-        verified = _verify<UltraRollupFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraFlavor, RollupIO>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        verified = _verify<UltraZKFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraZKFlavor, DefaultIO>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        verified = _verify<UltraFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraFlavor, DefaultIO>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        verified = _verify<UltraKeccakZKFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakZKFlavor, DefaultIO>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        verified = _verify<UltraKeccakFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraKeccakFlavor, DefaultIO>(verification_key, public_inputs, proof);
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        verified = _verify<UltraStarknetZKFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetZKFlavor, DefaultIO>(verification_key, public_inputs, proof);
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        verified = _verify<UltraStarknetFlavor>(verification_key, public_inputs, proof);
+        verified = _verify<UltraStarknetFlavor, DefaultIO>(verification_key, public_inputs, proof);
 #endif
     } else {
         throw_or_abort("invalid proof type in _verify");

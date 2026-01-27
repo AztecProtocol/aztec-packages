@@ -22,6 +22,7 @@ class DefaultIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
 
@@ -52,6 +53,7 @@ class HidingKernelIO {
     using PublicPoint = PublicInputComponent<G1>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
     G1 kernel_return_data;
@@ -90,6 +92,7 @@ class RollupIO {
     using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
 
     PairingPoints<curve::BN254> pairing_inputs;
     IpaClaim ipa_claim;

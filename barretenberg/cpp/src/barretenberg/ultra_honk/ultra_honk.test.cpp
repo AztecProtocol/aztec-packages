@@ -13,12 +13,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
-                                   UltraRollupFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 /**

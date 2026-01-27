@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -229,7 +229,8 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    if constexpr (HasIPAAccumulator<Flavor>) {
+    // Append IPA proof if the IO type requires it (IO-driven, not flavor-dependent)
+    if constexpr (PublicInputs::HasIPA) {
         HonkProof ipa_proof = create_mock_ipa_proof();
         proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
     }
@@ -260,7 +261,7 @@ HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
     return proof;
 }
 
-template <typename Flavor>
+template <typename Flavor, typename IO>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     const size_t acir_public_inputs_size)
 {
@@ -289,12 +290,8 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points and IPA claim
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        stdlib::recursion::honk::RollupIO::add_default(builder);
-    } else {
-        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-    }
+    // Add the default pairing points and IPA claim (IO-driven)
+    IO::add_default(builder);
 
     // prove the circuit constructed above
     // Create the decider proving key
@@ -521,7 +518,7 @@ template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::
     const size_t);
 template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
-template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
     const size_t);
@@ -531,7 +528,6 @@ template HonkProof create_mock_pcs_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
-template HonkProof create_mock_decider_proof<UltraRollupFlavor>();
 template HonkProof create_mock_decider_proof<TranslatorFlavor>();
 template HonkProof create_mock_decider_proof<avm2::AvmFlavor>();
 
@@ -548,14 +544,16 @@ template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::
     const size_t);
 template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
-template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
 template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor>(const size_t);
-template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraRollupFlavor>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
@@ -587,8 +585,8 @@ template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
 template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
     UltraZKFlavor,
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t);
-template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk<UltraRollupFlavor,
-                                                                                 stdlib::recursion::honk::RollupIO>(
+template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<UltraFlavor,
+                                                                           stdlib::recursion::honk::RollupIO>(
     const size_t, const size_t);
 
 } // namespace acir_format

@@ -74,7 +74,7 @@ template <typename Flavor, class IO>
 std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Flavor, IO>::Proof> UltraVerifier_<
     Flavor,
     IO>::split_rollup_proof(const Proof& combined_proof) const
-    requires(HasIPAAccumulator<Flavor>)
+    requires(IO::HasIPA)
 {
     // Split point: IPA proof is appended at the end
     const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
@@ -90,7 +90,7 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
  */
 template <typename Flavor, class IO>
 bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPAClaim& ipa_claim)
-    requires(!IsRecursiveFlavor<Flavor> && HasIPAAccumulator<Flavor>)
+    requires(!IsRecursiveFlavor<Flavor> && IO::HasIPA)
 {
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     ipa_transcript->load_proof(ipa_proof);
@@ -206,10 +206,10 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    // Step 1: Split proof if needed
+    // Step 1: Split proof if needed (IPA handling is IO-driven)
     Proof honk_proof;
     Proof ipa_proof;
-    if constexpr (HasIPAAccumulator<Flavor>) {
+    if constexpr (IO::HasIPA) {
         std::tie(honk_proof, ipa_proof) = split_rollup_proof(proof);
     } else {
         honk_proof = proof;
@@ -240,7 +240,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     if constexpr (IsRecursive) {
         // Recursive: populate output for deferred verification
         output.points_accumulator = std::move(pi_pairing_points);
-        if constexpr (HasIPAAccumulator<Flavor>) {
+        if constexpr (IO::HasIPA) {
             output.ipa_proof = ipa_proof;
         }
     } else {
@@ -253,8 +253,8 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
             return Output{};
         }
 
-        // Perform IPA verification if Rollup flavor
-        if constexpr (HasIPAAccumulator<Flavor>) {
+        // Perform IPA verification if IO requires it
+        if constexpr (IO::HasIPA) {
             if (!verify_ipa(ipa_proof, inputs.ipa_claim)) {
                 return Output{};
             }
@@ -272,7 +272,7 @@ template class UltraVerifier_<UltraFlavor, DefaultIO>;
 template class UltraVerifier_<UltraZKFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
-template class UltraVerifier_<UltraRollupFlavor, RollupIO>;
+template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor + RollupIO
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
@@ -296,8 +296,8 @@ template class UltraVerifier_<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
 template class UltraVerifier_<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
-// UltraRollupRecursiveFlavor with RollupIO
-template class UltraVerifier_<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO>;
+// UltraRecursiveFlavor with RollupIO (replaces UltraRollupRecursiveFlavor)
+template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO>;
 
 // MegaRecursiveFlavor with DefaultIO
 template class UltraVerifier_<MegaRecursiveFlavor_<UltraCircuitBuilder>,

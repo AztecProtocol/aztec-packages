@@ -93,10 +93,12 @@ bb::HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding);
  * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to
  * match num_public_inputs provided.
  *
+ * @tparam Flavor The proving flavor
+ * @tparam IO The IO type that determines public inputs handling and whether IPA proof is included
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  * @param make_proof_invalid If true, the proof is an invalid proof
  */
-template <typename Flavor>
+template <typename Flavor, typename IO>
 std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     size_t acir_public_inputs_size);
 
