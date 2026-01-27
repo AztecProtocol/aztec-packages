@@ -566,7 +566,7 @@ TEST_F(Poseidon2ConstrainingTest, FakeClassIdAttackIsBlocked)
                   { C::class_id_derivation_private_functions_root, real_private_functions_root },
                   { C::class_id_derivation_public_bytecode_commitment, real_bytecode_commitment },
                   { C::class_id_derivation_gen_index_contract_class_id, FF(DOM_SEP__CONTRACT_CLASS_ID) },
-                  { C::class_id_derivation_const_two, 2 },
+                  { C::class_id_derivation_const_four, 4 },
               } });
 
     // =========================================================================
