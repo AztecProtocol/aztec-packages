@@ -603,9 +603,6 @@ case "$cmd" in
     # Fetch full history for bisect
     git fetch origin --unshallow || git fetch origin
 
-    # Build at HEAD first
-    build
-
     # Run the bisect script
     $ci3/bisect_flake "$full_cmd" "$commit"
     ;;
@@ -711,7 +708,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-"ci-barretenberg-full")
+  "ci-barretenberg-full")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0

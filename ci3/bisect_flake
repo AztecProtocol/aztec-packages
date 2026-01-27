@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# Bisect to find the commit that introduced a flaky test.
+# Usage: bisect_flake <full_cmd> [commit]
+# full_cmd format: <hash>[:VAR=val]... <test_command>
+#
+# Uses exec_test directly (no CI integration - no Redis, no flake detection).
+
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+
+full_cmd="$1"
+commit="${2:-HEAD}"
+
+# Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MAKEFILE_TARGET, etc.)
+source $ci3/source_test_params
+
+GRIND_RUNS=5
+BISECT_MAX_DEPTH=50  # How far back to search (git bisect is O(log n))
+bisect_runs=$(($(nproc) / CPUS))
+[ "$bisect_runs" -lt 1 ] && bisect_runs=1
+
+function slack_report {
+    local msg="$1"
+    if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+        slack_notify "$msg"
+    fi
+    echo -e "$msg"
+}
+
+echo "=== Deflake ==="
+echo "Full cmd: $full_cmd"
+echo "Test cmd: $test_cmd"
+echo "CPUS: $CPUS (bisect_runs: $bisect_runs)"
+echo "MAKEFILE_TARGET: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
+echo "Commit: $commit"
+echo "Ref: $REF_NAME"
+echo
+
+# ============================================================
+# Step 1: Grind at HEAD to confirm it's a flake
+# Use GNU parallel, halt as soon as one succeeds (confirms flake)
+# If ALL fail, it's a real failure, not a flake
+# ============================================================
+echo "=== Step 1: Grinding test $GRIND_RUNS times at HEAD ==="
+echo "Expecting all to fail if real failure, any pass if flake..."
+
+# --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
+# If a job succeeds, parallel exits with code 0
+# If all jobs fail, parallel exits with non-zero
+# Use exec_test to run tests with proper resource limits (no output needed for grinding)
+if seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
+    "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+    echo "At least one run passed - confirmed flake, starting bisect..."
+else
+    slack_report ":x: *Not a Flake*\n*Test:* \`$test_cmd\`\nAll $GRIND_RUNS runs failed on $REF_NAME - this is a real failure, not a flake."
+    exit 0
+fi
+
+# ============================================================
+# Step 2: Use git bisect to find the first bad commit
+# bisect bad = flaky (fails sometimes)
+# bisect good = stable (passes consistently)
+# ============================================================
+echo
+echo "=== Step 2: Git bisect to find flake source ==="
+
+# Clean up any existing bisect
+git bisect reset &>/dev/null || true
+
+# Start bisect
+git bisect start
+
+# Current commit is bad (flaky)
+git bisect bad "$commit"
+
+# Find a good commit (go back BISECT_MAX_DEPTH commits)
+good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
+    echo "Cannot go back $BISECT_MAX_DEPTH commits, using earliest available"
+    good_commit=$(git rev-list --max-parents=0 HEAD | head -1)
+}
+git bisect good "$good_commit"
+
+echo "Bisecting between ${good_commit:0:8} (good) and ${commit:0:8} (bad)..."
+echo
+
+# Bisect loop
+while true; do
+    current=$(git rev-parse HEAD)
+    echo "--- Testing commit: ${current:0:8} ---"
+
+    # Build at this commit (targeted if MAKEFILE_TARGET set, otherwise full bootstrap)
+    if [ -n "${MAKEFILE_TARGET:-}" ]; then
+        echo "Building target: $MAKEFILE_TARGET..."
+        if ! make $MAKEFILE_TARGET 2>&1 | tail -20; then
+            echo "Build failed"
+            git bisect reset
+            exit 1
+        fi
+    else
+        echo "Building (full bootstrap)..."
+        if ! ./bootstrap.sh 2>&1 | tail -20; then
+            echo "Build failed"
+            git bisect reset
+            exit 1
+        fi
+    fi
+
+    # Grind with GNU parallel using exec_test
+    # --halt soon,fail=1 stops all jobs as soon as one fails
+    # If all succeed, parallel exits 0 -> commit is good (stable)
+    # If any fail, parallel exits non-zero -> commit is bad (flaky)
+    echo "Grinding $bisect_runs times (halt on first failure)..."
+    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
+        "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+        echo "All runs passed - this commit is good (stable)"
+        result=$(git bisect good 2>&1)
+    else
+        echo "At least one run failed - this commit is bad (flaky)"
+        result=$(git bisect bad 2>&1)
+    fi
+
+    echo "$result"
+
+    # Check if bisect is done
+    if echo "$result" | grep -q "is the first bad commit"; then
+        culprit=$(echo "$result" | grep -oE '^[a-f0-9]{40}' | head -1)
+        break
+    fi
+done
+
+# Clean up bisect
+git bisect reset
+
+# Report the culprit
+if [ -n "$culprit" ]; then
+    culprit_short=${culprit:0:8}
+    culprit_author=$(git log -1 --format='%an' $culprit)
+    culprit_msg=$(git log -1 --format='%s' $culprit)
+
+    slack_report ":mag: *Flake Source Found*\n*Test:* \`$test_cmd\`\n*Introduced by:* <https://github.com/AztecProtocol/aztec-packages/commit/$culprit|$culprit_short>\n*Author:* $culprit_author\n*Message:* $culprit_msg"
+else
+    slack_report ":warning: *Flake Source Not Found*\n*Test:* \`$test_cmd\`\nBisect completed but couldn't identify the culprit commit on $REF_NAME"
+fi
+
+exit 0

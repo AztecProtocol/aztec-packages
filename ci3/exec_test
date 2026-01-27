@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Execute a test command with proper resource limits and logging.
+# Usage: exec_test <full_cmd>
+#
+# full_cmd format: <hash>[:VAR=val]... <test_command>
+# Output goes to stdout - caller handles redirection.
+#
+# Handles:
+# - Variable extraction (CPUS, TIMEOUT, ISOLATE, etc.)
+# - Log header (Command, Commit, Resources, etc.)
+# - Test execution with taskset/docker_isolate
+# - Timestamps on output
+#
+# Returns: exit code from test
+
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+full_cmd="$1"
+
+[ -z "$full_cmd" ] && exit 0
+
+# Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MEM, etc.)
+source $ci3/source_test_params
+
+# Compute test hash for history tracking
+test_hash=$(hash_str_orig "$test_cmd")
+
+# Print log header
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
+fi
+cat <<EOF
+Command: $full_cmd
+Commit: https://github.com/AztecProtocol/aztec-packages/commit/${COMMIT_HASH:-HEAD}
+Env: REF_NAME=${REF_NAME:-} CURRENT_VERSION=${CURRENT_VERSION:-} CI_FULL=${CI_FULL:-}
+Date: $(date)
+System: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
+Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
+History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
+
+EOF
+
+# Run the test with timestamps via process substitution (preserves exit code)
+set +e
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(add_timestamps)
+else
+  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps)
+fi
+code=$?
+set -e
+
+exit $code
