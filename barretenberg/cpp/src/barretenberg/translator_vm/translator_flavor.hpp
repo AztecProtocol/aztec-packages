@@ -202,7 +202,7 @@ class TranslatorFlavor {
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<BF>();
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+    static constexpr size_t PROOF_LENGTH =
         /* 1. NUM_WITNESS_ENTITIES commitments (minus gemini_masking_poly sent separately, z_perm sent separately,
               and 4 op queue wires passed by merge protocol) */
         ((NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES) * num_frs_comm) +

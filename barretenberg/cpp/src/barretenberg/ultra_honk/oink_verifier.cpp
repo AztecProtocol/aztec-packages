@@ -65,11 +65,16 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
             info("Recursive Ultra Verifier: VK Hash Mismatch");
         }
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
+
+        // Assert that the provided num_public_inputs matches VK's value (in-circuit constraint)
+        vk->num_public_inputs.assert_equal(FF(num_public_inputs), "OinkVerifier: num_public_inputs mismatch with VK");
     } else {
         BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native Ultra Verifier: VK Hash Mismatch");
+        // Assert that the provided num_public_inputs matches VK's value
+        BB_ASSERT_EQ(num_public_inputs,
+                     static_cast<size_t>(vk->num_public_inputs),
+                     "OinkVerifier: num_public_inputs mismatch with VK");
     };
-
-    size_t num_public_inputs = get_num_public_inputs();
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {

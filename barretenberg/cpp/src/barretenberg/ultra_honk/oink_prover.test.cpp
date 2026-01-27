@@ -88,8 +88,8 @@ TEST_F(OinkTests, OinkProverCommitments)
     Flavor::VerifierCommitments prover_commitments(verification_key, prover_instance->commitments);
 
     auto transcript = std::make_shared<Transcript>();
-    OinkVerifier verifier(verifier_instance, transcript);
     transcript->load_proof(proof);
+    OinkVerifier verifier(verifier_instance, transcript, verification_key->num_public_inputs);
     verifier.verify();
 
     Flavor::VerifierCommitments verifier_commitments(verifier_instance->get_vk(),
