@@ -11,7 +11,7 @@ use protocol_types::address::AztecAddress;
 ///
 /// `ConfirmedNote`s can be obtained by reading notes from PXE via [crate::note::note_getter::get_note] and
 /// [crate::note::note_getter::get_notes], or by confirming a [crate::note::hinted_note::HintedNote] via
-/// [crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion].
+/// [crate::history::note::assert_note_existed_by].
 ///
 /// ## Pending Notes
 ///
