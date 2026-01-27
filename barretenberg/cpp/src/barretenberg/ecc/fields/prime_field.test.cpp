@@ -32,18 +32,23 @@ auto& engine = numeric::get_debug_randomness();
 // Helper to create a field element whose internal (Montgomery) representation has exactly
 // the given limbs. This is done by constructing from the value and then calling
 // from_montgomery_form() to make the limbs directly represent the desired pattern.
-// Also verifies that the internal representation matches the expected limbs.
+// Also verifies that the internal representation matches the expected limbs (on non-WASM only,
+// since WASM uses different internal representation during computation).
 template <typename F> F create_element_with_limbs(uint64_t l0, uint64_t l1, uint64_t l2, uint64_t l3)
 {
     uint256_t val{ l0, l1, l2, l3 };
     F result(val);
     result.self_from_montgomery_form();
 
+// On WASM, the internal Montgomery multiplication uses 29-bit limbs and may produce
+// different (but equivalent) representations. Skip limb verification on WASM.
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     // Verify the internal representation matches expected limbs
     EXPECT_EQ(result.data[0], l0);
     EXPECT_EQ(result.data[1], l1);
     EXPECT_EQ(result.data[2], l2);
     EXPECT_EQ(result.data[3], l3);
+#endif
 
     return result;
 }
