@@ -111,54 +111,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static constexpr size_t LOOKUP_SIZE = Settings::LOOKUP_SIZE;
 
     /**
-     * @brief Compute the maximum degree of a lookup term
-     *
-     */
-    static constexpr size_t compute_maximum_lookup_term_degree()
-    {
-        size_t maximum_degree = 0;
-        for (size_t i = 0; i < NUM_LOOKUPS_IN_ONE_ROW; i++) {
-            size_t current_degree = 0;
-            switch (Settings::LOOKUP_TYPES[i]) {
-            case BASIC_LOOKUP:
-                current_degree = 1;
-                break;
-            case CUSTOMIZED_LOOKUP:
-                current_degree = Settings::LOOKUP_TERM_DEGREES[i];
-                break;
-            default:
-                bb::assert_failure("Invalid lookup type");
-            }
-            maximum_degree = std::max(current_degree, maximum_degree);
-        }
-        return maximum_degree;
-    }
-
-    /**
-     * @brief Compute the maximum degree of a table term
-     *
-     */
-    static constexpr size_t compute_maximum_table_term_degree()
-    {
-        size_t maximum_degree = 0;
-        for (size_t i = 0; i < NUM_TABLE_COLUMNS; i++) {
-            size_t current_degree = 0;
-            switch (Settings::TABLE_TYPES[i]) {
-            case BASIC_TABLE:
-                current_degree = 1;
-                break;
-            case CUSTOMIZED_TABLE:
-                current_degree = Settings::TABLE_TERM_DEGREES[i];
-                break;
-            default:
-                break;
-            }
-            maximum_degree = std::max(current_degree, maximum_degree);
-        }
-        return maximum_degree;
-    }
-
-    /**
      * @brief Compute the degree of of the product of lookup terms
      *
      */
@@ -207,77 +159,65 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     // (Sub)relation lengths: equal to 1 + relation degree
-    static constexpr size_t FIRST_SUBRELATION_LENGTH =
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         std::max((compute_lookup_term_product_degree() + compute_table_term_product_degree() + 1),
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
-        1;
-    static constexpr size_t SECOND_SUBRELATION_LENGTH = NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS + 3;
-    static constexpr size_t LENGTH = std::max(FIRST_SUBRELATION_LENGTH, SECOND_SUBRELATION_LENGTH);
-
-    // The structure of polynomial tuple returned from Settings' functions get_const_entities and get_nonconst_entities
-    // is the following:
-    // 1) 1 Polynomial used to contain the inverse product from which we reconstruct individual inverses
-    // used in the sum
-    // 2) WRITE_TERMS number of polynomials representing how much each write term has been read
-    // 3) READ_TERMS number of polynomials enabling the addition of a particular read term in this row (should we lookup
-    // or not)
-    // 4) WRITE_TERMS number of polynomials enabling a particular write term in this row (should we add it to
-    // the lookup table or not)
-    // 5) For each read term depending on its type (READ_BASIC_TUPLE, READ_SCALED_TUPLE or READ_ARBITRARY):
-    //  1. In case of basic tuple LOOKUP_TUPLE_SIZE polynomials the combination of whose values in a row is supposed to
-    //  represent the looked up entry
-    //  2. In case of scaled tuple there are LOOKUP_TUPLE_SIZE previous accumulator polynomials, LOOKUP_TUPLE_SIZE
-    //  scaling polynomials and LOOKUP_TUPLE_SIZE current accumulator polynomials. The tuple is comprised of values
-    //  (current_accumulator-scale*previous_accumulator)
-    //  3. In the arbitrary case the are no additional
-    //  polynomials, because the logic is completely decided in the settings
-    // 6) For each  write term depending on its type (READ_BASIC_TUPLE or READ_ARBITRARY):
-    //  1. In case of basic tuple LOOKUP_TUPLE_SIZE polynomials the combination of whose values in a row is supposed to
-    //  represent the entry written into the lookup table
-    //  2. In the arbitrary case the are no additional write term polynomials,
-    //  because the logic is completely decided in the settings
-    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
-    static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
-    static constexpr size_t LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + WRITE_TERMS;
-    static constexpr size_t LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX + READ_TERMS;
-    static constexpr size_t LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + WRITE_TERMS;
-
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        LENGTH, // inverse polynomial correctness sub-relation
-        LENGTH  // log-derived terms subrelation
+            1,                                         // inverse polynomial correctness sub-relation
+        NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS + 3 // log-derived terms subrelation
     };
-    /**
-     * @brief We apply the power polynomial only to the first subrelation
-     *
-     *@details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
-     *The second relation computes the inverses of individual terms, which are then summed up with sumcheck
-     *
-     */
+
+    // The first subrelation must be satisfied at every row.
+    // The second subrelation must be satisfied when summed across the entire trace
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     /**
+     * The implementor must provide methods get_const_entities and get_nonconst_entities via Settings that return the
+     * polynomials required for the lookup argument. These polynomials have a structure that is in part fixed and in
+     * part variable:
+     * ====== FIXED PART ======
+     *  1) The first polynomial is the inverse polynomial
+     *  2) Next we have NUM_TABLE_COLUMNS polynomials representing the lookup read counts, i.e., how many times each
+     *     table term has been read
+     *  3) Next we have NUM_LOOKUPS_IN_ONE_ROW polynomials representing the lookup term predicates, which toggle
+     *     whether a lookup term can be looked up in this row or not
+     *  4) Next we have NUM_TABLE_COLUMNS polynomials representing the table term predicates, which toggle whether a
+     *     table term can be looked up in this row or not
+     * ====== VARIABLE PART ======
+     *  5) For each lookup term, we have a variable number of polynomials depending on the type of lookup:
+     *     - BASIC_LOOKUP: LOOKUP_SIZE polynomials representing the columns being looked up (and that will be batched)
+     *     - CUSTOMIZED_LOOKUP: No additional polynomials are required, as the logic is fully specified in Settings
+     *  6) For each table term, we have a variable number of polynomials depending on the type of table:
+     *     - BASIC_TABLE: LOOKUP_SIZE polynomials representing the table columns (and that will be batched)
+     *     - CUSTOMIZED_TABLE: No additional polynomials are required, as the logic is fully specified in Settings
+     */
+    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
+    static constexpr size_t LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + NUM_TABLE_COLUMNS;
+    static constexpr size_t TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUPS_IN_ONE_ROW;
+    static constexpr size_t LOOKUP_TERM_START_POLYNOMIAL_INDEX =
+        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_COLUMNS;
+
+    /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
-     * @details This proxies to a method in the Settings class
      *
      * @param row All values at row
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
-
     {
         return Settings::inverse_polynomial_is_computed_at_row(row);
     }
 
     /**
-     * @brief Get the inverse permutation polynomial (needed to compute its value)
+     * @brief Get the inverse permutation polynomial
+     *
+     * @details This method needs to return a non-const reference because it's used to compute the value of the inverse
+     * polynomial
      *
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
-        // WIRE containing the inverse of the product of terms at this row. Used to reconstruct individual inversed
-        // terms
         return std::get<INVERSE_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
     }
 
@@ -288,33 +228,29 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-
         // A lookup could be enabled by one of several selectors or witnesses, so we want to give as much freedom as
         // possible to the implementor
         return Settings::template compute_inverse_exists<Accumulator>(in);
     }
 
     /**
-     * @brief Returns the number of times a particular value is written (how many times it is being looked up)
+     * @brief Returns the number of times a particular table value has been looked up
      *
-     * @details Lookup read counts should be independent columns, so there is no need to call a separate function
+     * @details We assume lookup read counts are independent columns and therefore do not allow customization of this
+     * method to the implementor.
      *
-     * @tparam Accumulator
-     * @tparam index The index of the write predicate to which this count belongs
-     * @tparam AllEntities
-     * @param in
-     * @return Accumulator
      */
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
 
-        static_assert(index < WRITE_TERMS);
+        static_assert(index < NUM_TABLE_COLUMNS);
         using View = typename Accumulator::View;
 
         return Accumulator(
             View(std::get<LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + index>(Settings::get_const_entities(in))));
     }
+
     /**
      * @brief Compute if the value from the first set exists in this row
      *
