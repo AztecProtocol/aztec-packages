@@ -49,6 +49,10 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
     size_t expected_proof_length =
         ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
+    // UltraRollupFlavor has HasIPAAccumulator=true, so proof includes IPA_PROOF_LENGTH
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        expected_proof_length += IPA_PROOF_LENGTH;
+    }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 

@@ -162,8 +162,10 @@ TEST_F(MockVerifierInputsTest, MockUltraHonkProofSize)
         using Flavor = UltraRollupFlavor;
         using IO = stdlib::recursion::honk::RollupIO;
         HonkProof proof = create_mock_honk_proof<Flavor, IO>();
-        EXPECT_EQ(proof.size(),
-                  ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + IO::PUBLIC_INPUTS_SIZE);
+        // UltraRollupFlavor has HasIPAAccumulator=true, so proof includes IPA_PROOF_LENGTH
+        constexpr size_t expected = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
+                                    IO::PUBLIC_INPUTS_SIZE + IPA_PROOF_LENGTH;
+        EXPECT_EQ(proof.size(), expected);
     }
 }
 

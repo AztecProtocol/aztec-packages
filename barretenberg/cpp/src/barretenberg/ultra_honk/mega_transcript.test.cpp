@@ -24,11 +24,11 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
     using Proof = typename Flavor::Transcript::Proof;
     using FF = Flavor::FF;
 
-    static Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
+    static Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs, const size_t log_n)
     {
         // reset internal variables needed for exporting the proof
         // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
-        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs);
+        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs, log_n);
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
@@ -330,7 +330,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
     proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
 
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // we have changed nothing so proof is still valid
     Verifier verifier2(vk_and_hash);
     EXPECT_TRUE(verifier2.verify_proof(proof).result);
@@ -338,13 +338,13 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // we have not serialized it back to the proof so it should still be fine
     Verifier verifier3(vk_and_hash);
     EXPECT_TRUE(verifier3.verify_proof(proof).result);
 
     proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // the proof is now wrong after serializing it
     Verifier verifier4(vk_and_hash);
     EXPECT_FALSE(verifier4.verify_proof(proof).result);
