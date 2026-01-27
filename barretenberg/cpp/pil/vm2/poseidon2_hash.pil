@@ -4,27 +4,26 @@ include "precomputed.pil";
 /** Performs the poseidon2 full hash
  * === Usage Tips ===
  *    - SINGLE ROW: To constrain the result of a poseidon hash over a single row (i.e. 3 or fewer inputs), lookup the inputs,
- *      output, end (= 1), and start (= 1). This trace constrains that when start = end = 1, we have a single row.
+ *      output, input_len and use destination selector start (= 1). The caller will pass 1,2, or 3 for input_len. This follows
+ *      from the below constraints that `num_perm_rounds_rem == 1` and `end ==1`.
  *
  *      Example (nullifier_check.pil):
- *             should_silo { sel, siloing_separator, address, nullifier, siloed_nullifier }
- *   in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1,
- *                           poseidon2_hash.input_2, poseidon2_hash.output };
+ *             should_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
+ *   in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1,
+ *                           poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
  *
  *    - MULTIPLE ROWS:
  *       - Lookup the inputs and output values for each row.
  *       - Use num_perm_rounds_rem against the decrementing counter to ensure that each round is
  *         computed in the correct order (at end = 1, num_perm_rounds_rem is constrained to be 1 => can equivalently
- *         lookup the end selector for the final row).
- *       - Over multiple rows, lookup the start selector at the expected first row to ensure no extra rows are prepended.
- *         Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
- *         Pass also `num_perm_rounds_rem` explicitly at the start row. // TODO(AVM-213): Require `input_len` explicitly
- *                                                                      // at the start row.
+ *         lookup the end selector for the final row). This can be omitted at the `start==1` row.
+ *       - Lookup the start selector at the expected first row to ensure no extra rows are prepended.
+ *         Pass `input_len` in the lookup at the start row, so that the IV is correctly computed.
  *
  *      Example (address_derivation.pil):
  *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
- *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_five }
- *             in poseidon2_hash.start { input_0, input_1, input_2, output, num_perm_rounds_rem };
+ *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
+ *             in poseidon2_hash.start { input_0, input_1, input_2, output, ipnut_len };
  *
  *             sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
  *             in poseidon2_hash.sel { input_0, input_1, input_2, output, num_perm_rounds_rem };
