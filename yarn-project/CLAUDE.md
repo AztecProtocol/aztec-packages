@@ -48,14 +48,6 @@ Always run `yarn build` from the `yarn-project` root. Never run `tsgo` directly,
 yarn build
 ```
 
-### CI Log Access
-
-Download and view CI logs from the repo root:
-
-```bash
-./ci.sh dlog <hash>   # Retrieves logs from CI cache
-```
-
 ### Before Committing (Quality Checklist)
 
 Run from `yarn-project`:
