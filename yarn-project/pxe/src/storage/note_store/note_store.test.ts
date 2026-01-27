@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import { NoteStore } from './note_store.js';
@@ -68,7 +68,7 @@ describe('NoteStore', () => {
     return {
       data: note.siloedNullifier,
       l2BlockNumber: blockNumber ?? note.l2BlockNumber,
-      l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+      l2BlockHash: BlockHash.fromString(note.l2BlockHash),
     };
   }
 
@@ -404,7 +404,7 @@ describe('NoteStore', () => {
       const fakeNullifier = {
         data: Fr.random(),
         l2BlockNumber: BlockNumber(999),
-        l2BlockHash: L2BlockHash.random(),
+        l2BlockHash: BlockHash.random(),
       };
 
       await expect(noteStore.applyNullifiers([fakeNullifier], 'test')).rejects.toThrow(
@@ -447,7 +447,7 @@ describe('NoteStore', () => {
         {
           data: Fr.random(), // Invalid
           l2BlockNumber: BlockNumber(999),
-          l2BlockHash: L2BlockHash.random(),
+          l2BlockHash: BlockHash.random(),
         },
       ];
 
@@ -706,7 +706,7 @@ describe('NoteStore', () => {
           {
             data: note.siloedNullifier,
             l2BlockNumber: BlockNumber(5),
-            l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
           },
         ];
         await noteStore.applyNullifiers(nullifiers, 'test');
@@ -738,7 +738,7 @@ describe('NoteStore', () => {
           {
             data: note.siloedNullifier,
             l2BlockNumber: BlockNumber(4),
-            l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
           },
         ];
         await noteStore.applyNullifiers(nullifiers, 'test');
@@ -771,7 +771,7 @@ describe('NoteStore', () => {
           {
             data: note1.siloedNullifier,
             l2BlockNumber: BlockNumber(7),
-            l2BlockHash: L2BlockHash.fromString(note1.l2BlockHash),
+            l2BlockHash: BlockHash.fromString(note1.l2BlockHash),
           },
         ];
         await noteStore.applyNullifiers(nullifiers, 'test');

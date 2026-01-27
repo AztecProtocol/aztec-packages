@@ -8,7 +8,7 @@ import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -102,7 +102,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetNoteHashMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     leafValue: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     return this.aztecNode.getNoteHashMembershipWitness(blockHash, leafValue);
@@ -115,7 +115,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetArchiveMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     leafValue: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
     return this.aztecNode.getArchiveMembershipWitness(blockHash, leafValue);
@@ -128,7 +128,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The nullifier membership witness (if found).
    */
   public utilityGetNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier);
@@ -144,7 +144,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * we are trying to prove non-inclusion for.
    */
   public utilityGetLowNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier);
@@ -156,7 +156,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public utilityGetPublicDataWitness(blockHash: L2BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  public utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
   }
 
@@ -318,7 +318,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public async utilityStorageRead(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,

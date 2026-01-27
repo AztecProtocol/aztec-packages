@@ -1,5 +1,5 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -42,7 +42,7 @@ async function getAllPages<T>(numTags: number, fetchPage: (page: number) => Prom
 export function getAllPrivateLogsByTags(
   aztecNode: AztecNode,
   tags: SiloedTag[],
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
 ): Promise<TxScopedL2Log[][]> {
   return getAllPages(tags.length, page => aztecNode.getPrivateLogsByTags(tags, page, anchorBlockHash));
 }
@@ -60,7 +60,7 @@ export function getAllPublicLogsByTagsFromContract(
   aztecNode: AztecNode,
   contractAddress: AztecAddress,
   tags: Tag[],
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
 ): Promise<TxScopedL2Log[][]> {
   return getAllPages(tags.length, page =>
     aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags, page, anchorBlockHash),

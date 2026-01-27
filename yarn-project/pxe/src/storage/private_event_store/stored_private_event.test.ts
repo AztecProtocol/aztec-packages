@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { StoredPrivateEvent } from './stored_private_event.js';
@@ -12,7 +12,7 @@ describe('StoredPrivateEvent', () => {
       randomness?: Fr;
       msgContent?: Fr[];
       l2BlockNumber?: number;
-      l2BlockHash?: L2BlockHash;
+      l2BlockHash?: BlockHash;
       txHash?: TxHash;
       txIndexInBlock?: number;
       eventIndexInTx?: number;
@@ -25,7 +25,7 @@ describe('StoredPrivateEvent', () => {
       overrides.randomness ?? Fr.random(),
       overrides.msgContent ?? [Fr.random(), Fr.random(), Fr.random()],
       overrides.l2BlockNumber ?? 42,
-      overrides.l2BlockHash ?? L2BlockHash.random(),
+      overrides.l2BlockHash ?? BlockHash.random(),
       overrides.txHash ?? TxHash.random(),
       overrides.txIndexInBlock ?? 3,
       overrides.eventIndexInTx ?? 1,

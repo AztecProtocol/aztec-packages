@@ -9,11 +9,11 @@ import { isDefined } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  BlockHash,
   Body,
   CheckpointedL2Block,
   CommitteeAttestation,
   L2Block,
-  L2BlockHash,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
@@ -351,7 +351,7 @@ export class BlockStore {
   }
 
   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
-    const blockHash = L2BlockHash.fromField(await block.hash());
+    const blockHash = BlockHash.fromField(await block.hash());
 
     await this.#blocks.set(block.number, {
       header: block.header.toBuffer(),
@@ -673,7 +673,7 @@ export class BlockStore {
    * @param blockHash - The hash of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlockByHash(blockHash: L2BlockHash): Promise<L2Block | undefined> {
+  async getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {
       return undefined;
@@ -699,7 +699,7 @@ export class BlockStore {
    * @param blockHash - The hash of the block to return.
    * @returns The requested block header.
    */
-  async getBlockHeaderByHash(blockHash: L2BlockHash): Promise<BlockHeader | undefined> {
+  async getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {
       return undefined;
