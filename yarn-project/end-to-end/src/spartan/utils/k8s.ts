@@ -370,6 +370,63 @@ export async function waitForResourcesByName({
   );
 }
 
+/**
+ * Waits for all StatefulSets matching a label to have all their replicas ready.
+ * This is more reliable than waiting for pods by label, because it ensures ALL
+ * expected replicas are created and ready, even if they don't exist when the wait starts.
+ *
+ * @param namespace - Kubernetes namespace
+ * @param label - Label selector for StatefulSets (e.g., "app.kubernetes.io/component=sequencer-node")
+ * @param timeoutSeconds - Maximum time to wait in seconds (default: 600 = 10 minutes)
+ * @param pollIntervalSeconds - How often to check status (default: 5 seconds)
+ */
+export async function waitForStatefulSetsReady({
+  namespace,
+  label,
+  timeoutSeconds = 600,
+  pollIntervalSeconds = 5,
+}: {
+  namespace: string;
+  label: string;
+  timeoutSeconds?: number;
+  pollIntervalSeconds?: number;
+}): Promise<void> {
+  logger.info(`Waiting for StatefulSets with label ${label} to have all replicas ready (timeout: ${timeoutSeconds}s)`);
+
+  await retryUntil(
+    async () => {
+      // Get all StatefulSets matching the label
+      const getCmd = `kubectl get statefulset -l ${label} -n ${namespace} -o json`;
+      const { stdout } = await execAsync(getCmd);
+      const result = JSON.parse(stdout);
+
+      if (!result.items || result.items.length === 0) {
+        logger.verbose(`No StatefulSets found with label ${label}`);
+        return false;
+      }
+
+      // Check each StatefulSet
+      for (const sts of result.items) {
+        const name = sts.metadata.name;
+        const desired = sts.spec.replicas ?? 0;
+        const ready = sts.status.readyReplicas ?? 0;
+        const updated = sts.status.updatedReplicas ?? 0;
+
+        if (ready < desired || updated < desired) {
+          logger.verbose(`StatefulSet ${name}: ${ready}/${desired} ready, ${updated}/${desired} updated`);
+          return false;
+        }
+      }
+
+      logger.info(`All StatefulSets with label ${label} are ready`);
+      return true;
+    },
+    `StatefulSets with label ${label} to be ready`,
+    timeoutSeconds,
+    pollIntervalSeconds,
+  );
+}
+
 export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }

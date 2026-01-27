@@ -15,7 +15,13 @@ import { promisify } from 'util';
 
 import type { TestConfig } from './config.js';
 import { execHelmCommand } from './helm.js';
-import { deleteResourceByLabel, getChartDir, startPortForward, waitForResourceByLabel } from './k8s.js';
+import {
+  deleteResourceByLabel,
+  getChartDir,
+  startPortForward,
+  waitForResourceByLabel,
+  waitForStatefulSetsReady,
+} from './k8s.js';
 
 const execAsync = promisify(exec);
 
@@ -249,15 +255,22 @@ export async function rollAztecPods(namespace: string, clearState: boolean = fal
     // To delete PVCs, we must first scale down StatefulSets so pods release the volumes
     // Otherwise PVC deletion will hang waiting for pods to terminate
 
-    // First, save original replica counts
+    // First, save original replica counts for ALL StatefulSets (not just the first one)
+    // Maps StatefulSet name -> replica count
     const originalReplicas: Map<string, number> = new Map();
     for (const component of statefulSetComponents) {
       try {
-        const getCmd = `kubectl get statefulset -l app.kubernetes.io/component=${component} -n ${namespace} -o jsonpath='{.items[0].spec.replicas}'`;
+        // Get ALL StatefulSets matching this component label
+        const getCmd = `kubectl get statefulset -l app.kubernetes.io/component=${component} -n ${namespace} -o json`;
         const { stdout } = await execAsync(getCmd);
-        const replicas = parseInt(stdout.replace(/'/g, '').trim(), 10);
-        if (!isNaN(replicas) && replicas > 0) {
-          originalReplicas.set(component, replicas);
+        const result = JSON.parse(stdout);
+        for (const sts of result.items || []) {
+          const name = sts.metadata.name;
+          const replicas = sts.spec.replicas ?? 1;
+          if (replicas > 0) {
+            originalReplicas.set(name, replicas);
+            logger.info(`Saved replica count for StatefulSet ${name}: ${replicas}`);
+          }
         }
       } catch {
         // Component might not exist, continue
@@ -288,15 +301,14 @@ export async function rollAztecPods(namespace: string, clearState: boolean = fal
       });
     }
 
-    // Scale StatefulSets back up to original replica counts
-    for (const component of statefulSetComponents) {
-      const replicas = originalReplicas.get(component) ?? 1;
+    // Scale StatefulSets back up to original replica counts (by name, not label)
+    for (const [stsName, replicas] of originalReplicas) {
       try {
-        const scaleCmd = `kubectl scale statefulset -l app.kubernetes.io/component=${component} -n ${namespace} --replicas=${replicas} --timeout=2m`;
+        const scaleCmd = `kubectl scale statefulset ${stsName} -n ${namespace} --replicas=${replicas} --timeout=2m`;
         logger.info(`command: ${scaleCmd}`);
         await execAsync(scaleCmd);
       } catch (e) {
-        logger.verbose(`Scale up ${component} skipped: ${e}`);
+        logger.verbose(`Scale up ${stsName} skipped: ${e}`);
       }
     }
   } else {
@@ -312,8 +324,25 @@ export async function rollAztecPods(namespace: string, clearState: boolean = fal
 
   await sleep(10 * 1000);
 
-  // Wait for pods to come back
-  for (const component of podComponents) {
+  // Wait for StatefulSets to have all replicas ready.
+  // This is more reliable than waiting for pods by label because:
+  // 1. kubectl wait for pods only waits for pods that exist at command time
+  // 2. Some pods may not be created yet due to PVC provisioning or node scheduling
+  // 3. StatefulSet ready check ensures ALL expected replicas are created and ready
+  for (const component of statefulSetComponents) {
+    try {
+      await waitForStatefulSetsReady({
+        namespace,
+        label: `app.kubernetes.io/component=${component}`,
+        timeoutSeconds: 600, // 10 minutes
+      });
+    } catch (e) {
+      logger.warn(`StatefulSet component ${component} may not be fully ready: ${e}`);
+    }
+  }
+
+  const nonStatefulSetComponents = podComponents.filter(c => !statefulSetComponents.includes(c));
+  for (const component of nonStatefulSetComponents) {
     await waitForResourceByLabel({
       resource: 'pods',
       namespace: namespace,

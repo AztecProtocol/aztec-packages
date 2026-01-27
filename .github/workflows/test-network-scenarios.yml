@@ -32,7 +32,8 @@ concurrency:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    # Timeout before GitHub's 6h hard limit so cleanup can run
+    timeout-minutes: 345
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683

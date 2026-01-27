@@ -74,8 +74,7 @@ _emit_test() { echo "$_test_cmd_prefix $_test_cmd_run src/spartan/$1"; }
 
 function network_test_cmds_1 {
   _emit_test smoke.test.ts
-  _emit_test gating-passive.test.ts
-  _emit_test reorg.test.ts
+  # _emit_test reorg.test.ts
   _emit_test upgrade_rollup_version.test.ts
   _emit_test validator_ha.test.ts
 }
@@ -86,6 +85,7 @@ function network_test_cmds_2 {
   _emit_test slash_inactivity.test.ts
   _emit_test proving.test.ts
   _emit_test prover-node.test.ts
+  _emit_test gating-passive.test.ts
   _emit_test invalidate_blocks.test.ts
   _emit_test mempool_limit.test.ts
   _emit_test upgrade_governance_proposer.test.ts
