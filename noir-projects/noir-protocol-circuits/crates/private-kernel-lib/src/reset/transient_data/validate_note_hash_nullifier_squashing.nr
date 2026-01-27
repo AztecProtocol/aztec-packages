@@ -66,11 +66,17 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     // Iterate over the `note_hash_squash_flags` and check that the non-squashed note hashes are propagated correctly.
     //
     // Earlier we ensured that a note hash's corresponding flag in `note_hash_squash_flags` is set to `true` when
-    // it is squashed. Here we propagate the note hashes whose flags are `false`, and check that they match the expected
+    // it is squashed.
+    // Here we propagate the note hashes whose flags are `false`, and check that they match the expected
     // kept note hashes.
     let mut kept_note_hashes_counter = 0;
     for i in 0..NoteHashesLen {
         if !note_hash_squash_flags[i] {
+            // Notice: we're iterating over the whole array (beyond the `.length` to save constraints).
+            // Notice: there will be `num_squashed_pairs` positions on the rhs of the `expected_kept_note_hashes`
+            // array which are NOT asserted to be anything by this circuit. We will either overwrite these
+            // positions with valid data in future Inner iterations, or we rely on the later Tail circuit
+            // to ensure that these items are empty.
             assert_eq(
                 expected_kept_note_hashes.array[kept_note_hashes_counter],
                 note_hashes.array[i],
@@ -81,6 +87,8 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a note hash that is not squashed, the `kept_note_hashes_counter` will be smaller
     // than it should be, and the below check will fail.
+    // This also implies that the flags of all non-squashed items are set to `false`, otherwise this
+    // sum wouldn't be large enough.
     assert_eq(
         kept_note_hashes_counter + num_squashed_pairs,
         NoteHashesLen,
@@ -94,6 +102,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     );
 
     // === Validate the expected kept nullifiers ===
+    //
     // Iterate over the `nullifier_squash_flags` and check that the non-squashed nullifiers are propagated correctly.
     //
     // Earlier we ensured that a nullifier's corresponding flag in `nullifier_squash_flags` is set to `true` when
@@ -102,6 +111,11 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     let mut kept_nullifiers_counter = 0;
     for i in 0..NullifiersLen {
         if !nullifier_squash_flags[i] {
+            // Notice: we're iterating over the whole array (beyond the `.length` to save constraints).
+            // Notice: there will be `num_squashed_pairs` positions on the rhs of the `expected_kept_note_hashes`
+            // array which are NOT asserted to be anything by this circuit. We will either overwrite these
+            // positions with valid data in future Inner iterations, or we rely on the later Tail circuit
+            // to ensure that these items are empty.
             assert_eq(
                 expected_kept_nullifiers.array[kept_nullifiers_counter],
                 nullifiers.array[i],
@@ -112,6 +126,8 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a nullifier that is not squashed, the `kept_nullifiers_counter` will be smaller
     // than it should be, and the below check will fail.
+    // This also implies that the flags of all non-squashed items are set to `false`, otherwise this
+    // sum wouldn't be large enough.
     assert_eq(
         kept_nullifiers_counter + num_squashed_pairs,
         NullifiersLen,

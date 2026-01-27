@@ -34,7 +34,8 @@ pub struct DerivedHints<let SquashingHintsLen: u32, let NoteHashesLen: u32, let 
 ///
 /// Given the same input parameters, this function will deterministically return the same derived hints.
 /// Any mismatch in derived hints will cause the verification to fail.
-/// An attacker cannot manipulate the hints to bypass the verification process.
+/// An attacker cannot manipulate the hints to bypass the verification process, because the
+/// constrained code will fail.
 pub unconstrained fn build_derived_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,

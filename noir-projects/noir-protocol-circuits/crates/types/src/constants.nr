@@ -240,6 +240,9 @@ pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
+// because we don't want any malicious user to be able to push malicious state for actual contracts through this
+// padding feature.
 // It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
 // that anyone can freely change the state of the contract by adding padding side effects to their transactions.
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails

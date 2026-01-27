@@ -34,7 +34,7 @@ fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
     );
 }
 
-/// Validates that all private logs with a non-zero `note_hash_counter` (i.e. note logs) are linked to a note hash.
+/// Validates that all private logs with a non-zero `note_hash_counter` (i.e. "note logs") are linked to a note hash.
 /// Logs with `note_hash_counter == 0` are not considered linked and are skipped.
 ///
 /// For each note log:
@@ -48,6 +48,7 @@ pub fn validate_note_logs_linked_to_note_hashes<let NUM_LOGS: u32, let NUM_NOTE_
 ) {
     for i in 0..NUM_LOGS {
         let log = logs.array[i];
+        // Note: a counter cannot be 0, as enforced by the Init & Inner circuits.
         if log.innermost().note_hash_counter != 0 {
             // Safety: the index is constrained by the checks below.
             let note_hash_index_hint = unsafe {
