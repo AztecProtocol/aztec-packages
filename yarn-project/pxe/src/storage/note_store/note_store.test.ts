@@ -461,7 +461,7 @@ describe('NoteStore', () => {
     });
 
     // This test ensures applyNullifiers is idempotent: the same nullifier can be applied multiple times
-    // without error. This relaxes constraints on usage of NoteService#storeNote, which can then be
+    // without error. This relaxes constraints on usage of NoteService#validateAndStoreNote, which can then be
     // run concurrently in a Promise.all context without risking unnecessarily defensive checks failing.
     it('applying nullifier a second time is a no-op', async () => {
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test'); // First application should succeed
@@ -477,7 +477,7 @@ describe('NoteStore', () => {
     });
 
     it('can nullify a freshly added note in the same job without committing first', async () => {
-      // This test simulates the storeNote flow where a note is added and immediately nullified
+      // This test simulates the validateAndStoreNote flow where a note is added and immediately nullified
       // without committing first (when the note is discovered to already be nullified on chain)
       const freshNullifier = Fr.random();
       const freshNote = await mkNote({
@@ -489,7 +489,7 @@ describe('NoteStore', () => {
       // Add note to stage without committing
       await noteStore.addNotes([freshNote], SCOPE_1, 'fresh-job');
 
-      // Immediately nullify it in the same job (simulating storeNote when nullifier exists on chain)
+      // Immediately nullify it in the same job (simulating validateAndStoreNote when nullifier exists on chain)
       const nullifiers = [mkNullifier(freshNote)];
       await expect(noteStore.applyNullifiers(nullifiers, 'fresh-job')).resolves.toEqual([freshNote]);
 
@@ -506,9 +506,9 @@ describe('NoteStore', () => {
       });
     });
 
-    it('can handle concurrent note additions and nullifications (simulating Promise.all in storeNote)', async () => {
-      // This test simulates the scenario in utilityValidateEnqueuedNotesAndEvents where
-      // multiple storeNote calls run concurrently via Promise.all
+    it('can handle concurrent note additions and nullifications (simulating Promise.all in validateAndStoreNote)', async () => {
+      // This test simulates the scenario in utilityValidateAndStoreEnqueuedNotesAndEvents where
+      // multiple validateAndStoreNote calls run concurrently via Promise.all
       const NOTE_COUNT = 100;
       const noteNullifiers = Array.from({ length: NOTE_COUNT }, () => Fr.random());
       const notes = await Promise.all(
@@ -517,7 +517,7 @@ describe('NoteStore', () => {
         ),
       );
 
-      // Simulate concurrent storeNote calls where each note is added and immediately nullified
+      // Simulate concurrent validateAndStoreNote calls where each note is added and immediately nullified
       const concurrentStoreNoteCalls = notes.map(async note => {
         await noteStore.addNotes([note], SCOPE_1, 'concurrent-job');
         const nullifiers = [mkNullifier(note)];
@@ -566,7 +566,7 @@ describe('NoteStore', () => {
     });
 
     it('handles duplicate note storage requests gracefully (same note added and nullified twice)', async () => {
-      // This scenario can happen during concurrent note store calls via Promise.all in storeNote
+      // This scenario can happen during concurrent note store calls via Promise.all in validateAndStoreNote
       // when the same note is somehow processed twice (e.g., duplicate log entries)
       const duplicateNullifier = new Fr(9999n);
       const duplicateNote = await mkNote({
@@ -580,14 +580,14 @@ describe('NoteStore', () => {
       await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
 
       // Second attempt to store (duplicate): try to add the same note again - should not throw
-      // This simulates what happens in concurrent storeNote calls when the same note is processed twice
+      // This simulates what happens in concurrent validateAndStoreNote calls when the same note is processed twice
       await noteStore.addNotes([duplicateNote], SCOPE_2, 'duplicate-job');
       const notesAfterSecondAttempt = await noteStore.getNotes(
         { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE, scopes: [SCOPE_1, SCOPE_2] },
         'duplicate-job',
       );
 
-      // Check that the second attempt at calling storeNote didn't accidentally overwrite the first one
+      // Check that the second attempt at calling validateAndStoreNote didn't accidentally overwrite the first one
       // (causing the note to be "re-activated")
       expect(notesAfterSecondAttempt.filter(n => n.siloedNullifier.equals(duplicateNullifier))).toEqual([]);
 

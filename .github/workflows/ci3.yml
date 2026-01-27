@@ -120,6 +120,7 @@ jobs:
   # End-to-end tests that target a network deployment.
   # We run this every release (at minimum, nightly), or when explicitly requested.
   # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
+  # Runs two test sets in parallel.
   ci-network-scenario:
     runs-on: ubuntu-latest
     # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
@@ -132,7 +133,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run Network Deploy
+      - name: Run Network Scenarios
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -145,7 +146,7 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 540 # temporarily increased to 9 hours, todo(revert to 360)
+          AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
         run: |
           # For release tags, use the release image; for PRs, omit to build and push to aztecdev
@@ -162,7 +163,7 @@ jobs:
             docker_image=""
           fi
           set -x # print next line
-          ./.github/ci3.sh network-deploy next-scenario "$namespace" "$docker_image"
+          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image"
 
       - name: Cleanup network resources
         # Clean up if this is a CI label or nightly.
@@ -175,7 +176,9 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
+        run: |
+          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-1" || true
+          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-2" || true
 
       #############
       # Benchmarks

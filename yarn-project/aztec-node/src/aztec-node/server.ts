@@ -653,6 +653,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getProvenBlockNumber();
   }
 
+  public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
   /**
    * Method to fetch the version of the package.
    * @returns The node package version
@@ -1407,11 +1411,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   #getInitialHeaderHash(): Promise<L2BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer
-        .getCommitted()
-        .getInitialHeader()
-        .hash()
-        .then(hash => L2BlockHash.fromField(hash));
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
     }
     return this.initialHeaderHashPromise;
   }

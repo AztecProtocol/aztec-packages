@@ -16,7 +16,7 @@ export class EventService {
     private readonly jobId: string,
   ) {}
 
-  public async storeEvent(
+  public async validateAndStoreEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
     randomness: Fr,

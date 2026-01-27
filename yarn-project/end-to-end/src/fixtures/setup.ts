@@ -209,6 +209,8 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
+  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
+  walletMinFeePadding?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -268,7 +270,7 @@ export type EndToEndContext = {
  */
 async function setupWithRemoteEnvironment(
   account: HDAccount | PrivateKeyAccount,
-  config: AztecNodeConfig,
+  config: AztecNodeConfig & SetupOptions,
   logger: Logger,
   numberOfAccounts: number,
 ): Promise<EndToEndContext> {
@@ -289,6 +291,11 @@ async function setupWithRemoteEnvironment(
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = await TestWallet.create(aztecNode);
+
+  if (config.walletMinFeePadding !== undefined) {
+    wallet.setMinFeePadding(config.walletMinFeePadding);
+  }
+
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
@@ -606,6 +613,10 @@ export async function setup(
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
     const wallet = await TestWallet.create(aztecNodeService, pxeConfig);
 
+    if (opts.walletMinFeePadding !== undefined) {
+      wallet.setMinFeePadding(opts.walletMinFeePadding);
+    }
+
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
     if (
@@ -629,7 +640,7 @@ export async function setup(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await deployFundedSchnorrAccounts(wallet, aztecNodeService, accountsData);
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
@@ -921,13 +932,11 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   ).map(contractMetadata => contractMetadata.instance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
-      .send({ from: accountsToDeploy[0] })
-      .wait();
+    await (await publishContractClass(wallet, SchnorrAccountContractArtifact)).send({ from: accountsToDeploy[0] });
   }
   const requests = instances.map(instance => publishInstance(wallet, instance!));
   const batch = new BatchCall(wallet, requests);
-  await batch.send({ from: accountsToDeploy[0] }).wait();
+  await batch.send({ from: accountsToDeploy[0] });
 }
 
 /**
@@ -951,12 +960,10 @@ export const deployAccounts =
         deployedAccounts[i].signingKey,
       );
       const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod
-        .send({
-          from: AztecAddress.ZERO,
-          skipClassPublication: i !== 0, // Publish the contract class at most once.
-        })
-        .wait();
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        skipClassPublication: i !== 0, // Publish the contract class at most once.
+      });
     }
 
     return { deployedAccounts };
@@ -986,7 +993,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send({ from: accountsToDeploy[0] }).wait();
+  const txReceipt = await batch.send({ from: accountsToDeploy[0] });
   if (waitUntilProven) {
     if (!node) {
       throw new Error('Need to provide an AztecNode to wait for proven.');

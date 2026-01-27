@@ -106,7 +106,7 @@ describe('Bridging benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await claimInteraction.send(options).wait();
+            const tx = await claimInteraction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
 
             // 4. Check the balance

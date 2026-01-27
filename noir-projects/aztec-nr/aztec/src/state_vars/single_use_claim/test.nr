@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     oracle::random::random,
-    state_vars::{owned_state_variable::OwnedStateVariable, SingleUseClaim},
+    state_vars::{OwnedStateVariable, SingleUseClaim},
 };
 use crate::test::helpers::test_environment::TestEnvironment;
 use dep::protocol_types::{address::AztecAddress, traits::FromField};

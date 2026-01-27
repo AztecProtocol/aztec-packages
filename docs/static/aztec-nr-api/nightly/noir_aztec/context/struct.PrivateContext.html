@@ -96,6 +96,7 @@
 </ul>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.NoteExistenceRequest.html">NoteExistenceRequest</a></div></li>
+<li><a href="struct.NullifierExistenceRequest.html">NullifierExistenceRequest</a></div></li>
 <li><a href="struct.PrivateContext.html">PrivateContext</a></div></li>
 <li><a href="struct.PublicContext.html">PublicContext</a></div></li>
 <li><a href="struct.ReturnsHash.html">ReturnsHash</a></div></li>
@@ -701,8 +702,7 @@ proving time costs are only incurred when the total number of requests exceeds t
 an additional invocation of the kernel reset circuit.</p></div>
 </div><code id="assert_nullifier_exists" class="code-header">pub fn <a href="#assert_nullifier_exists"><span class="fn">assert_nullifier_exists</span></a>(
     &mut self,
-    unsiloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    nullifier_existence_request: <a href="../../noir_aztec/context/struct.NullifierExistenceRequest.html" class="struct">NullifierExistenceRequest</a>,
 )</code>
 
 <div class="padded-description"><div class="comments">

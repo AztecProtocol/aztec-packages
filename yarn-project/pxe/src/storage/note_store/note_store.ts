@@ -173,7 +173,7 @@ export class NoteStore implements StagedStore {
    * The operation is atomic - if any nullifier is not found, the entire operation fails and no notes are modified.
    *
    * applyNullifiers is idempotent: the same nullifier can be applied multiple times without error.
-   * This relaxes constraints on usage of NoteService#storeNote, which can then be run concurrently in a Promise.all
+   * This relaxes constraints on usage of NoteService#validateAndStoreNote, which can then be run concurrently in a Promise.all
    * context without risking unnecessarily defensive checks failing.
    *
    * @param nullifiers - Array of nullifiers with their block numbers to process
@@ -339,7 +339,7 @@ export class NoteStore implements StagedStore {
   /**
    * Functions run withJobLock are forced to wait for each other, i.e. if they share a `jobId`, they run serially
    * instead of concurrently. This is needed because staged data is stored in memory, and concurrent async operations
-   * (e.g., Promise.all in `storeNote`) could otherwise interleave and corrupt state.
+   * (e.g., Promise.all in `validateAndStoreNote`) could otherwise interleave and corrupt state.
    */
   async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
     let lock = this.#jobLocks.get(jobId);

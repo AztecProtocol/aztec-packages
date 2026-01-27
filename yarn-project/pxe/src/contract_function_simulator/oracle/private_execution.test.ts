@@ -453,9 +453,6 @@ describe('Private Execution test suite', () => {
         returnTypes: functionArtifact.returnTypes,
       };
     });
-    contractStore.syncPrivateState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
-      await contractStore.getFunctionCall('sync_private_state', [], contractAddress);
-    });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
@@ -718,7 +715,9 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       // First fetch of the function artifact is the parent contract
-      expect(contractStore.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      // Second fetch is for sync_state on the child contract (calls[1])
+      // Third fetch is for the actual child function (calls[2])
+      expect(contractStore.getFunctionArtifact.mock.calls[2]).toEqual([childAddress, childSelector]);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(
@@ -745,7 +744,7 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], childAddress);
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [], childAddress);
     });
   });
 

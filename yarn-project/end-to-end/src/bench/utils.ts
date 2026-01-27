@@ -1,8 +1,10 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
+import { BatchCall, NO_WAIT, type WaitOpts } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
+import type { TxHash } from '@aztec/stdlib/tx';
 import type { MetricDefinition } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
@@ -23,7 +25,7 @@ export async function benchmarkSetup(
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
   const defaultAccountAddress = context.accounts[0];
-  const contract = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress }).deployed();
+  const contract = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   const telemetry = context.telemetryClient! as BenchmarkTelemetryClient;
@@ -142,18 +144,18 @@ export async function sendTxs(
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
-): Promise<SentTx[]> {
+): Promise<TxHash[]> {
   const calls = await Promise.all(times(txCount, index => makeCall(index, context, contract, heavyPublicCompute)));
   context.logger.info(`Creating ${txCount} txs`);
   const [from] = context.accounts;
   context.logger.info(`Sending ${txCount} txs`);
-  return calls.map(call => call.send({ from }));
+  return Promise.all(calls.map(call => call.send({ from, wait: NO_WAIT })));
 }
 
-export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpts?: WaitOpts) {
+export async function waitTxs(txs: TxHash[], context: EndToEndContext, txWaitOpts?: WaitOpts) {
   context.logger.info(`Awaiting ${txs.length} txs to be mined`);
-  await Promise.all(txs.map(tx => tx.wait(txWaitOpts)));
-  context.logger.info(`All ${txs.length} txs have been mined`);
+  await Promise.all(txs.map(txHash => waitForTx(context.aztecNode, txHash, txWaitOpts)));
+  context.logger.info(`${txs.length} txs have been mined`);
 }
 
 function randomBytesAsBigInts(length: number): bigint[] {

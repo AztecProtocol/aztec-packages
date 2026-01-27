@@ -52,9 +52,9 @@ describe('Orderbook', () => {
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
 
-    orderbook = await OrderbookContract.deploy(wallet, token0.address, token1.address)
-      .send({ from: adminAddress })
-      .deployed();
+    orderbook = await OrderbookContract.deploy(wallet, token0.address, token1.address).send({
+      from: adminAddress,
+    });
 
     // Mint tokens to maker and taker
     await mintTokensToPrivate(token0, adminAddress, makerAddress, bidAmount);
@@ -79,8 +79,7 @@ describe('Orderbook', () => {
       await orderbook.methods
         .create_order(token0.address, token1.address, bidAmount, askAmount, nonceForAuthwits)
         .with({ authWitnesses: [makerAuthwit] })
-        .send({ from: makerAddress })
-        .wait();
+        .send({ from: makerAddress });
 
       const orderCreatedEvents = await getDecodedPublicEvents<OrderCreated>(
         aztecNode,
@@ -132,8 +131,7 @@ describe('Orderbook', () => {
       await orderbook.methods
         .fulfill_order(orderId, nonceForAuthwits)
         .with({ authWitnesses: [takerAuthwit] })
-        .send({ from: takerAddress })
-        .wait();
+        .send({ from: takerAddress });
 
       // Verify order was fulfilled by checking events
       const orderFulfilledEvents = await getDecodedPublicEvents<OrderFulfilled>(

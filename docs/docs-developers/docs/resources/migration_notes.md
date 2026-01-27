@@ -9,6 +9,78 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Transaction sending API redesign
+
+The old chained `.send().wait()` pattern has been replaced with a single `.send(options)` call that handles both sending and waiting.
+
+```diff
++ import { Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
+
+- const receipt = await contract.methods.transfer(recipient, amount).send().wait();
+
+// Send now waits by default
++ const receipt = await contract.methods.transfer(recipient, amount).send({ from: sender });
+
+// getTxHash() would confusingly send the transaction too
+- const txHash = await contract.methods.transfer(recipient, amount).send().getTxHash();
+
+// NO_WAIT to send the transaction and return TxHash immediately
++ const txHash = await contract.methods.transfer(recipient, amount).send({
++   from: sender,
++   wait: NO_WAIT
++ });
+```
+
+#### Deployment changes
+
+The old `.send().deployed()` method has been removed. Deployments now return the contract instance by default, or you can request the full receipt with `returnReceipt: true`:
+
+```diff
+- const contract = await MyContract.deploy(wallet, ...args).send().deployed();
+- const { contract, instance } = await MyContract.deploy(wallet, ...args).send().wait();
+
++ const contract = await MyContract.deploy(wallet, ...args).send({ from: deployer });
+
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: deployer,
++   wait: { returnReceipt: true },
++ });
+```
+
+#### Breaking changes to `Wallet` interface
+
+`getTxReceipt()` has been removed from the interface.
+
+`sendTx` method signature has changed to support the new wait behavior:
+
+```diff
+- sendTx(payload: ExecutionPayload, options: SendOptions): Promise<TxReceipt>
+
++ sendTx<W extends InteractionWaitOptions = undefined>(
++   payload: ExecutionPayload,
++   options: SendOptions<W>
++ ): Promise<SendReturn<W>>
+```
+
+#### Manual waiting with `waitForTx`
+
+When using `NO_WAIT` to send transactions, you can manually wait for confirmation using the `waitForTx` utility:
+
+```typescript
+import { waitForTx } from "@aztec/aztec.js/node";
+
+const txHash = await contract.methods.transfer(recipient, amount).send({
+  from: sender,
+  wait: NO_WAIT,
+});
+
+const receipt = await waitForTx(node, txHash, {
+  timeout: 60000, // Optional: timeout in ms
+  interval: 1000, // Optional: polling interval in ms
+  dontThrowOnRevert: true, // Optional: return receipt even if tx reverted
+});
+```
+
 ### [aztec-nr] Removal of intermediate modules
 
 Lots of unnecessary modules have been removed from the API, making imports shorter. These are the modules that contain just a single struct, in which the module has the same name as the struct.

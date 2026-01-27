@@ -41,6 +41,7 @@ import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
+import { type CallData, CallDataArray } from './calldata.js';
 import { AvmRevertReason } from './errors.js';
 import {
   initContext,
@@ -96,11 +97,11 @@ const siloAddress = (contractAddress: AztecAddress) => {
 };
 
 describe('AVM simulator: injected bytecode', () => {
-  let calldata: Fr[];
+  let calldata: CallData;
   let bytecode: Buffer;
 
   beforeAll(() => {
-    calldata = [new Fr(1), new Fr(2)];
+    calldata = new CallDataArray([new Fr(1), new Fr(2)]);
     bytecode = encodeToBytecode([
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
@@ -119,7 +120,7 @@ describe('AVM simulator: injected bytecode', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(3)]);
+    expect(results.output.readAll()).toEqual([new Fr(3)]);
   });
 
   it('Should halt if runs out of gas', async () => {
@@ -130,7 +131,7 @@ describe('AVM simulator: injected bytecode', () => {
 
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(true);
-    expect(results.output).toEqual([]);
+    expect(results.output.readAll()).toEqual([]);
     expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
     expect(results.gasLeft.l2Gas).toEqual(0);
     expect(results.gasLeft.daGas).toEqual(0);
@@ -148,7 +149,7 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
     const results = await new AvmSimulator(context).executeBytecode(badBytecode);
     expect(results.reverted).toBe(true);
-    expect(results.output).toEqual([]);
+    expect(results.output.readAll()).toEqual([]);
     expect(results.revertReason?.message).toMatch(/Tag mismatch/);
     expect(results.gasLeft.l2Gas).toEqual(0);
     expect(results.gasLeft.daGas).toEqual(0);
@@ -166,62 +167,62 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).execute();
 
     expect(results.reverted).toBe(true);
-    expect(results.output).toEqual([]);
+    expect(results.output.readAll()).toEqual([]);
     expect(results.gasLeft).toEqual({ l2Gas: 0, daGas: 0 });
   });
 
   it('addition', async () => {
-    const calldata: Fr[] = [new Fr(1), new Fr(2)];
+    const calldata = new CallDataArray([new Fr(1), new Fr(2)]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('add_args_return');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(3)]);
+    expect(results.output.readAll()).toEqual([new Fr(3)]);
   });
 
   it('addition via dispatch', async () => {
-    const calldata: Fr[] = [
+    const calldata = new CallDataArray([
       (await FunctionSelector.fromSignature('add_args_return(Field,Field)')).toField(),
       new Fr(1),
       new Fr(2),
-    ];
+    ]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('public_dispatch');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(3)]);
+    expect(results.output.readAll()).toEqual([new Fr(3)]);
   });
 
   it('get_args_hash via dispatch', async () => {
     const selector = await FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])');
     const args = [new Fr(8), new Fr(1), new Fr(2), new Fr(3)];
-    const dispatchCalldata = [selector.toField(), ...args];
+    const dispatchCalldata = new CallDataArray([selector.toField(), ...args]);
 
     const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
     const bytecode = getAvmTestContractBytecode('public_dispatch');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([await computeVarArgsHash(args)]);
+    expect(results.output.readAll()).toEqual([await computeVarArgsHash(args)]);
   });
 
   it('modulo and u1', async () => {
-    const calldata: Fr[] = [new Fr(2)];
+    const calldata = new CallDataArray([new Fr(2)]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('modulo2');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(0)]);
+    expect(results.output.readAll()).toEqual([new Fr(0)]);
   });
 
   it('Should handle calldata oracle', async () => {
-    const calldata: Fr[] = [new Fr(1), new Fr(2), new Fr(3), /* with_selector: */ new Fr(0)];
+    const calldata = new CallDataArray([new Fr(1), new Fr(2), new Fr(3), /* with_selector: */ new Fr(0)]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('assert_calldata_copy');
@@ -237,7 +238,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
+    expect(results.output.readAll()).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
   });
 
   it('Should handle revert oracle', async () => {
@@ -247,20 +248,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
+    expect(results.output.readAll()).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
   });
 
   it('ec_add should not revert', async () => {
     // This test performs the same doubling as in elliptic_curve_add_and_double
     // But the optimizer is not able to optimize out the addition
-    const calldata: Fr[] = [
+    const calldata = new CallDataArray([
       new Fr(1), // P1x
       new Fr(17631683881184975370165255887551781615748388533673675138860n), // P1y
       new Fr(0), // P1inf
       new Fr(1), // P2x
       new Fr(17631683881184975370165255887551781615748388533673675138860n), // P2y
       new Fr(0), // P2inf
-    ];
+    ]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('elliptic_curve_add');
@@ -277,17 +278,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
-    expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
+    expect(results.output.readAll()).toEqual([g3.x, g3.y, Fr.ZERO]);
   });
 
   describe('msm', () => {
     it('low scalars', async () => {
-      const calldata: Fr[] = [
+      const calldata = new CallDataArray([
         /* scalar lo */ new Fr(3),
         /* scalar hi */ new Fr(0),
         /* scalar2 lo */ new Fr(20),
         /* scalar2 hi */ new Fr(0),
-      ];
+      ]);
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('variable_base_msm');
@@ -297,16 +298,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
       const g20 = await Grumpkin.mul(Grumpkin.generator, new Fq(20));
       const expectedResult = await Grumpkin.add(g3, g20);
-      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
 
     it('with a zero', async () => {
-      const calldata: Fr[] = [
+      const calldata = new CallDataArray([
         /* scalar lo */ new Fr(3),
         /* scalar hi */ new Fr(0),
         /* scalar2 lo */ new Fr(0),
         /* scalar2 hi */ new Fr(0),
-      ];
+      ]);
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('variable_base_msm');
@@ -314,7 +315,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
       const expectedResult = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
-      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
 
     const fqToLimbs = (fq: Fq): [bigint, bigint] => {
@@ -329,7 +330,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const scalar = new Fq(Fq.MODULUS - 1n);
       const scalar2 = new Fq(Fq.MODULUS - 2n);
 
-      const calldata: Fr[] = [...fqToLimbs(scalar), ...fqToLimbs(scalar2)].map(bigint => new Fr(bigint));
+      const calldata = new CallDataArray([...fqToLimbs(scalar), ...fqToLimbs(scalar2)].map(bigint => new Fr(bigint)));
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('variable_base_msm');
@@ -339,12 +340,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const g1 = await Grumpkin.mul(Grumpkin.generator, scalar);
       const g2 = await Grumpkin.mul(Grumpkin.generator, scalar2);
       const expectedResult = await Grumpkin.add(g1, g2);
-      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
   });
 
   it('pedersen commitment operations', async () => {
-    const calldata: Fr[] = [new Fr(100), new Fr(1)];
+    const calldata = new CallDataArray([new Fr(100), new Fr(1)]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('pedersen_commit');
@@ -356,41 +357,43 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
     const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
     expectedResult.push(new Fr(isInf));
-    expect(results.output).toEqual(expectedResult);
+    expect(results.output.readAll()).toEqual(expectedResult);
   });
 
   it('conditional move operations', async () => {
-    const calldata: Fr[] = [new Fr(27), new Fr(28), new Fr(1)];
+    const calldataArray: Fr[] = [new Fr(27), new Fr(28), new Fr(1)];
 
     const bytecode = getAvmTestContractBytecode('conditional_move');
 
+    let calldata = new CallDataArray(calldataArray);
     let context = initContext({ env: initExecutionEnvironment({ calldata }) });
     let results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(27)]);
+    expect(results.output.readAll()).toEqual([new Fr(27)]);
 
-    calldata[2] = new Fr(0);
+    calldataArray[2] = new Fr(0);
+    calldata = new CallDataArray(calldataArray);
     context = initContext({ env: initExecutionEnvironment({ calldata }) });
     results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(28)]);
+    expect(results.output.readAll()).toEqual([new Fr(28)]);
   });
 
   describe('U128 addition and overflows', () => {
     it('U128 addition', async () => {
-      const calldata: Fr[] = [
+      const calldata = new CallDataArray([
         // First U128
         new Fr(1),
         // Second U128
         new Fr(2),
-      ];
+      ]);
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('add_u128');
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(3)]);
+      expect(results.output.readAll()).toEqual([new Fr(3)]);
     });
 
     it('Expect failure on U128::add() overflow', async () => {
@@ -399,13 +402,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
       expect(
-        resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
+        resolveAvmTestContractAssertionMessage(
+          'u128_addition_overflow',
+          results.revertReason!,
+          results.output.readAll(),
+        ),
       ).toMatch('attempt to add with overflow');
     });
   });
 
   it('Assertion message', async () => {
-    const calldata: Fr[] = [new Fr(20)];
+    const calldata = new CallDataArray([new Fr(20)]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('assert_nullifier_exists');
@@ -413,9 +420,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
-    expect(results.output).toHaveLength(1); // Error selector for static string error
+    expect(results.output.length()).toBe(1); // Error selector for static string error
     expect(
-      resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
+      resolveAvmTestContractAssertionMessage(
+        'assert_nullifier_exists',
+        results.revertReason!,
+        results.output.readAll(),
+      ),
     ).toMatch("Nullifier doesn't exist!");
   });
 
@@ -433,7 +444,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(res)]);
+      expect(results.output.readAll()).toEqual([new Fr(res)]);
     });
   });
 
@@ -471,14 +482,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
   ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Promise<Fr[]>) => {
     it(`Should execute contract function that performs ${name} on input of length ${input.length}`, async () => {
-      const calldata = input.map(e => e.toFr());
+      const calldata = new CallDataArray(input.map(e => e.toFr()));
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
       const bytecode = getAvmGadgetsTestContractArtifact(name).bytecode;
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual(await output(input));
+      expect(results.output.readAll()).toEqual(await output(input));
     });
   });
 
@@ -536,13 +547,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
 
       const returnData = results.output;
-      expect(returnData).toEqual([value]);
+      expect(returnData.readAll()).toEqual([value]);
     });
   });
 
   describe('conversions', () => {
     it('to le bytes', async () => {
-      const calldata: Fr[] = [new Fr(0x11223344556677)];
+      const calldata = new CallDataArray([new Fr(0x11223344556677)]);
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('to_le_bytes');
@@ -551,6 +562,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
       expect(
         results.output
+          .readAll()
           .reverse()
           .map(f => f.toNumber().toString(16).padStart(2, '0'))
           .join(''),
@@ -558,7 +570,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     it('to le bits', async () => {
-      const calldata: Fr[] = [new Fr(0b1011101010100)];
+      const calldata = new CallDataArray([new Fr(0b1011101010100)]);
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
       const bytecode = getAvmTestContractBytecode('to_le_bits');
@@ -567,6 +579,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
       expect(
         results.output
+          .readAll()
           .reverse()
           .map(f => f.toNumber().toString())
           .join(''),
@@ -608,7 +621,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const createContext = (calldata: Fr[] = []) => {
       return initContext({
         persistableState,
-        env: initExecutionEnvironment({ address, sender, calldata }),
+        env: initExecutionEnvironment({ address, sender, calldata: new CallDataArray(calldata) }),
       });
     };
 
@@ -635,7 +648,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
+        expect(results.output.readAll()).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
       });
     });
 
@@ -652,7 +665,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([exists ? Fr.ONE : Fr.ZERO]);
+        expect(results.output.readAll()).toEqual([exists ? Fr.ONE : Fr.ZERO]);
       });
     });
 
@@ -680,7 +693,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
+        expect(results.output.readAll()).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
       });
     });
 
@@ -692,7 +705,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([]);
+      expect(results.output.readAll()).toEqual([]);
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
@@ -708,7 +721,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([]);
+      expect(results.output.readAll()).toEqual([]);
 
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
@@ -793,7 +806,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0]);
+        expect(results.output.readAll()).toEqual([value0]);
       });
 
       it('Should set and read a value from storage (single)', async () => {
@@ -804,7 +817,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0]);
+        expect(results.output.readAll()).toEqual([value0]);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot, value0, false);
@@ -839,7 +852,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0, value1]);
+        expect(results.output.readAll()).toEqual([value0, value1]);
       });
 
       it('Should set a value in storage (map)', async () => {
@@ -852,7 +865,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
 
         // returns the storage slot for modified key
-        const mapSlotNumber = results.output[0].toBigInt();
+        const mapSlotNumber = results.output.read(0)!.toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
         expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);
@@ -871,7 +884,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
 
         // returns the storage slot for modified key
-        const mapSlotNumber = results.output[0].toBigInt();
+        const mapSlotNumber = results.output.read(0)!.toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
         expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);
@@ -889,7 +902,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0]);
+        expect(results.output.readAll()).toEqual([value0]);
       });
     });
 
@@ -941,7 +954,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true);
-        expect(results.output).toEqual([]);
+        expect(results.output.readAll()).toEqual([]);
       });
 
       it(`Nested call`, async () => {
@@ -962,7 +975,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0.add(value1)]);
+        expect(results.output.readAll()).toEqual([value0.add(value1)]);
       });
 
       it(`Nested static call`, async () => {
@@ -983,7 +996,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0.add(value1)]);
+        expect(results.output.readAll()).toEqual([value0.add(value1)]);
       });
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
@@ -1054,7 +1067,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
         expect(
-          resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!, results.output),
+          resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!, results.output.readAll()),
         ).toMatch('Values are not equal');
       });
 
@@ -1114,7 +1127,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = initContext({ persistableState });
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(true);
-        expect(results.output).toEqual([]);
+        expect(results.output.readAll()).toEqual([]);
         expect(results.revertReason?.message).toMatch('Reached the limit');
       });
     });
@@ -1125,7 +1138,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         env: initExecutionEnvironment({
           address,
           sender,
-          calldata: [],
+          calldata: new CallDataArray([]),
           config: PublicSimulatorConfig.from({ collectDebugLogs: true }),
         }),
       });
@@ -1133,7 +1146,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([]);
+      expect(results.output.readAll()).toEqual([]);
       expect(trace.traceDebugLog).toHaveBeenCalledTimes(6);
       expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'just text', []);
       expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'second: {1}', [
@@ -1217,7 +1230,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const createContext = (calldata: Fr[] = []) => {
       return initContext({
         persistableState,
-        env: initExecutionEnvironment({ address, sender, calldata }),
+        env: initExecutionEnvironment({ address, sender, calldata: new CallDataArray(calldata) }),
       });
     };
 
@@ -1229,7 +1242,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([]);
+        expect(results.output.readAll()).toEqual([]);
 
         expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
         expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash0);
@@ -1243,7 +1256,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
+        expect(results.output.readAll()).toEqual([/*exists=*/ Fr.ZERO]);
       });
       it('Note hash check properly returns exists=true', async () => {
         const leafIndex = (await treesDB.getTreeSnapshots()).noteHashTree.nextAvailableLeafIndex;
@@ -1255,7 +1268,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
+        expect(results.output.readAll()).toEqual([/*exists=*/ Fr.ONE]);
       });
     });
     describe('Nullifiers', () => {
@@ -1266,7 +1279,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([]);
+        expect(results.output.readAll()).toEqual([]);
 
         expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
         expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
@@ -1278,7 +1291,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
+        expect(results.output.readAll()).toEqual([/*exists=*/ Fr.ZERO]);
       });
       it('Nullifier check properly returns exists=true', async () => {
         const calldata = [value0];
@@ -1288,7 +1301,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
+        expect(results.output.readAll()).toEqual([/*exists=*/ Fr.ONE]);
       });
     });
     describe('Public storage accesses', () => {
@@ -1312,7 +1325,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([Fr.zero()]);
+        expect(results.output.readAll()).toEqual([Fr.zero()]);
       });
 
       it('Should read value in storage (single) - written before, leaf exists', async () => {
@@ -1323,7 +1336,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0]);
+        expect(results.output.readAll()).toEqual([value0]);
       });
 
       it('Should set and read value in storage (single)', async () => {
@@ -1333,7 +1346,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
         expect(results.reverted).toBe(false);
-        expect(results.output).toEqual([value0]);
+        expect(results.output.readAll()).toEqual([value0]);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot0, value0, false);
@@ -1342,7 +1355,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('should be able to execute contracts that only have private functions', async () => {
-    const context = initContext({ env: initExecutionEnvironment({ calldata: [] }) });
+    const context = initContext({ env: initExecutionEnvironment({ calldata: new CallDataArray([]) }) });
 
     // NoteGetter contract is a private only contract (no public functions)
     const counterDispatch = getContractFunctionArtifact(
@@ -1358,7 +1371,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       resolveContractAssertionMessage(
         'public_dispatch',
         results.revertReason!,
-        results.output,
+        results.output.readAll(),
         NoteGetterContract.artifact,
       ),
     ).toMatch('No public functions');
@@ -1397,7 +1410,7 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(0)]);
+      expect(results.output.readAll()).toEqual([new Fr(0)]);
     });
 
     it('Should handle shift amount equal to bit size (Uint128)', async () => {
@@ -1424,7 +1437,7 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(0)]);
+      expect(results.output.readAll()).toEqual([new Fr(0)]);
     });
   });
 
@@ -1453,7 +1466,7 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(0)]);
+      expect(results.output.readAll()).toEqual([new Fr(0)]);
     });
 
     it('Should handle shift amount equal to bit size (Uint128)', async () => {
@@ -1480,7 +1493,7 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(0)]);
+      expect(results.output.readAll()).toEqual([new Fr(0)]);
     });
 
     it('Should handle shift amount equal to bit size (Uint32)', async () => {
@@ -1507,7 +1520,7 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(0)]);
+      expect(results.output.readAll()).toEqual([new Fr(0)]);
     });
   });
 });

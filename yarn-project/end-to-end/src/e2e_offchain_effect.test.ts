@@ -33,8 +33,8 @@ describe('e2e_offchain_effect', () => {
       accounts: [defaultAccountAddress],
       aztecNode,
     } = await setup(1));
-    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
-    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
+    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(() => teardown());
@@ -78,7 +78,7 @@ describe('e2e_offchain_effect', () => {
       contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
       { from: defaultAccountAddress },
     );
-    const { txHash, blockNumber, blockHash } = await provenTx.send().wait();
+    const { txHash, blockNumber, blockHash } = await provenTx.send();
 
     const offchainEffects = provenTx.offchainEffects;
     expect(offchainEffects).toHaveLength(1);
@@ -135,7 +135,7 @@ describe('e2e_offchain_effect', () => {
     const provenTx = await proveInteraction(wallet, contract1.methods.emit_note_as_offchain_message(value, owner), {
       from: defaultAccountAddress,
     });
-    const { txHash } = await provenTx.send().wait();
+    const { txHash } = await provenTx.send();
 
     const offchainEffects = provenTx.offchainEffects;
     expect(offchainEffects).toHaveLength(1);

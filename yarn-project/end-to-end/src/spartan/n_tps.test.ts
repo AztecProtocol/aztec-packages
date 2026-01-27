@@ -1,4 +1,4 @@
-import type { SentTx } from '@aztec/aztec.js/contracts';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
@@ -11,11 +11,10 @@ import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
 import { TopicType } from '@aztec/stdlib/p2p';
-import { Tx } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
@@ -28,9 +27,10 @@ import {
 } from './setup_test_wallets.js';
 import { TxInclusionMetrics } from './tx_metrics.js';
 import {
+  type ServiceEndpoint,
   getChartDir,
-  getExternalIP,
   getGitProjectRoot,
+  getRPCEndpoint,
   installChaosMeshChart,
   setupEnvironment,
   startPortForwardForPrometeheus,
@@ -107,7 +107,8 @@ describe('sustained N TPS test', () => {
 
   let metrics: TxInclusionMetrics;
   let prometheusClient: PrometheusClient;
-  let childProcesses: ChildProcess[];
+  const endpoints: ServiceEndpoint[] = [];
+  let promProcess: ReturnType<typeof startPortForwardForPrometeheus> extends Promise<infer T> ? T : never;
 
   afterAll(async () => {
     logger.info('Collecting benchmark metrics and cleaning up...');
@@ -194,17 +195,16 @@ describe('sustained N TPS test', () => {
       logger.info('BENCH_OUTPUT not set; skipping benchmark JSON output');
     }
 
-    logger.info('Cleaning up wallets and child processes', {
+    logger.info('Cleaning up wallets and endpoints', {
       walletCount: testWallets?.length ?? 0,
-      childProcessCount: childProcesses?.length ?? 0,
+      endpointCount: endpoints?.length ?? 0,
     });
     for (const { cleanup } of testWallets!) {
       await cleanup();
     }
 
-    for (const proc of childProcesses) {
-      proc.kill();
-    }
+    endpoints.forEach(e => e.process?.kill());
+    promProcess?.process?.kill();
 
     await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
   });
@@ -222,33 +222,19 @@ describe('sustained N TPS test', () => {
       benchOutput: process.env.BENCH_OUTPUT,
       benchScenario: process.env.BENCH_SCENARIO,
     });
-    childProcesses = [];
-
     const spartanDir = `${getGitProjectRoot()}/spartan`;
-    logger.info('Installing chaos mesh chart', {
-      name: CHAOS_MESH_NAME,
-      namespace: config.NAMESPACE,
-      valuesFile: 'network-requirements.yaml',
-    });
-    const chaosMeshInstallation = installChaosMeshChart({
-      logger,
-      targetNamespace: config.NAMESPACE,
-      instanceName: CHAOS_MESH_NAME,
-      valuesFile: 'network-requirements.yaml',
-      helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
-    });
 
-    const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
-    const rpcUrl = `http://${rpcIP}:8080`;
-    logger.info('Resolved RPC endpoint', { rpcIP, rpcUrl });
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const rpcUrl = rpcEndpoint.url;
+    logger.info('Resolved RPC endpoint', { rpcUrl });
     aztecNode = createAztecNodeClient(rpcUrl);
 
-    const promPortForward = await startPortForwardForPrometeheus('metrics');
-    childProcesses.push(promPortForward.process);
-    logger.info('Started Prometheus port-forward', { port: promPortForward.port, pid: promPortForward.process.pid });
+    promProcess = await startPortForwardForPrometeheus('metrics');
+    logger.info('Started Prometheus port-forward', { port: promProcess.port, pid: promProcess.process.pid });
 
     prometheusClient = new PrometheusClient({
-      server: new URL(`http://127.0.0.1:${promPortForward.port}`),
+      server: new URL(`http://127.0.0.1:${promProcess.port}`),
     });
 
     metrics = new TxInclusionMetrics(aztecNode, logger);
@@ -291,14 +277,29 @@ describe('sustained N TPS test', () => {
 
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet)
-      .send({ from: localTestAccounts[0].recipientAddress, fee: { paymentMethod: sponsor } })
-      .deployed();
+    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
+      from: localTestAccounts[0].recipientAddress,
+      fee: { paymentMethod: sponsor },
+    });
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
-    logger.info(`Awaiting chaos mesh installation`);
-    await chaosMeshInstallation;
+    logger.info('Installing chaos mesh chart', {
+      name: CHAOS_MESH_NAME,
+      namespace: config.NAMESPACE,
+      valuesFile: 'network-requirements.yaml',
+    });
+    await installChaosMeshChart({
+      logger,
+      targetNamespace: config.NAMESPACE,
+      instanceName: CHAOS_MESH_NAME,
+      valuesFile: 'network-requirements.yaml',
+      helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    });
     logger.info('Chaos mesh installation complete');
+
+    logger.info('Waiting for network to stabilize after chaos mesh installation...');
+    await sleep(30 * 1000);
+    logger.info('Network stabilization wait complete');
 
     logger.info(`Test setup complete`);
   });
@@ -349,7 +350,8 @@ describe('sustained N TPS test', () => {
         ? submitProven(wallet, backgroundTxPriorityFee)
         : submitUnproven(wallet, backgroundTxPriorityFee));
 
-      return tx.send();
+      const txHash = await tx.send({ wait: NO_WAIT });
+      return txHash.toString();
     };
 
     let highValueTxs = 0;
@@ -364,30 +366,27 @@ describe('sustained N TPS test', () => {
 
       metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
 
-      return tx.send();
+      const txHash = await tx.send({ wait: NO_WAIT });
+      return txHash.toString();
     };
 
     const abortController = new AbortController();
 
     sendTxsAtTps(logger, abortController.signal, lowValueWallets, lowValueTps, lowValueSendTx);
-    const sentTxs = sendTxsAtTps(logger, abortController.signal, highValueWallets, highValueTps, highValueSendTx);
+    const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueWallets, highValueTps, highValueSendTx);
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
     logger.info('Stopped transaction senders', {
       lowValueTxs,
       highValueTxs,
-      highValueSent: sentTxs.length,
+      highValueSent: sentTxHashes.length,
     });
 
-    const results: { success: boolean; tx: SentTx; error?: any }[] = [];
-    const waitForTx = async (sentTx: SentTx, txName: string) => {
+    const results: { success: boolean; txHash: string; error?: any }[] = [];
+    const waitForTx = async (txHash: string, txName: string) => {
       try {
-        const receipt = await sentTx.wait({
-          timeout: 1200,
-          interval: 1,
-          ignoreDroppedReceiptsFor: 2,
-        });
+        const receipt = await aztecNode.getTxReceipt(TxHash.fromString(txHash));
         if (receipt.blockNumber) {
           logger.info(`${txName} included in block ${receipt.blockNumber}`);
           logger.debug(`${txName} receipt details`, {
@@ -400,27 +399,26 @@ describe('sustained N TPS test', () => {
         } else {
           throw new Error('Invalid txReceipt: ' + JSON.stringify(receipt));
         }
-        results.push({ success: true, tx: sentTx });
+        results.push({ success: true, txHash });
       } catch (error) {
-        const txHash = await sentTx.getTxHash().catch(() => undefined);
-        const receipt = txHash ? await sentTx.getReceipt().catch(() => undefined) : undefined;
+        const receipt = await aztecNode.getTxReceipt(TxHash.fromString(txHash)).catch(() => undefined);
         logger.error(`${txName} was not included: ${error}`, {
-          txHash: txHash?.toString(),
+          txHash,
           receiptStatus: receipt?.status,
           receiptBlockNumber: receipt?.blockNumber,
           receiptError: receipt?.error,
         });
-        results.push({ success: false, tx: sentTx, error });
+        results.push({ success: false, txHash, error });
       }
     };
 
     let index = 0;
-    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxs.length });
-    while (sentTxs.length > 0) {
-      const chunk = sentTxs.splice(0, 10);
-      await Promise.all(chunk.map((tx, idx) => waitForTx(tx, `highValueTx_${idx + 1 + index}`)));
+    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxHashes.length });
+    while (sentTxHashes.length > 0) {
+      const chunk = sentTxHashes.splice(0, 10);
+      await Promise.all(chunk.map((txHash, idx) => waitForTx(txHash, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
-      logger.debug('Processed tx batch', { processed: index, remaining: sentTxs.length });
+      logger.debug('Processed tx batch', { processed: index, remaining: sentTxHashes.length });
     }
 
     // Count successes and failures
@@ -446,14 +444,14 @@ function sendTxsAtTps(
   signal: AbortSignal,
   wallets: TestWallet[],
   targetTps: number,
-  sendTx: (wallet: TestWallet) => Promise<SentTx>,
-): SentTx[] {
+  sendTx: (wallet: TestWallet) => Promise<string>,
+): string[] {
   const promiseCount = Math.ceil(targetTps);
   if (wallets.length < promiseCount) {
     throw new Error('Not enough wallets to achieve desired TPS');
   }
 
-  const txs: SentTx[] = [];
+  const txHashes: string[] = [];
   const targetTpsPerPromise = targetTps / promiseCount;
   logger.info('Starting TPS sender', {
     targetTps,
@@ -471,14 +469,13 @@ function sendTxsAtTps(
           const wallet = wallets[i];
 
           const start = performance.now(); // ms
-          let tx: SentTx;
           try {
-            tx = await sendTx(wallet);
+            const txHash = await sendTx(wallet);
+            txHashes.push(txHash);
           } catch (err) {
             logger.error('Failed to submit tx', { walletIndex: i, err });
             throw err;
           }
-          txs.push(tx);
           const dt = performance.now() - start; // ms
 
           const tps = 1000 / dt; // We just sent one tx. Calculate TPS. Note: we have to convert ms to s
@@ -512,7 +509,7 @@ function sendTxsAtTps(
     }
   };
 
-  return txs;
+  return txHashes;
 }
 
 async function cloneTx(tx: ProvenTx, priorityFee: GasFees): Promise<ProvenTx> {

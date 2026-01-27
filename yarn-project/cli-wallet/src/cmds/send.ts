@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { AuthWitness } from '@aztec/aztec.js/authorization';
-import { Contract, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import { Contract, NO_WAIT, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
@@ -46,31 +46,43 @@ export async function send(
     return;
   }
 
-  const tx = call.send({ ...sendOptions, fee: { ...sendOptions.fee, gasSettings: estimatedGas } });
   if (verbose) {
     printProfileResult(stats!, log);
   }
 
-  const txHash = await tx.getTxHash();
-  log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {
     try {
-      await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
+      const receipt = await call.send({
+        ...sendOptions,
+        fee: { ...sendOptions.fee, gasSettings: estimatedGas },
+        wait: { timeout: DEFAULT_TX_TIMEOUT_S },
+      });
 
+      const txHash = receipt.txHash;
+      log(`\nTransaction hash: ${txHash.toString()}`);
       log('Transaction has been mined');
-
-      const receipt = await tx.getReceipt();
       log(` Tx fee: ${receipt.transactionFee}`);
       log(` Status: ${receipt.status}`);
       log(` Block number: ${receipt.blockNumber}`);
       log(` Block hash: ${receipt.blockHash?.toString()}`);
+
+      return {
+        txHash,
+      };
     } catch (err: any) {
       log(`Transaction failed\n ${err.message}`);
+      throw err;
     }
   } else {
+    const txHash = await call.send({
+      ...sendOptions,
+      fee: { ...sendOptions.fee, gasSettings: estimatedGas },
+      wait: NO_WAIT,
+    });
+    log(`\nTransaction hash: ${txHash.toString()}`);
     log('Transaction pending. Check status with check-tx');
+    return {
+      txHash,
+    };
   }
-  return {
-    txHash,
-  };
 }

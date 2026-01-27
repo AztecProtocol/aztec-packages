@@ -150,9 +150,9 @@ describe('e2e_node_rpc_perf', () => {
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n)
-      .send({ from: ownerAddress })
-      .deployed({ timeout: 600 });
+    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+      from: ownerAddress,
+    });
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
@@ -189,8 +189,7 @@ describe('e2e_node_rpc_perf', () => {
         from: ownerAddress,
       });
 
-      const sentTx = provenTx.send();
-      const receipt = await sentTx.wait({ timeout: 600 });
+      const receipt = await provenTx.send({ wait: { timeout: 600 } });
       txHashes.push(receipt.txHash);
       logger.verbose(`Transaction ${receipt.txHash} included in block ${receipt.blockNumber}`);
       logger.info(`Block ${block + 1}/${BLOCKS_TO_BUILD} built`);
