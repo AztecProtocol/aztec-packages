@@ -26,6 +26,7 @@ function print_usage {
   echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "grind"                 "Spin up multiple EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "bisect-flake"           "Bisect to find the commit that introduced a flaky test."
   echo_cmd "network-deploy"        "Spin up an EC2 instance to deploy a network."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
@@ -111,6 +112,20 @@ case "$cmd" in
       'run x3-full amd64 ci-full-no-test-cache' \
       'run x4-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+    ;;
+  bisect-flake)
+    # Bisect to find the commit that introduced a flaky test. Used by deflaker.
+    # Args: <full_cmd> [commit]
+    # full_cmd format: <hash>[:VAR=val]... <test_command>
+    full_cmd="$1"
+    commit="${2:-HEAD}"
+    # Extract test command (strip rebuild hash prefix) and hash it
+    # Uses same hash as run_test_cmd's test_hash for consistency
+    test_cmd="${full_cmd#* }"
+    test_hash=$(hash_str_orig "$test_cmd")
+    export CI_DASHBOARD="deflake"
+    export JOB_ID="deflake-$test_hash"
+    bootstrap_ec2 "./bootstrap.sh ci-bisect-flake '$full_cmd' $commit"
     ;;
 
   ##########################################

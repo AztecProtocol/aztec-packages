@@ -136,9 +136,11 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_info=" ($(ci_term_link $log_key))"
 
   # Publish test started event to Redis channel.
+  # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
+  # so that consumers can extract test parameters.
   start_redis_data=$(jq -n \
     --arg status "started" \
-    --arg test_cmd "$test_cmd" \
+    --arg test_cmd "$cmd" \
     --arg log_id "$log_key" \
     --arg log_url "http://ci.aztec-labs.com/$log_key" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
@@ -237,9 +239,11 @@ function fail {
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
   # Publish failed status to Redis channel
+  # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
+  # so that deflaker and other consumers can extract test parameters.
   local redis_data=$(jq -n \
     --arg status "failed" \
-    --arg test_cmd "$test_cmd" \
+    --arg test_cmd "$cmd" \
     --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
@@ -287,10 +291,11 @@ function flake {
   fi
 
   # Publish flake status to Redis channel
+  # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
   local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
   local redis_data=$(jq -n \
     --arg status "flaked" \
-    --arg test_cmd "$test_cmd" \
+    --arg test_cmd "$cmd" \
     --arg log_url "http://ci.aztec-labs.com/$log_key" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \

@@ -590,6 +590,25 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+  "ci-bisect-flake")
+    # Bisect to find the commit that introduced a flaky test.
+    # Args: <full_cmd> [commit]
+    # full_cmd format: <hash>[:VAR=val]... <test_command>
+    export CI=1
+    export USE_TEST_CACHE=0
+
+    full_cmd="${1:?full_cmd required}"
+    commit="${2:-HEAD}"
+
+    # Fetch full history for bisect
+    git fetch origin --unshallow || git fetch origin
+
+    # Build at HEAD first
+    build
+
+    # Run the bisect script
+    $ci3/bisect_flake "$full_cmd" "$commit"
+    ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
