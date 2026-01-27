@@ -220,7 +220,16 @@ case "$cmd" in
     fi
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
-    redis_getz $1 | $pager
+    key=$1
+    # Handle list/* URLs or history_* keys (Redis LISTs, not strings)
+    if [[ "$key" == list/* ]]; then
+      key=${key#list/}
+    fi
+    if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
+      redis_cli LRANGE "$key" 0 -1 | $pager
+    else
+      redis_getz "$key" | $pager
+    fi
     ;;
 
   #################
