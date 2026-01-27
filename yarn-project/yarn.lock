@@ -2262,6 +2262,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
+    "@aztec/archiver": "workspace:^"
     "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -2278,6 +2279,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-ha-signer": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
