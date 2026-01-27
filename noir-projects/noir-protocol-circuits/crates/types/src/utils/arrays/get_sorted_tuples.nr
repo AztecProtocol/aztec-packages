@@ -12,6 +12,8 @@ where
     }
 }
 
+/// Sorts the input `array`, but also outputs an `original_index` field for each sorted
+/// item, so that you know where it came from.
 pub unconstrained fn get_sorted_tuples<T, let N: u32, Env>(
     array: [T; N],
     ordering: fn[Env](T, T) -> bool,
@@ -19,6 +21,8 @@ pub unconstrained fn get_sorted_tuples<T, let N: u32, Env>(
 where
     T: Eq,
 {
+    std::static_assert(N != 0, "Input array must not be zero-length");
+
     let mut tuples = [SortedTuple { elem: array[0], original_index: 0 }; N];
     for i in 0..N {
         tuples[i] = SortedTuple { elem: array[i], original_index: i };

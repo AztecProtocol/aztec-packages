@@ -12,6 +12,7 @@ fn is_log_linked_to_note_hash(
     log: Scoped<Counted<PrivateLogData>>,
     note_hash: Scoped<Counted<NoteHash>>,
 ) -> bool {
+    // Note: a note_hash.counter() cannot be `0`, due to checks in the Init & Inner circuits.
     (log.innermost().note_hash_counter == note_hash.counter())
         & (log.contract_address == note_hash.contract_address)
 }
@@ -47,28 +48,37 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
         let is_note_log = log.innermost().note_hash_counter != 0;
 
         // === Read the hinted data ===
+
         // If the log is squashed, it should be linked to the note hash at this index.
         let squashed_note_hash_index = transient_data_squashing_hints[linked_source_indices
             .transient_data_squashing_hint_index]
             .note_hash_index;
-        // If the log is kept, it should be linked to this note hash.
-        let hinted_kept_note_hash =
+        // If the log is kept and it is a "note log", it should be linked to this note hash.
+        // Note: the expected_kept_note_hashes array has already been constrained by the earlier file
+        // `validate_note_hash_nullifier_squashing`.
+        let expected_kept_note_hash =
             expected_kept_note_hashes.array[linked_source_indices.kept_note_hash_index];
         // The expected output if the log is kept.
         let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
 
         // === Determine if the log should be kept ===
+
+        // Here, we determine which of the `linked_source_indices` bites: the `transient_data_squashing_hint_index`
+        // (which would mean the log is to be squashed) or the `kept_note_hash_index` (which would mean the
+        // log is to be kept).
         // A log will be kept if:
         // - it is not a note log, OR
-        // - it is linked to a kept note hash.
-        let is_kept = !is_note_log | is_log_linked_to_note_hash(log, hinted_kept_note_hash);
+        // - it is a note log which is linked to a _kept_ note hash.
+        let is_kept = !is_note_log | is_log_linked_to_note_hash(log, expected_kept_note_hash);
 
         if is_kept {
             if is_note_log {
-                // Check that the index used to get `hinted_kept_note_hash` is within the claimed length of the
+                // Check that the index used to get `expected_kept_note_hash` is within the claimed length of the
                 // `expected_kept_note_hashes` array.
                 // This prevents malicious users from faking a note hash beyond the claimed length to justify keeping a
                 // log that should be squashed.
+                // Note: if it's not kept (i.e. if it's squashed), we don't care about making this check, because
+                // we won't be making use of the `.kept_note_hash_index` kind.
                 assert(
                     linked_source_indices.kept_note_hash_index < expected_kept_note_hashes.length,
                     "Index of linked kept note hash exceeds claimed length",
@@ -82,6 +92,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             kept_logs_counter += 1;
         } else {
             // === Ensure the log is associated with a squashed note hash ===
+
             let hinted_squashed_note_hash = note_hashes.array[squashed_note_hash_index];
             assert(
                 is_log_linked_to_note_hash(log, hinted_squashed_note_hash),
@@ -99,13 +110,13 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             // know it must point to a valid entry in `note_hashes`.
 
             // === Log and squashed note hash must both be revertible or non-revertible ===
-            // If the squashed note hash is revertible (i.e., counter >= split_counter), the log
+            //
             // must also be revertible.
             // If the squashed note hash is non-revertible, the log must be non-revertible.
             //
             // If a non-revertible log is linked to a revertible note hash, and vice versa, both the note hash and the
             // log must be kept.
-            // Because if the transaction reverts, the non-revertible data will be kept, and the revertible data will be
+            // Because if the transaction reverts, the non-revertible data must be kept, and the revertible data must be
             // discarded. Squashing them together would result in the loss of the non-revertible log or note hash that
             // is supposed to be preserved when the transaction reverts.
             //
@@ -122,6 +133,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
     }
 
     // === Validate the kept logs array length ===
+
     // Note: We can't directly compare `expected_kept_logs.length` with `kept_logs_counter`, because the counter
     // includes logs beyond the claimed length.
     // Instead, we calculate how many logs were squashed, and derive the expected kept array length.

@@ -6,7 +6,7 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct EthAddress {
-    inner: Field,
+    inner: Field, // We defer the <= 20-byte range check to the tail circuit.
 }
 
 impl Empty for EthAddress {
