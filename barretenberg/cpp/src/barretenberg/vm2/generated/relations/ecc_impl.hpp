@@ -103,36 +103,42 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::ecc_double_op)) *
+                   (static_cast<View>(in.get(C::ecc_p_is_inf)) - static_cast<View>(in.get(C::ecc_q_is_inf)));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - static_cast<View>(in.get(C::ecc_result_infinity))) * static_cast<View>(in.get(C::ecc_double_op)) *
             (FF(2) * static_cast<View>(in.get(C::ecc_p_y)) * static_cast<View>(in.get(C::ecc_inv_2_p_y)) - FF(1));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<13>(evals) += (tmp * scaling_factor);
     }
     { // COMPUTED_LAMBDA
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ecc_sel)) *
                    (static_cast<View>(in.get(C::ecc_lambda)) -
                     (static_cast<View>(in.get(C::ecc_double_op)) * FF(3) * static_cast<View>(in.get(C::ecc_p_x)) *
                          static_cast<View>(in.get(C::ecc_p_x)) * static_cast<View>(in.get(C::ecc_inv_2_p_y)) +
                      static_cast<View>(in.get(C::ecc_add_op)) * CView(ecc_Y_DIFF) *
                          static_cast<View>(in.get(C::ecc_inv_x_diff))));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::ecc_use_computed_result)) -
              static_cast<View>(in.get(C::ecc_sel)) * CView(ecc_BOTH_NON_INF) * (FF(1) - CView(ecc_INVERSE_PRED)));
-        std::get<14>(evals) += (tmp * scaling_factor);
-    }
-    { // INFINITY_RESULT
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ecc_result_infinity)) -
-                    (CView(ecc_INVERSE_PRED) * CView(ecc_BOTH_NON_INF) + CView(ecc_BOTH_INF)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
-    { // OUTPUT_X_COORD
+    { // INFINITY_RESULT
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::ecc_result_infinity)) -
+                    (CView(ecc_INVERSE_PRED) * CView(ecc_BOTH_NON_INF) + CView(ecc_BOTH_INF)));
+        std::get<16>(evals) += (tmp * scaling_factor);
+    }
+    { // OUTPUT_X_COORD
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ecc_sel)) *
                    (((static_cast<View>(in.get(C::ecc_r_x)) -
                       CView(ecc_EITHER_INF) *
@@ -140,10 +146,10 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                            static_cast<View>(in.get(C::ecc_q_is_inf)) * static_cast<View>(in.get(C::ecc_p_x)))) -
                      static_cast<View>(in.get(C::ecc_result_infinity)) * CView(ecc_INFINITY_X)) -
                     static_cast<View>(in.get(C::ecc_use_computed_result)) * CView(ecc_COMPUTED_R_X));
-        std::get<16>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // OUTPUT_Y_COORD
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ecc_sel)) *
                    (((static_cast<View>(in.get(C::ecc_r_y)) -
                       CView(ecc_EITHER_INF) *
@@ -151,13 +157,13 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                            static_cast<View>(in.get(C::ecc_q_is_inf)) * static_cast<View>(in.get(C::ecc_p_y)))) -
                      static_cast<View>(in.get(C::ecc_result_infinity)) * CView(ecc_INFINITY_Y)) -
                     static_cast<View>(in.get(C::ecc_use_computed_result)) * CView(ecc_COMPUTED_R_Y));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
     { // OUTPUT_INF_FLAG
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ecc_sel)) *
                    (static_cast<View>(in.get(C::ecc_r_is_inf)) - static_cast<View>(in.get(C::ecc_result_infinity)));
-        std::get<18>(evals) += (tmp * scaling_factor);
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
 }
 
