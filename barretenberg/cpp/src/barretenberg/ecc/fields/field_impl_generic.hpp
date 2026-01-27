@@ -419,8 +419,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     // most 257 bits because t4 is in {0, 1}. Proof: we have just computed (aR * bR + \sum_i k_i p)/(2^256), where each
     // k_i is less than 2^{64i} * (2^64 - 1) for i = 0..3. The numerator is therefore upper-bounded by (2^256 - 1)^2 +
     // (2^256 - 1) * p, hence the whole quantity is bounded by 2^256 + p - 1. Therefore, t4 is in {0, 1}, and we must do
-    // at most one subtraction to get in range. AUDITTODO: update field docs: Note that if we demand that the numbers
-    // are strictly in [0, p-1], then this bound improves to 2p - 1, which is what is written in the field docs.
+    // at most one subtraction to get in range.
 
     // constant-time "conditional reduction" that computes the following without branches:
     // `result = (value >= modulus) ? value - modulus : value`
@@ -637,14 +636,24 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
 }
 
 /**
- * @brief Perform 29-bit montgomery reduction on 1 limb using Yuval's method.
- * @details We explain, colloquially, what we are doing. We are given a number of the form x := \sum_{i=0}^{9}result_i *
- * 2^{29*i}. Our goal is to find a number, congruent to x mod p, whose lowest 29 bits are 0, and then divide by 2^29.
- * Set r_inv to be 2^{-29} modulo p.  We simply add (r_inv * result_0) to \sum_{i=1}^9(result_i * 2^{29(i - 1)}).
- * @note We accumulate the higher order bits from result_0 because, although we discard result_0 after this
- * reduction, it is possible that result_0 had MORE than 29 bits. We therefore propage them as this step to result_1.
- * @note For a reference, please see: https://hackmd.io/@Ingonyama/Barret-Montgomery
+ * @brief Perform 29-bit Montgomery reduction on 1 limb using Yuval's method.
  *
+ * @details Given a value x = \sum_{i=0}^{9} result_i * 2^{29i}, we want to compute x / 2^{29} mod p.
+ *
+ * Standard Montgomery reduction achieves this by finding k = result_0 * (-p^{-1}) mod 2^{29}, adding k*p to zero out
+ * the lowest limb, then shifting. Yuval's method instead directly computes x / 2^{29} mod p by observing:
+ *
+ *   x / 2^{29} = (x - result_0) / 2^{29} + result_0 * 2^{-29}  (mod p)
+ *
+ * The first term is just the higher limbs (an integer shift since result_0 contains all low bits).
+ * The second term is result_0 * r_inv, where r_inv = 2^{-29} mod p is precomputed as `wasm_r_inv`.
+ *
+ * After calling this method, result_0 is discarded and result_1..result_9 hold x / 2^{29} mod p.
+ *
+ * @note The term (result_0 >> 29) propagates any overflow bits beyond the lowest 29 bits of result_0 to result_1,
+ * since the limbs are in "relaxed form" and may exceed 29 bits.
+ *
+ * @note For a reference, please see: https://hackmd.io/@Ingonyama/Barret-Montgomery
  */
 template <class T>
 constexpr void field<T>::wasm_reduce_yuval(uint64_t& result_0,
