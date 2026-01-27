@@ -33,7 +33,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockParameter, L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -525,7 +525,7 @@ describe('Private Execution test suite', () => {
         new Fr(0),
         TxHash.random(),
         BlockNumber(Math.abs(randomInt(1000))),
-        L2BlockHash.random().toString(),
+        BlockHash.random().toString(),
         0,
         0,
       );

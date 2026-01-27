@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 /** Serializable private event entry with scope tracking. */
@@ -11,7 +11,7 @@ export class StoredPrivateEvent {
     readonly randomness: Fr,
     readonly msgContent: Fr[],
     readonly l2BlockNumber: number,
-    readonly l2BlockHash: L2BlockHash,
+    readonly l2BlockHash: BlockHash,
     readonly txHash: TxHash,
     readonly txIndexInBlock: number,
     readonly eventIndexInTx: number,
@@ -49,7 +49,7 @@ export class StoredPrivateEvent {
     const msgContentLength = reader.readNumber();
     const msgContent = reader.readArray(msgContentLength, Fr);
     const l2BlockNumber = reader.readNumber();
-    const l2BlockHash = L2BlockHash.fromBuffer(reader);
+    const l2BlockHash = BlockHash.fromBuffer(reader);
     const txHash = TxHash.fromBuffer(reader);
     const txIndexInBlock = reader.readNumber();
     const eventIndexInTx = reader.readNumber();
