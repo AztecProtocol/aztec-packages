@@ -374,7 +374,7 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_secp256k1_ecdsa_mul_point_at_infinity_main_loop()
+    static void test_secp256k1_ecdsa_mul_point_at_infinity()
     {
         // This test checks if secp256k1_ecdsa_mul properly handles the case when
         // the result u1*G + u2*P is the point at infinity, ensuring that the
@@ -461,7 +461,7 @@ TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1StaggerRegression)
 {
     TestFixture::test_secp256k1_ecdsa_mul_stagger_regression();
 }
-TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1PointAtInfinityMainLoop)
+TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1PointAtInfinity)
 {
-    TestFixture::test_secp256k1_ecdsa_mul_point_at_infinity_main_loop();
+    TestFixture::test_secp256k1_ecdsa_mul_point_at_infinity();
 }

@@ -449,20 +449,7 @@ TYPED_TEST(EcdsaTests, Wycherproof)
     }
 }
 
-// NullHasher returns the input bytes unchanged (assumes input is exactly 32 bytes)
-struct NullHasher {
-    static constexpr size_t BLOCK_SIZE = 64;
-    static constexpr size_t OUTPUT_SIZE = 32;
-    static std::array<uint8_t, 32> hash(const std::vector<uint8_t>& message)
-    {
-        std::array<uint8_t, 32> result{};
-        BB_ASSERT_EQ(message.size(), 32UL);
-        std::copy(message.begin(), message.end(), result.begin());
-        return result;
-    }
-};
-
-TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
+TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
 {
     // Disable asserts because native ecdsa verification raises an error if the result of the scalar multiplication is
     // the point at infinity
@@ -508,7 +495,7 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     sig.s = s_bytes;
     sig.v = 27;
     bool native_verification =
-        ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
+        ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
 
     bool stdlib_verification;
     {
@@ -543,7 +530,7 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     EXPECT_EQ(native_verification, stdlib_verification);
 }
 
-TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancy)
+TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancyRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
@@ -584,7 +571,7 @@ TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancy)
     sig.s = s_bytes;
     sig.v = 27;
     bool native_verification =
-        ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
+        ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
 
     // Stdlib verification
     Builder builder;
@@ -610,7 +597,7 @@ TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancy)
     EXPECT_EQ(native_verification, stdlib_verification);
 }
 
-TEST(EcdsaTests, Secp256r1StdlibPanic)
+TEST(EcdsaTests, Secp256r1NafOverflowRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
