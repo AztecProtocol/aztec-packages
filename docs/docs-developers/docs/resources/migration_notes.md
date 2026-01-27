@@ -9,6 +9,35 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr] History module refactored to use standalone functions
+
+The `aztec::history` module has been refactored to use standalone functions instead of traits. This changes the calling convention from method syntax to function syntax.
+
+```diff
+- use dep::aztec::history::note_inclusion::ProveNoteInclusion;
++ use dep::aztec::history::note::assert_note_existed_by;
+
+let block_header = context.get_anchor_block_header();
+- let confirmed_note = block_header.prove_note_inclusion(hinted_note);
++ let confirmed_note = assert_note_existed_by(block_header, hinted_note);
+```
+
+**Function name and module mapping:**
+
+| Old (trait method) | New (standalone function) |
+|--------------------|---------------------------|
+| `history::note_inclusion::prove_note_inclusion` | `history::note::assert_note_existed_by` |
+| `history::note_validity::prove_note_validity` | `history::note::assert_note_was_valid_by` |
+| `history::nullifier_inclusion::prove_nullifier_inclusion` | `history::nullifier::assert_nullifier_existed_by` |
+| `history::nullifier_inclusion::prove_note_is_nullified` | `history::note::assert_note_was_nullified_by` |
+| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by` |
+| `history::nullifier_non_inclusion::prove_note_not_nullified` | `history::note::assert_note_was_not_nullified_by` |
+| `history::contract_inclusion::prove_contract_deployment` | `history::deployment::assert_contract_bytecode_was_published_by` |
+| `history::contract_inclusion::prove_contract_non_deployment` | `history::deployment::assert_contract_bytecode_was_not_published_by` |
+| `history::contract_inclusion::prove_contract_initialization` | `history::deployment::assert_contract_was_initialized_by` |
+| `history::contract_inclusion::prove_contract_non_initialization` | `history::deployment::assert_contract_was_not_initialized_by` |
+| `history::public_storage::public_storage_historical_read` | `history::storage::public_storage_historical_read` |
+
 ### [Aztec.js] Transaction sending API redesign
 
 The old chained `.send().wait()` pattern has been replaced with a single `.send(options)` call that handles both sending and waiting.
@@ -4308,7 +4337,7 @@ await expect(
 
 ### [Aztec.nr] Public storage historical read API improvement
 
-`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::public_storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
 
 If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `public_storage_historical_read` instead:
 
