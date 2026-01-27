@@ -3,7 +3,7 @@
 # Usage: bisect_flake <full_cmd> [commit]
 # full_cmd format: <hash>[:VAR=val]... <test_command>
 #
-# Uses run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects.
+# Uses run_test_cmd with CI=0 for consistent logging without CI side effects.
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -70,7 +70,9 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
-if ! seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer "NAME_POSTFIX=_{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'" 2>/dev/null; then
+# Inject NAME=test-{} into hash prefix for unique logging keys
+if ! seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
+    "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
     echo "All initial runs failed, not a flake."
     exit 0
 fi
@@ -93,7 +95,8 @@ build
 
 # Grind to check if oldest commit is stable
 echo "Grinding $bisect_runs times to verify stability..."
-if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd'"; then
+if seq 1 $bisect_runs | parallel --halt now,fail=1 -j $bisect_runs --line-buffer \
+    "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
     git checkout $commit --quiet
@@ -140,7 +143,8 @@ while true; do
     # If all succeed, parallel exits 0 -> commit is good (stable)
     # If any fail, parallel exits non-zero -> commit is bad (flaky)
     echo "Grinding $bisect_runs times (halt on first failure)..."
-    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd'"; then
+    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
+        "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
         echo "All runs passed - this commit is good (stable)"
         result=$(git bisect good 2>&1)
     else

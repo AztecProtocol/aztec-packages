@@ -5,7 +5,6 @@
 # - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
 #
-# Set SKIP_CI_PUBLISH=1 to disable Redis event publishing and tracking
 # (useful for bisect_flake where we want logging but not CI side effects)
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -66,7 +65,7 @@ trap sig_handler SIGTERM SIGINT
 # Run the test, capturing output.
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
-tmp_file=$(mktemp /tmp/run_test_cmd.XXXXXX)
+tmp_file=/tmp/$key
 touch $tmp_file
 
 function publish_log {
@@ -103,10 +102,10 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
   log_info=" ($(ci_term_link $log_key))"
 
-  # Publish test started event to Redis channel (unless SKIP_CI_PUBLISH is set).
+  # Publish test started event to Redis channel.
   # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
   # so that consumers can extract test parameters.
-  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     start_redis_data=$(jq -n \
       --arg status "started" \
       --arg test_cmd "$cmd" \
@@ -158,7 +157,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
-  if [ "$CI" -eq 0 ] || [ "${SKIP_CI_PUBLISH:-0}" -eq 1 ]; then
+  if [ "$CI" -eq 0 ]; then
     return
   fi
   # For the next branch, we track tests in merge queues only.
@@ -197,7 +196,7 @@ function fail {
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
-  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     # Publish failed status to Redis channel
     # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
     # so that deflaker and other consumers can extract test parameters.
@@ -251,7 +250,7 @@ function flake {
     echo "$line" >> "$FLAKES_FILE"
   fi
 
-  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     # Publish flake status to Redis channel
     # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
     local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')

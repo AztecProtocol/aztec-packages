@@ -599,9 +599,15 @@ case "$cmd" in
 
     full_cmd="${1:?full_cmd required}"
     commit="${2:-HEAD}"
+    BISECT_MAX_DEPTH=50
 
-    # Deepen the shallow clone to have enough history for bisect (BISECT_MAX_DEPTH=50 in bisect_flake)
-    git fetch --deepen=50 origin || true
+    # Fetch commits needed for bisect - try shallow first, deepen if needed
+    git fetch --depth=$BISECT_MAX_DEPTH origin "$commit" 2>/dev/null || true
+    # Verify we have enough history, if not deepen incrementally
+    if ! git rev-parse "$commit~$BISECT_MAX_DEPTH" &>/dev/null; then
+        echo "Shallow fetch insufficient, deepening history..."
+        git fetch --deepen=$BISECT_MAX_DEPTH origin 2>/dev/null || true
+    fi
     prep
 
     # Run the bisect script
