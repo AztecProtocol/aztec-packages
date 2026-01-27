@@ -1,13 +1,12 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
-  GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
-  type L2BlockId,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -51,6 +50,7 @@ export class ServerWorldStateSynchronizer
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
+  private l2Tips: L2TipsKVStore;
 
   // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalized chain
   // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
@@ -59,12 +59,14 @@ export class ServerWorldStateSynchronizer
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
+    private store: AztecAsyncKVStore,
     private readonly config: WorldStateConfig,
     private instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     private readonly log: Logger = createLogger('world_state'),
   ) {
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
+    this.l2Tips = new L2TipsKVStore(store, 'world_state');
     this.log.info(
       `Created world state synchroniser with block history of ${
         this.historyToKeep === undefined ? 'infinity' : this.historyToKeep
@@ -239,41 +241,8 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
-  public async getL2Tips(): Promise<L2Tips> {
-    const status = await this.merkleTreeDb.getStatusSummary();
-    const unfinalizedBlockHashPromise = this.getL2BlockHash(status.unfinalizedBlockNumber);
-    const finalizedBlockHashPromise = this.getL2BlockHash(status.finalizedBlockNumber);
-
-    const provenBlockNumber = this.provenBlockNumber ?? status.finalizedBlockNumber;
-    const provenBlockHashPromise =
-      this.provenBlockNumber === undefined ? finalizedBlockHashPromise : this.getL2BlockHash(this.provenBlockNumber);
-
-    const [unfinalizedBlockHash, finalizedBlockHash, provenBlockHash] = await Promise.all([
-      unfinalizedBlockHashPromise,
-      finalizedBlockHashPromise,
-      provenBlockHashPromise,
-    ]);
-    const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
-
-    // World state doesn't track checkpointed blocks or checkpoints themselves.
-    // but we use a block stream so we need to provide 'local' L2Tips.
-    // We configure the block stream to ignore checkpoints and set checkpoint values to genesis here.
-    const genesisCheckpointHeaderHash = GENESIS_CHECKPOINT_HEADER_HASH.toString();
-    return {
-      proposed: latestBlockId,
-      checkpointed: {
-        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
-      },
-      finalized: {
-        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
-      },
-      proven: {
-        block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
-      },
-    };
+  public getL2Tips(): Promise<L2Tips> {
+    return this.l2Tips.getL2Tips();
   }
 
   /** Handles an event emitted by the block stream. */
@@ -291,6 +260,19 @@ export class ServerWorldStateSynchronizer
       case 'chain-finalized':
         await this.handleChainFinalized(event.block.number);
         break;
+    }
+
+    await this.l2Tips.handleBlockStreamEvent(event);
+
+    // Check if initial sync is complete AFTER tips are updated
+    if (
+      event.type === 'blocks-added' &&
+      this.currentState === WorldStateRunningState.SYNCHING &&
+      event.blocks.length > 0 &&
+      event.blocks.at(-1)!.number >= this.latestBlockNumberAtStart
+    ) {
+      this.setCurrentState(WorldStateRunningState.RUNNING);
+      this.syncPromise.resolve();
     }
   }
 
@@ -346,14 +328,7 @@ export class ServerWorldStateSynchronizer
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
     });
-    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
-
-    if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
-      this.setCurrentState(WorldStateRunningState.RUNNING);
-      this.syncPromise.resolve();
-    }
-
-    return result;
+    return this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
   }
 
   private async handleChainFinalized(blockNumber: BlockNumber) {

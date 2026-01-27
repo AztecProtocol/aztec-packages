@@ -1,4 +1,4 @@
-import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockId, L2Tips } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -183,6 +183,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * Returns the current status of the p2p client.
    */
   getStatus(): Promise<P2PSyncState>;
+
+  /** Returns the synced chain tips by the p2p client. */
+  getL2Tips(): Promise<L2Tips>;
 
   /**
    * Returns the ENR of this node, if any.

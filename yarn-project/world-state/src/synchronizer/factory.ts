@@ -1,4 +1,6 @@
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -17,15 +19,20 @@ export interface WorldStateTreeMapSizes {
   publicDataTreeMapSizeKb: number;
 }
 
+export const WORLD_STATE_STORE_NAME = 'world_state';
+export const WORLD_STATE_STORE_VERSION = 1;
+
 export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   client: TelemetryClient = getTelemetryClient(),
+  store?: AztecAsyncKVStore,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
   const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation);
-  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
+  const kvStore = store ?? (await createStore(WORLD_STATE_STORE_NAME, WORLD_STATE_STORE_VERSION, config));
+  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, kvStore, config, instrumentation);
 }
 
 export async function createWorldState(

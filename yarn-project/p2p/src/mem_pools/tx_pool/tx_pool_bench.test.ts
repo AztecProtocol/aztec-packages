@@ -170,7 +170,7 @@ describe('TxPool: Benchmarks', () => {
         });
       },
     });
-    wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));
+    wsSync = new ServerWorldStateSynchronizer(ws, l2, store, getDefaultConfig(worldStateConfigMappings));
     await wsSync.start();
     pool = new AztecKVTxPool(store, store, wsSync);
   });

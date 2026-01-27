@@ -58,6 +58,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../world-state"
     }
   ],

@@ -85,4 +85,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   public clear(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "clear"');
   }
+
+  public getL2Tips(): Promise<never> {
+    throw new Error('TXE Synchronizer does not implement "getL2Tips"');
+  }
 }

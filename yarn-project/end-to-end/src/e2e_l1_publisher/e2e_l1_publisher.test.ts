@@ -40,6 +40,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
@@ -137,6 +139,7 @@ describe('L1Publisher integration', () => {
   let ethCheatCodes: EthCheatCodesWithState;
   let rollupCheatCodes: RollupCheatCodes;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
+  let worldStateStore: AztecAsyncKVStore;
   let epochCache: EpochCache;
 
   let rpcUrl: string;
@@ -248,7 +251,13 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateStore = await openTmpStore('world-state-test');
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(
+      builderDb,
+      blockSource,
+      worldStateStore,
+      worldStateConfig,
+    );
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
@@ -312,6 +321,7 @@ describe('L1Publisher integration', () => {
   afterEach(async () => {
     await tryStop(anvil);
     await tryStop(worldStateSynchronizer);
+    await worldStateStore?.close();
   });
 
   const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>

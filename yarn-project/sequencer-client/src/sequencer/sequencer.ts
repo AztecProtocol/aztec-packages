@@ -475,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * We don't check against the previous block submitted since it may have been reorg'd out.
    */
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<SequencerSyncCheckResult | undefined> {
-    // Check that the archiver and dependencies have synced to the previous L1 slot at least
+    // Check that the archiver and dependencies have synced to the previous L1 slot
     // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
     // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
     const l1Timestamp = await this.l2BlockSource.getL1Timestamp();
@@ -490,13 +490,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then(({ syncSummary }) => ({
-        number: syncSummary.latestBlockNumber,
-        hash: syncSummary.latestBlockHash,
-      })),
-      this.l2BlockSource.getL2Tips().then(t => t.proposed),
-      this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
-      this.l1ToL2MessageSource.getL2Tips().then(t => t.proposed),
+      this.worldState.getL2Tips().then(t => t.checkpointed),
+      this.l2BlockSource.getL2Tips().then(t => t.checkpointed),
+      this.p2pClient.getL2Tips().then(p2p => p2p.checkpointed),
+      this.l1ToL2MessageSource.getL2Tips().then(t => t.checkpointed),
       this.l2BlockSource.getPendingChainValidationStatus(),
     ] as const);
 
@@ -506,10 +503,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
     // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
-      (l2BlockSource.number === 0 && worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0) ||
-      (worldState.hash === l2BlockSource.hash &&
-        p2p.hash === l2BlockSource.hash &&
-        l1ToL2MessageSource.hash === l2BlockSource.hash);
+      (l2BlockSource.block.number === 0 &&
+        worldState.block.number === 0 &&
+        p2p.block.number === 0 &&
+        l1ToL2MessageSource.block.number === 0) ||
+      (worldState.block.hash === l2BlockSource.block.hash &&
+        p2p.block.hash === l2BlockSource.block.hash &&
+        l1ToL2MessageSource.block.hash === l2BlockSource.block.hash);
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, { worldState, l2BlockSource, p2p, l1ToL2MessageSource });
@@ -517,7 +517,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Special case for genesis state
-    const blockNumber = worldState.number;
+    const blockNumber = l2BlockSource.block.number;
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       return {

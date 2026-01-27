@@ -13,6 +13,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P, PeerId } from '@aztec/p2p';
@@ -115,7 +116,8 @@ describe('ValidatorClient Integration', () => {
       worldStateBlockHistory: 0,
     };
     const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
-    const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
+    const worldStateStore = await openTmpStore('validator-ws-test');
+    const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, worldStateStore, wsConfig);
     await synchronizer.start();
 
     // Create real checkpoints builder

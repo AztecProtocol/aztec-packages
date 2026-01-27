@@ -3,6 +3,7 @@ import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
 
+import type { L2Tips } from '../block/l2_block_source.js';
 import type { SnapshotDataKeys } from '../snapshots/types.js';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
@@ -89,6 +90,9 @@ export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMe
 
   /** Deletes the db */
   clear(): Promise<void>;
+
+  /** Returns the chain tips that have been synced by the world state synchronizer. */
+  getL2Tips(): Promise<L2Tips>;
 }
 
 export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, z.ZodTypeDef, any> = z.object({

@@ -3,6 +3,8 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BlockHash, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
@@ -28,6 +30,7 @@ describe('ServerWorldStateSynchronizer', () => {
   let merkleTreeDb: MockProxy<MerkleTreeAdminDatabase>;
   let merkleTreeRead: MockProxy<MerkleTreeReadOperations>;
   let l2BlockStream: MockProxy<L2BlockStream>;
+  let store: AztecAsyncKVStore;
 
   let server: TestWorldStateSynchronizer;
   let latestHandledBlockNumber: number;
@@ -47,7 +50,7 @@ describe('ServerWorldStateSynchronizer', () => {
     );
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>();
     blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber(LATEST_BLOCK_NUMBER));
     blockAndMessagesSource.getL1ToL2Messages.mockImplementation(checkNumber => {
@@ -83,11 +86,13 @@ describe('ServerWorldStateSynchronizer', () => {
       worldStateBlockHistory: 0,
     };
 
-    server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, config, l2BlockStream);
+    store = await openTmpStore('test');
+    server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, store, config, l2BlockStream);
   });
 
   afterEach(async () => {
     await server.stop();
+    await store?.close();
   });
 
   const pushBlocks = async (from: number, to: number) => {
@@ -249,10 +254,11 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,
     blockAndMessagesSource: L2BlockSource & L1ToL2MessageSource,
+    store: AztecAsyncKVStore,
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig);
+    super(merkleTrees, blockAndMessagesSource, store, worldStateConfig);
   }
 
   protected override createBlockStream(): L2BlockStream {

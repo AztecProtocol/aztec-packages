@@ -5,7 +5,9 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -27,6 +29,7 @@ describe('world-state integration', () => {
   let synchronizer: TestWorldStateSynchronizer;
   let config: WorldStateConfig & DataStoreConfig;
   let log: Logger;
+  let store: AztecAsyncKVStore;
 
   let checkpoints: { checkpoint: Checkpoint; messages: Fr[] }[];
 
@@ -59,13 +62,15 @@ describe('world-state integration', () => {
     archiver = new MockPrefilledArchiver(checkpoints);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
-    synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
+    store = await openTmpStore('world-state-integration-test');
+    synchronizer = new TestWorldStateSynchronizer(db, archiver, store, config);
     log.info(`Created synchronizer`);
   }, 30_000);
 
   afterEach(async () => {
     await synchronizer.stop();
     await db.close();
+    await store?.close();
   });
 
   const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 30000) => {
@@ -153,7 +158,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, store, config);
 
       await archiver.createBlocks(3);
       await synchronizer.start();
@@ -194,7 +199,10 @@ describe('world-state integration', () => {
   describe('immediate sync', () => {
     beforeEach(() => {
       // Set up a synchronizer with a longer block check interval to avoid interference with immediate sync
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateBlockCheckIntervalMS: 1000 });
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, store, {
+        ...config,
+        worldStateBlockCheckIntervalMS: 1000,
+      });
     });
 
     it('syncs immediately to the latest block', async () => {
