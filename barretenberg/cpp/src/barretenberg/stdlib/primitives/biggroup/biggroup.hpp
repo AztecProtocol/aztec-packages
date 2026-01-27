@@ -41,7 +41,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // The infinity flag is automatically set based on whether both coordinates are zero.
     // By default, we validate that the point is on the curve
     element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
-    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
 
     element(const element& other);
     element(element&& other) noexcept;
@@ -81,7 +80,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         Fq x = Fq::from_witness(ctx, input.x);
         Fq y = Fq::from_witness(ctx, input.y);
-        element out = element(x, y, /*assert_on_curve=*/true);
+        // Use private 4-arg constructor with explicit is_infinity=false (we already rejected infinity above).
+        // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
+        element out = element(x, y, bool_ct(ctx, false), /*assert_on_curve=*/true);
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
@@ -171,7 +172,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq, /*assert_on_curve=*/false);
+        // Use private 4-arg constructor with explicit is_infinity=false (the generator is never infinity).
+        // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
+        return element(x_fq, y_fq, bool_ct(ctx, false), /*assert_on_curve=*/false);
     }
 
     static element point_at_infinity([[maybe_unused]] Builder* ctx)
@@ -181,9 +184,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         // efficient than witnesses (no decomposition, no range constraints).
         Fq x_fq(ctx, uint256_t(0));
         Fq y_fq(ctx, uint256_t(0));
-        element result(x_fq, y_fq, /*assert_on_curve=*/false);
-        result.set_point_at_infinity(true);
-        return result;
+        return element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true), /*assert_on_curve=*/false);
     }
 
     element& operator=(const element& other);
@@ -386,13 +387,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     const Fq& y() const { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
-    {
-        _is_infinity = is_infinity.normalize();
-        if (add_to_used_witnesses) {
-            mark_witness_as_used(field_t<Builder>(_is_infinity));
-        };
-    }
     element get_standard_form() const;
 
     void set_origin_tag(OriginTag tag) const
@@ -438,6 +432,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     friend class element_test_accessor;
 
   private:
+    // Private constructor with explicit infinity flag control.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve);
+
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
@@ -968,6 +966,20 @@ class element_test_accessor {
                                               const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
     {
         return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    /**
+     * @brief Create an element with explicit infinity flag (for testing only).
+     * @details This bypasses the infinity auto-detection of the public constructor.
+     * Use only in tests where you need to control the infinity flag directly.
+     */
+    template <typename C, typename Fq, typename Fr, typename G>
+    static element<C, Fq, Fr, G> create_element_with_explicit_infinity(const Fq& x,
+                                                                       const Fq& y,
+                                                                       const stdlib::bool_t<C>& is_infinity,
+                                                                       bool assert_on_curve = false)
+    {
+        return element<C, Fq, Fr, G>(x, y, is_infinity, assert_on_curve);
     }
 };
 

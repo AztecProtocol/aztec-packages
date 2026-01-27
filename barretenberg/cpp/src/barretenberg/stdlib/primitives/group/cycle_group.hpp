@@ -74,10 +74,7 @@ template <typename Builder> class cycle_group {
   public:
     cycle_group(Builder* _context = nullptr);
     // Construct from coordinates. Infinity is auto-detected from (x == 0 && y == 0).
-    // Made explicit to prevent accidental calls when 4-arg constructor is intended.
     explicit cycle_group(const field_t& x, const field_t& y, bool assert_on_curve = true);
-    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
-    cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group constant_infinity(Builder* _context = nullptr);
@@ -206,6 +203,13 @@ template <typename Builder> class cycle_group {
     }
 
   private:
+    // Allow straus_lookup_table to access the private constructor for efficiency
+    friend class ::bb::stdlib::straus_lookup_table<Builder>;
+
+    // Private constructor that allows explicit control over infinity flag.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
+
     field_t _x;
     field_t _y;
     bool_t _is_infinity;

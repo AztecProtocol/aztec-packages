@@ -64,12 +64,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , _is_infinity((x.limbs[0].add_two(x.limbs[1], y.limbs[0]) + y.limbs[1]).is_zero())
     {}
 
-    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
-        : _x(x)
-        , _y(y)
-        , _is_infinity(is_infinity)
-    {}
-
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -151,9 +145,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         // efficient than witnesses (no decomposition, no range constraints).
         Fq x_fq(ctx, uint256_t(0));
         Fq y_fq(ctx, uint256_t(0));
-        goblin_element result(x_fq, y_fq);
-        result.set_point_at_infinity(true);
-        return result;
+        return goblin_element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true));
     }
 
     goblin_element checked_unconditional_add(const goblin_element& other) const { return operator+(other); }
@@ -205,12 +197,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
         Fq result_x(x_lo, x_hi);
         Fq result_y(y_lo, y_hi);
-        goblin_element result(result_x, result_y);
 
         // if the output is at infinity, this is represented by x/y coordinates being zero
         // because they are all 136-bit, we can do a cheap zerocheck by first summing the limbs
         auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
-        result.set_point_at_infinity(op2_is_infinity);
+        goblin_element result(result_x, result_y, /*is_infinity=*/op2_is_infinity);
         {
             ecc_op_tuple op_tuple3 = builder->queue_ecc_eq();
             auto x_lo = Fr::from_witness_index(builder, op_tuple3.x_lo);
@@ -347,7 +338,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
     /**
      * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
      *
@@ -419,6 +409,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     Fq& y() { return _y; }
 
   private:
+    // Private constructor with explicit infinity flag control.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    goblin_element(const Fq& x, const Fq& y, const bool_ct& is_infinity)
+        : _x(x)
+        , _y(y)
+        , _is_infinity(is_infinity)
+    {}
+
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;

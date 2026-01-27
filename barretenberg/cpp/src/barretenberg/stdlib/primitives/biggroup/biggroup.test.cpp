@@ -171,25 +171,23 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         affine_element input_c(element::random_element());
         auto x = element_ct::BaseField::from_witness(&builder, input_c.x);
         auto y = element_ct::BaseField::from_witness(&builder, input_c.y);
-        auto pif = bool_ct(witness_ct(&builder, false));
 
         // Set tags on the individual field elements
         x.set_origin_tag(submitted_value_origin_tag);
         y.set_origin_tag(challenge_origin_tag);
-        pif.set_origin_tag(next_challenge_tag);
 
         // Construct biggroup element from pre-tagged field elements
-        element_ct c(x, y, pif);
+        // The is_infinity flag is auto-detected from coordinates and won't have a user-set tag
+        element_ct c(x, y);
 
-        // The tag of the biggroup element should be the union of all 3 member tags
-        EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
+        // The tag of the biggroup element should be the union of x and y member tags
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
 #ifndef NDEBUG
         // Test that instant_death_tag on x coordinate propagates correctly
         affine_element input_b(element::random_element());
         auto x_death = element_ct::BaseField::from_witness(&builder, input_b.x);
         auto y_normal = element_ct::BaseField::from_witness(&builder, input_b.y);
-        auto pif_normal = bool_ct(witness_ct(&builder, false));
 
         x_death.set_origin_tag(instant_death_tag);
         // Set constant tags on the other elements so they can be merged with instant_death_tag
@@ -242,7 +240,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 // Skip curve check since we're intentionally creating an invalid point
-                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
+                // Note: is_infinity is auto-detected as false since coords are non-zero
+                element_ct point(x_coord, y_coord, /*assert_on_curve=*/false);
                 point.assert_coordinates_in_field();
 
                 // Circuit should fail because x coordinate is out of field
@@ -263,7 +262,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 // Skip curve check since we're intentionally creating an invalid point
-                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
+                // Note: is_infinity is auto-detected as false since coords are non-zero
+                element_ct point(x_coord, y_coord, /*assert_on_curve=*/false);
                 point.assert_coordinates_in_field();
 
                 // Circuit should fail because y coordinate is out of field
@@ -395,12 +395,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         size_t num_repetitions = 5;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            // Check both constant and witness case
-            affine_element native_a(element::random_element());
-            element_ct input_a(native_a.x, native_a.y);
-            element_ct input_b = element_ct::from_witness(&builder, element::random_element());
-            input_a.set_point_at_infinity(true);
-            input_b.set_point_at_infinity(true);
+            // Create canonical point at infinity using factory method (constant and witness cases)
+            // The factory creates points with (0, 0) coordinates and is_infinity = true
+            element_ct input_a = element_ct::point_at_infinity(nullptr);  // constant case
+            element_ct input_b = element_ct::point_at_infinity(&builder); // witness case
 
             // Set tags
             input_a.set_origin_tag(submitted_value_origin_tag);
@@ -422,6 +420,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             fq standard_b_x = standard_b.x().get_value().lo;
             fq standard_b_y = standard_b.y().get_value().lo;
 
+            // Canonical infinity points should maintain (0, 0) coordinates
             EXPECT_EQ(standard_a_x, 0);
             EXPECT_EQ(standard_a_y, 0);
             EXPECT_EQ(standard_b_x, 0);
@@ -695,7 +694,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         auto x_coord = element_ct::BaseField::from_witness(&builder, test_point.x);
         auto y_coord = element_ct::BaseField::from_witness(&builder, fq(0));
         // Skip curve check since we're intentionally creating an invalid point to test edge case
-        element_ct a(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
+        // Note: is_infinity is auto-detected as false since x coordinate is non-zero
+        element_ct a(x_coord, y_coord, /*assert_on_curve=*/false);
 
         a.set_origin_tag(submitted_value_origin_tag);
 
@@ -956,21 +956,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
-        // Case 2: Should pass because the points are identical and at infinity
+        // Case 2: Should pass because both points are at infinity (canonical representation)
         {
             Builder builder;
             size_t num_repetitions = 10;
             for (size_t i = 0; i < num_repetitions; ++i) {
-                affine_element input_a(element::random_element());
-                element_ct a = element_ct::from_witness(&builder, input_a);
-                element_ct b = element_ct::from_witness(&builder, input_a);
+                // Use point_at_infinity() factory to create canonical infinity points
+                element_ct a = element_ct::point_at_infinity(&builder);
+                element_ct b = element_ct::point_at_infinity(&builder);
 
                 // Set different tags in a and b
                 a.set_origin_tag(submitted_value_origin_tag);
                 b.set_origin_tag(challenge_origin_tag);
-
-                a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
-                b.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
 
                 a.incomplete_assert_equal(b, "elements don't match");
             }
@@ -1029,8 +1026,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             auto y_coord_a = element_ct::BaseField::from_witness(&builder, input_a.y);
             auto y_coord_b = element_ct::BaseField::from_witness(&builder, input_b.y);
 
-            element_ct a(x_coord, y_coord_a, bool_ct(witness_ct(&builder, false)));
-            element_ct b(x_coord, y_coord_b, bool_ct(witness_ct(&builder, false)));
+            // Note: is_infinity is auto-detected as false since coordinates are non-zero
+            element_ct a(x_coord, y_coord_a);
+            element_ct b(x_coord, y_coord_b);
 
             // Set different tags in a and b
             a.set_origin_tag(submitted_value_origin_tag);
@@ -1045,15 +1043,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Case 3: Infinity flag mismatch (one point at infinity, one not)
         {
             Builder builder;
-            affine_element input_a(element::random_element());
             affine_element input_b(element::random_element());
 
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
-
-            // Set only one point at infinity
-            a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));  // at infinity
-            b.set_point_at_infinity(bool_ct(witness_ct(&builder, false))); // not at infinity
+            // Use point_at_infinity() factory for the infinity point
+            element_ct a = element_ct::point_at_infinity(&builder);     // at infinity
+            element_ct b = element_ct::from_witness(&builder, input_b); // not at infinity
 
             a.incomplete_assert_equal(b, "infinity flag mismatch test");
 
@@ -1064,31 +1058,23 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_incomplete_assert_equal_edge_cases()
     {
+        // Test that canonical infinity points (created via factory) pass equality check
+        // Note: We no longer support non-canonical infinity representations (points with
+        // random coords but is_infinity=true) through the public API
         Builder builder;
-        // Check that two points at infinity with different x,y coords fail the equality check
-        affine_element input_a(element::random_element());
-        affine_element input_b(element::random_element());
 
-        // Ensure inputs are different
-        while (input_a == input_b) {
-            input_b = element::random_element();
-        }
-        element_ct a = element_ct::from_witness(&builder, input_a);
-        element_ct b = element_ct::from_witness(&builder, input_b);
-
-        const bool_ct is_infinity = bool_ct(witness_ct(&builder, 1));
-        a.set_point_at_infinity(is_infinity);
-        b.set_point_at_infinity(is_infinity);
+        // Create two canonical infinity points with (0, 0) coordinates
+        element_ct a = element_ct::point_at_infinity(&builder);
+        element_ct b = element_ct::point_at_infinity(&builder);
 
         // Set different tags in a and b
         a.set_origin_tag(submitted_value_origin_tag);
         b.set_origin_tag(challenge_origin_tag);
 
-        a.incomplete_assert_equal(b, "points at infinity with different x,y should not be equal");
+        a.incomplete_assert_equal(b, "canonical infinity points should be equal");
 
-        // Circuit should fail
-        EXPECT_EQ(builder.failed(), true);
-        EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
+        // Circuit should pass since both are canonical infinity points
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
     static void test_compute_naf()
@@ -1273,15 +1259,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Case 2: (∞) * k = ∞
         {
             info("Case 2: (∞) * k");
-            auto [input, P] = get_random_point(&builder, point_type);
-            if (point_type == InputType::CONSTANT) {
-                P.set_point_at_infinity(bool_ct(true));
-            } else {
-                P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
-            }
-
-            // Normalize to ensure the point at infinity has (0, 0) coordinates
-            P = P.get_standard_form();
+            // Use point_at_infinity() factory which creates canonical infinity with (0, 0) coordinates
+            element_ct P = (point_type == InputType::CONSTANT) ? element_ct::point_at_infinity(nullptr)
+                                                               : element_ct::point_at_infinity(&builder);
 
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
             affine_element expected_infinity = affine_element(element::infinity());
@@ -2455,24 +2435,22 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    // Test get_standard_form converts non-canonical infinity to canonical
+    // Test get_standard_form preserves canonical infinity representation
     static void test_get_standard_form_normalizes_infinity()
     {
         Builder builder;
 
-        // Create a point with non-zero coordinates but infinity flag set
-        affine_element input(element::random_element());
-        element_ct P = element_ct::from_witness(&builder, input);
+        // Use point_at_infinity() factory to create canonical infinity with (0, 0) coordinates
+        // Note: We no longer support non-canonical infinity representations (points with
+        // random coords but is_infinity=true) through the public API
+        element_ct P = element_ct::point_at_infinity(&builder);
 
-        // Manually set the infinity flag (simulating internal computation result)
-        P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
-
-        // Before standardization, coords are non-zero
-        EXPECT_NE(fq(P.x().get_value().lo), fq(0));
-        EXPECT_NE(fq(P.y().get_value().lo), fq(0));
+        // Canonical infinity has (0, 0) coordinates
+        EXPECT_EQ(fq(P.x().get_value().lo), fq(0));
+        EXPECT_EQ(fq(P.y().get_value().lo), fq(0));
         EXPECT_TRUE(P.is_point_at_infinity().get_value());
 
-        // After standardization, coords should be (0, 0)
+        // After standardization, coords should still be (0, 0)
         element_ct standardized = P.get_standard_form();
         EXPECT_TRUE(standardized.is_point_at_infinity().get_value());
         EXPECT_EQ(fq(standardized.x().get_value().lo), fq(0));

@@ -50,11 +50,20 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
     }
 }
 
+/**
+ * @brief Private constructor with explicit infinity flag control.
+ * @details This constructor is private because it gives too much control - external users should use
+ * the public constructors which auto-detect infinity from (x == 0 && y == 0).
+ * Internal operations use this for efficiency when the infinity flag is computed separately.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity, const bool assert_on_curve)
+element<C, Fq, Fr, G>::element(const Fq& x_in,
+                               const Fq& y_in,
+                               const stdlib::bool_t<C>& is_infinity,
+                               const bool assert_on_curve)
     : _x(x_in)
     , _y(y_in)
-    , _is_infinity(is_infinity)
+    , _is_infinity(is_infinity.normalize())
 {
     if (assert_on_curve) {
         validate_on_curve();
@@ -161,23 +170,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::add_internal(const element& other) 
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
-    const Fq x3 = lambda.sqradd({ -other._x, -_x });
-    const Fq y3 = lambda.madd(_x - x3, { -_y });
-    element result(x3, y3, /*assert_on_curve=*/false);
+    Fq x3 = lambda.sqradd({ -other._x, -_x });
+    Fq y3 = lambda.madd(_x - x3, { -_y });
 
     // if lhs infinity, return rhs
-    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
-    result._y = Fq::conditional_assign(lhs_infinity, other._y, result._y);
+    x3 = Fq::conditional_assign(lhs_infinity, other._x, x3);
+    y3 = Fq::conditional_assign(lhs_infinity, other._y, y3);
     // if rhs infinity, return lhs
-    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
+    x3 = Fq::conditional_assign(rhs_infinity, _x, x3);
+    y3 = Fq::conditional_assign(rhs_infinity, _y, y3);
 
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
     // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
-    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+    mark_witness_as_used(field_t<C>(result_is_infinity));
 
+    element result(x3, y3, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
@@ -274,23 +283,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::subtract_internal(const element& ot
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
-    const Fq x3 = lambda.sqradd({ -other._x, -_x });
-    const Fq y3 = lambda.madd(_x - x3, { -_y });
-    element result(x3, y3, /*assert_on_curve=*/false);
+    Fq x3 = lambda.sqradd({ -other._x, -_x });
+    Fq y3 = lambda.madd(_x - x3, { -_y });
 
     // if lhs infinity, return -rhs (negated rhs point)
-    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
-    result._y = Fq::conditional_assign(lhs_infinity, -other._y, result._y);
+    x3 = Fq::conditional_assign(lhs_infinity, other._x, x3);
+    y3 = Fq::conditional_assign(lhs_infinity, -other._y, y3);
     // if rhs infinity, return lhs
-    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
+    x3 = Fq::conditional_assign(rhs_infinity, _x, x3);
+    y3 = Fq::conditional_assign(rhs_infinity, _y, y3);
 
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == y₂ (i.e., P₁ - P₁), result is ∞
     // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+    mark_witness_as_used(field_t<C>(result_is_infinity));
 
-    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+    element result(x3, y3, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
@@ -314,7 +323,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const ele
     const Fq lambda = Fq::div_without_denominator_check({ other._y, -_y }, (other._x - _x));
     const Fq x3 = lambda.sqradd({ -other._x, -_x });
     const Fq y3 = lambda.madd(_x - x3, { -_y });
-    return element(x3, y3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
+    return element(x3, y3, bool_ct(x3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 template <typename C, class Fq, class Fr, class G>
@@ -326,7 +337,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
     const Fq x_3 = lambda.sqradd({ -other._x, -_x });
     const Fq y_3 = lambda.madd(x_3 - _x, { -_y });
 
-    return element(x_3, y_3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    return element(x_3, y_3, bool_ct(x_3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**
@@ -359,7 +371,10 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
     const Fq x_4 = lambda2.sqradd({ x2x1 });
     const Fq y_4 = lambda2.madd(_x - x_4, { -_y });
 
-    return { element(x_3, y_3, /*assert_on_curve=*/false), element(x_4, y_4, /*assert_on_curve=*/false) };
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    bool_ct not_infinity(x_3.get_context(), false);
+    return { element(x_3, y_3, not_infinity, /*assert_on_curve=*/false),
+             element(x_4, y_4, not_infinity, /*assert_on_curve=*/false) };
 }
 
 /**
@@ -404,9 +419,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
-        element result(x_3, y_3, /*assert_on_curve=*/false);
-        result.set_point_at_infinity(is_infinity, /* add_to_used_witnesses */ true);
-        return result;
+        mark_witness_as_used(field_t<C>(is_infinity));
+        return element(x_3, y_3, /*is_infinity=*/is_infinity, /*assert_on_curve=*/false);
     }
 
     // Curve equation when a = 0: y² = x³ + b
@@ -422,9 +436,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
-    element result = element(x_3, y_3, /*assert_on_curve=*/false);
-    result.set_point_at_infinity(is_infinity, /* add_to_used_witnesses */ true);
-    return result;
+    mark_witness_as_used(field_t<C>(is_infinity));
+    return element(x_3, y_3, /*is_infinity=*/is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -488,7 +501,10 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 {
     // If accumulator has a full y-coordinate, use chain_add_start instead
     if (acc.is_full_element) {
-        return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev, /*assert_on_curve=*/false));
+        // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+        return chain_add_start(
+            p1,
+            element(acc.x3_prev, acc.y3_prev, bool_ct(acc.x3_prev.get_context(), false), /*assert_on_curve=*/false));
     }
 
     // Require x₁ ≠ x₂ for incomplete addition formula
@@ -533,7 +549,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
 {
     // If accumulator already has a full y-coordinate, return it directly
     if (acc.is_full_element) {
-        return element(acc.x3_prev, acc.y3_prev, /*assert_on_curve=*/false);
+        // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+        return element(acc.x3_prev, acc.y3_prev, bool_ct(acc.x3_prev.get_context(), false), /*assert_on_curve=*/false);
     }
 
     // Compute y₃ = λ(x₁ - x₃) - y₁
@@ -542,7 +559,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
     auto& lambda = acc.lambda_prev;
 
     Fq y3 = lambda.madd((acc.x1_prev - x3), { -acc.y1_prev });
-    return element(x3, y3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+    return element(x3, y3, bool_ct(x3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**
@@ -739,7 +757,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     BB_ASSERT(!previous_y.is_negative);
 
     Fq y_out = Fq::mult_madd(previous_y.mul_left, previous_y.mul_right, previous_y.add);
-    return element(x_out, y_out, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (montgomery ladder assumes valid, non-infinity points).
+    return element(x_out, y_out, bool_ct(x_out.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**

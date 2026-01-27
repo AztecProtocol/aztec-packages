@@ -72,24 +72,24 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     auto lhs = TestFixture::generators[0];
     auto x = stdlib::field_t<Builder>::from_witness(&builder, lhs.x);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, lhs.y);
-    auto is_infinity = bool_ct(witness_ct(&builder, lhs.is_point_at_infinity()));
 
     // Set tags on the individual field elements
     x.set_origin_tag(submitted_value_origin_tag);
     y.set_origin_tag(challenge_origin_tag);
-    is_infinity.set_origin_tag(next_challenge_tag);
 
     // Construct cycle_group from pre-tagged field elements
-    cycle_group_ct a(x, y, is_infinity, /*assert_on_curve=*/true);
+    // The 2-arg constructor auto-detects infinity from coordinates, so _is_infinity
+    // will have a tag derived from x and y (since it's computed from x² + 5y²)
+    cycle_group_ct a(x, y, /*assert_on_curve=*/true);
 
-    // The tag of the cycle_group should be the union of all 3 member tags
-    EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+    // The tag of the cycle_group should be the union of x and y tags
+    // (is_infinity is derived from x and y, so its tag is already included)
+    EXPECT_EQ(a.get_origin_tag(), first_two_merged_tag);
 
 #ifndef NDEBUG
     // Test that instant_death_tag on x coordinate propagates correctly
     auto x_death = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].x);
     auto y_normal = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].y);
-    auto is_infinity_normal = bool_ct(witness_ct(&builder, TestFixture::generators[1].is_point_at_infinity()));
 
     x_death.set_origin_tag(instant_death_tag);
     // Set constant tags on the other elements so they can be merged with instant_death_tag
@@ -246,12 +246,13 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     auto point_val = TestFixture::generators[0];
     auto x = stdlib::field_t<Builder>::from_witness(&builder, point_val.x);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, point_val.y);
-    auto is_infinity = bool_ct(witness_ct(&builder, point_val.is_point_at_infinity()));
 
-    cycle_group_ct point(x, y, is_infinity, /*assert_on_curve=*/true);
+    // The 2-arg constructor auto-detects infinity from (x == 0 && y == 0).
+    // For a generator point, this will correctly detect is_infinity = false.
+    cycle_group_ct point(x, y, /*assert_on_curve=*/true);
     EXPECT_FALSE(builder.failed());
-    // Gate count increased due to canonical infinity enforcement in validate_on_curve()
-    check_circuit_and_gate_count(builder, 10);
+    // Gate count includes infinity auto-detection + validate_on_curve
+    check_circuit_and_gate_count(builder, 14);
 }
 
 /**
@@ -264,10 +265,10 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
-
-    cycle_group_ct a(x, y, /*_is_infinity=*/true, /*assert_on_curve=*/true);
+    // Use constant_infinity to get a proper infinity point for this test
+    // This avoids creating an invalid point with non-zero coordinates
+    cycle_group_ct a = cycle_group_ct::constant_infinity(&builder);
+    a.validate_on_curve();
     EXPECT_FALSE(builder.failed());
     check_circuit_and_gate_count(builder, 0);
 }
@@ -286,7 +287,9 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
-    cycle_group_ct a(x, y, /*_is_infinity=*/false, /*assert_on_curve=*/true);
+    // Point (1, 1) is not on the curve - validate_on_curve should fail
+    // The 2-arg constructor auto-detects infinity as false for non-zero coordinates
+    cycle_group_ct a(x, y, /*assert_on_curve=*/true);
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -305,7 +308,10 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
     auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
-    cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/true);
+    // Point (1, 1) is not on the curve - validate_on_curve should fail
+    // The 2-arg constructor auto-detects infinity from coordinates (1² + 5*1² ≠ 0, so not infinity)
+    cycle_group_ct a(x, y, /*assert_on_curve=*/false);
+    a.validate_on_curve();
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -321,13 +327,6 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     cycle_group_ct input_c = cycle_group_ct(Element::random_element());
     cycle_group_ct input_d = cycle_group_ct(affine_infinity);
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
-    // Use assert_on_curve=false since we're testing non-canonical infinity representations
-    // that standardize() should convert to canonical (0, 0) form
-    cycle_group_ct input_e = cycle_group_ct(x, y, true, /*assert_on_curve=*/false);
-    cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)), /*assert_on_curve=*/false);
-
     // Assign different tags to all inputs
     input_a.set_origin_tag(submitted_value_origin_tag);
     input_b.set_origin_tag(challenge_origin_tag);
@@ -342,17 +341,11 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     auto standard_c = input_c;
     input_d.standardize();
     auto standard_d = input_d;
-    input_e.standardize();
-    auto standard_e = input_e;
-    input_f.standardize();
-    auto standard_f = input_f;
 
     EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
     EXPECT_EQ(standard_c.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_d.is_point_at_infinity().get_value(), true);
-    EXPECT_EQ(standard_e.is_point_at_infinity().get_value(), true);
-    EXPECT_EQ(standard_f.is_point_at_infinity().get_value(), true);
 
     // Ensure that the tags in the standard form remain the same
     EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
@@ -377,12 +370,6 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     auto standard_d_x = standard_d.x().get_value();
     auto standard_d_y = standard_d.y().get_value();
 
-    auto standard_e_x = standard_e.x().get_value();
-    auto standard_e_y = standard_e.y().get_value();
-
-    auto standard_f_x = standard_f.x().get_value();
-    auto standard_f_y = standard_f.y().get_value();
-
     EXPECT_EQ(input_a_x, standard_a_x);
     EXPECT_EQ(input_a_y, standard_a_y);
     EXPECT_EQ(standard_b_x, 0);
@@ -391,13 +378,9 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(input_c_y, standard_c_y);
     EXPECT_EQ(standard_d_x, 0);
     EXPECT_EQ(standard_d_y, 0);
-    EXPECT_EQ(standard_e_x, 0);
-    EXPECT_EQ(standard_e_y, 0);
-    EXPECT_EQ(standard_f_x, 0);
-    EXPECT_EQ(standard_f_y, 0);
 
-    // Gate count reduced: constant_infinity uses no witnesses
-    check_circuit_and_gate_count(builder, 9);
+    // Gate count: from_witness adds gates for x, y witnesses and on-curve check
+    check_circuit_and_gate_count(builder, 6);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -568,14 +551,16 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
     auto y = stdlib::field_t<Builder>(witness_ct(&builder, point.y)); // witness
 
     // Mixed constancy is remedied inside the constructor; x will be converted to a fixed witness
-    cycle_group_ct a(x, y, false, /*assert_on_curve=*/false);
+    // The point is known to be on the curve and not at infinity (it's a generator point)
+    cycle_group_ct a(x, y, /*assert_on_curve=*/false);
 
     EXPECT_FALSE(a.x().is_constant());
     EXPECT_FALSE(a.y().is_constant());
 
     a.dbl();
 
-    check_circuit_and_gate_count(builder, 3);
+    // Gate count includes auto-detection for the 2-arg constructor (x² + 5y² == 0 check)
+    check_circuit_and_gate_count(builder, 10);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
