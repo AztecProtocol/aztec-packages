@@ -27,6 +27,7 @@ function print_usage {
   echo_cmd "grind"                 "Spin up multiple EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy"        "Spin up an EC2 instance to deploy a network."
+  echo_cmd "network-scenarios"      "Spin up EC2 instance(s) to run network scenario tests in parallel."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
@@ -116,6 +117,29 @@ case "$cmd" in
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
+  network-scenarios)
+    # Args: <scenario> <namespace> [docker_image] [test_set]
+    # If test_set provided, run just that set. Otherwise run both in parallel.
+    scenario="${1:?scenario is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    test_set="${4:-}"
+
+    export CI_DASHBOARD="network"
+    run() {
+      local set=$1
+      JOB_ID="x-${namespace}-${set}" INSTANCE_POSTFIX="n-deploy-${set}" \
+        bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
+    }
+    export -f run
+    export scenario namespace docker_image
+
+    if [[ -n "$test_set" ]]; then
+      run "$test_set"
+    else
+      parallel --jobs 2 --line-buffered ::: 'run 1' 'run 2'
+    fi
+    ;;
   network-deploy)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
