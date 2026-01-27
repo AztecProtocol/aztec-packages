@@ -30,8 +30,15 @@ export class BlockProposalHash extends Buffer32 {
 }
 
 export type BlockProposalOptions = {
-  publishFullTxs: boolean;
-  /** Whether to generate an invalid block proposal for broadcasting. Use only for testing. */
+  /**
+   * Whether to include the tx objects along with the block proposal.
+   * Dramatically increases size of the payload but eliminates failed reexecutions due to missing txs.
+   */
+  publishFullTxs?: boolean;
+  /**
+   * Whether to generate an invalid block proposal for broadcasting.
+   * Use only for testing.
+   */
   broadcastInvalidBlockProposal?: boolean;
 };
 

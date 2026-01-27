@@ -97,12 +97,14 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
     protocolContractsHash = Fr.ZERO,
+    anchorBlockHeader = BlockHeader.empty(),
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -111,12 +113,14 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
     protocolContractsHash?: Fr;
+    anchorBlockHeader?: BlockHeader;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -126,10 +130,8 @@ export const mockTx = async (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
-  data.constants.txContext.gasSettings = GasSettings.default({
-    maxFeesPerGas: new GasFees(10, 10),
-    maxPriorityFeesPerGas,
-  });
+  data.constants.anchorBlockHeader = anchorBlockHeader;
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;

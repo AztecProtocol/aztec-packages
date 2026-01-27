@@ -68,7 +68,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { expectedEndState?: StateReference },
+    opts: PublicProcessorLimits & { expectedEndState?: StateReference } = {},
   ): Promise<BuildBlockInCheckpointResultWithTimer> {
     const blockBuildingTimer = new Timer();
     const slot = this.checkpointBuilder.constants.slotNumber;
