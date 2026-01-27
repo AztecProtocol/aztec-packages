@@ -171,8 +171,8 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         size_t round = 0;
 
-        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenges
-        manifest.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
+        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
+        manifest.add_challenge(round, "eta");
         manifest.add_entry(round, "vk_hash", 1);
         for (size_t i = 0; i < 4; ++i) {
             manifest.add_entry(round, "public_input_" + std::to_string(i), 1);
