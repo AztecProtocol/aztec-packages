@@ -8,9 +8,9 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  BlockHash,
   CheckpointedL2Block,
   L2Block,
-  L2BlockHash,
   type L2BlockSource,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -322,7 +322,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: L2BlockHash.fromField(await block.hash()),
+      l2BlockHash: BlockHash.fromField(await block.hash()),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -343,7 +343,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             TxExecutionResult.SUCCESS,
             undefined,
             txEffect.transactionFee.toBigInt(),
-            L2BlockHash.fromField(await block.hash()),
+            BlockHash.fromField(await block.hash()),
             block.number,
           );
         }

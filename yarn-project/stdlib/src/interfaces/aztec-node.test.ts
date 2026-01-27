@@ -22,7 +22,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { type BlockParameter, CommitteeAttestation, L2Block, L2BlockHash } from '../block/index.js';
+import { BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -110,7 +110,7 @@ describe('AztecNodeApiSchema', () => {
       Fr.random(),
     ]);
     expect(response).toEqual([
-      { data: 1n, l2BlockNumber: 1, l2BlockHash: L2BlockHash.fromNumber(BlockNumber(1)) },
+      { data: 1n, l2BlockNumber: 1, l2BlockHash: BlockHash.fromNumber(BlockNumber(1)) },
       undefined,
     ]);
 
@@ -204,7 +204,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(L2BlockHash.fromField(Fr.random()));
+    const response = await context.client.getBlockHeader(BlockHash.fromField(Fr.random()));
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
@@ -571,7 +571,7 @@ class MockAztecNode implements AztecNode {
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
     return Promise.resolve([
-      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: L2BlockHash.fromNumber(BlockNumber(1)) },
+      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.fromNumber(BlockNumber(1)) },
       undefined,
     ]);
   }
@@ -784,7 +784,7 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       l2BlockNumber: BlockNumber(1),
-      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      l2BlockHash: BlockHash.fromNumber(0x12),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
     };

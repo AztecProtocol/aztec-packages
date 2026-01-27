@@ -3,7 +3,7 @@ import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types'
 import { z } from 'zod';
 
 import { RevertCode } from '../avm/revert_code.js';
-import { L2BlockHash } from '../block/block_hash.js';
+import { BlockHash } from '../block/block_hash.js';
 import { type ZodFor, schemas } from '../schemas/schemas.js';
 import { TxHash } from './tx_hash.js';
 
@@ -54,7 +54,7 @@ export class TxReceipt {
     /** The transaction fee paid for the transaction. */
     public transactionFee?: bigint,
     /** The hash of the block containing the transaction. */
-    public blockHash?: L2BlockHash,
+    public blockHash?: BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: BlockNumber,
   ) {}
@@ -100,7 +100,7 @@ export class TxReceipt {
         status: z.nativeEnum(TxStatus),
         executionResult: z.nativeEnum(TxExecutionResult).optional(),
         error: z.string().optional(),
-        blockHash: L2BlockHash.schema.optional(),
+        blockHash: BlockHash.schema.optional(),
         blockNumber: BlockNumberSchema.optional(),
         transactionFee: schemas.BigInt.optional(),
       })
@@ -113,7 +113,7 @@ export class TxReceipt {
     executionResult?: TxExecutionResult;
     error?: string;
     transactionFee?: bigint;
-    blockHash?: L2BlockHash;
+    blockHash?: BlockHash;
     blockNumber?: BlockNumber;
   }) {
     return new TxReceipt(

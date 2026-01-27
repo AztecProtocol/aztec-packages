@@ -1,6 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
@@ -22,7 +22,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
   jobId: string,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works

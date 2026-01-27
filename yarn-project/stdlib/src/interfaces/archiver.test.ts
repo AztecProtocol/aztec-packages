@@ -10,7 +10,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
-import { CommitteeAttestation, L2Block, L2BlockHash } from '../block/index.js';
+import { BlockHash, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
@@ -466,7 +466,7 @@ class MockArchiver implements ArchiverApi {
     expect(_txHash).toBeInstanceOf(TxHash);
     return {
       l2BlockNumber: BlockNumber(1),
-      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      l2BlockHash: BlockHash.fromNumber(0x12),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
     };

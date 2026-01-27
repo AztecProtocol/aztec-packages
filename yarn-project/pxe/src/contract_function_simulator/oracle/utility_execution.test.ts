@@ -6,7 +6,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
@@ -170,7 +170,7 @@ describe('Utility Execution test suite', () => {
             Fr.random(),
             TxHash.random(),
             BlockNumber(42),
-            L2BlockHash.random().toString(),
+            BlockHash.random().toString(),
             0,
             0,
           ),
