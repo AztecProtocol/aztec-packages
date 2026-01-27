@@ -88,11 +88,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
 
-  // TODO(palla/mbps): Remove this once checkpoint validation is stable and we can validate all blocks properly.
-  // Tracks slots for which we have successfully validated a block proposal, so we can attest to checkpoint proposals for those slots.
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  private validatedBlockSlots: Set<SlotNumber> = new Set();
-
   protected constructor(
     private keyStore: ExtendedValidatorKeyStore,
     private epochCache: EpochCache,
@@ -414,10 +409,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
-    // Track that we successfully validated a block for this slot, so we can attest to checkpoint proposals for it.
-    this.validatedBlockSlots.add(slotNumber);
-
     return true;
   }
 
@@ -462,17 +453,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       fishermanMode: this.config.fishermanMode || false,
     });
 
-    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
-    // Check that we have successfully validated a block for this slot before attesting to the checkpoint.
-    if (!this.validatedBlockSlots.has(slotNumber)) {
-      this.log.warn(`No validated block found for slot ${slotNumber}, refusing to attest to checkpoint`, proposalInfo);
-      return undefined;
-    }
-
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
-    // TODO(palla/mbps): Change default to false once checkpoint validation is stable.
-    if (this.config.skipCheckpointProposalValidation !== false) {
-      this.log.verbose(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+    if (this.config.skipCheckpointProposalValidation) {
+      this.log.warn(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
     } else {
       const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
@@ -548,7 +531,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposalInfo: LogData,
   ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
     const slot = proposal.slotNumber;
-    const timeoutSeconds = 10;
+    const timeoutSeconds = 10; // TODO(palla/mbps): This should map to the timetable settings
 
     // Wait for last block to sync by archive
     let lastBlockHeader: BlockHeader | undefined;

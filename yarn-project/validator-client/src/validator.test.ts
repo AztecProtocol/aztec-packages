@@ -418,6 +418,7 @@ describe('ValidatorClient', () => {
         },
       });
 
+      validatorClient.updateConfig({ skipCheckpointProposalValidation: true });
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
 
       expect(attestations).toBeDefined();

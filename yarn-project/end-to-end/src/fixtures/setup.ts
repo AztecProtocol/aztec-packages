@@ -385,7 +385,7 @@ export async function setup(
       const res = await startAnvil({
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
-        port: opts.anvilPort,
+        port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
