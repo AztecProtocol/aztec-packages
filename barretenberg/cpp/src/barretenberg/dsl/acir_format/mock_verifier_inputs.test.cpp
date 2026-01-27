@@ -1,5 +1,5 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
-#include "barretenberg/honk/proof_layout.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
 
@@ -11,13 +11,13 @@ class MockVerifierInputsTest : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-// Static assertions for proof layout constants
+// Static assertions for proof length constants
 static_assert(MERGE_PROOF_SIZE == 42, "Merge proof size changed");
-static_assert(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS == 608, "ECCVM proof size changed");
+static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA proof size changed");
-static_assert(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS == 786, "Translator proof size changed");
+static_assert(TranslatorFlavor::PROOF_LENGTH == 786, "Translator proof size changed");
 
-westatic_assert(ProofLength::Oink<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 96, "Mega Oink proof size changed");
+static_assert(ProofLength::Oink<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 96, "Mega Oink proof size changed");
 static_assert(ProofLength::Oink<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 32, "Ultra Oink proof size changed");
 static_assert(ProofLength::Oink<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 36, "UltraZK Oink proof size changed");
 static_assert(ProofLength::Oink<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 32,
@@ -34,8 +34,7 @@ static_assert(ProofLength::Honk<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraZ
 static_assert(ProofLength::Honk<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraRollupFlavor::VIRTUAL_LOG_N) == 505,
               "UltraRollup Honk proof size changed");
 
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH_WITHOUT_PUB_INPUTS(
-                  MultilinearBatchingFlavor::VIRTUAL_LOG_N) == 121,
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
               "MultilinearBatching proof size changed");
 
 static_assert(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS == 1907, "Chonk proof size changed");
@@ -55,7 +54,7 @@ TEST_F(MockVerifierInputsTest, MockMergeProofSize)
 TEST_F(MockVerifierInputsTest, MockPreIpaProofSize)
 {
     HonkProof eccvm_proof = create_mock_eccvm_proof();
-    EXPECT_EQ(eccvm_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(eccvm_proof.size(), ECCVMFlavor::PROOF_LENGTH);
 }
 
 /**
@@ -73,7 +72,7 @@ TEST_F(MockVerifierInputsTest, MockIPAProofSize)
 TEST_F(MockVerifierInputsTest, MockTranslatorProofSize)
 {
     HonkProof translator_proof = create_mock_translator_proof();
-    EXPECT_EQ(translator_proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(translator_proof.size(), TranslatorFlavor::PROOF_LENGTH);
 }
 
 /**
@@ -196,8 +195,6 @@ TEST_F(MockVerifierInputsTest, MockChonkProofSize)
 TEST_F(MockVerifierInputsTest, MockMultilinearBatchingProofSize)
 {
     using Flavor = MultilinearBatchingFlavor;
-    constexpr size_t BATCHING_LENGTH =
-        ProofLength::MultilinearBatching<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N);
     HonkProof batching_proof = create_mock_multilinear_batch_proof();
-    EXPECT_EQ(batching_proof.size(), BATCHING_LENGTH);
+    EXPECT_EQ(batching_proof.size(), ProofLength::MultilinearBatching<Flavor>::LENGTH);
 }

@@ -9,7 +9,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/honk/proof_layout.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -38,9 +38,9 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /*mega_proof*/ ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
         /*merge_proof*/ MERGE_PROOF_SIZE +
-        /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
+        /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH +
         /*ipa proof*/ IPA_PROOF_LENGTH +
-        /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        /*translator*/ TranslatorFlavor::PROOF_LENGTH;
 
     /**
      * @brief The size of a Chonk proof with backend-added public inputs: HidingKernelIO

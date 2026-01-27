@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/honk/proof_layout.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
 namespace bb {

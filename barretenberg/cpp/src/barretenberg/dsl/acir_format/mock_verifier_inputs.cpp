@@ -80,14 +80,14 @@ HonkProof create_mock_multilinear_batch_proof()
     using FF = typename Flavor::FF;
     HonkProof proof;
 
-    // Populate mock witness accumulator commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Populate mock accumulator commitments (non_shifted + shifted)
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_ACCUMULATOR_COMMITMENTS);
 
     // Accumulator multivariate challenges
     populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
-    // Witness accumulator polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Accumulator polynomial evaluations (non_shifted + shifted)
+    populate_field_elements<FF>(proof, Flavor::NUM_ACCUMULATOR_EVALUATIONS);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
@@ -428,7 +428,7 @@ HonkProof create_mock_eccvm_proof()
     // 27. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
 
     return proof;
 }
@@ -468,7 +468,7 @@ HonkProof create_mock_translator_proof()
     HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 
     return proof;
 }

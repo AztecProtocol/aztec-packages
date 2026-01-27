@@ -44,16 +44,18 @@ class MultilinearBatchingFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
+    // ============ PROOF STRUCTURE CONSTANTS ============
+    // Number of accumulator commitments sent in proof (non_shifted + shifted).
+    // Note: instance commitments are computed by verifier from Oink witness commitments.
+    // Note: eq polynomials are computed from challenges, not committed.
+    static constexpr size_t NUM_ACCUMULATOR_COMMITMENTS = 2;
+    // Number of accumulator evaluations sent in proof (non_shifted + shifted).
+    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
+
+    // ============ SUMCHECK CONSTANTS ============
+    // Total polynomials in sumcheck: 4 unshifted + 2 shifted views.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
-    // Number of witness commitments/evaluations sent in proof (non_shifted_accumulator + shifted_accumulator).
-    // Note: eq polynomials are precomputed from challenges, not sent as commitments.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2;
-    // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
-    // Number of accumulator evaluations sent in the proof (non_shifted + shifted) - same as NUM_WITNESS_ENTITIES
-    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -74,44 +76,31 @@ class MultilinearBatchingFlavor {
     using SubrelationSeparator = FF;
 
     /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     */
-    template <typename DataType> class WitnessEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
-                              batched_unshifted_instance,    // column 1: batched unshifted poly for instance
-                              eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
-                              eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
-     */
-    template <typename DataType> class ShiftedEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_shifted_accumulator, // column 0: batched shifted poly for accumulator
-                              batched_shifted_instance     // column 1: batched shifted poly for instance
-        );
-    };
-
-    /**
-     * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
-     * sumcheck) in this Honk variant along with particular subsets of interest
-     * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
+     * @brief All polynomials used in multilinear batching sumcheck.
+     * @details Used to build containers for: the prover's polynomials during sumcheck; the sumcheck's folded
      * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = WitnessEntities + ShiftedEntities.
+     * Layout:
+     *   - batched_unshifted_accumulator: commitment SENT in proof
+     *   - batched_unshifted_instance:    commitment computed by verifier from Oink witness commitments
+     *   - eq_accumulator/eq_instance:    computed from challenges by both prover and verifier (not committed)
+     *   - batched_shifted_*:             shifted views of the batched polynomials
      */
-    template <typename DataType>
-    class AllEntities : public WitnessEntities<DataType>, public ShiftedEntities<DataType> {
+    template <typename DataType> class AllEntities {
       public:
-        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              batched_unshifted_accumulator, // Accumulator's batched unshifted poly (committed)
+                              batched_unshifted_instance,    // Instance's batched unshifted poly (verifier computes)
+                              eq_accumulator,                // eq(u, r_acc) selector (derived from challenges)
+                              eq_instance,                   // eq(u, r_inst) selector (derived from challenges)
+                              batched_shifted_accumulator,   // Accumulator's batched shifted poly
+                              batched_shifted_instance);     // Instance's batched shifted poly
 
-        auto get_unshifted() { return WitnessEntities<DataType>::get_all(); };
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_unshifted()
+        {
+            return RefArray{ batched_unshifted_accumulator, batched_unshifted_instance, eq_accumulator, eq_instance };
+        };
+        auto get_shifted() { return RefArray{ batched_shifted_accumulator, batched_shifted_instance }; };
     };
 
     /**
@@ -238,28 +227,6 @@ class MultilinearBatchingFlavor {
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
-
-    /**
-     * @brief A container for the witness commitments.
-     */
-    using WitnessCommitments = WitnessEntities<Commitment>;
-
-    /**
-     * @brief A container for commitment labels.
-     * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
-     * has, however, been useful during debugging to have these labels available.
-     *
-     */
-    class CommitmentLabels : public AllEntities<std::string> {
-      public:
-        CommitmentLabels()
-        {
-            batched_unshifted_accumulator = "BATCHED_UNSHIFTED_ACCUMULATOR";
-            batched_unshifted_instance = "BATCHED_UNSHIFTED_INSTANCE";
-            batched_shifted_accumulator = "BATCHED_SHIFTED_ACCUMULATOR";
-            batched_shifted_instance = "BATCHED_SHIFTED_INSTANCE";
-        };
-    };
 };
 
 // Type alias for external usage

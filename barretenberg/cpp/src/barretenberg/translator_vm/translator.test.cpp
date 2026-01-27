@@ -298,7 +298,7 @@ TEST_F(TranslatorTests, ProofLengthCheck)
     // Generate proof
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 }
 
 /**

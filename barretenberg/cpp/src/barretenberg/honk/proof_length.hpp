@@ -32,22 +32,23 @@ template <typename Flavor> struct CodecConstants {
 
 /**
  * @brief Computes Oink proof length from flavor traits.
- * @details Oink sends witness commitments. For ZK flavors, NUM_WITNESS_ENTITIES already
- *          includes the gemini masking polynomial commitment.
+ * @details Oink sends witness commitments (W_L, W_R, W_O, etc.).
+ *          For ZK flavors, NUM_WITNESS_ENTITIES includes the Gemini masking polynomial commitment.
  */
-template <typename Flavor> struct Oink {
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+template <typename Flavor> struct Oink : CodecConstants<Flavor> {
+    using CodecConstants<Flavor>::num_frs_in_comm;
 
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm;
 };
 
 /**
  * @brief Computes Sumcheck proof length from flavor traits.
- * @details Sumcheck sends univariates and evaluations (+ Libra data for ZK flavors).
+ * @details Sumcheck sends univariates (one per round) and final evaluations.
+ *          ZK flavors add Libra masking data.
  */
-template <typename Flavor> struct Sumcheck {
-    static constexpr size_t num_frs_in_scalar = CodecConstants<Flavor>::num_frs_in_scalar;
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+template <typename Flavor> struct Sumcheck : CodecConstants<Flavor> {
+    using CodecConstants<Flavor>::num_frs_in_scalar;
+    using CodecConstants<Flavor>::num_frs_in_comm;
 
     static constexpr size_t LENGTH(size_t log_n)
     {
@@ -56,8 +57,8 @@ template <typename Flavor> struct Sumcheck {
             /* evaluations */ (Flavor::NUM_ALL_ENTITIES * num_frs_in_scalar);
 
         if constexpr (Flavor::HasZK) {
-            // ZK adds: Libra concatenation commitment, Libra sum, Libra claimed evaluation,
-            // Libra grand sum commitment, Libra quotient commitment
+            // Libra adds: concatenation_commitment, grand_sum_commitment, quotient_commitment (3 comms)
+            //           + Sum, claimed_evaluation (2 scalars)
             return base_length + (3 * num_frs_in_comm) + (2 * num_frs_in_scalar);
         } else {
             return base_length;
@@ -67,22 +68,24 @@ template <typename Flavor> struct Sumcheck {
 
 /**
  * @brief Computes Shplemini/PCS proof length from flavor traits.
- * @details Shplemini sends Gemini fold commitments, Gemini evaluations, Shplonk Q, KZG W.
+ * @details Shplemini reduces multivariate opening claims to a single KZG check.
+ *          Contains: Gemini fold commitments, Gemini evaluations, Shplonk Q, KZG W.
+ *          ZK flavors add small IPA evaluations for masking.
  */
-template <typename Flavor> struct Shplemini {
-    static constexpr size_t num_frs_in_scalar = CodecConstants<Flavor>::num_frs_in_scalar;
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+template <typename Flavor> struct Shplemini : CodecConstants<Flavor> {
+    using CodecConstants<Flavor>::num_frs_in_scalar;
+    using CodecConstants<Flavor>::num_frs_in_comm;
 
     static constexpr size_t LENGTH(size_t log_n)
     {
         size_t base_length =
-            /* Gemini fold commitments */ ((log_n - 1) * num_frs_in_comm) +
-            /* Gemini evaluations */ (log_n * num_frs_in_scalar) +
-            /* Shplonk Q */ num_frs_in_comm +
-            /* KZG W */ num_frs_in_comm;
+            /* Gemini:FOLD_1..FOLD_{log_n-1} */ ((log_n - 1) * num_frs_in_comm) +
+            /* Gemini:a_1..a_{log_n} */ (log_n * num_frs_in_scalar) +
+            /* Shplonk:Q */ num_frs_in_comm +
+            /* KZG:W */ num_frs_in_comm;
 
         if constexpr (Flavor::HasZK) {
-            // ZK adds: Small IPA evaluations
+            // ZK adds: Libra evaluations (concatenation, shifted_grand_sum, grand_sum, quotient)
             return base_length + (NUM_SMALL_IPA_EVALUATIONS * num_frs_in_scalar);
         } else {
             return base_length;
@@ -139,26 +142,26 @@ template <typename Flavor> struct HypernovaInstanceToAccum {
 
 /**
  * @brief MultilinearBatching proof layout (used by HyperNova folding).
- * @details Contains: accumulator commitments, challenges, evaluations, and batching sumcheck.
- *          Reuses Sumcheck<Flavor>::LENGTH for the sumcheck portion.
+ * @details Batches two accumulators (from previous fold + incoming instance) into one.
+ *          Contains: accumulator commitments, multivariate challenges, evaluations, and sumcheck.
+ *          Note: This protocol has no public inputs.
  */
-template <typename Flavor> struct MultilinearBatching {
-    static constexpr size_t num_frs_in_scalar = CodecConstants<Flavor>::num_frs_in_scalar;
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+template <typename Flavor> struct MultilinearBatching : CodecConstants<Flavor> {
+    using CodecConstants<Flavor>::num_frs_in_scalar;
+    using CodecConstants<Flavor>::num_frs_in_comm;
 
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        return /* accumulator commitments */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm) +
-               /* multivariate challenges */ (log_n * num_frs_in_scalar) +
-               /* accumulator evaluations */ (Flavor::NUM_WITNESS_ENTITIES * num_frs_in_scalar) +
-               Sumcheck<Flavor>::LENGTH(log_n);
-    }
+    static constexpr size_t LENGTH =
+        /* accumulator commitments (non_shifted + shifted) */ (Flavor::NUM_ACCUMULATOR_COMMITMENTS * num_frs_in_comm) +
+        /* multivariate challenges */ (Flavor::VIRTUAL_LOG_N * num_frs_in_scalar) +
+        /* accumulator evaluations (non_shifted + shifted) */
+        (Flavor::NUM_ACCUMULATOR_EVALUATIONS * num_frs_in_scalar) + Sumcheck<Flavor>::LENGTH(Flavor::VIRTUAL_LOG_N);
 };
 
 /**
  * @brief Hypernova folding proof layout.
  * @details Used when folding an incoming instance with an existing accumulator.
- *          Contains: Oink + gate challenge + Sumcheck + MultilinearBatching proof.
+ *          Contains: instance-to-accumulator proof (Oink + Sumcheck) + MultilinearBatching proof.
+ *          Note: gate challenges are derived, not sent in the proof.
  * @tparam Flavor The outer flavor (e.g., MegaFlavor)
  * @tparam BatchingFlavor The batching flavor (e.g., MultilinearBatchingFlavor)
  */
@@ -166,7 +169,7 @@ template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
         return HypernovaInstanceToAccum<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) +
-               MultilinearBatching<BatchingFlavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
+               MultilinearBatching<BatchingFlavor>::LENGTH;
     }
 
     static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
