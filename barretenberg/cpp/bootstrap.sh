@@ -256,8 +256,6 @@ function build {
       "build_cross arm64-linux" \
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true"
-    # Note: iOS builds require macOS with Xcode, Android builds require NDK
-    # These are built separately on appropriate runners and artifacts merged
     build_release_dir
   else
     builds=(
