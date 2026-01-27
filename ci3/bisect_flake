@@ -27,6 +27,22 @@ function slack_report {
     echo -e "$msg"
 }
 
+function build {
+    if [ -n "${MAKEFILE_TARGET:-}" ]; then
+        echo "Building target: $MAKEFILE_TARGET..."
+        if ! make $MAKEFILE_TARGET 2>&1 | tail -20; then
+            echo "Build failed"
+            return 1
+        fi
+    else
+        echo "Building (full bootstrap)..."
+        if ! ./bootstrap.sh 2>&1 | tail -20; then
+            echo "Build failed"
+            return 1
+        fi
+    fi
+}
+
 echo "=== Deflake ==="
 echo "Full cmd: $full_cmd"
 echo "Test cmd: $test_cmd"
@@ -37,11 +53,16 @@ echo "Ref: $REF_NAME"
 echo
 
 # ============================================================
-# Step 1: Grind at HEAD to confirm it's a flake
+# Step 1: Build and grind at HEAD to confirm it's a flake
 # Use GNU parallel, halt as soon as one succeeds (confirms flake)
 # If ALL fail, it's a real failure, not a flake
 # ============================================================
-echo "=== Step 1: Grinding test $GRIND_RUNS times at HEAD ==="
+echo "=== Step 1: Build and grind test $GRIND_RUNS times at HEAD ==="
+
+if ! build; then
+    exit 1
+fi
+
 echo "Expecting all to fail if real failure, any pass if flake..."
 
 # --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
@@ -88,21 +109,10 @@ while true; do
     current=$(git rev-parse HEAD)
     echo "--- Testing commit: ${current:0:8} ---"
 
-    # Build at this commit (targeted if MAKEFILE_TARGET set, otherwise full bootstrap)
-    if [ -n "${MAKEFILE_TARGET:-}" ]; then
-        echo "Building target: $MAKEFILE_TARGET..."
-        if ! make $MAKEFILE_TARGET 2>&1 | tail -20; then
-            echo "Build failed"
-            git bisect reset
-            exit 1
-        fi
-    else
-        echo "Building (full bootstrap)..."
-        if ! ./bootstrap.sh 2>&1 | tail -20; then
-            echo "Build failed"
-            git bisect reset
-            exit 1
-        fi
+    # Build at this commit
+    if ! build; then
+        git bisect reset
+        exit 1
     fi
 
     # Grind with GNU parallel using exec_test
