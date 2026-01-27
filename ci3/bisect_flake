@@ -60,7 +60,7 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # If all jobs fail, parallel exits with non-zero
 # Use run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects
 if seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
-    "NAME=test-{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'"; then
+    "NAME_POSTFIX=_{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'"; then
     echo "At least one run passed - confirmed flake, starting bisect..."
 else
     slack_report ":x: *Not a Flake*\n*Test:* \`$test_cmd\`\nAll $GRIND_RUNS runs failed on $REF_NAME - this is a real failure, not a flake."
