@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { GENESIS_CHECKPOINT_HEADER_HASH, L2Block, L2BlockHash, type L2BlockStream } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH, L2Block, type L2BlockStream } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -61,7 +61,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof L2BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;
@@ -85,7 +85,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof L2BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;

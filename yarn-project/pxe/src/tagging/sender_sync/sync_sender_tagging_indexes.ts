@@ -1,5 +1,5 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
@@ -27,7 +27,7 @@ export async function syncSenderTaggingIndexes(
   app: AztecAddress,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
   jobId: string,
 ): Promise<void> {
   // # Explanation of how syncing works
