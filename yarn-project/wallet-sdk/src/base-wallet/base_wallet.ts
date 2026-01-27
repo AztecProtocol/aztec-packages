@@ -352,14 +352,7 @@ export abstract class BaseWallet implements Wallet {
     const instance = await this.pxe.getContractInstance(address);
     const initNullifier = await siloNullifier(address, address.toField());
     const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const [initNullifierMembershipWitness, publiclyRegisteredContractClass] = await Promise.all([
-      this.aztecNode.getNullifierMembershipWitness('latest', initNullifier),
-      publiclyRegisteredContract
-        ? this.aztecNode.getContractClass(
-            publiclyRegisteredContract.currentContractClassId || instance?.currentContractClassId,
-          )
-        : undefined,
-    ]);
+    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
@@ -367,7 +360,6 @@ export abstract class BaseWallet implements Wallet {
       instance: instance ?? undefined,
       isContractInitialized: !!initNullifierMembershipWitness,
       isContractPublished: !!publiclyRegisteredContract,
-      isContractClassPubliclyRegistered: !!publiclyRegisteredContractClass,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,
     };
