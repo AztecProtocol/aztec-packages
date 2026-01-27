@@ -143,8 +143,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
               OperandType::INDIRECT8,
               OperandType::UINT16,
           } },
-        { WireOpCode::NULLIFIEREXISTS,
-          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::NULLIFIEREXISTS, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
         { WireOpCode::EMITNULLIFIER,
           {
               OperandType::INDIRECT8,

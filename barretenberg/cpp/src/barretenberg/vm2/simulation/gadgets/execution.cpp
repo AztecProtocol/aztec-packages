@@ -1233,36 +1233,31 @@ void Execution::note_hash_exists(ContextInterface& context,
 }
 
 /**
- * @brief NULLIFIEREXISTS execution opcode handler: Check if a nullifier exists in the nullifier tree.
+ * @brief NULLIFIEREXISTS execution opcode handler: Check if a siloed nullifier exists in the nullifier tree.
  *
  * @param context The context.
- * @param nullifier_offset The resolved address of the nullifier value.
- * @param address_offset The resolved address of the address value.
- * @param dst_addr The resolved address of the output memory value (boolean value U1).
+ * @param siloed_nullifier_offset The resolved address of the siloed nullifier value.
+ * @param exists_offset The resolved address of the output memory value (boolean value U1).
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - tag of the memory value at nullifier_offset is not FF.
- *        - tag of the memory value at address_offset is not FF.
  * @throws OutOfGasException if the gas limit is exceeded.
  */
 void Execution::nullifier_exists(ContextInterface& context,
-                                 MemoryAddress nullifier_offset,
-                                 MemoryAddress address_offset,
+                                 MemoryAddress siloed_nullifier_offset,
                                  MemoryAddress exists_offset)
 {
     BB_BENCH_NAME("Execution::nullifier_exists");
     constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
     auto& memory = context.get_memory();
 
-    const auto& nullifier = memory.get(nullifier_offset);
-    const auto& address = memory.get(address_offset);
-    set_and_validate_inputs(opcode, { nullifier, address });
+    const auto& siloed_nullifier = memory.get(siloed_nullifier_offset);
+    set_and_validate_inputs(opcode, { siloed_nullifier });
 
     get_gas_tracker().consume_gas();
 
-    // Check nullifier existence via MerkleDB
-    // (this also tag checks address and nullifier as FFs)
-    auto exists = merkle_db.nullifier_exists(address.as_ff(), nullifier.as_ff());
+    // Check siloed nullifier existence via MerkleDB
+    auto exists = merkle_db.siloed_nullifier_exists(siloed_nullifier.as_ff());
 
     // Write result to memory
     // (assigns tag u1 to result)
