@@ -6,7 +6,7 @@ use crate::{
         assert_sorted_padded_transformed_array_capped_size,
         assert_sorted_padded_transformed_i_array_capped_size,
     },
-    components::reset_output_composer::ResetOutputHints,
+    components::reset_output_composer::SquashedOutputArrayHints,
     reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
 };
 use dep::types::{
@@ -19,13 +19,14 @@ use dep::types::{
     address::AztecAddress,
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
     hash::{
-        compute_nonce_and_unique_note_hash, compute_siloed_note_hash,
+        compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash,
         compute_siloed_private_log_field, silo_nullifier,
     },
     side_effect::{Counted, Ordered, Scoped},
 };
 use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_hashes;
 
+/// Computes the output note hash from first principles and compares it against the claimed out_note_hash.
 fn assert_correctly_siloed_note_hash(
     out_note_hash: Field,
     prev: Scoped<Counted<NoteHash>>,
@@ -34,11 +35,15 @@ fn assert_correctly_siloed_note_hash(
     is_private_only: bool,
     min_revertible_side_effect_counter: u32,
 ) {
+    // We determine which of these two values is appropriate, based on the revertible-ness of the note:
     let (siloed_note_hash, unique_siloed_note_hash) = if prev.contract_address.is_zero() {
+        // Then this is a nullish note, so we don't touch it. (Given earlier checks in this circuit, we know this is not an
+        // already-siloed note, because we can only run a siloing reset circuit once).
         (prev.innermost(), prev.innermost())
     } else {
         let siloed = compute_siloed_note_hash(prev.contract_address, prev.innermost());
-        let unique = compute_nonce_and_unique_note_hash(siloed, claimed_first_nullifier, index);
+        let unique =
+            compute_note_nonce_and_unique_note_hash(siloed, claimed_first_nullifier, index);
         (siloed, unique)
     };
 
@@ -53,13 +58,13 @@ fn assert_correctly_siloed_note_hash(
     let computed_note_hash = if is_private_only | is_non_revertible {
         unique_siloed_note_hash
     } else {
-        // Revertible note hashes are not siloed with a nonce if public execution will occur later
+        // Revertible note hashes are not siloed with a note_nonce if public execution will occur later
         // (i.e., `is_private_only` == false). This is because additional non-revertible note hashes may be added during
         // public execution, making the final position of the revertible note hashes from private execution uncertain
         // at this point.
         //
         // Note: padded note hashes have a counter of `MAX_U32_VALUE`, which is always greater than
-        // `min_revertible_side_effect_counter`, so they are also not siloed with a nonce.
+        // `min_revertible_side_effect_counter`, so they are also not unique-ified with a note_nonce.
         siloed_note_hash
     };
     assert_eq(
@@ -95,7 +100,7 @@ pub struct ResetOutputValidator<let NoteHashPendingReadHintsLen: u32, let NoteHa
     previous_kernel: PrivateKernelCircuitPublicInputs,
     padded_side_effects: PaddedSideEffects,
     reset_hints: PrivateKernelResetHints<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen>,
-    output_hints: ResetOutputHints,
+    squashed_output_array_hints: SquashedOutputArrayHints,
 }
 
 impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> ResetOutputValidator<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen> {
@@ -104,14 +109,14 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effects: PaddedSideEffects,
         reset_hints: PrivateKernelResetHints<NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen>,
-        output_hints: ResetOutputHints,
+        squashed_output_array_hints: SquashedOutputArrayHints,
     ) -> Self {
         ResetOutputValidator {
             output,
             previous_kernel,
             padded_side_effects,
             reset_hints,
-            output_hints,
+            squashed_output_array_hints,
         }
     }
 
@@ -120,10 +125,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     ) {
         self.validate_unchanged_data();
 
+        // This is the constraint-heaviest part of the circuit, because of all the merkle membership checks.
         self
             .validate_validation_requests::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount>();
 
-        // Validates that the hinted 'kept' arrays are correctly computed, by taking the
+        // Validates that the `squashed_output_array_hints` arrays are correctly computed, by taking the
         // previous kernel's arrays and asserting that transient notes have been correctly splice-removed.
         self.validate_transient_data::<TransientDataSquashingAmount>();
 
@@ -152,7 +158,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // (now-validated-to-be-correct) hinted 'kept' arrays and asserting that transformations
         // from the hinted 'kept' arrays result in the hinted output arrays.
         self
-            .validate_sorted_siloed_data::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>();
+            .validate_sorted_siloed_padded_data::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>();
     }
 
     fn validate_unchanged_data(self) {
@@ -227,43 +233,49 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         KeyValidationRequestsValidator {
             key_validation_requests: validation_requests
                 .scoped_key_validation_requests_and_generators,
-            propagated_requests: output.scoped_key_validation_requests_and_generators,
+            propagated_key_validation_requests: output
+                .scoped_key_validation_requests_and_generators,
             hints: self.reset_hints.key_validation_hints,
         }
             .validate::<KeyValidationAmount>();
     }
 
     fn validate_transient_data<let TransientDataSquashingAmount: u32>(self) {
-        // For private only txs, we squash all transient data.
+        // For private-only txs, we squash all transient data.
         let split_counter = if self.previous_kernel.is_private_only {
             0
         } else {
             self.previous_kernel.claimed_revertible_counter
         };
+
+        // A compile-time `if` statement over a compile-time constant.
+        // Recall: TransientDataSquashingAmount is the hard-coded number of squashing iterations
+        // that this variant of the Reset circuit can perform.
         if TransientDataSquashingAmount == 0 {
             assert_eq(
-                self.output_hints.kept_note_hashes,
+                self.squashed_output_array_hints.kept_note_hashes,
                 self.previous_kernel.end.note_hashes,
                 "mismatch kept note hashes",
             );
             assert_eq(
-                self.output_hints.kept_nullifiers,
+                self.squashed_output_array_hints.kept_nullifiers,
                 self.previous_kernel.end.nullifiers,
                 "mismatch kept nullifiers",
             );
             assert_eq(
-                self.output_hints.kept_private_logs,
+                self.squashed_output_array_hints.kept_private_logs,
                 self.previous_kernel.end.private_logs,
                 "mismatch kept private logs",
             );
         } else {
+            // Notice: a lot happens inside `new`:
             TransientDataValidator::new(
                 self.previous_kernel.end.note_hashes,
                 self.previous_kernel.end.nullifiers,
                 self.previous_kernel.end.private_logs,
-                self.output_hints.kept_note_hashes,
-                self.output_hints.kept_nullifiers,
-                self.output_hints.kept_private_logs,
+                self.squashed_output_array_hints.kept_note_hashes,
+                self.squashed_output_array_hints.kept_nullifiers,
+                self.squashed_output_array_hints.kept_private_logs,
                 split_counter,
                 self.reset_hints.transient_data_squashing_hints,
             )
@@ -271,15 +283,32 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         }
     }
 
-    fn validate_sorted_siloed_data<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+    fn validate_sorted_siloed_padded_data<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) {
+        // Important note:
+        // The reason we sort these side-effects by their counter is because we want the values in the output
+        // to be in the same order as they were emitted.
+        // E.g. Users who consume these logs might draw meaningful information from the ordering of events. A
+        // different ordering and they might infer something different.
+        // E.g. the ordering of defi actions might result in different tax treatment (a boring example, I know).
+
+        // Notice: Each kind of side-effect is only sorted with other side-effects of the same kind.
+        // This means we do lose information about the relative sorting of notes vs nullifiers vs logs.
+        // (We also don't propagate the side-effect counters to public-land).
+        // This is unfortunate, but intentional, and we'll see if users of the network find this limitation
+        // to be problematic.
+        // The reason we _don't_ combine the different kinds of side-effects into a single sorted list is
+        // privacy: there are so many possible [note|nullifier|log] permutations that this information
+        // would effectively become a fingerprint for the nature of the tx. An observer would be able to
+        // infer with confidence which contracts have been executed and in what order.
+
         // note_hashes
         if NoteHashSiloingAmount == 0 {
             // No sorting or siloing or padding.
             assert_eq(
                 self.output.end.note_hashes,
-                self.output_hints.kept_note_hashes,
+                self.squashed_output_array_hints.kept_note_hashes,
                 "output note hashes mismatch",
             );
         } else {
@@ -290,7 +319,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         if NullifierSiloingAmount == 0 {
             assert_eq(
                 self.output.end.nullifiers,
-                self.output_hints.kept_nullifiers,
+                self.squashed_output_array_hints.kept_nullifiers,
                 "output nullifiers mismatch",
             );
         } else {
@@ -301,7 +330,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         if PrivateLogSiloingAmount == 0 {
             assert_eq(
                 self.output.end.private_logs,
-                self.output_hints.kept_private_logs,
+                self.squashed_output_array_hints.kept_private_logs,
                 "output private logs mismatch",
             );
         } else {
@@ -313,11 +342,10 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         //---------------
         // Check that the values were not already siloed in a previous reset.
 
-        // Q: why don't we just propagate a bool with each note_hash which tells us
-        // whether or not it's already been siloed?
-
         // Note hashes need to be siloed all together because new note hashes added later might affect the ordering and
-        // result in wrong nonces.
+        // result in wrong note_nonces. I.e. we perform siloing only in the final Reset circuit of a tx, after all Init and
+        // Inner and other Reset iterations (if applicable).
+
         // We only need to check the first item, since we always start siloing from index 0.
         // The first item should either be empty or not siloed (contract_address != 0).
         let first_note_hash = self.previous_kernel.end.note_hashes.array[0];
@@ -329,25 +357,16 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         //---------------
 
-        // Assign counter and contract address to the padded note hashes.
-        // TODO: It's a confusing name, because English is stupid. "padded_note_hashes"
-        // can be misinterpreted to mean an array of all note hashes with padding at the end.
-        // But what it actually is is solely the padding items.
-        // Maybe all "padded" words should be changed to "padding" (but the names would need extra
-        // tweaks to make "padding" make sense). It is _padding_; it is not something that has been padded.
-        // Hmm, but "padding note hash" isn't clear either.
-        // Dummy note hash? Eurgh.
-        let padded_note_hash_hints = self.padded_side_effects.note_hashes;
+        // Assign counter and contract address to the padding items.
+        let note_hash_padding = self.padded_side_effects.note_hashes;
 
-        // Q: Why are we computing these scoped padded note hashes, when we already
-        // computed them in reset_output_composer.nr?
-        // They're already a part of `output.end.note_hashes`
-        // A: So we can verify that they have been correctly siloed below.
-        let padded_scoped_note_hashes = padded_note_hash_hints.map(|value| {
+        let siloed_note_hash_padding = note_hash_padding.map(|value| {
             let (counter, contract_address) = if value != 0 {
+                // A counter of MAX_U32_VALUE ensures padding is sorted to the right (below).
+                // The masking address prevents these notes from belonging to a meaningful contract address.
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)
             } else {
-                (0, AztecAddress::zero()) // Q: can't we assert zero, instead of assign zero?
+                (0, AztecAddress::zero())
             };
             Counted::new(value, counter).scope(contract_address)
         });
@@ -360,8 +379,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // lambda function, because it's hard to read.
         // Edit: oh, the nullifier and log paths also end up in this function too.
         assert_sorted_padded_transformed_i_array_capped_size::<_, _, _, _, NoteHashSiloingAmount>(
-            self.output_hints.kept_note_hashes,
-            padded_scoped_note_hashes,
+            self.squashed_output_array_hints.kept_note_hashes,
+            siloed_note_hash_padding,
             self.output.end.note_hashes,
             |prev, out, index: u32| {
                 assert_correctly_siloed_note_hash(
@@ -393,8 +412,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         //---------------
 
         // Assign counter and contract address to the padded nullifiers.
-        let padded_values = self.padded_side_effects.nullifiers;
-        let padded_nullifiers = padded_values.map(|value| {
+        let nullifier_padding = self.padded_side_effects.nullifiers;
+        let siloed_nullifier_padding = nullifier_padding.map(|value| {
             let (counter, contract_address) = if value != 0 {
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)
             } else {
@@ -407,8 +426,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // Sort, Silo, Pad:
 
         assert_sorted_padded_transformed_array_capped_size::<_, _, _, _, NullifierSiloingAmount>(
-            self.output_hints.kept_nullifiers,
-            padded_nullifiers,
+            self.squashed_output_array_hints.kept_nullifiers,
+            siloed_nullifier_padding,
             self.output.end.nullifiers,
             |prev, out| {
                 assert_eq(
@@ -444,8 +463,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         //---------------
 
         // Assign counter and contract address to the padded private logs.
-        let padded_values = self.padded_side_effects.private_logs;
-        let padded_logs = padded_values.map(|log| {
+        let log_padding = self.padded_side_effects.private_logs;
+        let siloed_log_padding = log_padding.map(|log| {
             let (counter, contract_address) = if log.length != 0 {
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)
             } else {
@@ -458,8 +477,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // Sort, Silo, Pad:
 
         assert_sorted_padded_transformed_array_capped_size::<_, _, _, _, PrivateLogSiloingAmount>(
-            self.output_hints.kept_private_logs,
-            padded_logs,
+            self.squashed_output_array_hints.kept_private_logs,
+            siloed_log_padding,
             self.output.end.private_logs,
             |prev, out| {
                 assert_valid_siloed_private_log(out.innermost().log, prev);

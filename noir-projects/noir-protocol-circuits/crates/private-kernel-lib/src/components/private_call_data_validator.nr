@@ -91,6 +91,12 @@ impl PrivateCallDataValidator {
         );
 
         self.validate_against_previous_kernel(previous_kernel);
+
+        // The call request at the top of the stack should match the current call being executed.
+        let private_call_stack_length = previous_kernel.end.private_call_stack.length;
+        let call_request =
+            previous_kernel.end.private_call_stack.array[private_call_stack_length - 1];
+        self.validate_against_call_request(call_request);
     }
 
     /// For Init and Inner.
@@ -161,12 +167,6 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
-
-        // The call request at the top of the stack should match the current call being executed.
-        let private_call_stack_length = previous_kernel.end.private_call_stack.length;
-        let call_request =
-            previous_kernel.end.private_call_stack.array[private_call_stack_length - 1];
-        self.validate_against_call_request(call_request);
     }
 
     /// For Inner only.

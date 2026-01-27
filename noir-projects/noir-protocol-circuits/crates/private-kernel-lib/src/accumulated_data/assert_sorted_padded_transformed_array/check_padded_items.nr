@@ -1,10 +1,24 @@
 use types::traits::Empty;
 
-// Utility to check the padded items provided by the user.
-// - Checks that all items outside the range [num_original_items, CappedSize) are empty.
-// - Checks that non-empty items within the range are consecutive.
-// Note: Technically, values outside this range could be non-empty, since they are ignored. However, enforcing emptiness
-// helps prevent unexpected output if the array is misconfigured.
+/// Utility to validate the layout of the padded items provided by the user.
+///
+/// Our target (created in a later fn): [<-- original ("kept") items -->|<-- padding -->|0, ..., 0]
+///                                                                     ^               ^
+///                                                                     |               |
+///                                                  `num_original_items`               `capped_size`: the number of elements this reset
+///                                                                     |               circuit is capable of processing.
+///                                                                     |               |
+///                                                                     v               v
+/// `padded_items`:                     [0, ...                      , 0|<-- padding -->|0, ..., 0]
+///
+/// So `padded_items` is _solely the padding_!!!
+///
+/// - Checks that all items outside the range [num_original_items, CappedSize) are empty.
+/// - Checks that non-empty items within the range are consecutive. (So we do technically allow 0 padding, as
+///   long as it's all on the rhs).
+///
+/// Note: Technically, values outside this range could be non-empty, since they are ignored. However, enforcing emptiness
+/// helps prevent unexpected output if the array is misconfigured.
 pub unconstrained fn check_padded_items<T, let N: u32>(
     padded_items: [T; N],
     num_original_items: u32,

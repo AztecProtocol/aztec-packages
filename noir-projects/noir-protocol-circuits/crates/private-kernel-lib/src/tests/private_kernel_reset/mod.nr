@@ -27,7 +27,7 @@ use dep::types::{
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
     hash::{
-        compute_app_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
+        compute_app_siloed_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
         silo_note_hash, silo_nullifier, silo_private_log,
     },
     merkle_tree::{LeafPreimage, MembershipWitness},
@@ -207,7 +207,7 @@ impl TestBuilder {
 
         let sk_app_generator = 123321;
         let contract_address = self.previous_kernel.contract_address;
-        let sk_app = compute_app_secret_key(sk_m, contract_address, sk_app_generator);
+        let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
 
         self.previous_kernel.add_request_for_key_validation(pk_m, sk_app, sk_app_generator);
     }

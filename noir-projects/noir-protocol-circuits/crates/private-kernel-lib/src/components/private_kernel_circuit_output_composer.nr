@@ -274,6 +274,7 @@ impl PrivateKernelCircuitOutputComposer {
         private_call: PrivateCallData,
     ) {
         self.propagate_include_by_timestamp(private_call);
+
         self.propagate_note_hash_read_requests(private_call.public_inputs);
         self.propagate_nullifier_read_requests(private_call.public_inputs);
         self.scope_and_propagate_key_validation_requests(private_call.public_inputs);
@@ -283,6 +284,7 @@ impl PrivateKernelCircuitOutputComposer {
         self.scope_and_propagate_logs(private_call.public_inputs);
         self.propagate_private_call_requests(private_call.public_inputs);
         self.propagate_public_call_requests(private_call.public_inputs);
+
         self.propagate_public_teardown_call_request(private_call.public_inputs);
         self.propagate_fee_payer(private_call.public_inputs);
         self.propagate_min_revertible_side_effect_counter(private_call.public_inputs);
