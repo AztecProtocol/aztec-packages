@@ -7,7 +7,7 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import {
   type ContractInstanceWithAddress,
   computeContractClassIdPreimage,
@@ -30,7 +30,7 @@ export class PrivateKernelOracle {
     private contractStore: ContractStore,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private blockHash: L2BlockHash,
+    private blockHash: BlockHash,
   ) {}
 
   /** Retrieves the preimage of a contract address from the registered contract instances db. */

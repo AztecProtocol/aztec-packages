@@ -1,3 +1,5 @@
+import { MAX_ETH_ADDRESS_VALUE } from '@aztec/constants';
+
 import { NullifierCollisionError } from '../../side_effect_errors.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
@@ -282,6 +284,10 @@ export class SendL2ToL1Message extends Instruction {
     memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 
     const recipient = memory.get(recipientOffset).toFr();
+
+    if (recipient.toBigInt() > MAX_ETH_ADDRESS_VALUE) {
+      throw new InstructionExecutionError(`SENDL2TOL1MSG: Recipient address is too large`);
+    }
     const content = memory.get(contentOffset).toFr();
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
   }

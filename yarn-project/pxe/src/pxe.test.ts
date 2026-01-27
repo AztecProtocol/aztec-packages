@@ -10,7 +10,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -157,7 +157,7 @@ describe('PXE', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
     let lastKnownBlockNumber: BlockNumber;
-    let l2BlockHash: L2BlockHash;
+    let l2BlockHash: BlockHash;
     let scope: AztecAddress;
     let privateEventStore: PrivateEventStore;
 
@@ -206,7 +206,7 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      l2BlockHash = L2BlockHash.random();
+      l2BlockHash = BlockHash.random();
 
       scope = await AztecAddress.random();
 

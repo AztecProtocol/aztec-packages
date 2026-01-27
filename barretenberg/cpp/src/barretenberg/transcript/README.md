@@ -545,9 +545,9 @@ ROUND 0 - PREAMBLE (challenge_generation_phase=false, round_index=0)
                                            │ Phase: proof processing → challenge generation
                                            ▼
 ┌──────────────────────────────────┐
-│ get_challenges("eta", "eta_two", │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
-│                "eta_three")      │    2. Hash: c₀ = Poseidon2(current_round_data)
-└──────────────────────────────────┘    3. Split to [127-bit, 127-bit] x3
+│ get_challenge("eta")             │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
+└──────────────────────────────────┘    2. Hash: c₀ = Poseidon2(current_round_data)
+         │                               3. Split to [127-bit, 127-bit]
          │                               4. Clear current_round_data
          │                               5. Set challenge_generation_phase = true
          ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)

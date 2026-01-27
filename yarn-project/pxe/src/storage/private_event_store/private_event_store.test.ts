@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
@@ -20,7 +20,7 @@ describe('PrivateEventStore', () => {
   let scope: AztecAddress;
   let msgContent: Fr[];
   let l2BlockNumber: BlockNumber;
-  let l2BlockHash: L2BlockHash;
+  let l2BlockHash: BlockHash;
   let eventSelector: EventSelector;
   let randomness: Fr;
   let txHash: TxHash;
@@ -34,7 +34,7 @@ describe('PrivateEventStore', () => {
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
     l2BlockNumber = BlockNumber(123);
-    l2BlockHash = L2BlockHash.random();
+    l2BlockHash = BlockHash.random();
     eventSelector = EventSelector.random();
     randomness = Fr.random();
     txHash = TxHash.random();

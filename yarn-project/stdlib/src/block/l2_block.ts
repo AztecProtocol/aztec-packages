@@ -89,8 +89,9 @@ export class L2Block {
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public hash(): Promise<Fr> {
-    return this.header.hash();
+  public async hash(): Promise<Fr> {
+    const blockHash = await this.header.hash();
+    return blockHash.toField();
   }
 
   /**

@@ -10,7 +10,7 @@ use crate::{
         note_viewer_options::NoteViewerOptions,
         NoteMessage,
     },
-    state_vars::owned_state_variable::OwnedStateVariable,
+    state_vars::OwnedStateVariable,
 };
 use protocol_types::{
     address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
@@ -18,6 +18,8 @@ use protocol_types::{
 
 mod test;
 
+/// Per-account aggregated private state.
+///
 /// PrivateSet is an owned state variable type, which enables you to read, mutate, and write private state. Because it
 /// is "owned," you must wrap a PrivateSet inside an Owned state variable when storing it:
 ///

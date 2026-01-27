@@ -18,7 +18,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -59,8 +58,8 @@ import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { ensureContractSynced, readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { ensureContractSynced, readCurrentClassId } from './contract_sync/index.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -166,7 +165,7 @@ export class PXE {
       noteStore,
     ]);
 
-    const debugUtils = new PXEDebugUtils(contractStore, noteStore);
+    const debugUtils = new PXEDebugUtils(contractStore, noteStore, synchronizer, anchorBlockStore);
 
     const jobQueue = new SerialQueue();
 
@@ -193,7 +192,7 @@ export class PXE {
       debugUtils,
     );
 
-    debugUtils.setPXE(pxe);
+    debugUtils.setPXE(pxe, pxe.#putInJobQueue.bind(pxe));
 
     pxe.jobQueue.start();
 
@@ -399,7 +398,7 @@ export class PXE {
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
+    const anchorBlockHash = await anchorBlockHeader.hash();
     const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
     const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);

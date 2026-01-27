@@ -14,7 +14,7 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 3, 5, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,9 +36,9 @@ template <typename FF> class send_l2_to_l1_msg : public Relation<send_l2_to_l1_m
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MAX_WRITES_REACHED = 1;
-    static constexpr size_t SR_OPCODE_ERROR = 2;
-    static constexpr size_t SR_SEND_L2_TO_L1_MSG_CONDITION = 3;
-    static constexpr size_t SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE = 5;
+    static constexpr size_t SR_OPCODE_ERROR = 3;
+    static constexpr size_t SR_SEND_L2_TO_L1_MSG_CONDITION = 4;
+    static constexpr size_t SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE = 6;
 
     static std::string get_subrelation_label(size_t index)
     {

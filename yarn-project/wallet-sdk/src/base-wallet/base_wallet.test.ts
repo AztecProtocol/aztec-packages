@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 import { PXE, type PackedPrivateEvent } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -55,7 +55,7 @@ describe('BaseWallet', () => {
   function privateEventFor(serial: Fr[]): PackedPrivateEvent {
     return {
       packedEvent: serial,
-      l2BlockHash: L2BlockHash.random(),
+      l2BlockHash: BlockHash.random(),
       l2BlockNumber: BlockNumber(42),
       txHash: TxHash.random(),
       eventSelector: TokenContract.events.Transfer.eventSelector,

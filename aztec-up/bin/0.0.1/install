@@ -32,6 +32,15 @@ function echo_yellow {
   echo -e "${y}$1${r}"
 }
 
+function timeout {
+  if [ "${CI:-0}" -eq 1 ]; then
+    /usr/bin/timeout "$@"
+  else
+    shift
+    "$@"
+  fi
+}
+
 function dump_fail {
   if [[ ${VERBOSE:-0} -eq 1 ]]; then
     echo

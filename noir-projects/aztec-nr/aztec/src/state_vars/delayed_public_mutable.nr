@@ -10,12 +10,13 @@ use dep::protocol_types::{
 
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::state_variable::StateVariable,
+    state_vars::StateVariable,
     utils::WithHash,
 };
 
 mod test;
 
+/// Public mutable values with private read access.
 pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
     context: Context,
     storage_slot: Field,

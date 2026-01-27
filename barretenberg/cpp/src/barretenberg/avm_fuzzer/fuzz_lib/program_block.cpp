@@ -964,14 +964,19 @@ void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
     this->process_set_ff_instruction(set_slot_instruction);
     auto slot_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.slot_address);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
-    if (!slot_address_operand.has_value() || !result_address_operand.has_value()) {
+    auto contract_address_operand =
+        memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
+    if (!slot_address_operand.has_value() || !result_address_operand.has_value() ||
+        !contract_address_operand.has_value()) {
         return;
     }
     preprocess_memory_addresses(slot_address_operand.value().first);
     preprocess_memory_addresses(result_address_operand.value().first);
+    preprocess_memory_addresses(contract_address_operand.value().first);
 
     auto sload_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SLOAD)
                                  .operand(slot_address_operand.value().second)
+                                 .operand(contract_address_operand.value().second)
                                  .operand(result_address_operand.value().second)
                                  .build();
     instructions.push_back(sload_instruction);
@@ -1127,15 +1132,6 @@ void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction i
 #ifdef DISABLE_SENDL2TOL1MSG_INSTRUCTION
     return;
 #endif
-    auto set_recipient_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                         .result_address = instruction.recipient_address,
-                                                         .value = instruction.recipient };
-    this->process_set_ff_instruction(set_recipient_instruction);
-    auto set_content_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                       .result_address = instruction.content_address,
-                                                       .value = instruction.content };
-    this->process_set_ff_instruction(set_content_instruction);
-
     auto recipient_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.recipient_address);
     auto content_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.content_address);
     if (!recipient_address_operand.has_value() || !content_address_operand.has_value()) {

@@ -1,20 +1,21 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { CallData } from './avm/calldata.js';
 import type { PublicContractsDBInterface } from './db_interfaces.js';
 
 export async function getPublicFunctionDebugName(
   db: PublicContractsDBInterface,
   contractAddress: AztecAddress,
-  calldata: Fr[],
+  calldata: CallData,
 ): Promise<string> {
   // Public function is dispatched and therefore the target function is passed in the first argument.
-  if (!calldata[0]) {
+  const selectorField = calldata.read(0);
+  if (!selectorField) {
     return `<calldata[0] undefined> (Contract Address: ${contractAddress})`;
   }
-  const fallbackName = `<calldata[0]:${calldata[0].toString()}> (Contract Address: ${contractAddress})`;
-  const selector = FunctionSelector.fromFieldOrUndefined(calldata[0]);
+  const fallbackName = `<calldata[0]:${selectorField.toString()}> (Contract Address: ${contractAddress})`;
+  const selector = FunctionSelector.fromFieldOrUndefined(selectorField);
   if (!selector) {
     return fallbackName;
   }
@@ -32,13 +33,14 @@ export async function getPublicFunctionDebugName(
 export async function getPublicFunctionSelectorAndName(
   db: PublicContractsDBInterface,
   contractAddress: AztecAddress,
-  calldata: Fr[],
+  calldata: CallData,
 ): Promise<{ functionSelector?: FunctionSelector; functionName?: string }> {
   // Public function is dispatched and therefore the target function is passed in the first argument.
-  if (!calldata[0]) {
+  const selectorField = calldata.read(0);
+  if (!selectorField) {
     return {};
   }
-  const selector = FunctionSelector.fromFieldOrUndefined(calldata[0]);
+  const selector = FunctionSelector.fromFieldOrUndefined(selectorField);
   if (!selector) {
     return {};
   }

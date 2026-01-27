@@ -43,14 +43,12 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         let _maybe_context = std::meta::typ::fresh_type_variable();
 
         if !typ.implements(
-            quote { crate::state_vars::state_variable::StateVariable<$maybe_storage_size, $_maybe_context> }
+            quote { crate::state_vars::StateVariable<$maybe_storage_size, $_maybe_context> }
                 .as_trait_constraint(),
         ) {
             let _maybe_owned_context = std::meta::typ::fresh_type_variable();
-            if typ.implements(
-                quote { crate::state_vars::owned_state_variable::OwnedStateVariable<$_maybe_owned_context> }
-                    .as_trait_constraint(),
-            ) {
+            if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
+                .as_trait_constraint()) {
                 panic(
                     f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., Context>>, Context>.",
                 )
@@ -65,17 +63,17 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         let slot_as_field = slot as Field;
 
         storage_vars_constructors = storage_vars_constructors.push_back(
-            quote { $name: aztec::state_vars::state_variable::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
+            quote { $name: aztec::state_vars::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
         );
 
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
         // because that way a dev gets a more reasonable error if he defines a struct with the same name in
         // a contract.
         storage_layout_struct_members = storage_layout_struct_members.push_back(
-            quote { pub $name: aztec::state_vars::storage::Storable },
+            quote { pub $name: aztec::state_vars::Storable },
         );
         storage_layout_constructors = storage_layout_constructors.push_back(
-            quote { $name: aztec::state_vars::storage::Storable { slot: $slot_as_field } },
+            quote { $name: aztec::state_vars::Storable { slot: $slot_as_field } },
         );
 
         slot += storage_size;

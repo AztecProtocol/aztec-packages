@@ -12,7 +12,7 @@ use crate::{
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
-            validate_enqueued_notes_and_events,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -62,20 +62,21 @@ pub struct NoteHashAndNullifier {
 /// ```
 pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
-/// Performs the message discovery process, in which private logs are downloaded and inspected to find new private
+/// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
 /// This is the mechanism via which a contract updates its knowledge of its private state.
 ///
-/// Note that the state is synchronized up to the latest block synchronized by PXE. That should be close to the chain
-/// tip as block synchronization is performed before contract function simulation is done.
+/// Note that the state is synchronized up to the latest block synchronized by PXE (referred to as "anchor block").
+/// That should be close to the chain tip as block synchronization is performed before contract function simulation is
+/// done.
 ///
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.
-pub unconstrained fn discover_new_messages<Env>(
+pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    debug_log("Performing message discovery");
+    debug_log("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
@@ -107,5 +108,5 @@ pub unconstrained fn discover_new_messages<Env>(
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
-    validate_enqueued_notes_and_events(contract_address);
+    validate_and_store_enqueued_notes_and_events(contract_address);
 }

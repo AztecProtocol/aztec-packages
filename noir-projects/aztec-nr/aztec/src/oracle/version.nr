@@ -4,7 +4,7 @@
 ///
 /// @dev Whenever a contract function or Noir test is run, the `utilityAssertCompatibleOracleVersion` oracle is called and
 /// if the oracle version is incompatible an error is thrown.
-pub global ORACLE_VERSION: Field = 8;
+pub global ORACLE_VERSION: Field = 9;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {

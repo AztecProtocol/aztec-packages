@@ -18,7 +18,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
-import type { TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 
@@ -280,6 +280,19 @@ export abstract class BaseTestWallet extends BaseWallet {
    */
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     return this.pxe.debug.getNotes(filter);
+  }
+
+  /** Returns the block header up to which the wallet has synced. */
+  getSyncedBlockHeader(): Promise<BlockHeader> {
+    return this.pxe.debug.getSyncedBlockHeader();
+  }
+
+  /**
+   * Triggers a sync of the wallet with the node to update the latest block header.
+   * Blocks until the sync is complete.
+   */
+  sync(): Promise<void> {
+    return this.pxe.debug.sync();
   }
 
   /**

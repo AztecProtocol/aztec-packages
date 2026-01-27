@@ -19,6 +19,7 @@ import {
 import { strict as assert } from 'assert';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { CallDataArray } from '../avm/calldata.js';
 import { AvmSimulator } from '../avm/index.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
@@ -267,7 +268,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
       const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest);
 
-      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output));
+      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output.bestEffortReadAll()));
 
       if (enqueuedCallResult.reverted) {
         reverted = true;
@@ -297,7 +298,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const contractAddress = callRequest.request.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.contractsDB, contractAddress, callRequest.calldata);
+    const fnName = await getPublicFunctionDebugName(
+      this.contractsDB,
+      contractAddress,
+      new CallDataArray(callRequest.calldata),
+    );
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
@@ -357,7 +362,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       transactionFee,
       this.globalVariables,
       request.isStaticCall,
-      calldata,
+      new CallDataArray(calldata),
       allocatedGas,
       this.config,
     );

@@ -433,6 +433,8 @@ export class CheckpointProposalJob implements Traceable {
         this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
       });
 
+      usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
+
       // If this is the last block, exit the loop now so we start collecting attestations
       if (timingInfo.isLastBlock) {
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.slot}`, {

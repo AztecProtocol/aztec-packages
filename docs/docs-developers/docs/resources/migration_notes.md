@@ -9,6 +9,107 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr] History module refactored to use standalone functions
+
+The `aztec::history` module has been refactored to use standalone functions instead of traits. This changes the calling convention from method syntax to function syntax.
+
+```diff
+- use dep::aztec::history::note_inclusion::ProveNoteInclusion;
++ use dep::aztec::history::note::assert_note_existed_by;
+
+let block_header = context.get_anchor_block_header();
+- let confirmed_note = block_header.prove_note_inclusion(hinted_note);
++ let confirmed_note = assert_note_existed_by(block_header, hinted_note);
+```
+
+**Function name and module mapping:**
+
+| Old (trait method) | New (standalone function) |
+|--------------------|---------------------------|
+| `history::note_inclusion::prove_note_inclusion` | `history::note::assert_note_existed_by` |
+| `history::note_validity::prove_note_validity` | `history::note::assert_note_was_valid_by` |
+| `history::nullifier_inclusion::prove_nullifier_inclusion` | `history::nullifier::assert_nullifier_existed_by` |
+| `history::nullifier_inclusion::prove_note_is_nullified` | `history::note::assert_note_was_nullified_by` |
+| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by` |
+| `history::nullifier_non_inclusion::prove_note_not_nullified` | `history::note::assert_note_was_not_nullified_by` |
+| `history::contract_inclusion::prove_contract_deployment` | `history::deployment::assert_contract_bytecode_was_published_by` |
+| `history::contract_inclusion::prove_contract_non_deployment` | `history::deployment::assert_contract_bytecode_was_not_published_by` |
+| `history::contract_inclusion::prove_contract_initialization` | `history::deployment::assert_contract_was_initialized_by` |
+| `history::contract_inclusion::prove_contract_non_initialization` | `history::deployment::assert_contract_was_not_initialized_by` |
+| `history::public_storage::public_storage_historical_read` | `history::storage::public_storage_historical_read` |
+
+### [Aztec.js] Transaction sending API redesign
+
+The old chained `.send().wait()` pattern has been replaced with a single `.send(options)` call that handles both sending and waiting.
+
+```diff
++ import { Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
+
+- const receipt = await contract.methods.transfer(recipient, amount).send().wait();
+
+// Send now waits by default
++ const receipt = await contract.methods.transfer(recipient, amount).send({ from: sender });
+
+// getTxHash() would confusingly send the transaction too
+- const txHash = await contract.methods.transfer(recipient, amount).send().getTxHash();
+
+// NO_WAIT to send the transaction and return TxHash immediately
++ const txHash = await contract.methods.transfer(recipient, amount).send({
++   from: sender,
++   wait: NO_WAIT
++ });
+```
+
+#### Deployment changes
+
+The old `.send().deployed()` method has been removed. Deployments now return the contract instance by default, or you can request the full receipt with `returnReceipt: true`:
+
+```diff
+- const contract = await MyContract.deploy(wallet, ...args).send().deployed();
+- const { contract, instance } = await MyContract.deploy(wallet, ...args).send().wait();
+
++ const contract = await MyContract.deploy(wallet, ...args).send({ from: deployer });
+
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: deployer,
++   wait: { returnReceipt: true },
++ });
+```
+
+#### Breaking changes to `Wallet` interface
+
+`getTxReceipt()` has been removed from the interface.
+
+`sendTx` method signature has changed to support the new wait behavior:
+
+```diff
+- sendTx(payload: ExecutionPayload, options: SendOptions): Promise<TxReceipt>
+
++ sendTx<W extends InteractionWaitOptions = undefined>(
++   payload: ExecutionPayload,
++   options: SendOptions<W>
++ ): Promise<SendReturn<W>>
+```
+
+#### Manual waiting with `waitForTx`
+
+When using `NO_WAIT` to send transactions, you can manually wait for confirmation using the `waitForTx` utility:
+
+```typescript
+import { waitForTx } from "@aztec/aztec.js/node";
+
+const txHash = await contract.methods.transfer(recipient, amount).send({
+  from: sender,
+  wait: NO_WAIT,
+});
+
+const receipt = await waitForTx(node, txHash, {
+  timeout: 60000, // Optional: timeout in ms
+  interval: 1000, // Optional: polling interval in ms
+  dontThrowOnRevert: true, // Optional: return receipt even if tx reverted
+});
+```
+
 ### [aztec-nr] Removal of intermediate modules
 
 Lots of unnecessary modules have been removed from the API, making imports shorter. These are the modules that contain just a single struct, in which the module has the same name as the struct.
@@ -4236,7 +4337,7 @@ await expect(
 
 ### [Aztec.nr] Public storage historical read API improvement
 
-`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::public_storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
 
 If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `public_storage_historical_read` instead:
 
