@@ -4,6 +4,9 @@
 # - Cache checking
 # - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
+#
+# Set SKIP_CI_PUBLISH=1 to disable Redis event publishing and tracking
+# (useful for bisect_flake where we want logging but not CI side effects)
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 source $ci3/source_cache
@@ -100,21 +103,23 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
   log_info=" ($(ci_term_link $log_key))"
 
-  # Publish test started event to Redis channel.
+  # Publish test started event to Redis channel (unless SKIP_CI_PUBLISH is set).
   # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
   # so that consumers can extract test parameters.
-  start_redis_data=$(jq -n \
-    --arg status "started" \
-    --arg test_cmd "$cmd" \
-    --arg log_id "$log_key" \
-    --arg log_url "http://ci.aztec-labs.com/$log_key" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --argjson is_scenario "$SCENARIO_TESTS" \
-    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
-  redis_publish "ci:test:started" "$start_redis_data"
+  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+    start_redis_data=$(jq -n \
+      --arg status "started" \
+      --arg test_cmd "$cmd" \
+      --arg log_id "$log_key" \
+      --arg log_url "http://ci.aztec-labs.com/$log_key" \
+      --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+      --arg commit_hash "$COMMIT_HASH" \
+      --arg commit_author "$COMMIT_AUTHOR" \
+      --arg commit_msg "$COMMIT_MSG" \
+      --argjson is_scenario "$SCENARIO_TESTS" \
+      '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+    redis_publish "ci:test:started" "$start_redis_data"
+  fi
 
   if [ "$CI" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
@@ -153,7 +158,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
-  if [ "$CI" -eq 0 ]; then
+  if [ "$CI" -eq 0 ] || [ "${SKIP_CI_PUBLISH:-0}" -eq 1 ]; then
     return
   fi
   # For the next branch, we track tests in merge queues only.
@@ -192,35 +197,37 @@ function fail {
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
-  # Publish failed status to Redis channel
-  # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
-  # so that deflaker and other consumers can extract test parameters.
-  local redis_data=$(jq -n \
-    --arg status "failed" \
-    --arg test_cmd "$cmd" \
-    --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --argjson code "$code" \
-    --argjson duration "$SECONDS" \
-    --argjson is_scenario "$SCENARIO_TESTS" \
-    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
-  redis_publish "ci:test:failed" "$redis_data"
+  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+    # Publish failed status to Redis channel
+    # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
+    # so that deflaker and other consumers can extract test parameters.
+    local redis_data=$(jq -n \
+      --arg status "failed" \
+      --arg test_cmd "$cmd" \
+      --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
+      --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+      --arg commit_hash "$COMMIT_HASH" \
+      --arg commit_author "$COMMIT_AUTHOR" \
+      --arg commit_msg "$COMMIT_MSG" \
+      --argjson code "$code" \
+      --argjson duration "$SECONDS" \
+      --argjson is_scenario "$SCENARIO_TESTS" \
+      '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+    redis_publish "ci:test:failed" "$redis_data"
 
-  # notify slack if scenario test failed
-  if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
-    read -r -d '' data <<EOF
-    {
-      "channel": "#alerts-next-scenario",
-      "text": "Scenario test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` ${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}"
-    }
+    # notify slack if scenario test failed
+    if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+      read -r -d '' data <<EOF
+      {
+        "channel": "#alerts-next-scenario",
+        "text": "Scenario test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` ${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}"
+      }
 EOF
-    curl -X POST https://slack.com/api/chat.postMessage \
-      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-      -H "Content-type: application/json" \
-      --data "$data" &>/dev/null
+      curl -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        --data "$data" &>/dev/null
+    fi
   fi
 
   exit $code
@@ -244,35 +251,37 @@ function flake {
     echo "$line" >> "$FLAKES_FILE"
   fi
 
-  # Publish flake status to Redis channel
-  # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
-  local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
-  local redis_data=$(jq -n \
-    --arg status "flaked" \
-    --arg test_cmd "$cmd" \
-    --arg log_url "http://ci.aztec-labs.com/$log_key" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --argjson code "$code" \
-    --argjson duration "$SECONDS" \
-    --argjson owners "$owners_json" \
-    --arg flake_group_id "${flake_group_id:-}" \
-    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, owners: $owners, flake_group_id: $flake_group_id, timestamp: now | todate}')
-  redis_publish "ci:test:flaked" "$redis_data"
+  if [ "${SKIP_CI_PUBLISH:-0}" -ne 1 ]; then
+    # Publish flake status to Redis channel
+    # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
+    local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
+    local redis_data=$(jq -n \
+      --arg status "flaked" \
+      --arg test_cmd "$cmd" \
+      --arg log_url "http://ci.aztec-labs.com/$log_key" \
+      --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+      --arg commit_hash "$COMMIT_HASH" \
+      --arg commit_author "$COMMIT_AUTHOR" \
+      --arg commit_msg "$COMMIT_MSG" \
+      --argjson code "$code" \
+      --argjson duration "$SECONDS" \
+      --argjson owners "$owners_json" \
+      --arg flake_group_id "${flake_group_id:-}" \
+      '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, owners: $owners, flake_group_id: $flake_group_id, timestamp: now | todate}')
+    redis_publish "ci:test:flaked" "$redis_data"
 
-  # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
-    return
+    # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
+    if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
+      exit 0
+    fi
+
+    # Send slack message to owners.
+    local slack_uids=""
+    for uid in $owners; do
+      slack_uids+="<@$uid> "
+    done
+    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   fi
-
-  # Send slack message to owners.
-  local slack_uids=""
-  for uid in $owners; do
-    slack_uids+="<@$uid> "
-  done
-  slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
 
   exit 0
 }

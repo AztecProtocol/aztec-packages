@@ -3,7 +3,7 @@
 # Usage: bisect_flake <full_cmd> [commit]
 # full_cmd format: <hash>[:VAR=val]... <test_command>
 #
-# Uses exec_test directly (no CI integration - no Redis, no flake detection).
+# Uses run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects.
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -58,9 +58,9 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
-# Use exec_test to run tests with proper resource limits (no output needed for grinding)
+# Use run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects
 if seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
-    "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+    "echo 'Run {}: starting'; SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
     echo "At least one run passed - confirmed flake, starting bisect..."
 else
     slack_report ":x: *Not a Flake*\n*Test:* \`$test_cmd\`\nAll $GRIND_RUNS runs failed on $REF_NAME - this is a real failure, not a flake."
@@ -91,7 +91,7 @@ fi
 # Grind to check if oldest commit is stable
 echo "Grinding $bisect_runs times to verify stability..."
 if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-    "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+    "echo 'Run {}: starting'; SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
     git checkout $commit --quiet
@@ -136,13 +136,13 @@ while true; do
         exit 1
     fi
 
-    # Grind with GNU parallel using exec_test
+    # Grind with GNU parallel using run_test_cmd
     # --halt soon,fail=1 stops all jobs as soon as one fails
     # If all succeed, parallel exits 0 -> commit is good (stable)
     # If any fail, parallel exits non-zero -> commit is bad (flaky)
     echo "Grinding $bisect_runs times (halt on first failure)..."
     if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-        "echo 'Run {}: starting'; $ci3/exec_test '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+        "echo 'Run {}: starting'; SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
         echo "All runs passed - this commit is good (stable)"
         result=$(git bisect good 2>&1)
     else
