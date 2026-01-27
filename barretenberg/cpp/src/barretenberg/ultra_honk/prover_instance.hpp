@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
@@ -57,7 +56,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
 
-    HonkProof ipa_proof; // utilized only for UltraRollupFlavor
+    HonkProof ipa_proof; // utilized for rollup proofs (IO::HasIPA)
 
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;

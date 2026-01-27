@@ -12,7 +12,6 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -156,7 +155,6 @@ template class WitnessComputation<UltraStarknetFlavor>;
 template class WitnessComputation<UltraStarknetZKFlavor>;
 #endif
 template class WitnessComputation<UltraKeccakZKFlavor>;
-template class WitnessComputation<UltraRollupFlavor>;
 template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;
 template class WitnessComputation<MegaAvmFlavor>;

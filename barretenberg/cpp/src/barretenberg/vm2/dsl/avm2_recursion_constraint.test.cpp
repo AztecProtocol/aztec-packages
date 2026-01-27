@@ -112,8 +112,8 @@ TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
-    // AVM constraints are always proven with UltraRollupFlavor (they are part of the base rollup circuit)
-    [[maybe_unused]] size_t num_gates = test_vk_independence<UltraRollupFlavor>();
+    // AVM constraints are always proven with UltraFlavor (they are part of the base rollup circuit)
+    [[maybe_unused]] size_t num_gates = test_vk_independence<UltraFlavor>();
 
     // TODO(fcarreiro): Re-enable when the VK is fixed.
     // EXPECT_EQ(num_gates, FINALIZED_GOBLIN_AVM_GATE_COUNT);
@@ -133,7 +133,8 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
-    using ProverInstance = ProverInstance_<UltraRollupFlavor>;
+    using Builder = UltraCircuitBuilder;
+    using ProverInstance = ProverInstance_<UltraFlavor>;
 
     AcirConstraint constraint;
     WitnessVector witness;
@@ -150,7 +151,7 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     EXPECT_EQ(program.constraints.gates_per_opcode[0], GOBLIN_AVM_GATE_COUNT);
 
     auto prover_instance = std::make_shared<ProverInstance>(builder);
-    auto vk = std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
+    auto vk = std::make_shared<typename UltraFlavor::VerificationKey>(prover_instance->get_precomputed());
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
         FF("0x195059523571dbadeae1b213250567e17b4994568b736b73a1aae2b0c65fd2cd");

@@ -11,7 +11,6 @@
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -190,7 +189,6 @@ template class OinkVerifier<UltraStarknetFlavor>;
 template class OinkVerifier<UltraStarknetZKFlavor>;
 #endif
 template class OinkVerifier<UltraKeccakZKFlavor>;
-template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
 
@@ -202,7 +200,6 @@ template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 

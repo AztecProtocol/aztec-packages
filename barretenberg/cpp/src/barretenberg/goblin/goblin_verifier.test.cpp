@@ -16,7 +16,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraRollupFlavor;
+    using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;

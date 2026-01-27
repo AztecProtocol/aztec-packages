@@ -188,8 +188,6 @@ template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraStarknetZKFlavor>;
 #endif
 template class UltraProver_<UltraKeccakZKFlavor>;
-// UltraProver for rollup: uses UltraFlavor (IPA handling is data-driven via ipa_proof)
-// Note: No separate UltraRollupFlavor needed - RollupIO determines public inputs structure
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;

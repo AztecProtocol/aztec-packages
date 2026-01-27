@@ -16,7 +16,6 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = GoblinAvm::ECCVMVerificationKey;
     using TranslatorVK = GoblinAvm::TranslatorVerificationKey;
 
-    // UltraFlavor with RollupIO for IPA handling (replaces UltraRollupFlavor)
     using OuterFlavor = UltraFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
     using OuterProver = UltraProver_<OuterFlavor>;

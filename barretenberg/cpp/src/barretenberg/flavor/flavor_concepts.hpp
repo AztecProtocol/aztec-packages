@@ -15,10 +15,10 @@ namespace bb {
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
 #else
 template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
@@ -40,15 +40,15 @@ concept HasDataBus = IsMegaFlavor<T>;
 // be reflected via Translator relations.
 template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
 
+// HasIPAAccumulator is deprecated - IPA handling is now IO-driven via IO::HasIPA
 template <typename T>
-concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+concept HasIPAAccumulator = false;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                       UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,

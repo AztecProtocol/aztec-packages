@@ -1,7 +1,6 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -77,9 +76,10 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     const bool pad_proof = GetParam();
 
     // Type aliases specific to TwoLayerAvmRecursion test
-    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
+    using OuterBuilder = typename UltraFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
-    using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
+    using UltraRollupProver = UltraProver_<UltraFlavor>;
+    using UltraRollupVerifier = UltraVerifier_<UltraFlavor, RollupIO>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
@@ -149,20 +149,18 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
-    auto outer_proving_key = std::make_shared<ProverInstance_<UltraRollupFlavor>>(outer_circuit);
+    auto outer_proving_key = std::make_shared<ProverInstance_<UltraFlavor>>(outer_circuit);
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        auto verification_key =
-            std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(outer_proving_key->get_precomputed());
         UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
-    auto outer_verification_key =
-        std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
-    auto outer_vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(outer_verification_key);
+    auto outer_verification_key = std::make_shared<UltraFlavor::VerificationKey>(outer_proving_key->get_precomputed());
+    auto outer_vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(outer_verification_key);
     UltraRollupVerifier final_verifier(outer_vk_and_hash);
 
     bool result = final_verifier.verify_proof(outer_proof).result;
@@ -271,7 +269,7 @@ TEST_F(AvmRecursiveTests, TwoLayerAvmRecursionFailsWithWrongPIs)
     }
 
     // Type aliases specific to TwoLayerAvmRecursion test
-    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
+    using OuterBuilder = typename UltraFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
 
     NativeProofResult proof_result;

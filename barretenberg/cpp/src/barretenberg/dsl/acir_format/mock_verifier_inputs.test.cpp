@@ -108,7 +108,6 @@ TEST_F(MockVerifierInputsTest, MockUltraOinkProofSize)
         EXPECT_EQ(proof.size(), ProofLength::Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE);
     }
     {
-        // UltraFlavor with RollupIO (replaces UltraRollupFlavor)
         using Flavor = UltraFlavor;
         using IO = stdlib::recursion::honk::RollupIO;
         HonkProof proof = create_mock_oink_proof<Flavor, IO>();
@@ -155,7 +154,6 @@ TEST_F(MockVerifierInputsTest, MockUltraHonkProofSize)
                   ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + IO::PUBLIC_INPUTS_SIZE);
     }
     {
-        // UltraFlavor with RollupIO (replaces UltraRollupFlavor)
         using Flavor = UltraFlavor;
         using IO = stdlib::recursion::honk::RollupIO;
         HonkProof proof = create_mock_honk_proof<Flavor, IO>();

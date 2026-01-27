@@ -2,7 +2,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
@@ -25,8 +24,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
-    using InnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>, bb::RollupIO, bb::DefaultIO>;
-    using InnerVerifier = UltraVerifier_<InnerFlavor, InnerIO>;
+    using InnerVerifier = UltraVerifier_<InnerFlavor, bb::DefaultIO>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
@@ -35,13 +33,9 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor =
-        std::conditional_t<IsMegaBuilder<OuterBuilder>,
-                           MegaFlavor,
-                           std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterIO = std::conditional_t<HasIPAAccumulator<OuterFlavor>, bb::RollupIO, bb::DefaultIO>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, OuterIO>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, DefaultRecursiveIO<RecursiveFlavor>>;
@@ -80,11 +74,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            RollupIO::add_default(builder);
-        } else {
-            DefaultIO<InnerBuilder>::add_default(builder);
-        }
+        DefaultIO<InnerBuilder>::add_default(builder);
         return builder;
     };
 
@@ -129,10 +119,6 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         // constrained within the circuit itself, rather than relying solely on them being public outputs.
         pairing_points.P0.fix_witness();
         pairing_points.P1.fix_witness();
-        if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            output.ipa_claim.set_public();
-            outer_circuit.ipa_proof = output.ipa_proof.get_value();
-        }
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit

@@ -23,7 +23,8 @@ class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
     using AvmProver = bb::avm2::AvmProvingHelper;
     using FF = Builder::FF;
 
-    using ProverInstance = ProverInstance_<UltraRollupFlavor>;
+    using ProverInstance = ProverInstance_<UltraFlavor>;
+    using UltraRollupVerifier = UltraVerifier_<UltraFlavor, bb::RollupIO>;
     using IO = bb::stdlib::recursion::honk::RollupIO;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -94,9 +95,9 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     {
         auto prover_instance = std::make_shared<ProverInstance>(builder);
         auto verification_key =
-            std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
-        auto vk_and_hash = std::make_shared<typename UltraRollupFlavor::VKAndHash>(verification_key);
-        UltraProver_<UltraRollupFlavor> prover(prover_instance, verification_key);
+            std::make_shared<typename UltraFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename UltraFlavor::VKAndHash>(verification_key);
+        UltraProver_<UltraFlavor> prover(prover_instance, verification_key);
         UltraRollupVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof).result;
