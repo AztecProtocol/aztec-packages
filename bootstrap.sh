@@ -600,8 +600,8 @@ case "$cmd" in
     full_cmd="${1:?full_cmd required}"
     commit="${2:-HEAD}"
 
-    # Fetch full history for bisect
-    git fetch origin --unshallow || git fetch origin
+    # Fetch limited history for bisect (BISECT_MAX_DEPTH=50 in bisect_flake)
+    git fetch --depth=50 origin $commit || true
     prep
 
     # Run the bisect script

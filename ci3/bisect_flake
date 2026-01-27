@@ -46,10 +46,6 @@ echo "Commit: $commit"
 echo "Ref: $REF_NAME"
 echo
 
-# Ensure we have enough git history for bisection (shallow clones may not have it)
-echo "Fetching git history (depth: $BISECT_MAX_DEPTH)..."
-git fetch --depth=$BISECT_MAX_DEPTH origin $commit --quiet 2>/dev/null || true
-
 # ============================================================
 # Step 1: Build and grind at HEAD to confirm it's a flake
 # Use GNU parallel, halt as soon as one succeeds (confirms flake)
@@ -64,7 +60,7 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # If all jobs fail, parallel exits with non-zero
 # Use run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects
 if seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
-    "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd'"; then
+    "NAME=test-{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'"; then
     echo "At least one run passed - confirmed flake, starting bisect..."
 else
     slack_report ":x: *Not a Flake*\n*Test:* \`$test_cmd\`\nAll $GRIND_RUNS runs failed on $REF_NAME - this is a real failure, not a flake."

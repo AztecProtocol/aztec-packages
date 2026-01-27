@@ -66,7 +66,7 @@ trap sig_handler SIGTERM SIGINT
 # Run the test, capturing output.
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
-tmp_file=/tmp/$key
+tmp_file=$(mktemp /tmp/run_test_cmd.XXXXXX)
 touch $tmp_file
 
 function publish_log {
