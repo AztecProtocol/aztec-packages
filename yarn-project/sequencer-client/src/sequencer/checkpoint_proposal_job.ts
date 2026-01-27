@@ -686,7 +686,7 @@ export class CheckpointProposalJob implements Traceable {
     const attestationTimeAllowed = this.config.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)!
       : this.l1Constants.slotDuration;
-    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+    const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
 
     this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
 
