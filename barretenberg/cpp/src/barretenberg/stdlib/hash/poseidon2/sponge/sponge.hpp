@@ -114,9 +114,10 @@ template <typename Builder> class FieldSponge {
         field_t output = sponge.squeeze();
 
         // The final state consists of 4 elements, we only use the first element, which means that the remaining
-        // 3 witnesses are only used in a single gate.
-        for (const auto& elem : sponge.state) {
-            mark_witness_as_used(elem);
+        // 3 witnesses are only used in a single gate. We only mark these 3 as used, leaving the output unmarked
+        // so that circuit static analyzer can detect if the caller forgets to use the output.
+        for (size_t i = 1; i < t; i++) {
+            mark_witness_as_used(sponge.state[i]);
         }
         return output;
     }

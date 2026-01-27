@@ -38,6 +38,9 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
      * 1) 2 sequential values are non-descending and have a difference of at most 3. This check is skipped
      *    at the real_last index (lagrange_real_last = 1) and in the masking region (lagrange_masking = 1).
      * 2) The value at the real_last index is 2¹⁴ - 1.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): This only enforces <254-bit range constraints,
+     * NOT strict <q checks. Values in [q, 2^254) pass verification, potentially creating inconsistency with
+     * native/Ultra verification which reject such aliased representations.
      *
      * The delta constraint uses: not_last_or_masking = lagrange_real_last + lagrange_masking - 1
      * which equals 0 when checks should be skipped, and -1 when checks should be enforced.

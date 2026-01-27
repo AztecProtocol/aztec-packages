@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
@@ -67,7 +67,7 @@ describe('validateAndStoreEvent', () => {
 
     indexedTxEffect = {
       l2BlockNumber: blockNumber,
-      l2BlockHash: L2BlockHash.random(),
+      l2BlockHash: BlockHash.random(),
       data: txEffect,
       txIndexInBlock: 0,
     };

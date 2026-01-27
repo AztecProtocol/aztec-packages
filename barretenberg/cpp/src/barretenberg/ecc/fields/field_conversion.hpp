@@ -40,8 +40,27 @@ class FrCodec {
     }
 
     /**
+     * @brief Check whether raw limbs represent the point at infinity (all limbs zero).
+     * @details This matches the circuit behavior in StdlibCodec::check_point_at_infinity.
+     * We check raw limbs BEFORE deserializing to field elements to ensure that alias
+     * values (e.g., x=modulus, y=modulus) are NOT treated as point at infinity.
+     * Only the canonical (0,0) representation with all-zero limbs is accepted.
+     */
+    template <typename T> static bool check_point_at_infinity(std::span<const bb::fr> fr_vec)
+    {
+        // Check if all limbs are zero - this is the only canonical representation of infinity
+        for (const auto& limb : fr_vec) {
+            if (!limb.is_zero()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
+     * Rejects aliased values (>= fq::modulus) to ensure canonical representation.
      */
     static fq convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
     {
@@ -57,6 +76,10 @@ class FrCodec {
                      "Conversion error here usually implies some bad proof serde or parsing");
 
         const uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
+
+        // Reject aliased values to ensure canonical representation.
+        // This matches the circuit behavior in StdlibCodec where assert_is_in_field is called.
+        BB_ASSERT_LT(value, fq::modulus, "Non-canonical field element: value >= fq::modulus");
 
         return fq(value);
     }
@@ -98,12 +121,18 @@ class FrCodec {
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t BASE = calc_num_fields<BaseField>();
+
+            // Check for point at infinity BEFORE deserializing to avoid alias issues.
+            // Only canonical (0,0) with all-zero limbs is accepted as infinity.
+            // This matches circuit behavior in StdlibCodec::check_point_at_infinity.
+            if (check_point_at_infinity<T>(fr_vec)) {
+                return T::infinity();
+            }
+
+            // Deserialize coordinates (this will reject non-canonical values via BB_ASSERT)
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
-            if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
-                val.self_set_infinity();
-            }
             BB_ASSERT(val.on_curve());
             return val;
         } else {

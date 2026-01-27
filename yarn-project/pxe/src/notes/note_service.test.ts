@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
+import { BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -247,7 +247,7 @@ describe('NoteService', () => {
 
       indexedTxEffect = {
         l2BlockNumber: blockNumber,
-        l2BlockHash: L2BlockHash.random(),
+        l2BlockHash: BlockHash.random(),
         data: txEffect,
         txIndexInBlock: 0,
       };

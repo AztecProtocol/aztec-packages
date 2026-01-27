@@ -27,14 +27,6 @@ const GEMINI_CHALLENGE_IN_SUBGROUP = "0x835eb8f7";
 // 5. Run the test against the deployed contract
 // 6. Kill the anvil instance
 
-const getEnvVarCanBeUndefined = (envvar) => {
-  const varVal = process.env[envvar];
-  if (!varVal) {
-    return false;
-  }
-  return varVal;
-};
-
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
   if (!varVal) {
@@ -55,7 +47,7 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
-const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+const hasZK = getEnvVar("HAS_ZK");
 
 export const compilationInput = {
   language: "Solidity",
@@ -230,7 +222,6 @@ const killAnvil = () => {
   console.log(testName, " complete");
 };
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1316): Clean this code up. We are trying to use this logic for three different flows: bb plonk, bb honk, and bbjs honk, and all three have different setups.
 try {
   const proofPath = getEnvVar("PROOF");
 
@@ -239,7 +230,7 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsPath = getEnvVarCanBeUndefined("PUBLIC_INPUTS");
+  let publicInputsPath = getEnvVar("PUBLIC_INPUTS");
   var publicInputs = [];
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
@@ -251,15 +242,11 @@ try {
     [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(proofAsFields);
   }
 
-  // Read public inputs from binary file if available
-  if (publicInputsPath) {
-    const publicInputsBinary = readFileSync(publicInputsPath);
-    const innerPublicInputs = binaryToFields(publicInputsBinary);
-    publicInputs = innerPublicInputs.concat(extraPublicInputs);
-  } else {
-    // for plonk, the extraPublicInputs are all of the public inputs
-    publicInputs = extraPublicInputs;
-  }
+  // Read public inputs from binary file
+  const publicInputsBinary = readFileSync(publicInputsPath);
+  const innerPublicInputs = binaryToFields(publicInputsBinary);
+  publicInputs = innerPublicInputs.concat(extraPublicInputs);
+
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 

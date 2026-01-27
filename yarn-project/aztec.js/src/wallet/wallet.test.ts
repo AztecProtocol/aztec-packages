@@ -6,7 +6,7 @@ import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/ab
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
@@ -346,7 +346,7 @@ class MockWallet implements Wallet {
         },
         metadata: {
           l2BlockNumber: BlockNumber(1),
-          l2BlockHash: L2BlockHash.random(),
+          l2BlockHash: BlockHash.random(),
           txHash: TxHash.random(),
         },
       },
