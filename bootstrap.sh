@@ -600,8 +600,8 @@ case "$cmd" in
     full_cmd="${1:?full_cmd required}"
     commit="${2:-HEAD}"
 
-    # Fetch limited history for bisect (BISECT_MAX_DEPTH=50 in bisect_flake)
-    git fetch --depth=50 origin $commit || true
+    # Deepen the shallow clone to have enough history for bisect (BISECT_MAX_DEPTH=50 in bisect_flake)
+    git fetch --deepen=50 origin || true
     prep
 
     # Run the bisect script

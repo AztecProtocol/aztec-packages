@@ -16,7 +16,19 @@ source $ci3/source_test_params
 
 GRIND_RUNS=5
 BISECT_MAX_DEPTH=50  # How far back to search (git bisect is O(log n))
-bisect_runs=$(($(nproc) / CPUS))
+
+# Calculate max parallel runs based on CPU and memory constraints
+cpu_based_runs=$(($(nproc) / CPUS))
+
+# Parse MEM (e.g., "8g" -> 8) and calculate memory-based limit (default 4g if not set)
+mem_per_test=${MEM%g}  # Remove 'g' suffix
+mem_per_test=${mem_per_test:-4}  # Default to 4GB if not set
+total_mem_gb=$(free -g | awk '/^Mem:/{print $2}')
+mem_based_runs=$((total_mem_gb / mem_per_test))
+
+# Use the more restrictive limit
+bisect_runs=$cpu_based_runs
+[ "$mem_based_runs" -lt "$bisect_runs" ] && bisect_runs=$mem_based_runs
 [ "$bisect_runs" -lt 1 ] && bisect_runs=1
 
 function slack_report {
@@ -40,7 +52,7 @@ function build {
 echo "=== Deflake ==="
 echo "Full cmd: $full_cmd"
 echo "Test cmd: $test_cmd"
-echo "CPUS: $CPUS (bisect_runs: $bisect_runs)"
+echo "Resources: CPUS=$CPUS MEM=$MEM (parallel runs: $bisect_runs, cpu_limit=$cpu_based_runs, mem_limit=$mem_based_runs)"
 echo "MAKEFILE_TARGET: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Commit: $commit"
 echo "Ref: $REF_NAME"
@@ -58,12 +70,8 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
-# Use run_test_cmd with SKIP_CI_PUBLISH=1 for consistent logging without CI side effects
-if seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
-    "NAME_POSTFIX=_{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'"; then
-    echo "At least one run passed - confirmed flake, starting bisect..."
-else
-    slack_report ":x: *Not a Flake*\n*Test:* \`$test_cmd\`\nAll $GRIND_RUNS runs failed on $REF_NAME - this is a real failure, not a flake."
+if ! seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer "NAME_POSTFIX=_{} SKIP_CI_PUBLISH=1 run_test_cmd '$full_cmd'" 2>/dev/null; then
+    echo "All initial runs failed, not a flake."
     exit 0
 fi
 
@@ -81,22 +89,16 @@ good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
 
 echo "Testing oldest commit: ${good_commit:0:8}..."
 git checkout $good_commit --quiet
-
-if ! build; then
-    git checkout $commit --quiet
-    slack_report ":warning: *Build Failed at Oldest Commit*\n*Test:* \`$test_cmd\`\nCannot build at ${good_commit:0:8}"
-    exit 1
-fi
+build
 
 # Grind to check if oldest commit is stable
 echo "Grinding $bisect_runs times to verify stability..."
-if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-    "echo 'Run {}: starting'; SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd'"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
     git checkout $commit --quiet
     slack_report ":warning: *Flake Predates Search Range*\n*Test:* \`$test_cmd\`\nCommit ${good_commit:0:8} ($BISECT_MAX_DEPTH commits ago) is also flaky. The flake was introduced earlier."
-    exit 0
+    exit 1
 fi
 
 # Return to original commit for bisect
@@ -131,18 +133,14 @@ while true; do
     echo "--- Testing commit: ${current:0:8} ---"
 
     # Build at this commit
-    if ! build; then
-        git bisect reset
-        exit 1
-    fi
+    build
 
     # Grind with GNU parallel using run_test_cmd
     # --halt soon,fail=1 stops all jobs as soon as one fails
     # If all succeed, parallel exits 0 -> commit is good (stable)
     # If any fail, parallel exits non-zero -> commit is bad (flaky)
     echo "Grinding $bisect_runs times (halt on first failure)..."
-    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-        "echo 'Run {}: starting'; SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd' >/dev/null 2>&1 && echo 'Run {}: PASS' || { echo 'Run {}: FAIL'; exit 1; }"; then
+    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '$full_cmd'"; then
         echo "All runs passed - this commit is good (stable)"
         result=$(git bisect good 2>&1)
     else
