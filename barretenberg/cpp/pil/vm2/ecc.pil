@@ -2,7 +2,7 @@
 /**
  * This subtrace supports point addition over the Grumpkin curve.
  * Given two points, P & Q, this trace computes R = P + Q.
- * PRECONDITIONS: The only assumption here is that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve):
+ * PRECONDITIONS: The only assumption here is that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity = (0, 0) is considered on the curve):
  * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
  *
@@ -40,7 +40,7 @@ namespace ecc;
     //      P = (p_x, p_y, p_is_inf), Q = (q_x, q_y, q_is_inf), R = (r_x, r_y, r_is_inf),
     //    where the coordinates satisfy:
     //      y^2 = x^3 - 17 (unless is_inf is true).
-    // The point at infinity, O, does not exist on the curve (a property of SW curves). We represent it as:
+    // The point at infinity, O, does not have valid coordinates (a property of SW curves). We represent it as:
     //    O = (0, 0, true).
     //    Note: this is NOT enforced here for inputs, see ecc_mem.pil for example of constraining.
     //
@@ -123,6 +123,11 @@ namespace ecc;
     //  and inverse (INVERSE_PRED) flags are mutually exclusive by #[OP_CHECK].
     #[DOUBLE_PRED]
     double_op - (x_match * y_match) = 0;
+
+    //  If double_op is true, we check that p_is_inf == q_is_inf. #[DOUBLE_PRED] implies this (since x_match &
+    //  y_match must imply p_is_inf == q_is_inf for points on the curve) however we include an extra check for
+    //  the #[DOUBLE] lookup in scalar_mul, which ignores q_is_inf.
+    double_op * (p_is_inf - q_is_inf) = 0;
 
     pol commit inv_2_p_y;
     (1 - result_infinity) * double_op * (2 * p_y * inv_2_p_y - 1) = 0;
