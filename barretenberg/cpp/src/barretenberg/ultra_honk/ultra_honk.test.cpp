@@ -1,5 +1,5 @@
 #include "ultra_honk.test.hpp"
-#include "barretenberg/honk/proof_layout.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 
 #include <gtest/gtest.h>

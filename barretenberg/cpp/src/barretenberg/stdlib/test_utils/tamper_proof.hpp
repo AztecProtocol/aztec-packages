@@ -3,7 +3,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
-#include "barretenberg/honk/proof_layout.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 
 namespace bb {
 
