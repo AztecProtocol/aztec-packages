@@ -20,7 +20,7 @@
 namespace bb {
 
 /**
- * @brief Compute log_n based on flavor configuration.
+ * @brief Compute log_n based on flavor.
  * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
  *          Called early in verification to derive num_public_inputs from proof size.
  */
@@ -76,7 +76,7 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     IO>::split_rollup_proof(const Proof& combined_proof) const
     requires(HasIPAAccumulator<Flavor>)
 {
-    // Split point: IPA proof is appended at the end
+    // IPA proof is appended at the end
     const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
 
     Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_length);
