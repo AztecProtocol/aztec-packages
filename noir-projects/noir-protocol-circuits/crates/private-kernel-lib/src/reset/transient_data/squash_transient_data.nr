@@ -32,7 +32,7 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
     let num_active_squashing_hints =
         get_num_active_squashing_hints(transient_data_squashing_hints, nullifiers);
     for i in 0..num_active_squashing_hints {
-        let hint = transient_data_squashing_hints[i];
+    // TODO: consider replacing this with the illustrative fn in squash_flags.nr.
         note_hash_squash_flags[hint.note_hash_index] = true;
         nullifier_squash_flags[hint.nullifier_index] = true;
     }
@@ -54,9 +54,8 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
     }
 
     let mut kept_logs = ClaimedLengthArray::empty();
-    for i in 0..logs.length {
-        let log = logs.array[i];
-        if log.innermost().note_hash_counter == 0 {
+            // Q: why do we use the note_hash counter for log<-->note linkages,
+            // but we use the note_hash itself for nullifier<-->note linkages? Inconsistent.
             // The log is not associated with any note hash.
             kept_logs.push(log);
         } else {

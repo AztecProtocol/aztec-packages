@@ -30,6 +30,7 @@ pub struct DerivedHints<let SquashingHintsLen: u32, let NoteHashesLen: u32, let 
     pub note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen],
 }
 
+/// Q: should we have just derived all this at the beginning, within `squash_transient_data`?
 /// Constructs all derived hints needed to apply transient data squashing logic.
 ///
 /// Given the same input parameters, this function will deterministically return the same derived hints.
@@ -42,15 +43,19 @@ pub unconstrained fn build_derived_hints<let NoteHashesLen: u32, let NullifiersL
     expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) -> DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen> {
+    // Already computed in an earlier unconstrained fn?
     let num_active_squashing_hints =
         get_num_active_squashing_hints(transient_data_squashing_hints, nullifiers);
 
     let nullifier_index_sorted_tuples =
         build_nullifier_index_sorted_tuples(transient_data_squashing_hints);
 
+    // TODO: consider calling the illustrative `build_squash_flags` fn instead.
+    // Already computed in an earlier unconstrained fn?
     let note_hash_squash_flags =
         build_note_hash_squash_flags(transient_data_squashing_hints, num_active_squashing_hints);
 
+    // Already computed in an earlier unconstrained fn?
     let nullifier_squash_flags =
         build_nullifier_squash_flags(transient_data_squashing_hints, num_active_squashing_hints);
 

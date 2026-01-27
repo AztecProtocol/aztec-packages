@@ -23,6 +23,9 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+    // Q: is the prover free to choose any value for `num_active_squashing_hints` (up to the SquashingHintsLen)?
+    // I.e. is it true that the prover can choose to squash as many as they like in this iteration, as long as the
+    // squashing hints are unique and result in actual (note,nullifier) pairs matching? 
     num_active_squashing_hints: u32,
     // Sorted values of nullifier indices (with original indices) used to validate uniqueness.
     nullifier_index_sorted_tuples: [SortedTuple<u32>; SquashingHintsLen],
@@ -34,7 +37,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
 
         // === Determine if the hint is active ===
         // Only the first `num_active_squashing_hints` hints are active and allowed to be used for squashing.
-        is_active_hint &= i != num_active_squashing_hints;
+        is_active_hint &= i != num_active_squashing_hints; // Q: how do we constrain num_active_squashing_hints to be correct?
 
         if is_active_hint {
             // === Ensure each `note_hash_index` is unique ===
@@ -57,6 +60,9 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
             //
             // This check does not guarantee that the nullifier indices are unique, because two tuples may have the same
             // `original_index` that points to the same hint in `transient_data_squashing_hints`.
+            //
+            // Possible bug: It looks like you could have sorted_tuple.original_index _within_ the active hint range with a corresponding elem that points to 
+            // an index _outside_ of the active hint range.
             assert_eq(
                 nullifier_index_sorted_tuple.elem,
                 transient_data_squashing_hints[nullifier_index_sorted_tuple.original_index]
@@ -66,6 +72,8 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
             // === Nullifier index uniqueness check: Step 2 ===
             // Ensure all the "active" values in the sorted tuples are unique by checking that they are in increasing
             // order.
+            // TODO: write a test that there CANNOT be duplicate nullifier_index_sorted_tuple.original_index items, 
+            // because of this check:
             if i != 0 {
                 assert(
                     nullifier_index_sorted_tuple.elem > nullifier_index_sorted_tuples[i - 1].elem,
@@ -91,6 +99,10 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
                 NullifiersLen,
                 "Unused nullifier index hint must be set to NullifiersLen",
             );
+
+            // Bug: we need to assert:
+            // nullifier_index_sorted_tuple.elem == NullifiersLen
+            // nullifier_index_sorted_tuple.original_index == NullifiersLen,
         }
     }
 
@@ -102,6 +114,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
     // Because step 3 guarantees that the nullifier index in all inactive hints is set to the sentinel value, we can be
     // sure that these earlier sorted values must come from active entries in `transient_data_squashing_hints`.
     if num_active_squashing_hints != 0 {
+        // [Incorrect: step 3 only guarantees that all rhs items of `transient_data_squashing_hints.nullifier_index are the sentinel; not the _sorted_ array!], 
         assert(
             nullifier_index_sorted_tuples[num_active_squashing_hints - 1].elem < nullifiers.length,
             "Nullifier index hint exceeds claimed length",

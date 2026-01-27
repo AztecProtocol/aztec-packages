@@ -31,7 +31,9 @@ pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let 
     kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) -> [NoteLogLinkedSourceIndices; LogsLen] {
-    let mut linked_source_indices = [
+    // TODO: it'd be nicer to not instantiate the default/null items to 0, because 0 is a valid index.
+    // To avoid confusion, could we use MAX_U32_VALUE instead. Oh, we'll hit out of bounds errors if we do that? Risky?
+    let mut linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen] = [
         NoteLogLinkedSourceIndices {
             transient_data_squashing_hint_index: 0,
             kept_note_hash_index: 0,
@@ -72,6 +74,17 @@ pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let 
             }
         }
     }
+
+    // Possible bug: with the above approach, if we end up with an item:
+    //  NoteLogLinkedSourceIndices {
+    //     transient_data_squashing_hint_index: 0,
+    //     kept_note_hash_index: 0,
+    // }
+    // ... then it is ambiguous whether: it's empty, or it has been squashed (against the note_hash pointed to by index 0 of the transient_data_squashing_hints), or it has been kept and propagated to index 0 of the kept_note_hashes.
+    // What are the consequences of this bug?
+    // In fact, I need to read on to understand why we even track a kept_note_hash_index only 
+    // for logs with associated note_hashes.
+    // Are there tests that cope with a (0,0) case? There's an example in my diagram.
 
     linked_source_indices
 }

@@ -18,13 +18,23 @@ impl<let RequestsLen: u32, let HintsLen: u32> KeyValidationRequestsValidator<Req
     // When a reset circuit does not require key validations, the `hints` array will still contain at least one item,
     // while `KeyValidationAmount` will be set to zero.
     pub fn validate<let KeyValidationAmount: u32>(self) {
+        // TODO: consider putting the != 0 case first, so that it matches the layout of read_request_validator, so that it's easier to compare the files side-by-side.
         if KeyValidationAmount == 0 {
             assert_eq(
                 self.propagated_requests,
+            // I've put this static_assert here, but maybe I'm misunderstanding things.
+            std::static_assert(
+                KeyValidationHintsLen == 1,
+                "NAUGHTY",
+            );
+
                 self.key_validation_requests,
                 "All unverified key validation requests must be propagated",
             );
         } else {
+            // std::static_assert(
+            //     KeyValidationAmount ==
+            //     KeyValidationHintsLen,
             assert_eq(
                 KeyValidationAmount,
                 HintsLen,

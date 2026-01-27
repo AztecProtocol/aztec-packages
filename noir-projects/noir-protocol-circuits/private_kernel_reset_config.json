@@ -1,49 +1,54 @@
 {
   "dimensions": {
     "NOTE_HASH_PENDING_READ": {
-      "variants": [32],
+      "variants": [0, 32],
       "standalone": [64],
-      "cost": 100
+      "cost": 85,
+      "comment": "it would be nice if this was a js file, so that we could write comments to justify these choices of dimension"
     },
     "NOTE_HASH_SETTLED_READ": {
-      "variants": [4, 16],
+      "variants": [4, 8, 16],
       "standalone": [64],
-      "cost": 3000
+      "cost": 3600
     },
     "NULLIFIER_PENDING_READ": {
-      "variants": [32],
+      "variants": [0, 32],
       "standalone": [64],
-      "cost": 100
+      "cost": 90
     },
     "NULLIFIER_SETTLED_READ": {
-      "variants": [4, 16],
+      "variants": [4, 8, 16],
       "standalone": [64],
-      "cost": 3000
+      "cost": 3760,
+      "comment": "should we have combined the nullifier settled reads and note settled reads to be interchangeable (to save on wasted constraints)?"
     },
     "KEY_VALIDATION": {
-      "variants": [4],
+      "variants": [1, 4],
       "standalone": [64],
-      "cost": 2500
+      "cost": 765,
+      "comment": "It's a 765 per iteration for 32, but ~1000 cost per iteration for 4. 1 will be common for just one nullifier key for a whole tx. Wait... do we de-duplicate? I think Leila said it wasn't worth it, which is surprising so my intuition is off."
     },
     "TRANSIENT_DATA_SQUASHING": {
-      "variants": [4],
+      "variants": [0, 4],
       "standalone": [64],
-      "cost": 100
+      "cost": 680,
+      "comment": "wait, the cost is ~21k for 32 or 20k for ~4. We should have a 0 variant, and we should even consider enabling apps to opt out of squashing (exchanging $ for speed)"
     },
     "NOTE_HASH_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 250
+      "cost": 290
     },
     "NULLIFIER_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 150
+      "cost": 140
     },
     "PRIVATE_LOG_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 150
+      "cost": 300,
+      "comment": "we _could_ have variants of 0, for when people use offchain logs."
     }
   },
   "specialCases": [

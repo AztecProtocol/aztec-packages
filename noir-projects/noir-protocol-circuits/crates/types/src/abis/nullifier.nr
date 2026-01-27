@@ -6,7 +6,7 @@ pub struct Nullifier {
     pub value: Field,
     // A nullifier may track the note hash that it nullifies, to enable squashing. This will be discarded in the
     // private tail and only the value is sent to public-land.
-    pub note_hash: Field,
+    pub note_hash: Field, // Consider renaming to: `linked_note_hash`.
 }
 
 impl Empty for Nullifier {

@@ -42,6 +42,10 @@ fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
 /// - Uses the matching index as a hint to validate the link using `validate_note_log_linked_to_note_hash_with_hint`.
 ///
 /// Note: It also checks logs beyond the claimed length of the logs array.
+/// Q: Is this function actually necessary to call? Do we care if claimed "note logs" are actually related to 
+/// any real note_hashes? Surely we'll find out in a Reset circuit which attempts to squash them. 
+/// And if there is no linked note_hash, and if we don't attempt to squash the logs, then that's the app's fault
+/// and we don't care about preventing that?
 pub fn validate_note_logs_linked_to_note_hashes<let NUM_LOGS: u32, let NUM_NOTE_HASHES: u32>(
     logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, NUM_LOGS>,
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NUM_NOTE_HASHES>,
@@ -57,7 +61,7 @@ pub fn validate_note_logs_linked_to_note_hashes<let NUM_LOGS: u32, let NUM_NOTE_
                 );
                 if index == note_hashes.array.len() {
                     // If the note hash is not found, return 0 as the index hint so the error message can be more
-                    // explicit.
+                    // explicit. [Q: I don't understand why we do this: we're replacing "not found" with "found at index 0"??]
                     0
                 } else {
                     index

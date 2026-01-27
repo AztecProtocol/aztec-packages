@@ -11,6 +11,7 @@ pub fn validate_key_validation_request(
     let contract_address = scoped_request.contract_address;
     let request_and_generator = scoped_request.inner;
     let request = request_and_generator.request;
+    // TODO: rename:
     let sk_app_generator = request_and_generator.sk_app_generator;
 
     // First we check that derived public key matches master public key from request.

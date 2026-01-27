@@ -37,7 +37,7 @@ where
         let elem = sorted_tuples[i].elem;
         sorted_counters[i] = elem.counter();
         let original_index = if elem.counter() == 0 {
-            i
+            i // Q: why do we do this?
         } else {
             sorted_tuples[i].original_index
         };

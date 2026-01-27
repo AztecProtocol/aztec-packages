@@ -8,6 +8,9 @@ pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingRea
 ) {
     let mut num_propagated = 0;
     for i in 0..ReadRequestLen {
+        // Q: this doesn't prevent PENDING and SETTLED read_request_actions beyond 
+        // read_requests.length. Is that safe? Is the worst that can happen that another read_request
+        // (beyond the length) is matched-up to a note/nullifier, which has no bearing on the validity of the tx at all?
         let read_request = read_requests.array[i];
         let status = hints.read_request_actions[i];
         if status.action == ReadRequestActions.READ_AS_PENDING {
@@ -40,11 +43,12 @@ pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingRea
                 "Mismatch propagated read request",
             );
 
-            if i < read_requests.length {
+            // Ah, it costs 160 gates to do this assertion:
+            // I'm suggesting it just to protect against accidental bugs; there are many hinted arrays in this
+            // read_requests validation subprotocol, and it's hard to track attacks.
+            assert_eq(status.hint_index, MAX_U32_VALUE, "Invalid value");
                 // Only count the propagated read request if it's within the claimed length.
-                // Without this check, we'd be counting all un-validated read requests, even empty ones, and incorrectly
-                // include them in the final claimed length.
-                //
+                // Edit on the below note: I moved it in and it's cheaper. Please double-check this is safe?
                 // Note: it's cheaper not to include the above `assert_eq` inside this if statement.
                 // But if any two read requests beyond the claimed length differ, the assertion will fail,
                 // because num_propagated will no longer be incremented and both will refer to the same index

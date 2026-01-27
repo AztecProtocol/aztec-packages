@@ -48,6 +48,15 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
 
         // === Read the hinted data ===
         // If the log is squashed, it should be linked to the note hash at this index.
+        // Concern: There is ambiguity in how the `note_log_linked_source_indices` are created. Specifically,
+        // a "null" value for `note_log_linked_source_indices.transient_data_squashing_hint_index` and
+        // for `note_log_linked_source_indices.kept_note_hash_index` is `0`, but `0` is also a valid index.
+        // So you can have things like {0, 0} and not know if it's a hint which says the log is
+        // linked to no notes, or the log is linked to the 0th kept index, or the log is linked to the 
+        // 0th note_hash to squash.
+        // I'm finding it a bit difficult to reason about.
+        // Can we not use a different nullish value, like MAX_U32_VALUE?
+        // Hmmm Maybe this is why `is_log_linked_to_note_hash` gracefully returns a bool (rather than doing assertions).
         let squashed_note_hash_index = transient_data_squashing_hints[linked_source_indices
             .transient_data_squashing_hint_index]
             .note_hash_index;
@@ -58,6 +67,8 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
         let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
 
         // === Determine if the log should be kept ===
+        // Q: should we make the indices unambigious?
+        // Q: should we constrain unused hints to be nullish?
         // A log will be kept if:
         // - it is not a note log, OR
         // - it is linked to a kept note hash.
@@ -99,7 +110,8 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             // know it must point to a valid entry in `note_hashes`.
 
             // === Log and squashed note hash must both be revertible or non-revertible ===
-            // If the squashed note hash is revertible (i.e., counter >= split_counter), the log
+            //
+            // If the squashed note hash is revertible (i.e., counter > split_counter) [Shouldn't this be strict `>`?], the log
             // must also be revertible.
             // If the squashed note hash is non-revertible, the log must be non-revertible.
             //
@@ -111,7 +123,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             //
             // While it is unlikely that an app would want to retain a log linked to a discarded note hash, or discard
             // a log while its note hash is kept, it is still a valid scenario that must be handled.
-            let is_note_hash_revertible = hinted_squashed_note_hash.counter() >= split_counter;
+            let is_note_hash_revertible = hinted_squashed_note_hash.counter() >= split_counter; // Shouldn't this be strict `>`?
             let is_log_revertible = log.counter() >= split_counter;
             assert_eq(
                 is_note_hash_revertible,

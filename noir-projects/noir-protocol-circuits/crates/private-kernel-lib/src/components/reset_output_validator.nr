@@ -42,6 +42,7 @@ fn assert_correctly_siloed_note_hash(
         (siloed, unique)
     };
 
+    // Q (from 6 months ago):
     // We've already spent constraints checking `prev.counter() < min_revertible_side_effect_counter` in
     // transient_data.nr (there, it was: `note_hash.counter() >= split_counter`).
     // I wonder how many extra constraints this is costing?
@@ -115,6 +116,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         }
     }
 
+    // YES MICHAEL. KEEP GOING. YOU'RE ON THE HOME STRAIGHT NOW. ALMOST DONE. DON'T GIVE UP. FOCUS.
     pub fn validate<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) {
@@ -234,7 +236,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_transient_data<let TransientDataSquashingAmount: u32>(self) {
-        // For private only txs, we squash all transient data.
+        // For private-only txs, we squash all transient data.
+        // TODO: consider doing this within `validate_squashable_note_hash_nullifier_pair` where it's used.
+        // Q: why is this called "split counter"?
         let split_counter = if self.previous_kernel.is_private_only {
             0
         } else {

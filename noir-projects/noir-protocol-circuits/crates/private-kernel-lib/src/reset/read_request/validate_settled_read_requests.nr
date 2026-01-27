@@ -47,6 +47,7 @@ where
 {
     for hint in hints {
         let read_request_index = hint.read_request_index;
+        // TODO: same concern over a bug here as `validate_pending_read_requests`. Need to check `validate_propagated_read_requests`.
         if read_request_index != ReadRequestLen {
             let read_request = read_requests.array[read_request_index];
             // To read a settled value, the app should have siloed the value with the contract address so that it
@@ -54,6 +55,9 @@ where
             // While the contract address could technically be ignored here, we assert that it is zero to prevent
             // misconfigured hints from causing a pending read request to be incorrectly validated as a settled read
             // request.
+            // TODO: check if other kernel circuit code _relies_ on settled read_requests having a 
+            // zero contract_address.
+            // (I know that the contract_address of _new_ notes and nullifiers is imbued with meaning in other circuits.)
             assert(
                 read_request.contract_address.is_zero(),
                 "Settled read request must have zero contract address",

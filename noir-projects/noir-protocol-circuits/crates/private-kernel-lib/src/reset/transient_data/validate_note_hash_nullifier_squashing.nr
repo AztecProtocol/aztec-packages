@@ -52,6 +52,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
 
             // Validate the squash flags are correctly set.
             // They are used later to check that the kept note hashes and nullifiers are correctly propagated.
+            // TODO: do we need to assert that the other flags are all `false`?
             assert(note_hash_squash_flags[hint.note_hash_index], "Wrong squashed note hash hint");
             assert(nullifier_squash_flags[hint.nullifier_index], "Wrong squashed nullifier hint");
         }
@@ -81,6 +82,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a note hash that is not squashed, the `kept_note_hashes_counter` will be smaller
     // than it should be, and the below check will fail.
+    // Belt&Braces: consider putting in actual checks to assert the rest of the flags are `false`.
     assert_eq(
         kept_note_hashes_counter + num_squashed_pairs,
         NoteHashesLen,
@@ -112,6 +114,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a nullifier that is not squashed, the `kept_nullifiers_counter` will be smaller
     // than it should be, and the below check will fail.
+    // Belt&Braces: consider putting in actual checks to assert the rest of the flags are `false`.
     assert_eq(
         kept_nullifiers_counter + num_squashed_pairs,
         NullifiersLen,

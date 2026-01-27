@@ -6,7 +6,8 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct EthAddress {
-    inner: Field,
+    // TODO: consider creating a safe version which is range-checked at construction and an unsafe version.
+    inner: Field, // We defer the <= 20-byte range check to the tail circuit.
 }
 
 impl Empty for EthAddress {

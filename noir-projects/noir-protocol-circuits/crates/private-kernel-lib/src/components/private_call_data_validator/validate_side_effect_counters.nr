@@ -51,6 +51,8 @@ impl SideEffectCounter {
         self.global_index == MAX_U32_VALUE
     }
 
+    // Q: why don't we use counter=0 as "nullish"?
+    // Mike: (It does make me a bit nervous that we don't also assert the counter to be `0`, though. Mike: come back to this.)
     pub fn assert_null<let N: u32>(self, msg: str<N>) {
         assert_eq(self.global_index, MAX_U32_VALUE, msg);
     }

@@ -51,8 +51,9 @@ where
             // a read request by pointing to a valid `read_request_index`.
             for hint in self.hints.pending_read_hints {
                 assert_eq(
+                    // Q: should we also assert that hint.pending_value_index is also nullish, for peace of mind?
                     hint.read_request_index,
-                    ReadRequestLen,
+                    ReadRequestLen, // Why use this as the sentinel for "unused"? Would it be simpler to use MAX_U32?
                     "Unused pending read hint must not point to a read request",
                 );
             }
@@ -76,6 +77,12 @@ where
                 self.tree_root,
             );
         } else {
+            // I've put this static_assert here, but maybe I'm misunderstanding things.
+            std::static_assert(
+                self.hints.settled_read_hints.len() == 1,
+                "NAUGHTY",
+            );
+
             // Validate unused hints: Ensure that all index hints are set to `ReadRequestLen`.
             // This guarantees that the hints cannot be used in `validate_propagated_read_requests` to skip propagating
             // a read request by pointing to a valid `read_request_index`.

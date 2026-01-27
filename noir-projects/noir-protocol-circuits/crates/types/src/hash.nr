@@ -112,9 +112,10 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     let value = nullifier.innermost().value;
     // Q: shouldn't we be checking whether the _whole_ scoped, counted, nullifier struct is empty?
     // A: We don't have to. The init and inner circuits add a contract address only to non-empty nullifiers.
+    // MIKE: double-check the changes we made to assert_array_appended to ensure this is still true!!!
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
-        value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
+        // Q: perhaps this fn should mutate the nullifier's contract_address to 0, if needed?
     } else {
         compute_siloed_nullifier(nullifier.contract_address, value)
     }
@@ -150,7 +151,7 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
 pub fn compute_app_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_key_domain_separator: Field,
+    app_secret_key_domain_separator: Field, // Q: I'm not even sure if this is needed. Maybe it's protecting against a user who accidentally created the same nsk_m and ivpk_m, but I'm not sure why we'd want to protect against that. I can't find where it was decided we need it.
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],

@@ -12,7 +12,7 @@ pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
 pub struct PrivateLogData {
     pub log: Log<PRIVATE_LOG_SIZE_IN_FIELDS>,
     // The counter of the note hash this log is for. 0 if it does not link to a note hash.
-    pub note_hash_counter: u32,
+    pub note_hash_counter: u32, // TODO: consider renaming to `linked_note_hash_counter`, because I keep forgetting what this is for.
 }
 
 impl Empty for PrivateLogData {
