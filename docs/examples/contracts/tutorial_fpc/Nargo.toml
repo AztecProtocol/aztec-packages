@@ -1,5 +1,5 @@
 [package]
-name = "tutorial_fpc_contract"
+name = "tutorial_fpc"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"
