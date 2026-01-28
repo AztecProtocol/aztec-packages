@@ -118,7 +118,7 @@ case "$cmd" in
     # Args: <full_cmd> [commit]
     # full_cmd format: <hash>[:VAR=val]... <test_command>
     full_cmd="$1"
-    commit="${2:-HEAD}"
+    commit="${2:-}"
     # Extract test command (strip rebuild hash prefix) and hash it
     # Uses same hash as run_test_cmd's test_hash for consistency
     test_cmd="${full_cmd#* }"
