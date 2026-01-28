@@ -7,7 +7,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
 full_cmd="$1"
-commit="${2:-HEAD}"
+commit="${2:-$(git rev-parse HEAD)}"
 
 # Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MAKEFILE_TARGET, etc.)
 source $ci3/source_test_params
@@ -74,11 +74,10 @@ export SKIP_CI_PUBLISH=1
 export NO_FLAKE=1
 
 echo "Expecting all to fail if real failure, any pass if flake..."
-# --halt soon,success=1 stops all jobs as soon as one succeeds (exit 0)
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
 # Inject NAME=test-{} into hash prefix for unique logging keys
-if ! seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
+if ! seq 1 $GRIND_RUNS | parallel --halt now,success=1 -j $GRIND_RUNS --line-buffer \
     "run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
     echo "All initial runs failed, not a flake."
     exit 0
@@ -108,7 +107,7 @@ build
 
 # Grind to check if oldest commit is stable
 echo "Grinding $bisect_runs times to verify stability..."
-if seq 1 $bisect_runs | parallel --halt now,fail=1 -j $bisect_runs --line-buffer \
+if seq 1 $bisect_runs | parallel -j $bisect_runs --line-buffer \
     "run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else

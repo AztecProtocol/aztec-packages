@@ -294,7 +294,7 @@ function flake {
 [ $code -eq 0 ] && pass
 
 # We're not in CI, fail.
-[[ "$CI" -eq 0 || "$NO_FLAKE" -eq 1 ]] && fail
+[[ "$CI" -eq 0 || "${NO_FLAKE:-0}" -eq 1 ]] && fail
 
 # Get matching test entries
 test_entries=$(get_test_entry "$test_cmd" "$tmp_file")
