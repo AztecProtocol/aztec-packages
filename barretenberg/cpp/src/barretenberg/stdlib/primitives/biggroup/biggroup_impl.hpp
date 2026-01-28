@@ -887,12 +887,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
 
     // Subtract the skew factors (if any)
     for (size_t i = 0; i < msm_size; ++i) {
-        element skew = accumulator - points[i];
+        element skew = accumulator.subtract_internal(points[i]);
         accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
 
     // Subtract the scaled offset generator
-    accumulator = accumulator - offset_generator_end;
+    accumulator = accumulator.subtract_internal(offset_generator_end);
 
     return accumulator;
 }
