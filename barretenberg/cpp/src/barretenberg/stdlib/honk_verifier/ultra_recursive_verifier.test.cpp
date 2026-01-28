@@ -458,10 +458,15 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // We expect exactly one connected component (all variables properly connected)
         EXPECT_EQ(cc.size(), 1);
 
-        // The variable in one gate is the last Shplonk power we compute. It is computed even though it is not used
-        // because of how the PCS is structured (more precisely, because of the interaction between gemini and
-        // interleaving).
-        EXPECT_EQ(variables_in_one_gate.size(), 1);
+        // For UltraCircuitBuilder: The variable in one gate is the last Shplonk power we compute. It is computed
+        // even though it is not used because of how the PCS is structured (more precisely, because of the interaction
+        // between gemini and interleaving).
+        // For MegaCircuitBuilder: All variables are properly constrained.
+        if constexpr (IsMegaBuilder<OuterBuilder>) {
+            EXPECT_EQ(variables_in_one_gate.size(), 0);
+        } else {
+            EXPECT_EQ(variables_in_one_gate.size(), 1);
+        }
     }
 };
 

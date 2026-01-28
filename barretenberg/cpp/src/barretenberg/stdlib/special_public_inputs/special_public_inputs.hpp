@@ -426,8 +426,4 @@ class RollupIO {
         builder.ipa_proof = ipa_proof;
     };
 };
-
-// Note: DefaultRecursiveIO alias removed. Code should explicitly template on IO type (DefaultIO, RollupIO, etc.)
-// Use IO::HasIPA to check if an IO type includes IPA accumulator.
-
 } // namespace bb::stdlib::recursion::honk
