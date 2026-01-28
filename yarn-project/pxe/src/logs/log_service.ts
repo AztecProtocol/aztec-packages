@@ -1,5 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -20,7 +20,7 @@ import {
 } from '../tagging/index.js';
 
 export class LogService {
-  private log = createLogger('log_service');
+  private log: Logger;
 
   constructor(
     private readonly aztecNode: AztecNode,
@@ -31,7 +31,10 @@ export class LogService {
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
     private readonly jobId: string,
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('pxe:log_service', bindings);
+  }
 
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
     return await Promise.all(

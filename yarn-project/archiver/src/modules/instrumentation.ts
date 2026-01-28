@@ -10,6 +10,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {
@@ -48,15 +49,17 @@ export class ArchiverInstrumentation {
 
     this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT);
 
-    this.txCount = meter.createUpDownCounter(Metrics.ARCHIVER_TOTAL_TXS);
+    this.txCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_TOTAL_TXS);
 
-    this.proofsSubmittedCount = meter.createUpDownCounter(Metrics.ARCHIVER_ROLLUP_PROOF_COUNT);
+    this.proofsSubmittedCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_ROLLUP_PROOF_COUNT, {
+      [Attributes.PROOF_TIMED_OUT]: [true, false],
+    });
 
     this.proofsSubmittedDelay = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY);
 
     this.syncDurationPerBlock = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_BLOCK);
 
-    this.syncBlockCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_BLOCK_COUNT);
+    this.syncBlockCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_SYNC_BLOCK_COUNT);
 
     this.manaPerBlock = meter.createHistogram(Metrics.ARCHIVER_MANA_PER_BLOCK);
 
@@ -64,13 +67,19 @@ export class ArchiverInstrumentation {
 
     this.syncDurationPerMessage = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_MESSAGE);
 
-    this.syncMessageCount = meter.createUpDownCounter(Metrics.ARCHIVER_SYNC_MESSAGE_COUNT);
+    this.syncMessageCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_SYNC_MESSAGE_COUNT);
 
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
-    this.pruneCount = meter.createUpDownCounter(Metrics.ARCHIVER_PRUNE_COUNT);
+    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT);
 
-    this.blockProposalTxTargetCount = meter.createUpDownCounter(Metrics.ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT);
+    this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
+      meter,
+      Metrics.ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT,
+      {
+        [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: [true, false],
+      },
+    );
 
     this.dbMetrics = new LmdbMetrics(
       meter,
@@ -83,10 +92,6 @@ export class ArchiverInstrumentation {
 
   public static async new(telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
     const instance = new ArchiverInstrumentation(telemetry, lmdbStats);
-
-    instance.syncBlockCount.add(0);
-    instance.syncMessageCount.add(0);
-    instance.pruneCount.add(0);
 
     await instance.telemetry.flush();
 

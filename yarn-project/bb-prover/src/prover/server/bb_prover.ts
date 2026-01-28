@@ -463,6 +463,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.config.acvmWorkingDirectory,
       this.config.acvmBinaryPath,
       outputWitnessFile,
+      logger,
     );
 
     const artifact = getServerCircuitArtifact(circuitType);

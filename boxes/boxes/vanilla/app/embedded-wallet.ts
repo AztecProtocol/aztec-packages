@@ -125,9 +125,7 @@ export class EmbeddedWallet extends BaseWallet {
     const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXE(aztecNode, config, {
-      useLogSuffix: true,
-    });
+    const pxe = await createPXE(aztecNode, config, {});
 
     // Register Sponsored FPC Contract with PXE
     await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());

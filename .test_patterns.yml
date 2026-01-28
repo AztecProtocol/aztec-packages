@@ -29,6 +29,7 @@ names:
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
+  - martin: &martin "U09MZMSNZ96"
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
   - suyash: &suyash "U08QFSL6LPM"
@@ -355,3 +356,8 @@ tests:
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
       - *lasse
+
+  - regex: "yarn-project/scripts/run_test.sh pxe/src/notes/note_service.test.ts"
+    error_regex: "should remove notes that have been nullified"
+    owners:
+      - *martin

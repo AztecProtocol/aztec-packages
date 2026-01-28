@@ -1,7 +1,15 @@
-use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars::StateVariable, utils::WithHash};
+use crate::{
+    context::{PrivateContext, PublicContext, UtilityContext},
+    nullifier::utils::compute_nullifier_existence_request,
+    oracle::nullifiers::check_nullifier_exists,
+    state_vars::StateVariable,
+    utils::WithHash,
+};
 use crate::protocol::{
     constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable,
 };
+
+mod test;
 
 /// Immutable public values.
 ///
@@ -249,8 +257,14 @@ impl<T> PublicImmutable<T, UtilityContext> {
     where
         T: Packable + Eq,
     {
-        // TODO(#15703): this fn should fail if the variable is not initialized
+        assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
         WithHash::utility_public_storage_read(self.context, self.storage_slot)
+    }
+
+    /// Returns true if the `PublicImmutable` has been initialized.
+    pub unconstrained fn is_initialized(self) -> bool {
+        let nullifier = self.compute_initialization_inner_nullifier();
+        check_nullifier_exists(nullifier)
     }
 }
 
@@ -270,10 +284,11 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     ///
     /// ## Cost
     ///
-    /// A historical public storage read at the anchor block is performed for a single storage slot, **regardless of
-    /// `T`'s packed length**. This is because [PublicImmutable::initialize] stores not just the value but also its
-    /// hash: this function obtains the preimage from an oracle and proves that it matches the hash from public
-    /// storage.
+    /// A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
+    /// Additionally, a historical public storage read at the anchor block is performed for a single storage slot,
+    /// **regardless of `T`'s packed length**. This is because [PublicImmutable::initialize] stores not just the value
+    /// but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash from
+    /// public storage.
     ///
     /// Because of this reason it is convenient to group together all of a contract's public immutable values that are
     /// read privately in a single type `T`:
@@ -302,7 +317,17 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     where
         T: Packable + Eq,
     {
-        // TODO(#15703): this fn should fail if the variable is not initialized
+        let nullifier = self.compute_initialization_inner_nullifier();
+
+        // Safety: We use this check to be able to test this function works properly on synthetic envs
+        // like TXE. We assert the returned value only to provide a clear error message. The actual
+        // constrained check that the nullifier exists is done below with `assert_nullifier_exists`
+        // We should improve our synthetic envs because this check forces an unnecesary roundtrip
+        let nullifier_exists = unsafe { check_nullifier_exists(nullifier) };
+        assert(nullifier_exists, "Trying to read from uninitialized PublicImmutable");
+
+        let nullifier_existence_request = compute_nullifier_existence_request(nullifier, self.context.this_address());
+        self.context.assert_nullifier_exists(nullifier_existence_request);
         WithHash::historical_public_storage_read(
             self.context.get_anchor_block_header(),
             self.context.this_address(),

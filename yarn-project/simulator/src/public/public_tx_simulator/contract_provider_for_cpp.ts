@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { ContractProvider } from '@aztec/native';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { deserializeFromMessagePack, serializeWithMessagePack } from '@aztec/stdlib/avm';
@@ -10,12 +10,15 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 import type { PublicContractsDB } from '../public_db_sources.js';
 
 export class ContractProviderForCpp implements ContractProvider {
-  private log: Logger = createLogger('simulator:contract_provider_for_cpp');
+  private log: Logger;
 
   constructor(
     private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('simulator:contract_provider_for_cpp', bindings);
+  }
 
   public getContractInstance = async (address: string): Promise<Buffer | undefined> => {
     this.log.trace(`Contract provider callback: getContractInstance(${address})`);

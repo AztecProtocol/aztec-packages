@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import {
   AggregateTxValidator,
@@ -53,32 +54,41 @@ export function createValidatorForAcceptingTxs(
     blockNumber: BlockNumber;
     txsPermitted: boolean;
   },
+  bindings?: LoggerBindings,
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
-    new TxPermittedValidator(txsPermitted),
-    new SizeTxValidator(),
-    new DataTxValidator(),
-    new MetadataTxValidator({
-      l1ChainId: new Fr(l1ChainId),
-      rollupVersion: new Fr(rollupVersion),
-      protocolContractsHash,
-      vkTreeRoot: getVKTreeRoot(),
-    }),
-    new TimestampTxValidator({
-      timestamp,
-      blockNumber,
-    }),
-    new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
-    new BlockHeaderTxValidator(new ArchiveCache(db)),
+    new TxPermittedValidator(txsPermitted, bindings),
+    new SizeTxValidator(bindings),
+    new DataTxValidator(bindings),
+    new MetadataTxValidator(
+      {
+        l1ChainId: new Fr(l1ChainId),
+        rollupVersion: new Fr(rollupVersion),
+        protocolContractsHash,
+        vkTreeRoot: getVKTreeRoot(),
+      },
+      bindings,
+    ),
+    new TimestampTxValidator(
+      {
+        timestamp,
+        blockNumber,
+      },
+      bindings,
+    ),
+    new DoubleSpendTxValidator(new NullifierCache(db), bindings),
+    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp, bindings),
+    new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
   ];
 
   if (!skipFeeEnforcement) {
-    validators.push(new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees));
+    validators.push(
+      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings),
+    );
   }
 
   if (verifier) {
-    validators.push(new TxProofValidator(verifier));
+    validators.push(new TxProofValidator(verifier, bindings));
   }
 
   return new AggregateTxValidator(...validators);
@@ -89,6 +99,7 @@ export function createValidatorForBlockBuilding(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
+  bindings?: LoggerBindings,
 ): PublicProcessorValidator {
   const nullifierCache = new NullifierCache(db);
   const archiveCache = new ArchiveCache(db);
@@ -102,6 +113,7 @@ export function createValidatorForBlockBuilding(
       contractDataSource,
       globalVariables,
       setupAllowList,
+      bindings,
     ),
     nullifierCache,
   };
@@ -114,22 +126,29 @@ function preprocessValidator(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
+  bindings?: LoggerBindings,
 ): TxValidator<Tx> {
   // We don't include the TxProofValidator nor the DataTxValidator here because they are already checked by the time we get to block building.
   return new AggregateTxValidator(
-    new MetadataTxValidator({
-      l1ChainId: globalVariables.chainId,
-      rollupVersion: globalVariables.version,
-      protocolContractsHash,
-      vkTreeRoot: getVKTreeRoot(),
-    }),
-    new TimestampTxValidator({
-      timestamp: globalVariables.timestamp,
-      blockNumber: globalVariables.blockNumber,
-    }),
-    new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),
-    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
-    new BlockHeaderTxValidator(archiveCache),
+    new MetadataTxValidator(
+      {
+        l1ChainId: globalVariables.chainId,
+        rollupVersion: globalVariables.version,
+        protocolContractsHash,
+        vkTreeRoot: getVKTreeRoot(),
+      },
+      bindings,
+    ),
+    new TimestampTxValidator(
+      {
+        timestamp: globalVariables.timestamp,
+        blockNumber: globalVariables.blockNumber,
+      },
+      bindings,
+    ),
+    new DoubleSpendTxValidator(nullifierCache, bindings),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
+    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
+    new BlockHeaderTxValidator(archiveCache, bindings),
   );
 }

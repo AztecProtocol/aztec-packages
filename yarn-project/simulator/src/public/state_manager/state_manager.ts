@@ -2,7 +2,7 @@ import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS } f
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type LogLevel, createLogger } from '@aztec/foundation/log';
+import { type LogLevel, type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -42,7 +42,7 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class PublicPersistableStateManager {
-  private readonly log = createLogger('simulator:state_manager');
+  private readonly log: Logger;
 
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
@@ -56,7 +56,10 @@ export class PublicPersistableStateManager {
     private readonly doMerkleOperations: boolean = true,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('simulator:state_manager', bindings);
+  }
 
   /**
    * Create a new state manager
@@ -67,8 +70,19 @@ export class PublicPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     firstNullifier: Fr,
     timestamp: UInt64,
+    bindings?: LoggerBindings,
   ): PublicPersistableStateManager {
-    return new PublicPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, timestamp);
+    return new PublicPersistableStateManager(
+      treesDB,
+      contractsDB,
+      trace,
+      firstNullifier,
+      timestamp,
+      undefined,
+      undefined,
+      undefined,
+      bindings,
+    );
   }
 
   /**
@@ -85,6 +99,7 @@ export class PublicPersistableStateManager {
       this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
+      this.log.getBindings(),
     );
   }
 
