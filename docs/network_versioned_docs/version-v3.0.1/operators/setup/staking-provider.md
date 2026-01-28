@@ -22,8 +22,7 @@ Before proceeding, ensure you have:
 - Aztec CLI v3.0.1 or later installed:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
-aztec-up 3.0.1
+bash -i <(curl -s https://install.aztec.network/3.0.1/aztec-install)
 ```
 
 ### Contract Addresses

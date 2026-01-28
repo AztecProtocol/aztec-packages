@@ -36,16 +36,10 @@ If you're new to Aztec and want to understand local development first, check out
 Before working with devnet, ensure you have:
 
 1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI installed:
+2. Aztec CLI with devnet version installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network)
-```
-
-3. The devnet version installed:
-
-```bash
-aztec-up 3.0.0-devnet.6-patch.1
+bash -i <(curl -s https://install.aztec.network/3.0.0-devnet.6-patch.1/aztec-install)
 ```
 
 :::warning

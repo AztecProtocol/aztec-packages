@@ -28,7 +28,7 @@ Before creating keystores, ensure you have:
 First, install the Aztec CLI using the official installer:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network/3.0.1/)
+bash -i <(curl -s https://install.aztec.network/3.0.1/aztec-install)
 ```
 
 Verify your CLI installation:

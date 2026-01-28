@@ -43,13 +43,7 @@ Docker needs to be running in order to install the local network. Find instructi
 Run:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
-```
-
-Once the installation is complete, install the specific version:
-
-```bash
-aztec-up 3.0.0-devnet.6-patch.1
+bash -i <(curl -s https://install.aztec.network/3.0.0-devnet.6-patch.1/aztec-install)
 ```
 
 This will install the following tools:
