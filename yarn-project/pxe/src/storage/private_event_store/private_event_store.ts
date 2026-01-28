@@ -131,78 +131,76 @@ export class PrivateEventStore implements StagedStore {
    * @returns - The event log contents, augmented with metadata about the transaction and block in which the event was
    * included.
    */
-  public getPrivateEvents(
+  public async getPrivateEvents(
     eventSelector: EventSelector,
     filter: PrivateEventStoreFilter,
   ): Promise<PackedPrivateEvent[]> {
-    return this.#store.transactionAsync(async () => {
-      const events: Array<{
-        l2BlockNumber: number;
-        txIndexInBlock: number;
-        eventIndexInTx: number;
-        event: PackedPrivateEvent;
-      }> = [];
+    const events: Array<{
+      l2BlockNumber: number;
+      txIndexInBlock: number;
+      eventIndexInTx: number;
+      event: PackedPrivateEvent;
+    }> = [];
 
-      const key = this.#keyFor(filter.contractAddress, eventSelector);
-      const targetScopes = new Set(filter.scopes.map(s => s.toString()));
+    const key = this.#keyFor(filter.contractAddress, eventSelector);
+    const targetScopes = new Set(filter.scopes.map(s => s.toString()));
 
-      const eventIds: string[] = await toArray(this.#eventsByContractAndEventSelector.getValuesAsync(key));
+    const eventIds: string[] = await toArray(this.#eventsByContractAndEventSelector.getValuesAsync(key));
 
-      for (const eventId of eventIds) {
-        const eventBuffer = await this.#events.getAsync(eventId);
+    for (const eventId of eventIds) {
+      const eventBuffer = await this.#events.getAsync(eventId);
 
-        // Defensive, if it happens, there's a problem with how we're handling #eventsByContractAndEventSelector
-        if (!eventBuffer) {
-          this.logger.verbose(
-            `EventId ${eventId} does not exist in main index but it is referenced from contract event selector index`,
-          );
-          continue;
-        }
-
-        const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
-
-        // Filter by block range
-        if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
-          continue;
-        }
-
-        // Filter by scopes
-        if (storedPrivateEvent.scopes.intersection(targetScopes).size === 0) {
-          continue;
-        }
-
-        // Filter by txHash
-        if (filter.txHash && !storedPrivateEvent.txHash.equals(filter.txHash)) {
-          continue;
-        }
-
-        events.push({
-          l2BlockNumber: storedPrivateEvent.l2BlockNumber,
-          txIndexInBlock: storedPrivateEvent.txIndexInBlock,
-          eventIndexInTx: storedPrivateEvent.eventIndexInTx,
-          event: {
-            packedEvent: storedPrivateEvent.msgContent,
-            l2BlockNumber: BlockNumber(storedPrivateEvent.l2BlockNumber),
-            txHash: storedPrivateEvent.txHash,
-            l2BlockHash: storedPrivateEvent.l2BlockHash,
-            eventSelector,
-          },
-        });
+      // Defensive, if it happens, there's a problem with how we're handling #eventsByContractAndEventSelector
+      if (!eventBuffer) {
+        this.logger.verbose(
+          `EventId ${eventId} does not exist in main index but it is referenced from contract event selector index`,
+        );
+        continue;
       }
 
-      // Sort by block number, then by tx index within block, then by event index within tx
-      events.sort((a, b) => {
-        if (a.l2BlockNumber !== b.l2BlockNumber) {
-          return a.l2BlockNumber - b.l2BlockNumber;
-        }
-        if (a.txIndexInBlock !== b.txIndexInBlock) {
-          return a.txIndexInBlock - b.txIndexInBlock;
-        }
-        return a.eventIndexInTx - b.eventIndexInTx;
-      });
+      const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
 
-      return events.map(ev => ev.event);
+      // Filter by block range
+      if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
+        continue;
+      }
+
+      // Filter by scopes
+      if (storedPrivateEvent.scopes.intersection(targetScopes).size === 0) {
+        continue;
+      }
+
+      // Filter by txHash
+      if (filter.txHash && !storedPrivateEvent.txHash.equals(filter.txHash)) {
+        continue;
+      }
+
+      events.push({
+        l2BlockNumber: storedPrivateEvent.l2BlockNumber,
+        txIndexInBlock: storedPrivateEvent.txIndexInBlock,
+        eventIndexInTx: storedPrivateEvent.eventIndexInTx,
+        event: {
+          packedEvent: storedPrivateEvent.msgContent,
+          l2BlockNumber: BlockNumber(storedPrivateEvent.l2BlockNumber),
+          txHash: storedPrivateEvent.txHash,
+          l2BlockHash: storedPrivateEvent.l2BlockHash,
+          eventSelector,
+        },
+      });
+    }
+
+    // Sort by block number, then by tx index within block, then by event index within tx
+    events.sort((a, b) => {
+      if (a.l2BlockNumber !== b.l2BlockNumber) {
+        return a.l2BlockNumber - b.l2BlockNumber;
+      }
+      if (a.txIndexInBlock !== b.txIndexInBlock) {
+        return a.txIndexInBlock - b.txIndexInBlock;
+      }
+      return a.eventIndexInTx - b.eventIndexInTx;
     });
+
+    return events.map(ev => ev.event);
   }
 
   /**
