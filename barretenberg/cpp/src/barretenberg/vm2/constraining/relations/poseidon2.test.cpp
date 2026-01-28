@@ -11,6 +11,10 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
@@ -24,6 +28,15 @@
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
+
+// Imports for class_id_derivation-based vulnerability test
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
+#include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 
 namespace bb::avm2::constraining {
 
@@ -426,6 +439,171 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidAddressRange)
 
     check_relation<poseidon2_mem>(trace);
     check_all_interactions<Poseidon2TraceBuilder>(trace);
+}
+
+///////////////////////////
+// Regression Test: start * (1 - sel) = 0 constraint
+///////////////////////////
+
+// This test verifies that the SELECTOR_ON_START constraint in poseidon2_hash.pil
+// correctly prevents a malicious prover from setting start=1 on inactive rows (sel=0).
+//
+// Previously, this was a vulnerability where a prover could forge hash results by
+// creating rows with start=1, sel=0, and arbitrary inputs/outputs.
+//
+// The fix adds:
+//   #[SELECTOR_ON_START]
+//   start * (1 - sel) = 0;
+//
+// This mirrors the existing protection for `end` and matches merkle_check.pil.
+TEST_F(Poseidon2ConstrainingTest, StartSelectorIsProtected)
+{
+    // Create a trace where start=1 but sel=0
+    // This represents a forged row that a malicious prover would try to create
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // ATTACK ATTEMPT: sel=0 but start=1
+            // This is now BLOCKED by SELECTOR_ON_START constraint
+            { C::poseidon2_hash_sel, 0 },
+            { C::poseidon2_hash_start, 1 },
+            { C::poseidon2_hash_end, 0 },
+            // Arbitrary inputs - attacker would try to claim fake hash
+            { C::poseidon2_hash_input_0, FF(0xDEADBEEF) },
+            { C::poseidon2_hash_input_1, FF(0xCAFEBABE) },
+            { C::poseidon2_hash_input_2, FF(0x12345678) },
+            { C::poseidon2_hash_output, FF(0x999999) },
+            { C::poseidon2_hash_num_perm_rounds_rem, 2 },
+            { C::poseidon2_hash_input_len, 4 },
+            { C::poseidon2_hash_padding, 2 },
+        },
+    });
+
+    // FIX VERIFIED: The SELECTOR_ON_START constraint now catches this attack
+    EXPECT_THROW_WITH_MESSAGE(check_relation<poseidon2_hash>(trace, poseidon2_hash::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
+}
+
+// This test verifies that the SELECTOR_ON_START fix blocks the class_id forgery attack.
+// Previously, an attacker could claim (real_artifact, real_private_root, real_bytecode) → FAKE_class_id
+// by forging a start row with sel=0, start=1.
+// Now the fix blocks this by requiring start=1 implies sel=1.
+TEST_F(Poseidon2ConstrainingTest, FakeClassIdAttackIsBlocked)
+{
+    using simulation::ClassIdDerivation;
+    using simulation::ClassIdDerivationEvent;
+    using tracegen::ClassIdDerivationTraceBuilder;
+    using class_id_derivation = bb::avm2::class_id_derivation<FF>;
+
+    // =========================================================================
+    // STEP 1: Define the REAL contract class that the attacker wants to target
+    // =========================================================================
+    FF real_artifact_hash = FF(0x1111);
+    FF real_private_functions_root = FF(0x2222);
+    FF real_bytecode_commitment = FF(0x3333);
+
+    // This is the REAL class_id that should be derived
+    FF real_class_id = poseidon2.hash(
+        { FF(DOM_SEP__CONTRACT_CLASS_ID), real_artifact_hash, real_private_functions_root, real_bytecode_commitment });
+
+    // =========================================================================
+    // STEP 2: Attacker creates a VALID computation using the REAL bytecode
+    // =========================================================================
+    // The attacker chooses arbitrary first-round inputs but uses the REAL bytecode
+    // in the second round. This gives them a valid end row with (real_bytecode, 0, 0).
+    FF attacker_artifact = FF(0xAAAA);
+    FF attacker_private_root = FF(0xBBBB);
+    FF attacker_bytecode = real_bytecode_commitment; // Use the REAL bytecode
+
+    // Compute the FAKE class_id using the attacker's chosen inputs + real bytecode
+    FF fake_class_id =
+        poseidon2.hash({ FF(DOM_SEP__CONTRACT_CLASS_ID), attacker_artifact, attacker_private_root, attacker_bytecode });
+
+    ASSERT_NE(fake_class_id, real_class_id);
+
+    // =========================================================================
+    // STEP 3: Use ClassIdDerivation simulator to generate VALID trace for attacker's computation
+    // =========================================================================
+    EventEmitter<ClassIdDerivationEvent> attacker_class_id_emitter;
+    ClassIdDerivation attacker_class_id_sim(poseidon2, attacker_class_id_emitter);
+
+    ContractClassWithCommitment attacker_klass;
+    attacker_klass.id = fake_class_id;
+    attacker_klass.artifact_hash = attacker_artifact;
+    attacker_klass.private_functions_root = attacker_private_root;
+    attacker_klass.public_bytecode_commitment = attacker_bytecode;
+
+    attacker_class_id_sim.assert_derivation(attacker_klass);
+
+    // =========================================================================
+    // STEP 4: Build the trace with the attacker's VALID computation
+    // =========================================================================
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 }, { C::precomputed_zero, 0 } },
+    });
+
+    Poseidon2TraceBuilder poseidon2_builder;
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    ClassIdDerivationTraceBuilder class_id_builder;
+    class_id_builder.process(attacker_class_id_emitter.dump_events(), trace);
+
+    // =========================================================================
+    // STEP 5: Verify the attacker's computation is valid (before the attack)
+    // =========================================================================
+    check_relation<poseidon2_hash>(trace);
+    check_relation<class_id_derivation>(trace);
+
+    // =========================================================================
+    // STEP 6: ATTACK ATTEMPT - Claim the REAL inputs produce the FAKE class_id
+    // =========================================================================
+    uint32_t class_id_row = 0;
+    trace.set(class_id_row,
+              { {
+                  { C::class_id_derivation_sel, 1 },
+                  { C::class_id_derivation_class_id, fake_class_id },
+                  { C::class_id_derivation_artifact_hash, real_artifact_hash },
+                  { C::class_id_derivation_private_functions_root, real_private_functions_root },
+                  { C::class_id_derivation_public_bytecode_commitment, real_bytecode_commitment },
+                  { C::class_id_derivation_gen_index_contract_class_id, FF(DOM_SEP__CONTRACT_CLASS_ID) },
+                  { C::class_id_derivation_const_four, 4 },
+              } });
+
+    // =========================================================================
+    // STEP 7: Add FORGED start row (this is what the fix blocks)
+    // =========================================================================
+    uint32_t forged_row = trace.get_num_rows();
+    trace.set(forged_row,
+              { {
+                  { C::poseidon2_hash_sel, 0 },   // INACTIVE
+                  { C::poseidon2_hash_start, 1 }, // FORGED start - now blocked by SELECTOR_ON_START!
+                  { C::poseidon2_hash_end, 0 },
+                  { C::poseidon2_hash_input_0, FF(DOM_SEP__CONTRACT_CLASS_ID) },
+                  { C::poseidon2_hash_input_1, real_artifact_hash },
+                  { C::poseidon2_hash_input_2, real_private_functions_root },
+                  { C::poseidon2_hash_output, fake_class_id },
+                  { C::poseidon2_hash_num_perm_rounds_rem, 2 },
+                  { C::poseidon2_hash_input_len, 4 },
+                  { C::poseidon2_hash_padding, 2 },
+              } });
+
+    // =========================================================================
+    // STEP 8: FIX VERIFIED - The SELECTOR_ON_START constraint blocks the attack
+    // =========================================================================
+    // The forged row has start=1 but sel=0, which violates: start * (1 - sel) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<poseidon2_hash>(trace, poseidon2_hash::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
+
+    // class_id_derivation relations still pass (the attack is blocked at the poseidon2_hash level)
+    check_relation<class_id_derivation>(trace);
+
+    // =========================================================================
+    // ATTACK BLOCKED: The class_id forgery is no longer possible
+    // =========================================================================
+    // Previously, an attacker could claim ANY class_id for ANY contract inputs.
+    // Now the SELECTOR_ON_START constraint ensures that start=1 requires sel=1,
+    // meaning all poseidon2 constraints must be satisfied on start rows.
+    // This makes it cryptographically infeasible to forge hash results.
 }
 
 } // namespace bb::avm2::constraining

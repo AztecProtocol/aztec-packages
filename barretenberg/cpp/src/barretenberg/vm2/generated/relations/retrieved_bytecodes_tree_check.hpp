@@ -14,7 +14,7 @@ template <typename FF_> class retrieved_bytecodes_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 2, 3, 3, 3, 5, 3, 5 };
+    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 2, 3, 3, 3, 3, 5, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,8 +35,8 @@ template <typename FF> class retrieved_bytecodes_tree_check : public Relation<re
     static constexpr const std::string_view NAME = "retrieved_bytecodes_tree_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_CHECK = 9;
-    static constexpr size_t SR_NEXT_CLASS_ID_IS_ZERO_CHECK = 11;
+    static constexpr size_t SR_EXISTS_CHECK = 10;
+    static constexpr size_t SR_NEXT_CLASS_ID_IS_ZERO_CHECK = 12;
 
     static std::string get_subrelation_label(size_t index)
     {
