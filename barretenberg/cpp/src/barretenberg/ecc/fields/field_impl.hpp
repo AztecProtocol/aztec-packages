@@ -706,7 +706,9 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
     }
     // Final result: sqrt(u) = uv * g^{-e/2} = u^{(Q+1)/2} * g^{-e/2}
     auto result = uv * g_pow_minus_e_over_2;
-    BB_ASSERT_DEBUG(result * result == *this, "Tonelli-Shanks sqrt verification failed");
+    if (result * result != *this) {
+        bb::assert_failure("Tonelli-Shanks sqrt verification failed");
+    }
     return result;
 }
 
