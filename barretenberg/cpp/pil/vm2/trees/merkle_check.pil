@@ -122,9 +122,15 @@ namespace merkle_check;
     #[SELECTOR_ON_START_OR_END]
     (start + end) * (1 - sel) = 0;
 
+    // Prevent merkle_check from being active on the first row.
+    // Without this, LATCH_CONDITION = end + precomputed.first_row is always >= 1
+    // at row 0, which relaxes all propagation constraints from row 0 to row 1.
+    #[NO_ACTIVITY_ON_FIRST_ROW]
+    sel * precomputed.first_row = 0;
+
     // LATCH_CONDITION is true if either `end` is 1 or `first_row` is 1
     // LATCH_CONDITION is a boolean because `end` cannot be 1 on the first row (as `sel == 1` when `end == 1`
-    // and `sel == 0` on first row)
+    // and `sel == 0` on first row, enforced by NO_ACTIVITY_ON_FIRST_ROW)
     pol LATCH_CONDITION = end + precomputed.first_row;
 
     #[PROPAGATE_READ_ROOT]

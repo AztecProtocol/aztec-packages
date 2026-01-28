@@ -714,39 +714,37 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithInteractions)
 }
 
 // ============================================================================
-// EXPLOIT TESTS: Proof-of-concept for the LATCH_CONDITION row 0 vulnerability
+// REGRESSION TESTS: Verify NO_ACTIVITY_ON_FIRST_ROW blocks the LATCH_CONDITION exploit
 // ============================================================================
 //
-// VULNERABILITY SUMMARY:
+// BACKGROUND (the vulnerability that was fixed):
 // merkle_check.pil defines: pol LATCH_CONDITION = end + precomputed.first_row;
 // Propagation constraints use: (1 - LATCH_CONDITION) * (value' - value) = 0
 //
 // At row 0 (first_row=1), LATCH_CONDITION = end + 1 >= 1, so (1 - LATCH_CONDITION) = 0
 // regardless of `end`. This means propagation from row 0 to row 1 is ALWAYS relaxed.
 //
-// A malicious prover can start a multi-row merkle check at row 0. The caller's lookup
-// binds read_root = R_real at the start row (row 0). But the prover can set
-// read_root = R_fake at row 1 (and onwards), and the end-row check verifies against
-// R_fake. The caller is deceived into thinking the proof is against R_real.
+// Without a guard, a malicious prover could start a multi-row merkle check at row 0,
+// allowing read_root to change from row 0 to row 1 undetected.
 //
-// MISSING CONSTRAINT: sel * precomputed.first_row = 0
-// (Other gadgets like emit_unencrypted_log, scalar_mul, to_radix all have equivalent guards.)
+// FIX: The constraint `sel * precomputed.first_row = 0` (#[NO_ACTIVITY_ON_FIRST_ROW])
+// prevents merkle_check from being active at row 0, blocking this attack.
+//
+// These tests verify the fix works by constructing exploit traces and confirming
+// they are rejected by the NO_ACTIVITY_ON_FIRST_ROW constraint.
 
 /**
- * EXPLOIT TEST: Demonstrates that a malicious prover can fake a merkle membership proof.
+ * REGRESSION TEST: Verify NO_ACTIVITY_ON_FIRST_ROW blocks a manual exploit trace.
  *
- * The trace has a 2-layer merkle check starting at row 0 (the first_row).
- * - Row 0: start=1, end=0, read_root=R_real (what the caller sees via lookup)
- * - Row 1: start=0, end=1, read_root=R_fake (what the proof actually verifies against)
+ * This test constructs a 2-layer merkle check starting at row 0 (the first_row):
+ * - Row 0: start=1, end=0, read_root=R_real
+ * - Row 1: start=0, end=1, read_root=R_fake
  *
- * LATCH_CONDITION=1 at row 0 (from first_row alone) relaxes all propagation constraints,
- * allowing the prover to substitute a completely different root and node chain at row 1.
+ * Without the fix, LATCH_CONDITION=1 at row 0 would relax propagation constraints,
+ * allowing read_root to change from R_real to R_fake undetected.
  *
- * The test verifies:
- * 1. R_real != R_fake (the roots are genuinely different)
- * 2. check_relation passes for ALL merkle_check subrelations (exploit works)
- * 3. check_interaction passes for the nullifier_check -> merkle_check lookup
- *    (the caller is deceived: it sees R_real, but the proof is against R_fake)
+ * With the fix, the constraint `sel * precomputed.first_row = 0` rejects this trace
+ * because sel=1 at row 0.
  */
 TEST(MerkleCheckConstrainingTest, ExploitFirstRowLatchConditionBypass)
 {
@@ -830,76 +828,32 @@ TEST(MerkleCheckConstrainingTest, ExploitFirstRowLatchConditionBypass)
     });
 
     // ========================================================================
-    // Step 4: Verify ALL merkle_check relations pass - THIS IS THE EXPLOIT
+    // Step 4: Verify the exploit is BLOCKED by the NO_ACTIVITY_ON_FIRST_ROW constraint
     // ========================================================================
-    // BUG: This should FAIL because read_root changes from R_real (row 0) to R_fake (row 1),
-    // violating the PROPAGATE_READ_ROOT constraint: (1 - LATCH_CONDITION) * (read_root' - read_root) = 0
+    // The exploit trace has sel=1 at row 0, which violates the constraint:
+    //   sel * precomputed.first_row = 0
     //
-    // However, at row 0, LATCH_CONDITION = end + first_row = 0 + 1 = 1, so (1 - LATCH_CONDITION) = 0
-    // and the constraint is trivially satisfied regardless of whether read_root changes.
-    //
-    // FIX: Add constraint `sel * precomputed.first_row = 0` to prevent merkle_check activity at row 0.
-    EXPECT_NO_THROW(check_relation<merkle_check>(trace))
-        << "BUG: All merkle_check relations pass despite read_root changing from R_real to R_fake. "
-           "The missing constraint `sel * first_row = 0` would block this.";
+    // This constraint prevents merkle_check from being active at row 0, blocking the attack
+    // where a malicious prover would exploit LATCH_CONDITION=1 at row 0 to break propagation.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "NO_ACTIVITY_ON_FIRST_ROW");
 
-    // ========================================================================
-    // Step 5: Verify the caller-side lookup also passes (nullifier_check -> merkle_check)
-    // ========================================================================
-    // Set up a nullifier_check row that looks up the merkle_check start row.
-    // The caller provides root = R_real, expecting a valid proof against R_real.
-    // The lookup matches because the start row (row 0) has read_root = R_real.
-    //
-    // Lookup columns (from lookup_nullifier_check_low_leaf_merkle_check_settings):
-    //   SRC: (should_insert, low_leaf_hash,    updated_low_leaf_hash, low_leaf_index, tree_height, root,
-    //   intermediate_root) DST: (write,         read_node,         write_node,            index,          path_len,
-    //   read_root, write_root)
-    //
-    // We place the nullifier_check source at row 0 (coexists with merkle_check columns).
-    trace.set(0,
-              { {
-                  { C::nullifier_check_sel, 1 },
-                  { C::nullifier_check_should_insert, 0 },           // read-only (write=0)
-                  { C::nullifier_check_low_leaf_hash, leaf },        // matches read_node
-                  { C::nullifier_check_updated_low_leaf_hash, 0 },   // matches write_node=0
-                  { C::nullifier_check_low_leaf_index, leaf_index }, // matches index
-                  { C::nullifier_check_tree_height, 2 },             // matches path_len
-                  { C::nullifier_check_root, R_real },               // <-- CALLER EXPECTS THIS ROOT
-                  { C::nullifier_check_intermediate_root, 0 },       // matches write_root=0
-              } });
-
-    // The lookup from nullifier_check into merkle_check.start finds a match at row 0.
-    // The caller (nullifier_check) believes it verified a merkle proof against R_real,
-    // but the actual computation at row 1 verified against R_fake.
-    //
-    // This demonstrates the full attack: a malicious prover can convince a verifier that
-    // a leaf exists in tree with root R_real, when actually the proof was for a different tree.
-    EXPECT_NO_THROW(
-        (check_interaction<NullifierTreeCheckTraceBuilder, lookup_nullifier_check_low_leaf_merkle_check_settings>(
-            trace)))
-        << "BUG: Lookup passes, so caller believes proof is against R_real, but it actually verified R_fake.";
+    // The relation check already rejects the trace, so there's no need to test the lookup.
+    // The exploit is blocked at the relation level before any lookup matching can occur.
 }
 
 /**
- * SHIFT-BASED EXPLOIT: Uses the full simulation pipeline to demonstrate the vulnerability.
+ * REGRESSION TEST: Verify NO_ACTIVITY_ON_FIRST_ROW blocks a shift-based exploit.
  *
- * This test generates a legitimate 42-level merkle proof via the tracegen pipeline, then shifts
- * all merkle_check rows from 1..42 to 0..41. After shifting:
- *   - Row 0 has start=1, path_len=42, read_root=R_legit (initially)
+ * This test uses the full simulation pipeline to generate a legitimate 42-level merkle proof,
+ * then shifts all merkle_check rows from 1..42 to 0..41. After shifting:
+ *   - Row 0 has start=1, path_len=42, read_root=R_legit (then changed to R_fake)
  *   - Row 41 has end=1, read_root=R_legit
  *
- * The exploit then changes ONLY read_root at row 0 to R_fake. Because LATCH_CONDITION=1 at row 0
- * (from first_row alone), the propagation constraint is relaxed and read_root can change from
- * R_fake (row 0) to R_legit (row 1) without detection.
+ * Without the fix, LATCH_CONDITION=1 at row 0 would allow read_root to change from R_fake
+ * (row 0) to R_legit (row 1) undetected, deceiving the caller.
  *
- * The caller (nullifier_check) looks up the merkle_check start row and sees root=R_fake, but
- * the actual 42-level computation at rows 1..41 verifies against R_legit.
- *
- * Only 2 mutations needed after shifting:
- *   1. Set read_root=R_fake at row 0
- *   2. Set nullifier_check_root=R_fake at row 0
- *
- * No changes to tree_height, low_leaf_index, or path_len - all lookup columns match naturally.
+ * With the fix, the constraint `sel * precomputed.first_row = 0` rejects this trace
+ * because the shifted trace has sel=1 at row 0.
  */
 TEST(MerkleCheckConstrainingTest, ExploitShiftRowsAttack)
 {
@@ -1050,31 +1004,17 @@ TEST(MerkleCheckConstrainingTest, ExploitShiftRowsAttack)
     // All lookup columns match naturally after the shift.
 
     // ========================================================================
-    // Step 7: Verify the EXPLOIT - relations and lookup pass
+    // Step 7: Verify the exploit is BLOCKED by the NO_ACTIVITY_ON_FIRST_ROW constraint
     // ========================================================================
-    // BUG: This should FAIL because read_root changes from R_fake (row 0) to R_legit (row 1).
-    // The PROPAGATE_READ_ROOT constraint should catch this: (1 - LATCH_CONDITION) * (read_root' - read_root) = 0
+    // The shifted trace has sel=1 at row 0, which violates the constraint:
+    //   sel * precomputed.first_row = 0
     //
-    // However, at row 0, LATCH_CONDITION = end + first_row = 0 + 1 = 1, so (1 - LATCH_CONDITION) = 0
-    // and the constraint passes trivially, allowing read_root to change undetected.
-    //
-    // FIX: Add constraint `sel * precomputed.first_row = 0` to prevent merkle_check activity at row 0.
-    EXPECT_NO_THROW(check_relation<merkle_check>(trace))
-        << "BUG: All merkle_check relations pass despite read_root being R_fake at row 0 "
-           "and R_legit at rows 1..41. The missing constraint `sel * first_row = 0` would block this.";
+    // This constraint prevents merkle_check from being active at row 0, blocking the attack
+    // where a malicious prover would exploit LATCH_CONDITION=1 at row 0 to break propagation.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "NO_ACTIVITY_ON_FIRST_ROW");
 
-    // The lookup passes because all columns match at row 0:
-    //   - nullifier_check_root = R_fake matches merkle_check_read_root = R_fake
-    //   - tree_height = 42 matches path_len = 42 (no mutation needed!)
-    //   - low_leaf_index = 30 matches index = 30 (no mutation needed!)
-    //
-    // This demonstrates the full attack: the caller (nullifier_check) believes it verified
-    // a merkle proof for tree root R_fake, but the actual 42-level computation at rows 1..41
-    // verified against R_legit. A malicious prover can fake merkle membership proofs.
-    EXPECT_NO_THROW(
-        (check_interaction<NullifierTreeCheckTraceBuilder, lookup_nullifier_check_low_leaf_merkle_check_settings>(
-            trace)))
-        << "BUG: Lookup passes. Caller believes proof is for R_fake, but computation verified R_legit.";
+    // The relation check already rejects the trace, so there's no need to test the lookup.
+    // The exploit is blocked at the relation level before any lookup matching can occur.
 }
 
 } // namespace
