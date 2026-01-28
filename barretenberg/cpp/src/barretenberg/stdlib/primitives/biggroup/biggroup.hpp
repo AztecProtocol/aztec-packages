@@ -76,7 +76,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         // Create _is_infinity as a witness for consistency with points from arithmetic operations.
         // Security: Since assert_on_curve is true, validate_on_curve() enforces that if infinity=true, then x = y = 0.
-        element out = element(x, y, bool_ct(witness_ct(ctx, false)), /*assert_on_curve=*/true);
+        bool_ct is_infinity = bool_ct(witness_ct(ctx, false));
+        mark_witness_as_used(field_t<Builder>(is_infinity));
+
+        // Construct the biggroup element with private constructor to avoid redundant on-curve check
+        element out = element(x, y, is_infinity, /*assert_on_curve=*/true);
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
