@@ -87,42 +87,48 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::note_hash_tree_check_siloing_separator)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
-    { // DISABLE_UNIQUENESS_ON_READ
+    {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = CView(note_hash_tree_check_READ) * static_cast<View>(in.get(C::note_hash_tree_check_should_unique));
+        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
+                   (static_cast<View>(in.get(C::note_hash_tree_check_const_three)) - FF(3));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // PASSTHROUGH_UNIQUENESS
+    { // DISABLE_UNIQUENESS_ON_READ
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = CView(note_hash_tree_check_READ) * static_cast<View>(in.get(C::note_hash_tree_check_should_unique));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // PASSTHROUGH_UNIQUENESS
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::note_hash_tree_check_should_unique))) *
                    (static_cast<View>(in.get(C::note_hash_tree_check_siloed_note_hash)) -
                     static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash)));
-        std::get<11>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_first_nullifier_pi_index)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_DOM_SEP__NOTE_HASH_NONCE) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_nonce_separator)));
+                   (CView(constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_first_nullifier_pi_index)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_DOM_SEP__UNIQUE_NOTE_HASH) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash_separator)));
+                   (CView(constants_DOM_SEP__NOTE_HASH_NONCE) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_nonce_separator)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
+                   (CView(constants_DOM_SEP__UNIQUE_NOTE_HASH) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash_separator)));
+        std::get<15>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
             ((CView(note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF) *
@@ -132,36 +138,36 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    static_cast<View>(in.get(C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv))) -
               FF(1)) +
              static_cast<View>(in.get(C::note_hash_tree_check_exists)));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_write)) *
-                   (static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash)) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_next_leaf_value)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_NOTE_HASH_TREE_HEIGHT) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_note_hash_tree_height)));
+        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_write)) *
+                   (static_cast<View>(in.get(C::note_hash_tree_check_unique_note_hash)) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_next_leaf_value)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::note_hash_tree_check_write)) *
-                        (FF(1) - static_cast<View>(in.get(C::note_hash_tree_check_discard))) -
-                    static_cast<View>(in.get(C::note_hash_tree_check_should_write_to_public_inputs)));
+        auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
+                   (CView(constants_NOTE_HASH_TREE_HEIGHT) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_note_hash_tree_height)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::note_hash_tree_check_write)) *
+                        (FF(1) - static_cast<View>(in.get(C::note_hash_tree_check_discard))) -
+                    static_cast<View>(in.get(C::note_hash_tree_check_should_write_to_public_inputs)));
+        std::get<19>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_should_write_to_public_inputs)) *
                    ((CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX) +
                      static_cast<View>(in.get(C::note_hash_tree_check_note_hash_index))) -
                     static_cast<View>(in.get(C::note_hash_tree_check_public_inputs_index)));
-        std::get<19>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
 }
 

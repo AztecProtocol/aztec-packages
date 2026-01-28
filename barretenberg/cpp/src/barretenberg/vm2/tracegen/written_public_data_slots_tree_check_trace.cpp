@@ -49,6 +49,7 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
             row,
             { {
                 { C::written_public_data_slots_tree_check_sel, 1 },
+                { C::written_public_data_slots_tree_check_const_three, 3 },
                 { C::written_public_data_slots_tree_check_write, event.write },
                 { C::written_public_data_slots_tree_check_slot, slot },
                 { C::written_public_data_slots_tree_check_root, event.prev_snapshot.root },

@@ -56,7 +56,7 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_five)) - FF(5));
+                   (static_cast<View>(in.get(C::address_derivation_const_thirteen)) - FF(13));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
