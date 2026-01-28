@@ -40,7 +40,7 @@ describe('e2e_2_pxes', () => {
     // Account A is already deployed in setup
 
     // Deploy accountB via walletB.
-    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(aztecNode, {}, undefined, true));
+    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(aztecNode, {}, undefined, 'pxe-1'));
     const accountBManager = await walletB.createSchnorrAccount(
       initialFundedAccounts[1].secret,
       initialFundedAccounts[1].salt,

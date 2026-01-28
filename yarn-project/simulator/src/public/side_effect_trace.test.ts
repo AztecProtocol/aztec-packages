@@ -198,6 +198,7 @@ describe('Public Side Effect Trace', () => {
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
       trace = new SideEffectTrace(
         0,
+        undefined,
         new SideEffectArrayLengths(
           MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
           PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

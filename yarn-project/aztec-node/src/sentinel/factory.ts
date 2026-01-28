@@ -20,12 +20,7 @@ export async function createSentinel(
   if (!config.sentinelEnabled) {
     return undefined;
   }
-  const kvStore = await createStore(
-    'sentinel',
-    SentinelStore.SCHEMA_VERSION,
-    config,
-    createLogger('node:sentinel:lmdb'),
-  );
+  const kvStore = await createStore('sentinel', SentinelStore.SCHEMA_VERSION, config, logger.getBindings());
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
   const storeHistoricProvenPerformanceLength = config.sentinelHistoricProvenPerformanceLengthInEpochs;
   const sentinelStore = new SentinelStore(kvStore, {

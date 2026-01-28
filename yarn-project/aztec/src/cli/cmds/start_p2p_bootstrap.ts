@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';
 import { emptyChainConfig } from '@aztec/stdlib/config';
@@ -27,7 +27,7 @@ export async function startP2PBootstrap(
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
   const telemetryClient = await initTelemetryClient(telemetryConfig);
 
-  const store = await createStore('p2p-bootstrap', 1, config, createLogger('p2p:bootstrap:store'));
+  const store = await createStore('p2p-bootstrap', 1, config);
   const node = new BootstrapNode(store, telemetryClient);
   await node.start(config);
   signalHandlers.push(() => node.stop());

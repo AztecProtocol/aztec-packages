@@ -1,4 +1,4 @@
-import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger, logLevel } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -44,9 +44,10 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_public_tx_simulator`);
+    super(merkleTree, contractsDB, globalVariables, config, undefined, bindings);
+    this.log = createLogger(`simulator:cpp_public_tx_simulator`, bindings);
   }
 
   /**
@@ -84,7 +85,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
+    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.bindings);
 
     // Serialize to msgpack and call the C++ simulator
     this.log.trace(`Serializing fast simulation inputs to msgpack...`);
@@ -171,8 +172,9 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, config, bindings);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -200,9 +202,10 @@ export class TelemetryCppPublicTxSimulator extends MeasuredCppPublicTxSimulator 
     globalVariables: GlobalVariables,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'CppPublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, metrics, config);
+    super(merkleTree, contractsDB, globalVariables, metrics, config, bindings);
     this.tracer = metrics.tracer;
   }
 }

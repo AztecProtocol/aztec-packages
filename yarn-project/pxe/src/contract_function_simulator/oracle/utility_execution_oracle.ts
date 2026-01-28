@@ -356,6 +356,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
@@ -461,6 +462,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);

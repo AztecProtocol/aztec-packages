@@ -6,7 +6,7 @@ import type {
 } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
@@ -68,14 +68,17 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   private runningPromise?: RunningPromise;
   private timeOfLastSnapshotSync = Date.now();
   private jobsToRetrieve: Set<ProvingJobId> = new Set();
+  private log: Logger;
 
   constructor(
     private broker: ProvingJobProducer,
     private proofStore: ProofStore = new InlineProofStore(),
     private failedProofStore?: ProofStore,
     private pollIntervalMs = 1000,
-    private log = createLogger('prover-client:broker-circuit-prover-facade'),
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('prover-client:broker-circuit-prover-facade', bindings);
+  }
 
   /**
    * This is a critical section. This function can not be async since it writes

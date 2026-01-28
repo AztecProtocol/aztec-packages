@@ -31,7 +31,7 @@ export async function rerunEpochProvingJob(
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config);
   const archiver = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
-  const publicProcessorFactory = new PublicProcessorFactory(archiver);
+  const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };
   const l2BlockSourceForReorgDetection = undefined;
@@ -53,6 +53,7 @@ export async function rerunEpochProvingJob(
     metrics,
     deadline,
     { skipEpochCheck: true },
+    log.getBindings(),
   );
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
