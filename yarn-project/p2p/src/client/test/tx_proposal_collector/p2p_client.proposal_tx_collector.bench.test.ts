@@ -102,7 +102,7 @@ describe('ProposalTxCollector Benchmarks', () => {
     await workerManager.makeWorkerClients(PEERS_PER_RUN, {
       bootstrapMode: 'all',
       batchSize: 5,
-      batchDelayMs: 500,
+      batchDelayMs: 1000,
     });
     await sleep(5000);
   });
