@@ -2,8 +2,8 @@ use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LE
 use protocol_types::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch event validation by PXE. The
-/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in
-/// a `CapsuleArray` at the given `base_slot`.
+/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `CapsuleArray` at the given `base_slot`.
 #[derive(Serialize)]
 pub(crate) struct EventValidationRequest {
     pub contract_address: AztecAddress,
@@ -33,9 +33,9 @@ mod test {
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
-        // snapshot value below, then event_validation_request.test.ts must be updated with the same value.
-        // Ideally we'd autogenerate this, but for now we only have single-sided snapshot generation, from TS to Noir,
-        // which is not what we need here.
+        // snapshot value below, then event_validation_request.test.ts must be updated with the same value. Ideally
+        // we'd autogenerate this, but for now we only have single-sided snapshot generation, from TS to Noir, which is
+        // not what we need here.
         let expected_serialization = [
             1, // contract_address
             2, // event_type_id

@@ -7,15 +7,11 @@ use crate::{
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
-unconstrained fn in_private(
-    context: &mut PrivateContext,
-) -> SinglePrivateImmutable<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(context: &mut PrivateContext) -> SinglePrivateImmutable<MockNote, &mut PrivateContext> {
     SinglePrivateImmutable::new(context, STORAGE_SLOT)
 }
 
-unconstrained fn in_utility(
-    context: UtilityContext,
-) -> SinglePrivateImmutable<MockNote, UtilityContext> {
+unconstrained fn in_utility(context: UtilityContext) -> SinglePrivateImmutable<MockNote, UtilityContext> {
     SinglePrivateImmutable::new(context, STORAGE_SLOT)
 }
 
@@ -99,6 +95,7 @@ unconstrained fn initialize_and_get_pending() {
 
         // Reading a SinglePrivateImmutable results in:
         // - a read request for the read value
+        //
         // Note: Unlike PrivateMutable, SinglePrivateImmutable doesn't nullify and recreate the note
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
     });

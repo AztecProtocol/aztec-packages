@@ -11,10 +11,10 @@ pub trait EventInterface {
 
 /// A private event's commitment is a value stored on-chain which is used to verify that the event was indeed emitted.
 ///
-/// It requires a `randomness` value that must be produced alongside the event in order to perform said validation. This
-/// random value prevents attacks in which someone guesses plausible events (e.g. 'Alice transfers to Bob an amount of
-/// 10'), since they will not be able to test for existence of their guessed events without brute-forcing the entire
-/// `Field` space by guessing `randomness` values.
+/// It requires a `randomness` value that must be produced alongside the event in order to perform said validation.
+/// This random value prevents attacks in which someone guesses plausible events (e.g. 'Alice transfers to Bob an
+/// amount of 10'), since they will not be able to test for existence of their guessed events without brute-forcing the
+/// entire `Field` space by guessing `randomness` values.
 pub fn compute_private_event_commitment<Event>(event: Event, randomness: Field) -> Field
 where
     Event: EventInterface + Serialize,
@@ -44,8 +44,7 @@ pub unconstrained fn compute_private_serialized_event_commitment(
 
 mod test {
     use crate::event::event_interface::{
-        compute_private_event_commitment, compute_private_serialized_event_commitment,
-        EventInterface,
+        compute_private_event_commitment, compute_private_serialized_event_commitment, EventInterface,
     };
     use crate::test::mocks::mock_event::MockEvent;
     use protocol_types::traits::{Serialize, ToField};

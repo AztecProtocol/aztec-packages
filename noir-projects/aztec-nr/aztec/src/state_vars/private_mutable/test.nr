@@ -15,10 +15,7 @@ unconstrained fn in_private(
     PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 
-unconstrained fn in_utility(
-    context: UtilityContext,
-    owner: AztecAddress,
-) -> PrivateMutable<MockNote, UtilityContext> {
+unconstrained fn in_utility(context: UtilityContext, owner: AztecAddress) -> PrivateMutable<MockNote, UtilityContext> {
     PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 

@@ -12,26 +12,21 @@ pub(crate) mod internal;
 
 use abi_export::create_fn_abi_export;
 use external::{
-    private::generate_private_external, public::generate_public_external,
-    utility::generate_utility_external,
+    private::generate_private_external, public::generate_public_external, utility::generate_utility_external,
 };
 use internal::{generate_private_internal, generate_public_internal};
 
 /// Modifies a function such that when it's called directly, it will result in a compilation error with a reasonable
 /// error message.
-comptime fn make_functions_uncallable<let N: u32>(
-    functions: [FunctionDefinition],
-    error_message_template: str<N>,
-) {
+comptime fn make_functions_uncallable<let N: u32>(functions: [FunctionDefinition], error_message_template: str<N>) {
     functions.for_each(|function| {
         let name = function.name();
         // The body of the function will contain a static_assert(false, ...) to prevent the function from being called
         // directly and a std::mem::zeroed() to make the compilation fail on the static_assert and not on a missing
-        // return value.
-        // TODO(benesjan): Add a link to the documentation for instructions on the proper invocation of functions.
+        // return value. TODO(benesjan): Add a link to the documentation for instructions on the proper invocation of
+        // functions.
         let error_message = f"{error_message_template}{name}. See documentation for instructions on the proper invocation of functions.";
-        let body = f"{{ std::static_assert(false, \"{error_message}\"); std::mem::zeroed() }}"
-            .quoted_contents();
+        let body = f"{{ std::static_assert(false, \"{error_message}\"); std::mem::zeroed() }}".quoted_contents();
         let body_expr = body.as_expr().expect(f"Body is not an expression: {body}");
 
         // Prefix all parameter names with "_" to suppress unused variable warnings
@@ -69,8 +64,8 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
         utility_functions.map(|function| generate_utility_external(function)).join(quote {});
 
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
-    // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly
-    // from within the contract. We also need to set the return type to `()` to avoid compilation errors.
+    // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly from
+    // within the contract. We also need to set the return type to `()` to avoid compilation errors.
     make_functions_uncallable(
         private_functions,
         "Direct invocation of private functions is not supported. You attempted to call ",
@@ -88,9 +83,8 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     let private_internal_functions = internal_functions_registry::get_private_functions(m);
     let public_internal_functions = internal_functions_registry::get_public_functions(m);
 
-    let generated_private_internal_functions = private_internal_functions
-        .map(|function| generate_private_internal(function))
-        .join(quote {});
+    let generated_private_internal_functions =
+        private_internal_functions.map(|function| generate_private_internal(function)).join(quote {});
     let generated_public_internal_functions =
         public_internal_functions.map(|function| generate_public_internal(function)).join(quote {});
 
