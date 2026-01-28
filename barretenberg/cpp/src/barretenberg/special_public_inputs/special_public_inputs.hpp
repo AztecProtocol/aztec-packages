@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/public_input_component/public_input_component.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 
@@ -41,10 +42,11 @@ class DefaultIO {
 
     /**
      * @brief Add default IO values to a circuit builder (for native tests)
-     * @details Native IO types don't add pairing points to circuits - those are only
-     * needed for recursive verification. This just finalizes public inputs.
      */
-    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+    }
 };
 
 /**
@@ -89,7 +91,10 @@ class HidingKernelIO {
     /**
      * @brief Add default IO values to a circuit builder (for native tests)
      */
-    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::HidingKernelIO<Builder>::add_default(builder);
+    }
 };
 
 /**
@@ -127,7 +132,10 @@ class RollupIO {
     /**
      * @brief Add default IO values to a circuit builder (for native tests)
      */
-    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::RollupIO::add_default(builder);
+    }
 };
 
 } // namespace bb
