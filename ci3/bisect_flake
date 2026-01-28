@@ -96,7 +96,7 @@ build
 # Grind to check if oldest commit is stable
 echo "Grinding $bisect_runs times to verify stability..."
 if seq 1 $bisect_runs | parallel --halt now,fail=1 -j $bisect_runs --line-buffer \
-    "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+    "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
     git checkout $commit --quiet

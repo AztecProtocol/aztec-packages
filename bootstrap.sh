@@ -601,14 +601,11 @@ case "$cmd" in
     commit="${2:-HEAD}"
     BISECT_MAX_DEPTH=50
 
-    # Fetch commits needed for bisect - try shallow first, deepen if needed
-    git fetch --depth=$BISECT_MAX_DEPTH origin "$commit" 2>/dev/null || true
-    # Verify we have enough history, if not deepen incrementally
-    if ! git rev-parse "$commit~$BISECT_MAX_DEPTH" &>/dev/null; then
-        echo "Shallow fetch insufficient, deepening history..."
-        git fetch --deepen=$BISECT_MAX_DEPTH origin 2>/dev/null || true
-    fi
-    prep
+    # Use blobless partial clone - fetches commits/trees but blobs on-demand only when checked out
+    # This preserves commit history (needed for bisect) while minimizing data transfer
+    # See: https://github.blog/open-source/git/get-up-to-speed-with-partial-clone-and-shallow-clone/
+    echo "Fetching commit history (blobless, depth=$BISECT_MAX_DEPTH)..."
+    git fetch --filter=blob:none --depth=$BISECT_MAX_DEPTH origin "$commit" 2>/dev/null || true
 
     # Run the bisect script
     $ci3/bisect_flake "$full_cmd" "$commit"
