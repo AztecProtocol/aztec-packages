@@ -71,12 +71,27 @@ namespace poseidon2_hash;
     #[skippable_if]
     sel = 0;
 
-    // If the current row is not active, then there are no more active rows after that.
-    // Note that sel cannot be activated in the first row as sel' is defined.
-    // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
-    // the activated rows start from the second row and are contiguous.
+    // == Multi-row Computation Selectors ==
+    // We follow the recipe documented in:
+    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+
+    // Start of a poseidon2 computation
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
+    // The last row of hashing for the given input
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
     #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
 
     // === Input Values ===
     // Unpadded Length of the inputs to be hashed
@@ -95,25 +110,6 @@ namespace poseidon2_hash;
     // We enforce that the output has to be kept the same per row until we hit the "end" of the computation
     // The latch condition (see below for definition) will be on at the first_row (customary pil relations) or when num_perm_rounds_rem - 1 = 0
     (1 - LATCH_CONDITION) * (output' - output) = 0;
-
-    // === Control Flow within Subtrace ===
-    // Start of a poseidon2 computation
-    pol commit start; // @boolean
-    start * (1 - start) = 0;
-    // When we end a poseidon, the next row must naturally have a start
-    sel' * (start' - LATCH_CONDITION) = 0;
-
-    // The last row of hashing for the given input
-    pol commit end; // @boolean
-    end * (1 - end) = 0;
-
-    // Selector must be 1 in end row
-    #[SELECTOR_ON_START_OR_END]
-    (start + end) * (1 - sel) = 0;
-
-    // Our latch condition can either be the designated end of the computation or the first row
-    // The previous relation ensures they cannot both be 1
-    pol LATCH_CONDITION = end + precomputed.first_row;
 
     // === Permutation/Round Counting ===
     // We use the padded length to calculate the num of rounds to perform
@@ -143,6 +139,8 @@ namespace poseidon2_hash;
     // This cannot happen because to satisfy the current subtrace constraints, the attacker must decrement `num_perm_rounds_rem`
     // to `1` which would require ca. 2^250 rows. This implies that we will never reach legitimate `num_perm_rounds_rem` values
     // and that `end == 1` cannot be satisfied for this multi-row invocation.
+    // If we cannot reach `end == 1`, then we cannot satisfy the constraint  #[TRACE_CONTINUITY] on the
+    // last row of the trace.
 
     //=== Output Chaining ===
     // The permutation input values are represented by a_0, a_1, a_2, a_3
