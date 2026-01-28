@@ -133,7 +133,6 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
-    using Builder = UltraCircuitBuilder;
     using ProverInstance = ProverInstance_<UltraFlavor>;
 
     AcirConstraint constraint;
