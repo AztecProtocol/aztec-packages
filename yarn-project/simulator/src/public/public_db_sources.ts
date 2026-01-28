@@ -5,7 +5,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
@@ -46,9 +46,14 @@ import { L1ToL2MessageIndexOutOfRangeError, NoteHashIndexOutOfRangeError } from 
 export class PublicContractsDB implements PublicContractsDBInterface {
   private contractStateStack: ContractsDbCheckpoint[] = [new ContractsDbCheckpoint()];
 
-  private log = createLogger('simulator:contracts-data-source');
+  private log: Logger;
 
-  constructor(private dataSource: ContractDataSource) {}
+  constructor(
+    private dataSource: ContractDataSource,
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('simulator:contracts-data-source', bindings);
+  }
 
   public async addContracts(contractDeploymentData: ContractDeploymentData): Promise<void> {
     const currentState = this.getCurrentState();
@@ -208,9 +213,14 @@ export class PublicContractsDB implements PublicContractsDBInterface {
  * to decide whether to use hints or not (same with tracing, etc).
  */
 export class PublicTreesDB implements PublicStateDBInterface {
-  private logger = createLogger('simulator:public-trees-db');
+  private logger: Logger;
 
-  constructor(private readonly db: MerkleTreeWriteOperations) {}
+  constructor(
+    private readonly db: MerkleTreeWriteOperations,
+    bindings?: LoggerBindings,
+  ) {
+    this.logger = createLogger('simulator:public-trees-db', bindings);
+  }
 
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
     const timer = new Timer();

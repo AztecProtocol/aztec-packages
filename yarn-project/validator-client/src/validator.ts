@@ -601,6 +601,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         previousCheckpointOutHashes,
         fork,
         blocks,
+        this.log.getBindings(),
       );
 
       // Complete the checkpoint to get computed values

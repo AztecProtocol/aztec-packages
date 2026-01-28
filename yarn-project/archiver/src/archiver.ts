@@ -159,7 +159,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
     await this.blobClient.testSources();
     await this.synchronizer.testEthereumNodeSynced();
-    await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
+    await validateAndLogTraceAvailability(
+      this.debugClient,
+      this.config.ethereumAllowNoDebugHosts ?? false,
+      this.log.getBindings(),
+    );
 
     // Log initial state for the archiver
     const { l1StartBlock } = this.l1Constants;

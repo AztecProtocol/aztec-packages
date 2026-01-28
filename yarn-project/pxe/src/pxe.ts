@@ -1,7 +1,7 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -128,6 +128,10 @@ export class PXE {
     config: PXEConfig,
     loggerOrSuffix?: string | Logger,
   ) {
+    // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
+    const bindings: LoggerBindings | undefined =
+      loggerOrSuffix && typeof loggerOrSuffix !== 'string' ? loggerOrSuffix.getBindings() : undefined;
+
     const log =
       !loggerOrSuffix || typeof loggerOrSuffix === 'string'
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
@@ -153,10 +157,10 @@ export class PXE {
       privateEventStore,
       tipsStore,
       config,
-      loggerOrSuffix,
+      bindings,
     );
 
-    const jobCoordinator = new JobCoordinator(store);
+    const jobCoordinator = new JobCoordinator(store, bindings);
     jobCoordinator.registerStores([
       capsuleStore,
       senderTaggingStore,
@@ -400,7 +404,12 @@ export class PXE {
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
     const anchorBlockHash = await anchorBlockHeader.hash();
     const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
-    const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelTraceProver = new PrivateKernelExecutionProver(
+      kernelOracle,
+      proofCreator,
+      !this.proverEnabled,
+      this.log.getBindings(),
+    );
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }

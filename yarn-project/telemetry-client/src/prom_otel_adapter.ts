@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { Registry } from 'prom-client';
@@ -410,12 +410,11 @@ function parseLabelsSafely<Labels extends LabelsGeneric>(labelStr: string, logge
  */
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
+  private logger: Logger;
 
-  constructor(
-    telemetryClient: TelemetryClient,
-    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
-  ) {
+  constructor(telemetryClient: TelemetryClient, bindings?: LoggerBindings) {
     super();
+    this.logger = createLogger('telemetry:otel-metrics-adapter', bindings);
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }
 

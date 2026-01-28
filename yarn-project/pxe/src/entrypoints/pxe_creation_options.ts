@@ -6,7 +6,8 @@ import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
 export type PXECreationOptions = {
   loggers?: { store?: Logger; pxe?: Logger; prover?: Logger };
-  useLogSuffix?: boolean | string;
+  /** Actor label to include in log output (e.g., 'pxe-0', 'pxe-test'). */
+  loggerActorLabel?: string;
   proverOrOptions?: PrivateKernelProver | BBPrivateKernelProverOptions;
   store?: AztecAsyncKVStore;
   simulator?: CircuitSimulator;
