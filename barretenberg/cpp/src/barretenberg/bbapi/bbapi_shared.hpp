@@ -255,14 +255,11 @@ template <typename VK> std::vector<uint256_t> vk_to_uint256_fields(const VK& vk)
 }
 
 /**
- * @brief Validate and normalize rollup circuit settings
- * @details Rollup circuits have strict requirements:
- * - Must use UltraFlavor (not ZK flavors)
- * - Must use poseidon2 oracle hash (for efficient recursion)
- * - Must have ZK disabled (rollup circuits don't need hiding)
- * - Must use IPA accumulation (for ECCVM verification)
+ * @brief Validate rollup circuit settings
+ * @details Rollup circuits require poseidon2 oracle hash for efficient recursion.
+ *          The disable_zk flag is ignored - rollup always uses UltraFlavor (non-ZK).
  *
- * @throws If settings are invalid for rollup circuits
+ * @throws If oracle_hash_type is not poseidon2
  */
 inline void validate_rollup_settings(const ProofSystemSettings& settings)
 {
@@ -270,16 +267,10 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
         return; // Not a rollup circuit, no validation needed
     }
 
-    // Rollup circuits must use poseidon2
+    // Rollup circuits must use poseidon2 for efficient recursive verification
     if (settings.oracle_hash_type != "poseidon2") {
         throw_or_abort("Rollup circuits (ipa_accumulation=true) must use oracle_hash_type='poseidon2', got '" +
                        settings.oracle_hash_type + "'");
-    }
-
-    // Rollup circuits need masking
-    if (!settings.disable_zk) {
-        throw_or_abort("Rollup circuits (ipa_accumulation=true) must have disable_zk=true (rollup circuits are not "
-                       "zero-knowledge)");
     }
 }
 
