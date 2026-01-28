@@ -317,8 +317,8 @@ export class AztecKVTxPool
           }
 
           const poolAccess = this.getPreAddPoolAccess();
-          const { shouldReject, txHashesToEvict } = await this.#evictionManager.runPreAddRules(tx, poolAccess);
-          if (shouldReject) {
+          const { shouldIgnore, txHashesToEvict } = await this.#evictionManager.runPreAddRules(tx, poolAccess);
+          if (shouldIgnore) {
             continue;
           }
 

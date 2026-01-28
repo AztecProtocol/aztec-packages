@@ -13,9 +13,7 @@ import type { TxMetaData, TxState } from './tx_metadata.js';
 export type AddTxsResult = {
   /** Transactions successfully added to the pool */
   accepted: TxHash[];
-  /** Transactions rejected due to validation failures (peer should be penalized) */
-  rejected: TxHash[];
-  /** Transactions ignored because they're valid but undesirable (no penalty) */
+  /** Transactions ignored because they're valid but undesirable (e.g., duplicate, lower priority nullifier conflict) */
   ignored: TxHash[];
 };
 
@@ -100,9 +98,9 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * Checks if a transaction can be added without modifying the pool.
    * Performs the same validation as addPendingTxs but doesn't persist changes.
    * @param tx - Transaction to check
-   * @returns Result: 'accepted', 'rejected', or 'ignored' (if already in pool)
+   * @returns Result: 'accepted' or 'ignored' (if already in pool or undesirable)
    */
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'rejected' | 'ignored'>;
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'>;
 
   /**
    * Adds transactions as immediately protected for a given slot.

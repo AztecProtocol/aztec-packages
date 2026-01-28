@@ -224,17 +224,41 @@ export interface PreAddPoolAccess {
    * Get the priority string for a transaction (for fee comparison).
    */
   getTxPriority(tx: Tx): string;
+
+  /**
+   * Get the on-chain balance for a fee payer address.
+   * Optional - only needed by FeePayerBalancePreAddRule.
+   */
+  getFeePayerBalance?(feePayer: AztecAddress): Promise<bigint>;
+
+  /**
+   * Get fee-related info for all pending txs from a specific fee payer.
+   * Optional - only needed by FeePayerBalancePreAddRule.
+   */
+  getFeePayerPendingTxs?(feePayer: AztecAddress): Promise<FeePayerTxInfo[]>;
+
+  /**
+   * Get the current count of pending transactions.
+   * Optional - only needed by LowPriorityPreAddRule.
+   */
+  getPendingTxCount?(): number;
+
+  /**
+   * Get the lowest priority pending transaction hash and its priority.
+   * Optional - only needed by LowPriorityPreAddRule.
+   */
+  getLowestPriorityPendingTx?(): { txHash: TxHash; priority: bigint } | undefined;
 }
 
 /**
  * Result of a pre-add eviction check for a single transaction.
  */
 export interface PreAddEvictionResult {
-  /** Whether the incoming tx should be rejected */
-  readonly shouldReject: boolean;
+  /** Whether the incoming tx should be ignored (valid but not desired) */
+  readonly shouldIgnore: boolean;
   /** Sorted array of existing tx hashes that should be evicted if this tx is added */
   readonly txHashesToEvict: TxHash[];
-  /** Optional reason for rejection */
+  /** Optional reason for ignoring */
   readonly reason?: string;
 }
 

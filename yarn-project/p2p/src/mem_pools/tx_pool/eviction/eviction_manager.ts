@@ -83,8 +83,8 @@ export class EvictionManager {
       try {
         const result = await rule.check(tx, poolAccess);
 
-        if (result.shouldReject) {
-          return { shouldReject: true, txHashesToEvict: [], reason: result.reason };
+        if (result.shouldIgnore) {
+          return { shouldIgnore: true, txHashesToEvict: [], reason: result.reason };
         }
 
         for (const txHashToEvict of result.txHashesToEvict) {
@@ -98,12 +98,12 @@ export class EvictionManager {
           err,
           preAddRule: rule.name,
         });
-        // On error, reject the tx to be safe
-        return { shouldReject: true, txHashesToEvict: [], reason: `rule error: ${String(err)}` };
+        // On error, ignore the tx to be safe
+        return { shouldIgnore: true, txHashesToEvict: [], reason: `rule error: ${String(err)}` };
       }
     }
 
-    return { shouldReject: false, txHashesToEvict: allTxHashesToEvict };
+    return { shouldIgnore: false, txHashesToEvict: allTxHashesToEvict };
   }
 
   public registerRule(rule: EvictionRule) {

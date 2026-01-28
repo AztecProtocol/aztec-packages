@@ -4,29 +4,32 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import { ArchiveFilter } from '../tx_pool/eviction/archive_filter.js';
 import { EvictionManager } from '../tx_pool/eviction/eviction_manager.js';
 import {
   FeePayerTxInfo,
   type PendingTxInfo,
   type PreAddPoolAccess,
-  type PrePendingFilterContext,
   type TxBlockReference,
   type TxPoolOperations,
-  type TxValidationFields,
 } from '../tx_pool/eviction/eviction_strategy.js';
 import { FeePayerBalanceEvictionRule } from '../tx_pool/eviction/fee_payer_balance_eviction_rule.js';
+import { FeePayerBalancePreAddRule } from '../tx_pool/eviction/fee_payer_balance_pre_add_rule.js';
 import { InvalidTxsAfterMiningRule } from '../tx_pool/eviction/invalid_txs_after_mining_rule.js';
 import { InvalidTxsAfterReorgRule } from '../tx_pool/eviction/invalid_txs_after_reorg_rule.js';
 import { LowPriorityEvictionRule } from '../tx_pool/eviction/low_priority_eviction_rule.js';
+import { LowPriorityPreAddRule } from '../tx_pool/eviction/low_priority_pre_add_rule.js';
 import { NullifierConflictPreAddRule } from '../tx_pool/eviction/nullifier_conflict_pre_add_rule.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
 import { TxArchive } from './archive/index.js';
@@ -58,6 +61,7 @@ export class AztecKVTxPoolV2
 
   // === Dependencies ===
   #l2BlockSource: L2BlockSource;
+  #worldStateSynchronizer: WorldStateSynchronizer;
   #pendingTxValidator?: TxValidator<Tx>;
 
   // === In-Memory Indices ===
@@ -98,6 +102,7 @@ export class AztecKVTxPoolV2
     this.#txsDB = store.openMap('txs');
 
     this.#l2BlockSource = deps.l2BlockSource;
+    this.#worldStateSynchronizer = deps.worldStateSynchronizer;
     this.#pendingTxValidator = deps.pendingTxValidator;
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
@@ -107,19 +112,22 @@ export class AztecKVTxPoolV2
     this.#queue = new SerialQueue();
 
     // Setup eviction manager with rules and filters
-    this.#evictionManager = new EvictionManager(this, log);
+    // Pass an adapter that accesses internal state directly (no queue) since eviction rules run inside queue tasks
+    this.#evictionManager = new EvictionManager(this.#createTxPoolOperationsAdapter(), log);
 
     // Pre-add rules (run during addPendingTxs)
     this.#evictionManager.registerPreAddRule(new NullifierConflictPreAddRule());
-
-    // Pre-pending filters (run before restoring txs to pending after reorg/unprotect)
-    // These filter out invalid txs BEFORE adding to pending indices, avoiding wasted index operations
-    this.#evictionManager.registerPrePendingFilter(new ArchiveFilter(deps.worldStateSynchronizer));
+    this.#evictionManager.registerPreAddRule(new FeePayerBalancePreAddRule());
+    this.#evictionManager.registerPreAddRule(
+      new LowPriorityPreAddRule({ maxPoolSize: this.#config.maxPendingTxCount }),
+    );
 
     // Post-event eviction rules (run after events to check ALL pending txs, not just restored ones)
     this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
     this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(deps.worldStateSynchronizer));
     this.#evictionManager.registerRule(new FeePayerBalanceEvictionRule(deps.worldStateSynchronizer));
+    // LowPriorityEvictionRule handles cases where txs become pending via prepareForSlot (unprotect)
+    // The pre-add rule handles the addPendingTxs case, but post-event is needed for unprotect
     this.#evictionManager.registerRule(new LowPriorityEvictionRule({ maxPoolSize: this.#config.maxPendingTxCount }));
 
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.#countTxs, () => store.estimateSize());
@@ -131,7 +139,7 @@ export class AztecKVTxPoolV2
     return this.#queue.put(() => this.#doAddPendingTxs(txs, opts));
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'rejected' | 'ignored'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     return this.#queue.put(() => this.#doCanAddPendingTx(tx));
   }
 
@@ -455,11 +463,13 @@ export class AztecKVTxPoolV2
 
   async #doAddPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
-    const rejected: TxHash[] = [];
     const ignored: TxHash[] = [];
     const addedTxs: Tx[] = [];
     const feePayers: AztecAddress[] = [];
     const poolAccess = this.#createPreAddPoolAccess();
+
+    // Track which txs from this batch have been accepted (for intra-batch eviction tracking)
+    const acceptedInBatch = new Set<string>();
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -475,16 +485,23 @@ export class AztecKVTxPoolV2
 
         // Run pre-add eviction rules (nullifier conflict check, etc.)
         const preAddResult = await this.#evictionManager.runPreAddRules(tx, poolAccess);
-        if (preAddResult.shouldReject) {
-          this.#log.debug(`Rejecting tx ${txHashStr}: ${preAddResult.reason}`);
-          rejected.push(txHash);
+        if (preAddResult.shouldIgnore) {
+          this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
+          ignored.push(txHash);
           continue;
         }
 
         // Evict conflicting txs identified by pre-add rules
         for (const evictHash of preAddResult.txHashesToEvict) {
-          await this.#deleteTx(evictHash.toString(), { permanently: true });
-          this.#log.verbose(`Evicted tx ${evictHash.toString()} due to higher-fee tx ${txHashStr}`);
+          const evictHashStr = evictHash.toString();
+          await this.#deleteTx(evictHashStr, { permanently: true });
+          this.#log.verbose(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
+
+          // If the evicted tx was accepted earlier in this same batch, move it to ignored
+          if (acceptedInBatch.has(evictHashStr)) {
+            acceptedInBatch.delete(evictHashStr);
+            ignored.push(evictHash);
+          }
         }
 
         const meta = await buildTxMetaData(tx);
@@ -493,7 +510,7 @@ export class AztecKVTxPoolV2
         await this.#txsDB.set(txHashStr, tx.toBuffer());
         this.#addToIndices(meta);
 
-        accepted.push(txHash);
+        acceptedInBatch.add(txHashStr);
         addedTxs.push(tx);
         feePayers.push(tx.data.feePayer);
 
@@ -504,20 +521,33 @@ export class AztecKVTxPoolV2
       }
     });
 
+    // Build final accepted list from what remains in acceptedInBatch
+    // Also filter addedTxs and feePayers to only include txs that weren't evicted within the batch
+    const finalAddedTxs: Tx[] = [];
+    const finalFeePayers: AztecAddress[] = [];
+    for (let i = 0; i < addedTxs.length; i++) {
+      const txHashStr = addedTxs[i].getTxHash().toString();
+      if (acceptedInBatch.has(txHashStr)) {
+        accepted.push(TxHash.fromString(txHashStr));
+        finalAddedTxs.push(addedTxs[i]);
+        finalFeePayers.push(feePayers[i]);
+      }
+    }
+
     // Run post-add eviction rules (low priority eviction, etc.)
     if (accepted.length > 0) {
-      await this.#evictionManager.evictAfterNewTxs(accepted, feePayers);
+      await this.#evictionManager.evictAfterNewTxs(accepted, finalFeePayers);
     }
 
-    if (addedTxs.length > 0) {
-      this.#metrics.transactionsAdded(addedTxs);
-      this.emit('txs-added', { txs: addedTxs, ...opts });
+    if (finalAddedTxs.length > 0) {
+      this.#metrics.transactionsAdded(finalAddedTxs);
+      this.emit('txs-added', { txs: finalAddedTxs, ...opts });
     }
 
-    return { accepted, rejected, ignored };
+    return { accepted, ignored };
   }
 
-  async #doCanAddPendingTx(tx: Tx): Promise<'accepted' | 'rejected' | 'ignored'> {
+  async #doCanAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const txHashStr = tx.getTxHash().toString();
 
     // Check if already in pool
@@ -529,7 +559,7 @@ export class AztecKVTxPoolV2
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddResult = await this.#evictionManager.runPreAddRules(tx, poolAccess);
 
-    return preAddResult.shouldReject ? 'rejected' : 'accepted';
+    return preAddResult.shouldIgnore ? 'ignored' : 'accepted';
   }
 
   async #doAddProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
@@ -669,15 +699,16 @@ export class AztecKVTxPoolV2
 
     // Find protected txs from earlier slots (that we have metadata for)
     for (const [txHashStr, protectedSlot] of this.#protectedTransactions) {
-      if (protectedSlot < slotNumber) {
-        // Only unprotect if we have the tx and it's not mined
-        const meta = this.#metadata.get(txHashStr);
-        if (meta && meta.minedL2BlockId === undefined) {
-          txsToUnprotect.push(txHashStr);
-        }
-        // Always remove from protected map (cleans up stale entries for txs we never received)
-        this.#protectedTransactions.delete(txHashStr);
+      if (protectedSlot >= slotNumber) {
+        continue;
       }
+      // Only unprotect if we have the tx and it's not mined
+      const meta = this.#metadata.get(txHashStr);
+      if (meta && meta.minedL2BlockId === undefined) {
+        txsToUnprotect.push(txHashStr);
+      }
+      // Always remove from protected map (cleans up stale entries for txs we never received)
+      this.#protectedTransactions.delete(txHashStr);
     }
 
     if (txsToUnprotect.length === 0) {
@@ -688,6 +719,7 @@ export class AztecKVTxPoolV2
 
     const unprotectedHashes: TxHash[] = [];
     const feePayers: AztecAddress[] = [];
+    const txsToDelete: string[] = [];
 
     for (const txHashStr of txsToUnprotect) {
       const meta = this.#metadata.get(txHashStr);
@@ -695,11 +727,59 @@ export class AztecKVTxPoolV2
         continue;
       }
 
+      // Validate tx before restoring to pending (it may have become invalid while protected)
+      if (this.#pendingTxValidator) {
+        const buffer = await this.#txsDB.getAsync(txHashStr);
+        if (!buffer) {
+          this.#log.warn(`Tx ${txHashStr} not found in DB during unprotect`);
+          txsToDelete.push(txHashStr);
+          continue;
+        }
+        const tx = Tx.fromBuffer(buffer);
+        const validationResult = await this.#pendingTxValidator.validateTx(tx);
+        if (validationResult.result !== 'valid') {
+          this.#log.info(
+            `Deleting unprotected tx ${txHashStr}: validation failed - ${validationResult.reason?.join(', ')}`,
+          );
+          txsToDelete.push(txHashStr);
+          continue;
+        }
+      }
+
+      // Check for nullifier conflicts with existing pending txs
+      const conflictResult = this.#checkNullifierConflict(meta);
+      if (conflictResult.shouldIgnore) {
+        // Existing pending tx has higher priority - delete this one
+        this.#log.debug(`Deleting unprotected tx ${txHashStr}: nullifier conflict with higher priority pending tx`);
+        txsToDelete.push(txHashStr);
+        continue;
+      }
+
+      // Evict lower priority conflicting txs
+      for (const evictHashStr of conflictResult.txHashesToEvict) {
+        this.#log.debug(`Evicting pending tx ${evictHashStr} for higher priority unprotected tx ${txHashStr}`);
+        txsToDelete.push(evictHashStr);
+        // Remove from pending indices immediately so later unprotected txs see correct state
+        const evictMeta = this.#metadata.get(evictHashStr);
+        if (evictMeta) {
+          this.#removeFromPendingIndices(evictMeta);
+        }
+      }
+
       // Re-add to pending indices
       this.#addToPendingIndices(meta);
 
       unprotectedHashes.push(TxHash.fromString(txHashStr));
       feePayers.push(AztecAddress.fromString(meta.feePayer));
+    }
+
+    // Delete evicted/ignored txs
+    if (txsToDelete.length > 0) {
+      await this.#store.transactionAsync(async () => {
+        for (const txHashStr of txsToDelete) {
+          await this.#deleteTx(txHashStr, { permanently: true });
+        }
+      });
     }
 
     // Use eviction manager to enforce pool size limit after unprotecting
@@ -726,37 +806,70 @@ export class AztecKVTxPoolV2
 
     this.#log.info(`Handling prune to block ${latestBlockNumber}: un-mining ${txsToUnmine.length} txs`);
 
-    // Filter out invalid txs BEFORE adding to pending indices
-    const validationFields: TxValidationFields[] = txsToUnmine.map(meta => ({
-      txHash: meta.txHash,
-      anchorBlockHeaderHash: meta.anchorBlockHeaderHash,
-      feePayer: meta.feePayer,
-      feeLimit: meta.feeLimit,
-    }));
+    const txsToDelete: string[] = [];
+    const restoredHashes: TxHash[] = [];
+    const restoredFeePayers: AztecAddress[] = [];
 
-    const ctx: PrePendingFilterContext = { event: 'CHAIN_PRUNED', blockNumber: latestBlockNumber };
-    const { valid, invalid } = await this.#evictionManager.filterValidForPending(validationFields, ctx);
+    for (const meta of txsToUnmine) {
+      meta.minedL2BlockId = undefined;
 
-    // Delete invalid transactions directly (never touch pending indices)
-    if (invalid.length > 0) {
-      this.#log.info(
-        `Deleting ${invalid.length} invalid txs after reorg (pruned anchor blocks or insufficient balance)`,
-      );
+      // Only add to pending indices if not protected (protection is managed by prepareForSlot)
+      if (this.#protectedTransactions.has(meta.txHash)) {
+        continue;
+      }
+
+      // Validate tx before restoring to pending (it may have become invalid while mined)
+      if (this.#pendingTxValidator) {
+        const buffer = await this.#txsDB.getAsync(meta.txHash);
+        if (!buffer) {
+          this.#log.warn(`Tx ${meta.txHash} not found in DB during un-mine`);
+          txsToDelete.push(meta.txHash);
+          continue;
+        }
+        const tx = Tx.fromBuffer(buffer);
+        const validationResult = await this.#pendingTxValidator.validateTx(tx);
+        if (validationResult.result !== 'valid') {
+          this.#log.info(
+            `Deleting un-mined tx ${meta.txHash}: validation failed - ${validationResult.reason?.join(', ')}`,
+          );
+          txsToDelete.push(meta.txHash);
+          continue;
+        }
+      }
+
+      // Check for nullifier conflicts with existing pending txs
+      const conflictResult = this.#checkNullifierConflict(meta);
+      if (conflictResult.shouldIgnore) {
+        // Existing pending tx has higher priority - delete this one
+        this.#log.debug(`Deleting un-mined tx ${meta.txHash}: nullifier conflict with higher priority pending tx`);
+        txsToDelete.push(meta.txHash);
+        continue;
+      }
+
+      // Evict lower priority conflicting txs
+      for (const evictHashStr of conflictResult.txHashesToEvict) {
+        this.#log.debug(`Evicting pending tx ${evictHashStr} for higher priority un-mined tx ${meta.txHash}`);
+        txsToDelete.push(evictHashStr);
+        // Remove from pending indices immediately so later un-mined txs see correct state
+        const evictMeta = this.#metadata.get(evictHashStr);
+        if (evictMeta) {
+          this.#removeFromPendingIndices(evictMeta);
+        }
+      }
+
+      this.#addToPendingIndices(meta);
+      restoredHashes.push(TxHash.fromString(meta.txHash));
+      restoredFeePayers.push(AztecAddress.fromString(meta.feePayer));
+    }
+
+    // Delete evicted/invalid txs
+    if (txsToDelete.length > 0) {
       await this.#store.transactionAsync(async () => {
-        for (const txHashStr of invalid) {
+        for (const txHashStr of txsToDelete) {
           await this.#deleteTx(txHashStr, { permanently: true });
         }
       });
-      this.#metrics.transactionsRemoved(invalid);
-    }
-
-    // Only restore valid txs to pending
-    const validSet = new Set(valid);
-    for (const meta of txsToUnmine) {
-      if (validSet.has(meta.txHash)) {
-        meta.minedL2BlockId = undefined;
-        this.#addToPendingIndices(meta);
-      }
+      this.#metrics.transactionsRemoved(txsToDelete);
     }
 
     // Run eviction rules to check ALL pending txs (not just restored ones)
@@ -794,9 +907,10 @@ export class AztecKVTxPoolV2
     // Collect txs to archive before deletion
     if (this.#archive.isEnabled()) {
       for (const txHashStr of txsToDelete) {
-        const tx = await this.getTxByHash(TxHash.fromString(txHashStr));
-        if (tx) {
-          txsToArchive.push(tx);
+        // Read directly from DB without going through queue (we're already in a queue task)
+        const buffer = await this.#txsDB.getAsync(txHashStr);
+        if (buffer) {
+          txsToArchive.push(Tx.fromBuffer(buffer));
         }
       }
     }
@@ -880,6 +994,40 @@ export class AztecKVTxPoolV2
     hashSet.add(meta.txHash);
   }
 
+  /**
+   * Checks if a transaction (by metadata) conflicts with existing pending txs via nullifiers.
+   * Used when restoring txs to pending (unprotect, un-mine) where we have metadata but not full Tx.
+   * @returns shouldIgnore=true if incoming should be dropped, or txHashesToEvict if existing should be evicted
+   */
+  #checkNullifierConflict(incomingMeta: TxMetaData): { shouldIgnore: boolean; txHashesToEvict: string[] } {
+    const txHashesToEvict: string[] = [];
+
+    for (const nullifier of incomingMeta.nullifiers) {
+      const existingTxHashStr = this.#nullifierToTxHash.get(nullifier);
+      if (!existingTxHashStr || existingTxHashStr === incomingMeta.txHash) {
+        continue;
+      }
+
+      const existingMeta = this.#metadata.get(existingTxHashStr);
+      if (!existingMeta) {
+        continue;
+      }
+
+      // Compare priorities - higher priority wins
+      if (incomingMeta.priorityFee > existingMeta.priorityFee) {
+        // Incoming has higher priority - evict existing
+        if (!txHashesToEvict.includes(existingTxHashStr)) {
+          txHashesToEvict.push(existingTxHashStr);
+        }
+      } else {
+        // Existing has equal or higher priority - ignore incoming
+        return { shouldIgnore: true, txHashesToEvict: [] };
+      }
+    }
+
+    return { shouldIgnore: false, txHashesToEvict };
+  }
+
   #updateProtection(txHashStr: string, slotNumber: SlotNumber): void {
     const currentSlot = this.#protectedTransactions.get(txHashStr);
 
@@ -900,15 +1048,9 @@ export class AztecKVTxPoolV2
   }
 
   #markAsMined(meta: TxMetaData, blockId: L2BlockId): void {
-    const wasProtected = this.#protectedTransactions.has(meta.txHash);
-    const wasPending = !wasProtected && meta.minedL2BlockId === undefined;
-
     meta.minedL2BlockId = blockId;
-
-    if (wasPending) {
-      this.#removeFromPendingIndices(meta);
-    }
-    // If was protected, indices were already removed
+    // Safe to call unconditionally - removeFromPendingIndices is idempotent
+    this.#removeFromPendingIndices(meta);
   }
 
   async #deleteTx(txHashStr: string, _opts?: { permanently?: boolean }): Promise<void> {
@@ -926,7 +1068,30 @@ export class AztecKVTxPoolV2
     await this.#txsDB.delete(txHashStr);
   }
 
-  // === TxPoolOperations Implementation (for EvictionManager) ===
+  // === TxPoolOperations Adapter (for EvictionManager) ===
+
+  /**
+   * Creates a TxPoolOperations adapter for use with the eviction manager.
+   * This adapter accesses internal state directly without going through the queue,
+   * since eviction rules are called from within queue tasks.
+   */
+  #createTxPoolOperationsAdapter(): TxPoolOperations {
+    return {
+      getTxByHash: async (txHash: TxHash): Promise<Tx | undefined> => {
+        const buffer = await this.#txsDB.getAsync(txHash.toString());
+        return buffer ? Tx.fromBuffer(buffer) : undefined;
+      },
+      getPendingTxInfos: () => this.getPendingTxInfos(),
+      getPendingTxsReferencingBlocks: (blockHashes: Fr[]) => this.getPendingTxsReferencingBlocks(blockHashes),
+      getPendingFeePayers: () => this.getPendingFeePayers(),
+      getFeePayerTxInfos: (feePayer: AztecAddress) => this.getFeePayerTxInfos(feePayer),
+      getPendingTxCount: () => Promise.resolve(this.#doGetPendingTxCount()),
+      getLowestPriorityEvictable: (limit: number) => Promise.resolve(this.#doGetLowestPriorityEvictable(limit)),
+      deleteTxs: (txHashes: TxHash[], opts?: { permanently?: boolean }) => this.deleteTxs(txHashes, opts),
+    };
+  }
+
+  // === TxPoolOperations Implementation (for external use) ===
 
   async deleteTxs(txHashes: TxHash[], opts?: { permanently?: boolean }): Promise<void> {
     await this.#store.transactionAsync(async () => {
@@ -1018,10 +1183,61 @@ export class AztecKVTxPoolV2
         if (!meta || this.#getTxState(meta) !== 'pending') {
           return undefined;
         }
-        return await this.getTxByHash(hash);
+        // Read directly from DB without going through queue (we're already in a queue task)
+        const buffer = await this.#txsDB.getAsync(hash.toString());
+        return buffer ? Tx.fromBuffer(buffer) : undefined;
       },
       getTxPriority: (tx: Tx): string => {
         return getTxPriorityFee(tx).toString(16).padStart(32, '0');
+      },
+      getFeePayerBalance: async (feePayer: AztecAddress): Promise<bigint> => {
+        const db = this.#worldStateSynchronizer.getCommitted();
+        const publicStateSource = new DatabasePublicStateSource(db);
+        const balance = await publicStateSource.storageRead(
+          ProtocolContractAddress.FeeJuice,
+          await computeFeePayerBalanceStorageSlot(feePayer),
+        );
+        return balance.toBigInt();
+      },
+      getFeePayerPendingTxs: async (feePayer: AztecAddress): Promise<FeePayerTxInfo[]> => {
+        const feePayerStr = feePayer.toString();
+        const txHashes = this.#feePayerToTxHashes.get(feePayerStr);
+        if (!txHashes) {
+          return [];
+        }
+
+        const result: FeePayerTxInfo[] = [];
+        for (const txHashStr of txHashes) {
+          const meta = this.#metadata.get(txHashStr);
+          if (meta && this.#getTxState(meta) === 'pending') {
+            result.push(
+              new FeePayerTxInfo({
+                txHash: TxHash.fromString(txHashStr),
+                priority: meta.priorityFee,
+                feeLimit: meta.feeLimit,
+                claimAmount: meta.claimAmount,
+                isEvictable: true,
+              }),
+            );
+          }
+        }
+        return result;
+      },
+      getPendingTxCount: (): number => {
+        return this.#doGetPendingTxCount();
+      },
+      getLowestPriorityPendingTx: (): { txHash: TxHash; priority: bigint } | undefined => {
+        // Iterate in ascending order to find the lowest priority
+        for (const txHashStr of this.#iteratePendingByPriority('asc')) {
+          const meta = this.#metadata.get(txHashStr);
+          if (meta) {
+            return {
+              txHash: TxHash.fromString(txHashStr),
+              priority: meta.priorityFee,
+            };
+          }
+        }
+        return undefined;
       },
     };
   }

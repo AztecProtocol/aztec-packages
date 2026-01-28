@@ -55,21 +55,21 @@ export class NullifierConflictPreAddRule implements PreAddEvictionRule {
       const conflictingPriority = poolAccess.getTxPriority(conflictingTx);
 
       // If incoming tx has strictly higher priority, mark for eviction
-      // Otherwise, reject incoming tx (ties go to existing tx)
+      // Otherwise, ignore incoming tx (ties go to existing tx)
       if (incomingPriority > conflictingPriority) {
         insertIntoSortedArray(txHashesToEvict, conflictingHash, cmpTxHash);
       } else {
         this.log.debug(
-          `Rejecting tx ${txHash.toString()}: nullifier conflict with ${conflictingHash.toString()} which has higher or equal fee`,
+          `Ignoring tx ${txHash.toString()}: nullifier conflict with ${conflictingHash.toString()} which has higher or equal fee`,
         );
         return {
-          shouldReject: true,
+          shouldIgnore: true,
           txHashesToEvict: [],
           reason: `nullifier conflict with ${conflictingHash.toString()}`,
         };
       }
     }
 
-    return { shouldReject: false, txHashesToEvict };
+    return { shouldIgnore: false, txHashesToEvict };
   }
 }
