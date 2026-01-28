@@ -49,7 +49,7 @@ bash -i <(curl -s https://install.aztec.network/#include_version_without_prefix/
 This will install the following tools:
 
 - **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-up** - a tool to switch the aztec toolchain to a different version. If you already have the toolchain installed, run `aztec-up {version}` to switch versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 
 ### Start the local network
