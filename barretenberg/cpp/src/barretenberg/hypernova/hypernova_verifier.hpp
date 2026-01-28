@@ -74,9 +74,11 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      *
      * @details Executing this sumcheck we generate the random challenges at which the polynomial commitments have to be
      * opened.
+     * @param num_public_inputs Number of public inputs (derived from proof size by caller)
      */
     SumcheckOutput<Flavor> sumcheck_on_incoming_instance(const std::shared_ptr<VerifierInstance>& instance,
-                                                         const Proof& proof);
+                                                         const Proof& proof,
+                                                         size_t num_public_inputs);
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.

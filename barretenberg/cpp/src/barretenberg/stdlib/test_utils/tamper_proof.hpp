@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 
 namespace bb {
 
@@ -16,15 +17,13 @@ enum class TamperType {
 
 /**
  * @brief Compute the proof length for re-exporting after tampering
- * @details Excludes IPA proof length for flavors with IPA accumulator since it's added again by export_proof
+ * @details ProofLength::Honk excludes IPA (handled separately by prover/verifier for rollup flavors)
+ * @param num_public_inputs Number of public inputs in the proof
+ * @param log_n Log of circuit size (use VIRTUAL_LOG_N for padded flavors, actual log_dyadic_size for non-padded)
  */
-template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs)
+template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs, size_t log_n)
 {
-    size_t num_frs = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        num_frs -= IPA_PROOF_LENGTH;
-    }
-    return num_frs;
+    return ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs;
 }
 
 /**
@@ -71,7 +70,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     // Serialize back and re-export the tampered proof
     structured_proof.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
     inner_prover.transcript->test_set_proof_parsing_state(
-        0, compute_proof_length_for_export<InnerFlavor>(num_public_inputs));
+        0, compute_proof_length_for_export<InnerFlavor>(num_public_inputs, log_n));
     inner_proof = inner_prover.export_proof();
 }
 
