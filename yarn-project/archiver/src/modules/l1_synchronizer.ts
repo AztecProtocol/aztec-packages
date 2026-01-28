@@ -16,7 +16,7 @@ import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined } from '@aztec/foundation/types';
 import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
@@ -249,8 +249,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstUncheckpointedBlockSlot = firstUncheckpointedBlockHeader?.getSlot();
 
     // What's the slot at the next L1 block? All blocks for slots strictly before this one should've been checkpointed by now.
-    const nextL1BlockTimestamp = currentL1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration);
-    const slotAtNextL1Block = getSlotAtTimestamp(nextL1BlockTimestamp, this.l1Constants);
+    const slotAtNextL1Block = getSlotAtNextL1Block(currentL1Timestamp, this.l1Constants);
 
     // Prune provisional blocks from slots that have ended without being checkpointed
     if (firstUncheckpointedBlockSlot !== undefined && firstUncheckpointedBlockSlot < slotAtNextL1Block) {

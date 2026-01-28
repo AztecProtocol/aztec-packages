@@ -26,6 +26,7 @@ import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
+  getSlotAtNextL1Block,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
@@ -212,8 +213,23 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     const queuedItems = this.blockQueue.splice(0, this.blockQueue.length);
     this.log.debug(`Processing ${queuedItems.length} queued block(s)`);
 
+    // Calculate slot threshold for validation
+    const l1Timestamp = this.synchronizer.getL1Timestamp();
+    const slotAtNextL1Block =
+      l1Timestamp === undefined ? undefined : getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+
     // Process each block individually to properly resolve/reject each promise
     for (const { block, resolve, reject } of queuedItems) {
+      const blockSlot = block.header.globalVariables.slotNumber;
+      if (slotAtNextL1Block !== undefined && blockSlot < slotAtNextL1Block) {
+        this.log.warn(
+          `Rejecting proposed block ${block.number} for past slot ${blockSlot} (current is ${slotAtNextL1Block})`,
+          { block: block.toBlockInfo(), l1Timestamp, slotAtNextL1Block },
+        );
+        reject(new Error(`Block ${block.number} is for past slot ${blockSlot} (current is ${slotAtNextL1Block})`));
+        continue;
+      }
+
       try {
         await this.updater.addProposedBlocks([block]);
         this.log.debug(`Added block ${block.number} to store`);
