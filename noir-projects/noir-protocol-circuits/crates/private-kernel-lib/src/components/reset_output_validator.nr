@@ -489,3 +489,273 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         );
     }
 }
+
+mod tests {
+    use super::assert_correctly_siloed_note_hash;
+    use dep::types::{
+        abis::note_hash::NoteHash,
+        address::AztecAddress,
+        hash::{compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash},
+        side_effect::{Counted, Scoped},
+        traits::FromField,
+    };
+
+    global CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(12345);
+    global NOTE_HASH_VALUE: Field = 9999;
+    global CLAIMED_FIRST_NULLIFIER: Field = 42;
+
+    fn make_note_hash(value: Field, counter: u32) -> Scoped<Counted<NoteHash>> {
+        Counted::new(value, counter).scope(CONTRACT_ADDRESS)
+    }
+
+    fn compute_expected_siloed(value: Field) -> Field {
+        compute_siloed_note_hash(CONTRACT_ADDRESS, value)
+    }
+
+    fn compute_expected_unique(value: Field, index: u32) -> Field {
+        let siloed = compute_expected_siloed(value);
+        compute_note_nonce_and_unique_note_hash(siloed, CLAIMED_FIRST_NULLIFIER, index)
+    }
+
+    // ==================== Non-revertible tests ====================
+
+    #[test]
+    fn non_revertible_note_hash_uses_unique_siloed() {
+        // counter (10) < min_revertible (100), so it's non-revertible
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+        let expected = compute_expected_unique(NOTE_HASH_VALUE, 0);
+
+        assert_correctly_siloed_note_hash(
+            expected,
+            prev,
+            0, // index
+            CLAIMED_FIRST_NULLIFIER,
+            false, // is_private_only
+            100, // min_revertible_side_effect_counter
+        );
+    }
+
+    #[test]
+    fn non_revertible_at_boundary_counter_zero() {
+        // counter (0) < min_revertible (100), so it's non-revertible
+        let prev = make_note_hash(NOTE_HASH_VALUE, 0);
+        let expected = compute_expected_unique(NOTE_HASH_VALUE, 5);
+
+        assert_correctly_siloed_note_hash(expected, prev, 5, CLAIMED_FIRST_NULLIFIER, false, 100);
+    }
+
+    // ==================== Revertible with is_private_only=true ====================
+
+    #[test]
+    fn revertible_private_only_uses_unique_siloed() {
+        // counter (200) >= min_revertible (100), so it's revertible
+        // But is_private_only=true, so still uses unique
+        let prev = make_note_hash(NOTE_HASH_VALUE, 200);
+        let expected = compute_expected_unique(NOTE_HASH_VALUE, 3);
+
+        assert_correctly_siloed_note_hash(
+            expected,
+            prev,
+            3,
+            CLAIMED_FIRST_NULLIFIER,
+            true, // is_private_only
+            100,
+        );
+    }
+
+    // ==================== Revertible with is_private_only=false ====================
+
+    #[test]
+    fn revertible_with_public_uses_siloed_only() {
+        // counter (200) >= min_revertible (100), so it's revertible
+        // is_private_only=false, so uses siloed (not unique)
+        let prev = make_note_hash(NOTE_HASH_VALUE, 200);
+        let expected = compute_expected_siloed(NOTE_HASH_VALUE); // NOT unique!
+
+        assert_correctly_siloed_note_hash(
+            expected,
+            prev,
+            3,
+            CLAIMED_FIRST_NULLIFIER,
+            false, // is_private_only
+            100,
+        );
+    }
+
+    #[test]
+    fn revertible_at_exact_boundary_uses_siloed_only() {
+        // counter (100) == min_revertible (100), so it's revertible (not <)
+        // is_private_only=false, so uses siloed (not unique)
+        let prev = make_note_hash(NOTE_HASH_VALUE, 100);
+        let expected = compute_expected_siloed(NOTE_HASH_VALUE);
+
+        assert_correctly_siloed_note_hash(
+            expected,
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            false,
+            100, // counter == min_revertible
+        );
+    }
+
+    // ==================== Zero contract_address (already siloed or empty) ====================
+
+    #[test]
+    fn zero_contract_address_passes_through_unchanged() {
+        // When contract_address is zero, the value passes through unchanged
+        let prev = Counted::new(NOTE_HASH_VALUE, 50).scope(AztecAddress::zero());
+
+        assert_correctly_siloed_note_hash(
+            NOTE_HASH_VALUE, // unchanged!
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+    }
+
+    #[test]
+    fn zero_contract_address_with_zero_value() {
+        // Empty note hash: both address and value are zero
+        let prev = Counted::new(0, 0).scope(AztecAddress::zero());
+
+        assert_correctly_siloed_note_hash(
+            0, // unchanged
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            false,
+            100,
+        );
+    }
+
+    // ==================== Index affects unique hash ====================
+
+    #[test]
+    fn different_indices_produce_different_unique_hashes() {
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+        let expected_at_0 = compute_expected_unique(NOTE_HASH_VALUE, 0);
+        let expected_at_1 = compute_expected_unique(NOTE_HASH_VALUE, 1);
+
+        // Verify they're different
+        assert(expected_at_0 != expected_at_1);
+
+        // Both should pass when given correct expected value
+        assert_correctly_siloed_note_hash(
+            expected_at_0,
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+
+        assert_correctly_siloed_note_hash(
+            expected_at_1,
+            prev,
+            1,
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+    }
+
+    // ==================== First nullifier affects unique hash ====================
+
+    #[test]
+    fn different_first_nullifiers_produce_different_unique_hashes() {
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+        let siloed = compute_expected_siloed(NOTE_HASH_VALUE);
+
+        let unique_with_nullifier_42 = compute_note_nonce_and_unique_note_hash(siloed, 42, 0);
+        let unique_with_nullifier_99 = compute_note_nonce_and_unique_note_hash(siloed, 99, 0);
+
+        // Verify they're different
+        assert(unique_with_nullifier_42 != unique_with_nullifier_99);
+
+        assert_correctly_siloed_note_hash(unique_with_nullifier_42, prev, 0, 42, true, 100);
+
+        assert_correctly_siloed_note_hash(unique_with_nullifier_99, prev, 0, 99, true, 100);
+    }
+
+    // ==================== Failure cases ====================
+
+    #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
+    fn wrong_output_value_fails() {
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+        let wrong_output = 123456; // Not the correct siloed value
+
+        assert_correctly_siloed_note_hash(
+            wrong_output,
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+    }
+
+    #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
+    fn siloed_when_unique_expected_fails() {
+        // Non-revertible expects unique, but we provide siloed
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10); // counter < 100, so non-revertible
+        let siloed_only = compute_expected_siloed(NOTE_HASH_VALUE);
+
+        assert_correctly_siloed_note_hash(
+            siloed_only, // Wrong! Should be unique for non-revertible
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            false,
+            100,
+        );
+    }
+
+    #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
+    fn unique_when_siloed_expected_fails() {
+        // Revertible with public expects siloed, but we provide unique
+        let prev = make_note_hash(NOTE_HASH_VALUE, 200); // counter >= 100, so revertible
+        let unique = compute_expected_unique(NOTE_HASH_VALUE, 0);
+
+        assert_correctly_siloed_note_hash(
+            unique, // Wrong! Should be siloed-only for revertible with public
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            false, // is_private_only = false means public execution expected
+            100,
+        );
+    }
+
+    #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
+    fn wrong_index_fails() {
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+        let expected_at_index_5 = compute_expected_unique(NOTE_HASH_VALUE, 5);
+
+        assert_correctly_siloed_note_hash(
+            expected_at_index_5,
+            prev,
+            0, // Wrong index! Expected was computed with index 5
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+    }
+
+    #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
+    fn unsiloed_value_with_nonzero_contract_address_fails() {
+        // If contract_address is non-zero, output must be siloed
+        let prev = make_note_hash(NOTE_HASH_VALUE, 10);
+
+        assert_correctly_siloed_note_hash(
+            NOTE_HASH_VALUE, // Wrong! Should be siloed since contract_address != 0
+            prev,
+            0,
+            CLAIMED_FIRST_NULLIFIER,
+            true,
+            100,
+        );
+    }
+}

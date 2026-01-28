@@ -302,6 +302,57 @@ mod tests {
         builder.validate();
     }
 
+    #[test(should_fail_with = "Propagated private log does not match")]
+    fn fails_kept_non_note_logs_wrong_order() {
+        // Attack: Prover provides kept logs in wrong order
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8),
+        ]);
+
+        // Keep both logs but in reverse order
+        builder.keep_logs([1, 0]);
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Propagated private log does not match")]
+    fn fails_drop_non_note_log() {
+        // Attack: Prover tries to not propagate a non-note log
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8),
+        ]);
+
+        // Only keep the first log, dropping the second
+        builder.keep_logs([0]);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_zero_zero_hint_for_non_note_log() {
+        // Edge case: Verify that {0, 0} hints work correctly for non-note logs
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // Non-note log (note_hash_counter = 0)
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
+
+        // Add a note hash and squashing hint at index 0 to create potential confusion
+        builder.add_note_hashes([Counted::new(11, 1)]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+        builder.add_squashing_hint(0, 0);
+
+        // The log should still be kept because it's a non-note log
+        builder.keep_logs([0]);
+
+        builder.validate();
+    }
+
     // ==============
     // Kept note logs
     // ==============
@@ -415,6 +466,63 @@ mod tests {
         derived_hints.note_log_linked_source_indices[0].transient_data_squashing_hint_index = 0;
 
         builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test(should_fail_with = "Propagated private log does not match")]
+    fn fails_kept_note_log_not_propagated() {
+        // Attack: Note log should be kept (its note hash is kept) but prover doesn't propagate it
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
+
+        builder.add_note_hashes([Counted::new(11, 1)]);
+
+        builder.keep_note_hashes([0]);
+
+        // Don't keep the log even though its note hash is kept
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_note_log_kept_while_different_note_hash_squashed() {
+        // Scenario: One note hash is squashed, another is kept, log links to kept one
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 2 }.count(7)]);
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        // Squash note_hash[0]
+        builder.add_squashing_hint(0, 0);
+
+        // Keep note_hash[1]
+        builder.keep_note_hashes([1]);
+
+        // Keep the log (linked to note_hash[1])
+        builder.keep_logs([0]);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_zero_zero_hint_for_note_log_linked_to_kept_at_index_zero() {
+        // Edge case: Note log correctly linked to kept note hash at index 0
+        // The default {0, 0} hint should correctly identify this as kept
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // Note log linked to counter=1
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
+
+        // Note hash at index 0 with counter=1
+        builder.add_note_hashes([Counted::new(11, 1)]);
+
+        builder.keep_note_hashes([0]);
+        builder.keep_logs([0]);
+
+        builder.validate();
     }
 
     // =============
@@ -614,6 +722,145 @@ mod tests {
         builder.add_squashing_hint(0, 0);
 
         // Everything is squashed.
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Log does not link to the hinted squashed note hash")]
+    fn fails_squashed_log_wrong_squashing_hint_index() {
+        // Attack: Prover provides transient_data_squashing_hint_index pointing to
+        // a squashing hint that references a different note hash.
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // Two logs linked to different note hashes
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 2 }.count(8),
+        ]);
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Squash both
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(1, 1);
+
+        let mut derived_hints = builder.build_derived_hints();
+
+        // Attack: Make log[0] point to squashing_hint[1] (which has note_hash_index=1, counter=2)
+        // but log[0] has note_hash_counter=1, so the check will fail.
+        derived_hints.note_log_linked_source_indices[0].transient_data_squashing_hint_index = 1;
+
+        builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test]
+    fn succeeds_zero_zero_hint_for_note_log_linked_to_squashed_at_index_zero() {
+        // Edge case: Note log correctly linked to squashed note hash via squashing hint at index 0
+        // The default {0, 0} hint should correctly identify this as squashed
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // Note log linked to counter=1
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
+
+        // Note hash at index 0 with counter=1, will be squashed
+        builder.add_note_hashes([Counted::new(11, 1)]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        builder.add_squashing_hint(0, 0);
+
+        // Log should be squashed along with note hash (no keep_logs call)
+
+        builder.validate();
+    }
+
+    // ==============
+    // Mixed scenarios
+    // ==============
+
+    #[test]
+    fn succeeds_multiple_logs_different_fates() {
+        // Scenario: Mix of kept and squashed logs
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7), // will be squashed
+            PrivateLogData { log: mock_log(202), note_hash_counter: 2 }.count(8), // will be kept
+            PrivateLogData { log: mock_log(303), note_hash_counter: 0 }.count(9), // non-note, kept
+            PrivateLogData { log: mock_log(404), note_hash_counter: 1 }.count(10), // will be squashed (same note hash)
+        ]);
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        // Squash note_hash[0] (counter=1)
+        builder.add_squashing_hint(0, 0);
+
+        // Keep note_hash[1] (counter=2)
+        builder.keep_note_hashes([1]);
+
+        // Logs at index 1 and 2 should be kept (in order)
+        builder.keep_logs([1, 2]);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_interleaved_kept_and_squashed_logs() {
+        // Scenario: Logs alternate between kept and squashed
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7), // squashed
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8), // kept (non-note)
+            PrivateLogData { log: mock_log(303), note_hash_counter: 2 }.count(9), // squashed
+            PrivateLogData { log: mock_log(404), note_hash_counter: 3 }.count(10), // kept (note log)
+        ]);
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2), Counted::new(33, 3)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Squash note_hash[0] and note_hash[1]
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(1, 1);
+
+        // Keep note_hash[2]
+        builder.keep_note_hashes([2]);
+
+        // Logs at index 1 and 3 should be kept (in order)
+        builder.keep_logs([1, 3]);
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Propagated private log does not match")]
+    fn fails_mixed_logs_wrong_order() {
+        // Attack: Kept logs provided in wrong order when some logs are squashed
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7), // squashed
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8), // kept
+            PrivateLogData { log: mock_log(303), note_hash_counter: 0 }.count(9), // kept
+        ]);
+
+        builder.add_note_hashes([Counted::new(11, 1)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        builder.add_squashing_hint(0, 0);
+
+        // Keep logs at index 1 and 2 but in wrong order
+        builder.keep_logs([2, 1]);
 
         builder.validate();
     }
