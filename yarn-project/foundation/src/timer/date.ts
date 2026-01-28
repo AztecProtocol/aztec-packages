@@ -31,4 +31,9 @@ export class TestDateProvider extends DateProvider {
     this.offset = timeMs - Date.now();
     this.logger.warn(`Time set to ${new Date(timeMs).toISOString()}`, { offset: this.offset, timeMs });
   }
+
+  /** Advances the time by the given number of seconds. */
+  public advanceTime(seconds: number) {
+    this.offset += seconds * 1000;
+  }
 }

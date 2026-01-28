@@ -382,6 +382,126 @@ describe('sequencer-timetable', () => {
           expect(() => timetable.assertTimeLeft(SequencerState.CREATING_BLOCK, pastInit)).not.toThrow();
         });
       });
+
+      describe('validator re-execution time guarantee', () => {
+        const P2P_PROPAGATION_TIME = 2;
+        const BLOCK_DURATION = 8;
+        const BLOCK_DURATION_MS = BLOCK_DURATION * 1000;
+
+        beforeEach(() => {
+          timetable = new SequencerTimetable({
+            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+            aztecSlotDuration: AZTEC_SLOT_DURATION,
+            l1PublishingTime: L1_PUBLISHING_TIME,
+            p2pPropagationTime: P2P_PROPAGATION_TIME,
+            blockDurationMs: BLOCK_DURATION_MS,
+            enforce: ENFORCE_TIMETABLE,
+          });
+        });
+
+        it('should reserve last sub-slot for validator re-execution', () => {
+          // Last block deadline: initOffset + maxBlocks * blockDuration
+          const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+
+          // After last block deadline, no more blocks can be built
+          const resultAfterLast = timetable.canStartNextBlock(lastBlockDeadline);
+          expect(resultAfterLast.canStart).toBe(false);
+        });
+
+        it('should ensure time from checkpoint broadcast to attestation deadline >= blockDuration + 2*propagation', () => {
+          // Required time for validators: re-execution + round-trip propagation
+          const requiredTimeForValidators = BLOCK_DURATION + 2 * P2P_PROPAGATION_TIME;
+          const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+          const checkpointBroadcast = lastBlockDeadline + timetable.checkpointAssembleTime;
+          const attestationDeadline = AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME;
+
+          const availableTimeForValidators = attestationDeadline - checkpointBroadcast;
+
+          expect(availableTimeForValidators).toBeGreaterThanOrEqual(requiredTimeForValidators);
+        });
+      });
+
+      describe('checkpoint finalization timing', () => {
+        const P2P_PROPAGATION_TIME = 2;
+        const BLOCK_DURATION = 8;
+        const BLOCK_DURATION_MS = BLOCK_DURATION * 1000;
+
+        beforeEach(() => {
+          timetable = new SequencerTimetable({
+            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+            aztecSlotDuration: AZTEC_SLOT_DURATION,
+            l1PublishingTime: L1_PUBLISHING_TIME,
+            p2pPropagationTime: P2P_PROPAGATION_TIME,
+            blockDurationMs: BLOCK_DURATION_MS,
+            enforce: ENFORCE_TIMETABLE,
+          });
+        });
+
+        it('should leave time for finalization after last block deadline', () => {
+          const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+          const broadcastTime = lastBlockDeadline + timetable.checkpointAssembleTime;
+          const attestationDeadline = AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME;
+
+          expect(attestationDeadline - broadcastTime).toBeGreaterThanOrEqual(2 * P2P_PROPAGATION_TIME + BLOCK_DURATION);
+        });
+
+        it('should set attestation deadline at slotDuration minus l1PublishingTime', () => {
+          const attestationDeadline = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
+          expect(attestationDeadline).toBe(AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
+        });
+
+        it('should reserve enough time for L1 publishing', () => {
+          const publishingMaxTime = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
+          expect(publishingMaxTime).toBeDefined();
+          expect(AZTEC_SLOT_DURATION - publishingMaxTime!).toBe(L1_PUBLISHING_TIME);
+        });
+      });
+
+      describe('timing invariants', () => {
+        const P2P_PROPAGATION_TIME = 2;
+        const BLOCK_DURATION = 8;
+        const BLOCK_DURATION_MS = BLOCK_DURATION * 1000;
+
+        beforeEach(() => {
+          timetable = new SequencerTimetable({
+            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+            aztecSlotDuration: AZTEC_SLOT_DURATION,
+            l1PublishingTime: L1_PUBLISHING_TIME,
+            p2pPropagationTime: P2P_PROPAGATION_TIME,
+            blockDurationMs: BLOCK_DURATION_MS,
+            enforce: ENFORCE_TIMETABLE,
+          });
+        });
+
+        it('should fit all operations within slot duration', () => {
+          const totalRequiredTime =
+            timetable.initializationOffset +
+            timetable.maxNumberOfBlocks * BLOCK_DURATION +
+            BLOCK_DURATION + // last sub-slot for validators
+            2 * P2P_PROPAGATION_TIME +
+            timetable.checkpointAssembleTime +
+            L1_PUBLISHING_TIME;
+
+          expect(totalRequiredTime).toBeLessThanOrEqual(AZTEC_SLOT_DURATION);
+        });
+
+        it('should have minExecutionTime less than blockDuration', () => {
+          expect(timetable.minExecutionTime).toBeLessThan(BLOCK_DURATION);
+        });
+
+        it('should allow starting a block at the latest possible time in multi-block mode', () => {
+          const lastSubSlotDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+          const latestStartTime = lastSubSlotDeadline - timetable.minExecutionTime;
+
+          const result = timetable.canStartNextBlock(latestStartTime);
+          expect(result.canStart).toBe(true);
+          expect(result.isLastBlock).toBe(true);
+
+          // One second later, it should not be possible
+          const tooLate = timetable.canStartNextBlock(latestStartTime + 1);
+          expect(tooLate.canStart).toBe(false);
+        });
+      });
     });
   });
 });
