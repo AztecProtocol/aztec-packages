@@ -126,7 +126,8 @@ case "$cmd" in
     export CI_DASHBOARD="deflake"
     export JOB_ID="deflake-$test_hash"
     export INSTANCE_POSTFIX="deflake-$test_hash"
-    bootstrap_ec2 "./bootstrap.sh ci-bisect-flake '$full_cmd' $commit"
+    # Allow 3 hours.
+    AWS_SHUTDOWN_TIME=180 bootstrap_ec2 "./bootstrap.sh ci-bisect-flake '$full_cmd' $commit"
     ;;
 
   ##########################################

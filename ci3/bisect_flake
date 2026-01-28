@@ -90,10 +90,16 @@ fi
 echo
 echo_header "verify oldest commit is stable"
 
+git checkout --deepen=$BISECT_MAX_DEPTH origin $commit
+
 # Find the oldest commit to test (go back BISECT_MAX_DEPTH commits)
 good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
     echo "Cannot go back $BISECT_MAX_DEPTH commits, using earliest available"
     good_commit=$(git rev-list --max-parents=0 HEAD | head -1)
+    if [ "$good_commit" == "$commit" ]; then
+        echo "Only one commit in history, cannot bisect."
+        exit 1
+    fi
 }
 
 echo "Testing oldest commit: ${good_commit:0:8}..."
