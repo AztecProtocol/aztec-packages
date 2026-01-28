@@ -2,8 +2,6 @@
 # Bisect to find the commit that introduced a flaky test.
 # Usage: bisect_flake <full_cmd> [commit]
 # full_cmd format: <hash>[:VAR=val]... <test_command>
-#
-# Uses run_test_cmd with CI=0 for consistent logging without CI side effects.
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -78,7 +76,7 @@ echo "Expecting all to fail if real failure, any pass if flake..."
 # If all jobs fail, parallel exits with non-zero
 # Inject NAME=test-{} into hash prefix for unique logging keys
 if ! seq 1 $GRIND_RUNS | parallel --halt soon,success=1 -j $GRIND_RUNS --line-buffer \
-    "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
+    "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
     echo "All initial runs failed, not a flake."
     exit 0
 fi
@@ -150,7 +148,7 @@ while true; do
     # If any fail, parallel exits non-zero -> commit is bad (flaky)
     echo "Grinding $bisect_runs times (halt on first failure)..."
     if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-        "CI=0 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+        "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
         echo "All runs passed - this commit is good (stable)"
         result=$(git bisect good 2>&1)
     else
