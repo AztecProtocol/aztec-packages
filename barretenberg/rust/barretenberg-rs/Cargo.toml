@@ -7,7 +7,8 @@ description = "Rust bindings for Barretenberg, a C++ cryptographic library for z
 license = "Apache-2.0"
 repository = "https://github.com/AztecProtocol/aztec-packages/tree/next/barretenberg/rust/barretenberg-rs"
 readme = "README.md"
-keywords = ["cryptography", "zero-knowledge", "zkp", "barretenberg", "aztec"]
+# crates.io allows max 5 keywords
+keywords = ["zero-knowledge", "snark", "plonk", "noir", "aztec"]
 categories = ["cryptography", "api-bindings"]
 
 [dependencies]
