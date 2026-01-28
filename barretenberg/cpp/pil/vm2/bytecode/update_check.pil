@@ -57,11 +57,13 @@ namespace update_check;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit updated_class_ids_slot;
     sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
+    pol commit dom_sep_public_storage_map_slot;
+    sel * (constants.DOM_SEP__PUBLIC_STORAGE_MAP_SLOT - dom_sep_public_storage_map_slot) = 0;
 
     pol commit delayed_public_mutable_slot;
 
     #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
-    sel { sel /* =1 */, updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
+    sel { sel /* =1 */, dom_sep_public_storage_map_slot, updated_class_ids_slot, address, delayed_public_mutable_slot }
     in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit delayed_public_mutable_hash_slot;

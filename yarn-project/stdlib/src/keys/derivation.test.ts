@@ -12,7 +12,7 @@ describe('🔑', () => {
     const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6), false);
     const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8), false);
 
-    const expected = Fr.fromHexString('0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad');
+    const expected = Fr.fromHexString('0x029d92319623fe2e5804a64b35d13e1c4881045371c41f36329b44dfc237d232');
     const publicKeysHash = await new PublicKeys(
       masterNullifierPublicKey,
       masterIncomingViewingPublicKey,
@@ -33,7 +33,9 @@ describe('🔑', () => {
     const publicKeysHash = new Fr(1n);
     const partialAddress = new Fr(2n);
     const address = await computePreaddress(publicKeysHash, partialAddress);
-    expect(address.toString()).toMatchSnapshot();
+    expect(address.toString()).toMatchInlineSnapshot(
+      '"0x0b661dee14f3871040a5938dbc5c1a7977aede0b64cff6b7faa168d11a288d75"',
+    );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -62,7 +64,7 @@ describe('🔑', () => {
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
 
     const address = (await computeAddress(publicKeys, partialAddress)).toString();
-    expect(address).toMatchSnapshot();
+    expect(address).toMatchInlineSnapshot('"0x105626366aab4a53d471701395a4e0e04af65ad1fad8483c74de338f397f226c"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
