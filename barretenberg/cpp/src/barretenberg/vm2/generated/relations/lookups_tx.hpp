@@ -322,9 +322,9 @@ struct lookup_tx_balance_slot_poseidon2_settings_ {
     static constexpr Column INVERSES = Column::lookup_tx_balance_slot_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_dom_sep_public_storage_map_slot,
         ColumnAndShifts::tx_fee_juice_balances_slot_constant,
         ColumnAndShifts::tx_fee_payer,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_fee_juice_balance_slot
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

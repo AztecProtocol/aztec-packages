@@ -44,6 +44,7 @@ void UpdateCheckTraceBuilder::process(
                 { C::update_check_update_preimage_pre_class_id, event.update_preimage_pre_class_id },
                 { C::update_check_update_preimage_post_class_id, event.update_preimage_post_class_id },
                 { C::update_check_updated_class_ids_slot, UPDATED_CLASS_IDS_SLOT },
+                { C::update_check_dom_sep_public_storage_map_slot, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT },
                 { C::update_check_delayed_public_mutable_slot, event.delayed_public_mutable_slot },
                 { C::update_check_delayed_public_mutable_hash_slot,
                   event.delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN },

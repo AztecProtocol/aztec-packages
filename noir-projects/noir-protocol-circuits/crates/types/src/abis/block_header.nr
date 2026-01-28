@@ -3,7 +3,7 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
         state_reference::StateReference,
     },
-    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
+    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HEADER_HASH, GENESIS_BLOCK_HEADER_HASH},
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -43,7 +43,7 @@ impl Empty for BlockHeader {
 
 impl Hash for BlockHeader {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__BLOCK_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__BLOCK_HEADER_HASH)
     }
 }
 
@@ -81,7 +81,7 @@ fn hash_of_empty_block_header_match_typescript() {
     let header = BlockHeader::empty();
     let hash = header.hash();
 
-    // Value from header.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x2c920b5fcfe68d413eab3e0022eb918d64d62ca44d195d5c32b8b9c68bff2dfe;
+    // Value from block_header.test.ts "computes empty hash" test
+    let test_data_empty_hash = 0x2332f3e8426f1e4fbf66323836e2de1916d47eeb53feb7d3d09ee30d001374be;
     assert_eq(hash, test_data_empty_hash);
 }
