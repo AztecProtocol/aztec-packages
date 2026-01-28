@@ -8,9 +8,7 @@ unconstrained fn at_sets_contract_address() {
     let env = TestEnvironment::new();
     let contract_address = AztecAddress::from_field(17);
 
-    env.utility_context_at(contract_address, |context| {
-        assert_eq(context.this_address(), contract_address);
-    });
+    env.utility_context_at(contract_address, |context| { assert_eq(context.this_address(), contract_address); });
 }
 
 #[test]

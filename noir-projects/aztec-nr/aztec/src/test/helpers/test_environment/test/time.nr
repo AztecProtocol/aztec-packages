@@ -51,10 +51,7 @@ unconstrained fn set_next_block_timestamp_sets_next_private_context_inclusion_bl
     // collected there - NOT the timestamp of the anchor block in the context, which corresponds to the last block's
     // timestamp.
     env.private_context(|context| {
-        assert_eq(
-            context.get_anchor_block_header().global_variables.timestamp,
-            last_block_timestamp,
-        );
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, last_block_timestamp);
     });
 
     assert_eq(env.last_block_timestamp(), expected_next_block_timestamp);

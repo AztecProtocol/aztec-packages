@@ -10,9 +10,7 @@ global OWNER: AztecAddress = AztecAddress::from_field(50);
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
-unconstrained fn in_private(
-    context: &mut PrivateContext,
-) -> PrivateSet<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(context: &mut PrivateContext) -> PrivateSet<MockNote, &mut PrivateContext> {
     PrivateSet::new(context, STORAGE_SLOT, OWNER)
 }
 

@@ -10,10 +10,10 @@ use protocol_types::address::AztecAddress;
 /// }
 /// ```
 ///
-/// Owned state variables are only used when working with private data because, in the public context, write permissions
-/// are solely defined by the contract logic, and anyone can read data. In private, however, modifying state (nullifying
-/// private notes) requires both knowledge of the note (the note commitment preimage) and possession of the
-/// corresponding nullifier secret key.
+/// Owned state variables are only used when working with private data because, in the public context, write
+/// permissions are solely defined by the contract logic, and anyone can read data. In private, however, modifying
+/// state (nullifying private notes) requires both knowledge of the note (the note commitment preimage) and possession
+/// of the corresponding nullifier secret key.
 ///
 /// ## So what is an Owner?
 ///
@@ -27,8 +27,8 @@ use protocol_types::address::AztecAddress;
 /// # Type Parameters
 ///
 /// * `Context` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
-///               determines which methods of the state variable are available and controls whether the variable can
-///               be accessed in public, private or utility functions.
+/// determines which methods of the state variable are available and controls whether the variable can be accessed in
+/// public, private or utility functions.
 ///
 pub trait OwnedStateVariable<Context> {
     /// Initializes a new owned state variable with a given storage slot and owner. The storage slot is inherited from

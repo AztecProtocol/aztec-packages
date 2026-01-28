@@ -1,6 +1,7 @@
 //! AVM oracles.
 //!
-//! There are only available during public execution. Calling any of them from a private or utility function will result in runtime errors.
+//! There are only available during public execution. Calling any of them from a private or utility function will
+//! result in runtime errors.
 
 use protocol_types::address::{AztecAddress, EthAddress};
 
@@ -102,10 +103,9 @@ pub unconstrained fn avm_return(returndata: [Field]) {
     return_opcode(returndata)
 }
 
-/// This opcode reverts using the exact data given. In general it should only be used
-/// to do rethrows, where the revert data is the same as the original revert data.
-/// For normal reverts, use Noir's `assert` which, on top of reverting, will also add
-/// an error selector to the revert data.
+/// This opcode reverts using the exact data given. In general it should only be used to do rethrows, where the revert
+/// data is the same as the original revert data. For normal reverts, use Noir's `assert` which, on top of reverting,
+/// will also add an error selector to the revert data.
 pub unconstrained fn revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
@@ -192,8 +192,8 @@ unconstrained fn return_opcode(returndata: [Field]) {}
 unconstrained fn revert_opcode(revertdata: [Field]) {}
 
 // While the length parameter might seem unnecessary given that we have N we keep it around because at the AVM bytecode
-// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take that
-// route.
+// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take
+// that route.
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let N: u32>(
     l2_gas_allocation: u32,
@@ -204,8 +204,8 @@ unconstrained fn call_opcode<let N: u32>(
 ) {}
 
 // While the length parameter might seem unnecessary given that we have N we keep it around because at the AVM bytecode
-// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take that
-// route.
+// level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take
+// that route.
 #[oracle(avmOpcodeStaticCall)]
 unconstrained fn call_static_opcode<let N: u32>(
     l2_gas_allocation: u32,

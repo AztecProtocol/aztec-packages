@@ -124,8 +124,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 
-        let deserialized =
-            PendingTaggedLog::deserialize(serialized_pending_tagged_log_from_typescript);
+        let deserialized = PendingTaggedLog::deserialize(serialized_pending_tagged_log_from_typescript);
 
         assert_eq(deserialized, pending_log);
     }

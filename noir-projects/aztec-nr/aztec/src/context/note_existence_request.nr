@@ -19,14 +19,8 @@ impl NoteExistenceRequest {
         // siloed based on whether the address is zero or non-zero. When passing the value to the kernel, we use
         // `maybe_addr.unwrap_or(Address::ZERO)`. Therefore, passing a zero address to `for_pending` is not allowed
         // since it would be interpreted by the kernel as a settled request.
-        assert(
-            !contract_address.is_zero(),
-            "Can't read a transient note with a zero contract address",
-        );
-        Self {
-            note_hash: unsiloed_note_hash,
-            maybe_contract_address: Option::some(contract_address),
-        }
+        assert(!contract_address.is_zero(), "Can't read a transient note with a zero contract address");
+        Self { note_hash: unsiloed_note_hash, maybe_contract_address: Option::some(contract_address) }
     }
 
     /// Creates an existence request for a settled note.

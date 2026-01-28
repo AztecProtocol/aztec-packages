@@ -32,8 +32,7 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, HintedNote<MockNo
 
     env.discover_note(note_message);
 
-    let hinted_note =
-        env.utility_context(|_| view_note(Option::some(NOTE_OWNER), NOTE_STORAGE_SLOT));
+    let hinted_note = env.utility_context(|_| view_note(Option::some(NOTE_OWNER), NOTE_STORAGE_SLOT));
 
     (env, hinted_note)
 }
