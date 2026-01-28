@@ -372,7 +372,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(d_ct.get_origin_tag(), first_two_merged_tag);
 
             fq_native expected = (a_native + b_native + c_native).reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -432,7 +432,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                     expected += b_native[j];
                 }
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -492,7 +492,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             if (need_reduction_after) {
                 expected = expected.reduce_once().reduce_once();
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -593,7 +593,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             if (need_reduction_after) {
                 expected = expected.reduce_once().reduce_once();
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = a_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -654,7 +654,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(d_ct.get_origin_tag(), first_second_third_merged_tag);
 
             fq_native expected = (a_native * b_native) + c_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -691,7 +691,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             c_ct.self_reduce();
 
             fq_native expected = (a_native.sqr()) + b_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -758,7 +758,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected += mul_left_native[j] * mul_right_native[j];
                 expected += to_add_native[j];
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -805,7 +805,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(f_ct.get_origin_tag(), first_second_third_merged_tag);
 
             fq_native expected = (a_native * b_native) + (c_native * d_native) + e_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -849,7 +849,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             fq_native expected = (a_native / b_native);
             expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -884,7 +884,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             fq_native expected = (a_native + b_native) / (c_native + d_native);
             expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -918,7 +918,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
             fq_native expected = (a_native + b_native) * (c_native + d_native);
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -953,7 +953,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
             fq_native expected = (a_native - b_native) * (c_native - d_native);
 
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -1176,8 +1176,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             g1::affine_element P3(g1::element(P1) + g1::element(P2));
             fq expected_x = P3.x;
             fq expected_y = P3.y;
-            expected_x = expected_x.from_montgomery_form();
-            expected_y = expected_y.from_montgomery_form();
+            expected_x = expected_x.from_montgomery_form_reduced();
+            expected_y = expected_y.from_montgomery_form_reduced();
             uint512_t result_x = x3.get_value() % fq_ct::modulus_u512;
             uint512_t result_y = y3.get_value() % fq_ct::modulus_u512;
             EXPECT_EQ(result_x.lo.data[0], expected_x.data[0]);

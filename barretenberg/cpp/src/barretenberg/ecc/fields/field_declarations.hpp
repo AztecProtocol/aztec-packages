@@ -178,31 +178,31 @@ template <class Params_> struct alignas(32) field {
 
     constexpr explicit operator uint8_t() const
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced()();
         return static_cast<uint8_t>(out.data[0]);
     }
 
     constexpr explicit operator uint16_t() const
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint16_t>(out.data[0]);
     }
 
     constexpr explicit operator uint32_t() const
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint32_t>(out.data[0]);
     }
 
     constexpr explicit operator uint64_t() const
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced();
         return out.data[0];
     }
 
     constexpr explicit operator uint128_t() const
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced();
         uint128_t lo = out.data[0];
         uint128_t hi = out.data[1];
         return (hi << 64) | lo;
@@ -210,7 +210,7 @@ template <class Params_> struct alignas(32) field {
 
     constexpr operator uint256_t() const noexcept
     {
-        field out = from_montgomery_form().reduce_once();
+        field out = from_montgomery_form_reduced();
         return uint256_t(out.data[0], out.data[1], out.data[2], out.data[3]);
     }
 
@@ -364,6 +364,9 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field to_montgomery_form() const noexcept;
     BB_INLINE constexpr field from_montgomery_form() const noexcept;
+    // Reduced versions guarantee output is in canonical form [0, p)
+    BB_INLINE constexpr field to_montgomery_form_reduced() const noexcept;
+    BB_INLINE constexpr field from_montgomery_form_reduced() const noexcept;
 
     BB_INLINE constexpr field sqr() const noexcept;
     BB_INLINE constexpr void self_sqr() & noexcept;
@@ -397,6 +400,9 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr void self_to_montgomery_form() & noexcept;
     BB_INLINE constexpr void self_from_montgomery_form() & noexcept;
+    // Reduced versions guarantee output is in canonical form [0, p)
+    BB_INLINE constexpr void self_to_montgomery_form_reduced() & noexcept;
+    BB_INLINE constexpr void self_from_montgomery_form_reduced() & noexcept;
 
     BB_INLINE constexpr void self_conditional_negate(uint64_t predicate) & noexcept;
 
@@ -484,6 +490,7 @@ template <class Params_> struct alignas(32) field {
 
     // NOTE: this form is only usable if the modulus is 254 bits or less, otherwise see
     // split_into_endomorphism_scalars_384.
+    // DOES NOT assume that the input is reduced; it can be in coarse form.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
     static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
     {
@@ -584,7 +591,7 @@ template <class Params_> struct alignas(32) field {
 
     friend std::ostream& operator<<(std::ostream& os, const field& a)
     {
-        field out = a.from_montgomery_form();
+        field out = a.from_montgomery_form_reduced();
         std::ios_base::fmtflags f(os.flags());
         os << std::hex << "0x" << std::setfill('0') << std::setw(16) << out.data[3] << std::setw(16) << out.data[2]
            << std::setw(16) << out.data[1] << std::setw(16) << out.data[0];
@@ -758,7 +765,7 @@ template <typename B, typename Params> void read(B& it, field<Params>& value)
 template <typename B, typename Params> void write(B& buf, field<Params> const& value)
 {
     using serialize::write;
-    const field input = value.from_montgomery_form();
+    const field input = value.from_montgomery_form_reduced();
     write(buf, input.data[3]);
     write(buf, input.data[2]);
     write(buf, input.data[1]);
