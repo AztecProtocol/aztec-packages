@@ -833,7 +833,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     for (const auto variable_index : list.variable_indices) {
         // note that `field_element` is < 32 bits as the corresponding witness has a non-trivial range-constraint.
         const auto& field_element = this->get_variable(variable_index);
-        const uint32_t shrinked_value = (uint32_t)field_element.from_montgomery_form_reduced().data[0];
+        const uint32_t shrinked_value = static_cast<uint32_t>(field_element);
         sorted_list.emplace_back(shrinked_value);
     }
 

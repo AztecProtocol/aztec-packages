@@ -226,7 +226,6 @@ TEST(BN254Fq, Neg)
 // Endomorphism
 // ================================
 
-
 TEST(BN254Fq, SplitIntoEndomorphismScalars)
 {
     fq k = fq::random_element();

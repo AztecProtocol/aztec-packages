@@ -101,7 +101,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             }
 
             ScalarField input(input_u256);
-            input.self_from_montgomery_form();
+            input.self_from_montgomery_form_reduced();
 
             ASSERT_EQ(input.data[0], input_u256.data[0]);
             ASSERT_EQ(input.data[1], input_u256.data[1]);

@@ -178,7 +178,7 @@ template <class Params_> struct alignas(32) field {
 
     constexpr explicit operator uint8_t() const
     {
-        field out = from_montgomery_form_reduced()();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint8_t>(out.data[0]);
     }
 
