@@ -1,7 +1,7 @@
 //! Historical storage accesses.
 
 use crate::protocol::{
-    abis::block_header::BlockHeader, address::AztecAddress, constants::DOM_SEP__PUBLIC_LEAF_INDEX,
+    abis::block_header::BlockHeader, address::AztecAddress, constants::DOM_SEP__PUBLIC_LEAF_SLOT,
     data::public_data_storage_read, hash::poseidon2_hash_with_separator, merkle_tree::MembershipWitness,
     traits::ToField,
 };
@@ -18,7 +18,7 @@ pub fn public_storage_historical_read(
     // 1) Compute the leaf index by siloing the storage slot with the contract address
     let public_data_tree_index = poseidon2_hash_with_separator(
         [contract_address.to_field(), storage_slot],
-        DOM_SEP__PUBLIC_LEAF_INDEX,
+        DOM_SEP__PUBLIC_LEAF_SLOT,
     );
 
     // 2) Get the membership witness for the tree index.

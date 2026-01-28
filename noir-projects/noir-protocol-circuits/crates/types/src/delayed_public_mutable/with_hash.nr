@@ -123,7 +123,7 @@ mod tests {
 
     impl TestBuilder {
         pub fn new() -> Self {
-            let contract_address = AztecAddress::from_field(39);
+            let contract_address = AztecAddress::from_field(71);
             let start_storage_slot = 27;
             let hash_storage_slot = derive_storage_slot_of_packed_values_hash::<DelayedPublicMutableValues<ContractClassId, TEST_INITIAL_DELAY>>(
                 start_storage_slot,
@@ -146,12 +146,17 @@ mod tests {
                 ),
             );
 
-            let random_contract_address = AztecAddress::from_field(42);
+            let random_contract_address = AztecAddress::from_field(65);
             let random_hash_leaf_slot =
                 compute_public_data_leaf_slot(random_contract_address, hash_storage_slot);
+            let random_next_leaf_slot = hash_leaf_slot + random_hash_leaf_slot * 2;
             assert(
                 hash_leaf_slot.lt(random_hash_leaf_slot),
                 "Find another random contract address with a larger hash leaf slot",
+            );
+            assert(
+                random_hash_leaf_slot.lt(random_next_leaf_slot),
+                "Update the next leaf slot to be greater than the random hash leaf slot",
             );
 
             let prefilled_leaves = [
@@ -161,11 +166,11 @@ mod tests {
                 PublicDataTreeLeafPreimage {
                     slot: hash_leaf_slot,
                     value: delayed_public_mutable.hash(),
-                    next_slot: hash_leaf_slot + random_hash_leaf_slot * 2,
+                    next_slot: random_next_leaf_slot,
                     next_index: 2,
                 },
                 PublicDataTreeLeafPreimage {
-                    slot: hash_leaf_slot + random_hash_leaf_slot * 2,
+                    slot: random_next_leaf_slot,
                     value: 123456,
                     next_slot: 0,
                     next_index: 0,

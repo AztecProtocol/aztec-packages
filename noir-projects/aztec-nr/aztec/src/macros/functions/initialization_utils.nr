@@ -1,5 +1,5 @@
 use crate::protocol::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__CONSTRUCTOR,
+    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__INITIALIZER,
     hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
@@ -72,6 +72,6 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
 pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
-        DOM_SEP__CONSTRUCTOR,
+        DOM_SEP__INITIALIZER,
     )
 }

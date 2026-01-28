@@ -100,9 +100,8 @@ unconstrained fn compute_var_args_hash() {
         input[i] = i as Field;
     }
     let hash = hash_args(input);
-    std::println(hash);
     // Used in yarn-project/stdlib test snapshots:
-    assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
+    assert_eq(hash, 0x2bc7f722916213294a1a4a53cec9e9ee78e2124797ad129658ebd1b00df820d5);
 }
 
 #[test]
@@ -113,7 +112,7 @@ unconstrained fn compute_calldata_hash() {
     }
     let hash = hash_calldata_array(input);
     // Used in cpp vm2 tests:
-    assert(hash == 0x191383c9f8964afd3ea8879a03b7dda65d6724773966d18dcf80e452736fc1f3);
+    assert_eq(hash, 0x0a11986d25a1f1639715047e125db86b0c684b44d736c0aa64c236d3e05c30b0);
 }
 
 #[test]
@@ -125,7 +124,6 @@ unconstrained fn public_bytecode_commitment() {
     }
     input[0] = (len as Field) * 31;
     let hash = compute_public_bytecode_commitment(input);
-    std::println(hash);
     // Used in cpp vm2 tests:
-    assert(hash == 0x16d621c3387156ef53754679e7b2c9be8f0bceeb44aa59a74991df3b0b42a0bf);
+    assert_eq(hash, 0x2c5e4c67ad5e1e4d840a6c4db4cee765fe09fbb6dfbb89ab649c295bb01f206e);
 }

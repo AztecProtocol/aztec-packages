@@ -105,7 +105,7 @@ namespace nullifier_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;
-    sel * (constants.DOM_SEP__OUTER_NULLIFIER - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__SILOED_NULLIFIER - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
     should_silo { sel, siloing_separator, address, nullifier, siloed_nullifier }
