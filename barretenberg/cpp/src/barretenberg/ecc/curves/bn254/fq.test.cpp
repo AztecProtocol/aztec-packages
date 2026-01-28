@@ -271,7 +271,7 @@ TEST(BN254Fq, SplitIntoEndomorphismScalarsSimple)
     result = k2 * beta;
     result = k1 - result;
 
-    result.self_from_montgomery_form();
+    result.self_from_montgomery_form_reduced();
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(result.data[i], k.data[i]);
     }
@@ -298,7 +298,7 @@ TEST(BN254Fq, SplitIntoEndomorphismEdgeCase)
     result = k2 * beta;
     result = k1 - result;
 
-    result.self_from_montgomery_form();
+    result.self_from_montgomery_form_reduced();
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(result.data[i], k.data[i]);
     }

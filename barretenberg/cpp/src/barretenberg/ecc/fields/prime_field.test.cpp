@@ -38,7 +38,7 @@ template <typename F> F create_element_with_limbs(uint64_t l0, uint64_t l1, uint
 {
     uint256_t val{ l0, l1, l2, l3 };
     F result(val);
-    result.self_from_montgomery_form();
+    result.self_from_montgomery_form_reduced();
 
 // On WASM, the internal Montgomery multiplication uses 29-bit limbs and may produce
 // different (but equivalent) representations. Skip limb verification on WASM.
@@ -574,9 +574,9 @@ TYPED_TEST(PrimeFieldTest, BoundaryArithmetic)
             // (p - offset) + (2^256 - p) = 2^256 - offset, which has field value -offset.
             uint256_t two_256_minus_p = uint256_t(0) - F::modulus;
             F two_256_minus_p_elt(two_256_minus_p);
-            two_256_minus_p_elt.self_from_montgomery_form();
+            two_256_minus_p_elt.self_from_montgomery_form_reduced();
             F p_minus_offset(F::modulus - offset);
-            p_minus_offset.self_from_montgomery_form();
+            p_minus_offset.self_from_montgomery_form_reduced();
             a = p_minus_offset + two_256_minus_p_elt;
 
             // Verify internal representation is 2^256 - offset
@@ -589,9 +589,9 @@ TYPED_TEST(PrimeFieldTest, BoundaryArithmetic)
             // 254-bit fields: construct element with internal representation near 2p - (offset + 1).
             // (p - 1) + (p - offset) = 2p - (offset + 1), which has field value -(offset + 1).
             F p_minus_one(F::modulus - 1);
-            p_minus_one.self_from_montgomery_form();
+            p_minus_one.self_from_montgomery_form_reduced();
             F p_minus_offset(F::modulus - offset);
-            p_minus_offset.self_from_montgomery_form();
+            p_minus_offset.self_from_montgomery_form_reduced();
             a = p_minus_one + p_minus_offset;
         }
 

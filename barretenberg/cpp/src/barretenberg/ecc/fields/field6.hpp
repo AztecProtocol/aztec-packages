@@ -214,6 +214,7 @@ template <typename base_field, typename Fq6Params> class field6 {
         };
     }
 
+    // Montgomery form conversions produce outputs where the components are in strict/reduced form.
     constexpr field6 to_montgomery_form() const
     {
         return {

@@ -297,44 +297,49 @@ template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexc
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     return *this * r_squared;
-#else
-    return (*this * r_squared).reduce_once();
-#endif
 }
 
 template <class T> constexpr field<T> field<T>::from_montgomery_form() const noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     return operator*(one_raw);
-#else
-    return operator*(one_raw).reduce_once();
-#endif
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
 {
     constexpr field r_squared =
         field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     *this *= r_squared;
-#else
-    *this *= r_squared;
-    self_reduce_once();
-#endif
 }
 
 template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
     constexpr field one_raw{ 1, 0, 0, 0 };
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     *this *= one_raw;
-#else
-    *this *= one_raw;
+}
+
+// Reduced versions - guarantee canonical form [0, p)
+template <class T> constexpr field<T> field<T>::to_montgomery_form_reduced() const noexcept
+{
+    return to_montgomery_form().reduce_once();
+}
+
+template <class T> constexpr field<T> field<T>::from_montgomery_form_reduced() const noexcept
+{
+    return from_montgomery_form().reduce_once();
+}
+
+template <class T> constexpr void field<T>::self_to_montgomery_form_reduced() & noexcept
+{
+    self_to_montgomery_form();
     self_reduce_once();
-#endif
+}
+
+template <class T> constexpr void field<T>::self_from_montgomery_form_reduced() & noexcept
+{
+    self_from_montgomery_form();
+    self_reduce_once();
 }
 
 template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
@@ -753,8 +758,8 @@ template <class T> constexpr field<T> field<T>::multiplicative_generator() noexc
 // modular arithmetic.
 template <class Params> void field<Params>::msgpack_pack(auto& packer) const
 {
-    // The field is first converted from Montgomery form, similar to how the old format did it.
-    auto adjusted = from_montgomery_form();
+    // The field is first converted from Montgomery form to canonical [0, p) representation.
+    auto adjusted = from_montgomery_form_reduced();
 
     // The data is then converted to big endian format using htonll, which stands for "host to network long
     // long". This is necessary because the data will be written to a raw msgpack buffer, which requires big
