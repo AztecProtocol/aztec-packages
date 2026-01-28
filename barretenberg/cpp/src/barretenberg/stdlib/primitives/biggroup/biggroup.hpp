@@ -71,18 +71,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        // Reject point at infinity - use point_at_infinity() instead.
-        // from_witness() creates circuit witnesses, but infinity is a known constant value.
-        // Creating witnesses for a known constant is semantically incorrect.
-        BB_ASSERT(!input.is_point_at_infinity(),
-                  "biggroup::from_witness: Cannot create witness from point at infinity. "
-                  "Use point_at_infinity() for infinity points.");
 
         Fq x = Fq::from_witness(ctx, input.x);
         Fq y = Fq::from_witness(ctx, input.y);
-        // Use private 4-arg constructor with explicit is_infinity=false (we already rejected infinity above).
-        // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
-        element out = element(x, y, bool_ct(ctx, false), /*assert_on_curve=*/true);
+
+        // Create _is_infinity as a witness for consistency with points from arithmetic operations.
+        // Security: Since assert_on_curve is true, validate_on_curve() enforces that if infinity=true, then x = y = 0.
+        element out = element(x, y, bool_ct(witness_ct(ctx, false)), /*assert_on_curve=*/true);
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
@@ -158,6 +153,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         // Origin tags should be updated within
         this->_x.fix_witness();
         this->_y.fix_witness();
+        this->_is_infinity.fix_witness();
 
         // This is now effectively a constant
         unset_free_witness_tag();
