@@ -68,6 +68,19 @@ std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_ind
 
 /**
  * @brief Split a combined rollup proof into honk and IPA components
+ * @details Two-level proof structure for rollup circuits:
+ *
+ * **Prover Level (UltraProver_::export_proof()):**
+ *   Creates: [public_inputs | honk_proof | ipa_proof]
+ *   - IPA proof appended if prover_instance->ipa_proof is non-empty
+ *
+ * **Verifier Level (this function):**
+ *   Splits: [honk_proof | ipa_proof] -> (honk_proof, ipa_proof)
+ *   - SYMMETRIC with UltraProver_::export_proof()
+ *   - IPA proof is exactly IPA_PROOF_LENGTH (64) elements at the end
+ *
+ * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4
+ * @see UltraProver_::export_proof() for the proof construction side
  */
 template <typename Flavor, class IO>
 std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Flavor, IO>::Proof> UltraVerifier_<
@@ -75,7 +88,13 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     IO>::split_rollup_proof(const Proof& combined_proof) const
     requires(IO::HasIPA)
 {
-    // IPA proof is appended at the end
+    // Validate combined proof is large enough to contain IPA proof
+    BB_ASSERT_GTE(combined_proof.size(),
+                  IPA_PROOF_LENGTH,
+                  "Combined rollup proof is too small to contain IPA proof. Expected at least " +
+                      std::to_string(IPA_PROOF_LENGTH) + " elements, got " + std::to_string(combined_proof.size()));
+
+    // IPA proof is appended at the end (must match UltraProver_::export_proof())
     const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
 
     Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_length);

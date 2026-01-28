@@ -40,6 +40,20 @@ std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<ui
     auto final_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
     info("CircuitProve: Proving key computed in ", duration.count(), " ms");
+
+    // Validate consistency between IO type and IPA proof presence
+    // IO::HasIPA indicates the circuit type requires IPA accumulation (rollup circuits)
+    // prover_instance->ipa_proof contains the actual IPA proof data from the circuit
+    if constexpr (IO::HasIPA) {
+        BB_ASSERT(!prover_instance->ipa_proof.empty(),
+                  "RollupIO circuit expected IPA proof but none was provided. "
+                  "Ensure the circuit includes IPA accumulation data.");
+    } else {
+        BB_ASSERT(prover_instance->ipa_proof.empty(),
+                  "Non-rollup circuit should not have IPA proof. "
+                  "Use ipa_accumulation=true in settings for rollup circuits.");
+    }
+
     return prover_instance;
 }
 template <typename Flavor, typename IO>
@@ -104,11 +118,17 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
 
     std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
     auto vk_and_hash = std::make_shared<VKAndHash>(vk);
-
-    // Concatenate public inputs and proof
-    auto complete_proof = concatenate_proof<Flavor>(public_inputs, proof);
-
     Verifier verifier{ vk_and_hash };
+
+    // Validate proof size
+    const size_t log_n = verifier.compute_log_n();
+    const size_t expected_size = ProofLength::Honk<Flavor>::template expected_proof_size<IO>(log_n);
+    if (proof.size() != expected_size) {
+        info("Proof verification failed: invalid proof size. Expected ", expected_size, ", got ", proof.size());
+        return false;
+    }
+
+    auto complete_proof = concatenate_proof<Flavor>(public_inputs, proof);
     bool verified = verifier.verify_proof(complete_proof).result;
 
     if (verified) {

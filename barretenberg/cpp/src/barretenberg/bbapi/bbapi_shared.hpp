@@ -222,6 +222,13 @@ struct Shutdown {
  * @brief Concatenate public inputs and proof into a complete proof for verification
  * @details Joins the separated public_inputs and proof portions back together.
  * Handles implicit conversion from uint256_t to the flavor's DataType.
+ *
+ * The proof structure after concatenation is: [public_inputs | honk_proof (| ipa_proof)]
+ * For rollup circuits (RollupIO), the proof portion includes the IPA proof appended at the end.
+ * This must match the split done in _prove() and the verification in _verify().
+ *
+ * @param public_inputs The ACIR public inputs (user inputs, not including IO-specific data)
+ * @param proof The proof data (Honk proof, plus IPA proof for rollup circuits)
  */
 template <typename Flavor>
 inline typename Flavor::Transcript::Proof concatenate_proof(const std::vector<uint256_t>& public_inputs,
@@ -311,26 +318,23 @@ template <typename Operation> auto dispatch_by_settings(const ProofSystemSetting
     if (settings.oracle_hash_type == "poseidon2") {
         if (settings.disable_zk) {
             return operation.template operator()<UltraFlavor, DefaultIO>();
-        } else {
-            return operation.template operator()<UltraZKFlavor, DefaultIO>();
         }
+        return operation.template operator()<UltraZKFlavor, DefaultIO>();
     }
 
     if (settings.oracle_hash_type == "keccak") {
         if (settings.disable_zk) {
             return operation.template operator()<UltraKeccakFlavor, DefaultIO>();
-        } else {
-            return operation.template operator()<UltraKeccakZKFlavor, DefaultIO>();
         }
+        return operation.template operator()<UltraKeccakZKFlavor, DefaultIO>();
     }
 
 #ifdef STARKNET_GARAGA_FLAVORS
     if (settings.oracle_hash_type == "starknet") {
         if (settings.disable_zk) {
             return operation.template operator()<UltraStarknetFlavor, DefaultIO>();
-        } else {
-            return operation.template operator()<UltraStarknetZKFlavor, DefaultIO>();
         }
+        return operation.template operator()<UltraStarknetZKFlavor, DefaultIO>();
     }
 #endif
 

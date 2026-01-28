@@ -64,6 +64,21 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
     , commitment_key(prover_instance->commitment_key)
 {}
 
+/**
+ * @brief Export the complete proof, including IPA proof for rollup circuits
+ * @details Two-level proof structure for rollup circuits:
+ *
+ * **Prover Level (this function):**
+ *   [public_inputs | honk_proof | ipa_proof]
+ *   - Appends IPA proof if prover_instance->ipa_proof is non-empty
+ *   - SYMMETRIC with UltraVerifier_::split_rollup_proof() which extracts the IPA portion
+ *
+ * **API Level (bbapi):**
+ *   - _prove() further splits into: public_inputs (ACIR only) vs proof (rest including IPA)
+ *   - concatenate_proof() reassembles for verification
+ *
+ * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4 = 64 elements
+ */
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
     auto proof = transcript->export_proof();
