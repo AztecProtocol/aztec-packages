@@ -24,7 +24,6 @@ class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
     using FF = Builder::FF;
 
     using ProverInstance = ProverInstance_<UltraFlavor>;
-    using UltraRollupVerifier = UltraVerifier_<UltraFlavor, bb::RollupIO>;
     using IO = bb::stdlib::recursion::honk::RollupIO;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }

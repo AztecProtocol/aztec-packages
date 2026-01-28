@@ -79,7 +79,6 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     using OuterBuilder = typename UltraFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraFlavor>;
-    using UltraRollupVerifier = UltraVerifier_<UltraFlavor, RollupIO>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
