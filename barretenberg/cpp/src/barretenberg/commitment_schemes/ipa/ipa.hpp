@@ -24,10 +24,6 @@
 #include <vector>
 
 namespace bb {
-// IPA_PROOF_LENGTH is defined in constants.hpp as: 4 * CONST_ECCVM_LOG_N + 4
-// The breakdown is: comms IPA_L and IPA_R (4 * CONST_ECCVM_LOG_N) + comm G_0 (2) + eval a_0 (2)
-static_assert(IPA_PROOF_LENGTH == (4 * CONST_ECCVM_LOG_N) + 4, "IPA_PROOF_LENGTH formula mismatch");
-
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *

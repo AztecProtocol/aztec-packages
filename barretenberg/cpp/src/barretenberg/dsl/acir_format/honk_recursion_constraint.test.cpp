@@ -86,7 +86,6 @@ class HonkRecursionConstraintTestingFunctions {
 
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
-    // Use the IsRootRollup template parameter to determine if we're testing rollup scenarios
     // For rollup tests, we use RollupIO; otherwise we use DefaultIO
     static constexpr bool UseRollupIO = IsRootRollup;
     using InnerIO = std::conditional_t<UseRollupIO,

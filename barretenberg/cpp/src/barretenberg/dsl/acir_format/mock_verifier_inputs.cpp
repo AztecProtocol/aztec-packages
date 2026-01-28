@@ -224,7 +224,6 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    // Append IPA proof if the IO type requires it (IO-driven, not flavor-dependent)
     if constexpr (PublicInputs::HasIPA) {
         HonkProof ipa_proof = create_mock_ipa_proof();
         proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
@@ -285,7 +284,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points and IPA claim (IO-driven)
     IO::add_default(builder);
 
     // prove the circuit constructed above

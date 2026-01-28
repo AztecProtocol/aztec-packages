@@ -112,7 +112,7 @@ TEST_F(AvmRecursionConstraintTest, GenerateVKFromConstraints)
     if (avm2::testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
-    // AVM constraints are always proven with UltraFlavor (they are part of the base rollup circuit)
+    // AVM constraints are always proven with UltraRollupVerifier
     [[maybe_unused]] size_t num_gates = test_vk_independence<UltraFlavor>();
 
     // TODO(fcarreiro): Re-enable when the VK is fixed.

@@ -83,7 +83,7 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
 {
     auto proof = transcript->export_proof();
 
-    // Append IPA proof if present (data-driven, symmetric with split_rollup_proof on verifier side)
+    // Append IPA proof if present
     if (!prover_instance->ipa_proof.empty()) {
         BB_ASSERT_EQ(prover_instance->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
         proof.insert(proof.end(), prover_instance->ipa_proof.begin(), prover_instance->ipa_proof.end());

@@ -270,13 +270,13 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
         return; // Not a rollup circuit, no validation needed
     }
 
-    // Rollup circuits must use poseidon2 for efficient recursive verification
+    // Rollup circuits must use poseidon2
     if (settings.oracle_hash_type != "poseidon2") {
         throw_or_abort("Rollup circuits (ipa_accumulation=true) must use oracle_hash_type='poseidon2', got '" +
                        settings.oracle_hash_type + "'");
     }
 
-    // Rollup circuits must have ZK disabled (they don't need hiding)
+    // Rollup circuits need masking
     if (!settings.disable_zk) {
         throw_or_abort("Rollup circuits (ipa_accumulation=true) must have disable_zk=true (rollup circuits are not "
                        "zero-knowledge)");
@@ -285,8 +285,8 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
 
 /**
  * @brief Dispatch to the correct Flavor and IO type based on proof system settings
- * @details Centralizes the if/else chain that maps settings (ipa_accumulation, oracle_hash_type, disable_zk)
- * to the appropriate Flavor and IO template parameters.
+ * @details Maps settings (ipa_accumulation, oracle_hash_type, disable_zk) to the appropriate Flavor and IO template
+ * parameters.
  *
  * Rollup Path:
  * - When ipa_accumulation=true, uses UltraFlavor with RollupIO (includes IPA claim for ECCVM)
@@ -297,14 +297,9 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
  * - Uses DefaultIO (includes only pairing points, no IPA)
  *
  * @param settings The proof system settings determining which flavor/IO to use
- * @param operation A callable object (lambda) that will be invoked with <Flavor, IO> template parameters
+ * @param operation A callable object that will be invoked with <Flavor, IO> template parameters
  * @return The result of calling operation.template operator()<Flavor, IO>()
- * @throws If settings are invalid or conflicting
  *
- * @example
- *   auto result = dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
- *       return _prove<Flavor, IO>(std::move(bytecode), std::move(witness));
- *   });
  */
 template <typename Operation> auto dispatch_by_settings(const ProofSystemSettings& settings, Operation&& operation)
 {

@@ -20,7 +20,7 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
     using OuterFlavor = UltraFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
+    using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = UltraFlavor::Commitment;

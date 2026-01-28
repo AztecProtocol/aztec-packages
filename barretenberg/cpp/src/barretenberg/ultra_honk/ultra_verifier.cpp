@@ -224,7 +224,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    // Step 1: Split proof if needed (IPA handling is IO-driven)
+    // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;
     if constexpr (IO::HasIPA) {
