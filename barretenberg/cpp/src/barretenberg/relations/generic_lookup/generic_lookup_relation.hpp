@@ -46,9 +46,9 @@ namespace bb {
  *                                       from values that are computed arbitrarily (and possibly in a different way) from {t_1, .., t_m}.
  *
  * In both cases, we rephrase the equation check in terms of two relations:
- *  1) \f[ I(x) * \prod_{i=1}^{NUM_LOOKUPS_IN_ONE_ROW} lookup_entry(x) \cdot \prod_{i=0}^{NUM_TABLE_COLUMNS} table_entry(x) - inverse_exists(x) = 0 \f]
- *  2) \f[ \sum_{i=0}^{NUM_LOOKUPS_IN_ONE_ROW} lookup_entry_predicate_i(x) * 1 / lookup_entry(x)
- *                                              - \sum_{i=0}^{NUM_TABLE_COLUMNS} table_entry_predicate_i(x) * lookup_read_count_i(x) * 1 / table_entry(x) \f]
+ *  1) \f[ I(x) * \prod_{i=1}^{NUM_LOOKUP_TERMS} lookup_entry(x) \cdot \prod_{i=0}^{NUM_TABLE_TERMS} table_entry(x) - inverse_exists(x) = 0 \f]
+ *  2) \f[ \sum_{i=0}^{NUM_LOOKUP_TERMS} lookup_entry_predicate_i(x) * 1 / lookup_entry(x)
+ *                                              - \sum_{i=0}^{NUM_TABLE_TERMS} table_entry_predicate_i(x) * lookup_read_count_i(x) * 1 / table_entry(x) \f]
  *
  * Relation 1) ensures that the polynomial \f$I\f$ represent the inverse of the product of the entries to be looked up and the table entries.
  * As this polynomial doesn't need to be defined everywhere, we set the result of the multiplication to be equal to the value of another
@@ -61,11 +61,11 @@ namespace bb {
  *
  * The degrees of the above relations are:
  * 1) The degree of relation 1) is MAX(1 + max(deg(lookup_entries)) + max(deg(table_entries)), deg(inverse_exists))
- * 2) The degree of relation 2) is 2 + NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS. This is because we compute the inverses as:
+ * 2) The degree of relation 2) is 2 + NUM_LOOKUP_TERMS + NUM_TABLE_TERMS. This is because we compute the inverses as:
  *    \f[
  *          1 / table_entry(x) = I(x) * \prod_{j \neq i} table_entry_j(x) * \prod_{i} lookup_entry_i(x)
  *    \f]
- *    whose degree is 1 + NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS - 1.
+ *    whose degree is 1 + NUM_LOOKUP_TERMS + NUM_TABLE_TERMS - 1.
  *
  * IMPORTANT: The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this relation.
  *
@@ -89,8 +89,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * virtual columns (i.e., combinations of columns) from virtual table columns (i.e., combinations of table columns).
      *
      */
-    static constexpr size_t NUM_LOOKUPS_IN_ONE_ROW = Settings::READ_TERMS;
-    static constexpr size_t NUM_TABLE_COLUMNS = Settings::WRITE_TERMS;
+    static constexpr size_t NUM_LOOKUP_TERMS = Settings::READ_TERMS;
+    static constexpr size_t NUM_TABLE_TERMS = Settings::WRITE_TERMS;
 
     /**
      * Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
@@ -105,6 +105,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     enum LOOKUP_TYPE { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
     enum TABLE_TYPE { BASIC_TABLE, CUSTOMIZED_TABLE };
 
+    /// NOTE: WE ARE ASSUMING THAT ALL BASIC LOOKUPS HAVE THE SAME NUMBER OF COLUMNS TO BE BATCHED, IS THIS NECESSARY?
     /**
      * When performing a basic lookup, we batch columns for efficiency. This constant represents the number of columns
      * to be batched together. For example, it would be 1 for a range constraint lookup, 3 for a XOR lookup.
@@ -119,7 +120,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static constexpr size_t compute_lookup_term_product_degree()
     {
         size_t accumulated_degree = 0;
-        for (size_t i = 0; i < NUM_LOOKUPS_IN_ONE_ROW; i++) {
+        for (size_t i = 0; i < NUM_LOOKUP_TERMS; i++) {
             size_t current_degree = 0;
             switch (Settings::LOOKUP_TYPES[i]) {
             case BASIC_LOOKUP:
@@ -143,7 +144,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static constexpr size_t compute_table_term_product_degree()
     {
         size_t accumulated_degree = 0;
-        for (size_t i = 0; i < NUM_TABLE_COLUMNS; i++) {
+        for (size_t i = 0; i < NUM_TABLE_TERMS; i++) {
             size_t current_degree = 0;
             switch (Settings::TABLE_TYPES[i]) {
             case BASIC_TABLE:
@@ -164,8 +165,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         std::max((compute_lookup_term_product_degree() + compute_table_term_product_degree() + 1),
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
-            1,                                         // inverse polynomial correctness sub-relation
-        NUM_LOOKUPS_IN_ONE_ROW + NUM_TABLE_COLUMNS + 3 // log-derived terms subrelation
+            1,                                 // inverse polynomial correctness sub-relation
+        NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3 // log-derived terms subrelation
     };
 
     // The first subrelation must be satisfied at every row.
@@ -178,11 +179,11 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * part variable:
      * ====== FIXED PART ======
      *  1) The first polynomial is the inverse polynomial
-     *  2) Next we have NUM_TABLE_COLUMNS polynomials representing the lookup read counts, i.e., how many times each
+     *  2) Next we have NUM_TABLE_TERMS polynomials representing the lookup read counts, i.e., how many times each
      *     table term has been read
-     *  3) Next we have NUM_LOOKUPS_IN_ONE_ROW polynomials representing the lookup term predicates, which toggle
+     *  3) Next we have NUM_LOOKUP_TERMS polynomials representing the lookup term predicates, which toggle
      *     whether a lookup term can be looked up in this row or not.
-     *  4) Next we have NUM_TABLE_COLUMNS polynomials representing the table term predicates, which toggle whether a
+     *  4) Next we have NUM_TABLE_TERMS polynomials representing the table term predicates, which toggle whether a
      *     table term can be looked up in this row or not
      * ====== VARIABLE PART ======
      *  5) For each lookup term, we have a variable number of polynomials depending on the type of lookup:
@@ -195,11 +196,11 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
     static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
     static constexpr size_t LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + NUM_TABLE_COLUMNS;
+        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
     static constexpr size_t TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUPS_IN_ONE_ROW;
+        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUP_TERMS;
     static constexpr size_t LOOKUP_TERM_START_POLYNOMIAL_INDEX =
-        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_COLUMNS;
+        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
 
     /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
@@ -246,7 +247,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
 
-        static_assert(index < NUM_TABLE_COLUMNS);
+        static_assert(index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
         return Accumulator(
@@ -261,7 +262,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     static Accumulator get_lookup_term_predicate(const AllEntities& in)
 
     {
-        static_assert(lookup_index < NUM_LOOKUPS_IN_ONE_ROW);
+        static_assert(lookup_index < NUM_LOOKUP_TERMS);
         using View = typename Accumulator::View;
 
         return Accumulator(View(
@@ -272,19 +273,19 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * @brief Extract predicate enabling looking up a given table term at this row
      *
      */
-    template <typename Accumulator, size_t column_index, typename AllEntities>
-    static Accumulator get_write_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t table_index, typename AllEntities>
+    static Accumulator get_table_term_predicate(const AllEntities& in)
     {
 
-        static_assert(column_index < NUM_TABLE_COLUMNS);
+        static_assert(table_index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
         return Accumulator(View(
-            std::get<TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + column_index>(Settings::get_const_entities(in))));
+            std::get<TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + table_index>(Settings::get_const_entities(in))));
     }
 
     /**
-     * @brief Compute where the polynomials defining a particular read term are located
+     * @brief Compute where the polynomials defining a particular lookup term are located
      *
      */
     static constexpr size_t compute_lookup_term_polynomial_offset(size_t lookup_index)
@@ -308,115 +309,88 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
-     * @brief Compute where the polynomials defining a particular write term are located
+     * @brief Compute where the polynomials defining a particular table term are located
      *
-     * @details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
-     * depending on the type of term different number of polynomials can be used to compute it. So we need to
-     * compute the offset in the tuple iteratively
-     *
-     * @param write_index Index of the write term
-     * @return constexpr size_t
      */
-    static constexpr size_t compute_write_term_polynomial_offset(size_t write_index)
+    static constexpr size_t compute_table_term_polynomial_offset(size_t table_index)
     {
-        // If it's the starting index, then we need to find out how many polynomials were taken by read terms
-        if (write_index == 0) {
-            return compute_read_term_polynomial_offset(READ_TERMS);
+        // If it's the starting index, then we need to find out how many polynomials were taken by lookup terms
+        if (table_index == 0) {
+            return compute_table_term_polynomial_offset(NUM_LOOKUP_TERMS);
         }
 
-        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear
-        // combination of polynomials)
-        if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_BASIC_TUPLE) {
-            return compute_write_term_polynomial_offset(write_index - 1) + LOOKUP_TUPLE_SIZE;
-        }
-
-        // In case of arbitrary write term, no polynomials from the tuple are being used
-        if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_ARBITRARY) {
-            return compute_write_term_polynomial_offset(write_index - 1);
-        }
-        return SIZE_MAX;
-    }
-
-    /**
-     * @brief Compute the value of a single item in the set
-     *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns
-     * is in the first set
-     *
-     * @tparam read_index The chosen polynomial relation
-     *
-     * @param params Used for beta and gamma
-     */
-    template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
-    {
-        using View = typename Accumulator::View;
-
-        static_assert(read_index < READ_TERMS);
-        constexpr size_t start_polynomial_index = compute_read_term_polynomial_offset(read_index);
-        if constexpr (Settings::READ_TERM_TYPES[read_index] == READ_BASIC_TUPLE) {
-            // Retrieve all polynomials used
-            const auto all_polynomials = Settings::get_const_entities(in);
-
-            auto result = Accumulator(0);
-
-            // Iterate over tuple and sum as a polynomial over beta
-            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
-                [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
-            const auto& gamma = params.gamma;
-            return result + gamma;
-        } else if constexpr (Settings::READ_TERM_TYPES[read_index] == READ_SCALED_TUPLE) {
-            // Retrieve all polynomials used
-            const auto all_polynomials = Settings::get_const_entities(in);
-
-            auto result = Accumulator(0);
-            // Iterate over tuple and sum as a polynomial over beta
-            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>([&]<size_t i>() {
-                result = (result * params.beta) + View(std::get<i + 2 * LOOKUP_TUPLE_SIZE>(all_polynomials)) -
-                         View(std::get<i + LOOKUP_TUPLE_SIZE>(all_polynomials)) * View(std::get<i>(all_polynomials));
-            });
-            const auto& gamma = params.gamma;
-            return result + gamma;
-        } else {
-
-            return Settings::template compute_read_term<Accumulator, read_index>(in, params);
+        switch (Settings::TABLE_TYPES[table_index - 1]) {
+        case BASIC_TABLE:
+            // If the previous lookup was a basic table, add lookup tuple size (it was using just a linear combination
+            // of polynomials)
+            return compute_table_term_polynomial_offset(table_index - 1) + LOOKUP_SIZE;
+        case CUSTOMIZED_TABLE:
+            // In case of customized table, no polynomials from the tuple are being used
+            return compute_table_term_polynomial_offset(table_index - 1);
+        default:
+            bb::assert_failure("Invalid lookup type");
         }
     }
 
     /**
-     * @brief Compute the value of a single item in the set
+     * @brief Compute the value of the lookup term at a given index
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns
-     * is in the second set
-     *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     *
-     * @param params Used for beta and gamma
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
-
-        static_assert(write_index < WRITE_TERMS);
-
         using View = typename Accumulator::View;
-        constexpr size_t start_polynomial_index = compute_write_term_polynomial_offset(write_index);
 
-        if constexpr (Settings::WRITE_TERM_TYPES[write_index] == WRITE_BASIC_TUPLE) {
-            // Retrieve all polynomials used
+        static_assert(lookup_index < NUM_LOOKUP_TERMS);
+        constexpr size_t start_polynomial_index = compute_lookup_term_polynomial_offset(lookup_index);
+        const FF beta = params.beta;
+        const FF gamma = params.gamma;
+
+        if constexpr (Settings::LOOKUP_TERM_TYPES[lookup_index] == BASIC_LOOKUP) {
+            // In this case we batch all the lookup columns pertaining to this lookup term using the randomness beta
+            FF result = Accumulator(0);
+
             const auto all_polynomials = Settings::get_const_entities(in);
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_SIZE, 1>(
+                [&]<size_t i>() { result = (result * beta) + View(std::get<i>(all_polynomials)); });
 
+            return result + gamma;
+        } else if constexpr (Settings::LOOKUP_TERM_TYPES[lookup_index] == CUSTOMIZED_LOOKUP) {
+            return Settings::template compute_lookup_term<Accumulator, lookup_index>(in, params);
+        } else {
+            bb::assert_failure("Invalid lookup type");
+        }
+    }
+
+    /**
+     * @brief Compute the value of a table term at a given index
+     *
+     */
+    template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
+    {
+        using View = typename Accumulator::View;
+
+        static_assert(table_index < NUM_TABLE_TERMS);
+        constexpr size_t start_polynomial_index = compute_table_term_polynomial_offset(table_index);
+        const FF beta = params.beta;
+        const FF gamma = params.gamma;
+
+        if constexpr (Settings::TABLE_TERM_TYPES[table_index] == BASIC_TABLE) {
+            // In this case we batch all the lookup columns pertaining to this lookup term using the randomness beta
             auto result = Accumulator(0);
 
-            // Iterate over tuple and sum as a polynomial over beta
-            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
-                [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
-            const auto& gamma = params.gamma;
-            return result + gamma;
-        } else {
-            // Sometimes we construct lookup tables on the fly from intermediate
+            const auto all_polynomials = Settings::get_const_entities(in);
 
-            return Settings::template compute_write_term<Accumulator, write_index>(in, params);
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_SIZE, 1>(
+                [&]<size_t i>() { result = (result * beta) + View(std::get<i>(all_polynomials)); });
+
+            return result + gamma;
+        }
+        if constexpr (Settings::TABLE_TERM_TYPES[table_index] == CUSTOMIZED_TABLE) {
+            return Settings::template compute_table_term<Accumulator, table_index>(in, params);
+        } else {
+            bb::assert_failure("Invalid table type");
         }
     }
 
@@ -424,7 +398,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * @brief Expression for generic log-derivative-based set permutation.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
-     * @param relation_params contains beta, gamma, and public_input_delta, ....
+     * @param relation_params contains beta, gamma
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -440,7 +414,5 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
 
 template <typename Settings, typename FF>
 using GenericLookupRelation = Relation<GenericLookupRelationImpl<Settings, FF>>;
-
-template <typename Settings, typename FF> using GenericLookup = GenericLookupRelationImpl<Settings, FF>;
 
 } // namespace bb
