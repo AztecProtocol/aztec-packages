@@ -1,7 +1,14 @@
 import type { IL1TxMetrics, L1TxState } from '@aztec/ethereum/l1-tx-utils';
 import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
-import { Attributes, type Histogram, type Meter, Metrics, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type Histogram,
+  type Meter,
+  Metrics,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
 
 export type L1TxScope = 'sequencer' | 'prover' | 'other';
 
@@ -35,13 +42,14 @@ export class L1TxMetrics implements IL1TxMetrics {
 
     this.txAttemptsUntilMined = this.meter.createHistogram(Metrics.L1_TX_ATTEMPTS_UNTIL_MINED);
 
-    this.txMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_MINED_COUNT);
+    const scopeAttributes = [{ [Attributes.L1_TX_SCOPE]: this.scope }];
+    this.txMinedCount = createUpDownCounterWithDefault(this.meter, Metrics.L1_TX_MINED_COUNT, scopeAttributes);
 
-    this.txRevertedCount = this.meter.createUpDownCounter(Metrics.L1_TX_REVERTED_COUNT);
+    this.txRevertedCount = createUpDownCounterWithDefault(this.meter, Metrics.L1_TX_REVERTED_COUNT, scopeAttributes);
 
-    this.txCancelledCount = this.meter.createUpDownCounter(Metrics.L1_TX_CANCELLED_COUNT);
+    this.txCancelledCount = createUpDownCounterWithDefault(this.meter, Metrics.L1_TX_CANCELLED_COUNT, scopeAttributes);
 
-    this.txNotMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_NOT_MINED_COUNT);
+    this.txNotMinedCount = createUpDownCounterWithDefault(this.meter, Metrics.L1_TX_NOT_MINED_COUNT, scopeAttributes);
 
     this.maxPriorityFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_MAX_PRIORITY_FEE);
 

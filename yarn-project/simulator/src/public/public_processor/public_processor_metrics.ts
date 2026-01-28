@@ -1,6 +1,6 @@
 import type { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import type { Gas } from '@aztec/stdlib/gas';
-import type { TxExecutionPhase } from '@aztec/stdlib/tx';
+import { TxExecutionPhase } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type Gauge,
@@ -9,6 +9,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export class PublicProcessorMetrics {
@@ -35,13 +36,18 @@ export class PublicProcessorMetrics {
 
     this.txDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_DURATION);
 
-    this.txCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_TX_COUNT);
+    this.txCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_TX_COUNT, {
+      [Attributes.OK]: [true, false],
+    });
 
-    this.txPhaseCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_TX_PHASE_COUNT);
+    this.txPhaseCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_TX_PHASE_COUNT);
 
     this.phaseDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_PHASE_DURATION);
 
-    this.phaseCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_PHASE_COUNT);
+    this.phaseCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_PHASE_COUNT, {
+      [Attributes.TX_PHASE_NAME]: [TxExecutionPhase.SETUP, TxExecutionPhase.APP_LOGIC, TxExecutionPhase.TEARDOWN],
+      [Attributes.OK]: [true, false],
+    });
 
     this.bytecodeDeployed = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE);
 
