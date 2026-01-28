@@ -133,6 +133,7 @@ fi
 
 # Reset timer and run the test using exec_test.
 SECONDS=0
+set +e
 $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
 test_pid=$!
 wait $test_pid
@@ -293,7 +294,7 @@ function flake {
 [ $code -eq 0 ] && pass
 
 # We're not in CI, fail.
-[ "$CI" -eq 0 ] && fail
+[ "$CI" -eq 0 || "$NO_FLAKE" -eq 1 ] && fail
 
 # Get matching test entries
 test_entries=$(get_test_entry "$test_cmd" "$tmp_file")
