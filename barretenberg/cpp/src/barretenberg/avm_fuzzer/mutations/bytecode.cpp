@@ -95,7 +95,8 @@ void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
     contract_classes.push_back(new_class);
 
     // Compute public data tree writes for UpdateCheck to pass
-    FF delayed_public_mutable_slot = Poseidon2::hash({ FF(UPDATED_CLASS_IDS_SLOT), address });
+    FF delayed_public_mutable_slot =
+        Poseidon2::hash({ FF(DOM_SEP__PUBLIC_STORAGE_MAP_SLOT), FF(UPDATED_CLASS_IDS_SLOT), address });
 
     // Build preimage
     // todo(ilyas): make this somewhat random but also take into account the mutation on global variables.timestamp
@@ -107,7 +108,7 @@ void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
     for (size_t i = 0; i < 4; i++) {
         FF storage_slot = delayed_public_mutable_slot + i;
         FF leaf_slot = Poseidon2::hash(
-            { FF(DOM_SEP__PUBLIC_LEAF_INDEX), FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), storage_slot });
+            { FF(DOM_SEP__PUBLIC_LEAF_SLOT), FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), storage_slot });
         public_data_writes.push_back(bb::crypto::merkle_tree::PublicDataLeafValue{ leaf_slot, values[i] });
     }
 }

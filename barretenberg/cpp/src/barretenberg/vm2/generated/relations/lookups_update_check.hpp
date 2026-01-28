@@ -47,9 +47,9 @@ struct lookup_update_check_delayed_public_mutable_slot_poseidon2_settings_ {
     static constexpr Column INVERSES = Column::lookup_update_check_delayed_public_mutable_slot_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::update_check_sel,
+        ColumnAndShifts::update_check_dom_sep_public_storage_map_slot,
         ColumnAndShifts::update_check_updated_class_ids_slot,
         ColumnAndShifts::update_check_address,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::update_check_delayed_public_mutable_slot
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

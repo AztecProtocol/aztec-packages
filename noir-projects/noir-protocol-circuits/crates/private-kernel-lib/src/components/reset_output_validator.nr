@@ -20,7 +20,7 @@ use dep::types::{
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
     hash::{
         compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash,
-        compute_siloed_private_log_field, silo_nullifier,
+        compute_siloed_private_log_first_field, silo_nullifier,
     },
     side_effect::{Counted, Ordered, Scoped},
 };
@@ -85,7 +85,10 @@ fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<Counted<Private
     let expected_first_field = if prev.contract_address.is_zero() {
         prev.innermost().log.fields[0]
     } else {
-        compute_siloed_private_log_field(prev.contract_address, prev.innermost().log.fields[0])
+        compute_siloed_private_log_first_field(
+            prev.contract_address,
+            prev.innermost().log.fields[0],
+        )
     };
     assert_eq(out.fields[0], expected_first_field);
     for i in 1..out.fields.len() {

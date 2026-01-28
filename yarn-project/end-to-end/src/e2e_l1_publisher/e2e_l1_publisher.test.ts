@@ -465,6 +465,7 @@ describe('L1Publisher integration', () => {
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
+          checkpoint.header,
           block,
           l1ToL2Content,
           blockBlobs,

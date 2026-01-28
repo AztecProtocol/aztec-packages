@@ -149,7 +149,7 @@ namespace public_data_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;
-    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__PUBLIC_LEAF_SLOT - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
     sel { sel, siloing_separator, address, slot, leaf_slot }
