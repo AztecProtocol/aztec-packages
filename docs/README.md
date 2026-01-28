@@ -487,6 +487,57 @@ When documentation references source code files, the CI system can automatically
 - For individual files: `"path/to/file.ts"`
 - For directories (all files within): `"path/to/directory/*"`
 
+### Automatic Documentation Update Notifications
+
+Building on the DevRel review automation, the docs CI can analyze PRs and notify the team when documentation updates may be needed.
+
+**How it works:**
+
+1. **Detection**: When a PR modifies files that are referenced in documentation (via the `references` frontmatter), the system detects which docs may need updates.
+
+2. **AI Analysis**: The system uses Claude Code to:
+   - Analyze the code changes (diffs) in the PR
+   - Review the affected documentation files
+   - Determine if documentation updates are needed
+   - Generate suggested documentation changes
+
+3. **Slack Notification**: If documentation updates are suggested:
+   - A message is sent to the configured Slack channel (default: `#devrel`)
+   - The message includes the PR details, affected docs, and suggested changes
+   - The DevRel team can review and apply the changes manually
+
+**Requirements**:
+- `ANTHROPIC_API_KEY` must be set in CI secrets
+- `SLACK_BOT_TOKEN` must be set for Slack notifications
+- Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
+- The PR must not be a draft
+
+**Environment Variables**:
+- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
+- `DRY_RUN=1` - Skip Slack notification, just print what would be sent
+
+**Implementation**: The automation is handled by `scripts/update_doc_references.sh`, which runs as part of the docs CI pipeline after `check_doc_references.sh`.
+
+**Script Architecture**:
+- `scripts/update_doc_references.sh` - Main script that orchestrates the workflow
+- `scripts/lib/extract_doc_references.sh` - Shared library for parsing frontmatter references
+- `scripts/lib/create_doc_update_pr.sh` - (Reserved for future use) PR creation logic
+- `scripts/test_update_doc_references.sh` - Local testing helper
+
+**Local Testing**:
+```bash
+# Find a PR with referenced file changes and test
+./scripts/test_update_doc_references.sh
+
+# Test against a specific PR
+LOCAL_TEST=1 DRY_RUN=1 ./scripts/update_doc_references.sh 19803
+```
+
+**Limitations**:
+- Only analyzes documentation in the source folders (`docs-developers/`, `docs-network/`), not versioned docs
+- Suggested changes should always be reviewed by a human before applying
+- The AI may occasionally suggest unnecessary or incorrect changes
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.
