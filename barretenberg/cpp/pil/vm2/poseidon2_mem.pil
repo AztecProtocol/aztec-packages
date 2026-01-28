@@ -156,12 +156,13 @@ namespace poseidon2_perm_mem;
     pol INPUT_TAG_DIFF_2 = input_tag[2] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_3 = input_tag[3] - constants.MEM_TAG_FF;
 
-    // Warning: Underconstrained if `sel_should_read_mem == 0`.
     pol BATCHED_TAG_CHECK = 2**0 * INPUT_TAG_DIFF_0 + 2**3 * INPUT_TAG_DIFF_1
                           + 2**6 * INPUT_TAG_DIFF_2 + 2**9 * INPUT_TAG_DIFF_3;
 
     pol commit batch_tag_inv;
     // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1
+    // Warning: The input_tag[i]'s columns are under-constrained if `sel_should_read_mem == 0` and
+    //          therefore `sel_invalid_tag_err` can be any boolean value in this case.
     #[BATCH_ZERO_CHECK]
     BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
 
