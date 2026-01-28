@@ -75,26 +75,26 @@ namespace to_radix_mem;
     pol commit num_limbs;
     pol commit is_output_bits;
 
-    // Control Flow
+    // == Multi-row Computation Selectors ==
+    // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // whereby `end` is denoted as `last` below.
     pol commit start;
     start * (1 - start) = 0;
     pol commit last; // Constrained in the Control flow section as depends on error
     last * (1 - last) = 0;
 
-    // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row
-    // Therefore, last must equal 0 in the first row as well.
-    #[LAST_HAS_SEL_ON] // sel = 1 when last = 1
-    last * (1 - sel) = 0;
-    // This is now guaranteed to be mututally exclusive because of the above condition
     pol LATCH_CONDITION = last + precomputed.first_row;
-    // If the next row is active and the current row is last or first, then start is active
-    // on the next row.
-    #[START_AFTER_LAST]
+
+    #[SEL_ON_START_OR_END]
+    (start + last) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // Continuity checks
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
     #[EXEC_CLK_CONTINUITY]
     (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
     #[SPACE_ID_CONTINUITY]
