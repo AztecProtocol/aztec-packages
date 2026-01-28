@@ -90,7 +90,7 @@ fi
 echo
 echo_header "verify oldest commit is stable"
 
-git checkout --deepen=$BISECT_MAX_DEPTH origin $commit
+git fetch --deepen=$BISECT_MAX_DEPTH origin $commit
 
 # Find the oldest commit to test (go back BISECT_MAX_DEPTH commits)
 good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
