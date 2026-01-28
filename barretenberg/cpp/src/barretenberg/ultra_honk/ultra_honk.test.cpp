@@ -32,9 +32,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
-                                  stdlib::recursion::honk::RollupIO,
-                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    using IO = typename TestFixture::IO;
     using Proof = typename Flavor::Transcript::Proof;
 
     auto builder = Builder{};
@@ -301,7 +299,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
 TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
 {
     using Flavor = TypeParam;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using IO = typename TestFixture::IO;
     using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;

@@ -20,13 +20,15 @@ using namespace bb;
 using numeric::uint256_t;
 
 // Get rid of the inner typename
-template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
+template <typename Circuit,
+          typename Flavor,
+          typename IO = stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>
+void generate_proof(uint256_t inputs[])
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using VKAndHash = typename Flavor::VKAndHash;
     using Prover = UltraProver_<Flavor>;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
     using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
@@ -34,11 +36,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     CircuitBuilder builder = Circuit::generate(inputs);
     // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<CircuitBuilder>::add_default(builder);
-        }
+        IO::add_default(builder);
     }
 
     auto instance = std::make_shared<ProverInstance>(builder);

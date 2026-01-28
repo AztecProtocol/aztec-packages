@@ -24,12 +24,12 @@ namespace bb {
 
 using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
-template <typename Flavor> class UltraHonkTests : public ::testing::Test {
+template <typename Flavor, typename IO = stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>
+class UltraHonkTests : public ::testing::Test {
   public:
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
     using Verifier = UltraVerifier_<Flavor, IO>;
 
     std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
@@ -41,13 +41,9 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         return res;
     }
 
-    void set_default_pairing_points_and_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
     {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
-        }
+        IO::add_default(builder);
     }
 
     void prove_and_verify(typename Flavor::CircuitBuilder& circuit_builder, bool expected_result)

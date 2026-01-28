@@ -2,14 +2,9 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "recursion_constraint.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 
 namespace acir_format {
 

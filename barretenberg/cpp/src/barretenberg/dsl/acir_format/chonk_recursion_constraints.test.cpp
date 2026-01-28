@@ -14,9 +14,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
-    // Types for Chonk recursive verifier (uses UltraFlavor with RollupIO for IPA handling)
     using Flavor = UltraFlavor;
-    using IO = bb::RollupIO;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     // Types for Chonk
@@ -108,7 +106,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
         HonkProof proof = prover.prove();
 
         auto vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(vk_from_valid_witness);
-        UltraVerifier_<UltraFlavor, bb::RollupIO> verifier(vk_and_hash);
+        UltraRollupVerifier verifier(vk_and_hash);
 
         EXPECT_TRUE(verifier.verify_proof(proof).result);
     }

@@ -40,9 +40,7 @@ concept HasDataBus = IsMegaFlavor<T>;
 // be reflected via Translator relations.
 template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
 
-// HasIPAAccumulator is deprecated - IPA handling is now IO-driven via IO::HasIPA
-template <typename T>
-concept HasIPAAccumulator = false;
+
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,

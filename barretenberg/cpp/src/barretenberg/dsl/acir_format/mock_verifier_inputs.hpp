@@ -6,11 +6,7 @@
 
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-#include "barretenberg/ultra_honk/verifier_instance.hpp"
-#include "barretenberg/vm2/constraining/flavor.hpp"
 #include <vector>
 
 namespace acir_format {

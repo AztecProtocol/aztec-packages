@@ -427,9 +427,7 @@ class RollupIO {
     };
 };
 
-// Default IO type for recursive verifiers: RollupIO for IPA flavors, DefaultIO<Builder> otherwise
-template <typename Flavor>
-using DefaultRecursiveIO =
-    std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO<typename Flavor::CircuitBuilder>>;
+// Note: DefaultRecursiveIO alias removed. Code should explicitly template on IO type (DefaultIO, RollupIO, etc.)
+// Use IO::HasIPA to check if an IO type includes IPA accumulator.
 
 } // namespace bb::stdlib::recursion::honk
