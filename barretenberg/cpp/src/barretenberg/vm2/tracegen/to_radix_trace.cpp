@@ -64,7 +64,6 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_limb, limb },
                           { C::to_radix_start, i == 0 },
                           { C::to_radix_end, end },
-                          { C::to_radix_not_end, !end },
                           { C::to_radix_exponent, exponent },
                           { C::to_radix_not_padding_limb, !is_padding },
                           { C::to_radix_acc, acc },
