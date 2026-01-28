@@ -1,5 +1,6 @@
 import { createArchiverStore, registerProtocolContracts } from '@aztec/archiver';
-import { type NoopL1Archiver, createNoopL1Archiver, makeInboxMessages } from '@aztec/archiver/test';
+import { makeInboxMessages } from '@aztec/archiver/test';
+import { type NoopL1Archiver, createNoopL1Archiver } from '@aztec/archiver/test/noop-l1';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { TestEpochCache } from '@aztec/epoch-cache/test';
