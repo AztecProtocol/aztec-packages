@@ -28,7 +28,7 @@ pub contract Test {
             PublicImmutable,
         },
         // Protocol types and constants
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             constants::PRIVATE_LOG_SIZE_IN_FIELDS,

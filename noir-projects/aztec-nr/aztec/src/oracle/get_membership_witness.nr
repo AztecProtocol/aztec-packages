@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader,
     constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
     traits::{Deserialize, Hash, Serialize},

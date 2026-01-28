@@ -120,7 +120,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
 
     quote {
         pub struct CallSelf<Context> {
-            pub address: aztec::protocol_types::address::AztecAddress,
+            pub address: aztec::protocol::address::AztecAddress,
             pub context: Context,
         }
 
@@ -133,7 +133,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
         }
 
         pub struct CallSelfStatic<Context> {
-            pub address: aztec::protocol_types::address::AztecAddress,
+            pub address: aztec::protocol::address::AztecAddress,
             pub context: Context,
         }
 
@@ -146,7 +146,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
         }
 
         pub struct EnqueueSelf<Context> {
-            pub address: aztec::protocol_types::address::AztecAddress,
+            pub address: aztec::protocol::address::AztecAddress,
             pub context: Context,
         }
 
@@ -155,7 +155,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
         }
 
         pub struct EnqueueSelfStatic<Context> {
-            pub address: aztec::protocol_types::address::AztecAddress,
+            pub address: aztec::protocol::address::AztecAddress,
             pub context: Context,
         }
 

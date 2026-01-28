@@ -1,5 +1,5 @@
 use crate::{hash::hash_args, oracle::execution_cache};
-use protocol_types::traits::Deserialize;
+use crate::protocol::traits::Deserialize;
 
 /// A hash that represents a private contract function call's return value. Call `get_preimage` to get the underlying
 /// value.
@@ -39,8 +39,8 @@ mod test {
         oracle::execution_cache,
         test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
     };
+    use crate::protocol::traits::Serialize;
     use super::ReturnsHash;
-    use protocol_types::traits::Serialize;
     use std::test::OracleMock;
 
     #[test]

@@ -7,7 +7,7 @@ use aztec::{
         note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
     },
-    protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
+    protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
     state_vars::{OwnedStateVariable, PrivateSet},
 };
 use std::ops::Add;

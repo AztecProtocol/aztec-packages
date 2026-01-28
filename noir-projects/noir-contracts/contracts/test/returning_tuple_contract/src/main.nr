@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract ReturningTuple {
     use aztec::{
         macros::functions::{external, view},
-        protocol_types::{address::AztecAddress, point::Point, traits::{Deserialize, FromField}},
+        protocol::{address::AztecAddress, point::Point, traits::{Deserialize, FromField}},
     };
 
     #[external("private")]

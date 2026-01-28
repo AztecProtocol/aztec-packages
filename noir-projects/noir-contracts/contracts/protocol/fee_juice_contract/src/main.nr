@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract FeeJuice {
     use dep::aztec::{
         macros::{functions::{external, internal, nophasecheck, only_self, view}, storage::storage},
-        protocol_types::{
+        protocol::{
             address::{AztecAddress, EthAddress},
             constants::FEE_JUICE_ADDRESS,
             traits::ToField,

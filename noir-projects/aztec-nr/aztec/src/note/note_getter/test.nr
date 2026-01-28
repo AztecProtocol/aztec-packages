@@ -10,7 +10,7 @@ use crate::{
     utils::comparison::Comparator,
 };
 
-use protocol_types::{address::AztecAddress, traits::FromField};
+use crate::protocol::{address::AztecAddress, traits::FromField};
 
 global storage_slot: Field = 42;
 global owner: AztecAddress = AztecAddress::from_field(50);

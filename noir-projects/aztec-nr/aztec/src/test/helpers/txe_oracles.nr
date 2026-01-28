@@ -1,6 +1,6 @@
 use crate::{context::inputs::PrivateContextInputs, event::EventSelector, test::helpers::utils::TestAccount};
 
-use protocol_types::{
+use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{

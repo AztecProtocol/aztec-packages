@@ -1,6 +1,6 @@
 use crate::context::{PublicContext, UtilityContext};
+use crate::protocol::traits::Packable;
 use crate::state_vars::StateVariable;
-use protocol_types::traits::Packable;
 
 /// Mutable public values.
 ///

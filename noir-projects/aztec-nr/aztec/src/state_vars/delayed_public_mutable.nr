@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     delayed_public_mutable::{
         delayed_public_mutable_values::{unpack_delay_change, unpack_value_change},
         DelayedPublicMutableValues,

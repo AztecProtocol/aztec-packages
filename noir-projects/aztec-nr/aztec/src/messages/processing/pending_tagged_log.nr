@@ -1,5 +1,5 @@
 use crate::messages::processing::MessageContext;
-use protocol_types::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Deserialize};
+use crate::protocol::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Deserialize};
 
 /// A private log that was tagged for `recipient` and has not yet been processed, plus information related to the
 /// transaction in which it was emitted.
@@ -12,8 +12,8 @@ pub(crate) struct PendingTaggedLog {
 
 mod test {
     use crate::messages::processing::MessageContext;
+    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
     use super::PendingTaggedLog;
-    use protocol_types::{address::AztecAddress, traits::{Deserialize, FromField}};
 
     #[test]
     unconstrained fn pending_tagged_log_serialization_matches_typescript() {

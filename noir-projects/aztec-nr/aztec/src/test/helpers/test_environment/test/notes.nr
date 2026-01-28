@@ -4,8 +4,8 @@ use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_viewer_options::NoteViewerOptions,
 };
+use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
-use protocol_types::{address::AztecAddress, traits::FromField};
 
 global VALUE: Field = 7;
 global CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(12);

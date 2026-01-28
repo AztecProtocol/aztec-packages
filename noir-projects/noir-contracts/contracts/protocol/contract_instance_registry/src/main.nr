@@ -5,7 +5,7 @@ pub contract ContractInstanceRegistry {
     use aztec::{
         macros::{events::event, functions::{external, view}, storage::storage},
         nullifier::utils::compute_nullifier_existence_request,
-        protocol_types::{
+        protocol::{
             address::{AztecAddress, PartialAddress},
             constants::{
                 CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,

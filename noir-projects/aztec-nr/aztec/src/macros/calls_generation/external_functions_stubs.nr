@@ -3,12 +3,12 @@
 // calls to public functions: ! !   ExternalContract.at(address).some_method(arg1, arg2).enqueue()
 
 use crate::macros::utils::{AsStrQuote, compute_fn_selector};
-use protocol_types::meta::utils::derive_serialization_quotes;
+use crate::protocol::meta::utils::derive_serialization_quotes;
 use std::meta::unquote;
 
 comptime global FROM_FIELD: TypedExpr = {
-    let from_field_trait = quote { protocol_types::traits::FromField }.as_trait_constraint();
-    let function_selector_typ = quote { protocol_types::abis::function_selector::FunctionSelector }.as_type();
+    let from_field_trait = quote { crate::protocol::traits::FromField }.as_trait_constraint();
+    let function_selector_typ = quote { crate::protocol::abis::function_selector::FunctionSelector }.as_type();
     function_selector_typ.get_trait_impl(from_field_trait).unwrap().methods().filter(|m| {
         m.name() == quote { from_field }
     })[0]
@@ -229,7 +229,7 @@ pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) ->
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let calldata = [aztec::protocol_types::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
+            let calldata = [aztec::protocol::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
             let calldata_hash = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(
@@ -251,7 +251,7 @@ pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let calldata = [aztec::protocol_types::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
+            let calldata = [aztec::protocol::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
             let calldata_hash = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(

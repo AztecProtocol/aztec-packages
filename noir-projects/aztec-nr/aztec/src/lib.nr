@@ -42,7 +42,7 @@ pub mod state_vars;
 mod capsules;
 pub mod event;
 pub mod messages;
-pub use protocol_types;
+pub use protocol_types as protocol;
 pub mod utils;
 pub mod authwit;
 pub mod macros;

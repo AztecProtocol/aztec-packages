@@ -1,4 +1,4 @@
-use protocol_types::traits::{Deserialize, Packable, Serialize};
+use crate::protocol::traits::{Deserialize, Packable, Serialize};
 
 // There's temporarily quite a bit of boilerplate here because Noir does not yet support enums. This file will
 // eventually be simplified into something closer to:

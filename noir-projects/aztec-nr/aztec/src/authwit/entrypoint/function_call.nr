@@ -1,4 +1,4 @@
-use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::{Serialize, ToField}};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::{Serialize, ToField}};
 use std::meta::derive;
 
 // 3 * 32 + 3

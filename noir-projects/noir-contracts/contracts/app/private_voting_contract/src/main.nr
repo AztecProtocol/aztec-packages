@@ -5,10 +5,7 @@ use dep::aztec::macros::aztec;
 pub contract PrivateVoting {
     // docs:start:imports
     use dep::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use dep::aztec::protocol_types::{
-        address::AztecAddress,
-        traits::{Deserialize, Serialize, ToField},
-    };
+    use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
     use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 use crate::messages::{discovery::ComputeNoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN};
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
     debug_log::debug_log_format,
@@ -108,7 +108,7 @@ mod test {
         utils::array,
     };
 
-    use protocol_types::{
+    use crate::protocol::{
         address::AztecAddress,
         hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
         traits::{FromField, Packable},

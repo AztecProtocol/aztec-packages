@@ -1,6 +1,6 @@
 //! Note existence and non-nullification.
 
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader,
     hash::{compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash},
     merkle_tree::root::root_from_sibling_path,

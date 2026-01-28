@@ -5,7 +5,7 @@ use crate::{
         processing::enqueue_event_for_validation,
     },
 };
-use protocol_types::{address::AztecAddress, traits::ToField};
+use crate::protocol::{address::AztecAddress, traits::ToField};
 
 pub unconstrained fn process_private_event_msg(
     contract_address: AztecAddress,

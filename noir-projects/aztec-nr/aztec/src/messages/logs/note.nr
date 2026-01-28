@@ -6,7 +6,7 @@ use crate::{
     note::note_interface::NoteType,
     utils::array,
 };
-use protocol_types::{address::AztecAddress, traits::{FromField, Packable, ToField}};
+use crate::protocol::{address::AztecAddress, traits::{FromField, Packable, ToField}};
 
 /// The number of fields in a private note message content that are not the note's packed representation.
 pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN: u32 = 3;
@@ -94,8 +94,8 @@ mod test {
         },
         note::note_interface::NoteType,
     };
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
     use crate::test::mocks::mock_note::MockNote;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     global VALUE: Field = 7;
     global OWNER: AztecAddress = AztecAddress::from_field(8);

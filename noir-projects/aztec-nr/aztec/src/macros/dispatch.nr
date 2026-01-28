@@ -1,7 +1,7 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
+use crate::protocol::meta::utils::get_params_len_quote;
 use super::utils::compute_fn_selector;
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::utils::get_params_len_quote;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
@@ -41,7 +41,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // a call to the target function, but with a selector added at the beginning.
             quote {
                 let input_calldata: [Field; $params_len_quote] = aztec::oracle::avm::calldata_copy(1, $params_len_quote);
-                let mut reader = aztec::protocol_types::utils::reader::Reader::new(input_calldata);
+                let mut reader = aztec::protocol::utils::reader::Reader::new(input_calldata);
             }
         };
 
@@ -51,7 +51,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
-                let $param_name: $param_type = reader.read_struct(aztec::protocol_types::traits::Deserialize::deserialize);
+                let $param_name: $param_type = reader.read_struct(aztec::protocol::traits::Deserialize::deserialize);
             };
             *parameter_index += 1;
             quote { $read }
@@ -80,7 +80,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             }
         } else {
             quote {
-                let return_value = aztec::protocol_types::traits::Serialize::serialize($call);
+                let return_value = aztec::protocol::traits::Serialize::serialize($call);
                 aztec::oracle::avm::avm_return(return_value.as_vector());
             }
         };

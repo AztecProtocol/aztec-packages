@@ -1,4 +1,4 @@
-use protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// A request for the `bulk_retrieve_logs` oracle to fetch either:
 /// - a public log emitted by `contract_address` with `unsiloed_tag`
@@ -11,8 +11,8 @@ pub(crate) struct LogRetrievalRequest {
 }
 
 mod test {
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::LogRetrievalRequest;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
     #[test]
     fn serialization_matches_typescript() {

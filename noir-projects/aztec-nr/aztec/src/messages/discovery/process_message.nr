@@ -9,7 +9,7 @@ use crate::messages::{
     processing::MessageContext,
 };
 
-use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
+use crate::protocol::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 /// Processes a message that can contain notes, partial notes, or events.
 ///

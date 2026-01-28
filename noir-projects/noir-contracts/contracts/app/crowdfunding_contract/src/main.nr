@@ -8,7 +8,7 @@ pub contract Crowdfunding {
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
         utils::{array, comparison::Comparator},
     };

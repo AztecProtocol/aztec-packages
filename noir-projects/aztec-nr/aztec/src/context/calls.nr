@@ -1,4 +1,4 @@
-use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::{Deserialize, ToField}};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::{Deserialize, ToField}};
 
 use crate::context::{gas::GasOpts, PrivateContext, PublicContext};
 use crate::hash::{hash_args, hash_calldata_array};

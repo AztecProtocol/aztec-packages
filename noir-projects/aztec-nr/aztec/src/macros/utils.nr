@@ -1,4 +1,4 @@
-use protocol_types::meta::derive_serialize;
+use crate::protocol::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
@@ -118,7 +118,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field(protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
+        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -145,7 +145,7 @@ pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
+        crate::protocol::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -176,9 +176,9 @@ pub(crate) comptime fn get_trait_impl_method(typ: Type, target_trait: Quoted, ta
 /// Generates a quote that implements `Serialize` for a given struct `s`. If the struct already implements `Serialize`,
 /// we return an empty quote.
 pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
-    if s.as_type().implements(quote { crate::protocol_types::traits::Serialize }.as_trait_constraint()) {
-        // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return an
-        // empty quote for the implementation.
+    if s.as_type().implements(quote { crate::protocol::traits::Serialize }.as_trait_constraint()) {
+        // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
+        // an empty quote for the implementation.
         quote {}
     } else {
         // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize` so we

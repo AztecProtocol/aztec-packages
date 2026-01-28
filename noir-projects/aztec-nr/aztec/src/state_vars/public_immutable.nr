@@ -1,5 +1,5 @@
 use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars::StateVariable, utils::WithHash};
-use protocol_types::{
+use crate::protocol::{
     constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable,
 };
 

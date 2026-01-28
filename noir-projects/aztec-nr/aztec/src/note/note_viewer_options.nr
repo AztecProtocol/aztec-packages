@@ -1,7 +1,7 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteType;
-use protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
+use crate::protocol::{address::AztecAddress, traits::{Packable, ToField}};
 use std::option::Option;
 
 pub struct NoteViewerOptions<Note, let M: u32> {

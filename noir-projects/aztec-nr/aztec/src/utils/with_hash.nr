@@ -1,5 +1,5 @@
 use crate::{context::{PublicContext, UtilityContext}, history::storage::public_storage_historical_read, oracle};
-use protocol_types::{abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable};
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
 ///
@@ -111,8 +111,8 @@ where
 }
 
 mod test {
+    use crate::protocol::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};
     use crate::{test::{helpers::test_environment::TestEnvironment, mocks::MockStruct}, utils::with_hash::WithHash};
-    use protocol_types::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};
 
     use std::test::OracleMock;
 

@@ -12,7 +12,7 @@ use crate::{
     },
     state_vars::OwnedStateVariable,
 };
-use protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
 
 mod test;
 

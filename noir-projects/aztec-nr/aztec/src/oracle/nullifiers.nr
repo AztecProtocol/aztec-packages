@@ -1,6 +1,6 @@
 //! Nullifier creation, existence checks, etc.
 
-use protocol_types::address::aztec_address::AztecAddress;
+use crate::protocol::address::aztec_address::AztecAddress;
 
 /// Notifies the simulator that a nullifier has been created, so that its correct status (pending or settled) can be
 /// determined when reading nullifiers in subsequent private function calls. The first non-revertible nullifier emitted

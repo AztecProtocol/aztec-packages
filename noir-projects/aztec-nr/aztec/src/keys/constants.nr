@@ -1,4 +1,4 @@
-use protocol_types::constants::{DOM_SEP__IVSK_M, DOM_SEP__NSK_M, DOM_SEP__OVSK_M, DOM_SEP__TSK_M};
+use crate::protocol::constants::{DOM_SEP__IVSK_M, DOM_SEP__NSK_M, DOM_SEP__OVSK_M, DOM_SEP__TSK_M};
 
 pub global NULLIFIER_INDEX: Field = 0;
 pub global INCOMING_INDEX: Field = 1;

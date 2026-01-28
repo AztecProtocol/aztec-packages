@@ -1,5 +1,5 @@
 use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LEN};
-use protocol_types::{
+use crate::protocol::{
     constants::DOM_SEP__EVENT_COMMITMENT,
     hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_bounded_vec},
     traits::{Serialize, ToField},
@@ -46,8 +46,8 @@ mod test {
     use crate::event::event_interface::{
         compute_private_event_commitment, compute_private_serialized_event_commitment, EventInterface,
     };
+    use crate::protocol::traits::{Serialize, ToField};
     use crate::test::mocks::mock_event::MockEvent;
-    use protocol_types::traits::{Serialize, ToField};
 
     global VALUE: Field = 7;
     global RANDOMNESS: Field = 10;

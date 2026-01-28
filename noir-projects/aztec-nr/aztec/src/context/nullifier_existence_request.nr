@@ -1,4 +1,4 @@
-use protocol_types::address::aztec_address::AztecAddress;
+use crate::protocol::address::aztec_address::AztecAddress;
 
 /// A request to assert the existence of a nullifier.
 ///

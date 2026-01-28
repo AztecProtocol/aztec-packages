@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
     note::note_interface::NoteHash,
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,

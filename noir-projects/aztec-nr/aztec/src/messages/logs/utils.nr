@@ -1,5 +1,5 @@
 use crate::oracle::notes::{get_next_app_tag_as_sender, get_sender_for_tags};
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 // TODO(#14565): Add constrained tagging
 pub(crate) fn prefix_with_tag<let L: u32>(log_without_tag: [Field; L], recipient: AztecAddress) -> [Field; L + 1] {
@@ -24,8 +24,8 @@ pub(crate) fn prefix_with_tag<let L: u32>(log_without_tag: [Field; L], recipient
 }
 
 mod test {
+    use crate::protocol::{address::AztecAddress, traits::FromField};
     use super::prefix_with_tag;
-    use protocol_types::{address::AztecAddress, traits::FromField};
     use std::test::OracleMock;
 
     #[test(should_fail)]

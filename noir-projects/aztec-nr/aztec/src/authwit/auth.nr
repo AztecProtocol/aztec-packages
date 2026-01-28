@@ -5,7 +5,7 @@ use crate::{
     macros::authorization::authorization,
     oracle::{execution_cache::load, offchain_effect::emit_offchain_effect},
 };
-use protocol_types::{
+use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{

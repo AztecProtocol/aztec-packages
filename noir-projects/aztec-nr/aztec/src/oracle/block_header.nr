@@ -1,4 +1,4 @@
-use protocol_types::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
+use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
 
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
 

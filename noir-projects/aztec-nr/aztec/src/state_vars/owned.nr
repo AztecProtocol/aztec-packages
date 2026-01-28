@@ -1,5 +1,5 @@
+use crate::protocol::address::AztecAddress;
 use crate::state_vars::{OwnedStateVariable, StateVariable};
-use protocol_types::address::AztecAddress;
 
 /// Per-account state variable.
 ///

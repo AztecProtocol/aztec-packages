@@ -5,7 +5,7 @@ use crate::{
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
-use protocol_types::{
+use crate::protocol::{
     abis::function_selector::FunctionSelector, address::AztecAddress, constants::CANONICAL_AUTH_REGISTRY_ADDRESS,
     traits::ToField,
 };

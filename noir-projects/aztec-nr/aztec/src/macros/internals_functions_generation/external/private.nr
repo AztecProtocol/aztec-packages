@@ -5,7 +5,7 @@ use crate::macros::{
         module_has_initializer, module_has_storage,
     },
 };
-use protocol_types::meta::utils::derive_serialization_quotes;
+use crate::protocol::meta::utils::derive_serialization_quotes;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quoted {
@@ -188,7 +188,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     quote {
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
         $abi_relevant_attributes
-        fn $fn_name($params) -> return_data aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
+        fn $fn_name($params) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
             $to_prepend
             $body_quote
             $to_append

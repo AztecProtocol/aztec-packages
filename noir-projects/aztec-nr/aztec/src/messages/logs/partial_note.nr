@@ -8,7 +8,7 @@ use crate::{
     note::note_interface::NoteType,
     utils::array,
 };
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     traits::{FromField, Packable, ToField},
@@ -146,8 +146,8 @@ mod test {
         },
         note::note_interface::NoteType,
     };
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
     use crate::test::mocks::mock_note::MockNote;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     global VALUE: Field = 7;
     global OWNER: AztecAddress = AztecAddress::from_field(8);

@@ -8,7 +8,7 @@ pub contract Claim {
     use dep::aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
     use dep::uint_note::UintNote;

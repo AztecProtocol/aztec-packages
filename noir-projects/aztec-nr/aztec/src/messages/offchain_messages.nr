@@ -1,5 +1,5 @@
 use crate::{messages::encoding::MESSAGE_CIPHERTEXT_LEN, oracle::offchain_effect::emit_offchain_effect};
-use protocol_types::{address::AztecAddress, hash::poseidon2_hash_bytes, traits::ToField};
+use crate::protocol::{address::AztecAddress, hash::poseidon2_hash_bytes, traits::ToField};
 
 // The following identifier was copied over to `yarn-project/stdlib/src/tx/offchain_effect.ts`. If you modify it don't
 // forget to update it there as well.

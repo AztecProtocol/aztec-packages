@@ -1,4 +1,4 @@
-use protocol_types::{address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField};
+use crate::protocol::{address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField};
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.

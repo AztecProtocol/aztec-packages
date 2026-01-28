@@ -19,7 +19,7 @@ pub contract SimpleToken {
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
 

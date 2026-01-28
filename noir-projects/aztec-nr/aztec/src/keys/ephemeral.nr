@@ -1,6 +1,6 @@
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul};
 
-use protocol_types::{point::Point, scalar::Scalar};
+use crate::protocol::{point::Point, scalar::Scalar};
 
 use crate::oracle::random::random;
 

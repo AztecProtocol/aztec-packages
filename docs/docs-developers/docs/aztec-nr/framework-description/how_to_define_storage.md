@@ -455,7 +455,7 @@ Maps can only be used with public state variables (`PublicMutable`, `PublicImmut
 Custom structs can be stored in `PublicMutable` and `PublicImmutable` if they implement the required traits:
 
 ```rust
-use aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
+use aztec::protocol::traits::{Deserialize, Packable, Serialize};
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Config {

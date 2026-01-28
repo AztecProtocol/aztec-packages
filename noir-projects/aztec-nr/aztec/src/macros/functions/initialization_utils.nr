@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__CONSTRUCTOR,
     hash::poseidon2_hash_with_separator, traits::ToField,
 };
