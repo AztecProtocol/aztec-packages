@@ -598,18 +598,10 @@ case "$cmd" in
     export USE_TEST_CACHE=0
 
     full_cmd="${1:?full_cmd required}"
-    commit="${2:-HEAD}"
-    BISECT_MAX_DEPTH=50
+    commit="${2:-}"
 
-    # Use blobless partial clone - fetches commits/trees but blobs on-demand only when checked out
-    # This preserves commit history (needed for bisect) while minimizing data transfer
-    # See: https://github.blog/open-source/git/get-up-to-speed-with-partial-clone-and-shallow-clone/
-    echo "Fetching commit history (blobless, depth=$BISECT_MAX_DEPTH)..."
-    git fetch --filter=blob:none --depth=$BISECT_MAX_DEPTH origin "$commit" 2>/dev/null || true
     prep
-
-    # Run the bisect script
-    $ci3/bisect_flake "$full_cmd" "$commit"
+    bisect_flake "$full_cmd" "$commit"
     ;;
 
   ##########################################

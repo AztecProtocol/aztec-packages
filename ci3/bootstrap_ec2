@@ -191,7 +191,6 @@ container_script=$(
     *)
       log_ci_run FAILED \$ci_log_id
       merge_train_failure_slack_notify \$ci_log_id
-      # Publish CI run failure event for automated analysis
       ci_failed_data=\$(jq -n \\
         --arg status "failed" \\
         --arg log_id "\$ci_log_id" \\
@@ -200,7 +199,7 @@ container_script=$(
         --arg commit_author "\$COMMIT_AUTHOR" \\
         --arg commit_msg "\$COMMIT_MSG" \\
         --argjson exit_code "\$code" \\
-        '{status: \$status, log_id: \$log_id, log_url: \$log_url, ref_name: \$ref_name, commit_hash: \$commit_hash, commit_author: \$commit_author, commit_msg: \$commit_msg, exit_code: \$exit_code, timestamp: now | todate}')
+        '{status: \$status, log_id: \$log_id, ref_name: \$ref_name, commit_hash: \$commit_hash, commit_author: \$commit_author, commit_msg: \$commit_msg, exit_code: \$exit_code, timestamp: now | todate}')
       redis_publish "ci:run:failed" "\$ci_failed_data"
       ;;
   esac
