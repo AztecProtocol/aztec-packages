@@ -1,3 +1,4 @@
+#pragma once
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
