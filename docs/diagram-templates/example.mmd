@@ -1,0 +1,8 @@
+flowchart TD
+    start([User submits tx]) --> validate{Valid?}
+    validate -->|Yes| simulate[Simulate execution]
+    validate -->|No| reject([Reject])
+    simulate --> check{Passed?}
+    check -->|Yes| submit[Submit to sequencer]
+    check -->|No| reject
+    submit --> confirm([Confirmed])

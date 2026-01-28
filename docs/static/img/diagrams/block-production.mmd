@@ -1,0 +1,28 @@
+flowchart TD
+    subgraph proposal["1. Block Proposal"]
+        vrf([VRF Selection]) --> selected[Sequencer Selected]
+        selected --> collect[Collect Transactions<br/>from Mempool]
+        collect --> order[Order Transactions]
+        order --> propose[Propose Block]
+    end
+
+    subgraph attestation["2. Attestation"]
+        propose --> broadcast[Broadcast to Committee]
+        broadcast --> reexec[Committee Re-executes<br/>Transactions]
+        reexec --> validate{Valid?}
+        validate -->|Yes| sign[Sign Attestation]
+        validate -->|No| reject([Reject])
+        sign --> gather[Proposer Collects<br/>Attestations]
+        gather --> threshold{2/3 + 1<br/>Reached?}
+        threshold -->|Yes| attested[Block Attested]
+        threshold -->|No| wait[Wait for More]
+        wait --> gather
+    end
+
+    subgraph proving["3. Proof Generation"]
+        attested --> quotes[Provers Submit Quotes<br/>in Epoch N+1]
+        quotes --> winner[Winning Prover Selected]
+        winner --> generate[Generate Block Proof]
+        generate --> submit[Submit Proof to L1]
+        submit --> finalized([Block Finalized])
+    end
