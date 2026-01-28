@@ -327,6 +327,39 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
+    #[test]
+    fn succeeds_squash_multiple_pairs() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2), Counted::new(33, 3)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 33 }.count(6),
+        ]);
+
+        // Squash note_hashes[0] with nullifiers[0], and note_hashes[2] with nullifiers[1].
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(2, 1);
+
+        // Only note_hashes[1] is kept.
+        builder.keep_note_hashes([1]);
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Propagated note hash does not match")]
+    fn fails_expected_kept_note_hashes_wrong_order() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        // Keep both note hashes but in the wrong order.
+        builder.keep_note_hashes([1, 0]);
+
+        builder.validate();
+    }
+
     // ==========
     // Nullifiers
     // ==========
@@ -527,5 +560,40 @@ mod tests {
         derived_hints.nullifier_squash_flags[0] = false;
 
         builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test(should_fail_with = "Propagated nullifier does not match")]
+    fn fails_expected_kept_nullifiers_wrong_order() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Keep both nullifiers but in the wrong order.
+        builder.keep_nullifiers([1, 0]);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_squash_all_note_hashes_and_nullifiers() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Squash all pairs.
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(1, 1);
+
+        // Nothing is kept.
+
+        builder.validate();
     }
 }
