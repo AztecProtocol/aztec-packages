@@ -59,6 +59,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       aztecEpochDuration: 32,
+      aztecSlotDurationInL1Slots: 3,
       startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       enforceTimeTable: true,
@@ -77,7 +78,11 @@ describe('e2e_epochs/epochs_first_slot', () => {
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, txDelayerMaxInclusionTimeIntoSlot: 1 }),
+      test.createValidatorNode([privateKey], {
+        dontStartSequencer: true,
+        txDelayerMaxInclusionTimeIntoSlot: 2,
+        l1PublishingTime: test.L1_BLOCK_TIME_IN_S - 1,
+      }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
