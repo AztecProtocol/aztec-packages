@@ -67,11 +67,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param input
      * @return element
      * @warning Use this carefully, as its creating free witnesses.
-     * @note Point at infinity is rejected - use point_at_infinity() instead.
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-
+        // Create field_t witnesses for x and y
         Fq x = Fq::from_witness(ctx, input.x);
         Fq y = Fq::from_witness(ctx, input.y);
 
