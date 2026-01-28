@@ -36,29 +36,23 @@ namespace to_radix;
     pol commit limb;
 
 
-    // LIFECYCLE
-
+    // == Multi-row Computation Selectors ==
+    // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
     pol commit start;
     start * (1 - start) = 0;
-
     pol commit end;
     end * (1 - end) = 0;
 
-    // end and first_row are NAND
-    end * precomputed.first_row = 0;
     pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
 
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
-
-    // Selector must be 1 in a start row
-    #[SELECTOR_ON_START]
-    start * (1 - sel) = 0;
-    // Next selector must be current selector unless LATCH_CONDITION
-    #[SELECTOR_CONSISTENCY]
-    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
-    // Selector must be 1 in an end row
-    end * (1 - sel) = 0;
 
     // `sel * (1 - end) = sel - end * sel` and since `end == 1 ==> sel == 1` we have `end * sel = sel`.
     pol NOT_END = sel - end;

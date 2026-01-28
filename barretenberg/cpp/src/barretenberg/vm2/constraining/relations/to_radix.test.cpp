@@ -378,8 +378,7 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     // Disable the selector in the middle
     trace.set(Column::to_radix_sel, 6, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 
     // Mutate the radix
     trace.set(Column::to_radix_radix, 5, 200);
