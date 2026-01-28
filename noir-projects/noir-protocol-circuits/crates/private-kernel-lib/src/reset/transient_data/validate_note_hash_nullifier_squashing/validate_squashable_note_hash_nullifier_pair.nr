@@ -140,4 +140,36 @@ mod tests {
 
         builder.validate();
     }
+
+    #[test]
+    fn succeeds_squash_both_revertible() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 5)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(9)]);
+
+        // Both counters (5 and 9) are >= split_counter (3), so both are revertible.
+        builder.split_counter = 3;
+
+        builder.add_squashing_hint(0, 0);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_squash_both_non_revertible() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        // Both counters (1 and 5) are < split_counter (10), so both are non-revertible.
+        builder.split_counter = 10;
+
+        builder.add_squashing_hint(0, 0);
+
+        builder.validate();
+    }
 }
