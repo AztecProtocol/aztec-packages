@@ -24,7 +24,7 @@ The benchmark runs a small simulated network on localhost:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Test Process (Driver)                        │
-│   p2p_client.proposal_tx_collector_bench.test.ts                    │
+│   p2p_client.proposal_tx_collector.bench.test.ts                    │
 │   ┌─────────────────────────────────────────────────────────────┐   │
 │   │            WorkerClientManager                              │   │
 │   │         (src/testbench/worker_client_manager.ts)            │   │
@@ -127,13 +127,13 @@ From the p2p package:
 
 ```bash
 cd yarn-project/p2p
-yarn test src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector_bench.test.ts
+yarn test src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts
 ```
 
 Or from repo root:
 
 ```bash
-yarn test p2p_client.proposal_tx_collector_bench.test.ts
+yarn test p2p_client.proposal_tx_collector.bench.test.ts
 ```
 
 The benchmark is intentionally long due to spawning many processes and running multiple cases.
@@ -207,7 +207,7 @@ This benchmark does **not** measure:
 
 | File | Purpose |
 |------|---------|
-| `p2p_client.proposal_tx_collector_bench.test.ts` | Test suite (cases, distributions, output formatting) |
+| `p2p_client.proposal_tx_collector.bench.test.ts` | Test suite (cases, distributions, output formatting) |
 | `proposal_tx_collector_worker.ts` | Collector-specific worker implementation |
 | `proposal_tx_collector_worker_protocol.ts` | IPC message types and serialization |
 | `src/testbench/worker_client_manager.ts` | Worker process manager (forking, IPC, orchestration) |
