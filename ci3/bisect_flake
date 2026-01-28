@@ -39,6 +39,12 @@ function slack_report {
     echo -e "$msg"
 }
 
+function checkout {
+    local commit="$1"
+    git checkout $commit --quiet
+    git submodule update --init --recursive --depth 1 --jobs 8
+}
+
 function build {
     if [ -n "${MAKEFILE_TARGET:-}" ]; then
         echo "Building target: $MAKEFILE_TARGET..."
@@ -49,13 +55,13 @@ function build {
     fi
 }
 
-echo "=== Deflake ==="
+echo_header "deflake"
 echo "Full cmd: $full_cmd"
 echo "Test cmd: $test_cmd"
 echo "Resources: CPUS=$CPUS MEM=$MEM (parallel runs: $bisect_runs, cpu_limit=$cpu_based_runs, mem_limit=$mem_based_runs)"
-echo "MAKEFILE_TARGET: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
+echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Commit: $commit"
-echo "Ref: $REF_NAME"
+echo "Ref name: $REF_NAME"
 echo
 
 # ============================================================
@@ -63,7 +69,7 @@ echo
 # Use GNU parallel, halt as soon as one succeeds (confirms flake)
 # If ALL fail, it's a real failure, not a flake
 # ============================================================
-echo "=== Step 1: Build and grind test $GRIND_RUNS times at HEAD ==="
+echo_header "confirm flake at $commit"
 build
 
 echo "Expecting all to fail if real failure, any pass if flake..."
@@ -81,7 +87,7 @@ fi
 # Step 2: Verify oldest commit is stable (not flaky)
 # ============================================================
 echo
-echo "=== Step 2: Verify oldest commit is stable ==="
+echo_header "verify oldest commit is stable"
 
 # Find the oldest commit to test (go back BISECT_MAX_DEPTH commits)
 good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
@@ -90,7 +96,7 @@ good_commit=$(git rev-parse "$commit~$BISECT_MAX_DEPTH" 2>/dev/null) || {
 }
 
 echo "Testing oldest commit: ${good_commit:0:8}..."
-git checkout $good_commit --quiet
+checkout $good_commit
 build
 
 # Grind to check if oldest commit is stable
@@ -99,13 +105,13 @@ if seq 1 $bisect_runs | parallel --halt now,fail=1 -j $bisect_runs --line-buffer
     "SKIP_CI_PUBLISH=1 $ci3/run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
-    git checkout $commit --quiet
+    checkout $commit
     slack_report ":warning: *Flake Predates Search Range*\n*Test:* \`$test_cmd\`\nCommit ${good_commit:0:8} ($BISECT_MAX_DEPTH commits ago) is also flaky. The flake was introduced earlier."
     exit 1
 fi
 
 # Return to original commit for bisect
-git checkout $commit --quiet
+checkout $commit
 
 # ============================================================
 # Step 3: Use git bisect to find the first bad commit
@@ -113,7 +119,7 @@ git checkout $commit --quiet
 # bisect good = stable (passes consistently)
 # ============================================================
 echo
-echo "=== Step 3: Git bisect to find flake source ==="
+echo_header "git bisect to find flake source"
 
 # Clean up any existing bisect
 git bisect reset &>/dev/null || true
