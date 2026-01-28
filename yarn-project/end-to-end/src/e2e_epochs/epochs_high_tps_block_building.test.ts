@@ -23,12 +23,13 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 
-// We send 8 txs total, each taking 1s to process (see sequencerFakeDelayPerTxMs), with a total
-// L2 slot time of 16s, with l1PublishingTime set to the full L1 slot duration and attestationPropagationTime of 0.5.
-// This leaves us with roughly 2s for executing txs. This test will check that proposers honor the timetable
-// and do not try to include more than 2 txs per block. Should we ever implement preemptive block building,
+// We send 8 txs total, each taking several seconds to process (see sequencerFakeDelayPerTxMs), with a total
+// L2 slot time of 24s, with l1PublishingTime set to the full 8s L1 slot duration and attestationPropagationTime of 1s.
+// This leaves us with a few seconds for executing txs. This test will check that proposers honor the timetable
+// and do not try to include more than N txs per block. Should we ever implement preemptive block building,
 // sequencers will end up with more time, so we'll need to bump the EXPECTED_MAX_TXS_PER_BLOCK value.
 const TX_COUNT = 8;
+const TX_DURATION_MS = 2500;
 const EXPECTED_MAX_TXS_PER_BLOCK = 3;
 
 // Test that sequencers and validators can handle a large backlog of transactions.
@@ -64,9 +65,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       enforceTimeTable: true,
       ethereumSlotDuration: 8,
       l1PublishingTime: 8,
-      aztecSlotDuration: 16,
-      fakeProcessingDelayPerTxMs: 850,
-      attestationPropagationTime: 0.5,
+      aztecSlotDuration: 24,
+      fakeProcessingDelayPerTxMs: TX_DURATION_MS,
+      attestationPropagationTime: 1,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
     });
