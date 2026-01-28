@@ -2,11 +2,13 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
-data=$(jq -n \
-  --arg channel "#aztec3-ci" \
-  --arg text "$1" \
-  '{channel: $channel, text: $text}'
-)
+if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+  exit 0
+fi
+
+channel=${2:-"#aztec3-ci"}
+data=$(jq -n --arg channel "$channel" --arg text "$1" '{channel: $channel, text: $text}')
+
 curl -X POST https://slack.com/api/chat.postMessage \
   -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   -H "Content-type: application/json" \

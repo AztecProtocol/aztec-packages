@@ -40,6 +40,9 @@ History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARG
 
 EOF
 
+# If the test has a verbose mode, we want it enabled.
+export VERBOSE=1
+
 # Run the test with timestamps via process substitution (preserves exit code)
 set +e
 if [ "${ISOLATE:-0}" -eq 1 ]; then

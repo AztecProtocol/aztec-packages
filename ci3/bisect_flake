@@ -12,7 +12,9 @@ commit="${2:-$(git rev-parse HEAD)}"
 # Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MAKEFILE_TARGET, etc.)
 source $ci3/source_test_params
 
-GRIND_RUNS=5
+CONFIRM_FLAKE_RUNS=5
+GRIND_FLAKE_RUNS=${GRIND_FLAKE_RUNS:-500}
+GRIND_TIMEOUT=${GRIND_TIMEOUT:-900}
 BISECT_MAX_DEPTH=50  # How far back to search (git bisect is O(log n))
 
 # Calculate max parallel runs based on CPU and memory constraints
@@ -25,9 +27,9 @@ total_mem_gb=$(free -g | awk '/^Mem:/{print $2}')
 mem_based_runs=$((total_mem_gb / mem_per_test))
 
 # Use the more restrictive limit
-bisect_runs=$cpu_based_runs
-[ "$mem_based_runs" -lt "$bisect_runs" ] && bisect_runs=$mem_based_runs
-[ "$bisect_runs" -lt 1 ] && bisect_runs=1
+jobs=$cpu_based_runs
+[ "$mem_based_runs" -lt "$jobs" ] && jobs=$mem_based_runs
+[ "$jobs" -lt 1 ] && jobs=1
 
 function slack_report {
     local msg="$1"
@@ -53,10 +55,17 @@ function build {
     fi
 }
 
+function grind {
+    if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+        rc=$?
+        [ "$rc" -eq 124 ] || return $rc
+    fi
+}
+
 echo_header "deflake"
 echo "Full cmd: $full_cmd"
 echo "Test cmd: $test_cmd"
-echo "Resources: CPUS=$CPUS MEM=$MEM (parallel runs: $bisect_runs, cpu_limit=$cpu_based_runs, mem_limit=$mem_based_runs)"
+echo "Resources: CPUS=$CPUS MEM=$MEM (parallel runs: $jobs, cpu_limit=$cpu_based_runs, mem_limit=$mem_based_runs)"
 echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Commit: $commit"
 echo "Ref name: $REF_NAME"
@@ -70,15 +79,12 @@ echo
 echo_header "confirm flake at $commit"
 build
 
-export SKIP_CI_PUBLISH=1
-export NO_FLAKE=1
-
 echo "Expecting all to fail if real failure, any pass if flake..."
 # If a job succeeds, parallel exits with code 0
 # If all jobs fail, parallel exits with non-zero
 # Inject NAME=test-{} into hash prefix for unique logging keys
-if ! seq 1 $GRIND_RUNS | parallel --halt now,success=1 -j $GRIND_RUNS --line-buffer \
-    "run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
+if ! seq 1 $CONFIRM_FLAKE_RUNS | parallel --halt now,success=1 --line-buffer \
+    "CI=0 run_test_cmd '${hash_prefix}:NAME=test_{} ${test_cmd}'" 2>/dev/null; then
     echo "All initial runs failed, not a flake."
     exit 0
 fi
@@ -106,9 +112,8 @@ checkout $good_commit
 build
 
 # Grind to check if oldest commit is stable
-echo "Grinding $bisect_runs times to verify stability..."
-if seq 1 $bisect_runs | parallel -j $bisect_runs --line-buffer \
-    "run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+echo "Grinding $jobs times to verify stability..."
+if grind; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
     checkout $commit
@@ -145,18 +150,16 @@ echo
 # Bisect loop
 while true; do
     current=$(git rev-parse HEAD)
-    echo "--- Testing commit: ${current:0:8} ---"
+    echo_header "testing commit: ${current:0:8}"
 
     # Build at this commit
     build
 
     # Grind with GNU parallel using run_test_cmd
-    # --halt soon,fail=1 stops all jobs as soon as one fails
     # If all succeed, parallel exits 0 -> commit is good (stable)
     # If any fail, parallel exits non-zero -> commit is bad (flaky)
-    echo "Grinding $bisect_runs times (halt on first failure)..."
-    if seq 1 $bisect_runs | parallel --halt soon,fail=1 -j $bisect_runs --line-buffer \
-        "run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+    echo "Grinding $jobs times (halt on first failure)..."
+    if grind; then
         echo "All runs passed - this commit is good (stable)"
         result=$(git bisect good 2>&1)
     else
