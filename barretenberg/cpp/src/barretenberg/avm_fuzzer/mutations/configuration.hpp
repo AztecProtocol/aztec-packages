@@ -605,14 +605,17 @@ enum class FaultInjectionEventOptions {
     BitwiseEvent,
     RangeCheckEvent,
     GtEvent,
+    EcaddEvent,
+    ScalarMulEvent,
 };
-using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 4>;
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 6>;
 
 constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
     { FaultInjectionEventOptions::AluEvent, 1 },
     { FaultInjectionEventOptions::BitwiseEvent, 1 },
     { FaultInjectionEventOptions::RangeCheckEvent, 1 },
     { FaultInjectionEventOptions::GtEvent, 1 },
+    { FaultInjectionEventOptions::EcaddEvent, 1 },
 });
 
 enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
@@ -664,3 +667,37 @@ constexpr FaultInjectionGtEventConfig BASIC_FAULT_INJECTION_GT_EVENT_CONFIGURATI
     { FaultInjectionGtEventOptions::B, 1 },
     { FaultInjectionGtEventOptions::Result, 1 },
 });
+
+enum class EmbeddedCurvePointMutationOptions { SetIdentity, SetGenerator, SetInvalid, SetInfiniteWithNonZeroX };
+using EmbeddedCurvePointMutationConfig = WeightedSelectionConfig<EmbeddedCurvePointMutationOptions, 4>;
+
+constexpr EmbeddedCurvePointMutationConfig BASIC_EMBEDDED_CURVE_POINT_MUTATION_CONFIGURATION =
+    EmbeddedCurvePointMutationConfig({
+        { EmbeddedCurvePointMutationOptions::SetIdentity, 2 },
+        { EmbeddedCurvePointMutationOptions::SetGenerator, 3 },
+        { EmbeddedCurvePointMutationOptions::SetInvalid, 1 },
+        { EmbeddedCurvePointMutationOptions::SetInfiniteWithNonZeroX, 1 },
+    });
+
+enum class FaultInjectionScalarMul { Point, SetScalarZero, MutateScalar, MutateIntermediateState, Result };
+
+using FaultInjectionScalarMulConfig = WeightedSelectionConfig<FaultInjectionScalarMul, 5>;
+
+constexpr FaultInjectionScalarMulConfig BASIC_FAULT_INJECTION_SCALAR_MUL_MUTATION_CONFIGURATION =
+    FaultInjectionScalarMulConfig({
+        { FaultInjectionScalarMul::Point, 19 },
+        { FaultInjectionScalarMul::SetScalarZero, 5 },
+        { FaultInjectionScalarMul::MutateScalar, 11 },
+        { FaultInjectionScalarMul::MutateIntermediateState, 17 },
+        { FaultInjectionScalarMul::Result, 10 },
+    });
+
+enum class ScalarMulIntermediateStateMutationOptions { Res, Temp, FlipBit };
+using ScalarMulIntermediateStateMutationConfig = WeightedSelectionConfig<ScalarMulIntermediateStateMutationOptions, 3>;
+
+constexpr ScalarMulIntermediateStateMutationConfig BASIC_SCALAR_MUL_INTERMEDIATE_STATE_MUTATION_CONFIGURATION =
+    ScalarMulIntermediateStateMutationConfig({
+        { ScalarMulIntermediateStateMutationOptions::Res, 1 },
+        { ScalarMulIntermediateStateMutationOptions::Temp, 1 },
+        { ScalarMulIntermediateStateMutationOptions::FlipBit, 1 },
+    });

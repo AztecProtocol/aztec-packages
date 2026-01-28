@@ -2,8 +2,10 @@
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/alu.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/bitwise.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/ecadd.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/gt.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/range_check.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include <random>
 using namespace bb::avm2::simulation;
@@ -23,6 +25,12 @@ void bb::avm2::fuzzer::fault_injection(EventsContainer& events, std::mt19937_64&
         break;
     case FaultInjectionEventOptions::GtEvent:
         fault_injection_gt(events, rng);
+        break;
+    case FaultInjectionEventOptions::EcaddEvent:
+        fault_injection_ecadd(events, rng);
+        break;
+    case FaultInjectionEventOptions::ScalarMulEvent:
+        fault_injection_scalar_mul(events, rng);
         break;
     }
 }
