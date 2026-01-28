@@ -39,11 +39,10 @@ describe('e2e_state_vars', () => {
   afterAll(() => teardown());
 
   describe('PublicImmutable', () => {
-    it('private read of uninitialized PublicImmutable', async () => {
-      const s = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
-
-      // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      await contract.methods.match_public_immutable(s.account, s.value).send({ from: defaultAccountAddress });
+    it('private read of uninitialized PublicImmutable should fail', async () => {
+      await expect(
+        contract.methods.get_public_immutable_constrained_private().simulate({ from: defaultAccountAddress }),
+      ).rejects.toThrow('Trying to read from uninitialized PublicImmutable');
     });
 
     it('initialize and read PublicImmutable', async () => {
@@ -57,7 +56,7 @@ describe('e2e_state_vars', () => {
       expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
 
-    it('private read of PublicImmutable', async () => {
+    it('private read of initialized PublicImmutable', async () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained private function that reads it directly
       // 2. A constrained private function that calls another private function that reads.
