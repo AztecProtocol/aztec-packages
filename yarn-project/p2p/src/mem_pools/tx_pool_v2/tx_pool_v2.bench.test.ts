@@ -1,12 +1,19 @@
 import { shuffle } from '@aztec/foundation/array';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
+import {
+  MerkleTreeId,
+  type MerkleTreeReadOperations,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -19,6 +26,29 @@ import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 const TEST_TIMEOUT = 150_000;
+
+/** Creates a mock WorldStateSynchronizer with proper fee payer balance support */
+function createMockWorldState(): MockProxy<WorldStateSynchronizer> {
+  const worldState = mock<WorldStateSynchronizer>();
+  const db = mock<MerkleTreeReadOperations>();
+  worldState.getCommitted.mockReturnValue(db);
+  worldState.getSnapshot.mockReturnValue(db);
+
+  // Mock fee payer balance lookups to return sufficient balance (1e18)
+  db.getPreviousValueIndex.mockImplementation((_tree, slot) => {
+    return Promise.resolve({ index: slot, alreadyPresent: true });
+  });
+  db.getLeafPreimage.mockImplementation((tree, index) => {
+    if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+      return Promise.resolve(
+        new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(1e18)), Fr.ONE, 1n),
+      );
+    }
+    return Promise.resolve(undefined);
+  });
+
+  return worldState;
+}
 jest.setTimeout(TEST_TIMEOUT);
 
 const RUNS = 10;
@@ -136,7 +166,7 @@ describe('TxPoolV2: Benchmarks', () => {
 
     mockL2BlockSource = mock<L2BlockSource>();
     mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
-    mockWorldState = mock<WorldStateSynchronizer>();
+    mockWorldState = createMockWorldState();
 
     pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
@@ -275,7 +305,7 @@ describe('TxPoolV2: Memory benchmark', () => {
 
     const memMockL2BlockSource = mock<L2BlockSource>();
     memMockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
-    const memMockWorldState = mock<WorldStateSynchronizer>();
+    const memMockWorldState = createMockWorldState();
 
     const pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: memMockL2BlockSource,
@@ -290,7 +320,7 @@ describe('TxPoolV2: Memory benchmark', () => {
       // Start fresh
       const freshMockL2BlockSource = mock<L2BlockSource>();
       freshMockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
-      const freshMockWorldState = mock<WorldStateSynchronizer>();
+      const freshMockWorldState = createMockWorldState();
 
       const freshPool = new AztecKVTxPoolV2(
         await createStore(`tx-v2-mem-${count}`, 1, {

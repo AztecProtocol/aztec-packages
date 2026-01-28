@@ -9,4 +9,3 @@ export {
 } from './interfaces.js';
 export { type TxMetaData, type TxState, buildTxMetaData, getMetadataPriority, comparePriority } from './tx_metadata.js';
 export { TxArchive } from './archive/index.js';
-export { resolveChallenge, canWinChallenge, type ChallengeResult } from './eviction/index.js';

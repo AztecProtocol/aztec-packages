@@ -37,6 +37,7 @@ describe('TxMetaData', () => {
         claimAmount: 0n,
         feeLimit: 1000n,
         nullifiers: [],
+        includeByTimestamp: 0n,
       };
 
       const priority = getMetadataPriority(meta);
@@ -53,6 +54,7 @@ describe('TxMetaData', () => {
         claimAmount: 0n,
         feeLimit: 1000n,
         nullifiers: [],
+        includeByTimestamp: 0n,
       };
 
       const highFee: TxMetaData = {
@@ -63,6 +65,7 @@ describe('TxMetaData', () => {
         claimAmount: 0n,
         feeLimit: 1000n,
         nullifiers: [],
+        includeByTimestamp: 0n,
       };
 
       expect(getMetadataPriority(highFee) > getMetadataPriority(lowFee)).toBe(true);
@@ -78,6 +81,7 @@ describe('TxMetaData', () => {
       claimAmount: 0n,
       feeLimit: 1000n,
       nullifiers: [],
+      includeByTimestamp: 0n,
     });
 
     it('returns negative when first has lower priority', () => {

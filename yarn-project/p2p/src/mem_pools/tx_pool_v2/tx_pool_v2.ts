@@ -1,5 +1,4 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -16,23 +15,19 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import EventEmitter from 'node:events';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import { EvictionManager } from '../tx_pool/eviction/eviction_manager.js';
-import {
-  FeePayerTxInfo,
-  type PendingTxInfo,
-  type PreAddPoolAccess,
-  type TxBlockReference,
-  type TxPoolOperations,
-} from '../tx_pool/eviction/eviction_strategy.js';
-import { FeePayerBalanceEvictionRule } from '../tx_pool/eviction/fee_payer_balance_eviction_rule.js';
-import { FeePayerBalancePreAddRule } from '../tx_pool/eviction/fee_payer_balance_pre_add_rule.js';
-import { InvalidTxsAfterMiningRule } from '../tx_pool/eviction/invalid_txs_after_mining_rule.js';
-import { InvalidTxsAfterReorgRule } from '../tx_pool/eviction/invalid_txs_after_reorg_rule.js';
-import { LowPriorityEvictionRule } from '../tx_pool/eviction/low_priority_eviction_rule.js';
-import { LowPriorityPreAddRule } from '../tx_pool/eviction/low_priority_pre_add_rule.js';
-import { NullifierConflictPreAddRule } from '../tx_pool/eviction/nullifier_conflict_pre_add_rule.js';
-import { getTxPriorityFee } from '../tx_pool/priority.js';
 import { TxArchive } from './archive/index.js';
+import {
+  EvictionManager,
+  FeePayerBalanceEvictionRule,
+  FeePayerBalancePreAddRule,
+  InvalidTxsAfterMiningRule,
+  InvalidTxsAfterReorgRule,
+  LowPriorityEvictionRule,
+  LowPriorityPreAddRule,
+  NullifierConflictRule,
+  type PoolOperations,
+  type PreAddPoolAccess,
+} from './eviction/index.js';
 import {
   type AddTxsResult,
   DEFAULT_TX_POOL_V2_CONFIG,
@@ -51,10 +46,7 @@ import { type TxMetaData, type TxState, buildTxMetaData } from './tx_metadata.js
  * to prevent race conditions. In-memory indices enable fast lookups
  * while persistence ensures durability across restarts.
  */
-export class AztecKVTxPoolV2
-  extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>)
-  implements TxPoolV2, TxPoolOperations
-{
+export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) implements TxPoolV2 {
   // === Persistence ===
   #store: AztecAsyncKVStore;
   #txsDB: AztecAsyncMap<string, Buffer>;
@@ -111,18 +103,18 @@ export class AztecKVTxPoolV2
 
     this.#queue = new SerialQueue();
 
-    // Setup eviction manager with rules and filters
+    // Setup eviction manager with rules
     // Pass an adapter that accesses internal state directly (no queue) since eviction rules run inside queue tasks
-    this.#evictionManager = new EvictionManager(this.#createTxPoolOperationsAdapter(), log);
+    this.#evictionManager = new EvictionManager(this.#createPoolOperations(), log);
 
-    // Pre-add rules (run during addPendingTxs)
-    this.#evictionManager.registerPreAddRule(new NullifierConflictPreAddRule());
+    // Pre-add rules (run during addPendingTxs) - work with TxMetaData
+    this.#evictionManager.registerPreAddRule(new NullifierConflictRule());
     this.#evictionManager.registerPreAddRule(new FeePayerBalancePreAddRule());
     this.#evictionManager.registerPreAddRule(
       new LowPriorityPreAddRule({ maxPoolSize: this.#config.maxPendingTxCount }),
     );
 
-    // Post-event eviction rules (run after events to check ALL pending txs, not just restored ones)
+    // Post-event eviction rules (run after events to check ALL pending txs)
     this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
     this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(deps.worldStateSynchronizer));
     this.#evictionManager.registerRule(new FeePayerBalanceEvictionRule(deps.worldStateSynchronizer));
@@ -465,7 +457,7 @@ export class AztecKVTxPoolV2
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const addedTxs: Tx[] = [];
-    const feePayers: AztecAddress[] = [];
+    const feePayers: string[] = [];
     const poolAccess = this.#createPreAddPoolAccess();
 
     // Track which txs from this batch have been accepted (for intra-batch eviction tracking)
@@ -483,8 +475,11 @@ export class AztecKVTxPoolV2
           continue;
         }
 
-        // Run pre-add eviction rules (nullifier conflict check, etc.)
-        const preAddResult = await this.#evictionManager.runPreAddRules(tx, poolAccess);
+        // Build metadata first so we can use it for pre-add rules
+        const meta = await buildTxMetaData(tx);
+
+        // Run pre-add eviction rules (nullifier conflict check, etc.) using metadata
+        const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
         if (preAddResult.shouldIgnore) {
           this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
           ignored.push(txHash);
@@ -492,19 +487,16 @@ export class AztecKVTxPoolV2
         }
 
         // Evict conflicting txs identified by pre-add rules
-        for (const evictHash of preAddResult.txHashesToEvict) {
-          const evictHashStr = evictHash.toString();
+        for (const evictHashStr of preAddResult.txHashesToEvict) {
           await this.#deleteTx(evictHashStr, { permanently: true });
           this.#log.verbose(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
 
           // If the evicted tx was accepted earlier in this same batch, move it to ignored
           if (acceptedInBatch.has(evictHashStr)) {
             acceptedInBatch.delete(evictHashStr);
-            ignored.push(evictHash);
+            ignored.push(TxHash.fromString(evictHashStr));
           }
         }
-
-        const meta = await buildTxMetaData(tx);
 
         // Add the transaction
         await this.#txsDB.set(txHashStr, tx.toBuffer());
@@ -512,7 +504,7 @@ export class AztecKVTxPoolV2
 
         acceptedInBatch.add(txHashStr);
         addedTxs.push(tx);
-        feePayers.push(tx.data.feePayer);
+        feePayers.push(meta.feePayer);
 
         this.#log.verbose(`Added tx ${txHashStr} to pool`, {
           eventName: 'tx-added-to-pool',
@@ -524,7 +516,7 @@ export class AztecKVTxPoolV2
     // Build final accepted list from what remains in acceptedInBatch
     // Also filter addedTxs and feePayers to only include txs that weren't evicted within the batch
     const finalAddedTxs: Tx[] = [];
-    const finalFeePayers: AztecAddress[] = [];
+    const finalFeePayers: string[] = [];
     for (let i = 0; i < addedTxs.length; i++) {
       const txHashStr = addedTxs[i].getTxHash().toString();
       if (acceptedInBatch.has(txHashStr)) {
@@ -536,7 +528,10 @@ export class AztecKVTxPoolV2
 
     // Run post-add eviction rules (low priority eviction, etc.)
     if (accepted.length > 0) {
-      await this.#evictionManager.evictAfterNewTxs(accepted, finalFeePayers);
+      await this.#evictionManager.evictAfterNewTxs(
+        accepted.map(h => h.toString()),
+        finalFeePayers,
+      );
     }
 
     if (finalAddedTxs.length > 0) {
@@ -555,9 +550,10 @@ export class AztecKVTxPoolV2
       return 'ignored';
     }
 
-    // Use eviction manager's pre-add rules (nullifier conflict check, etc.)
+    // Build metadata and use pre-add rules
+    const meta = await buildTxMetaData(tx);
     const poolAccess = this.#createPreAddPoolAccess();
-    const preAddResult = await this.#evictionManager.runPreAddRules(tx, poolAccess);
+    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
     return preAddResult.shouldIgnore ? 'ignored' : 'accepted';
   }
@@ -665,8 +661,8 @@ export class AztecKVTxPoolV2
     };
 
     // Collect nullifiers and fee payers from mined transactions for eviction rules
-    const minedNullifiers: Fr[] = [];
-    const minedFeePayers: AztecAddress[] = [];
+    const minedNullifiers: string[] = [];
+    const minedFeePayers: string[] = [];
 
     for (const txHash of txHashes) {
       const txHashStr = txHash.toString();
@@ -678,10 +674,8 @@ export class AztecKVTxPoolV2
       }
 
       // Collect nullifiers and fee payer from this mined tx
-      for (const nullifier of meta.nullifiers) {
-        minedNullifiers.push(Fr.fromHexString(nullifier as `0x${string}`));
-      }
-      minedFeePayers.push(AztecAddress.fromString(meta.feePayer));
+      minedNullifiers.push(...meta.nullifiers);
+      minedFeePayers.push(meta.feePayer);
 
       this.#markAsMined(meta, blockId);
     }
@@ -717,8 +711,8 @@ export class AztecKVTxPoolV2
 
     this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToUnprotect.length} txs`);
 
-    const unprotectedHashes: TxHash[] = [];
-    const feePayers: AztecAddress[] = [];
+    const unprotectedHashes: string[] = [];
+    const feePayers: string[] = [];
     const txsToDelete: string[] = [];
 
     for (const txHashStr of txsToUnprotect) {
@@ -769,8 +763,8 @@ export class AztecKVTxPoolV2
       // Re-add to pending indices
       this.#addToPendingIndices(meta);
 
-      unprotectedHashes.push(TxHash.fromString(txHashStr));
-      feePayers.push(AztecAddress.fromString(meta.feePayer));
+      unprotectedHashes.push(txHashStr);
+      feePayers.push(meta.feePayer);
     }
 
     // Delete evicted/ignored txs
@@ -1068,157 +1062,40 @@ export class AztecKVTxPoolV2
     await this.#txsDB.delete(txHashStr);
   }
 
-  // === TxPoolOperations Adapter (for EvictionManager) ===
+  // === PoolOperations Adapter (for EvictionManager) ===
 
   /**
-   * Creates a TxPoolOperations adapter for use with the eviction manager.
+   * Creates a PoolOperations adapter for use with the eviction manager.
    * This adapter accesses internal state directly without going through the queue,
    * since eviction rules are called from within queue tasks.
    */
-  #createTxPoolOperationsAdapter(): TxPoolOperations {
+  #createPoolOperations(): PoolOperations {
     return {
-      getTxByHash: async (txHash: TxHash): Promise<Tx | undefined> => {
-        const buffer = await this.#txsDB.getAsync(txHash.toString());
-        return buffer ? Tx.fromBuffer(buffer) : undefined;
-      },
-      getPendingTxInfos: () => this.getPendingTxInfos(),
-      getPendingTxsReferencingBlocks: (blockHashes: Fr[]) => this.getPendingTxsReferencingBlocks(blockHashes),
-      getPendingFeePayers: () => this.getPendingFeePayers(),
-      getFeePayerTxInfos: (feePayer: AztecAddress) => this.getFeePayerTxInfos(feePayer),
-      getPendingTxCount: () => Promise.resolve(this.#doGetPendingTxCount()),
-      getLowestPriorityEvictable: (limit: number) => Promise.resolve(this.#doGetLowestPriorityEvictable(limit)),
-      deleteTxs: (txHashes: TxHash[], opts?: { permanently?: boolean }) => this.deleteTxs(txHashes, opts),
-    };
-  }
-
-  // === TxPoolOperations Implementation (for external use) ===
-
-  async deleteTxs(txHashes: TxHash[], opts?: { permanently?: boolean }): Promise<void> {
-    await this.#store.transactionAsync(async () => {
-      for (const txHash of txHashes) {
-        await this.#deleteTx(txHash.toString(), opts);
-      }
-    });
-    this.#metrics.transactionsRemoved(txHashes.map(h => h.toBigInt()));
-  }
-
-  getPendingTxInfos(): Promise<PendingTxInfo[]> {
-    const result: PendingTxInfo[] = [];
-    for (const hashSet of this.#pendingByPriority.values()) {
-      for (const txHashStr of hashSet) {
-        const meta = this.#metadata.get(txHashStr);
-        if (meta) {
-          result.push({
-            txHash: TxHash.fromString(txHashStr),
-            blockHash: Fr.fromHexString(meta.anchorBlockHeaderHash as `0x${string}`),
-            isEvictable: true, // Pending txs are always evictable
-          });
+      getPendingTxs: (): TxMetaData[] => {
+        const result: TxMetaData[] = [];
+        for (const hashSet of this.#pendingByPriority.values()) {
+          for (const txHashStr of hashSet) {
+            const meta = this.#metadata.get(txHashStr);
+            if (meta) {
+              result.push(meta);
+            }
+          }
         }
-      }
-    }
-    return Promise.resolve(result);
-  }
-
-  getPendingTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]> {
-    const blockHashStrings = new Set<string>(blockHashes.map(h => h.toString()));
-    const result: TxBlockReference[] = [];
-
-    for (const hashSet of this.#pendingByPriority.values()) {
-      for (const txHashStr of hashSet) {
-        const meta = this.#metadata.get(txHashStr);
-        if (meta && blockHashStrings.has(meta.anchorBlockHeaderHash)) {
-          result.push({
-            txHash: TxHash.fromString(txHashStr),
-            blockHash: Fr.fromHexString(meta.anchorBlockHeaderHash as `0x${string}`),
-            isEvictable: true,
-          });
-        }
-      }
-    }
-    return Promise.resolve(result);
-  }
-
-  getPendingFeePayers(): Promise<AztecAddress[]> {
-    const feePayers: AztecAddress[] = [];
-    for (const feePayerStr of this.#feePayerToTxHashes.keys()) {
-      feePayers.push(AztecAddress.fromString(feePayerStr));
-    }
-    return Promise.resolve(feePayers);
-  }
-
-  async *getFeePayerTxInfos(feePayer: AztecAddress): AsyncIterable<FeePayerTxInfo> {
-    const feePayerStr = feePayer.toString();
-    const txHashes = this.#feePayerToTxHashes.get(feePayerStr);
-    if (!txHashes) {
-      return;
-    }
-
-    for (const txHashStr of txHashes) {
-      const meta = this.#metadata.get(txHashStr);
-      if (meta) {
-        yield new FeePayerTxInfo({
-          txHash: TxHash.fromString(txHashStr),
-          priority: meta.priorityFee,
-          feeLimit: meta.feeLimit,
-          claimAmount: meta.claimAmount,
-          isEvictable: this.#getTxState(meta) === 'pending',
-        });
-      }
-    }
-  }
-
-  // === PreAddPoolAccess Implementation ===
-
-  /**
-   * Creates a PreAddPoolAccess adapter for use with eviction rules.
-   */
-  #createPreAddPoolAccess(): PreAddPoolAccess {
-    return {
-      getTxHashByNullifier: (nullifier: Fr): Promise<TxHash | undefined> => {
-        const txHashStr = this.#nullifierToTxHash.get(nullifier.toString());
-        return Promise.resolve(txHashStr ? TxHash.fromString(txHashStr) : undefined);
+        return result;
       },
-      getPendingTxByHash: async (hash: TxHash): Promise<Tx | undefined> => {
-        const meta = this.#metadata.get(hash.toString());
-        if (!meta || this.#getTxState(meta) !== 'pending') {
-          return undefined;
-        }
-        // Read directly from DB without going through queue (we're already in a queue task)
-        const buffer = await this.#txsDB.getAsync(hash.toString());
-        return buffer ? Tx.fromBuffer(buffer) : undefined;
+      getPendingFeePayers: (): string[] => {
+        return Array.from(this.#feePayerToTxHashes.keys());
       },
-      getTxPriority: (tx: Tx): string => {
-        return getTxPriorityFee(tx).toString(16).padStart(32, '0');
-      },
-      getFeePayerBalance: async (feePayer: AztecAddress): Promise<bigint> => {
-        const db = this.#worldStateSynchronizer.getCommitted();
-        const publicStateSource = new DatabasePublicStateSource(db);
-        const balance = await publicStateSource.storageRead(
-          ProtocolContractAddress.FeeJuice,
-          await computeFeePayerBalanceStorageSlot(feePayer),
-        );
-        return balance.toBigInt();
-      },
-      getFeePayerPendingTxs: async (feePayer: AztecAddress): Promise<FeePayerTxInfo[]> => {
-        const feePayerStr = feePayer.toString();
-        const txHashes = this.#feePayerToTxHashes.get(feePayerStr);
+      getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
+        const txHashes = this.#feePayerToTxHashes.get(feePayer);
         if (!txHashes) {
           return [];
         }
-
-        const result: FeePayerTxInfo[] = [];
+        const result: TxMetaData[] = [];
         for (const txHashStr of txHashes) {
           const meta = this.#metadata.get(txHashStr);
           if (meta && this.#getTxState(meta) === 'pending') {
-            result.push(
-              new FeePayerTxInfo({
-                txHash: TxHash.fromString(txHashStr),
-                priority: meta.priorityFee,
-                feeLimit: meta.feeLimit,
-                claimAmount: meta.claimAmount,
-                isEvictable: true,
-              }),
-            );
+            result.push(meta);
           }
         }
         return result;
@@ -1226,15 +1103,70 @@ export class AztecKVTxPoolV2
       getPendingTxCount: (): number => {
         return this.#doGetPendingTxCount();
       },
-      getLowestPriorityPendingTx: (): { txHash: TxHash; priority: bigint } | undefined => {
+      getLowestPriorityEvictable: (limit: number): string[] => {
+        return this.#doGetLowestPriorityEvictable(limit).map(h => h.toString());
+      },
+      deleteTxs: async (txHashes: string[]): Promise<void> => {
+        await this.#store.transactionAsync(async () => {
+          for (const txHashStr of txHashes) {
+            await this.#deleteTx(txHashStr, { permanently: true });
+          }
+        });
+        this.#metrics.transactionsRemoved(txHashes);
+      },
+    };
+  }
+
+  // === PreAddPoolAccess Implementation ===
+
+  /**
+   * Creates a PreAddPoolAccess adapter for use with pre-add eviction rules.
+   * All methods work with strings and TxMetaData for efficiency.
+   */
+  #createPreAddPoolAccess(): PreAddPoolAccess {
+    return {
+      getMetadata: (txHashStr: string): TxMetaData | undefined => {
+        const meta = this.#metadata.get(txHashStr);
+        if (!meta || this.#getTxState(meta) !== 'pending') {
+          return undefined;
+        }
+        return meta;
+      },
+      getTxHashByNullifier: (nullifier: string): string | undefined => {
+        return this.#nullifierToTxHash.get(nullifier);
+      },
+      getFeePayerBalance: async (feePayer: string): Promise<bigint> => {
+        const db = this.#worldStateSynchronizer.getCommitted();
+        const publicStateSource = new DatabasePublicStateSource(db);
+        const balance = await publicStateSource.storageRead(
+          ProtocolContractAddress.FeeJuice,
+          await computeFeePayerBalanceStorageSlot(AztecAddress.fromString(feePayer)),
+        );
+        return balance.toBigInt();
+      },
+      getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
+        const txHashes = this.#feePayerToTxHashes.get(feePayer);
+        if (!txHashes) {
+          return [];
+        }
+        const result: TxMetaData[] = [];
+        for (const txHashStr of txHashes) {
+          const meta = this.#metadata.get(txHashStr);
+          if (meta && this.#getTxState(meta) === 'pending') {
+            result.push(meta);
+          }
+        }
+        return result;
+      },
+      getPendingTxCount: (): number => {
+        return this.#doGetPendingTxCount();
+      },
+      getLowestPriorityPendingTx: (): TxMetaData | undefined => {
         // Iterate in ascending order to find the lowest priority
         for (const txHashStr of this.#iteratePendingByPriority('asc')) {
           const meta = this.#metadata.get(txHashStr);
           if (meta) {
-            return {
-              txHash: TxHash.fromString(txHashStr),
-              priority: meta.priorityFee,
-            };
+            return meta;
           }
         }
         return undefined;

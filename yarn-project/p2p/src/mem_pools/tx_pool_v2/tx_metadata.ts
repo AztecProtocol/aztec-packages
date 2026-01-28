@@ -37,6 +37,9 @@ export type TxMetaData = {
 
   /** Non-empty nullifiers emitted by the transaction (hex strings) */
   readonly nullifiers: readonly string[];
+
+  /** Timestamp by which the transaction must be included (for expiration checks) */
+  readonly includeByTimestamp: bigint;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
@@ -52,6 +55,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
   const priorityFee = getTxPriorityFee(tx);
   const feePayer = tx.data.feePayer.toString();
   const nullifiers = tx.data.getNonEmptyNullifiers().map(n => n.toString());
+  const includeByTimestamp = tx.data.includeByTimestamp;
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
 
@@ -63,6 +67,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     claimAmount,
     feeLimit,
     nullifiers,
+    includeByTimestamp,
   };
 }
 

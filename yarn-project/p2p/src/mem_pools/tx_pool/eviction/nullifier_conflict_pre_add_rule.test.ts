@@ -65,7 +65,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(tx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.length).toBe(0);
       });
 
@@ -75,13 +75,13 @@ describe('NullifierConflictPreAddRule', () => {
         // No conflicts - getTxHashesByNullifier returns empty for all nullifiers
         const result = await rule.check(tx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.length).toBe(0);
       });
     });
 
     describe('basic conflict resolution', () => {
-      it('ignores tx when existing tx has same nullifier with higher fee', async () => {
+      it('rejects tx when existing tx has same nullifier with higher fee', async () => {
         const existingTx = await mockPublicTx(1, 10);
         const incomingTx = await mockPublicTx(2, 5);
 
@@ -94,7 +94,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(true);
+        expect(result.shouldReject).toBe(true);
         expect(result.txHashesToEvict.length).toBe(0);
       });
 
@@ -111,12 +111,12 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash))).toBe(true);
         expect(result.txHashesToEvict.length).toBe(1);
       });
 
-      it('ignores tx with equal fee (no replacement on tie)', async () => {
+      it('rejects tx with equal fee (no replacement on tie)', async () => {
         const existingTx = await mockPublicTx(1, 5);
         const incomingTx = await mockPublicTx(2, 5);
 
@@ -129,7 +129,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(true);
+        expect(result.shouldReject).toBe(true);
         expect(result.txHashesToEvict.length).toBe(0);
       });
     });
@@ -151,7 +151,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash))).toBe(true);
       });
 
@@ -171,7 +171,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash))).toBe(true);
       });
     });
@@ -199,11 +199,11 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash))).toBe(true);
       });
 
-      it('ignores tx with partial overlap when existing has higher fee', async () => {
+      it('rejects tx with partial overlap when existing has higher fee', async () => {
         const existingTx = await mockPublicTx(1, 10);
         const incomingTx = await mockPublicTx(2, 5);
 
@@ -223,7 +223,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(true);
+        expect(result.shouldReject).toBe(true);
         expect(result.txHashesToEvict.length).toBe(0);
       });
     });
@@ -262,13 +262,13 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash1))).toBe(true);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash2))).toBe(true);
         expect(result.txHashesToEvict.length).toBe(2);
       });
 
-      it('ignores incoming tx if it cannot beat ALL conflicting txs', async () => {
+      it('rejects incoming tx if it cannot beat ALL conflicting txs', async () => {
         const existingTx1 = await mockPublicTx(1, 3);
         const existingTx2 = await mockPublicTx(2, 100); // Higher fee than incoming
         const incomingTx = await mockPublicTx(3, 10);
@@ -300,7 +300,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(true);
+        expect(result.shouldReject).toBe(true);
         expect(result.txHashesToEvict.length).toBe(0); // Atomic: no partial evictions
       });
     });
@@ -323,7 +323,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.some(h => h.equals(existingHash))).toBe(true);
         expect(result.txHashesToEvict.length).toBe(1); // Only added once, not duplicated
       });
@@ -346,7 +346,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.length).toBe(1); // Existing tx only in array once
       });
     });
@@ -361,7 +361,7 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(tx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.length).toBe(0);
       });
 
@@ -374,48 +374,8 @@ describe('NullifierConflictPreAddRule', () => {
 
         const result = await rule.check(incomingTx, poolAccess);
 
-        expect(result.shouldIgnore).toBe(false);
+        expect(result.shouldReject).toBe(false);
         expect(result.txHashesToEvict.length).toBe(0);
-      });
-    });
-
-    describe('ignore semantics', () => {
-      it('provides reason when ignoring tx due to nullifier conflict', async () => {
-        const existingTx = await mockPublicTx(1, 10);
-        const incomingTx = await mockPublicTx(2, 5);
-
-        setNullifier(incomingTx, 0, getNullifier(existingTx, 0));
-
-        const existingHash = existingTx.getTxHash();
-
-        poolAccess.getTxHashByNullifier.mockResolvedValue(existingHash);
-        poolAccess.getPendingTxByHash.mockResolvedValue(existingTx);
-
-        const result = await rule.check(incomingTx, poolAccess);
-
-        expect(result.shouldIgnore).toBe(true);
-        expect(result.reason).toBeDefined();
-        expect(result.reason).toContain('nullifier conflict');
-        expect(result.reason).toContain(existingHash.toString());
-      });
-
-      it('ignored tx is valid but not desired - no peer penalty should be applied', async () => {
-        // This test documents the semantic meaning of "ignored":
-        // The transaction passed validation (proof is valid, etc.)
-        // but we don't want it in the pool because a higher-priority tx has the same nullifier
-        const existingTx = await mockPublicTx(1, 100);
-        const incomingTx = await mockPublicTx(2, 50);
-
-        setNullifier(incomingTx, 0, getNullifier(existingTx, 0));
-        poolAccess.getTxHashByNullifier.mockResolvedValue(existingTx.getTxHash());
-        poolAccess.getPendingTxByHash.mockResolvedValue(existingTx);
-
-        const result = await rule.check(incomingTx, poolAccess);
-
-        // shouldIgnore: true means "don't add to pool, but don't penalize the sender"
-        // This is different from "rejected" which would mean the tx is invalid
-        expect(result.shouldIgnore).toBe(true);
-        expect(result.txHashesToEvict).toHaveLength(0);
       });
     });
   });
