@@ -51,6 +51,7 @@
     "./iterable": "./dest/iterable/index.js",
     "./iterator": "./dest/iterator/index.js",
     "./log": "./dest/log/index.js",
+    "./log/server": "./dest/log/pino-logger-server.js",
     "./mutex": "./dest/mutex/index.js",
     "./retry": "./dest/retry/index.js",
     "./running-promise": "./dest/running-promise/index.js",

@@ -495,6 +495,7 @@ export class BlockProposalHandler {
       previousCheckpointOutHashes,
       fork,
       priorBlocks,
+      this.log.getBindings(),
     );
 
     // Build the new block

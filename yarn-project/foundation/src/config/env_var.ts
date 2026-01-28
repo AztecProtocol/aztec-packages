@@ -77,6 +77,7 @@ export type EnvVar =
   | 'L1_CONSENSUS_HOST_API_KEY_HEADERS'
   | 'LOG_JSON'
   | 'LOG_MULTILINE'
+  | 'LOG_NO_COLOR_PER_ACTOR'
   | 'LOG_LEVEL'
   | 'MNEMONIC'
   | 'NETWORK'

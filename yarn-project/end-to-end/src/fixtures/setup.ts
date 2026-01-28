@@ -41,7 +41,7 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -125,14 +125,14 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE.
  * @param logger - The logger to be used.
- * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
+ * @param actor - Actor label to include in log output (e.g., 'pxe-test').
  * @returns A test wallet, logger and teardown function.
  */
 export async function setupPXEAndGetWallet(
   aztecNode: AztecNode,
   opts: Partial<PXEConfig> = {},
   logger = getLogger(),
-  useLogSuffix = false,
+  actor?: string,
 ): Promise<{
   wallet: TestWallet;
   logger: Logger;
@@ -150,9 +150,7 @@ export async function setupPXEAndGetWallet(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(PXEConfig.dataDirectory!);
 
-  const wallet = await TestWallet.create(aztecNode, PXEConfig, {
-    useLogSuffix,
-  });
+  const wallet = await TestWallet.create(aztecNode, PXEConfig, { loggerActorLabel: actor });
 
   return {
     wallet,
@@ -574,10 +572,12 @@ export async function setup(
       }
     }
 
-    const aztecNodeService = await AztecNodeService.createAndSync(
-      config,
-      { dateProvider, telemetry: telemetryClient, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
-      { prefilledPublicData },
+    const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
+      AztecNodeService.createAndSync(
+        config,
+        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+        { prefilledPublicData },
+      ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -611,7 +611,7 @@ export async function setup(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig);
+    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, { loggerActorLabel: 'pxe-0' });
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
@@ -797,7 +797,7 @@ export function createAndSyncProverNode(
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   proverNodeDeps: ProverNodeDeps = {},
 ) {
-  return withLogNameSuffix('prover-node', async () => {
+  return withLoggerBindings({ actor: 'prover-0' }, async () => {
     const aztecNodeTxProvider = aztecNode && {
       getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
       getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),

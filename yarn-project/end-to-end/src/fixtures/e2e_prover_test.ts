@@ -198,7 +198,7 @@ export class FullProverTest {
       this.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
-      true,
+      'pxe-proven',
     );
     this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);

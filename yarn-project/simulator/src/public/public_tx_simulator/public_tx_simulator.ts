@@ -1,6 +1,6 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxEffect, PublicTxResult } from '@aztec/stdlib/avm';
@@ -81,6 +81,7 @@ type ProcessedPhase = {
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
   protected readonly config: PublicSimulatorConfig;
+  protected readonly bindings?: LoggerBindings;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
@@ -88,9 +89,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     protected globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
     protected protocolContracts: ProtocolContracts = ProtocolContractsList,
+    bindings?: LoggerBindings,
   ) {
     this.config = PublicSimulatorConfig.from(config ?? {});
-    this.log = createLogger(`simulator:public_tx_simulator`);
+    this.bindings = bindings;
+    this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
   /**
@@ -119,6 +122,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       this.globalVariables,
       this.protocolContracts,
       this.config.proverId,
+      this.bindings,
     );
 
     // This will throw if there is a nullifier collision.

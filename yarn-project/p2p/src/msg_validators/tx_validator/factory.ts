@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -46,43 +47,53 @@ export function createTxMessageValidators(
   proofVerifier: ClientProtocolCircuitVerifier,
   txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
+  bindings?: LoggerBindings,
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
   return [
     {
       txsPermittedValidator: {
-        validator: new TxPermittedValidator(txsPermitted),
+        validator: new TxPermittedValidator(txsPermitted, bindings),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       dataValidator: {
-        validator: new DataTxValidator(),
+        validator: new DataTxValidator(bindings),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       metadataValidator: {
-        validator: new MetadataTxValidator({
-          l1ChainId: new Fr(l1ChainId),
-          rollupVersion: new Fr(rollupVersion),
-          protocolContractsHash,
-          vkTreeRoot: getVKTreeRoot(),
-        }),
+        validator: new MetadataTxValidator(
+          {
+            l1ChainId: new Fr(l1ChainId),
+            rollupVersion: new Fr(rollupVersion),
+            protocolContractsHash,
+            vkTreeRoot: getVKTreeRoot(),
+          },
+          bindings,
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       timestampValidator: {
-        validator: new TimestampTxValidator<Tx>({
-          timestamp,
-          blockNumber,
-        }),
+        validator: new TimestampTxValidator<Tx>(
+          {
+            timestamp,
+            blockNumber,
+          },
+          bindings,
+        ),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       doubleSpendValidator: {
-        validator: new DoubleSpendTxValidator({
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
+        validator: new DoubleSpendTxValidator(
+          {
+            nullifiersExist: async (nullifiers: Buffer[]) => {
+              const merkleTree = worldStateSynchronizer.getCommitted();
+              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+              return indices.map(index => index !== undefined);
+            },
           },
-        }),
+          bindings,
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       gasValidator: {
@@ -90,21 +101,22 @@ export function createTxMessageValidators(
           new DatabasePublicStateSource(merkleTree),
           ProtocolContractAddress.FeeJuice,
           gasFees,
+          bindings,
         ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       phasesValidator: {
-        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp),
+        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       blockHeaderValidator: {
-        validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree)),
+        validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree), bindings),
         severity: PeerErrorSeverity.HighToleranceError,
       },
     },
     {
       proofValidator: {
-        validator: new TxProofValidator(proofVerifier),
+        validator: new TxProofValidator(proofVerifier, bindings),
         severity: PeerErrorSeverity.MidToleranceError,
       },
     },
@@ -120,16 +132,20 @@ export function createTxReqRespValidator(
     l1ChainId: number;
     rollupVersion: number;
   },
+  bindings?: LoggerBindings,
 ): TxValidator {
   return new AggregateTxValidator(
-    new MetadataTxValidator({
-      l1ChainId: new Fr(l1ChainId),
-      rollupVersion: new Fr(rollupVersion),
-      protocolContractsHash,
-      vkTreeRoot: getVKTreeRoot(),
-    }),
-    new SizeTxValidator(),
-    new DataTxValidator(),
-    new TxProofValidator(verifier),
+    new MetadataTxValidator(
+      {
+        l1ChainId: new Fr(l1ChainId),
+        rollupVersion: new Fr(rollupVersion),
+        protocolContractsHash,
+        vkTreeRoot: getVKTreeRoot(),
+      },
+      bindings,
+    ),
+    new SizeTxValidator(bindings),
+    new DataTxValidator(bindings),
+    new TxProofValidator(verifier, bindings),
   );
 }

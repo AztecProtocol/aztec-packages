@@ -284,14 +284,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const datastore = new AztecDatastore(peerStore);
 
-    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry, logger.getBindings());
 
     const peerDiscoveryService = new DiscV5Service(
       peerId,
       config,
       packageVersion,
       telemetry,
-      createLogger(`${logger.module}:discv5_service`),
+      createLogger(`${logger.module}:discv5_service`, logger.getBindings()),
     );
 
     // Seed libp2p's bootstrap discovery with private and trusted peers
@@ -452,7 +452,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           connectionManager: components.connectionManager,
         }),
       },
-      logger: createLibp2pComponentLogger(logger.module),
+      logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
     });
 
     const peerScoring = new PeerScoring(config, telemetry);
@@ -1508,6 +1508,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.proofVerifier,
       !this.config.disableTransactions,
       allowedInSetup,
+      this.logger.getBindings(),
     );
   }
 
@@ -1561,15 +1562,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    const snapshotValidator = new DoubleSpendTxValidator({
-      nullifiersExist: async (nullifiers: Buffer[]) => {
-        const merkleTree = this.worldStateSynchronizer.getSnapshot(
-          BlockNumber(blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow),
-        );
-        const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-        return indices.map(index => index !== undefined);
+    const snapshotValidator = new DoubleSpendTxValidator(
+      {
+        nullifiersExist: async (nullifiers: Buffer[]) => {
+          const merkleTree = this.worldStateSynchronizer.getSnapshot(
+            BlockNumber(blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow),
+          );
+          const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+          return indices.map(index => index !== undefined);
+        },
       },
-    });
+      this.logger.getBindings(),
+    );
 
     const validSnapshot = await snapshotValidator.validateTx(tx);
     if (validSnapshot.result !== 'valid') {

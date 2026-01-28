@@ -56,7 +56,11 @@ export const submitTransactions = async (
 ): Promise<TxHash[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
   return submitTxsTo(wallet, fundedAccountManager.address, numTxs, logger);
 };
@@ -70,7 +74,11 @@ export async function prepareTransactions(
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {

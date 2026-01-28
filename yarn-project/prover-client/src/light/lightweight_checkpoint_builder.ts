@@ -3,7 +3,7 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -34,7 +34,7 @@ import {
  * Finally completes the checkpoint by computing its header.
  */
 export class LightweightCheckpointBuilder {
-  private readonly logger = createLogger('lightweight-checkpoint-builder');
+  private readonly logger: Logger;
 
   private lastArchives: AppendOnlyTreeSnapshot[] = [];
   private spongeBlob: SpongeBlob;
@@ -47,7 +47,12 @@ export class LightweightCheckpointBuilder {
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
     public readonly db: MerkleTreeWriteOperations,
+    bindings?: LoggerBindings,
   ) {
+    this.logger = createLogger('checkpoint-builder', {
+      ...bindings,
+      instanceId: `checkpoint-${checkpointNumber}`,
+    });
     this.spongeBlob = SpongeBlob.init();
     this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages });
   }
@@ -58,6 +63,7 @@ export class LightweightCheckpointBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
+    bindings?: LoggerBindings,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
     await db.appendLeaves(
@@ -71,6 +77,7 @@ export class LightweightCheckpointBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
+      bindings,
     );
   }
 
@@ -87,6 +94,7 @@ export class LightweightCheckpointBuilder {
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
     existingBlocks: L2Block[],
+    bindings?: LoggerBindings,
   ): Promise<LightweightCheckpointBuilder> {
     const builder = new LightweightCheckpointBuilder(
       checkpointNumber,
@@ -94,6 +102,7 @@ export class LightweightCheckpointBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
+      bindings,
     );
 
     builder.logger.debug('Resuming checkpoint from existing blocks', {
@@ -264,6 +273,7 @@ export class LightweightCheckpointBuilder {
       [...this.l1ToL2Messages],
       [...this.previousCheckpointOutHashes],
       this.db,
+      this.logger.getBindings(),
     );
     clone.lastArchives = [...this.lastArchives];
     clone.spongeBlob = this.spongeBlob.clone();

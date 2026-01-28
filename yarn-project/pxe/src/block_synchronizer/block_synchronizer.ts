@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
@@ -29,22 +29,25 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
     private config: Partial<BlockSynchronizerConfig> = {},
-    loggerOrSuffix?: string | Logger,
+    bindings?: LoggerBindings,
   ) {
-    this.log =
-      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
-        ? createLogger(loggerOrSuffix ? `pxe:block_synchronizer:${loggerOrSuffix}` : `pxe:block_synchronizer`)
-        : loggerOrSuffix;
+    this.log = createLogger('pxe:block_synchronizer', bindings);
     this.blockStream = this.createBlockStream(config);
   }
 
   protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
-    return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
-      batchSize: config.l2BlockBatchSize,
-      // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
-      // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
-      skipFinalized: true,
-    });
+    return new L2BlockStream(
+      this.node,
+      this.l2TipsStore,
+      this,
+      createLogger('pxe:block_stream', this.log.getBindings()),
+      {
+        batchSize: config.l2BlockBatchSize,
+        // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
+        // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
+        skipFinalized: true,
+      },
+    );
   }
 
   /** Handle events emitted by the block stream. */
