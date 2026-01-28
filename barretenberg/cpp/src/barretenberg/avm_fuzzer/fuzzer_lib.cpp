@@ -221,9 +221,8 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
 
 #ifndef COVERAGE_AVM
     avm2::AvmAPI avm_api;
-    bool check_circuit_result = avm_api.check_circuit(proving_inputs);
-    BB_ASSERT(check_circuit_result,
-              "check_circuit returned false in fuzzer with no exception, this indicates a failure");
+    avm_api.prove(proving_inputs);
+
 #else
     // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit
