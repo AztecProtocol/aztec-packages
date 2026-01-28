@@ -147,8 +147,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
         field_pt w_out_raw = xor_result.add_two(w_sparse[i - 16].normal, w_sparse[i - 7].normal);
 
         // Natively compute value reduced to 32 bits per SHA-256 spec
-        const uint64_t w_out_modded = w_out_raw.get_value().from_montgomery_form_reduced().data[0] & 0xffffffffULL;
-
+        const uint64_t w_out_modded = static_cast<uint32_t>(w_out_raw.get_value());
         field_pt w_out;
         if (w_out_raw.is_constant()) {
             w_out = field_pt(ctx, fr(w_out_modded));

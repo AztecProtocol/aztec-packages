@@ -82,7 +82,6 @@ TEST(BN254Fr, MultiplicativeGenerator)
     EXPECT_EQ(fr::multiplicative_generator(), fr(5));
 }
 
-
 TEST(BN254Fr, SplitIntoEndomorphismScalars)
 {
     fr k = fr::random_element();
