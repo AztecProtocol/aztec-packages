@@ -15,13 +15,17 @@ import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
+import {
+  type BatchTxRequesterConfig,
+  batchTxRequesterConfigMappings,
+} from './services/reqresp/batch-tx-requester/config.js';
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionConfig {
+export interface P2PConfig extends P2PReqRespConfig, BatchTxRequesterConfig, ChainConfig, TxCollectionConfig {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -432,6 +436,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,
+  ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
 };

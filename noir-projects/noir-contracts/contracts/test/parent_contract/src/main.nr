@@ -4,8 +4,8 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::external};
-    use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
-    use aztec::protocol_types::{
+    use dep::aztec::protocol::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
+    use aztec::protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
     // Private function to call another private function in the target_contract using the provided selector

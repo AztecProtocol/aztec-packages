@@ -31,7 +31,7 @@ pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let 
     kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) -> [NoteLogLinkedSourceIndices; LogsLen] {
-    let mut linked_source_indices = [
+    let mut linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen] = [
         NoteLogLinkedSourceIndices {
             transient_data_squashing_hint_index: 0,
             kept_note_hash_index: 0,
@@ -46,15 +46,22 @@ pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let 
 
             // First, check if the log is linked to a kept note hash.
             let mut is_kept = false;
-            for kept_note_hash_index in 0..kept_note_hashes.length {
-                if kept_note_hashes.array[kept_note_hash_index].counter() == log_note_hash_counter {
-                    linked_source_indices[i].kept_note_hash_index = kept_note_hash_index;
+            for j in 0..kept_note_hashes.length {
+                if kept_note_hashes.array[j].counter() == log_note_hash_counter {
+                    linked_source_indices[i].kept_note_hash_index = j;
                     is_kept = true;
+                    // Note: it's not possible for there to be duplicate counters
+                    // in the kept_note_hashes array, because we just copy 1:1 items from
+                    // the input note_hashes array, which is constrained to have strictly
+                    // increasing counters within the init/inner circuits.
+                    // So once we find a matching counter, we can move on.
+                    break;
                 }
             }
 
             // If `is_kept` is not set in the loop above, we didn't find a kept note hash for the log,
-            // the log must be linked to a squashed note hash.
+            // the log must be linked to a squashed note hash (or we have bad hints, but we'll
+            // worry about that in constrained-land).
             if !is_kept {
                 let squashed_note_hash_index = find_first_index(
                     note_hashes.array,

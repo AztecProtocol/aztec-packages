@@ -1,4 +1,4 @@
-use dep::protocol_types::meta::derive_serialize;
+use crate::protocol::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
@@ -63,10 +63,9 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
             let const_len = array_len.as_constant().unwrap();
             f"{const_len}".quoted_contents()
         } else {
-            // If array length is not a constant, chances are it's a numeric generic
-            // This will make the signature of a type like Struct<N> be the same regardless
-            // of the value of N, but at least this fn will not crash. It is up to the caller
-            // to decide whether this is acceptable.
+            // If array length is not a constant, chances are it's a numeric generic This will make the signature of a
+            // type like Struct<N> be the same regardless of the value of N, but at least this fn will not crash. It is
+            // up to the caller to decide whether this is acceptable.
             f"{array_len}".quoted_contents()
         };
 
@@ -74,8 +73,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_data_type().is_some() {
         let (s, generics) = typ.as_data_type().unwrap();
-        let field_signatures =
-            s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(quote {,});
+        let field_signatures = s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -108,8 +106,8 @@ impl AsStrQuote for Quoted {
 }
 
 pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
-    // The function selector is computed from the function signature, which is made up of the function name and types of
-    // parameters, but not including the return type. For example, given:
+    // The function selector is computed from the function signature, which is made up of the function name and types
+    // of parameters, but not including the return type. For example, given:
     //
     // fn foo(a: Field, b: AztecAddress) -> Field
     //
@@ -120,21 +118,17 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field(protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
+        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_struct_selector(
-    s: TypeDefinition,
-    from_signature_fn: Quoted,
-) -> Field {
-    // The struct selector is computed from the type signature, similar to how one might type
-    // the constructor function. For example, given:
+pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature_fn: Quoted) -> Field {
+    // The struct selector is computed from the type signature, similar to how one might type the constructor function.
+    // For example, given:
     //
     // struct Foo {
-    //   a: Field,
-    //   b: AztecAddress,
+    //   a: Field, b: AztecAddress,
     // }
     //
     // The signature will be "Foo(Field,AztecAddress)".
@@ -142,8 +136,8 @@ pub(crate) comptime fn compute_struct_selector(
     let args_signatures = s
         .fields_as_written()
         .map(|(_, typ, _)| {
-            // signature_of_type can handle structs, so this supports nested structs
-            // FIXME: Field generics are not handled here!
+            // signature_of_type can handle structs, so this supports nested structs FIXME: Field generics are not
+            // handled here!
             signature_of_type(typ)
         })
         .join(quote {,});
@@ -151,15 +145,13 @@ pub(crate) comptime fn compute_struct_selector(
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
+        crate::protocol::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: TypeDefinition| {
-        s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
-    })
+    m.structs().any(|s: TypeDefinition| s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init"))
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
@@ -168,40 +160,29 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
 
 /// Returns the typed expression of a trait method implementation.
 ///
-/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
-/// as direct inlining would result in missing import warnings in the generated code (specifically,
-/// warnings that the trait implementation is not in scope).
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote, as direct
+/// inlining would result in missing import warnings in the generated code (specifically, warnings that the trait
+/// implementation is not in scope).
 ///
-/// # Note
-/// A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
-/// copies because importing it here from there would cause the `target_trait` to be interpreted in the context
-/// of the protocol circuits types crate, making it impossible to compile code for traits from this crate
-/// (e.g. NoteType).
-pub(crate) comptime fn get_trait_impl_method(
-    typ: Type,
-    target_trait: Quoted,
-    target_method: Quoted,
-) -> TypedExpr {
+/// # Note A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate copies because importing it here from there would cause the `target_trait` to be interpreted in the context of the protocol circuits types crate, making it impossible to compile code for traits from this crate (e.g. NoteType).
+pub(crate) comptime fn get_trait_impl_method(typ: Type, target_trait: Quoted, target_method: Quoted) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ
-        .get_trait_impl(trait_constraint)
-        .expect(f"Type does not implement trait")
-        .methods()
-        .filter(|m| m.name() == target_method)[0]
+    typ.get_trait_impl(trait_constraint).expect(f"Type does not implement trait").methods().filter(|m| {
+        m.name() == target_method
+    })[0]
         .as_typed_expr()
 }
 
-/// Generates a quote that implements `Serialize` for a given struct `s`.
-/// If the struct already implements `Serialize`, we return an empty quote.
+/// Generates a quote that implements `Serialize` for a given struct `s`. If the struct already implements `Serialize`,
+/// we return an empty quote.
 pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
-    if s.as_type().implements(quote { crate::protocol_types::traits::Serialize }
-        .as_trait_constraint()) {
+    if s.as_type().implements(quote { crate::protocol::traits::Serialize }.as_trait_constraint()) {
         // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
         // an empty quote for the implementation.
         quote {}
     } else {
-        // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize`
-        // so we derive it.
+        // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize` so we
+        // derive it.
         derive_serialize(s)
     }
 }

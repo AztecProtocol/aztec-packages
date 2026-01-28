@@ -240,6 +240,9 @@ pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
+// because we don't want any malicious user to be able to push malicious state for actual contracts through this
+// padding feature.
 // It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
 // that anyone can freely change the state of the contract by adding padding side effects to their transactions.
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
@@ -1132,7 +1135,7 @@ pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_SSTORE_BASE_L2_GAS: u32 = (633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 126 * 4; // SLOW_SIM_MUL = 3 (+1 for slow proving)
 pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = (261 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 15; // SLOW_SIM_MUL = 15
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 132 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 129 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
 pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4

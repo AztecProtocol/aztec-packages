@@ -89,8 +89,8 @@ impl AztecAddress {
         //                                          |
         //                                    address_point = pre_address * G + Ivpk_m (always choose "positive" y-coord)
         //                                                        |               ^
-        //                                                        |               |...................
-        //                                                    pre_address                            .
+        //                                                        |               |.....................
+        //                                                    pre_address                              .
         //                                               /                   \                         .
         //                                             /                       \                       .
         //                               partial_address                        public_keys_hash       .

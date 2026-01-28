@@ -51,7 +51,11 @@ export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
 
-export type EpochsTestOpts = Partial<SetupOptions> & { numberOfAccounts?: number; pxeOpts?: Partial<PXEConfig> };
+export type EpochsTestOpts = Partial<SetupOptions> & {
+  numberOfAccounts?: number;
+  pxeOpts?: Partial<PXEConfig>;
+  aztecSlotDurationInL1Slots?: number;
+};
 
 export type TrackedSequencerEvent = {
   [K in keyof SequencerEvents]: Parameters<SequencerEvents[K]>[0] & {
@@ -96,7 +100,7 @@ export class EpochsTestContext {
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
-    const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
+    const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     const l1PublishingTime = opts.l1PublishingTime ?? 1;

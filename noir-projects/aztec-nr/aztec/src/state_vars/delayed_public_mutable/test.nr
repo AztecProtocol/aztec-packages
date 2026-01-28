@@ -3,9 +3,9 @@ use crate::{
     state_vars::{delayed_public_mutable::DelayedPublicMutable, StateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
 };
-use protocol_types::traits::Empty;
+use crate::protocol::traits::Empty;
 
-use dep::std::mem::zeroed;
+use std::mem::zeroed;
 
 global new_value: MockStruct = MockStruct { a: 17, b: 42 };
 
@@ -271,10 +271,7 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(
-            context.get_anchor_block_header().global_variables.timestamp,
-            timestamp_of_change - 1,
-        );
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, timestamp_of_change - 1);
 
         let state_var = in_private(context);
 
@@ -301,10 +298,7 @@ unconstrained fn get_current_value_in_private_at_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(
-            context.get_anchor_block_header().global_variables.timestamp,
-            timestamp_of_change,
-        );
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, timestamp_of_change);
 
         let state_var = in_private(context);
 
@@ -332,10 +326,7 @@ unconstrained fn get_current_value_in_private_after_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(
-            context.get_anchor_block_header().global_variables.timestamp,
-            timestamp_of_change + 10,
-        );
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, timestamp_of_change + 10);
 
         let state_var = in_private(context);
 
@@ -351,25 +342,21 @@ unconstrained fn get_current_value_in_private_after_change() {
 unconstrained fn get_current_value_in_private_with_non_initial_delay() {
     let env = TestEnvironment::new();
 
-    let ((_, value_timestamp_of_change), (_, delay_timestamp_of_change)) = env
-        .public_context(|context| {
-            let state_var = in_public(context);
+    let ((_, value_timestamp_of_change), (_, delay_timestamp_of_change)) = env.public_context(|context| {
+        let state_var = in_public(context);
 
-            state_var.schedule_value_change(new_value);
-            state_var.schedule_delay_change(new_delay);
+        state_var.schedule_value_change(new_value);
+        state_var.schedule_delay_change(new_delay);
 
-            (state_var.get_scheduled_value(), state_var.get_scheduled_delay())
-        });
+        (state_var.get_scheduled_value(), state_var.get_scheduled_delay())
+    });
 
     let historical_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
     env.mine_block_at(historical_timestamp);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(
-            context.get_anchor_block_header().global_variables.timestamp,
-            historical_timestamp,
-        );
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, historical_timestamp);
 
         let state_var = in_private(context);
 

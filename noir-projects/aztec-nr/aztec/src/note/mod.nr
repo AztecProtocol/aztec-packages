@@ -1,7 +1,6 @@
-//! Note traits and utilities.
+//! Note traits and utilities
 //!
 //! ## Siloing
-//!
 
 pub mod constants;
 pub mod lifecycle;

@@ -1,6 +1,5 @@
-use dep::protocol_types::{
-    address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
-    traits::Hash,
+use crate::protocol::{
+    address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator, traits::Hash,
 };
 
 use crate::{
@@ -57,11 +56,11 @@ mod test;
 ///
 /// ## Privacy considerations
 ///
-/// The [SingleUseClaim::claim] function emits a public nullifier per owner: it's fully private,
-/// hidden behind the owner's app-siloed nullifier secret key (aka `nsk`).
+/// The [SingleUseClaim::claim] function emits a public nullifier per owner: it's fully private, hidden behind the
+/// owner's app-siloed nullifier secret key (aka `nsk`).
 ///
-/// Public effects you emit alongside a claim (e.g. a  public function call to update a tally)
-/// may still let observers infer who likely exercised the claim, so consider that when designing flows.
+/// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
+/// infer who likely exercised the claim, so consider that when designing flows.
 /// ```
 pub struct SingleUseClaim<Context> {
     context: Context,
@@ -76,11 +75,11 @@ impl<Context> OwnedStateVariable<Context> for SingleUseClaim<Context> {
 }
 
 impl<Context> SingleUseClaim<Context> {
-    /// Computes the nullifier that will be created when the single use claim is claimed
-    /// by the owner (denoted by the app-siloed nullifier secret key `owner_nsk_app`).
+    /// Computes the nullifier that will be created when the single use claim is claimed by the owner (denoted by the
+    /// app-siloed nullifier secret key `owner_nsk_app`).
     ///
-    /// This function is primarily used internally by functions [SingleUseClaim::claim], [SingleUseClaim::assert_claimed] and
-    /// [SingleUseClaim::has_claimed] to coherently write and read state.
+    /// This function is primarily used internally by functions [SingleUseClaim::claim],
+    /// [SingleUseClaim::assert_claimed] and [SingleUseClaim::has_claimed] to coherently write and read state.
     fn compute_nullifier(self, owner_nsk_app: Field) -> Field {
         // TODO(F-180): make sure we follow the nullifier convention
         poseidon2_hash_with_separator([owner_nsk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
@@ -90,30 +89,29 @@ impl<Context> SingleUseClaim<Context> {
 impl SingleUseClaim<&mut PrivateContext> {
     /// Records the fact that the owner in scope has claimed this single use claim.
     ///
-    /// This function succeeds at most once for a given `owner`. Any subsequent calls with same owner are
-    /// guaranteed to fail.
+    /// This function succeeds at most once for a given `owner`. Any subsequent calls with same owner are guaranteed to
+    /// fail.
     ///
-    /// Note that, by itself, calling this function doesn't do anything other than prevent it being called again
-    /// with the same owner. Its invocation is typically accompanied by other contract actions, e.g. minting tokens,
-    /// casting a vote, etc.
+    /// Note that, by itself, calling this function doesn't do anything other than prevent it being called again with
+    /// the same owner. Its invocation is typically accompanied by other contract actions, e.g. minting tokens, casting
+    /// a vote, etc.
     ///
     /// ## Advanced
     ///
-    /// The implementation of this function emits a nullifier derived from
-    /// the `owner`'s nullifier secret key and the storage slot of the underlying state variable.
+    /// The implementation of this function emits a nullifier derived from the `owner`'s nullifier secret key and the
+    /// storage slot of the underlying state variable.
     pub fn claim(self) {
         let owner_nsk_app = self.context.request_nsk_app(get_public_keys(self.owner).npk_m.hash());
         self.context.push_nullifier(self.compute_nullifier(owner_nsk_app));
     }
 
-    /// Asserts that the owner has already claimed this single use claim
-    /// (i.e. that [SingleUseClaim::claim] has been called).
+    /// Asserts that the owner has already claimed this single use claim (i.e. that [SingleUseClaim::claim] has been
+    /// called).
     ///
     /// ## Advanced
     ///
-    /// This function generates a kernel nullifier read request, so it can even assert the existence of
-    /// pending claims, i.e. when [SingleUseClaim::claim] was called in the same transaction as
-    /// [SingleUseClaim::assert_claimed].
+    /// This function generates a kernel nullifier read request, so it can even assert the existence of pending claims,
+    /// i.e. when [SingleUseClaim::claim] was called in the same transaction as [SingleUseClaim::assert_claimed].
     pub fn assert_claimed(self) {
         let owner_nsk_app = self.context.request_nsk_app(get_public_keys(self.owner).npk_m.hash());
         let nullifier = self.compute_nullifier(owner_nsk_app);
@@ -127,8 +125,7 @@ impl SingleUseClaim<&mut PrivateContext> {
         let has_been_claimed = unsafe { check_nullifier_exists(nullifier) };
         assert(has_been_claimed, "cannot prove claim exists");
 
-        let nullifier_existence_request =
-            compute_nullifier_existence_request(nullifier, self.context.this_address());
+        let nullifier_existence_request = compute_nullifier_existence_request(nullifier, self.context.this_address());
         self.context.assert_nullifier_exists(nullifier_existence_request)
     }
 }

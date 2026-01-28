@@ -11,11 +11,9 @@
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -84,7 +82,9 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
+    using PCS = typename Flavor::PCS;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = VerifierInstance_<Flavor>;
 
@@ -117,15 +117,6 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     };
 
     /**
-     * @brief Result of padding computation
-     * @details Contains virtual log_n and padding indicator array for sumcheck/shplemini
-     */
-    struct PaddingData {
-        size_t log_n;
-        std::vector<FF> padding_indicator_array;
-    };
-
-    /**
      * @brief A constructor for native and recursive verifiers
      * @param vk_and_hash Contains verification key and its hash
      * @param transcript Transcript instance (optional, defaults to new transcript)
@@ -149,15 +140,16 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
-     * @brief Compute log_n and padding indicator array based on flavor configuration
-     * @details Handles all combinations of native/recursive, ZK/non-ZK, and padding/no-padding:
-     * - Non-ZK flavors: log_n from USE_PADDING, all 1s array
-     * - ZK without padding: log_n from VK, all 1s array
-     * - Native ZK with padding: VIRTUAL_LOG_N, simple loop comparison
-     * - Recursive ZK with padding: VIRTUAL_LOG_N, in-circuit Lagrange computation
-     * @return PaddingData containing log_n and padding_indicator_array
+     * @brief Compute log_n based on flavor.
+     * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
      */
-    PaddingData process_padding() const;
+    size_t compute_log_n() const;
+
+    /**
+     * @brief Compute padding indicator array based on flavor configuration.
+     * @details Must be called AFTER OinkVerifier::verify() so VK fields are properly tagged.
+     */
+    std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
 

@@ -30,19 +30,16 @@ unconstrained fn historical_pre_write_public_storage_read() {
 
     let write_block_number = env.last_block_number();
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(write_block_number - 1),
-        |context| {
-            assert_eq(
-                public_storage_historical_read(
-                    context.anchor_block_header,
-                    STORAGE_SLOT,
-                    context.this_address(),
-                ),
-                std::mem::zeroed(),
-            );
-        },
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(write_block_number - 1), |context| {
+        assert_eq(
+            public_storage_historical_read(
+                context.anchor_block_header,
+                STORAGE_SLOT,
+                context.this_address(),
+            ),
+            std::mem::zeroed(),
+        );
+    });
 }
 
 #[test]

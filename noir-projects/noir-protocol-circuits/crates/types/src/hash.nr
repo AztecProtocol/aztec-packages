@@ -65,7 +65,7 @@ pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> F
     poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
 }
 
-pub fn compute_nonce_and_unique_note_hash(
+pub fn compute_note_nonce_and_unique_note_hash(
     siloed_note_hash: Field,
     first_nullifier: Field,
     note_index_in_tx: u32,
@@ -74,11 +74,50 @@ pub fn compute_nonce_and_unique_note_hash(
     compute_unique_note_hash(note_nonce, siloed_note_hash)
 }
 
-pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
-    poseidon2_hash_with_separator([app.to_field(), note_hash], DOM_SEP__SILOED_NOTE_HASH)
+pub fn compute_siloed_note_hash(contract_address: AztecAddress, note_hash: Field) -> Field {
+    poseidon2_hash_with_separator(
+        [contract_address.to_field(), note_hash],
+        DOM_SEP__SILOED_NOTE_HASH,
+    )
 }
 
-/// Computes unique note hashes from siloed note hashes
+/// Computes unique, siloed note hashes from siloed note hashes.
+///
+/// The protocol injects uniqueness into every note_hash, so that every single note_hash in the
+/// tree is unique. This prevents faerie gold attacks, where a malicious sender could create
+/// two identical note_hashes for a recipient (meaning only one would be nullifiable in future).
+///
+/// Most privacy protocols will inject the note's leaf_index (its position in the Note Hashes Tree)
+/// into the note, but this requires the creator of a note to wait until their tx is included in
+/// a block to know the note's final note hash (the unique, siloed note hash), because inserting
+/// leaves into trees is the job of a block producer.
+///
+/// We took a different approach so that the creator of a note will know each note's unique, siloed
+/// note hash before broadcasting their tx to the network.
+/// (There was also a historical requirement relating to "chained transactions" -- a feature that
+/// Aztec Connect had to enable notes to be spent from distinct txs earlier in the same block,
+/// and hence before an archive block root had been established for that block -- but that feature
+/// was abandoned for the Aztec Network for having too many bad tradeoffs).
+///
+/// (
+///   Edit: it is no longer true that all final note_hashes will be known by the creator of a tx
+///   before they send it to the network. If a tx makes public function calls, then _revertible_
+///   note_hashes that are created in private will not be made unique in private by the Reset circuit,
+///   but will instead be made unique by the AVM, because the `note_index_in_tx` will not be known
+///   until the AVM has executed the public functions of the tx. (See an explanation in
+///   reset_output_composer.nr for why).
+///   For some such txs, the `note_index_in_tx` might still be predictable through simulation, but
+///   for txs whose public functions create a varying number of non-revertible notes (determined at
+///   runtime), the `note_index_in_tx` will not be deterministically derivable before submitting the
+///   tx to the network.
+/// )
+///
+/// We use the `first_nullifier` of a tx as a seed of uniqueness. We have a guarantee that there will
+/// always be at least one nullifier per tx, because the init circuit will create one if one isn't
+/// created naturally by any functions of the tx. (Search "protocol_nullifier").
+/// We combine the `first_nullifier` with the note's index (its position within this tx's new
+/// note_hashes array) (`note_index_in_tx`) to get a truly unique value to inject into a note, which
+/// we call a `note_nonce`.
 pub fn compute_unique_siloed_note_hash(
     siloed_note_hash: Field,
     first_nullifier: Field,
@@ -87,7 +126,7 @@ pub fn compute_unique_siloed_note_hash(
     if siloed_note_hash == 0 {
         0
     } else {
-        compute_nonce_and_unique_note_hash(siloed_note_hash, first_nullifier, note_index_in_tx)
+        compute_note_nonce_and_unique_note_hash(siloed_note_hash, first_nullifier, note_index_in_tx)
     }
 }
 
@@ -114,7 +153,10 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     // A: We don't have to. The init and inner circuits add a contract address only to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
-        value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
+        // Return `.value` instead of 0, because already-siloed nullifiers also have a zero
+        // contract_address field, and we of course want to return that already-siloed nullifier
+        // (we just don't want to silo it a second time).
+        value
     } else {
         compute_siloed_nullifier(nullifier.contract_address, value)
     }
@@ -147,7 +189,7 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
     poseidon2_hash(log)
 }
 
-pub fn compute_app_secret_key(
+pub fn compute_app_siloed_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
     app_secret_key_domain_separator: Field,

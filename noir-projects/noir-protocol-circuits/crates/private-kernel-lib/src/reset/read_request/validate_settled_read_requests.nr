@@ -39,18 +39,21 @@ where
 ///    - It is ignored (no validation performed).
 pub fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    hints: [SettledReadHint<TreeHeight, SettledReadLeafPreimage>; SettledReadHintsLen],
+    settled_read_hints: [SettledReadHint<TreeHeight, SettledReadLeafPreimage>; SettledReadHintsLen],
     tree_root: Field,
 )
 where
     SettledReadLeafPreimage: LeafPreimage + Readable,
 {
-    for hint in hints {
+    for hint in settled_read_hints {
         let read_request_index = hint.read_request_index;
         if read_request_index != ReadRequestLen {
             let read_request = read_requests.array[read_request_index];
             // To read a settled value, the app should have siloed the value with the contract address so that it
             // matches the siloed value stored in the tree.
+            // I.e. the `Field` within a _settled_ read_request is the final note_hash or nullifier
+            // that was inserted into the tree.
+
             // While the contract address could technically be ignored here, we assert that it is zero to prevent
             // misconfigured hints from causing a pending read request to be incorrectly validated as a settled read
             // request.
@@ -62,9 +65,15 @@ where
             let leaf_preimage = hint.leaf_preimage;
 
             // Validate that the leaf preimage value matches the read request.
+            // For the relevant, concrete implementations of `assert_match_read_request`, search for:
+            // - `impl Readable for NoteHashLeafPreimage` and
+            // - `impl Readable for NullifierLeafPreimage`
             leaf_preimage.assert_match_read_request(read_request.innermost());
 
             // Validate that the leaf preimage exists in the tree.
+            // For the relevant, concrete implementations of `as_leaf`, search for:
+            // - `impl LeafPreimage for NoteHashLeafPreimage` and
+            // - `impl LeafPreimage for NullifierLeafPreimage`
             let leaf = leaf_preimage.as_leaf();
             let witness = hint.membership_witness;
             assert(

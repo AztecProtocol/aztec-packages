@@ -1,6 +1,6 @@
 use crate::PublicChecks;
 use aztec::context::PrivateContext;
-use aztec::protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
+use aztec::protocol::constants::PUBLIC_CHECKS_ADDRESS;
 
 // docs:start:helper_public_checks_functions
 /// Asserts that the current timestamp in the enqueued public call enqueued by `check_timestamp` satisfies

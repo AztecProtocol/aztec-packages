@@ -5,7 +5,7 @@ use crate::{
     note::{HintedNote, note_interface::{NoteHash, NoteType}, note_metadata::NoteMetadata},
 };
 
-use dep::protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
@@ -25,12 +25,7 @@ impl NoteType for MockNote {
 }
 
 impl NoteHash for MockNote {
-    fn compute_note_hash(
-        self,
-        owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         let input = self.pack().concat([owner.to_field(), storage_slot, randomness]);
         poseidon2_hash_with_separator(input, DOM_SEP__NOTE_HASH)
     }
@@ -41,8 +36,8 @@ impl NoteHash for MockNote {
         _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
-        // more cumbersome
+        // We don't use any kind of secret here since this is only a mock note and having it here would make tests more
+        // cumbersome
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
             DOM_SEP__NOTE_NULLIFIER as Field,
@@ -54,8 +49,8 @@ impl NoteHash for MockNote {
         _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
-        // more cumbersome
+        // We don't use any kind of secret here since this is only a mock note and having it here would make tests more
+        // cumbersome
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
             DOM_SEP__NOTE_NULLIFIER as Field,
@@ -120,8 +115,9 @@ impl MockNoteBuilder {
             owner: self.owner.unwrap_or(AztecAddress::zero()),
             randomness: self.randomness.unwrap_or(0),
             storage_slot: self.storage_slot.unwrap_or(0),
-            // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
-            // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.
+            // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would
+            // result in the kernel failing to prove note existence. Because our tests don't interact with the kernel
+            // this is not a problem.
             metadata: self.note_metadata.unwrap_or(std::mem::zeroed()),
         }
     }

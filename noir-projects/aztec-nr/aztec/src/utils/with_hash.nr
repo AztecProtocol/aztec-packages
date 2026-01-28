@@ -1,17 +1,10 @@
-use crate::{
-    context::{PublicContext, UtilityContext},
-    history::storage::public_storage_historical_read,
-    oracle,
-};
-use dep::protocol_types::{
-    abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable,
-};
+use crate::{context::{PublicContext, UtilityContext}, history::storage::public_storage_historical_read, oracle};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable};
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
 ///
-/// The efficient reads are achieved by verifying large values through a single hash check
-/// and then proving inclusion only of the hash in public storage. This reduces the number
-/// of required tree inclusion proofs from `M` to 1.
+/// The efficient reads are achieved by verifying large values through a single hash check and then proving inclusion
+/// only of the hash in public storage. This reduces the number of required tree inclusion proofs from `M` to 1.
 ///
 /// # Type Parameters
 /// - `T`: The underlying type being wrapped, must implement `Packable<N>`
@@ -41,8 +34,8 @@ where
 
     /// Reads the value stored in this [WithHash] from public storage.
     ///
-    /// Note that unlike a full public storage read, this will _not_ read (not return) the stored hash of the
-    /// value, resulting in reduced gas costs.
+    /// Note that unlike a full public storage read, this will _not_ read (not return) the stored hash of the value,
+    /// resulting in reduced gas costs.
     ///
     /// This is the public counterpart to [WithHash::utility_public_storage_read] and
     /// [WithHash::historical_public_storage_read].
@@ -50,10 +43,7 @@ where
         context.storage_read(storage_slot)
     }
 
-    pub unconstrained fn utility_public_storage_read(
-        context: UtilityContext,
-        storage_slot: Field,
-    ) -> T {
+    pub unconstrained fn utility_public_storage_read(context: UtilityContext, storage_slot: Field) -> T {
         context.storage_read(storage_slot)
     }
 
@@ -65,37 +55,33 @@ where
         // We could simply produce historical inclusion proofs for each field in `packed`, but that would require one
         // full sibling path per storage slot (since due to kernel siloing the storage is not contiguous). Instead, we
         // get an oracle to provide us the values, and instead we prove inclusion of their hash, which is both a much
-        // smaller proof (a single slot), and also independent of the size of T (except in that we need to pack and hash T).
+        // smaller proof (a single slot), and also independent of the size of T (except in that we need to pack and
+        // hash T).
         let hint = WithHash::new(
             // Safety: We verify that a hash of the hint/packed data matches the stored hash.
             unsafe { oracle::storage::storage_read(header_to_read_from, address, storage_slot) },
         );
 
-        // The actual `value` (of type T, of packed length M fields) is stored in contiguous fields from the `storage_slot`.
-        // The _hash_ of the `value` is stored at the end, at slot: `storage_slot + M`.
-        let hash =
-            public_storage_historical_read(header_to_read_from, storage_slot + M as Field, address);
+        // The actual `value` (of type T, of packed length M fields) is stored in contiguous fields from the
+        // `storage_slot`. The _hash_ of the `value` is stored at the end, at slot: `storage_slot + M`.
+        let hash = public_storage_historical_read(header_to_read_from, storage_slot + M as Field, address);
 
         if hash != 0 {
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");
         } else {
-            // The hash slot can only hold a zero if it is uninitialized. Therefore, the hints must then be zero
-            // (i.e. the default value for public storage) as well.
-            assert_eq(
-                hint.get_value(),
-                T::unpack(std::mem::zeroed()),
-                "Non-zero hint for zero hash",
-            );
+            // The hash slot can only hold a zero if it is uninitialized. Therefore, the hints must then be zero (i.e.
+            // the default value for public storage) as well.
+            assert_eq(hint.get_value(), T::unpack(std::mem::zeroed()), "Non-zero hint for zero hash");
         };
 
         hint.get_value()
     }
 }
 
-// Note: I don't derive Packable on `WithHash` because `derive_serialize` function does not support setting "N = M"
-// as I do here 3 lines below. This could be worked around by placing the "where" clause directly on the `WithHash`
-// struct, but Jake mentioned that the syntax is not expected to be supported at least until Noir 1.0.
-// Relevant discussion on Slack:
+// Note: I don't derive Packable on `WithHash` because `derive_serialize` function does not support setting "N = M" as
+// I do here 3 lines below. This could be worked around by placing the "where" clause directly on the `WithHash`
+// struct, but Jake mentioned that the syntax is not expected to be supported at least until Noir 1.0. Relevant
+// discussion on Slack:
 // https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752593876160699?thread_ts=1752589887.955379&cid=C04QF64EDNV
 impl<T, let M: u32> Packable for WithHash<T, M>
 where
@@ -125,11 +111,8 @@ where
 }
 
 mod test {
-    use crate::{
-        test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
-        utils::with_hash::WithHash,
-    };
-    use protocol_types::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};
+    use crate::protocol::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};
+    use crate::{test::{helpers::test_environment::TestEnvironment, mocks::MockStruct}, utils::with_hash::WithHash};
 
     use std::test::OracleMock;
 
@@ -191,18 +174,12 @@ mod test {
             // Mock the oracle to return a non-zero hint/packed value
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
             let _ = OracleMock::mock("utilityStorageRead")
-                .with_params((
-                    block_header.hash(), address.to_field(), STORAGE_SLOT, value_packed.len(),
-                ))
+                .with_params((block_header.hash(), address.to_field(), STORAGE_SLOT, value_packed.len()))
                 .returns(value_packed)
                 .times(1);
 
             // This should fail because the hint value is non-zero and the hash is zero (default value of storage)
-            let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
-                block_header,
-                address,
-                STORAGE_SLOT,
-            );
+            let _ = WithHash::<MockStruct, _>::historical_public_storage_read(block_header, address, STORAGE_SLOT);
         });
     }
 

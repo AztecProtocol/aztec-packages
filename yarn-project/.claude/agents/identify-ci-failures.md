@@ -64,15 +64,17 @@ gh run view <RUN_ID> --repo AztecProtocol/aztec-packages --log 2>&1 | grep -i "C
 
 ### Step 2: Download Main Log
 
-From repo root:
+Run from `yarn-project`:
 ```bash
-./ci.sh dlog <hash> > /tmp/<hash>.log 2>&1
+yarn ci dlog <hash> > /tmp/<hash>.log 2>&1
 ```
 
 Verify download:
 ```bash
 wc -l /tmp/<hash>.log
 ```
+
+Never use the `Fetch` tool or `curl` for downloading.
 
 ### Step 3: Check for History URL
 
@@ -81,7 +83,15 @@ Look in the first 20 lines for a `History:` URL:
 head -20 /tmp/<hash>.log | grep -i "history"
 ```
 
-If found, this can be used to find successful runs for comparison.
+If found (e.g., `http://ci.aztec-labs.com/list/history_e3d65d7f0d7a03b5_next`), this can be used to find successful runs for comparison.
+
+**To download history:**
+```bash
+# Extract the key from the URL (everything after /list/)
+yarn ci dlog history_e3d65d7f0d7a03b5_next > /tmp/history_e3d65d7f0d7a03b5_next.log 2>&1
+```
+
+The history log contains timestamped entries showing PASSED/FAILED/FLAKED runs with commit info. Use this to find a recent successful run's hash for comparison.
 
 ### Step 4: Find Failure Type
 
@@ -113,7 +123,7 @@ grep -E "compile_all.*failed|FAIL|ERROR|test all" /tmp/<hash>.log
 
 For each nested log URL found (format: `http://ci.aztec-labs.com/<hash>`):
 ```bash
-./ci.sh dlog <hash> > /tmp/<hash>.log 2>&1
+yarn ci dlog <hash> > /tmp/<hash>.log 2>&1
 ```
 
 ### Step 6: Extract Error Details
@@ -140,6 +150,18 @@ FAIL src/e2e_something.test.ts (123.456s)
 **Build error pattern**:
 ```
 error TS2345: Argument of type 'X' is not assignable to parameter of type 'Y'
+```
+
+**History log format** (from `yarn ci dlog history_*`):
+```
+MM-DD HH:MM:SS: PASSED (http://ci.aztec-labs.com/<hash>): test_command (duration) (author: commit message)
+MM-DD HH:MM:SS: FAILED (http://ci.aztec-labs.com/<hash>): test_command (duration) (code: 1) (author: commit message)
+MM-DD HH:MM:SS: FLAKED (http://ci.aztec-labs.com/<hash>): test_command (duration) (code: 1) (author: commit message)
+```
+Each line represents a past test run. Extract the hash from PASSED entries to download successful run logs for comparison:
+```bash
+grep "PASSED" /tmp/history.log | head -1  # Find a successful run
+yarn ci dlog <hash>  # Download the successful run's logs
 ```
 
 ## Key Principles

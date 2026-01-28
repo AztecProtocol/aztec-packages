@@ -1,5 +1,5 @@
-/// Returns `DstLen` elements from a source array, starting at `offset`. `DstLen` must not be larger than the number
-/// of elements past `offset`.
+/// Returns `DstLen` elements from a source array, starting at `offset`. `DstLen` must not be larger than the number of
+/// elements past `offset`.
 ///
 /// Examples:
 /// ```

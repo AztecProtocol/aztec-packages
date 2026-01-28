@@ -3,8 +3,8 @@ use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
 
 use super::utils::AsStrQuote;
 
-/// Stores a map from a module to the name of the struct that describes its storage layout.
-/// This is then used when generating a `storage_layout()` getter on the contract struct.
+/// Stores a map from a module to the name of the struct that describes its storage layout. This is then used when
+/// generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
@@ -12,8 +12,8 @@ pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHashe
 /// - marks the contract as having storage, so that `macros::utils::module_has_storage` will return true,
 /// - marks the struct `s` as the one describing the storage layout of a contract,
 /// - generates an `impl` block for the storage struct with an `init` function (call to `init` is then injected at the
-///   beginning of every `#[external(...)]` and `#[internal]` contract function and the storage is then available as
-///   `self.storage`),
+/// beginning of every `#[external(...)]` and `#[internal]` contract function and the storage is then available as
+/// `self.storage`),
 /// - creates a `StorageLayout` struct that is is exposed via the `abi(storage)` macro in the contract artifact.
 ///
 /// Only a single struct in the entire contract should have this macro (or `storage_no_init`) applied to it, and the
@@ -42,10 +42,8 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         let maybe_storage_size = std::meta::typ::fresh_type_variable();
         let _maybe_context = std::meta::typ::fresh_type_variable();
 
-        if !typ.implements(
-            quote { crate::state_vars::StateVariable<$maybe_storage_size, $_maybe_context> }
-                .as_trait_constraint(),
-        ) {
+        if !typ.implements(quote { crate::state_vars::StateVariable<$maybe_storage_size, $_maybe_context> }
+            .as_trait_constraint()) {
             let _maybe_owned_context = std::meta::typ::fresh_type_variable();
             if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
                 .as_trait_constraint()) {
@@ -67,11 +65,9 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         );
 
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
-        // because that way a dev gets a more reasonable error if he defines a struct with the same name in
-        // a contract.
-        storage_layout_struct_members = storage_layout_struct_members.push_back(
-            quote { pub $name: aztec::state_vars::Storable },
-        );
+        // because that way a dev gets a more reasonable error if he defines a struct with the same name in a contract.
+        storage_layout_struct_members =
+            storage_layout_struct_members.push_back(quote { pub $name: aztec::state_vars::Storable });
         storage_layout_constructors = storage_layout_constructors.push_back(
             quote { $name: aztec::state_vars::Storable { slot: $slot_as_field } },
         );

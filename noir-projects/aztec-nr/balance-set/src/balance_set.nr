@@ -1,4 +1,4 @@
-use dep::aztec::{
+use aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
         HintedNote,
@@ -7,13 +7,11 @@ use dep::aztec::{
         note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
     },
-    protocol_types::{
-        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
-    },
+    protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
     state_vars::{OwnedStateVariable, PrivateSet},
 };
-use dep::uint_note::UintNote;
 use std::ops::Add;
+use uint_note::UintNote;
 
 pub struct BalanceSet<Context> {
     set: PrivateSet<UintNote, Context>,
@@ -33,8 +31,7 @@ impl BalanceSet<UtilityContext> {
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        let options =
-            NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new().set_offset(offset);
+        let options = NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new().set_offset(offset);
         let notes = self.set.view_notes(options);
         for i in 0..options.limit {
             if i < notes.len() {
@@ -73,19 +70,17 @@ impl BalanceSet<&mut PrivateContext> {
 
     // Attempts to remove 'target_amount' from the owner's balance. try_sub returns how much was actually subtracted
     // (i.e. the sum of the value of nullified notes), but this subtracted amount may be more or less than the target
-    // amount.
-    // This may seem odd, but is unfortunately unavoidable due to the number of notes available and their amounts being
-    // unknown. What try_sub does is a best-effort attempt to consume as few notes as possible that add up to more than
-    // `target_amount`.
-    // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
-    // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
-    // `try_sub` subtracting an amount smaller than `target_amount`.
+    // amount. This may seem odd, but is unfortunately unavoidable due to the number of notes available and their
+    // amounts being unknown. What try_sub does is a best-effort attempt to consume as few notes as possible that add
+    // up to more than `target_amount`. The `max_notes` parameter is used to fine-tune the number of constraints
+    // created by this function. The gate count scales relatively linearly with `max_notes`, but a lower `max_notes`
+    // parameter increases the likelihood of `try_sub` subtracting an amount smaller than `target_amount`.
     pub fn try_sub(self: Self, target_amount: u128, max_notes: u32) -> u128 {
-        // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
-        // we do not need to prove correct execution of the preprocessor.
-        // Because the `min_sum` notes is not constrained, users could choose to e.g. not call it. However, all this
-        // might result in is simply higher DA costs due to more nullifiers being emitted. Since we don't care
-        // about proving optimal note usage, we can save these constraints and make the circuit smaller.
+        // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because we
+        // do not need to prove correct execution of the preprocessor. Because the `min_sum` notes is not constrained,
+        // users could choose to e.g. not call it. However, all this might result in is simply higher DA costs due to
+        // more nullifiers being emitted. Since we don't care about proving optimal note usage, we can save these
+        // constraints and make the circuit smaller.
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount)
             .sort(UintNote::properties().value, SortOrder.DESC)
             .set_limit(max_notes);
@@ -104,10 +99,10 @@ impl BalanceSet<&mut PrivateContext> {
 }
 
 // Computes the partial sum of the notes array, stopping once 'min_sum' is reached. This can be used to minimize the
-// number of notes read that add to some value, e.g. when transferring some amount of tokens.
-// The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
-// 'min_sum' - all it does is remove extra notes if it does reach that value.
-// Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
+// number of notes read that add to some value, e.g. when transferring some amount of tokens. The preprocessor (a
+// filter applied in an unconstrained context) does not check if total sum is larger or equal to 'min_sum' - all it
+// does is remove extra notes if it does reach that value. Note that proper usage of this preprocessor requires for
+// notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum(
     notes: [Option<HintedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: u128,

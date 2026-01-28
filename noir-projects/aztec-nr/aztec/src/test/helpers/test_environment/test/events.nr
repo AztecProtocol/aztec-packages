@@ -1,6 +1,6 @@
 use crate::event::{event_emission::emit_event_in_private, event_interface::EventInterface};
+use crate::protocol::traits::Serialize;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_event::MockEvent};
-use protocol_types::traits::Serialize;
 
 global VALUE: Field = 7;
 

@@ -4,7 +4,7 @@ use crate::{
     keys::getters::get_public_keys,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
-use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
 #[test]
 unconstrained fn create_light_account_does_not_repeat_accounts() {

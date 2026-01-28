@@ -3,15 +3,12 @@ use crate::{
     oracle::random::random,
     state_vars::{OwnedStateVariable, SingleUseClaim},
 };
+use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::helpers::test_environment::TestEnvironment;
-use dep::protocol_types::{address::AztecAddress, traits::FromField};
 
 global STORAGE_SLOT: Field = 17;
 
-unconstrained fn in_private(
-    context: &mut PrivateContext,
-    owner: AztecAddress,
-) -> SingleUseClaim<&mut PrivateContext> {
+unconstrained fn in_private(context: &mut PrivateContext, owner: AztecAddress) -> SingleUseClaim<&mut PrivateContext> {
     SingleUseClaim::new(context, STORAGE_SLOT, owner)
 }
 

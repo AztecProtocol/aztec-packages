@@ -14,7 +14,7 @@ pub contract Uniswap {
             set_authorized,
         },
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             traits::ToField,

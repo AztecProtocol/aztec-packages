@@ -1,4 +1,4 @@
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
 /// them available for later processing in Noir by storing them in a capsule array.
@@ -9,8 +9,8 @@ pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field
 #[oracle(utilityFetchTaggedLogs)]
 unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
 
-// This must be a single oracle and not one for notes and one for events because the entire point is to validate
-// all notes and events in one go, minimizing node round-trips.
+// This must be a single oracle and not one for notes and one for events because the entire point is to validate all
+// notes and events in one go, minimizing node round-trips.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,

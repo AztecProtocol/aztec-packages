@@ -6,9 +6,7 @@ contract Updated {
     use aztec::{
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::{
-            address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-        },
+        protocol::{address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS},
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;

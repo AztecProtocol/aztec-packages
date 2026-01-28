@@ -3,7 +3,9 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-/// Creates the set of un-validated key validation requests to be propagated to the next circuit.
+/// Creates the set of key validation requests which won't be processed by this Reset circuit (due
+/// to lack of capacity), but will be propagated to the next kernel circuit for a future Reset
+/// circuit to process.
 pub unconstrained fn get_propagated_key_validation_requests<let N: u32>(
     key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N>,
     key_validation_amount: u32,

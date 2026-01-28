@@ -4,7 +4,7 @@ use dep::aztec::{
         assert_contract_bytecode_was_not_published_by, assert_contract_bytecode_was_published_by,
         assert_contract_was_initialized_by, assert_contract_was_not_initialized_by,
     },
-    protocol_types::address::AztecAddress,
+    protocol::address::AztecAddress,
     test::helpers::test_environment::{PrivateContextOptions, TestEnvironment},
 };
 

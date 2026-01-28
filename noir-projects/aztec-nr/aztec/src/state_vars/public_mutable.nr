@@ -1,6 +1,6 @@
 use crate::context::{PublicContext, UtilityContext};
+use crate::protocol::traits::Packable;
 use crate::state_vars::StateVariable;
-use dep::protocol_types::traits::Packable;
 
 /// Mutable public values.
 ///
@@ -31,8 +31,8 @@ use dep::protocol_types::traits::Packable;
 ///
 /// ## Use Cases
 ///
-/// This is suitable for any kind of global state that needs to be accessible by everyone. For example, a token may have
-/// a public total supply, or a voting contract may have public vote tallies.
+/// This is suitable for any kind of global state that needs to be accessible by everyone. For example, a token may
+/// have a public total supply, or a voting contract may have public vote tallies.
 ///
 /// Note that contracts having public values does not necessarily mean the the actions that update these values must
 /// themselves be wholly public. For example, the token could allow for private minting and burning, and casting a vote
@@ -75,8 +75,8 @@ use dep::protocol_types::traits::Packable;
 /// _past_ state at the anchor block. They _can_ perform historical reads of `PublicMutable` values at past times, but
 /// they have no way to guarantee that the value has not changed since then.
 /// [PublicImmutable](crate::state_vars::PublicImmutable) and
-/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_ be
-/// read privately by restricting mutation.
+/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_
+/// be read privately by restricting mutation.
 pub struct PublicMutable<T, Context> {
     context: Context,
     storage_slot: Field,
@@ -102,8 +102,8 @@ impl<T> PublicMutable<T, PublicContext> {
     /// If [write](PublicMutable::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
-    /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for the
-    /// zero sentinel value. For a more robust solution, store an `Option<T>` in the `PublicMutable`.
+    /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for
+    /// the zero sentinel value. For a more robust solution, store an `Option<T>` in the `PublicMutable`.
     ///
     /// ## Examples
     ///
@@ -115,7 +115,8 @@ impl<T> PublicMutable<T, PublicContext> {
     /// }
     /// ```
     ///
-    /// An [only_self](crate::macros::functions::only_self) helper that asserts a condition a private function requires:
+    /// An [only_self](crate::macros::functions::only_self) helper that asserts a condition a private function
+    /// requires:
     /// ```noir
     /// #[external("private")]
     /// fn execute_proposal(election_id: ElectionId) {
@@ -195,8 +196,8 @@ impl<T> PublicMutable<T, UtilityContext> {
     /// If [write](PublicMutable::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
-    /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for the
-    /// zero sentinel value. For a more robust solution, store an `Option<T>` in the `PublicMutable`.
+    /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for
+    /// the zero sentinel value. For a more robust solution, store an `Option<T>` in the `PublicMutable`.
     ///
     /// ## Examples
     ///

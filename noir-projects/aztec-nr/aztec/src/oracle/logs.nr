@@ -1,4 +1,4 @@
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
 pub unconstrained fn notify_created_contract_class_log<let N: u32>(
