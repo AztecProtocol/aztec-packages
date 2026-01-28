@@ -301,10 +301,6 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
  */
 template <typename Operation> auto dispatch_by_settings(const ProofSystemSettings& settings, Operation&& operation)
 {
-    // Type aliases for clarity
-    using DefaultIO = stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>;
-    using RollupIO = stdlib::recursion::honk::RollupIO;
-
     // Rollup circuits: UltraFlavor with RollupIO (includes IPA accumulation for ECCVM)
     if (settings.ipa_accumulation) {
         validate_rollup_settings(settings);

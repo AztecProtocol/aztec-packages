@@ -1,3 +1,4 @@
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
@@ -66,7 +67,8 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
     using OuterStdlibProof = bb::stdlib::Proof<OuterBuilder>;
     using OuterIO = IO;
 
-    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, DefaultRecursiveIO<RecursiveFlavor>>;
+    // RecursiveVerifier uses IO that matches the test's IO type
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, IO>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<OuterBuilder>;
@@ -393,6 +395,74 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             }
         }
     }
+
+    /**
+     * @brief Test recursive verification with static graph analysis to detect unconstrained variables
+     * @details This test constructs a recursive verification circuit and uses the StaticAnalyzer
+     * to verify that all variables are properly constrained, with the expected exception of variables
+     * that appear in only one gate (e.g., unused Shplonk powers due to PCS structure).
+     *
+     * This test was moved from graph_description_ultra_recursive_verifier.test.cpp to consolidate
+     * recursive verifier testing.
+     */
+    static void test_recursive_verification_with_graph_analysis()
+    {
+        // Create an arbitrary inner circuit
+        auto inner_circuit = create_inner_circuit();
+
+        // Generate a proof over the inner circuit
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
+        auto inner_proof = inner_prover.construct_proof();
+
+        // Create a recursive verification circuit for the proof of the inner circuit
+        OuterBuilder outer_circuit;
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
+
+        // Fix witness for VK fields to ensure they're properly constrained
+        verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.fix_witness();
+
+        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+        auto pairing_points = output.points_accumulator;
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their
+        // output coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit
+        // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
+        // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
+        // constrained within the circuit itself, rather than relying solely on them being public outputs.
+        pairing_points.P0.fix_witness();
+        pairing_points.P1.fix_witness();
+
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+
+        outer_circuit.finalize_circuit(false);
+
+        // Run static analysis to detect unconstrained variables
+        // Use the appropriate analyzer based on the outer builder type
+        using Analyzer =
+            std::conditional_t<IsMegaBuilder<OuterBuilder>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        auto graph = Analyzer(outer_circuit);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+
+        // We expect exactly one connected component (all variables properly connected)
+        EXPECT_EQ(cc.size(), 1);
+
+        // The variable in one gate is the last Shplonk power we compute. It is computed even though it is not used
+        // because of how the PCS is structured (more precisely, because of the interaction between gemini and
+        // interleaving).
+        EXPECT_EQ(variables_in_one_gate.size(), 1);
+    }
 };
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, TestConfigs);
@@ -428,6 +498,17 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
+};
+
+/**
+ * @brief Test recursive verification circuit with graph analysis for unconstrained variables
+ * @details Uses StaticAnalyzer to verify all circuit variables are properly constrained.
+ * Originally a separate test in graph_description_ultra_recursive_verifier.test.cpp, now
+ * consolidated into the main recursive verifier test suite.
+ */
+HEAVY_TYPED_TEST(RecursiveVerifierTest, GraphAnalysisOfRecursiveVerifier)
+{
+    TestFixture::test_recursive_verification_with_graph_analysis();
 };
 
 #ifdef DISABLE_HEAVY_TESTS

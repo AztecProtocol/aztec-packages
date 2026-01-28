@@ -36,7 +36,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
-    using IO = stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>;
+    using IO = DefaultIO; // Native IO for native flavors
     using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
 

@@ -38,6 +38,13 @@ class DefaultIO {
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     * @details Native IO types don't add pairing points to circuits - those are only
+     * needed for recursive verification. This just finalizes public inputs.
+     */
+    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
 };
 
 /**
@@ -78,6 +85,11 @@ class HidingKernelIO {
             index += G1::PUBLIC_INPUTS_SIZE;
         }
     }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
 };
 
 /**
@@ -111,6 +123,11 @@ class RollupIO {
         index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
     }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder) { builder.finalize_public_inputs(); }
 };
 
 } // namespace bb

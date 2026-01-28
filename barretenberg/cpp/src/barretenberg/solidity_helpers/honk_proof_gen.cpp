@@ -20,10 +20,7 @@ using namespace bb;
 using numeric::uint256_t;
 
 // Get rid of the inner typename
-template <typename Circuit,
-          typename Flavor,
-          typename IO = stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>
-void generate_proof(uint256_t inputs[])
+template <typename Circuit, typename Flavor, typename IO = DefaultIO> void generate_proof(uint256_t inputs[])
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -34,10 +31,7 @@ void generate_proof(uint256_t inputs[])
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     CircuitBuilder builder = Circuit::generate(inputs);
-    // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
-    if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        IO::add_default(builder);
-    }
+    IO::add_default(builder);
 
     auto instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
