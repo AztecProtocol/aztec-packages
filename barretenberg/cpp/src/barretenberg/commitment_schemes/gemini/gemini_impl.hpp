@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "gemini.hpp"
 
@@ -124,6 +125,7 @@ template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
+    BB_BENCH_NAME("Gemini::compute_fold_polynomials");
     const size_t virtual_log_n = multilinear_challenge.size();
 
     constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
