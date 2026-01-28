@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -60,6 +61,7 @@ describe.each([
       simulator,
       new TestDateProvider(),
       getTelemetryClient(),
+      createLogger('simulator:public-processor'),
     );
 
     tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
