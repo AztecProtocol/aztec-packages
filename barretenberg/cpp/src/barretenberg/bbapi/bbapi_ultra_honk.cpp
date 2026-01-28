@@ -6,16 +6,9 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#ifdef STARKNET_GARAGA_FLAVORS
-#include "barretenberg/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
-#endif
 
 namespace bb::bbapi {
 
