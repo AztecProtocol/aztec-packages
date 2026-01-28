@@ -4,10 +4,6 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-/**
- * TODO(@Rumata888): Talk to Zac why "lookup_read_count" refers to the count of the looked up element in the multiset.
- * (The value is applied to the write predicate, so it is confusing).
- */
 #pragma once
 #include <array>
 #include <tuple>
@@ -20,6 +16,50 @@
 namespace bb {
 
 // clang-format off
+template <typename S>
+concept GenericLookupSettings = requires {
+    // We allow looking up multiple items per row from a variable number of table columns. These values are not
+    // bound to the real number of columns the lookup operates on. We allow looking up virtual columns (i.e.,
+    // combinations of columns) from virtual table columns (i.e., combinations of table columns).
+    requires std::is_same_v<decltype(S::NUM_LOOKUP_TERMS), const size_t>;
+    requires std::is_same_v<decltype(S::NUM_TABLE_TERMS), const size_t>;
+
+    // An array defining the types of the lookups performed. They can be BASIC_LOOKUP or CUSTOMIZED_LOOKUP
+    requires std::is_same_v<decltype(S::LOOKUP_TYPES), const std::array<uint8_t, S::NUM_LOOKUP_TERMS>>;
+    // An array defining the types of the tables used. They can be BASIC_TABLE or CUSTOMIZED_TABLE
+    requires std::is_same_v<decltype(S::TABLE_TYPES), const std::array<uint8_t, S::NUM_TABLE_TERMS>>;
+    // An array specifying the degree of the lookup terms
+    requires std::is_same_v<decltype(S::LOOKUP_TERM_DEGREES), const std::array<size_t, S::NUM_LOOKUP_TERMS>>;
+    // An array specifying the degree of the table terms
+    requires std::is_same_v<decltype(S::TABLE_TERM_DEGREES), const std::array<size_t, S::NUM_TABLE_TERMS>>;
+
+    requires std::is_same_v<decltype(S::LOOKUP_TUPLE_SIZE), const size_t>; // Number of columns to batch for basic lookups
+
+    // Degree of the polynomial expression indicating whether the inverse polynomial exist at a given row
+    requires std::is_same_v<decltype(S::INVERSE_EXISTS_POLYNOMIAL_DEGREE), const size_t>;
+
+    // Settings also require the following methods, but some of them are templated, so we can't check them here.
+    // 1) Settings::inverse_polynomial_is_computed_at_row(const AllValues& row), method to compute whether the inverse polynomial should be computed at a given row
+    // 2) Settings::compute_inverse_exists<Accumulator>(const AllEntities& in), method to compute the value of the inverse_exists polynomial at a given row
+    // 3) Settings::template compute_lookup_term<Accumulator, lookup_index>(in, params), method to compute the lookup term at index lookup_index
+    // 4) Settings::template compute_table_term<Accumulator, table_index>(in, params), method to compute the table term at index table_index
+    // 5) Settings::get_nonconst_entities(AllEntities& in), method to extract non constant references to the columns used in the relation
+    // 6) Settings::get_const_entities(AllEntities& in), method to extract constant references to the columns used in the relation
+};
+
+/**
+* Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
+* columns. We allow two types of lookups:
+*  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
+*                              t_m}
+*  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: Looking up values that are computed arbitrarily from {f_1, .., f_n} from
+*                                        values that are computed arbitrarily (and possibly in a different way)
+*                                        from {t_1, .., t_m}
+*
+*/
+enum LOOKUP_TYPE : uint8_t { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
+enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
+
 /**
  * @brief Generic implementation of a log-derivative based lookup relation
  *
@@ -33,7 +73,7 @@ namespace bb {
  *
  * Write \f$f_1, \ldots, f_n\f$ for the columns to be looked up, and \f$t_1, \ldots, t_m\f$ for the table columns.
  * The relation implements the log-derivative lookup argument for two cases:
- *  - BASIC_LOOKUP/BASIC_TABLE: LOOKUP_SIZE := n = m and we wish to look up the multiset
+ *  - BASIC_LOOKUP/BASIC_TABLE: LOOKUP_TUPLE_SIZE := n = m and we wish to look up the multiset
  *    \f$\{(f_1(x), \ldots, f_n(x)) : x \in H_N\}\f$, where \f$H_N\f$ is the hypercube of size N, from the table
  *    \f$\{(t_1(y), \ldots, t_n(y)) : y \in H_M\}\f$. In this case, we perform the lookup by batching together
  *    the \f$f_i\f$'s and the \f$t_i\f$'s: we define \f$f(x) = \sum_i f_i \cdot Y^i\f$,
@@ -81,41 +121,14 @@ namespace bb {
  *
  * @note The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this relation.
  *
- * // OLD STUFF ========================================================================================
- * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
- * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
- * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
- * are being looked up from. In this relation template we use the following terminology:
- * + READ - the action of looking up the value in the table
- * + WRITE - the action of adding the value to the lookup table
- *
- */
+*/
 // clang-format on
-template <typename Settings, typename FF_> class GenericLookupRelationImpl {
+template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
 
-    /**
-     * We allow looking up multiple items per row from a variable number of table columns. Both these values are
-     * specified in Settings and are not bound to the real number of columns the lookup operates on. We allow looking up
-     * virtual columns (i.e., combinations of columns) from virtual table columns (i.e., combinations of table columns).
-     *
-     */
-    static constexpr size_t NUM_LOOKUP_TERMS = Settings::READ_TERMS;
-    static constexpr size_t NUM_TABLE_TERMS = Settings::WRITE_TERMS;
-
-    /**
-     * Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
-     * columns. We allow two types of lookups:
-     *  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
-     *                              t_m}
-     *  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: Looking up values that are computed arbitrarily from {f_1, .., f_n} from
-     *                                        values that are computed arbitrarily (and possibly in a different way)
-     *                                        from {t_1, .., t_m}
-     *
-     */
-    enum LOOKUP_TYPE { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
-    enum TABLE_TYPE { BASIC_TABLE, CUSTOMIZED_TABLE };
+    static constexpr size_t NUM_LOOKUP_TERMS = Settings::NUM_LOOKUP_TERMS;
+    static constexpr size_t NUM_TABLE_TERMS = Settings::NUM_TABLE_TERMS;
 
     /// NOTE: WE ARE ASSUMING THAT ALL BASIC LOOKUPS HAVE THE SAME NUMBER OF COLUMNS TO BE BATCHED, IS THIS NECESSARY?
     /**
@@ -123,7 +136,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * to be batched together. For example, it would be 1 for a range constraint lookup, 3 for a XOR lookup.
      *
      */
-    static constexpr size_t LOOKUP_SIZE = Settings::LOOKUP_SIZE;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
 
     /**
      * @brief Compute the degree of the product of lookup terms
@@ -176,12 +189,14 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     // (Sub)relation lengths: equal to 1 + relation degree
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr size_t FIRST_RELATION_PARTIAL_LENGTH =
         std::max((compute_lookup_term_product_degree() + compute_table_term_product_degree() + 1),
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
-            1,                                 // inverse polynomial correctness sub-relation
-        NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3 // log-derived terms subrelation
-    };
+        1; // inverse polynomial correctness sub-relation
+    static constexpr size_t SECOND_RELATION_PARTIAL_LENGTH =
+        NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // log-derived terms sub-relation
+    static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{ LENGTH, LENGTH };
 
     // The first subrelation must be satisfied at every row.
     // The second subrelation must be satisfied when summed across the entire trace
@@ -205,10 +220,11 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      *
      * <b>Variable Part:</b>
      *  5. For each lookup term, we have a variable number of polynomials depending on the type of lookup:
-     *     - BASIC_LOOKUP: LOOKUP_SIZE polynomials representing the columns being looked up (and that will be batched)
+     *     - BASIC_LOOKUP: LOOKUP_TUPLE_SIZE polynomials representing the columns being looked up (and that will be
+     * batched)
      *     - CUSTOMIZED_LOOKUP: No additional polynomials are required, as the logic is fully specified in Settings
      *  6. For each table term, we have a variable number of polynomials depending on the type of table:
-     *     - BASIC_TABLE: LOOKUP_SIZE polynomials representing the table columns (and that will be batched)
+     *     - BASIC_TABLE: LOOKUP_TUPLE_SIZE polynomials representing the table columns (and that will be batched)
      *     - CUSTOMIZED_TABLE: No additional polynomials are required, as the logic is fully specified in Settings
      */
     static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
@@ -343,12 +359,13 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         case BASIC_LOOKUP:
             // If the previous lookup was a basic lookup, add lookup tuple size (it was using just a linear combination
             // of polynomials)
-            return compute_lookup_term_polynomial_offset(lookup_index - 1) + LOOKUP_SIZE;
+            return compute_lookup_term_polynomial_offset(lookup_index - 1) + LOOKUP_TUPLE_SIZE;
         case CUSTOMIZED_LOOKUP:
             // In case of customized lookup, no polynomials from the tuple are being used
             return compute_lookup_term_polynomial_offset(lookup_index - 1);
         default:
             bb::assert_failure("Invalid lookup type");
+            return SIZE_MAX;
         }
     }
 
@@ -362,19 +379,20 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     {
         // If it's the starting index, then we need to find out how many polynomials were taken by lookup terms
         if (table_index == 0) {
-            return compute_table_term_polynomial_offset(NUM_LOOKUP_TERMS);
+            return compute_lookup_term_polynomial_offset(NUM_LOOKUP_TERMS);
         }
 
         switch (Settings::TABLE_TYPES[table_index - 1]) {
         case BASIC_TABLE:
             // If the previous lookup was a basic table, add lookup tuple size (it was using just a linear combination
             // of polynomials)
-            return compute_table_term_polynomial_offset(table_index - 1) + LOOKUP_SIZE;
+            return compute_table_term_polynomial_offset(table_index - 1) + LOOKUP_TUPLE_SIZE;
         case CUSTOMIZED_TABLE:
             // In case of customized table, no polynomials from the tuple are being used
             return compute_table_term_polynomial_offset(table_index - 1);
         default:
             bb::assert_failure("Invalid lookup type");
+            return SIZE_MAX;
         }
     }
 
@@ -399,19 +417,20 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
-        if constexpr (Settings::LOOKUP_TERM_TYPES[lookup_index] == BASIC_LOOKUP) {
+        if constexpr (Settings::LOOKUP_TYPES[lookup_index] == BASIC_LOOKUP) {
             // In this case we batch all the lookup columns pertaining to this lookup term using the randomness beta
-            FF result = Accumulator(0);
+            Accumulator result = Accumulator(0);
 
             const auto all_polynomials = Settings::get_const_entities(in);
-            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_SIZE, 1>(
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * beta) + View(std::get<i>(all_polynomials)); });
 
             return result + gamma;
-        } else if constexpr (Settings::LOOKUP_TERM_TYPES[lookup_index] == CUSTOMIZED_LOOKUP) {
+        } else if constexpr (Settings::LOOKUP_TYPES[lookup_index] == CUSTOMIZED_LOOKUP) {
             return Settings::template compute_lookup_term<Accumulator, lookup_index>(in, params);
         } else {
             bb::assert_failure("Invalid lookup type");
+            return Accumulator(0);
         }
     }
 
@@ -436,21 +455,21 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
-        if constexpr (Settings::TABLE_TERM_TYPES[table_index] == BASIC_TABLE) {
+        if constexpr (Settings::TABLE_TYPES[table_index] == BASIC_TABLE) {
             // In this case we batch all the lookup columns pertaining to this lookup term using the randomness beta
-            auto result = Accumulator(0);
+            Accumulator result = Accumulator(0);
 
             const auto all_polynomials = Settings::get_const_entities(in);
 
-            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_SIZE, 1>(
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * beta) + View(std::get<i>(all_polynomials)); });
 
             return result + gamma;
-        }
-        if constexpr (Settings::TABLE_TERM_TYPES[table_index] == CUSTOMIZED_TABLE) {
+        } else if constexpr (Settings::TABLE_TYPES[table_index] == CUSTOMIZED_TABLE) {
             return Settings::template compute_table_term<Accumulator, table_index>(in, params);
         } else {
             bb::assert_failure("Invalid table type");
+            return Accumulator(0);
         }
     }
 

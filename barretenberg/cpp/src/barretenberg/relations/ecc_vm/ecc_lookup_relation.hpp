@@ -17,10 +17,10 @@ namespace bb {
 template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t READ_TERMS = 4;
-    static constexpr size_t WRITE_TERMS = 2;
+    static constexpr size_t NUM_LOOKUP_TERMS = 4;
+    static constexpr size_t NUM_TABLE_TERMS = 2;
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 9
+    static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 9
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // grand product construction sub-relation
@@ -68,36 +68,36 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         return Accumulator(1);
     }
 
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities>
+    static Accumulator get_lookup_term_predicate(const AllEntities& in)
 
     {
         using View = typename Accumulator::View;
 
-        if constexpr (read_index == 0) {
+        if constexpr (lookup_index == 0) {
             return Accumulator(View(in.msm_add1));
         }
-        if constexpr (read_index == 1) {
+        if constexpr (lookup_index == 1) {
             return Accumulator(View(in.msm_add2));
         }
-        if constexpr (read_index == 2) {
+        if constexpr (lookup_index == 2) {
             return Accumulator(View(in.msm_add3));
         }
-        if constexpr (read_index == 3) {
+        if constexpr (lookup_index == 3) {
             return Accumulator(View(in.msm_add4));
         }
         return Accumulator(1);
     }
 
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t table_index, typename AllEntities>
+    static Accumulator get_table_term_predicate(const AllEntities& in)
     {
         using View = typename Accumulator::View;
 
-        if constexpr (write_index == 0) {
+        if constexpr (table_index == 0) {
             return Accumulator(View(in.precompute_select));
         }
-        if constexpr (write_index == 1) {
+        if constexpr (table_index == 1) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/750) Is this a bug?
             return Accumulator(View(in.precompute_select));
         }
@@ -107,14 +107,14 @@ template <typename FF_> class ECCVMLookupRelationImpl {
      * @brief Returns the fingerprint of `(precompute_pc, compressed_slice, (2 * compressed_slice - 15)[P])`, where [P]
      * is the point corresponding to `precompute_pc` and `compressed_slice`∈{0, ..., 15}.
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
-        static_assert(write_index < WRITE_TERMS);
-        // write_index == 0 means our wNAF digit is positive (i.e., ∈{1, 3..., 15}).
-        // write_index == 1 means our wNAF digit is negative (i.e., ∈{-15, -13..., -1})
+        static_assert(table_index < NUM_TABLE_TERMS);
+        // table_index == 0 means our wNAF digit is positive (i.e., ∈{1, 3..., 15}).
+        // table_index == 1 means our wNAF digit is negative (i.e., ∈{-15, -13..., -1})
 
         // round starts at 0 and increments to 7
         // point starts at 15[P] and decrements to [P]
@@ -122,8 +122,8 @@ template <typename FF_> class ECCVMLookupRelationImpl {
 
         // we have computed `(15 - 2 * round)[P] =: (precompute_tx, precompute_ty)`.
         // `round`∈{0, 1..., 7}
-        // if write_index == 0, we want to write (pc, 15 - 2 * round, precompute_tx, precompute_ty)
-        // if write_index == 1, we want to write (pc, round, precompute_tx, -precompute_ty)
+        // if table_index == 0, we want to write (pc, 15 - 2 * round, precompute_tx, precompute_ty)
+        // if table_index == 1, we want to write (pc, round, precompute_tx, -precompute_ty)
         // to sum up, both:
         //      (pc, round, precompute_tx, -precompute_ty) _and_
         //      (pc, 15 - 2 * round, precompute_tx, precompute_ty)
@@ -156,27 +156,27 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto& beta_sqr = params.beta_sqr;
         const auto& beta_cube = params.beta_cube;
 
-        if constexpr (write_index == 0) {
+        if constexpr (table_index == 0) {
             const auto positive_slice_value = -(precompute_round) + 15;
             const auto positive_term =
                 precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
             return positive_term; // degree 1
         }
-        if constexpr (write_index == 1) {
+        if constexpr (table_index == 1) {
             const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
             return negative_term; // degree 1
         }
         return Accumulator(1);
     }
 
-    template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
         // read term: (pc, compressed_slice, (2 * compressed_slice - 15)[P])
         // (the latter term is of course represented via an x and y coordinate.)
-        static_assert(read_index < READ_TERMS);
+        static_assert(lookup_index < NUM_LOOKUP_TERMS);
         const auto& gamma = params.gamma;
         const auto& beta = params.beta;
         const auto& beta_sqr = params.beta_sqr;
@@ -204,21 +204,21 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         // performed in the current row.
         const auto current_pc = msm_pc - msm_count;
 
-        if constexpr (read_index == 0) {
+        if constexpr (lookup_index == 0) {
             const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
             return read_term1; // degree 1
         }
-        if constexpr (read_index == 1) {
+        if constexpr (lookup_index == 1) {
             const auto read_term2 =
                 (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
             return read_term2; // degree 1
         }
-        if constexpr (read_index == 2) {
+        if constexpr (lookup_index == 2) {
             const auto read_term3 =
                 (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
             return read_term3; // degree 1
         }
-        if constexpr (read_index == 3) {
+        if constexpr (lookup_index == 3) {
             const auto read_term4 =
                 (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
             return read_term4; // degree 1

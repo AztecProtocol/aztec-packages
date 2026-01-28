@@ -41,10 +41,10 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     using FF = FF_;
     // Read and write terms counts should stay set to 1 unless we want to permute several columns at once as accumulated
     // sets (not as tuples).
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t NUM_LOOKUP_TERMS = 1;
+    static constexpr size_t NUM_TABLE_TERMS = 1;
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
+    static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 5
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
@@ -110,11 +110,11 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      *
      * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities>
+    static Accumulator get_lookup_term_predicate(const AllEntities& in)
 
     {
-        static_assert(read_index < READ_TERMS);
+        static_assert(lookup_index < NUM_LOOKUP_TERMS);
         using View = typename Accumulator::View;
 
         // The selector/wire value that determines that an element from the first set needs to be included. Can be
@@ -126,12 +126,12 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     /**
      * @brief Compute if the value from the second set exists in this row
      *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
+     * @tparam table_index Kept for compatibility with lookups, behavior doesn't change
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate(const AllEntities& in)
+    template <typename Accumulator, size_t table_index, typename AllEntities>
+    static Accumulator get_table_term_predicate(const AllEntities& in)
     {
-        static_assert(write_index < WRITE_TERMS);
+        static_assert(table_index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
         // The selector/wire value that determines that an element from the second set needs to be included. Can be
@@ -150,12 +150,12 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      *
      * @param params Used for beta and gamma
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
-        static_assert(read_index < READ_TERMS);
+        static_assert(lookup_index < NUM_LOOKUP_TERMS);
 
         // Retrieve all polynomials used
         const auto all_polynomials = Settings::get_const_entities(in);
@@ -181,12 +181,12 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      *
      * @param params Used for beta and gamma
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
-        static_assert(write_index < WRITE_TERMS);
+        static_assert(table_index < NUM_TABLE_TERMS);
 
         // Get all used entities
         const auto& used_entities = Settings::get_const_entities(in);
@@ -222,7 +222,5 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 
 template <typename Settings, typename FF>
 using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<Settings, FF>>;
-
-template <typename Settings, typename FF> using GenericPermutation = GenericPermutationRelationImpl<Settings, FF>;
 
 } // namespace bb
