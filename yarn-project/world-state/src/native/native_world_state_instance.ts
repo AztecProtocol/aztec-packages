@@ -80,7 +80,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       prefilledPublicDataBufferArray,
-      GeneratorIndex.BLOCK_HASH,
+      GeneratorIndex.BLOCK_HEADER_HASH,
       {
         [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
         [MerkleTreeId.NOTE_HASH_TREE]: wsTreeMapSizes.noteHashTreeMapSizeKb,

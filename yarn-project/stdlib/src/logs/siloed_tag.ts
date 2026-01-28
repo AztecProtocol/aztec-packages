@@ -1,4 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { GeneratorIndex } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
@@ -22,7 +23,7 @@ export class SiloedTag {
   constructor(public readonly value: Fr) {}
 
   static async compute(tag: Tag, app: AztecAddress): Promise<SiloedTag> {
-    const siloedTag = await poseidon2Hash([app, tag.value]);
+    const siloedTag = await poseidon2HashWithSeparator([app, tag.value], GeneratorIndex.PRIVATE_LOG_FIRST_FIELD);
     return new SiloedTag(siloedTag);
   }
 

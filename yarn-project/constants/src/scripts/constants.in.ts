@@ -116,6 +116,7 @@ const CPP_CONSTANTS = [
 ];
 
 const CPP_GENERATORS: string[] = [
+  'BLOCK_HEADER_HASH',
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
   'CONTRACT_CLASS_ID',
@@ -123,8 +124,9 @@ const CPP_GENERATORS: string[] = [
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
-  'OUTER_NULLIFIER',
-  'PUBLIC_LEAF_INDEX',
+  'SILOED_NULLIFIER',
+  'PUBLIC_LEAF_SLOT',
+  'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
 ];
@@ -310,8 +312,9 @@ const PIL_GENERATORS: string[] = [
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
-  'OUTER_NULLIFIER',
-  'PUBLIC_LEAF_INDEX',
+  'SILOED_NULLIFIER',
+  'PUBLIC_LEAF_SLOT',
+  'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
 ];
@@ -384,7 +387,7 @@ function processConstantsCpp(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (CPP_GENERATORS.includes(key)) {
-      code.push(`#define DOM_SEP__${key} ${value}`);
+      code.push(`#define DOM_SEP__${key} ${value}UL`);
     }
   });
   return code.join('\n');

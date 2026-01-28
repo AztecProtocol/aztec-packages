@@ -78,13 +78,13 @@ pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 // Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
 // hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 
 // "PER CALL" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
@@ -92,11 +92,11 @@ pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 8;
 pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = MAX_ENQUEUED_CALLS_PER_TX;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = MAX_L2_TO_L1_MSGS_PER_TX;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
@@ -166,9 +166,9 @@ pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48; // Is this the max number of chec
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x0dc66232e4edff2923217f4fdf80ecc23ed4bd047e743df85a6827878bf6c4d6;
+    0x20859c34fd7cd64578ba0779e7475e56900de9b95f1b634fbe2d7b266d8d2840;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95;
+    0x2b7cc335b4798b4d9b5e88cd6b55b1ce54b1225970ad2adff7820413a3c4ca3c;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0x00f10d3a401a22634ebb4b0b17410cd138fd388872486b6280d552d6317c255d;
 
@@ -638,62 +638,64 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // ---------------------------------------------------------------
 // DOMAIN SEPARATORS
 
-// TODO: see ./domain-separators.nr tests for the domain separators that we should migrate to. I just didn't have time to make the changes, as I predict thousands of tests with hard-coded hashes breaking everywhere.
+// See ./domain-separators.nr for how the values of the domain separators are generated.
 
 // ---------------------------------------------------------------
 
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
-pub global DOM_SEP__NOTE_HASH: u32 = 1;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 2;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 3;
-pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 4;
+pub global DOM_SEP__NOTE_HASH: u32 = 570261536;
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 4040695053;
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 1615905817;
+pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3552985968;
 
-pub global DOM_SEP__NOTE_NULLIFIER: u32 = 53;
-pub global DOM_SEP__OUTER_NULLIFIER: u32 = 7;
+pub global DOM_SEP__NOTE_NULLIFIER: u32 = 2273326939;
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 4179235419;
+pub global DOM_SEP__SILOED_NULLIFIER: u32 = 1843769845;
 
-pub global DOM_SEP__PUBLIC_LEAF_INDEX: u32 = 23;
+pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 3381826258;
 
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 5;
+pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 2853865602;
+pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 1106049611;
 
 // ---------------------------------------------------------------
 // Contract Address
 
 // Class Id
-pub global DOM_SEP__FUNCTION_LEAF: u32 = 11;
-pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 60;
-pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 16;
+pub global DOM_SEP__PRIVATE_FUNCTION_LEAF: u32 = 3274445394;
+pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 4245021897;
+pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 1134959961;
 
 // Salted Initialization Hash
-pub global DOM_SEP__CONSTRUCTOR: u32 = 13;
+pub global DOM_SEP__INITIALIZER: u32 = 3165476885;
 
 // Keys
-pub global DOM_SEP__NSK_M: u32 = 48;
-pub global DOM_SEP__IVSK_M: u32 = 49;
-pub global DOM_SEP__OVSK_M: u32 = 50;
-pub global DOM_SEP__TSK_M: u32 = 51;
-pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 52;
+pub global DOM_SEP__NSK_M: u32 = 1976671838;
+pub global DOM_SEP__IVSK_M: u32 = 3641144584;
+pub global DOM_SEP__OVSK_M: u32 = 449371170;
+pub global DOM_SEP__TSK_M: u32 = 4031170476;
+pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 349301051;
 
 // Address
-pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 27;
+pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 1453969891;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 15;
+pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 2091531360;
 
 // ---------------------------------------------------------------
 
-pub global DOM_SEP__BLOCK_HASH: u32 = 28; // Consider renaming to BLOCK_HEADER_HASH
+pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 2064783670;
 
-pub global DOM_SEP__TX_REQUEST: u32 = 33;
-pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 56;
-pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 57;
+pub global DOM_SEP__TX_REQUEST: u32 = 1076396939;
+pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 419169672;
+pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 4261301885;
 
 // Hashing the calldata of public functions:
-pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 43;
+pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 388853507;
 // Hashing the args to private functions:
-pub global DOM_SEP__FUNCTION_ARGS: u32 = 44;
+pub global DOM_SEP__FUNCTION_ARGS: u32 = 587126185;
 
-pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 61;
+pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 3581307760;
 // Part of the protocol, because some protocol contracts emit events.
-pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
+pub global DOM_SEP__EVENT_COMMITMENT: u32 = 469373807;
 
 // ---------------------------------------------------------------
 // Not protocol, but possibly protocol in future.
@@ -705,22 +707,22 @@ pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
 // - It might not support authwits (instead using the fee_payer field as evidence of authorization).
 // If FeeJuice doesn't end up supporting those things, then these constants should be moved into aztec.nr.
 
-pub global DOM_SEP__AUTHWIT_INNER: u32 = 45;
-pub global DOM_SEP__AUTHWIT_OUTER: u32 = 46;
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 47;
+pub global DOM_SEP__AUTHWIT_INNER: u32 = 829479065;
+pub global DOM_SEP__AUTHWIT_OUTER: u32 = 1502324539;
+pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1450992171;
 
-pub global DOM_SEP__SYMMETRIC_KEY: u8 = 54;
-pub global DOM_SEP__SYMMETRIC_KEY_2: u8 = 55;
+pub global DOM_SEP__SYMMETRIC_KEY: u32 = 690840336;
+pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 3484314061;
 
-pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 1665410974;
 
 // ---------------------------------------------------------------
 // TODO: consider moving these to aztec-nr
 
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 6;
-pub global DOM_SEP__SECRET_HASH: u32 = 20;
-pub global DOM_SEP__TX_NULLIFIER: u32 = 32;
-pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 34;
+pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 2762319966;
+pub global DOM_SEP__SECRET_HASH: u32 = 15484084;
+pub global DOM_SEP__TX_NULLIFIER: u32 = 1039603495;
+pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 2407104296;
 
 // ---------------------------------------------------------------
 

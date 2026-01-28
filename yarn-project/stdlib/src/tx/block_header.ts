@@ -164,7 +164,7 @@ export class BlockHeader {
 
   hash(): Promise<BlockHash> {
     if (!this._cachedHash) {
-      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH).then(fr =>
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HEADER_HASH).then(fr =>
         BlockHash.fromField(fr),
       );
     }
