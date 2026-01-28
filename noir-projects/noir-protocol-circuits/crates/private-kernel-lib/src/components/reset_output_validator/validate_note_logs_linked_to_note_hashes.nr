@@ -244,4 +244,76 @@ mod tests {
 
         builder.validate_with_index_hint();
     }
+
+    #[test(should_fail_with = "Note hash index hint exceeds claimed length")]
+    fn empty_note_hashes_with_linking_log_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Set note_hashes to empty.
+        builder.note_hashes.length = 0;
+
+        // Log at index 0 has note_hash_counter = 100, which tries to link to a note hash.
+        // With no note hashes available, this should fail.
+        builder.validate();
+    }
+
+    #[test]
+    fn all_logs_unlinked_succeeds() {
+        let mut builder = TestBuilder::new();
+
+        // Set all logs to have note_hash_counter = 0 (unlinked).
+        for i in 0..builder.logs.length {
+            builder.logs.array[i].inner.inner.note_hash_counter = 0;
+        }
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Can not find a note hash linked to note log")]
+    fn log_at_claimed_length_index_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Add a log at exactly the claimed length boundary (first invalid position).
+        let claimed_length = builder.logs.length;
+        builder.logs.array[claimed_length] = mock_log(99, 9999);
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Note hash index hint exceeds claimed length")]
+    fn note_hash_at_exactly_claimed_length_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Put the matching note hash exactly at claimed_length (first position beyond valid range).
+        let claimed_length = builder.note_hashes.length;
+        builder.note_hashes.array[claimed_length] = mock_note_hash(99, 9999);
+
+        // Update a log to link to this note hash.
+        builder.logs.array[0].inner.inner.note_hash_counter = 9999;
+
+        builder.validate();
+    }
+
+    #[test]
+    fn multiple_logs_linking_to_same_note_hash_succeeds() {
+        let mut builder = TestBuilder::new();
+
+        // Explicitly set multiple logs to link to the same note hash.
+        let shared_counter = 100;
+        builder.logs.array[0].inner.inner.note_hash_counter = shared_counter;
+        builder.logs.array[2].inner.inner.note_hash_counter = shared_counter;
+        builder.logs.array[3].inner.inner.note_hash_counter = shared_counter;
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Note hash index hint exceeds claimed length")]
+    fn index_hint_at_array_length_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Set index hint to be beyond the entire array.
+        builder.note_hash_index_hint = builder.note_hashes.array.len();
+
+        builder.validate_with_index_hint();
+    }
 }
