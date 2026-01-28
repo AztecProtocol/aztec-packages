@@ -1,33 +1,21 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/constants.hpp"
-#include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include <type_traits>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
 #endif
-#include <iomanip>
-#include <sstream>
 
 namespace bb::bbapi {
 
