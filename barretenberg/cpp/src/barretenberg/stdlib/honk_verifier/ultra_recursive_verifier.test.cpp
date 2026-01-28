@@ -441,6 +441,15 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         pairing_points.P0.fix_witness();
         pairing_points.P1.fix_witness();
 
+        // For RollupIO: Fix the IPA claim's bigfield elements (challenge and evaluation).
+        // When reconstructed from public inputs, bigfield::construct_from_limbs creates a prime_basis_limb
+        // that's computed as a linear combination of the binary limbs. Since the IPA claim is just propagated, this
+        // prime_basis_limb appears in only one gate.
+        if constexpr (IO::HasIPA) {
+            output.ipa_claim.opening_pair.challenge.fix_witness();
+            output.ipa_claim.opening_pair.evaluation.fix_witness();
+        }
+
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -458,15 +467,16 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // We expect exactly one connected component (all variables properly connected)
         EXPECT_EQ(cc.size(), 1);
 
-        // For UltraCircuitBuilder: The variable in one gate is the last Shplonk power we compute. It is computed
-        // even though it is not used because of how the PCS is structured (more precisely, because of the interaction
-        // between gemini and interleaving).
-        // For MegaCircuitBuilder: All variables are properly constrained.
-        if constexpr (IsMegaBuilder<OuterBuilder>) {
-            EXPECT_EQ(variables_in_one_gate.size(), 0);
-        } else {
-            EXPECT_EQ(variables_in_one_gate.size(), 1);
+        // Expected unconstrained variables:
+        // - MegaBuilder (outer) or ZK flavor: 0
+        // - UltraBuilder (outer) + non-ZK flavor: 1 (unused Shplonk power from
+        // compute_shplonk_batching_challenge_powers)
+        size_t expected_unconstrained = 0;
+        if constexpr (!IsMegaBuilder<OuterBuilder> && !RecursiveFlavor::HasZK) {
+            expected_unconstrained = 1;
         }
+
+        EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }
 };
 
