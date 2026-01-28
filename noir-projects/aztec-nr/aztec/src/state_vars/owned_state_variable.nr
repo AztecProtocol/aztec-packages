@@ -1,4 +1,4 @@
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// A trait that defines the interface for Aztec state variables that have an owner. Unlike regular state variables,
 /// owned state variables need to be wrapped in `Owned` state variable when placed in storage:

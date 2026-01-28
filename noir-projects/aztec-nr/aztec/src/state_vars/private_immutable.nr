@@ -11,7 +11,7 @@ use crate::{
     state_vars::OwnedStateVariable,
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::DOM_SEP__INITIALIZATION_NULLIFIER,
     hash::poseidon2_hash_with_separator,

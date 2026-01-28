@@ -1,6 +1,6 @@
 //! Contract deployments.
 
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader, address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
     hash::compute_siloed_nullifier, traits::ToField,
 };

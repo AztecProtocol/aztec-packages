@@ -6,7 +6,7 @@ use crate::{
     },
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
-use protocol_types::{address::AztecAddress, traits::FromField};
+use crate::protocol::{address::AztecAddress, traits::FromField};
 
 pub(crate) global NOTE_STORAGE_SLOT: Field = 420;
 pub(crate) global NOTE_CREATED_AT: u32 = 2;

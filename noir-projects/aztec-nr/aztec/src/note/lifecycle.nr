@@ -8,7 +8,7 @@ use crate::{
     },
     oracle::{notes::notify_created_note, random::random},
 };
-use protocol_types::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A note that was created in the current contract call.
 pub struct NewNote<Note> {

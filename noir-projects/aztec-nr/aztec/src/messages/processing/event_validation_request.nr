@@ -1,5 +1,5 @@
 use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LEN};
-use protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch event validation by PXE. The
 /// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
@@ -17,8 +17,8 @@ pub(crate) struct EventValidationRequest {
 
 mod test {
     use crate::event::EventSelector;
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::EventValidationRequest;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
     #[test]
     unconstrained fn serialization_matches_typescript() {

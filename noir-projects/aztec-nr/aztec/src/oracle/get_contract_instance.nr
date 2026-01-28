@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress, contract_class_id::ContractClassId, contract_instance::ContractInstance, traits::FromField,
 };
 

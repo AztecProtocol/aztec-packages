@@ -14,7 +14,7 @@ comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quo
 
     let from_field = get_trait_impl_method(
         quote { crate::event::EventSelector }.as_type(),
-        quote { crate::protocol_types::traits::FromField },
+        quote { crate::protocol::traits::FromField },
         quote { from_field },
     );
 

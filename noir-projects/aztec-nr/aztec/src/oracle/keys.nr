@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     address::{AztecAddress, PartialAddress},
     point::Point,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},

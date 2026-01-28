@@ -1,4 +1,4 @@
-use protocol_types::{address::aztec_address::AztecAddress, point::Point};
+use crate::protocol::{address::aztec_address::AztecAddress, point::Point};
 
 // TODO(#12656): return an app-siloed secret + document this
 #[oracle(utilityGetSharedSecret)]

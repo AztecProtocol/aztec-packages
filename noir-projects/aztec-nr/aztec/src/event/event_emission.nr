@@ -3,7 +3,7 @@ use crate::{
     event::{event_interface::{compute_private_event_commitment, EventInterface}, EventMessage},
     oracle::random::random,
 };
-use protocol_types::traits::{Serialize, ToField};
+use crate::protocol::traits::{Serialize, ToField};
 
 /// An event that was emitted in the current contract call.
 pub struct NewEvent<Event> {

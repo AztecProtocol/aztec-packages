@@ -1,4 +1,4 @@
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.
@@ -65,7 +65,7 @@ mod test {
         oracle::capsules::{copy, delete, load, store},
         test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
     };
-    use protocol_types::{address::AztecAddress, traits::{FromField, ToField}};
+    use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
 
     global SLOT: Field = 1;
 

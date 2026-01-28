@@ -23,7 +23,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
         original_params
             .map(|(_, param_type): (Quoted, Type)| {
                 quote {
-            <$param_type as $crate::protocol_types::traits::Serialize>::N
+            <$param_type as $crate::protocol::traits::Serialize>::N
         }
             })
             .join(quote {+})

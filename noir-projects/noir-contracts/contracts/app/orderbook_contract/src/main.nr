@@ -36,7 +36,7 @@ pub contract Orderbook {
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         oracle::nullifiers::check_nullifier_exists,
-        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        protocol::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
     };
 

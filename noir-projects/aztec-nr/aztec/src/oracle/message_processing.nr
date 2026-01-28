@@ -1,4 +1,4 @@
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
 /// them available for later processing in Noir by storing them in a capsule array.

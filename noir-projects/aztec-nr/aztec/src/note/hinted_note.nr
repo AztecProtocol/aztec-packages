@@ -1,5 +1,5 @@
 use crate::note::note_metadata::NoteMetadata;
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 /// A hint for a note that might exist.
 ///
@@ -20,7 +20,7 @@ pub struct HintedNote<Note> {
 
 mod test {
     use crate::note::{HintedNote, note_metadata::NoteMetadata};
-    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]
     struct TestNote {

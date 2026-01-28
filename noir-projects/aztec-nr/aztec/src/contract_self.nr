@@ -13,7 +13,7 @@ use crate::{
         EventMessage,
     },
 };
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Core interface for interacting with aztec-nr contract features.
 ///

@@ -1,5 +1,5 @@
 use crate::note::{HintedNote, note_metadata::NoteMetadata};
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// A note that has been confirmed to exist.
 ///

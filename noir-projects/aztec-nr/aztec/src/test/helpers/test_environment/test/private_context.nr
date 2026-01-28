@@ -1,6 +1,6 @@
 use crate::oracle::nullifiers::check_nullifier_exists;
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
-use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
 
 #[test]
 unconstrained fn at_sets_contract_address() {

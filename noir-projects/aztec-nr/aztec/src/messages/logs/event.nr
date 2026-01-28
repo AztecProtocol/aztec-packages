@@ -6,7 +6,7 @@ use crate::{
     },
     utils::array,
 };
-use protocol_types::traits::{FromField, Serialize, ToField};
+use crate::protocol::traits::{FromField, Serialize, ToField};
 
 /// The number of fields in a private event message content that are not the event's serialized representation (1 field
 /// for randomness).
@@ -96,8 +96,8 @@ mod test {
             msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
         },
     };
+    use crate::protocol::traits::Serialize;
     use crate::test::mocks::mock_event::MockEvent;
-    use protocol_types::traits::Serialize;
 
     global VALUE: Field = 7;
     global RANDOMNESS: Field = 10;

@@ -28,7 +28,7 @@ pub comptime fn generate_authorization_interface_and_get_selector(s: TypeDefinit
 
     let from_field = get_trait_impl_method(
         quote { crate::authwit::AuthorizationSelector }.as_type(),
-        quote { crate::protocol_types::traits::FromField },
+        quote { crate::protocol::traits::FromField },
         quote { from_field },
     );
 

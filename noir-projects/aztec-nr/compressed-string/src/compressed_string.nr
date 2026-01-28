@@ -1,4 +1,4 @@
-use aztec::protocol_types::{traits::{Deserialize, Packable, Serialize}, utils::field::field_from_bytes};
+use aztec::protocol::{traits::{Deserialize, Packable, Serialize}, utils::field::field_from_bytes};
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15968): Kill, refactor and/or relocate this.
 

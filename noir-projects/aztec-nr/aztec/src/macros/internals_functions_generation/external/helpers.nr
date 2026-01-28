@@ -69,7 +69,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
             f"Function {name} does not have a {from_arg_name} parameter. Please specify which one to use in #[authorize_once(\"...\", \"authwit_nonce\")]",
         )
     };
-    if from_arg_type != quote { protocol_types::address::aztec_address::AztecAddress }.as_type() {
+    if from_arg_type != quote { crate::protocol::address::aztec_address::AztecAddress }.as_type() {
         panic(
             f"Argument {from_arg_name_quoted} in function {name} must be of type AztecAddress, but is of type {from_arg_type}",
         )

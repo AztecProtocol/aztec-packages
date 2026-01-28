@@ -3,7 +3,7 @@ use crate::{
     state_vars::{OwnedStateVariable, private_mutable::PrivateMutable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;

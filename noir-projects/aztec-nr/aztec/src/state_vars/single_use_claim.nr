@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator, traits::Hash,
 };
 

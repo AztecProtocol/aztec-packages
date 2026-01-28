@@ -1,5 +1,5 @@
 use crate::{test::utils, Token};
-use dep::aztec::{oracle::random::random, protocol_types::traits::Deserialize};
+use dep::aztec::{oracle::random::random, protocol::traits::Deserialize};
 use dep::uint_note::PartialUintNote;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`

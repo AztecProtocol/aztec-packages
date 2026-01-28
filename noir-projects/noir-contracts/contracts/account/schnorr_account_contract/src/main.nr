@@ -24,7 +24,7 @@ pub contract SchnorrAccount {
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
     };
 

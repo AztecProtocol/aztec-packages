@@ -3,8 +3,8 @@ use crate::{
     oracle::random::random,
     state_vars::{OwnedStateVariable, SingleUseClaim},
 };
+use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::helpers::test_environment::TestEnvironment;
-use protocol_types::{address::AztecAddress, traits::FromField};
 
 global STORAGE_SLOT: Field = 17;
 

@@ -1,5 +1,5 @@
 use crate::{context::gas::GasOpts, test::{helpers::test_environment::TestEnvironment, mocks::MockStruct}};
-use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
 
 use std::mem::zeroed;
 

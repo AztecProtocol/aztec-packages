@@ -2,7 +2,7 @@ use crate::{
     keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX},
     oracle::{key_validation_request::get_key_validation_request, keys::get_public_keys_and_partial_address},
 };
-use protocol_types::{address::AztecAddress, public_keys::PublicKeys};
+use crate::protocol::{address::AztecAddress, public_keys::PublicKeys};
 
 pub unconstrained fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
@@ -29,8 +29,8 @@ pub fn get_public_keys(account: AztecAddress) -> PublicKeys {
 mod test {
     use super::get_public_keys;
 
+    use crate::protocol::traits::Serialize;
     use crate::test::helpers::test_environment::TestEnvironment;
-    use protocol_types::traits::Serialize;
     use std::test::OracleMock;
 
     global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one field for the partial address

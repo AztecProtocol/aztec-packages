@@ -1,5 +1,5 @@
 use crate::note::{HintedNote, note_interface::NoteType};
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},

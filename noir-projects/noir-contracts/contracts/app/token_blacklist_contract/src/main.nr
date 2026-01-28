@@ -30,7 +30,7 @@ pub contract TokenBlacklist {
             note_getter_options::NoteGetterOptions,
             note_interface::{NoteHash, NoteProperties, NoteType},
         },
-        protocol_types::traits::ToField,
+        protocol::traits::ToField,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
         utils::comparison::Comparator,
     };
@@ -38,7 +38,7 @@ pub contract TokenBlacklist {
     use std::ops::{Add, Sub};
 
     use crate::types::{roles::UserFlags, transparent_note::TransparentNote};
-    use aztec::protocol_types::{
+    use aztec::protocol::{
         address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
     use balance_set::BalanceSet;

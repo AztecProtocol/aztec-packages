@@ -1,5 +1,5 @@
 use crate::oracle::{execution::get_utility_context, storage::storage_read};
-use protocol_types::{abis::block_header::BlockHeader, address::AztecAddress, traits::Packable};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::Packable};
 
 // If you'll modify this struct don't forget to update utility_context.ts as well.
 pub struct UtilityContext {

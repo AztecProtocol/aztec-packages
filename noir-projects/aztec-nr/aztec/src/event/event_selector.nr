@@ -1,4 +1,4 @@
-use protocol_types::{hash::poseidon2_hash_bytes, traits::{Deserialize, Empty, FromField, Serialize, ToField}};
+use crate::protocol::{hash::poseidon2_hash_bytes, traits::{Deserialize, Empty, FromField, Serialize, ToField}};
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct EventSelector {

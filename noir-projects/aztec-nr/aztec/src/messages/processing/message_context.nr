@@ -1,4 +1,4 @@
-use protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
 
 /// Additional information needed to process a message.
 ///
@@ -15,7 +15,7 @@ pub struct MessageContext {
 
 mod test {
     use crate::messages::processing::MessageContext;
-    use protocol_types::{address::AztecAddress, traits::{Deserialize, FromField}};
+    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
 
     #[test]
     unconstrained fn message_context_serialization_matches_typescript() {

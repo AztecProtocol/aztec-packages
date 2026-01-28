@@ -1,5 +1,5 @@
 use crate::oracle::capsules;
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// A dynamically sized array backed by PXE's non-volatile database (called capsules). Values are persisted until
 /// deleted, so they can be e.g. stored during simulation of a transaction and later retrieved during witness

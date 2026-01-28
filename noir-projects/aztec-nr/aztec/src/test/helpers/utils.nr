@@ -1,5 +1,5 @@
 use crate::{context::{PrivateCall, PublicCall}, test::helpers::{test_environment::TestEnvironment, txe_oracles}};
-use protocol_types::{address::AztecAddress, public_keys::PublicKeys, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, public_keys::PublicKeys, traits::{Deserialize, Serialize}};
 use std::meta::derive;
 
 pub struct ContractDeployment<let O: u32> {

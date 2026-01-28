@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::{DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
@@ -408,8 +408,8 @@ mod test {
         messages::{encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption},
         test::helpers::test_environment::TestEnvironment,
     };
+    use crate::protocol::{address::AztecAddress, traits::FromField};
     use super::{AES128, random_address_point};
-    use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]

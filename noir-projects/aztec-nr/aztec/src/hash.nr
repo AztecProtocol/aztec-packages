@@ -1,6 +1,6 @@
 //! Aztec hash functions.
 
-use protocol_types::{
+use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{
         DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
@@ -10,7 +10,7 @@ use protocol_types::{
     traits::ToField,
 };
 
-pub use protocol_types::hash::compute_siloed_nullifier;
+pub use crate::protocol::hash::compute_siloed_nullifier;
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     poseidon2_hash_with_separator([secret], DOM_SEP__SECRET_HASH)

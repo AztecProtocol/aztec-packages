@@ -3,7 +3,7 @@ use crate::{
     event::{event_emission::NewEvent, event_interface::EventInterface},
     messages::{logs::event::encode_private_event_message, message_delivery::do_private_message_delivery},
 };
-use protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// A message with information about an event that was emitted in the current contract call. This message **MUST** be
 /// delivered to a recipient in order to not lose the private event information.

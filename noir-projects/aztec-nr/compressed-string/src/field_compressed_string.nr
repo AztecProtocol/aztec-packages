@@ -1,4 +1,4 @@
-use aztec::protocol_types::{traits::{Deserialize, Packable, Serialize}, utils::field::field_from_bytes};
+use aztec::protocol::{traits::{Deserialize, Packable, Serialize}, utils::field::field_from_bytes};
 use std::meta::derive;
 
 // A Fixedsize Compressed String. Essentially a special version of Compressed String for practical use.

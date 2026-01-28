@@ -1,6 +1,6 @@
 use crate::{context::NoteExistenceRequest, note::{ConfirmedNote, HintedNote, note_interface::NoteHash}};
 
-use protocol_types::hash::{compute_siloed_note_hash, compute_unique_note_hash};
+use crate::protocol::hash::{compute_siloed_note_hash, compute_unique_note_hash};
 
 /// Returns the [NoteExistenceRequest] used to prove a note exists.
 pub fn compute_note_existence_request<Note>(hinted_note: HintedNote<Note>) -> NoteExistenceRequest

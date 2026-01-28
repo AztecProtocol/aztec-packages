@@ -1,6 +1,6 @@
 use crate::context::PrivateContext;
 
-use protocol_types::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash};
+use crate::protocol::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash};
 
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;

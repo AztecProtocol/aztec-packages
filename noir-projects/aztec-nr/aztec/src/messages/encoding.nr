@@ -1,6 +1,6 @@
 // TODO(#12750): don't make these values assume we're using AES.
+use crate::protocol::constants::PRIVATE_LOG_CIPHERTEXT_LEN;
 use crate::utils::array;
-use protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN;
 
 // We reassign to the constant here to communicate the distinction between a log and a message. In Aztec.nr, unlike in
 // protocol circuits, we have a concept of a message that can be emitted either as a private log or as an offchain

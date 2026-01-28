@@ -3,7 +3,7 @@ use crate::{
     messages::{logs::note::encode_private_note_message, message_delivery::do_private_message_delivery},
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
-use protocol_types::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A message with information about a note that was created in the current contract call. This message **MUST** be
 /// delivered to a recipient in order to not lose the private note information.

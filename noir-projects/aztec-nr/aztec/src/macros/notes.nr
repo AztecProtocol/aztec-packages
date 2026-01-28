@@ -77,41 +77,41 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
-            fn compute_note_hash(self, owner: aztec::protocol_types::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
-                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [aztec::protocol_types::traits::ToField::to_field(owner), storage_slot, randomness]);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::DOM_SEP__NOTE_HASH)
+            fn compute_note_hash(self, owner: aztec::protocol::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
+                let inputs = aztec::protocol::traits::Packable::pack(self).concat( [aztec::protocol::traits::ToField::to_field(owner), storage_slot, randomness]);
+                aztec::protocol::hash::poseidon2_hash_with_separator(inputs, aztec::protocol::constants::DOM_SEP__NOTE_HASH)
             }
 
             fn compute_nullifier(
                 self,
                 context: &mut aztec::context::PrivateContext,
-                owner: aztec::protocol_types::address::AztecAddress,
+                owner: aztec::protocol::address::AztecAddress,
                 note_hash_for_nullification: Field,
             ) -> Field {
                 let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in the
-                // quote to avoid "trait not in scope" compiler warnings.
-                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
+                // in the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                 let secret = context.request_nsk_app(owner_npk_m_hash);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                aztec::protocol::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
+                    aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
 
             unconstrained fn compute_nullifier_unconstrained(
                 self,
-                owner: aztec::protocol_types::address::AztecAddress,
+                owner: aztec::protocol::address::AztecAddress,
                 note_hash_for_nullification: Field,
             ) -> Field {
                 let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in the
-                // quote to avoid "trait not in scope" compiler warnings.
-                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
+                // in the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                 let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                aztec::protocol::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
+                    aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
         }
@@ -280,7 +280,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
 /// We require that notes have the `Packable` trait implemented because it is used when emitting a note in a log or as
 /// an offchain message.
 comptime fn assert_has_packable(note: TypeDefinition) {
-    let packable_constraint = quote { crate::protocol_types::traits::Packable }.as_trait_constraint();
+    let packable_constraint = quote { crate::protocol::traits::Packable }.as_trait_constraint();
     let note_name = note.name();
 
     assert(

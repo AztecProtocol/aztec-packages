@@ -11,7 +11,7 @@ use crate::{
     state_vars::StateVariable,
 };
 
-use protocol_types::{
+use crate::protocol::{
     constants::DOM_SEP__INITIALIZATION_NULLIFIER,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Packable},

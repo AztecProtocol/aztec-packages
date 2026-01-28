@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     traits::{Deserialize, Packable, Serialize},

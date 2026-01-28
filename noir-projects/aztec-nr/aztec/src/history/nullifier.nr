@@ -4,7 +4,7 @@ use crate::oracle::get_nullifier_membership_witness::{
     get_low_nullifier_membership_witness, get_nullifier_membership_witness,
 };
 
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader,
     merkle_tree::root::root_from_sibling_path,
     traits::Hash,
@@ -16,7 +16,7 @@ mod test;
 /// Asserts that a nullifier existed by the time a block was mined.
 ///
 /// This function takes a _siloed_ nullifier, i.e. the value that is actually stored in the tree. Use
-/// [`crate::protocol_types::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
+/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
 /// [`PrivateContext::push_nullifier`](crate::context::PrivateContext::push_nullifier) takes) into a siloed one.
 ///
 /// Note that this does not mean that the nullifier was created **at** `block_header`, only that it was present in the
@@ -54,7 +54,7 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 /// Asserts that a nullifier did not exist by the time a block was mined.
 ///
 /// This function takes a _siloed_ nullifier, i.e. the value that is actually stored in the tree. Use
-/// [`crate::protocol_types::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
+/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
 /// [`PrivateContext::push_nullifier`](crate::context::PrivateContext::push_nullifier) takes) into a siloed one.
 ///
 /// In order to prove that a nullifier **did** exist by `block_header`, use [`assert_nullifier_existed_by`].

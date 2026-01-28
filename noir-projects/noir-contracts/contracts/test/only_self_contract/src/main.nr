@@ -26,9 +26,7 @@ pub contract OnlySelf {
 
 mod test {
     use super::OnlySelf;
-    use aztec::{
-        protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
-    };
+    use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
         let mut env = TestEnvironment::new();

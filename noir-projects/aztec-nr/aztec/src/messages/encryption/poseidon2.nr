@@ -1,7 +1,7 @@
 use std::hash::poseidon2_permutation;
 use std::option::Option;
 
-use protocol_types::point::Point;
+use crate::protocol::point::Point;
 
 global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 

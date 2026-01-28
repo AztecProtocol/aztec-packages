@@ -7,7 +7,7 @@ use crate::{
     },
     utils::remove_constraints::remove_constraints_if,
 };
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Placeholder struct until Noir adds `enum` support.
 ///

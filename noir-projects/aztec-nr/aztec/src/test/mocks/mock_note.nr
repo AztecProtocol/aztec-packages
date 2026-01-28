@@ -5,7 +5,7 @@ use crate::{
     note::{HintedNote, note_interface::{NoteHash, NoteType}, note_metadata::NoteMetadata},
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,

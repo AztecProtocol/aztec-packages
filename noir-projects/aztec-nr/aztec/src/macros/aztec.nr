@@ -96,20 +96,20 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
     quote {
         pub struct $module_name {
-            pub target_contract: aztec::protocol_types::address::AztecAddress
+            pub target_contract: aztec::protocol::address::AztecAddress
         }
 
         impl $module_name {
             $calls
 
             pub fn at(
-                addr: aztec::protocol_types::address::AztecAddress
+                addr: aztec::protocol::address::AztecAddress
             ) -> Self {
                 Self { target_contract: addr }
             }
 
             pub fn interface() -> Self {
-                Self { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+                Self { target_contract: aztec::protocol::address::AztecAddress::zero() }
             }
 
             $storage_layout_getter
@@ -117,14 +117,14 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
         #[contract_library_method]
         pub fn at(
-            addr: aztec::protocol_types::address::AztecAddress
+            addr: aztec::protocol::address::AztecAddress
         ) -> $module_name {
             $module_name { target_contract: addr }
         }
 
         #[contract_library_method]
         pub fn interface() -> $module_name {
-            $module_name { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+            $module_name { target_contract: aztec::protocol::address::AztecAddress::zero() }
         }
 
         $library_storage_layout_getter
@@ -153,7 +153,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             );
             let unpack = get_trait_impl_method(
                 typ,
-                quote { crate::protocol_types::traits::Packable },
+                quote { crate::protocol::traits::Packable },
                 quote { unpack },
             );
 
@@ -178,8 +178,10 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
                 quote {
                     $if_or_else_if note_type_id == $get_note_type_id() {
-                        // As an extra safety check we make sure that the packed_note BoundedVec has the expected length, since we're about to interpret its raw storage as a fixed-size array by calling the unpack function on it.
-                        let expected_len = <$typ as $crate::protocol_types::traits::Packable>::N;
+                        // As an extra safety check we make sure that the packed_note BoundedVec has the expected
+                        // length, since we're about to interpret its raw storage as a fixed-size array by calling the
+                        // unpack function on it.
+                        let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         assert(
                             actual_len == expected_len,
@@ -225,10 +227,10 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
                 packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
-                owner: aztec::protocol_types::address::AztecAddress,
+                owner: aztec::protocol::address::AztecAddress,
                 storage_slot: Field,
                 note_type_id: Field,
-                contract_address: aztec::protocol_types::address::AztecAddress,
+                contract_address: aztec::protocol::address::AztecAddress,
                 randomness: Field,
                 note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
@@ -248,10 +250,10 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
                 _packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
-                _owner: aztec::protocol_types::address::AztecAddress,
+                _owner: aztec::protocol::address::AztecAddress,
                 _storage_slot: Field,
                 _note_type_id: Field,
-                _contract_address: aztec::protocol_types::address::AztecAddress,
+                _contract_address: aztec::protocol::address::AztecAddress,
                 _randomness: Field,
                 _nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {

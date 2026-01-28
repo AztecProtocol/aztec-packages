@@ -12,7 +12,7 @@ use crate::{
     utils::array,
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     debug_log::debug_log_format,
     hash::sha256_to_field,

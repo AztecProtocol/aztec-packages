@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{
+use dep::aztec::protocol::{
     abis::function_selector::FunctionSelector,
     constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
@@ -9,7 +9,7 @@ use dep::aztec::protocol_types::{
     contract_class_id::ContractClassId,
     traits::Serialize,
 };
-use dep::aztec::protocol_types::traits::ToField;
+use dep::aztec::protocol::traits::ToField;
 use std::meta::derive;
 
 #[derive(Serialize)]

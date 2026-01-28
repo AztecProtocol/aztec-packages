@@ -3,7 +3,7 @@
 //! There are only available during public execution. Calling any of them from a private or utility function will
 //! result in runtime errors.
 
-use protocol_types::address::{AztecAddress, EthAddress};
+use crate::protocol::address::{AztecAddress, EthAddress};
 
 pub unconstrained fn address() -> AztecAddress {
     address_opcode()

@@ -1,5 +1,5 @@
 use crate::messages::encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN};
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Trait for encrypting and decrypting messages in the Aztec protocol.
 ///

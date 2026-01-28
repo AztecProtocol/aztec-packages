@@ -1,7 +1,7 @@
 use aztec::{
     macros::notes::note,
     messages::logs::note::MAX_NOTE_PACKED_LEN,
-    protocol_types::traits::Packable,
+    protocol::traits::Packable,
 };
 
 #[note]
