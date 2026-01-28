@@ -1,6 +1,9 @@
 use crate::{
     context::gas::GasOpts,
-    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash},
+    hash::{
+        compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash,
+        compute_siloed_nullifier,
+    },
     oracle::avm,
 };
 use dep::protocol_types::{
@@ -199,8 +202,9 @@ impl PublicContext {
         unsiloed_nullifier: Field,
         contract_address: AztecAddress,
     ) -> bool {
+        let siloed_nullifier = compute_siloed_nullifier(contract_address, unsiloed_nullifier);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::nullifier_exists(unsiloed_nullifier, contract_address.to_field()) } == 1
+        unsafe { avm::nullifier_exists(siloed_nullifier) } == 1
     }
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2) -- effectively

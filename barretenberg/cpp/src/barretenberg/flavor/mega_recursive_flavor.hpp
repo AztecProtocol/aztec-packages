@@ -43,9 +43,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
     using NativeFlavor = MegaFlavor;
-
-    using Transcript = StdlibTranscript<CircuitBuilder>;
     using Codec = stdlib::StdlibCodec<FF>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
+
     static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;

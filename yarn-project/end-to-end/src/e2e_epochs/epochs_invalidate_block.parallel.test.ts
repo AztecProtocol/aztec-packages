@@ -381,10 +381,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       timeoutPromise(test.L2_SLOT_DURATION_IN_S * 4 * 1000).then(() => CheckpointNumber(0)),
     ]);
 
-    // The invalidated checkpoint should be the first one
-    // Note that it may also be a checkpoint *before* the first one that gets mined in `initialSlot + 1n`
+    // The invalidated checkpoint should be the first one,
+    // but it may also be a checkpoint *before* the first one that gets mined in an early slot
     expect(invalidatedCheckpoint).toBeLessThanOrEqual(firstCheckpoint);
-    expect(invalidatedCheckpoint).toBeGreaterThanOrEqual(CheckpointNumber(firstCheckpoint - 1));
 
     // Restore bad nodes back to normal. They should eventually detect that their archive root does not
     // match the value on chain and roll back their invalid nodes.

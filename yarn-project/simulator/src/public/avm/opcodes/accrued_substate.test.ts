@@ -3,6 +3,7 @@ import {
   AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+  MAX_ETH_ADDRESS_VALUE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -141,13 +142,11 @@ describe('Accrued Substate', () => {
         NullifierExists.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // nullifierOffset
-        ...Buffer.from('0234', 'hex'), // addressOffset
         ...Buffer.from('4567', 'hex'), // existsOffset
       ]);
       const inst = new NullifierExists(
         /*addressing_mode=*/ 0x01,
         /*nullifierOffset=*/ 0x1234,
-        /*addressOffset=*/ 0x0234,
         /*existsOffset=*/ 0x4567,
       );
 
@@ -157,21 +156,17 @@ describe('Accrued Substate', () => {
 
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
       const existsStr = exists ? 'DOES exist' : 'does NOT exist';
-      it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
-        const addressOffset = 1;
-
+      it(`Should return ${exists} (and be traced) when nullifier ${existsStr}`, async () => {
         if (exists) {
-          mockCheckNullifierExists(treesDB, true, value0);
+          // The opcode expects a siloed nullifier, so we need to use the pre-siloed one
+          mockCheckNullifierExists(treesDB, true, siloedNullifier0);
         }
 
-        context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(addressOffset, new Field(address.toField()));
-        await new NullifierExists(
-          /*addressing_mode=*/ 0,
-          /*nullifierOffset=*/ value0Offset,
-          addressOffset,
-          existsOffset,
-        ).execute(context);
+        // Set pre-computed siloed nullifier in memory (siloing now happens at caller level)
+        context.machineState.memory.set(value0Offset, new Field(siloedNullifier0));
+        await new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ value0Offset, existsOffset).execute(
+          context,
+        );
 
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(exists ? 1 : 0));
@@ -368,6 +363,17 @@ describe('Accrued Substate', () => {
       ).execute(context);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledTimes(1);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(address, /*recipient=*/ value0, /*content=*/ value1);
+    });
+
+    it('Should revert if recipient is too large', async () => {
+      context.machineState.memory.set(value0Offset, new Field(new Fr(MAX_ETH_ADDRESS_VALUE + 1n)));
+      await expect(
+        new SendL2ToL1Message(
+          /*addressing_mode=*/ 0,
+          /*recipientOffset=*/ value0Offset,
+          /*contentOffset=*/ value1Offset,
+        ).execute(context),
+      ).rejects.toThrow(new InstructionExecutionError(`SENDL2TOL1MSG: Recipient address is too large`));
     });
   });
 

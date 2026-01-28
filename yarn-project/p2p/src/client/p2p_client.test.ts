@@ -347,7 +347,7 @@ describe('P2P Client', () => {
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
-      blockSource.addBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
       blockSource.setCheckpointedBlockNumber(92);
 
       await client.sync();
@@ -445,7 +445,7 @@ describe('P2P Client', () => {
 
     it('syncs new blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
       expect(await client.getSyncedLatestBlockNum()).toEqual(102);
     });
@@ -471,7 +471,7 @@ describe('P2P Client', () => {
 
     it('stops tx collection for pruned blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
       blockSource.removeBlocks(1);
@@ -481,7 +481,7 @@ describe('P2P Client', () => {
 
     it('stops tx collection for proven blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
       await advanceToProvenBlock(BlockNumber(101));
@@ -495,7 +495,7 @@ describe('P2P Client', () => {
       await block.hash();
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
-      blockSource.addBlocks([block]);
+      blockSource.addProposedBlocks([block]);
       await client.sync();
 
       expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);
@@ -507,7 +507,7 @@ describe('P2P Client', () => {
 
     it('clears non-evictable txs when new blocks are synced', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(BlockNumber(101))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
       await client.sync();
 
       expect(txPool.clearNonEvictableTxs).toHaveBeenCalled();
@@ -575,7 +575,7 @@ describe('P2P Client', () => {
       ]);
 
       await realClient.start();
-      blockSource.addBlocks([await L2Block.random(BlockNumber(101))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
       await realClient.sync();
 
       const tx6 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(6, 6) });

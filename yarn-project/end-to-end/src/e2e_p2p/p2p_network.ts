@@ -128,6 +128,7 @@ export class P2PNetworkTest {
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
       startProverNode,
+      walletMinFeePadding: 2.0,
     };
 
     this.deployL1ContractsArgs = {

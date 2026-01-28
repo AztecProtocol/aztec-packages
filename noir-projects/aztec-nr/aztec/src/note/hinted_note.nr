@@ -8,7 +8,7 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Seri
 ///
 /// This value typically unconstrained (originating from oracles or as a contract function parameter), and can be
 /// converted into a [crate::note::confirmed_note::ConfirmedNote] via
-/// [crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion].
+/// [crate::history::note::assert_note_existed_by].
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct HintedNote<Note> {
     pub note: Note,

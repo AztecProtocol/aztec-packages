@@ -37,7 +37,7 @@ pub contract Test {
         // Event related
         messages::message_delivery::MessageDelivery,
         // History and inclusion proofs
-        history::note_inclusion::ProveNoteInclusion,
+        history::note::assert_note_existed_by,
         // Key management
         keys::getters::get_public_keys,
         // Macros
@@ -261,7 +261,7 @@ pub contract Test {
         };
 
         let header = self.context.get_anchor_block_header();
-        let _ = header.prove_note_inclusion(hinted_note);
+        let _ = assert_note_existed_by(header, hinted_note);
     }
 
     #[external("private")]

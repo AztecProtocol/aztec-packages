@@ -2,6 +2,8 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_ETH_ADDRESS_BIT_SIZE: u32 = 160; // 20 bytes
+pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffffffff;
 pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 
@@ -78,10 +80,10 @@ pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 // Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
 // hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 
 // "PER CALL" CONSTANTS
@@ -92,8 +94,8 @@ pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = MAX_ENQUEUED_CALLS_PER_TX;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = MAX_L2_TO_L1_MSGS_PER_TX;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
@@ -238,6 +240,9 @@ pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
+// because we don't want any malicious user to be able to push malicious state for actual contracts through this
+// padding feature.
 // It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
 // that anyone can freely change the state of the contract by adding padding side effects to their transactions.
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
@@ -1130,12 +1135,12 @@ pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_SSTORE_BASE_L2_GAS: u32 = (633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 126 * 4; // SLOW_SIM_MUL = 3 (+1 for slow proving)
 pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = (261 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 15; // SLOW_SIM_MUL = 15
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 132 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 129 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
 pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (9 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (39 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
@@ -1246,7 +1251,7 @@ mod test {
         GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_ETH_ADDRESS_BIT_SIZE, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
@@ -1256,7 +1261,7 @@ mod test {
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::FromField;
     use super::{
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
@@ -1351,6 +1356,16 @@ mod test {
     fn validate_empty_epoch_out_hash() {
         let empty_root = compute_empty_sha_tree_root::<OUT_HASH_TREE_HEIGHT>();
         assert_eq(empty_root, EMPTY_EPOCH_OUT_HASH);
+    }
+
+    #[test]
+    fn validate_max_eth_address_value() {
+        MAX_ETH_ADDRESS_VALUE.assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn validate_max_eth_address_value_negative() {
+        (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
 
 }

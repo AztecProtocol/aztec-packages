@@ -192,6 +192,8 @@ locals {
     "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
+    "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE

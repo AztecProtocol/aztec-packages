@@ -20,7 +20,7 @@ You can create proofs for these elements at any past block height:
 - **Note inclusion** - prove a note existed in the note hash tree
 - **Note validity** - prove a note existed and wasn't nullified at a specific block
 - **Nullifier inclusion/non-inclusion** - prove a nullifier was or wasn't in the nullifier tree
-- **Contract deployment** - prove a contract was deployed or initialized
+- **Contract deployment** - prove a contract's bytecode was published or initialized
 
 Common use cases:
 - Verify ownership of an asset from another contract without revealing which specific note
@@ -29,7 +29,7 @@ Common use cases:
 
 ## Prove note inclusion
 
-Import the trait:
+Import the function:
 
 #include_code history_import noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr rust
 
@@ -42,10 +42,10 @@ Prove a note exists in the note hash tree:
 To prove a note was valid (existed AND wasn't nullified) at a historical block:
 
 ```rust
-use dep::aztec::history::note_validity::ProveNoteValidity;
+use dep::aztec::history::note::assert_note_was_valid_by;
 
 let header = self.context.get_anchor_block_header();
-header.prove_note_validity(hinted_note, &mut self.context);
+assert_note_was_valid_by(header, hinted_note, &mut self.context);
 ```
 
 This verifies both:
@@ -57,8 +57,10 @@ This verifies both:
 To prove against state at a specific past block (not just the anchor block):
 
 ```rust
+use dep::aztec::history::note::assert_note_existed_by;
+
 let historical_header = self.context.get_block_header_at(block_number);
-historical_header.prove_note_inclusion(hinted_note);
+assert_note_existed_by(historical_header, hinted_note);
 ```
 
 :::warning
@@ -70,45 +72,45 @@ Using `get_block_header_at` adds ~3k constraints to prove Archive tree membershi
 To prove a note has been spent/nullified:
 
 ```rust
-use dep::aztec::history::nullifier_inclusion::ProveNoteIsNullified;
+use dep::aztec::history::note::assert_note_was_nullified_by;
 
 let header = self.context.get_anchor_block_header();
-header.prove_note_is_nullified(hinted_note, &mut self.context);
+assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
 ```
 
-## Prove contract deployment
+## Prove contract bytecode was published
 
-To prove a contract was deployed at a historical block:
+To prove a contract's bytecode was published at a historical block:
 
 ```rust
-use dep::aztec::history::contract_inclusion::ProveContractDeployment;
+use dep::aztec::history::deployment::assert_contract_bytecode_was_published_by;
 
 let header = self.context.get_anchor_block_header();
-header.prove_contract_deployment(contract_address);
+assert_contract_bytecode_was_published_by(header, contract_address);
 ```
 
 You can also prove a contract was initialized (constructor was called):
 
 ```rust
-use dep::aztec::history::contract_inclusion::ProveContractInitialization;
+use dep::aztec::history::deployment::assert_contract_was_initialized_by;
 
 let header = self.context.get_anchor_block_header();
-header.prove_contract_initialization(contract_address);
+assert_contract_was_initialized_by(header, contract_address);
 ```
 
-## Available proof traits
+## Available proof functions
 
-The `aztec::history` module provides these traits:
+The `aztec::history` module provides these functions:
 
-| Trait | Purpose |
-|-------|---------|
-| `ProveNoteInclusion` | Prove note exists in note hash tree |
-| `ProveNoteValidity` | Prove note exists and is not nullified |
-| `ProveNoteIsNullified` | Prove note's nullifier is in nullifier tree |
-| `ProveNoteNotNullified` | Prove note's nullifier is not in nullifier tree |
-| `ProveNullifierInclusion` | Prove a raw nullifier exists |
-| `ProveNullifierNonInclusion` | Prove a raw nullifier does not exist |
-| `ProveContractDeployment` | Prove a contract was deployed |
-| `ProveContractNonDeployment` | Prove a contract was not deployed |
-| `ProveContractInitialization` | Prove a contract was initialized |
-| `ProveContractNonInitialization` | Prove a contract was not initialized |
+| Function | Module | Purpose |
+|----------|--------|---------|
+| `assert_note_existed_by` | `history::note` | Prove note exists in note hash tree |
+| `assert_note_was_valid_by` | `history::note` | Prove note exists and is not nullified |
+| `assert_note_was_nullified_by` | `history::note` | Prove note's nullifier is in nullifier tree |
+| `assert_note_was_not_nullified_by` | `history::note` | Prove note's nullifier is not in nullifier tree |
+| `assert_nullifier_existed_by` | `history::nullifier` | Prove a raw nullifier exists |
+| `assert_nullifier_did_not_exist_by` | `history::nullifier` | Prove a raw nullifier does not exist |
+| `assert_contract_bytecode_was_published_by` | `history::deployment` | Prove a contract's bytecode was published |
+| `assert_contract_bytecode_was_not_published_by` | `history::deployment` | Prove a contract's bytecode was not published |
+| `assert_contract_was_initialized_by` | `history::deployment` | Prove a contract was initialized |
+| `assert_contract_was_not_initialized_by` | `history::deployment` | Prove a contract was not initialized |

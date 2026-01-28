@@ -1,8 +1,11 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer.js';
 import type { PXE } from '../pxe.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { AnchorBlockStore } from '../storage/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
@@ -10,18 +13,20 @@ import type { NoteStore } from '../storage/note_store/note_store.js';
  * No backwards compatibility or API stability should be expected. Use at your own risk.
  */
 export class PXEDebugUtils {
-  #pxe: PXE | undefined = undefined;
+  #pxe!: PXE;
+  #putJobInQueue!: <T>(job: (jobId: string) => Promise<T>) => Promise<T>;
 
   constructor(
     private contractStore: ContractStore,
     private noteStore: NoteStore,
+    private blockStateSynchronizer: BlockSynchronizer,
+    private anchorBlockStore: AnchorBlockStore,
   ) {}
 
-  /**
-   * Not injected through constructor since they're are co-dependant.
-   */
-  public setPXE(pxe: PXE) {
+  /** Not injected through constructor since they're are co-dependant */
+  public setPXE(pxe: PXE, putJobInQueue: <T>(job: (jobId: string) => Promise<T>) => Promise<T>) {
     this.#pxe = pxe;
+    this.#putJobInQueue = putJobInQueue;
   }
 
   /**
@@ -36,14 +41,23 @@ export class PXEDebugUtils {
    * @returns The requested notes.
    */
   public async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    if (!this.#pxe) {
-      throw new Error('Cannot getNotes because no PXE is set');
-    }
-
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    const call = await this.contractStore.getFunctionCall('sync_private_state', [], filter.contractAddress);
+    const call = await this.contractStore.getFunctionCall('sync_state', [], filter.contractAddress);
     await this.#pxe.simulateUtility(call);
 
     return this.noteStore.getNotes(filter, randomBytes(8).toString('hex'));
+  }
+
+  /** Returns the block header up to which the PXE has synced. */
+  public getSyncedBlockHeader(): Promise<BlockHeader> {
+    return this.anchorBlockStore.getBlockHeader();
+  }
+
+  /**
+   * Triggers a sync of the PXE with the node.
+   * Blocks until the sync is complete.
+   */
+  public sync(): Promise<void> {
+    return this.#putJobInQueue(() => this.blockStateSynchronizer.sync());
   }
 }

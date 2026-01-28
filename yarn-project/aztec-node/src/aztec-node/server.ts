@@ -41,7 +41,7 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockParameter, type DataInBlock, L2Block, L2BlockHash, type L2BlockSource } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -119,7 +119,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
-  private initialHeaderHashPromise: Promise<L2BlockHash> | undefined = undefined;
+  private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -570,7 +570,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isL2BlockHash(block)) {
       return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
     }
     const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
@@ -692,7 +692,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getPrivateLogsByTags(
     tags: SiloedTag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
@@ -713,7 +713,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
@@ -915,7 +915,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
       return {
         l2BlockNumber: BlockNumber(Number(blockNumber)),
-        l2BlockHash: L2BlockHash.fromField(blockHash),
+        l2BlockHash: BlockHash.fromField(blockHash),
         data: index,
       };
     });
@@ -1118,7 +1118,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isL2BlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
@@ -1409,13 +1409,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  #getInitialHeaderHash(): Promise<L2BlockHash> {
+  #getInitialHeaderHash(): Promise<BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer
-        .getCommitted()
-        .getInitialHeader()
-        .hash()
-        .then(hash => L2BlockHash.fromField(hash));
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
     }
     return this.initialHeaderHashPromise;
   }
@@ -1439,7 +1435,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isL2BlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.

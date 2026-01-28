@@ -433,6 +433,8 @@ export class CheckpointProposalJob implements Traceable {
         this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
       });
 
+      usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
+
       // If this is the last block, exit the loop now so we start collecting attestations
       if (timingInfo.isLastBlock) {
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.slot}`, {
@@ -684,7 +686,7 @@ export class CheckpointProposalJob implements Traceable {
     const attestationTimeAllowed = this.config.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)!
       : this.l1Constants.slotDuration;
-    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+    const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
 
     this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
 

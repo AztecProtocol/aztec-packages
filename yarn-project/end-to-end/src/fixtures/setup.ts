@@ -209,6 +209,8 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
+  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
+  walletMinFeePadding?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -268,7 +270,7 @@ export type EndToEndContext = {
  */
 async function setupWithRemoteEnvironment(
   account: HDAccount | PrivateKeyAccount,
-  config: AztecNodeConfig,
+  config: AztecNodeConfig & SetupOptions,
   logger: Logger,
   numberOfAccounts: number,
 ): Promise<EndToEndContext> {
@@ -289,6 +291,11 @@ async function setupWithRemoteEnvironment(
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = await TestWallet.create(aztecNode);
+
+  if (config.walletMinFeePadding !== undefined) {
+    wallet.setMinFeePadding(config.walletMinFeePadding);
+  }
+
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
@@ -385,7 +392,7 @@ export async function setup(
       const res = await startAnvil({
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
-        port: opts.anvilPort,
+        port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
@@ -605,6 +612,10 @@ export async function setup(
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
     const wallet = await TestWallet.create(aztecNodeService, pxeConfig);
+
+    if (opts.walletMinFeePadding !== undefined) {
+      wallet.setMinFeePadding(opts.walletMinFeePadding);
+    }
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 

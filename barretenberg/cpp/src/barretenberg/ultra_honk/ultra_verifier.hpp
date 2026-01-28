@@ -139,7 +139,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
-     * @brief Compute log_n based on flavor configuration.
+     * @brief Compute log_n based on flavor.
      * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
      */
     size_t compute_log_n() const;

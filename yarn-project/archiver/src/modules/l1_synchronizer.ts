@@ -258,7 +258,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
         { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
       );
-      const prunedBlocks = await this.updater.removeBlocksAfter(lastCheckpointedBlockNumber);
+      const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
 
       if (prunedBlocks.length > 0) {
         this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
@@ -331,10 +331,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.debug(
         `L2 prune from ${provenCheckpointNumber + 1} to ${localPendingCheckpointNumber} will occur on next checkpoint submission.`,
       );
-      await this.updater.unwindCheckpoints(localPendingCheckpointNumber, checkpointsToUnwind);
+      await this.updater.removeCheckpointsAfter(provenCheckpointNumber);
       this.log.warn(
-        `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
-          `to ${provenCheckpointNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
+        `Removed ${count(checkpointsToUnwind, 'checkpoint')} after checkpoint ${provenCheckpointNumber} ` +
+          `due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated latest checkpoint is ${await this.store.getSynchedCheckpointNumber()}.`,
       );
       this.instrumentation.processPrune(timer.ms());
@@ -675,11 +675,11 @@ export class ArchiverL1Synchronizer implements Traceable {
           tipAfterUnwind--;
         }
 
-        const checkpointsToUnwind = localPendingCheckpointNumber - tipAfterUnwind;
-        await this.updater.unwindCheckpoints(localPendingCheckpointNumber, checkpointsToUnwind);
+        const checkpointsToRemove = localPendingCheckpointNumber - tipAfterUnwind;
+        await this.updater.removeCheckpointsAfter(CheckpointNumber(tipAfterUnwind));
 
         this.log.warn(
-          `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
+          `Removed ${count(checkpointsToRemove, 'checkpoint')} after checkpoint ${tipAfterUnwind} ` +
             `due to mismatched checkpoint hashes at L1 block ${currentL1BlockNumber}. ` +
             `Updated L2 latest checkpoint is ${await this.store.getSynchedCheckpointNumber()}.`,
         );
@@ -806,8 +806,8 @@ export class ArchiverL1Synchronizer implements Traceable {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
         const [processDuration, result] = await elapsed(() =>
-          execInSpan(this.tracer, 'Archiver.setCheckpointData', () =>
-            this.updater.setNewCheckpointData(validCheckpoints, updatedValidationResult),
+          execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
+            this.updater.addCheckpoints(validCheckpoints, updatedValidationResult),
           ),
         );
         this.instrumentation.processNewBlocks(

@@ -15,6 +15,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
+import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
   Capsule,
   HashedValues,
@@ -25,7 +26,6 @@ import {
   UtilitySimulationResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
-import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
