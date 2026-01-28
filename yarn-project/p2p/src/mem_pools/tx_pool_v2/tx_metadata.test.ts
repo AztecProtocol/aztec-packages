@@ -1,8 +1,6 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import type { L2BlockId } from '@aztec/stdlib/block';
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { type TxMetaData, buildTxMetaData, comparePriority, getMetadataPriority, getTxState } from './tx_metadata.js';
+import { type TxMetaData, buildTxMetaData, comparePriority, getMetadataPriority } from './tx_metadata.js';
 
 describe('TxMetaData', () => {
   describe('buildTxMetaData', () => {
@@ -16,7 +14,6 @@ describe('TxMetaData', () => {
       expect(meta.feePayer).toBe(tx.data.feePayer.toString());
       expect(meta.nullifiers.length).toBeGreaterThan(0);
       expect(meta.minedL2BlockId).toBeUndefined();
-      expect(meta.protectedSlotNumber).toBeUndefined();
     });
 
     it('extracts nullifiers as strings', async () => {
@@ -27,44 +24,6 @@ describe('TxMetaData', () => {
         expect(typeof nullifier).toBe('string');
         expect(nullifier).toMatch(/^0x[0-9a-f]+$/i);
       }
-    });
-  });
-
-  describe('getTxState', () => {
-    const baseMeta: TxMetaData = {
-      txHash: '0x1234',
-      anchorBlockHeaderHash: '0x5678',
-      priorityFee: 100n,
-      feePayer: '0xabcd',
-      claimAmount: 0n,
-      feeLimit: 1000n,
-      nullifiers: ['0x1111'],
-    };
-
-    it('returns pending when no special flags are set', () => {
-      const meta: TxMetaData = { ...baseMeta };
-      expect(getTxState(meta)).toBe('pending');
-    });
-
-    it('returns protected when protectedSlotNumber is set', () => {
-      const meta: TxMetaData = { ...baseMeta, protectedSlotNumber: SlotNumber(5) };
-      expect(getTxState(meta)).toBe('protected');
-    });
-
-    it('returns mined when minedL2BlockId is set', () => {
-      const blockId: L2BlockId = { number: BlockNumber(10), hash: '0xabc' };
-      const meta: TxMetaData = { ...baseMeta, minedL2BlockId: blockId };
-      expect(getTxState(meta)).toBe('mined');
-    });
-
-    it('returns mined when both protected and mined are set (mined takes precedence)', () => {
-      const blockId: L2BlockId = { number: BlockNumber(10), hash: '0xabc' };
-      const meta: TxMetaData = {
-        ...baseMeta,
-        protectedSlotNumber: SlotNumber(5),
-        minedL2BlockId: blockId,
-      };
-      expect(getTxState(meta)).toBe('mined');
     });
   });
 

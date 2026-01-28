@@ -39,12 +39,12 @@ import {
   type TxPoolV2Dependencies,
   type TxPoolV2Events,
 } from './interfaces.js';
-import { type TxMetaData, type TxState, buildTxMetaData, getTxState } from './tx_metadata.js';
+import { type TxMetaData, type TxState, buildTxMetaData } from './tx_metadata.js';
 
 /**
  * Implementation of TxPoolV2 with explicit state management.
  *
- * All state-mutating operations are serialized through a handler queue
+ * All operations are serialized through a handler queue
  * to prevent race conditions. In-memory indices enable fast lookups
  * while persistence ensures durability across restarts.
  */
@@ -72,8 +72,8 @@ export class AztecKVTxPoolV2
    * Outer map: priorityFee -> Set of txHashes at that fee level.
    */
   #pendingByPriority: Map<bigint, Set<string>> = new Map();
-  /** Pre-protected txHashes: hashes we should protect when received */
-  #preProtectedHashes: Map<string, SlotNumber> = new Map();
+  /** Protected transactions: txHash -> slotNumber. Includes txs we have and txs we expect to receive. */
+  #protectedTransactions: Map<string, SlotNumber> = new Map();
 
   // === Queue & Config ===
   #queue: SerialQueue;
@@ -206,7 +206,7 @@ export class AztecKVTxPoolV2
       if (!meta) {
         return undefined;
       }
-      return getTxState(meta);
+      return this.#getTxState(meta);
     });
   }
 
@@ -264,20 +264,50 @@ export class AztecKVTxPoolV2
 
   // === Private Query Implementations ===
 
-  #doGetPendingTxHashes(): TxHash[] {
-    // Sort priority fees descending (highest first), then sort hashes within each fee level descending
-    const sortedFees = [...this.#pendingByPriority.keys()].sort((a, b) => (b > a ? 1 : b < a ? -1 : 0));
+  /**
+   * Derives the transaction state from its metadata and protection status.
+   * A transaction is:
+   * - 'mined' if it has a minedL2BlockId
+   * - 'protected' if it's in the protectedTransactions map (but not mined)
+   * - 'pending' otherwise
+   */
+  #getTxState(meta: TxMetaData): TxState {
+    if (meta.minedL2BlockId !== undefined) {
+      return 'mined';
+    } else if (this.#protectedTransactions.has(meta.txHash)) {
+      return 'protected';
+    } else {
+      return 'pending';
+    }
+  }
 
-    const result: TxHash[] = [];
+  /**
+   * Iterates pending transaction hashes in priority order.
+   * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
+   */
+  *#iteratePendingByPriority(order: 'asc' | 'desc'): Generator<string> {
+    const compareFn =
+      order === 'desc'
+        ? (a: bigint, b: bigint) => (b > a ? 1 : b < a ? -1 : 0)
+        : (a: bigint, b: bigint) => (a > b ? 1 : a < b ? -1 : 0);
+
+    const sortedFees = [...this.#pendingByPriority.keys()].sort(compareFn);
+
     for (const fee of sortedFees) {
       const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      // Sort hashes descending within the same fee level
-      const sortedHashes = [...hashesAtFee].sort((a, b) => b.localeCompare(a));
+      // Sort hashes in same direction within fee level for deterministic ordering
+      const sortedHashes =
+        order === 'desc'
+          ? [...hashesAtFee].sort((a, b) => b.localeCompare(a))
+          : [...hashesAtFee].sort((a, b) => a.localeCompare(b));
       for (const hash of sortedHashes) {
-        result.push(TxHash.fromString(hash));
+        yield hash;
       }
     }
-    return result;
+  }
+
+  #doGetPendingTxHashes(): TxHash[] {
+    return [...this.#iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
   }
 
   #doGetPendingTxCount(): number {
@@ -303,22 +333,11 @@ export class AztecKVTxPoolV2
       return [];
     }
 
-    // Sort priority fees ascending (lowest first)
-    const sortedFees = [...this.#pendingByPriority.keys()].sort((a, b) => (a > b ? 1 : a < b ? -1 : 0));
-
     const result: TxHash[] = [];
-    for (const fee of sortedFees) {
+    for (const hash of this.#iteratePendingByPriority('asc')) {
+      result.push(TxHash.fromString(hash));
       if (result.length >= limit) {
         break;
-      }
-      const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      // Sort hashes ascending within the same fee level (lowest first for eviction)
-      const sortedHashes = [...hashesAtFee].sort((a, b) => a.localeCompare(b));
-      for (const hash of sortedHashes) {
-        result.push(TxHash.fromString(hash));
-        if (result.length >= limit) {
-          break;
-        }
       }
     }
     return result;
@@ -470,13 +489,6 @@ export class AztecKVTxPoolV2
 
         const meta = await buildTxMetaData(tx);
 
-        // Check if we should protect this tx immediately (pre-recorded protection)
-        const preProtectedSlot = this.#preProtectedHashes.get(txHashStr);
-        if (preProtectedSlot !== undefined) {
-          meta.protectedSlotNumber = preProtectedSlot;
-          this.#preProtectedHashes.delete(txHashStr);
-        }
-
         // Add the transaction
         await this.#txsDB.set(txHashStr, tx.toBuffer());
         this.#addToIndices(meta);
@@ -487,7 +499,7 @@ export class AztecKVTxPoolV2
 
         this.#log.verbose(`Added tx ${txHashStr} to pool`, {
           eventName: 'tx-added-to-pool',
-          state: getTxState(meta),
+          state: this.#getTxState(meta),
         });
       }
     });
@@ -531,16 +543,15 @@ export class AztecKVTxPoolV2
 
         const existingMeta = this.#metadata.get(txHashStr);
         if (existingMeta) {
-          // Update protection if not mined
-          if (existingMeta.minedL2BlockId === undefined) {
-            this.#updateProtection(existingMeta, slotNumber);
-          }
+          // Update protection even if mined - handles race condition where reorg
+          // may un-mine the tx, and it should retain protection from later proposals
+          this.#updateProtection(txHashStr, slotNumber);
           continue;
         }
 
         // New transaction - add as protected
         const meta = await buildTxMetaData(tx);
-        meta.protectedSlotNumber = slotNumber;
+        this.#protectedTransactions.set(txHashStr, slotNumber);
 
         await this.#txsDB.set(txHashStr, tx.toBuffer());
         this.#addToIndices(meta);
@@ -565,16 +576,15 @@ export class AztecKVTxPoolV2
       const meta = this.#metadata.get(txHashStr);
 
       if (!meta) {
-        // Record for future protection when tx arrives via gossip
-        this.#preProtectedHashes.set(txHashStr, slotNumber);
+        // Set the transaction as protected in case it is added later as pending
+        this.#protectedTransactions.set(txHashStr, slotNumber);
         missing.push(txHash);
         continue;
       }
 
-      // Update protection if not mined
-      if (meta.minedL2BlockId === undefined) {
-        this.#updateProtection(meta, slotNumber);
-      }
+      // Update protection even if mined - handles race condition where reorg
+      // may un-mine the tx, and it should retain protection from later proposals
+      this.#updateProtection(txHashStr, slotNumber);
     }
 
     return Promise.resolve(missing);
@@ -657,17 +667,16 @@ export class AztecKVTxPoolV2
   async #doPrepareForSlot(slotNumber: SlotNumber): Promise<void> {
     const txsToUnprotect: string[] = [];
 
-    // Find protected txs from earlier slots
-    for (const [txHashStr, meta] of this.#metadata) {
-      if (meta.protectedSlotNumber !== undefined && meta.protectedSlotNumber < slotNumber) {
-        txsToUnprotect.push(txHashStr);
-      }
-    }
-
-    // Clean up stale pre-protected hashes
-    for (const [txHashStr, protectedSlot] of this.#preProtectedHashes) {
+    // Find protected txs from earlier slots (that we have metadata for)
+    for (const [txHashStr, protectedSlot] of this.#protectedTransactions) {
       if (protectedSlot < slotNumber) {
-        this.#preProtectedHashes.delete(txHashStr);
+        // Only unprotect if we have the tx and it's not mined
+        const meta = this.#metadata.get(txHashStr);
+        if (meta && meta.minedL2BlockId === undefined) {
+          txsToUnprotect.push(txHashStr);
+        }
+        // Always remove from protected map (cleans up stale entries for txs we never received)
+        this.#protectedTransactions.delete(txHashStr);
       }
     }
 
@@ -677,7 +686,6 @@ export class AztecKVTxPoolV2
 
     this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToUnprotect.length} txs`);
 
-    const { AztecAddress: AztecAddressClass } = await import('@aztec/stdlib/aztec-address');
     const unprotectedHashes: TxHash[] = [];
     const feePayers: AztecAddress[] = [];
 
@@ -687,14 +695,11 @@ export class AztecKVTxPoolV2
         continue;
       }
 
-      // Remove protection
-      meta.protectedSlotNumber = undefined;
-
       // Re-add to pending indices
       this.#addToPendingIndices(meta);
 
       unprotectedHashes.push(TxHash.fromString(txHashStr));
-      feePayers.push(AztecAddressClass.fromString(meta.feePayer));
+      feePayers.push(AztecAddress.fromString(meta.feePayer));
     }
 
     // Use eviction manager to enforce pool size limit after unprotecting
@@ -816,8 +821,7 @@ export class AztecKVTxPoolV2
   #addToIndices(meta: TxMetaData): void {
     this.#metadata.set(meta.txHash, meta);
 
-    const state = getTxState(meta);
-    if (state === 'pending') {
+    if (this.#getTxState(meta) === 'pending') {
       this.#addToPendingIndices(meta);
     }
     // Protected and mined txs don't go into pending indices
@@ -876,21 +880,30 @@ export class AztecKVTxPoolV2
     hashSet.add(meta.txHash);
   }
 
-  #updateProtection(meta: TxMetaData, slotNumber: SlotNumber): void {
-    const wasProtected = meta.protectedSlotNumber !== undefined;
-    meta.protectedSlotNumber = slotNumber;
+  #updateProtection(txHashStr: string, slotNumber: SlotNumber): void {
+    const currentSlot = this.#protectedTransactions.get(txHashStr);
 
-    if (!wasProtected && meta.minedL2BlockId === undefined) {
-      // Moving from pending to protected - remove from pending indices
-      this.#removeFromPendingIndices(meta);
+    // Only update if not already protected at an equal or later slot
+    if (currentSlot !== undefined && currentSlot >= slotNumber) {
+      return;
     }
+
+    // Remove from pending indices if transitioning from pending to protected
+    if (currentSlot === undefined) {
+      const meta = this.#metadata.get(txHashStr);
+      if (meta) {
+        this.#removeFromPendingIndices(meta);
+      }
+    }
+
+    this.#protectedTransactions.set(txHashStr, slotNumber);
   }
 
   #markAsMined(meta: TxMetaData, blockId: L2BlockId): void {
-    const wasPending = meta.protectedSlotNumber === undefined && meta.minedL2BlockId === undefined;
+    const wasProtected = this.#protectedTransactions.has(meta.txHash);
+    const wasPending = !wasProtected && meta.minedL2BlockId === undefined;
 
     meta.minedL2BlockId = blockId;
-    meta.protectedSlotNumber = undefined;
 
     if (wasPending) {
       this.#removeFromPendingIndices(meta);
@@ -906,6 +919,7 @@ export class AztecKVTxPoolV2
 
     // Remove from all indices
     this.#metadata.delete(txHashStr);
+    this.#protectedTransactions.delete(txHashStr);
     this.#removeFromPendingIndices(meta);
 
     // Remove from persistence
@@ -982,7 +996,7 @@ export class AztecKVTxPoolV2
           priority: meta.priorityFee,
           feeLimit: meta.feeLimit,
           claimAmount: meta.claimAmount,
-          isEvictable: getTxState(meta) === 'pending',
+          isEvictable: this.#getTxState(meta) === 'pending',
         });
       }
     }
@@ -1001,7 +1015,7 @@ export class AztecKVTxPoolV2
       },
       getPendingTxByHash: async (hash: TxHash): Promise<Tx | undefined> => {
         const meta = this.#metadata.get(hash.toString());
-        if (!meta || getTxState(meta) !== 'pending') {
+        if (!meta || this.#getTxState(meta) !== 'pending') {
           return undefined;
         }
         return await this.getTxByHash(hash);
@@ -1037,7 +1051,7 @@ export class AztecKVTxPoolV2
     let mined = 0;
 
     for (const meta of this.#metadata.values()) {
-      const state = getTxState(meta);
+      const state = this.#getTxState(meta);
       if (state === 'pending') {
         pending++;
       } else if (state === 'protected') {

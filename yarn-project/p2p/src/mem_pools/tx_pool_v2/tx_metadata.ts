@@ -1,4 +1,3 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { L2BlockId } from '@aztec/stdlib/block';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -38,30 +37,10 @@ export type TxMetaData = {
 
   /** Non-empty nullifiers emitted by the transaction (hex strings) */
   readonly nullifiers: readonly string[];
-
-  /** Slot number for which the transaction is protected (undefined if not protected) */
-  protectedSlotNumber?: SlotNumber;
 };
 
-/** Transaction state derived from TxMetaData fields */
+/** Transaction state derived from TxMetaData fields and pool protection status */
 export type TxState = 'pending' | 'protected' | 'mined';
-
-/**
- * Derives the transaction state from its metadata.
- * A transaction is:
- * - 'mined' if it has a minedL2BlockId
- * - 'protected' if it has a protectedSlotNumber (but not mined)
- * - 'pending' otherwise
- */
-export function getTxState(meta: TxMetaData): TxState {
-  if (meta.minedL2BlockId !== undefined) {
-    return 'mined';
-  } else if (meta.protectedSlotNumber !== undefined) {
-    return 'protected';
-  } else {
-    return 'pending';
-  }
-}
 
 /**
  * Builds TxMetaData from a full Tx object.
