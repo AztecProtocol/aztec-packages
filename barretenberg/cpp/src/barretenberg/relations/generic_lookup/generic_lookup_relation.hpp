@@ -189,13 +189,19 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     }
 
     // (Sub)relation lengths: equal to 1 + relation degree
+    static constexpr size_t LOOKUP_TERM_ACCUMULATED_DEGREE = compute_lookup_term_product_degree();
+    static constexpr size_t TABLE_TERM_ACCUMULATED_DEGREE = compute_table_term_product_degree();
+    static_assert(LOOKUP_TERM_ACCUMULATED_DEGREE > 0);
+    static_assert(TABLE_TERM_ACCUMULATED_DEGREE > 0);
+
     static constexpr size_t FIRST_RELATION_PARTIAL_LENGTH =
-        std::max((compute_lookup_term_product_degree() + compute_table_term_product_degree() + 1),
+        std::max(LOOKUP_TERM_ACCUMULATED_DEGREE + TABLE_TERM_ACCUMULATED_DEGREE + 1,
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
         1; // inverse polynomial correctness sub-relation
     static constexpr size_t SECOND_RELATION_PARTIAL_LENGTH =
         NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // log-derived terms sub-relation
     static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
+
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{ LENGTH, LENGTH };
 
     // The first subrelation must be satisfied at every row.
