@@ -181,6 +181,7 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
                 current_degree = Settings::TABLE_TERM_DEGREES[i];
                 break;
             default:
+                bb::assert_failure("Invalid table type");
                 break;
             }
             accumulated_degree += current_degree;
@@ -358,7 +359,7 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     {
         // If it's the starting index, then there is nothing to compute, just get the starting index
         if (lookup_index == 0) {
-            return LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX;
+            return LOOKUP_TERM_START_POLYNOMIAL_INDEX;
         }
 
         switch (Settings::LOOKUP_TYPES[lookup_index - 1]) {
