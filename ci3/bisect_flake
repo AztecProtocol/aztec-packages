@@ -55,12 +55,17 @@ function build {
     fi
 }
 
-function grind {
-    if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
-        rc=$?
-        [ "$rc" -eq 124 ] || return $rc
-    fi
-}
+function grind (
+    echo "Grinding $GRIND_FLAKE_RUNS times or for $GRIND_TIMEOUT seconds..."
+    function _grind {
+      if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+          rc=$?
+          [ "$rc" -eq 124 ] || return $rc
+      fi
+    }
+    export -f _grind
+    denoise _grind
+)
 
 echo_header "deflake"
 echo "Full cmd: $full_cmd"
@@ -90,8 +95,11 @@ if ! seq 1 $CONFIRM_FLAKE_RUNS | parallel --halt now,success=1 --line-buffer \
 fi
 
 # Inject some system load to better reproduce flakes.
+echo_header "installing stress-ng to load the system"
 sudo apt update && sudo apt install -y stress-ng
-stress-ng --cpu $(( $(nproc) / 2 )) --cpu-method all &
+stress-ng --cpu $(( $(nproc)/2 )) --cpu-load 60 --cpu-load-slice 0 &
+stress_pid=$!
+trap "kill $stress_pid" EXIT
 
 # ============================================================
 # Step 2: Verify oldest commit is stable (not flaky)
@@ -116,7 +124,6 @@ checkout $good_commit
 build
 
 # Grind to check if oldest commit is stable
-echo "Grinding $jobs times to verify stability..."
 if grind; then
     echo "Oldest commit is stable - proceeding with bisect"
 else
