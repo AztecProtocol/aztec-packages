@@ -56,6 +56,7 @@ void NullifierTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::nullifier_check_sel, 1 },
+                      { C::nullifier_check_const_three, 3 },
                       { C::nullifier_check_write, event.write },
                       { C::nullifier_check_nullifier, nullifier },
                       { C::nullifier_check_root, event.prev_snapshot.root },
