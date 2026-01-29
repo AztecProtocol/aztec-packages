@@ -49,9 +49,9 @@ impl Counter {
 
 /// This represents an Aztec test run, and contains all the methods utilized during one to interact with the network
 /// and manipulate its state (e.g. create accounts, make contract calls, etc.). Each test is expected to have its own
-/// instance of [TestEnvironment], as tests execute in parallel and so cannot share this object.
+/// instance of [`TestEnvironment`], as tests execute in parallel and so cannot share this object.
 ///
-/// Most tests will begin by creating a [TestEnvironment] variable, and then make multiple calls to its different
+/// Most tests will begin by creating a [`TestEnvironment`] variable, and then make multiple calls to its different
 /// methods. E.g.:
 /// ```noir
 /// #[test]
@@ -81,7 +81,7 @@ pub struct TestEnvironment {
     contract_deployment_secret: Counter,
 }
 
-/// Configuration values for [TestEnvironment::private_context_opts]. Meant to be used by calling `new` and then
+/// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
 /// chaining methods setting each value, e.g.:
 /// ```noir
 /// env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(5), ...);
@@ -142,7 +142,7 @@ impl TestEnvironment {
         }
     }
 
-    /// Returns the default address used by [TestEnvironment::private_context] and other functions that do not take a
+    /// Returns the default address used by [`TestEnvironment::private_context`] and other functions that do not take a
     /// contract address.
     pub(crate) unconstrained fn get_default_address() -> AztecAddress {
         txe_oracles::get_default_address()
@@ -646,22 +646,22 @@ impl TestEnvironment {
         T::deserialize(serialized_return_values)
     }
 
-    /// Discovers a note from a [NoteMessage], which is expected to have been created in the last transaction
-    /// (typically via [TestEnvironment::private_context]) so that it can be retrieved in later transactions. This
+    /// Discovers a note from a [`NoteMessage`], which is expected to have been created in the last transaction
+    /// (typically via [`TestEnvironment::private_context`]) so that it can be retrieved in later transactions. This
     /// mimics the normal message processing that takes place automatically in contracts.
     ///
-    /// [NoteMessage] values are typically returned by aztec-nr state variables that create notes and need to notify a
-    /// recipient of their existence. Instead of going through the message encoding, encryption and delivery that would
-    /// regularly take place in a contract, this function simply takes the [NoteMessage] and processes it as needed to
-    /// discover the underlying note.
+    /// [`NoteMessage`] values are typically returned by aztec-nr state variables that create notes and need to notify
+    /// a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
+    /// would regularly take place in a contract, this function simply takes the [`NoteMessage`] and processes it as
+    /// needed to discover the underlying note.
     ///
-    /// See [TestEnvironment::discover_note_at] for a variant that allows specifying the contract address the note
+    /// See [`TestEnvironment::discover_note_at`] for a variant that allows specifying the contract address the note
     /// belongs to.
     ///
     /// ### Sample usage
     ///
     /// The most common way to invoke this function is to obtain a note message created during the execution of a
-    /// [TestEnvironment::private_context]:
+    /// [`TestEnvironment::private_context`]:
     ///
     /// ```noir
     /// let note_message = env.private_context(|context| create_note(context, storage_slot, note));
@@ -677,9 +677,9 @@ impl TestEnvironment {
         self.discover_note_opts(NoteDiscoveryOptions { contract_address: Option::none() }, note_message);
     }
 
-    /// Variant of [TestEnvironment::discover_note] which allows specifying the contract address the note belongs to,
+    /// Variant of [`TestEnvironment::discover_note`] which allows specifying the contract address the note belongs to,
     /// which is required when the note was not emitted in the default address used by
-    /// [TestEnvironment::private_context].
+    /// [`TestEnvironment::private_context`].
     ///
     /// ```noir
     /// let note_message = env.private_context_at(contract_address, |context| {
@@ -753,25 +753,25 @@ impl TestEnvironment {
 
     /// EXPERIMENTAL - not yet part of the public API
     ///
-    /// Discovers an event from an [EventMessage], which is expected to have been created in the last transaction
-    /// (typically via [TestEnvironment::private_context]) so that it can be retrieved in queries. This mimics the
+    /// Discovers an event from an [`EventMessage`], which is expected to have been created in the last transaction
+    /// (typically via [`TestEnvironment::private_context`]) so that it can be retrieved in queries. This mimics the
     /// normal message processing that takes place automatically in contracts.
     ///
-    /// [EventMessage] values are returned by aztec-nr private event emitting functions, like
-    /// [crate::contract_self::ContractSelf::emit], which need to notify a `recipient` of their existence. Instead of
+    /// [`EventMessage`] values are returned by aztec-nr private event emitting functions, like
+    /// [`crate::contract_self::ContractSelf::emit`], which need to notify a `recipient` of their existence. Instead of
     /// going through the message encoding, encryption and delivery that would regularly take place in a contract, this
-    /// function simply takes the [EventMessage] and processes it as needed to discover the underlying event.
+    /// function simply takes the [`EventMessage`] and processes it as needed to discover the underlying event.
     ///
     /// As this mimics regular event processing, only `recipient` will have knowledge of the event: other accounts will
     /// not be able to read it.
     ///
-    /// See [TestEnvironment::discover_event_at] for a variant that allows specifying the contract address the event
+    /// See [`TestEnvironment::discover_event_at`] for a variant that allows specifying the contract address the event
     /// belongs to.
     ///
     /// ### Sample usage
     ///
     /// The most common way to invoke this function is to obtain a note message created during the execution of a
-    /// [TestEnvironment::private_context]:
+    /// [`TestEnvironment::private_context`]:
     ///
     /// ```noir
     /// let event_message = env.private_context(|context| emit_event_in_private(context, event));
@@ -791,9 +791,9 @@ impl TestEnvironment {
 
     /// EXPERIMENTAL - not yet part of the public API
     ///
-    /// Variant of [TestEnvironment::discover_event] which allows specifying the contract address the event belongs to,
-    /// which is required when the event was not emitted in the default address used by
-    /// [TestEnvironment::private_context].
+    /// Variant of [`TestEnvironment::discover_event`] which allows specifying the contract address the event belongs
+    /// to, which is required when the event was not emitted in the default address used by
+    /// [`TestEnvironment::private_context`].
     ///
     /// ```noir
     /// let event_message = env.private_context_at(contract_address, |context| {

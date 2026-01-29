@@ -29,9 +29,9 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 ///
 /// Initializer functions are similar to constructors:
 /// - can only be called once
-/// - [external] non-initializer functions cannot be called until one of the initializers has ben called
+/// - [`external`] non-initializer functions cannot be called until one of the initializers has ben called
 ///
-/// The only exception are [noinitcheck] functions, which can be called even if none of the initializers has been
+/// The only exception are [`noinitcheck`] functions, which can be called even if none of the initializers has been
 /// called.
 ///
 /// ## Initialization Commitment
@@ -52,9 +52,9 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 /// the initializers.
 ///
 /// Initializers can be either private or public. If a contract needs to initialize both private and public state, then
-/// it should have an [external] private function marked as [initializer] which then enqueues a call to an [external]
-/// public function **not** marked as [initializer] and instead marked as [only_self] (so that it can only be called in
-/// this manner).
+/// it should have an [`external`] private function marked as [`initializer`] which then enqueues a call to an
+/// [`external`] public function **not** marked as [`initializer`] and instead marked as [`only_self`] (so that it can
+/// only be called in this manner).
 ///
 /// ## Lack of Initializers
 ///
@@ -65,15 +65,15 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 ///
 /// ## Cost
 ///
-/// The initialization process emits a nullifier which marks the contract as initialized. All other [external]
+/// The initialization process emits a nullifier which marks the contract as initialized. All other [`external`]
 /// functions are automatically made to check that this nullifier exists, ensuring initialization.
 ///
 /// For private non-initializer functions, the cost of this check is equivalent to that of a call to
-/// [PrivateContext::assert_nullifier_exists](crate::context::PrivateContext::assert_nullifier_exists). For public
+/// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists). For public
 /// ones, it is equivalent to a call to
-/// [PublicContext::nullifier_exists_unsafe](crate::context::PublicContext::nullifier_exists_unsafe).
+/// [`PublicContext::nullifier_exists_unsafe`](crate::context::PublicContext::nullifier_exists_unsafe).
 ///
-/// The [noinitcheck] attribute can be used to skip the initialization nullifer checks.
+/// The [`noinitcheck`] attribute can be used to skip the initialization nullifer checks.
 pub comptime fn initializer(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
@@ -88,9 +88,10 @@ pub comptime fn initializer(f: FunctionDefinition) {
     }
 }
 
-/// A no-init-check [external] function can be called even if none of the [initializer] functions have been called yet.
+/// A no-init-check [`external`] function can be called even if none of the [`initializer`] functions have been called
+/// yet.
 ///
-/// Contracts that have no [initializer] functions do not require this attribute: all of their functions behave as if
+/// Contracts that have no [`initializer`] functions do not require this attribute: all of their functions behave as if
 /// they implicitly had it (i.e. they don't check for initialization nullifiers).
 ///
 /// ## Use Case
@@ -139,23 +140,24 @@ pub comptime fn nophasecheck(f: FunctionDefinition) {
     }
 }
 
-/// Restricts an [external] function so that it can only be called by the contract itself.
+/// Restricts an [`external`] function so that it can only be called by the contract itself.
 ///
-/// [external] functions can normally be called by any address - it is up to contracts to set up access control checks
-/// e.g. to admin functions. [only_self] similarly makes it so that the only authorized address is the account
+/// [`external`] functions can normally be called by any address - it is up to contracts to set up access control
+/// checks
+/// e.g. to admin functions. [`only_self`] similarly makes it so that the only authorized address is the account
 /// contract, i.e. the function _requires_ reentrancy.
 ///
-/// These are different from [internal] functions in that those are _internally_ called, i.e. they don't result in
+/// These are different from [`internal`] functions in that those are _internally_ called, i.e. they don't result in
 /// contract calls.
 ///
 /// ## Use Cases
 ///
-/// This attribute can be applied to both private or public [external] functions, so there are multiple scenarios to
+/// This attribute can be applied to both private or public [`external`] functions, so there are multiple scenarios to
 /// consider.
 ///
 /// ### Private
 ///
-/// Private functions can only be externally called by other private functions. In this case, [only_self] can be used
+/// Private functions can only be externally called by other private functions. In this case, [`only_self`] can be used
 /// to recursively call circuits, achieving proving time performance improvements for low-load scenarios.
 ///
 /// For example, consider a token transfer for some amount: the number of notes that need to be read and nullified is
@@ -163,21 +165,22 @@ pub comptime fn nophasecheck(f: FunctionDefinition) {
 /// circuit with excess capacity in transfers of few notes, while a small maximum would outright prevent many notes
 /// from being used at once.
 ///
-/// A better approach is to create a private [only_self] external function in which notes are read and nullified,
+/// A better approach is to create a private [`only_self`] external function in which notes are read and nullified,
 /// recursively calling itself if the sum of the values does not add up to some target amount. This makes the circuit
 /// adapt itself to the number of notes required, resulting in either few or many recursive invocations and therefore
-/// proving time roughly proportional to the number of notes. The recursive function must be [only_self] because we
+/// proving time roughly proportional to the number of notes. The recursive function must be [`only_self`] because we
 /// want to prevent any other contract from calling it - it is only an internal mechanism.
 ///
 /// ### Public
 ///
-/// Public functions can only be externally called by both private and public functions. Public to public [only_self]
+/// Public functions can only be externally called by both private and public functions. Public to public [`only_self`]
 /// calls are rare and not very useful (it'd be equivalent to an `external` Solidity function with `require(msg.sender
 /// == address(this))`). Private to public calls do enable useful design patterns though.
 ///
 /// A private function that needs to perform some public check (like some public state assertion) or follow-up public
-/// action (like some public state mutation) can do so by enqueuing a call to an [external] [only_self] public
-/// function. The [only_self] attribute will prevent external callers from invoking the function, making it be a purely
+/// action (like some public state mutation) can do so by enqueuing a call to an [`external`] [`only_self`] public
+/// function. The [`only_self`] attribute will prevent external callers from invoking the function, making it be a
+/// purely
 /// internal mechanism.
 ///
 /// A classic example is a private mint function in a token, which would require an enqueued public call in which the
@@ -203,22 +206,23 @@ pub comptime fn only_self(f: FunctionDefinition) {
 ///
 /// ## Use Cases
 ///
-/// Only public and private functions can be [view].
+/// Only public and private functions can be [`view`].
 ///
-/// Private [view] functions are typically not very useful as they cannot emit nullifiers, which is often required when
-/// reading private state (e.g. from a [crate::state_vars::private_mutable::PrivateMutable] or
-/// [crate::state_vars::private_set::PrivateSet] state variable). They do however have their use cases, such as
-/// performing a [crate::state_vars::delayed_public_mutable::DelayedPublicMutable] read.
+/// Private [`view`] functions are typically not very useful as they cannot emit nullifiers, which is often required
+/// when
+/// reading private state (e.g. from a [`crate::state_vars::private_mutable::PrivateMutable`] or
+/// [`crate::state_vars::private_set::PrivateSet`] state variable). They do however have their use cases, such as
+/// performing a [`crate::state_vars::delayed_public_mutable::DelayedPublicMutable`] read.
 ///
 /// Public view functions on the other hand are very common, since reading public storage does not require any state
 /// modifications. These are essentially equivalent to a Solidity `view` function.
 ///
 /// ## Guarantees
 ///
-/// [view] functions can *only* be called in a static execution context, which is typically achieved by calling the
-/// [crate::contract_self::ContractSelf::view] method on `self`.
+/// [`view`] functions can *only* be called in a static execution context, which is typically achieved by calling the
+/// [`crate::contract_self::ContractSelf::view`] method on `self`.
 ///
-/// No compile time checks are performed on whether a function can be made [view]. If a function marked as view
+/// No compile time checks are performed on whether a function can be made [`view`]. If a function marked as view
 /// attempts to modify state, that will result in *runtime* failures.
 pub comptime fn view(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
@@ -234,7 +238,7 @@ pub comptime fn view(f: FunctionDefinition) {
     }
 }
 
-/// Restricts access to an [external] private or public function so that it can only be called by an authorized
+/// Restricts access to an [`external`] private or public function so that it can only be called by an authorized
 /// account.
 ///
 /// Receives the name of a `from` `AztecAddress` variable which will be the default authorized account, and the name of
@@ -242,7 +246,7 @@ pub comptime fn view(f: FunctionDefinition) {
 ///
 /// ## Usage
 ///
-/// The `from` account can always call an [authorize_once] function by passing a value of 0 as the `nonce`. Any other
+/// The `from` account can always call an [`authorize_once`] function by passing a value of 0 as the `nonce`. Any other
 /// caller requires explicit permission granted by the `from` account, which 1) will be tied to a specific `nonce`
 /// value that must be passed by the caller, and which can only be used once, and 2) will restrict all other function
 /// params to be exactly the ones that have been authorized by `from`.
@@ -258,7 +262,7 @@ pub comptime fn view(f: FunctionDefinition) {
 /// Public functions call the `consume` function on the `AuthRegistry` contract, which requires that either a) `from`
 /// first calls the `set_authorized` public function, or b) that a private authwit check by `from` is passed for the
 /// registry's `set_authorized_private` function, allowing in turn the caller to privately call
-/// `set_authorized_private` in the same transaction in which the [authorize_once] function is invoked.
+/// `set_authorized_private` in the same transaction in which the [`authorize_once`] function is invoked.
 pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, nonce_arg_name: CtString) {
     if !is_fn_external(f) {
         // Unfortunately we cannot check if we are dealing with a utility function here as Noir does not support
@@ -280,11 +284,12 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
 /// - public: executed by the sequencer and do not preserve privacy (like on the EVM)
 /// - utility: helpers that are never executed on-chain, typically used for state queries
 ///
-/// [external] functions are the Aztec equivalent of a Solidity `external` function, though their behavior differs
+/// [`external`] functions are the Aztec equivalent of a Solidity `external` function, though their behavior differs
 /// slightly for public, private and utiliy functions.
 ///
-/// [external] functions can also be made [initializer] (for contract intialization), [view] (for read-only behavior),
-/// [authorize_once] (for basic access control) and [only_self] (to prevent other contracts from calling them).
+/// [`external`] functions can also be made [`initializer`] (for contract intialization), [`view`] (for read-only
+/// behavior),
+/// [`authorize_once`] (for basic access control) and [`only_self`] (to prevent other contracts from calling them).
 pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
     // In this function we perform basic checks on the function to ensure it is valid and then we add the function to
     // the external functions registry for later processing by the `#[aztec]` macro.
@@ -308,10 +313,10 @@ pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
 
 /// An internal function is only callable from inside the contract.
 ///
-/// [internal] functions are the Aztec equivalent of a Solidity `internal` function, though their behavior differs
+/// [`internal`] functions are the Aztec equivalent of a Solidity `internal` function, though their behavior differs
 /// slightly for public, private and utiliy functions.
 ///
-/// Note that these are different from [only_self] in that those are [external] and so are externally called (via
+/// Note that these are different from [`only_self`] in that those are [`external`] and so are externally called (via
 /// contract calls).
 pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
     let function_name = f.name();
