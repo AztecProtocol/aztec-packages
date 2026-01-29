@@ -109,10 +109,7 @@ describe('AztecNodeApiSchema', () => {
       Fr.random(),
       Fr.random(),
     ]);
-    expect(response).toEqual([
-      { data: 1n, l2BlockNumber: 1, l2BlockHash: BlockHash.fromNumber(BlockNumber(1)) },
-      undefined,
-    ]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: new BlockHash(new Fr(1)) }, undefined]);
 
     await expect(
       context.client.findLeavesIndexes(BlockNumber(1), MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
@@ -194,7 +191,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockByHash', async () => {
-    const response = await context.client.getBlockByHash(Fr.random());
+    const response = await context.client.getBlockByHash(BlockHash.random());
     expect(response).toBeInstanceOf(L2Block);
   });
 
@@ -204,7 +201,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(BlockHash.fromField(Fr.random()));
+    const response = await context.client.getBlockHeader(new BlockHash(Fr.random()));
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
@@ -571,7 +568,7 @@ class MockAztecNode implements AztecNode {
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
     return Promise.resolve([
-      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.fromNumber(BlockNumber(1)) },
+      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: new BlockHash(new Fr(1)) },
       undefined,
     ]);
   }
@@ -666,7 +663,7 @@ class MockAztecNode implements AztecNode {
     const blockNum = number === 'latest' ? BlockNumber(1) : (number as BlockNumber);
     return L2Block.random(blockNum);
   }
-  getBlockByHash(_blockHash: Fr): Promise<L2Block | undefined> {
+  getBlockByHash(_blockHash: BlockHash): Promise<L2Block | undefined> {
     return L2Block.random(BlockNumber(1));
   }
   getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
@@ -784,7 +781,7 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       l2BlockNumber: BlockNumber(1),
-      l2BlockHash: BlockHash.fromNumber(0x12),
+      l2BlockHash: new BlockHash(new Fr(0x12)),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
     };
