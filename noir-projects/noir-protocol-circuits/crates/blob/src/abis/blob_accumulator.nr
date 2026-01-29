@@ -7,10 +7,10 @@ use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
 use bignum::{BigNum, BLS12_381_Fq, BLS12_381_Fr};
 use std::ops::{Add, Mul};
 use types::{
+    base_utils::{reader::Reader, writer::Writer},
     constants::BLOB_ACCUMULATOR_LENGTH,
     hash::{poseidon2_hash, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
 /**
@@ -180,17 +180,15 @@ impl Eq for BlobAccumulator {
 impl Serialize for BlobAccumulator {
     let N: u32 = BLOB_ACCUMULATOR_LENGTH;
 
-    fn serialize(self) -> [Field; BLOB_ACCUMULATOR_LENGTH] {
-        let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_LENGTH> = BoundedVec::new();
-        fields.push(self.blob_commitments_hash_acc);
-        fields.push(self.z_acc);
-        fields.extend_from_array(self.y_acc.get_limbs().map(|l| l as Field));
-        fields.extend_from_array(self.c_acc.x.get_limbs().map(|l| l as Field));
-        fields.extend_from_array(self.c_acc.y.get_limbs().map(|l| l as Field));
-        fields.push(self.c_acc.is_infinity as Field);
-        fields.push(self.gamma_acc);
-        fields.extend_from_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
-        fields.storage()
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.blob_commitments_hash_acc);
+        writer.write(self.z_acc);
+        writer.write_array(self.y_acc.get_limbs().map(|l| l as Field));
+        writer.write_array(self.c_acc.x.get_limbs().map(|l| l as Field));
+        writer.write_array(self.c_acc.y.get_limbs().map(|l| l as Field));
+        writer.write(self.c_acc.is_infinity as Field);
+        writer.write(self.gamma_acc);
+        writer.write_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
     }
 }
 
@@ -199,8 +197,7 @@ impl Serialize for BlobAccumulator {
 impl Deserialize for BlobAccumulator {
     let N: u32 = BLOB_ACCUMULATOR_LENGTH;
 
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let mut item = Self {
             blob_commitments_hash_acc: reader.read(),
             z_acc: reader.read(),

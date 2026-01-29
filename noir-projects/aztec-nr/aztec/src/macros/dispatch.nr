@@ -41,7 +41,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // a call to the target function, but with a selector added at the beginning.
             quote {
                 let input_calldata: [Field; $params_len_quote] = aztec::oracle::avm::calldata_copy(1, $params_len_quote);
-                let mut reader = aztec::protocol::utils::reader::Reader::new(input_calldata);
+                let mut reader = aztec::protocol::base_utils::reader::Reader::new(input_calldata);
             }
         };
 

@@ -186,7 +186,7 @@ where
 
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
-        let mut reader = crate::utils::reader::Reader::new(fields);
+        let mut reader = crate::base_utils::reader::Reader::new(fields);
         let mut result: [T; M] = std::mem::zeroed();
         reader.read_struct_array::<T, <T as Packable>::N, M>(Packable::unpack, result)
     }

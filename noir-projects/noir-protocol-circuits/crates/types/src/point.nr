@@ -1,5 +1,6 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, Serialize}};
+use super::base_utils::{reader::Reader, writer::Writer};
 
 pub global POINT_LENGTH: u32 = 3;
 
@@ -8,8 +9,10 @@ pub global POINT_LENGTH: u32 = 3;
 impl Serialize for Point {
     let N: u32 = POINT_LENGTH;
 
-    fn serialize(self: Self) -> [Field; Self::N] {
-        [self.x, self.y, self.is_infinite as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.x);
+        writer.write(self.y);
+        writer.write(self.is_infinite as Field);
     }
 }
 
@@ -30,8 +33,8 @@ impl Empty for Point {
 impl Deserialize for Point {
     let N: u32 = POINT_LENGTH;
 
-    fn deserialize(serialized: [Field; Self::N]) -> Self {
-        Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] != 0 }
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Point { x: reader.read(), y: reader.read(), is_infinite: reader.read() != 0 }
     }
 }
 

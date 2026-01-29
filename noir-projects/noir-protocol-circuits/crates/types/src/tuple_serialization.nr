@@ -1,4 +1,5 @@
 use crate::traits::{Deserialize, Serialize};
+use super::base_utils::{reader::Reader, writer::Writer};
 
 // Create a slice of the given length with each element made from `f(i)` where `i` is the current index
 comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
@@ -50,12 +51,8 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
 
     // Statements to serialize each field
     let serialized_fields = type_names
-        .mapi(|i, type_name| quote {
-        let serialized = self.$i.serialize();
-        for i in 0 .. <$type_name as Serialize>::N {
-            result[offset + i] = serialized[i];
-        }
-        offset += <$type_name as Serialize>::N;
+        .mapi(|i, _type_name| quote {
+            self.$i.stream_serialize(writer);
     })
         .join(quote []);
 
@@ -64,12 +61,7 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
         .mapi(|i, type_name| {
             let result_name = result_names[i];
             quote {
-            let mut element_fields = [0; <$type_name as Deserialize>::N];
-            for i in 0 .. <$type_name as Deserialize>::N {
-                element_fields[i] = fields[i + offset];
-            }
-            offset += <$type_name as Deserialize>::N;
-            let $result_name = $type_name::deserialize(element_fields);
+            let $result_name = $type_name::stream_deserialize(reader);
         }
         })
         .join(quote []);
@@ -79,19 +71,16 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
         impl<$field_generics> Serialize for ($field_generics) where $serialize_constraints {
             let N: u32 = $full_size_serialize;
 
-            fn serialize(self) -> [Field; Self::N] {
-                let mut result: [Field; Self::N] = std::mem::zeroed();
-                let mut offset = 0;
+            fn stream_serialize<let K: u32>(self, writer: &mut $crate::base_utils::writer::Writer<K>) {
+    
                 $serialized_fields
-                result
             }
         }
 
         impl<$field_generics> Deserialize for ($field_generics) where $deserialize_constraints {
             let N: u32 = $full_size_deserialize;
 
-            fn deserialize(fields: [Field; Self::N]) -> Self {
-                let mut offset = 0;
+            fn stream_deserialize<let K: u32>(reader: &mut $crate::base_utils::reader::Reader<K>) -> Self {
                 $deserialized_fields
                 ($deserialize_results)
             }
@@ -107,8 +96,8 @@ where
 {
     let N: u32 = <T1 as Serialize>::N;
 
-    fn serialize(self) -> [Field; Self::N] {
-        self.0.serialize()
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        self.0.stream_serialize(writer);
     }
 }
 
@@ -118,8 +107,8 @@ where
 {
     let N: u32 = <T1 as Deserialize>::N;
 
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        (T1::deserialize(fields),)
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        (<T1 as Deserialize>::stream_deserialize(reader),)
     }
 }
 

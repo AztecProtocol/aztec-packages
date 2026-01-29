@@ -1,4 +1,6 @@
-// Traits need to be first for the #[derive(...)] macro to work.
+// Base utils has to be first for the Reader and Writers to be available to derive
+pub mod base_utils;
+// Traits need to be second for the #[derive(...)] macro to work.
 pub mod traits;
 
 // The modules below are in a specific order that makes derivation of serde traits work.

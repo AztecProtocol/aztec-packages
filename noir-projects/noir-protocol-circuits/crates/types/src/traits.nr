@@ -1,5 +1,5 @@
+use crate::{base_utils::{reader::Reader, writer::Writer}, utils::field::field_from_bytes};
 use crate::meta::{derive_deserialize, derive_packable, derive_serialize};
-use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
 //
@@ -331,7 +331,13 @@ impl FromField for u128 {
 pub trait Serialize {
     let N: u32;
 
-    fn serialize(self) -> [Field; N];
+    fn serialize(self) -> [Field; Self::N] {
+        let mut writer: Writer<Self::N> = Writer::new();
+        self.stream_serialize(&mut writer);
+        writer.finish()
+    }
+
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>);
 }
 // docs:end:serialize
 
@@ -339,13 +345,11 @@ impl<let M: u32> Serialize for str<M> {
     let N: u32 = M;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         let bytes = self.as_bytes();
-        let mut fields = [0; Self::N];
         for i in 0..bytes.len() {
-            fields[i] = bytes[i] as Field;
+            writer.write(bytes[i] as Field);
         }
-        fields
     }
 }
 
@@ -380,22 +384,18 @@ where
     let N: u32 = <T as Deserialize>::N * M + 1;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
+        let payload_len = Self::N - 1;
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        let len = fields[<T as Deserialize>::N * M] as u32;
+        let len = reader.peek_offset(payload_len) as u32;
 
-        for i in 0..len {
-            let mut nested_fields = [0; <T as Deserialize>::N];
-            for j in 0..<T as Deserialize>::N {
-                nested_fields[j] = fields[i * <T as Deserialize>::N + j];
-            }
-
-            let item = T::deserialize(nested_fields);
-            new_bounded_vec.push(item);
+        for _ in 0..len {
+            new_bounded_vec.push(<T as Deserialize>::stream_deserialize(reader));
         }
+        reader.advance_offset((M - len) * <T as Deserialize>::N);
 
         new_bounded_vec
     }
@@ -407,7 +407,7 @@ where
 impl Deserialize for () {
     let N: u32 = 0;
 
-    fn deserialize(_fields: [Field; Self::N]) -> Self {
+    fn stream_deserialize<let K: u32>(_reader: &mut Reader<K>) -> Self {
         ()
     }
 }
@@ -421,24 +421,11 @@ where
     let N: u32 = <T as Serialize>::N * M + 1; // +1 for the length of the BoundedVec
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        let mut fields = [0; Self::N];
-
-        let storage = self.storage();
-
-        for i in 0..M {
-            let serialized_item = storage[i].serialize();
-
-            for j in 0..<T as Serialize>::N {
-                fields[i * <T as Serialize>::N + j] = serialized_item[j];
-            }
-        }
-
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        self.storage().stream_serialize(writer);
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        fields[<T as Serialize>::N * M] = self.len() as Field;
-
-        fields
+        writer.write_u32(self.len() as u32);
     }
 }
 
@@ -468,7 +455,14 @@ where
 pub trait Deserialize {
     let N: u32;
 
-    fn deserialize(fields: [Field; N]) -> Self;
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        let mut reader = Reader::new(fields);
+        let result = Self::stream_deserialize(&mut reader);
+        reader.finish();
+        result
+    }
+
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self;
 }
 // docs:end:deserialize
 
@@ -476,8 +470,9 @@ impl<let M: u32> Deserialize for str<M> {
     let N: u32 = M;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        str::<Self::N>::from(fields.map(|value| value as u8))
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        let u8_arr = <[u8; Self::N] as Deserialize>::stream_deserialize(reader);
+        str::<Self::N>::from(u8_arr)
     }
 }
 

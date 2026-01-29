@@ -1,6 +1,7 @@
 //! Struct mocking utilities.
 
 use crate::protocol::traits::{Deserialize, Empty, Packable, Serialize};
+use protocol_types::base_utils::{reader::Reader, writer::Writer};
 
 pub struct MockStruct {
     pub a: Field,
@@ -28,16 +29,17 @@ impl Empty for MockStruct {
 impl Serialize for MockStruct {
     let N: u32 = 2;
 
-    fn serialize(self) -> [Field; Self::N] {
-        [self.a, self.b]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.a);
+        writer.write(self.b);
     }
 }
 
 impl Deserialize for MockStruct {
     let N: u32 = 2;
 
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { a: fields[0], b: fields[1] }
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self { a: reader.read(), b: reader.read() }
     }
 }
 

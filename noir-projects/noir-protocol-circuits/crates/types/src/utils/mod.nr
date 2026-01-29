@@ -6,4 +6,3 @@ pub mod arrays;
 pub mod for_loop;
 pub mod field;
 pub mod math;
-pub mod reader;

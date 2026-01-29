@@ -1,4 +1,5 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurveScalar as Scalar;
+use crate::base_utils::writer::Writer;
 use crate::traits::{Empty, Serialize};
 
 global SCALAR_SIZE: u32 = 2;
@@ -14,7 +15,8 @@ impl Empty for Scalar {
 impl Serialize for Scalar {
     let N: u32 = SCALAR_SIZE;
 
-    fn serialize(self) -> [Field; Self::N] {
-        [self.lo, self.hi]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.lo);
+        writer.write(self.hi);
     }
 }

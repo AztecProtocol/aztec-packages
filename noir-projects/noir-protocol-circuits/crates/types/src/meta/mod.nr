@@ -1,4 +1,4 @@
-use utils::derive_serialization_quotes;
+use utils::{derive_serialization_quotes, get_params_len_quote};
 
 pub mod utils;
 
@@ -154,8 +154,15 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let generics_declarations = get_generics_declarations(s);
     let where_serialize_clause = get_where_trait_clause(s, quote {Serialize});
 
-    let (function_body, params_len_quote, serialized_params_name) =
-        derive_serialization_quotes(params, true);
+    let function_body = params
+        .map(|(param_name, _param_type): (Quoted, Type)| {
+            quote {
+                self.$param_name.stream_serialize(writer);
+            }
+        })
+        .join(quote {});
+
+    let params_len_quote = get_params_len_quote(params);
 
     quote {
         impl$generics_declarations $crate::traits::Serialize for $typ
@@ -164,10 +171,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
             let N: u32 = $params_len_quote;
 
             #[inline_always]
-            fn serialize(self) -> [Field; Self::N] {
+            fn stream_serialize<let K: u32>(self, writer: &mut $crate::base_utils::writer::Writer<K>) {
                 $function_body
-
-                $serialized_params_name
             }
         }
     }
@@ -252,12 +257,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         let deserialization_of_struct_members = params
             .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
                 quote {
-                    let mut member_fields = [0; <$param_type as Deserialize>::N];
-                    for i in 0..<$param_type as Deserialize>::N {
-                        member_fields[i] = serialized[i + offset];
-                    }
-                    let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
-                    offset += <$param_type as Deserialize>::N;
+                    let $param_name = <$param_type as Deserialize>::stream_deserialize(reader);
                 }
             })
             .join(quote {});
@@ -269,16 +269,14 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
             .join(quote {,});
 
         quote {
-            let mut offset = 0;
-
             $deserialization_of_struct_members
 
             Self { $struct_members }
         }
     } else if params.len() == 1 {
-        let param_name = params[0].0;
+        let (param_name, param_type, _) = params[0];
         quote {
-            Self { $param_name: $crate::traits::Deserialize::deserialize(serialized) }
+            Self { $param_name: <$param_type as Deserialize>::stream_deserialize(reader) }
         }
     } else {
         quote {
@@ -293,7 +291,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
-            fn deserialize(serialized: [Field; Self::N]) -> Self {
+            fn stream_deserialize<let K: u32>(reader:&mut $crate::base_utils::reader::Reader<K>) -> Self {
                 $function_body
             }
         }

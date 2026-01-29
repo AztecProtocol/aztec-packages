@@ -1,8 +1,8 @@
 use crate::{
     address::AztecAddress,
+    base_utils::{reader::Reader, writer::Writer},
     side_effect::{Ordered, scoped::Scoped},
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
 pub struct Counted<T> {
@@ -40,8 +40,9 @@ where
 {
     let N: u32 = <T as Serialize>::N + 1;
 
-    fn serialize(self) -> [Field; Self::N] {
-        self.inner.serialize().concat([self.counter as Field])
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        self.inner.stream_serialize(writer);
+        writer.write_u32(self.counter);
     }
 }
 
@@ -51,12 +52,8 @@ where
 {
     let N: u32 = <T as Deserialize>::N + 1;
 
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let deserialized =
-            Self { inner: reader.read_struct(T::deserialize), counter: reader.read_u32() };
-        reader.finish();
-        deserialized
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self { inner: T::stream_deserialize(reader), counter: reader.read_u32() }
     }
 }
 

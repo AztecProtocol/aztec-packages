@@ -1,4 +1,5 @@
 use crate::traits::{Deserialize, Serialize};
+use super::base_utils::{reader::Reader, writer::Writer};
 
 global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
@@ -17,8 +18,8 @@ impl Serialize for bool {
     let N: u32 = BOOL_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -26,8 +27,8 @@ impl Deserialize for bool {
     let N: u32 = BOOL_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> bool {
-        fields[0] != 0
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> bool {
+        reader.read() != 0
     }
 }
 
@@ -35,8 +36,8 @@ impl Serialize for u1 {
     let N: u32 = U1_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -44,8 +45,8 @@ impl Deserialize for u1 {
     let N: u32 = U1_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u1
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u1
     }
 }
 
@@ -53,8 +54,8 @@ impl Serialize for u8 {
     let N: u32 = U8_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -62,8 +63,8 @@ impl Deserialize for u8 {
     let N: u32 = U8_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u8
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u8
     }
 }
 
@@ -71,8 +72,8 @@ impl Serialize for u16 {
     let N: u32 = U16_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -80,8 +81,8 @@ impl Deserialize for u16 {
     let N: u32 = U16_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u16
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u16
     }
 }
 
@@ -89,8 +90,8 @@ impl Serialize for u32 {
     let N: u32 = U32_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -98,8 +99,8 @@ impl Deserialize for u32 {
     let N: u32 = U32_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u32
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u32
     }
 }
 
@@ -107,8 +108,8 @@ impl Serialize for u64 {
     let N: u32 = U64_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -116,8 +117,8 @@ impl Deserialize for u64 {
     let N: u32 = U64_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u64
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u64
     }
 }
 
@@ -125,8 +126,8 @@ impl Serialize for u128 {
     let N: u32 = U128_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as Field);
     }
 }
 
@@ -134,8 +135,8 @@ impl Deserialize for u128 {
     let N: u32 = U128_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u128
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u128
     }
 }
 
@@ -143,8 +144,8 @@ impl Serialize for Field {
     let N: u32 = FIELD_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self);
     }
 }
 
@@ -152,8 +153,8 @@ impl Deserialize for Field {
     let N: u32 = FIELD_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0]
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read()
     }
 }
 
@@ -161,8 +162,8 @@ impl Serialize for i8 {
     let N: u32 = I8_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as u8 as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as u8 as Field);
     }
 }
 
@@ -170,8 +171,8 @@ impl Deserialize for i8 {
     let N: u32 = I8_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u8 as i8
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u8 as i8
     }
 }
 
@@ -179,8 +180,8 @@ impl Serialize for i16 {
     let N: u32 = I16_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as u16 as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as u16 as Field);
     }
 }
 
@@ -188,8 +189,8 @@ impl Deserialize for i16 {
     let N: u32 = I16_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u16 as i16
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u16 as i16
     }
 }
 
@@ -197,8 +198,8 @@ impl Serialize for i32 {
     let N: u32 = I32_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as u32 as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as u32 as Field);
     }
 }
 
@@ -206,8 +207,8 @@ impl Deserialize for i32 {
     let N: u32 = I32_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u32 as i32
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u32 as i32
     }
 }
 
@@ -215,8 +216,8 @@ impl Serialize for i64 {
     let N: u32 = I64_SERIALIZED_LEN;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        [self as u64 as Field]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self as u64 as Field);
     }
 }
 
@@ -224,8 +225,8 @@ impl Deserialize for i64 {
     let N: u32 = I64_SERIALIZED_LEN;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        fields[0] as u64 as i64
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        reader.read() as u64 as i64
     }
 }
 
@@ -234,16 +235,12 @@ where
     T: Serialize,
 {
     let N: u32 = <T as Serialize>::N * M;
+
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        let mut result: [Field; _] = std::mem::zeroed();
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         for i in 0..M {
-            let serialized_t = self[i].serialize();
-            for j in 0..<T as Serialize>::N {
-                result[i * <T as Serialize>::N + j] = serialized_t[j];
-            }
+            self[i].stream_serialize(writer);
         }
-        result
     }
 }
 
@@ -254,10 +251,12 @@ where
     let N: u32 = <T as Deserialize>::N * M;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = crate::utils::reader::Reader::new(fields);
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let mut result: [T; M] = std::mem::zeroed();
-        reader.read_struct_array::<T, <T as Deserialize>::N, M>(Deserialize::deserialize, result)
+        for i in 0..M {
+            result[i] = T::stream_deserialize(reader);
+        }
+        result
     }
 }
 
@@ -268,17 +267,9 @@ where
     let N: u32 = <T as Serialize>::N + 1;
 
     #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        let mut result: [Field; Self::N] = std::mem::zeroed();
-
-        result[0] = if self.is_some() { 1 } else { 0 };
-
-        let value_serialized = self.unwrap_unchecked().serialize();
-        for i in 0..<T as Serialize>::N {
-            result[1 + i] = value_serialized[i];
-        }
-
-        result
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write_bool(self.is_some());
+        self.unwrap_unchecked().stream_serialize(writer);
     }
 }
 
@@ -289,15 +280,11 @@ where
     let N: u32 = <T as Deserialize>::N + 1;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        if fields[0] == 1 {
-            let mut value_fields = [0; <T as Deserialize>::N];
-            for i in 0..<T as Deserialize>::N {
-                value_fields[i] = fields[1 + i];
-            }
-
-            Option::some(T::deserialize(value_fields))
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        if reader.read_bool() {
+            Option::some(<T as Deserialize>::stream_deserialize(reader))
         } else {
+            reader.advance_offset(<T as Deserialize>::N);
             Option::none()
         }
     }

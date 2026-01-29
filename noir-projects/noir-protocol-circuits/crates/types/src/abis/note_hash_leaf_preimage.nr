@@ -1,7 +1,10 @@
-global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
+use crate::{
+    merkle_tree::LeafPreimage,
+    side_effect::Readable,
+    traits::{Deserialize, Empty, Serialize},
+};
 
-use crate::{merkle_tree::LeafPreimage, side_effect::Readable, traits::Empty};
-
+#[derive(Deserialize, Eq, Serialize)]
 pub struct NoteHashLeafPreimage {
     pub value: Field,
 }
@@ -35,14 +38,6 @@ impl Readable for NoteHashLeafPreimage {
 impl NoteHashLeafPreimage {
     pub fn is_empty(self) -> bool {
         (self.value == 0)
-    }
-
-    pub fn serialize(self) -> [Field; NOTE_HASH_LEAF_PREIMAGE_LENGTH] {
-        [self.value]
-    }
-
-    pub fn deserialize(fields: [Field; NOTE_HASH_LEAF_PREIMAGE_LENGTH]) -> Self {
-        Self { value: fields[0] }
     }
 }
 

@@ -1,8 +1,8 @@
 use bignum::{BigNum, BLS12_381_Fr};
 use types::{
+    base_utils::{reader::Reader, writer::Writer},
     constants::BLS12_FR_LIMBS,
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
 /**
@@ -40,19 +40,16 @@ impl Eq for FinalBlobBatchingChallenges {
 impl Serialize for FinalBlobBatchingChallenges {
     let N: u32 = BLS12_FR_LIMBS + 1;
 
-    fn serialize(self) -> [Field; Self::N] {
-        let mut fields: BoundedVec<Field, BLS12_FR_LIMBS + 1> = BoundedVec::new();
-        fields.push(self.z);
-        fields.extend_from_array(self.gamma.get_limbs().map(|l| l as Field));
-        fields.storage()
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.z);
+        writer.write_array(self.gamma.get_limbs().map(|l| l as Field));
     }
 }
 
 impl Deserialize for FinalBlobBatchingChallenges {
     let N: u32 = BLS12_FR_LIMBS + 1;
 
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let mut item = Self {
             z: reader.read(),
             gamma: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
