@@ -351,7 +351,7 @@ export class RPCTranslator {
     foreignStartStorageSlot: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
@@ -367,7 +367,7 @@ export class RPCTranslator {
   }
 
   async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
@@ -574,7 +574,7 @@ export class RPCTranslator {
   }
 
   async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
@@ -642,7 +642,7 @@ export class RPCTranslator {
   }
 
   async utilityGetNoteHashMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const leafValue = fromSingle(foreignLeafValue);
 
     const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, leafValue);
@@ -654,7 +654,7 @@ export class RPCTranslator {
   }
 
   async utilityGetArchiveMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const leafValue = fromSingle(foreignLeafValue);
 
     const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(blockHash, leafValue);
@@ -669,7 +669,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
