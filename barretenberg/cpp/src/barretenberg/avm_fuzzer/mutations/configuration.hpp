@@ -616,8 +616,10 @@ enum class FaultInjectionEventOptions {
     ClassIdDerivationEvent,
     Sha256CompressionEvent,
     KeccakF1600Event,
+    DataCopyEvent,
+    CalldataEvent,
 };
-using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 15>;
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 17>;
 
 constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
     { FaultInjectionEventOptions::AluEvent, 1 },
@@ -635,6 +637,8 @@ constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = 
     { FaultInjectionEventOptions::ClassIdDerivationEvent, 1 },
     { FaultInjectionEventOptions::Sha256CompressionEvent, 1 },
     { FaultInjectionEventOptions::KeccakF1600Event, 1 },
+    { FaultInjectionEventOptions::DataCopyEvent, 1 },
+    { FaultInjectionEventOptions::CalldataEvent, 1 },
 });
 
 enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
@@ -966,6 +970,46 @@ constexpr FaultInjectionKeccakF1600EventConfig BASIC_FAULT_INJECTION_KECCAKF1600
         { FaultInjectionKeccakF1600EventOptions::ExecutionClk, 1 },
         { FaultInjectionKeccakF1600EventOptions::Flags, 1 },
         { FaultInjectionKeccakF1600EventOptions::RoundData, 1 },
+    });
+
+enum class FaultInjectionDataCopyEventOptions : uint8_t {
+    CopyingData,
+    Operation,
+    WriteContextId,
+    ReadContextId,
+    DataCopySize,
+    DataOffset,
+    SrcDataAddr,
+    SrcDataSize,
+    DstAddr,
+    IsNested,
+    ExecutionClk,
+};
+using FaultInjectionDataCopyEventConfig = WeightedSelectionConfig<FaultInjectionDataCopyEventOptions, 11>;
+constexpr FaultInjectionDataCopyEventConfig BASIC_FAULT_INJECTION_DATA_COPY_EVENT_CONFIGURATION =
+    FaultInjectionDataCopyEventConfig({
+        { FaultInjectionDataCopyEventOptions::CopyingData, 1 },
+        { FaultInjectionDataCopyEventOptions::Operation, 1 },
+        { FaultInjectionDataCopyEventOptions::WriteContextId, 1 },
+        { FaultInjectionDataCopyEventOptions::ReadContextId, 1 },
+        { FaultInjectionDataCopyEventOptions::DataCopySize, 1 },
+        { FaultInjectionDataCopyEventOptions::DataOffset, 1 },
+        { FaultInjectionDataCopyEventOptions::SrcDataAddr, 1 },
+        { FaultInjectionDataCopyEventOptions::SrcDataSize, 1 },
+        { FaultInjectionDataCopyEventOptions::DstAddr, 1 },
+        { FaultInjectionDataCopyEventOptions::IsNested, 1 },
+        { FaultInjectionDataCopyEventOptions::ExecutionClk, 1 },
+    });
+
+enum class FaultInjectionCalldataEventOptions : uint8_t {
+    ContextId,
+    Calldata,
+};
+using FaultInjectionCalldataEventConfig = WeightedSelectionConfig<FaultInjectionCalldataEventOptions, 2>;
+constexpr FaultInjectionCalldataEventConfig BASIC_FAULT_INJECTION_CALLDATA_EVENT_CONFIGURATION =
+    FaultInjectionCalldataEventConfig({
+        { FaultInjectionCalldataEventOptions::ContextId, 1 },
+        { FaultInjectionCalldataEventOptions::Calldata, 1 },
     });
 
 enum class EmbeddedCurvePointMutationOptions { SetIdentity, SetGenerator, SetInvalid, SetInfiniteWithNonZeroX };

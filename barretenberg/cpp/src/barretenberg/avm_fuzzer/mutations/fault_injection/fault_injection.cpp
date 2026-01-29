@@ -4,7 +4,9 @@
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/alu.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/bitwise.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/bytecode.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/calldata.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/class_id_derivation.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/data_copy.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/ecadd.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/gt.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/keccakf1600.hpp"
@@ -66,6 +68,12 @@ void bb::avm2::fuzzer::fault_injection(EventsContainer& events, std::mt19937_64&
         break;
     case FaultInjectionEventOptions::KeccakF1600Event:
         fault_injection_keccakf1600(events, rng);
+        break;
+    case FaultInjectionEventOptions::DataCopyEvent:
+        fault_injection_data_copy(events, rng);
+        break;
+    case FaultInjectionEventOptions::CalldataEvent:
+        fault_injection_calldata(events, rng);
         break;
     }
 }
