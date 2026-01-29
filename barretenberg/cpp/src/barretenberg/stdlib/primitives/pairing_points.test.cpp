@@ -18,9 +18,14 @@ TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
-    static constexpr size_t NUM_GATES_ADDED = 28;
+    using Builder = typename TypeParam::Builder;
+    // Ultra uses bigfield which requires range constraints for self_reduce() when setting public inputs.
+    // This looks expensive (1853 gates) but gets amortized in real circuits since most range tables
+    // already exist from other bigfield operations.
+    // Mega uses goblin_field (2 limbs) which is much cheaper (8 gates).
+    static constexpr size_t NUM_GATES_ADDED = IsMegaBuilder<Builder> ? 8 : 1853;
 
-    typename TypeParam::Builder builder;
+    Builder builder;
 
     size_t num_gates = builder.num_gates();
     PairingPoints<TypeParam>::set_default_to_public(&builder);
@@ -38,8 +43,8 @@ TYPED_TEST(PairingPointsTests, TestDefault)
 
     Builder builder;
 
-    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
+    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
     PairingPoints<TypeParam> pp(P0, P1);
@@ -210,8 +215,8 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
     Builder builder;
 
     // Use default pairing points that are known to satisfy the pairing equation
-    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
+    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
 

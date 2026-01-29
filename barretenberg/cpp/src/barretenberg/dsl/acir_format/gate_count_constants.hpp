@@ -48,7 +48,7 @@ template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GA
 template <typename Builder> inline constexpr size_t BLOCK_RAM_READ = 18 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_RAM_WRITE = 18 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_CALLDATA = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t BLOCK_RETURNDATA = 23 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t BLOCK_RETURNDATA = 11 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE + MEGA_OFFSET<Builder>;
 
 // ========================================
