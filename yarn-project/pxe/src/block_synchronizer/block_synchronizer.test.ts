@@ -61,7 +61,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && block.equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;
@@ -85,7 +85,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && block.equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;

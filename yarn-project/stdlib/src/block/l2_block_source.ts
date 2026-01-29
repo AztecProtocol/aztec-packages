@@ -20,6 +20,7 @@ import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
+import type { BlockHash } from './block_hash.js';
 import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
@@ -102,7 +103,7 @@ export interface L2BlockSource {
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block header (or undefined if not found).
    */
-  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+  getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined>;
 
   /**
    * Gets a block header by its archive root.
@@ -123,7 +124,7 @@ export interface L2BlockSource {
    * @param blockHash - The block hash to retrieve.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+  getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
 
   /**
    * Gets an L2 block by its archive root.
@@ -228,7 +229,7 @@ export interface L2BlockSource {
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
+  getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets a checkpointed block by its archive root.
