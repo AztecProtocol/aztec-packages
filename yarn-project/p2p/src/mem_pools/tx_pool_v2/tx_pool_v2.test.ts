@@ -364,12 +364,12 @@ describe('TxPoolV2', () => {
       // Create a validator that rejects specific transactions
       txsToReject = new Set<string>();
       rejectingValidator = {
-        validateTx: async (tx: Tx) => {
+        validateTx: (tx: Tx) => {
           const txHash = tx.getTxHash().toString();
           if (txsToReject.has(txHash)) {
-            return { result: 'invalid', reason: ['test rejection'] };
+            return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
           }
-          return { result: 'valid' };
+          return Promise.resolve({ result: 'valid' });
         },
       };
 
