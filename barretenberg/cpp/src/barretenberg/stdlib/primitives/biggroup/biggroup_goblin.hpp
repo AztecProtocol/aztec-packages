@@ -104,7 +104,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             out._x = x;
             out._y = y;
         }
-        out._is_infinity = bool_ct(witness_ct(ctx, input.is_point_at_infinity()));
+        out._is_infinity = bool_ct(witness_t(ctx, input.is_point_at_infinity()));
         out.set_free_witness_tag();
         return out;
     }
