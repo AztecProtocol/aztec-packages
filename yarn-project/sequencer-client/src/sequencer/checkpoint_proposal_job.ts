@@ -225,19 +225,7 @@ export class CheckpointProposalJob implements Traceable {
         // These errors are expected in HA mode, so we yield and let another HA node handle the slot
         // The only distinction between the 2 errors is SlashingProtectionError throws when the payload is different,
         // which is normal for block building (may have picked different txs)
-        if (err instanceof DutyAlreadySignedError) {
-          this.log.info(`Checkpoint proposal for slot ${this.slot} already signed by another HA node, yielding`, {
-            slot: this.slot,
-            signedByNode: err.signedByNode,
-          });
-          return undefined;
-        }
-        if (err instanceof SlashingProtectionError) {
-          this.log.info(`Checkpoint proposal for slot ${this.slot} blocked by slashing protection, yielding`, {
-            slot: this.slot,
-            existingMessageHash: err.existingMessageHash,
-            attemptedMessageHash: err.attemptedMessageHash,
-          });
+        if (this.handleHASigningError(err, 'Block proposal')) {
           return undefined;
         }
         throw err;
@@ -306,20 +294,8 @@ export class CheckpointProposalJob implements Traceable {
         );
       } catch (err) {
         // We shouldn't really get here since we yield to another HA node
-        // as soon as we see these errors when creating block proposals.
-        if (err instanceof DutyAlreadySignedError) {
-          this.log.info(`Attestations signature for slot ${this.slot} already signed by another HA node, yielding`, {
-            slot: this.slot,
-            signedByNode: err.signedByNode,
-          });
-          return undefined;
-        }
-        if (err instanceof SlashingProtectionError) {
-          this.log.info(`Attestations signature for slot ${this.slot} blocked by slashing protection, yielding`, {
-            slot: this.slot,
-            existingMessageHash: err.existingMessageHash,
-            attemptedMessageHash: err.attemptedMessageHash,
-          });
+        // as soon as we see these errors when creating block or checkpoint proposals.
+        if (this.handleHASigningError(err, 'Attestations signature')) {
           return undefined;
         }
         throw err;
@@ -825,6 +801,28 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     this.publisher.clearPendingRequests();
+  }
+
+  /**
+   * Helper to handle HA double-signing errors. Returns true if the error was handled (caller should yield).
+   */
+  private handleHASigningError(err: any, errorContext: string): boolean {
+    if (err instanceof DutyAlreadySignedError) {
+      this.log.info(`${errorContext} for slot ${this.slot} already signed by another HA node, yielding`, {
+        slot: this.slot,
+        signedByNode: err.signedByNode,
+      });
+      return true;
+    }
+    if (err instanceof SlashingProtectionError) {
+      this.log.info(`${errorContext} for slot ${this.slot} blocked by slashing protection, yielding`, {
+        slot: this.slot,
+        existingMessageHash: err.existingMessageHash,
+        attemptedMessageHash: err.attemptedMessageHash,
+      });
+      return true;
+    }
+    return false;
   }
 
   /** Waits until a specific time within the current slot */

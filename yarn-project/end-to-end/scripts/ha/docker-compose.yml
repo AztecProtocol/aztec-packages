@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    cpus: 1
+    mem_limit: 1G
+    environment:
+      POSTGRES_USER: aztec
+      POSTGRES_PASSWORD: aztec
+      POSTGRES_DB: aztec_ha_test
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aztec -d aztec_ha_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web3signer:
+    image: consensys/web3signer:25.11.0
+    cpus: 1
+    mem_limit: 512M
+    command:
+      - --http-listen-port=9000
+      - --http-host-allowlist=*
+      - --key-store-path=/keys
+      - --logging=WARN
+      - eth1
+      - --chain-id=31337
+    volumes:
+      - web3signer_keys:/keys
+    ports:
+      - "9000:9000"
+
+  anvil:
+    image: aztecprotocol/build:3.0
+    cpus: 1
+    mem_limit: 2G
+    entrypoint: "anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337"
+    ports:
+      - "8545:8545"
+
+  end-to-end:
+    image: aztecprotocol/build:3.0
+    cpus: 4
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 8G
+    volumes:
+      - ../../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
+      - web3signer_keys:/keys
+    tmpfs:
+      - /tmp:rw,size=1g
+      - /tmp-jest:rw,size=512m
+    working_dir: /root/aztec-packages/yarn-project/end-to-end
+    environment:
+      JEST_CACHE_DIR: /tmp-jest
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
+      ETHEREUM_HOSTS: http://anvil:8545
+      L1_CHAIN_ID: 31337
+      DATABASE_URL: postgresql://aztec:aztec@postgres:5432/aztec_ha_test
+      WEB3_SIGNER_URL: http://web3signer:9000
+      WEB3_SIGNER_TEST_KEYSTORE_DIR: /keys
+      FORCE_COLOR: ${FORCE_COLOR:-1}
+      # Allow git usage despite different ownership
+      GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
+      BUILD_SYSTEM_DEBUG: ${BUILD_SYSTEM_DEBUG:-}
+    entrypoint: >
+      bash -c '
+        # Wait for postgres to be ready
+        while ! nc -z postgres 5432; do sleep 1; done;
+        echo "PostgreSQL is ready"
+
+        # Wait for web3signer to be ready
+        while ! nc -z web3signer 9000; do sleep 1; done;
+        echo "Web3Signer is ready"
+
+        # Wait for anvil to be ready
+        while ! nc -z anvil 8545; do sleep 1; done;
+        echo "Anvil is ready"
+
+        # Run database migrations
+        echo "Running database migrations..."
+        cd /root/aztec-packages/yarn-project/aztec
+        node --no-warnings dest/bin/index.js migrate-ha-db up --database-url "$${DATABASE_URL}"
+        echo "Database migrations complete"
+
+        # Return to test directory
+        cd /root/aztec-packages/yarn-project/end-to-end
+
+        # Run the test
+        setsid ./scripts/test_simple.sh ${TEST:-./src/composed/ha/e2e_ha_sequencer.test.ts} &
+        pid=$$!
+        pgid=$$(($$(ps -o pgid= -p $$pid)))
+        trap "kill -SIGTERM -$$pgid" SIGTERM
+        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
+        wait $$pid
+      '
+    depends_on:
+      postgres:
+        condition: service_healthy
+      web3signer:
+        condition: service_started
+      anvil:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  web3signer_keys:
