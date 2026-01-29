@@ -11,11 +11,13 @@
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/gt.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/keccakf1600.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/memory.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/merkle_check.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/poseidon.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/range_check.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/scalar_mul.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/sha256_compression.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fault_injection/to_radix.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fault_injection/update_check.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include <random>
 using namespace bb::avm2::simulation;
@@ -74,6 +76,12 @@ void bb::avm2::fuzzer::fault_injection(EventsContainer& events, std::mt19937_64&
         break;
     case FaultInjectionEventOptions::CalldataEvent:
         fault_injection_calldata(events, rng);
+        break;
+    case FaultInjectionEventOptions::UpdateCheckEvent:
+        fault_injection_update_check(events, rng);
+        break;
+    case FaultInjectionEventOptions::MerkleCheckEvent:
+        fault_injection_merkle_check(events, rng);
         break;
     }
 }

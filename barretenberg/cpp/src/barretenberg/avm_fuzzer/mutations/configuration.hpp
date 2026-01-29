@@ -619,8 +619,10 @@ enum class FaultInjectionEventOptions {
     KeccakF1600Event,
     DataCopyEvent,
     CalldataEvent,
+    UpdateCheckEvent,
+    MerkleCheckEvent,
 };
-using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 17>;
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 19>;
 
 constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
     { FaultInjectionEventOptions::AluEvent, 1 },
@@ -631,7 +633,7 @@ constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = 
     { FaultInjectionEventOptions::EcaddMemoryEvent, 1 },
     { FaultInjectionEventOptions::ScalarMulEvent, 1 },
     { FaultInjectionEventOptions::Poseidon2Event, 1 },
-    { FaultInjectionEventOptions::ToRadixEvent, 0 },
+    { FaultInjectionEventOptions::ToRadixEvent, 1 },
     { FaultInjectionEventOptions::BytecodeEvent, 1 },
     { FaultInjectionEventOptions::MemoryEvent, 1 },
     { FaultInjectionEventOptions::AddressDerivationEvent, 1 },
@@ -640,6 +642,8 @@ constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = 
     { FaultInjectionEventOptions::KeccakF1600Event, 1 },
     { FaultInjectionEventOptions::DataCopyEvent, 1 },
     { FaultInjectionEventOptions::CalldataEvent, 1 },
+    { FaultInjectionEventOptions::UpdateCheckEvent, 1 },
+    { FaultInjectionEventOptions::MerkleCheckEvent, 1 },
 });
 
 enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
@@ -1011,6 +1015,58 @@ constexpr FaultInjectionCalldataEventConfig BASIC_FAULT_INJECTION_CALLDATA_EVENT
     FaultInjectionCalldataEventConfig({
         { FaultInjectionCalldataEventOptions::ContextId, 1 },
         { FaultInjectionCalldataEventOptions::Calldata, 1 },
+    });
+
+enum class FaultInjectionUpdateCheckEventOptions : uint8_t {
+    Address,
+    CurrentClassId,
+    OriginalClassId,
+    PublicDataTreeRoot,
+    CurrentTimestamp,
+    UpdateHash,
+    UpdatePreimageMetadata,
+    UpdatePreimagePreClassId,
+    UpdatePreimagePostClassId,
+    DelayedPublicMutableSlot,
+};
+using FaultInjectionUpdateCheckEventConfig = WeightedSelectionConfig<FaultInjectionUpdateCheckEventOptions, 10>;
+constexpr FaultInjectionUpdateCheckEventConfig BASIC_FAULT_INJECTION_UPDATE_CHECK_EVENT_CONFIGURATION =
+    FaultInjectionUpdateCheckEventConfig({
+        { FaultInjectionUpdateCheckEventOptions::Address, 1 },
+        { FaultInjectionUpdateCheckEventOptions::CurrentClassId, 1 },
+        { FaultInjectionUpdateCheckEventOptions::OriginalClassId, 1 },
+        { FaultInjectionUpdateCheckEventOptions::PublicDataTreeRoot, 1 },
+        { FaultInjectionUpdateCheckEventOptions::CurrentTimestamp, 1 },
+        { FaultInjectionUpdateCheckEventOptions::UpdateHash, 1 },
+        { FaultInjectionUpdateCheckEventOptions::UpdatePreimageMetadata, 1 },
+        { FaultInjectionUpdateCheckEventOptions::UpdatePreimagePreClassId, 1 },
+        { FaultInjectionUpdateCheckEventOptions::UpdatePreimagePostClassId, 1 },
+        { FaultInjectionUpdateCheckEventOptions::DelayedPublicMutableSlot, 1 },
+    });
+
+enum class FaultInjectionMerkleCheckEventOptions : uint8_t {
+    LeafValue,
+    NewLeafValue,
+    NewLeafValueToggle,
+    LeafIndex,
+    SiblingPathElement,
+    SiblingPathResize,
+    Root,
+    NewRoot,
+    NewRootToggle,
+};
+using FaultInjectionMerkleCheckEventConfig = WeightedSelectionConfig<FaultInjectionMerkleCheckEventOptions, 9>;
+constexpr FaultInjectionMerkleCheckEventConfig BASIC_FAULT_INJECTION_MERKLE_CHECK_EVENT_CONFIGURATION =
+    FaultInjectionMerkleCheckEventConfig({
+        { FaultInjectionMerkleCheckEventOptions::LeafValue, 1 },
+        { FaultInjectionMerkleCheckEventOptions::NewLeafValue, 1 },
+        { FaultInjectionMerkleCheckEventOptions::NewLeafValueToggle, 1 },
+        { FaultInjectionMerkleCheckEventOptions::LeafIndex, 1 },
+        { FaultInjectionMerkleCheckEventOptions::SiblingPathElement, 1 },
+        { FaultInjectionMerkleCheckEventOptions::SiblingPathResize, 1 },
+        { FaultInjectionMerkleCheckEventOptions::Root, 1 },
+        { FaultInjectionMerkleCheckEventOptions::NewRoot, 1 },
+        { FaultInjectionMerkleCheckEventOptions::NewRootToggle, 1 },
     });
 
 enum class EmbeddedCurvePointMutationOptions { SetIdentity, SetGenerator, SetInvalid, SetInfiniteWithNonZeroX };
