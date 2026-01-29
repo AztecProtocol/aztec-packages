@@ -13,7 +13,7 @@ pub contract StatefulTest {
     use aztec::{
         messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        protocol::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use field_note::FieldNote;

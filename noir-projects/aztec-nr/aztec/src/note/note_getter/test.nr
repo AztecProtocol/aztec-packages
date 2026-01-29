@@ -10,26 +10,16 @@ use crate::{
     utils::comparison::Comparator,
 };
 
-use protocol_types::{address::AztecAddress, traits::FromField};
+use crate::protocol::{address::AztecAddress, traits::FromField};
 
 global storage_slot: Field = 42;
 global owner: AztecAddress = AztecAddress::from_field(50);
 
-unconstrained fn build_valid_hinted_note(
-    contract_address: AztecAddress,
-    value: Field,
-) -> HintedNote<MockNote> {
-    MockNote::new(value)
-        .contract_address(contract_address)
-        .owner(owner)
-        .storage_slot(storage_slot)
-        .build_hinted_note()
+unconstrained fn build_valid_hinted_note(contract_address: AztecAddress, value: Field) -> HintedNote<MockNote> {
+    MockNote::new(value).contract_address(contract_address).owner(owner).storage_slot(storage_slot).build_hinted_note()
 }
 
-unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
-    vec: BoundedVec<T, N>,
-    arr: [Option<T>; N],
-)
+unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(vec: BoundedVec<T, N>, arr: [Option<T>; N])
 where
     T: Eq,
 {
@@ -158,7 +148,8 @@ unconstrained fn confirm_notes_applies_filter_before_constraining() {
     env.private_context(|context| {
         let contract_address = context.this_address();
         let mut notes_to_constrain = [Option::none(); _];
-        let invalid_note = MockNote::new(13).build_hinted_note(); // This note does not have the correct address or storage slot
+        let invalid_note = MockNote::new(13).build_hinted_note(); // This note does not have the correct address or
+        // storage slot
         notes_to_constrain[0] = Option::some(invalid_note);
         notes_to_constrain[1] = Option::some(build_valid_hinted_note(contract_address, 42));
 
@@ -207,10 +198,8 @@ unconstrained fn confirm_notes_rejects_mismatched_owner() {
 
     env.private_context(|context| {
         let different_owner = AztecAddress::from_field(random());
-        let note = MockNote::new(1)
-            .contract_address(context.this_address())
-            .owner(different_owner)
-            .build_hinted_note();
+        let note =
+            MockNote::new(1).contract_address(context.this_address()).owner(different_owner).build_hinted_note();
         let mut opt_notes = [Option::none(); _];
         opt_notes[0] = Option::some(note);
 
@@ -315,8 +304,7 @@ unconstrained fn constrain_view_note_rejects_mismatched_address() {
     env.private_context(|context| {
         // Create a note with a different contract address than the one in the context.
         let different_address = AztecAddress::from_field(random());
-        let note =
-            MockNote::new(1).contract_address(different_address).owner(owner).build_hinted_note();
+        let note = MockNote::new(1).contract_address(different_address).owner(owner).build_hinted_note();
 
         let _ = confirm_hinted_note(context, note, Option::some(owner), storage_slot);
     });
@@ -330,10 +318,7 @@ unconstrained fn constrain_view_note_rejects_mismatched_owner() {
         let contract_address = context.this_address();
         // Create a note with a different owner than the one in the context.
         let different_owner = AztecAddress::from_field(random());
-        let note = MockNote::new(1)
-            .contract_address(contract_address)
-            .owner(different_owner)
-            .build_hinted_note();
+        let note = MockNote::new(1).contract_address(contract_address).owner(different_owner).build_hinted_note();
 
         let _ = confirm_hinted_note(context, note, Option::some(owner), storage_slot);
     });

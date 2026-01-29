@@ -476,14 +476,12 @@ struct EMITNULLIFIER_Instruction {
     MSGPACK_FIELDS(nullifier_address);
 };
 
-/// @brief NULLIFIEREXISTS: checks if nullifier exists in the nullifier tree
-/// Gets contract's address by GETENVVAR(0)
-/// M[result_offset] = NULLIFIEREXISTS(M[nullifier_offset_index], GETENVVAR(0))
+/// @brief NULLIFIEREXISTS: checks if a siloed nullifier exists in the nullifier tree
+/// M[result_address] = NULLIFIEREXISTS(M[siloed_nullifier_address])
 struct NULLIFIEREXISTS_Instruction {
-    ParamRef nullifier_address;
-    AddressRef contract_address_address; // absolute address where the contract address will be stored
+    ParamRef siloed_nullifier_address; // The already-siloed nullifier to check
     AddressRef result_address;
-    MSGPACK_FIELDS(nullifier_address, contract_address_address, result_address);
+    MSGPACK_FIELDS(siloed_nullifier_address, result_address);
 };
 
 /// @brief L1TOL2MSGEXISTS: Check if a L1 to L2 message exists
@@ -517,11 +515,9 @@ struct CALLDATACOPY_Instruction {
 };
 
 struct SENDL2TOL1MSG_Instruction {
-    bb::avm2::FF recipient;
-    AddressRef recipient_address;
-    bb::avm2::FF content;
-    AddressRef content_address;
-    MSGPACK_FIELDS(recipient, recipient_address, content, content_address);
+    ParamRef recipient_address;
+    ParamRef content_address;
+    MSGPACK_FIELDS(recipient_address, content_address);
 };
 
 struct EMITUNENCRYPTEDLOG_Instruction {
@@ -850,8 +846,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             },
             [&](EMITNULLIFIER_Instruction arg) { os << "EMITNULIFIER_Instruction " << arg.nullifier_address; },
             [&](NULLIFIEREXISTS_Instruction arg) {
-                os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_address << " " << arg.contract_address_address
-                   << " " << arg.result_address;
+                os << "NULLIFIEREXISTS_Instruction " << arg.siloed_nullifier_address << " " << arg.result_address;
             },
             [&](L1TOL2MSGEXISTS_Instruction arg) {
                 os << "L1TOL2MSGEXISTS_Instruction " << arg.msg_hash_address << " " << arg.leaf_index_address << " "
@@ -869,8 +864,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.dst_address;
             },
             [&](SENDL2TOL1MSG_Instruction arg) {
-                os << "SENDL2TOL1MSG_Instruction " << arg.recipient << " " << arg.recipient_address << " "
-                   << arg.content << " " << arg.content_address;
+                os << "SENDL2TOL1MSG_Instruction " << arg.recipient_address << " " << arg.content_address;
             },
             [&](EMITUNENCRYPTEDLOG_Instruction arg) {
                 os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;

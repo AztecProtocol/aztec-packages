@@ -1,6 +1,5 @@
 import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -20,17 +19,13 @@ export async function createPXE(
   config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
 ) {
+  const actor = options.loggerActorLabel;
+  const recorderLogger = createLogger('simulator:acvm:recording', { actor });
   const recorder = process.env.CIRCUIT_RECORD_DIR
-    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
-    : new MemoryCircuitRecorder();
-  const simulator = new SimulatorRecorderWrapper(new WASMSimulator(), recorder);
-
-  const logSuffix =
-    typeof options.useLogSuffix === 'boolean'
-      ? options.useLogSuffix
-        ? randomBytes(3).toString('hex')
-        : undefined
-      : options.useLogSuffix;
+    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR, recorderLogger)
+    : new MemoryCircuitRecorder(recorderLogger);
+  const simulatorLogger = createLogger('wasm-simulator', { actor });
+  const simulator = new SimulatorRecorderWrapper(new WASMSimulator(simulatorLogger), recorder);
   const loggers = options.loggers ?? {};
 
   const { l1ChainId, l1ContractAddresses: l1Contracts, rollupVersion } = await aztecNode.getNodeInfo();
@@ -43,14 +38,15 @@ export async function createPXE(
   };
 
   if (!options.store) {
-    const storeLogger = loggers.store
-      ? loggers.store
-      : createLogger('pxe:data:lmdb' + (logSuffix ? `:${logSuffix}` : ''));
-    options.store = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, configWithContracts, storeLogger);
+    const storeLogger = loggers.store ?? createLogger('pxe:data:lmdb', { actor });
+    options.store = await createStore(
+      'pxe_data',
+      PXE_DATA_SCHEMA_VERSION,
+      configWithContracts,
+      storeLogger.getBindings(),
+    );
   }
-  const proverLogger = loggers.prover
-    ? loggers.prover
-    : createLogger('pxe:bb:native' + (logSuffix ? `:${logSuffix}` : ''));
+  const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });
 
   let prover;
   if (options.proverOrOptions instanceof BBPrivateKernelProver) {
@@ -61,7 +57,7 @@ export async function createPXE(
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
-  const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
+  const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create(
     aztecNode,
     options.store,

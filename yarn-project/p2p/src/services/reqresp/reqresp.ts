@@ -112,6 +112,13 @@ export class ReqResp implements ReqRespInterface {
   }
 
   /**
+   * Get the connection sampler instance
+   */
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'> {
+    return this.connectionSampler;
+  }
+
+  /**
    * Start the reqresp service
    */
   async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {
@@ -212,6 +219,14 @@ export class ReqResp implements ReqRespInterface {
     const responseValidator = this.subProtocolValidators[subProtocol] ?? DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol];
     const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
+    const isEmptyResponse = (value: unknown): boolean => {
+      // Some responses serialize to a non-empty buffer even when they contain no items (e.g., empty TxArray).
+      if (!value || typeof value !== 'object') {
+        return false;
+      }
+      const length = (value as { length?: number }).length;
+      return typeof length === 'number' && length === 0;
+    };
 
     const requestFunction = async (signal: AbortSignal) => {
       // Track which requests still need to be processed
@@ -252,7 +267,9 @@ export class ReqResp implements ReqRespInterface {
         for (const requestIndex of pendingRequestIndices) {
           const peer = batchSampler.getPeerForRequest(requestIndex);
           if (!peer) {
-            break;
+            // No peer available for this specific index (all peers exhausted for it)
+            // Skip this index for now - it stays in pendingRequestIndices for retry
+            continue;
           }
           const peerAsString = peer.toString();
           if (!requestBatches.has(peerAsString)) {
@@ -271,6 +288,12 @@ export class ReqResp implements ReqRespInterface {
           });
         }
 
+        // If no requests could be assigned (all peers exhausted for all indices), exit early
+        if (requestBatches.size === 0) {
+          this.logger.warn('No peers available for any pending request indices, stopping batch request');
+          break;
+        }
+
         // Make parallel requests for each peer's batch
         // A batch entry will look something like this:
         // PeerId0: [0, 1, 2, 3]
@@ -282,38 +305,61 @@ export class ReqResp implements ReqRespInterface {
         const batchResults = await Promise.all(
           Array.from(requestBatches.entries()).map(async ([peerAsString, { peerId: peer, indices }]) => {
             try {
+              const markIndexFailed = (index: number) => batchSampler.markPeerFailedForIndex(peer, index);
               // Requests all going to the same peer are sent synchronously
               const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
                 [];
+              let shouldReplacePeer = false;
+              const handleFailure = (status: ReqRespStatus, index: number) => {
+                this.logger.warn(
+                  `Request to peer ${peerAsString} failed with status ${prettyPrintReqRespStatus(status)}`,
+                );
+                markIndexFailed(index);
+                return status === ReqRespStatus.RATE_LIMIT_EXCEEDED;
+              };
+
               for (const index of indices) {
-                this.logger.trace(`Sending request ${index} to peer ${peerAsString}`);
+                this.logger.info(`Sending request ${index} to peer ${peerAsString}`);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
                 if (response.status !== ReqRespStatus.SUCCESS) {
-                  this.logger.debug(
-                    `Request to peer ${peerAsString} failed with status ${prettyPrintReqRespStatus(response.status)}`,
-                  );
-
-                  // If we hit a rate limit or some failure, we remove the peer and return the results,
-                  // they will be split among remaining peers and the new sampled peer
-                  batchSampler.removePeerAndReplace(peer);
-                  return { peer, results: peerResults };
-                }
-
-                if (response && response.data.length > 0) {
-                  const object = responseFromBuffer(subProtocol, response.data);
-                  const isValid = await responseValidator(requests[index], object, peer);
-
-                  if (isValid) {
-                    peerResults.push({ index, response: object });
+                  shouldReplacePeer = handleFailure(response.status, index);
+                  if (shouldReplacePeer) {
+                    break;
                   }
+                  continue;
                 }
+
+                if (response.data.length === 0) {
+                  markIndexFailed(index);
+                  continue;
+                }
+
+                const object = responseFromBuffer(subProtocol, response.data);
+                if (isEmptyResponse(object)) {
+                  markIndexFailed(index);
+                  continue;
+                }
+
+                const isValid = await responseValidator(requests[index], object, peer);
+                if (!isValid) {
+                  markIndexFailed(index);
+                  continue;
+                }
+
+                peerResults.push({ index, response: object });
+              }
+
+              // If peer had a hard failure (rate limit), replace it for future iterations
+              if (shouldReplacePeer) {
+                this.logger.warn(`Peer ${peerAsString} hit a hard failure, removing from sampler`);
+                batchSampler.removePeerAndReplace(peer);
               }
 
               return { peer, results: peerResults };
             } catch (error) {
-              this.logger.debug(`Failed batch request to peer ${peerAsString}:`, error);
+              this.logger.warn(`Failed batch request to peer ${peerAsString}:`, error);
               batchSampler.removePeerAndReplace(peer);
               return { peer, results: [] };
             }
@@ -334,7 +380,7 @@ export class ReqResp implements ReqRespInterface {
       }
 
       if (retryAttempts >= maxRetryAttempts) {
-        this.logger.debug(`Max retry attempts ${maxRetryAttempts} reached for batch request`);
+        this.logger.warn(`Max retry attempts ${maxRetryAttempts} reached for batch request`);
       }
 
       return responses;
@@ -347,7 +393,7 @@ export class ReqResp implements ReqRespInterface {
         () => new CollectiveReqRespTimeoutError(),
       );
     } catch (e: any) {
-      this.logger.debug(`${e.message} | subProtocol: ${subProtocol}`);
+      this.logger.warn(`${e.message} | subProtocol: ${subProtocol}`);
       return [];
     }
   }
@@ -409,6 +455,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
+      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower

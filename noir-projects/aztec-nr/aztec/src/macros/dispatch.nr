@@ -1,7 +1,7 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
+use crate::protocol::meta::utils::get_params_len_quote;
 use super::utils::compute_fn_selector;
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::utils::get_params_len_quote;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
@@ -10,8 +10,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let unit = get_type::<()>();
 
-    let seen_selectors =
-        &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
+    let seen_selectors = &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
 
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
@@ -20,9 +19,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let selector: Field = compute_fn_selector(function);
         let fn_name = function.name();
 
-        // Since function selectors are computed as the first 4 bytes of the hash of the function signature,
-        // it's possible to have collisions. With the following check, we ensure it doesn't happen within
-        // the same contract.
+        // Since function selectors are computed as the first 4 bytes of the hash of the function signature, it's
+        // possible to have collisions. With the following check, we ensure it doesn't happen within the same contract.
         if seen_selectors.contains_key(selector) {
             let existing_fn = seen_selectors.get(selector).unwrap();
             panic(
@@ -36,15 +34,14 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let initial_read = if parameters.len() == 0 {
             quote {}
         } else {
-            // The initial calldata_copy offset is 1 to skip the Field selector
-            // The expected calldata is the serialization of
+            // The initial calldata_copy offset is 1 to skip the Field selector The expected calldata is the
+            // serialization of
             // - FunctionSelector: the selector of the function intended to dispatch
-            // - Parameters: the parameters of the function intended to dispatch
-            // That is, exactly what is expected for a call to the target function,
-            // but with a selector added at the beginning.
+            // - Parameters: the parameters of the function intended to dispatch That is, exactly what is expected for
+            // a call to the target function, but with a selector added at the beginning.
             quote {
-                let input_calldata: [Field; $params_len_quote] = dep::aztec::oracle::avm::calldata_copy(1, $params_len_quote);
-                let mut reader = dep::aztec::protocol_types::utils::reader::Reader::new(input_calldata);
+                let input_calldata: [Field; $params_len_quote] = aztec::oracle::avm::calldata_copy(1, $params_len_quote);
+                let mut reader = aztec::protocol::utils::reader::Reader::new(input_calldata);
             }
         };
 
@@ -54,7 +51,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
-                let $param_name: $param_type = reader.read_struct(dep::aztec::protocol_types::traits::Deserialize::deserialize);
+                let $param_name: $param_type = reader.read_struct(aztec::protocol::traits::Deserialize::deserialize);
             };
             *parameter_index += 1;
             quote { $read }
@@ -79,12 +76,12 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             quote {
                 $call;
                 // Force early return.
-                dep::aztec::oracle::avm::avm_return([]);
+                aztec::oracle::avm::avm_return([]);
             }
         } else {
             quote {
-                let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                dep::aztec::oracle::avm::avm_return(return_value.as_vector());
+                let return_value = aztec::protocol::traits::Serialize::serialize($call);
+                aztec::oracle::avm::avm_return(return_value.as_vector());
             }
         };
 

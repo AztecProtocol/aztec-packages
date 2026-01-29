@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::PublicDataTreeLeafPreimage,

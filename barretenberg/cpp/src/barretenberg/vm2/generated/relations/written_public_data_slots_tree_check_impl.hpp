@@ -16,7 +16,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
     using C = ColumnAndShifts;
 
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
-    const auto constants_DOM_SEP__PUBLIC_LEAF_INDEX = FF(23);
+    const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(2853865602UL);
     const auto written_public_data_slots_tree_check_EXISTS =
         (FF(1) - in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
     const auto written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF =
@@ -46,55 +46,61 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_sel)) *
-                   (CView(constants_DOM_SEP__PUBLIC_LEAF_INDEX) -
+                   (CView(constants_DOM_SEP__PUBLIC_LEAF_SLOT) -
                     static_cast<View>(in.get(C::written_public_data_slots_tree_check_siloing_separator)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert)) -
-                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_write)) *
-                        static_cast<View>(in.get(C::written_public_data_slots_tree_check_leaf_not_exists)));
+        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_sel)) *
+                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_const_three)) - FF(3));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_write)) *
-                   CView(written_public_data_slots_tree_check_EXISTS) *
-                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_root)) -
-                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_write_root)));
+        auto tmp = (static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert)) -
+                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_write)) *
+                        static_cast<View>(in.get(C::written_public_data_slots_tree_check_leaf_not_exists)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_after_write)) -
-                    (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_before_write)) +
-                     static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert))));
+        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_write)) *
+                   CView(written_public_data_slots_tree_check_EXISTS) *
+                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_root)) -
+                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_write_root)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert)) *
-                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_before_write)) -
-                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_updated_low_leaf_next_index)));
+        auto tmp = (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_after_write)) -
+                    (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_before_write)) +
+                     static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert))));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert)) *
-                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_leaf_slot)) -
-                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_updated_low_leaf_next_slot)));
+                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_size_before_write)) -
+                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_updated_low_leaf_next_index)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_should_insert)) *
+                   (static_cast<View>(in.get(C::written_public_data_slots_tree_check_leaf_slot)) -
+                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_updated_low_leaf_next_slot)));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_sel)) *
                    (CView(constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT) -
                     static_cast<View>(in.get(C::written_public_data_slots_tree_check_tree_height)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // EXISTS_CHECK
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::written_public_data_slots_tree_check_sel)) *
             ((CView(written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF) *
@@ -104,16 +110,16 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv))) -
               FF(1)) +
              CView(written_public_data_slots_tree_check_EXISTS));
-        std::get<10>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero)) *
-                   (FF(1) - static_cast<View>(in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
-    { // NEXT_SLOT_IS_ZERO_CHECK
+    {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero)) *
+                   (FF(1) - static_cast<View>(in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero)));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    { // NEXT_SLOT_IS_ZERO_CHECK
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::written_public_data_slots_tree_check_leaf_not_exists)) *
             ((static_cast<View>(in.get(C::written_public_data_slots_tree_check_low_leaf_next_slot)) *
@@ -122,7 +128,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
                    static_cast<View>(in.get(C::written_public_data_slots_tree_check_next_slot_inv))) -
               FF(1)) +
              CView(written_public_data_slots_tree_check_NEXT_SLOT_IS_ZERO));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<13>(evals) += (tmp * scaling_factor);
     }
 }
 

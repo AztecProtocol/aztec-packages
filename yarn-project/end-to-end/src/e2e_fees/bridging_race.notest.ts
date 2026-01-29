@@ -67,10 +67,7 @@ describe('e2e_fees bridging_race', () => {
     // Yes, we need to REFACTOR it at some point
     const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await t.feeJuiceContract.methods
-      .claim(bobsAddress, claim.claimAmount, secret, index)
-      .send({ from: bobsAddress })
-      .wait();
+    await t.feeJuiceContract.methods.claim(bobsAddress, claim.claimAmount, secret, index).send({ from: bobsAddress });
     const [balance] = await t.getGasBalanceFn(bobsAddress);
     expect(balance).toEqual(claim.claimAmount);
   });

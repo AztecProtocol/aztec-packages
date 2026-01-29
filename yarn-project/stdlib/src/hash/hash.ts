@@ -55,7 +55,7 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.SILOED_NULLIFIER);
 }
 
 /**
@@ -87,7 +87,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_SLOT);
 }
 
 /**

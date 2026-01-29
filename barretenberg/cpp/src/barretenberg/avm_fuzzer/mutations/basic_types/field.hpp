@@ -3,6 +3,7 @@
 #include <random>
 
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
 bb::avm2::FF generate_random_field(std::mt19937_64& rng);

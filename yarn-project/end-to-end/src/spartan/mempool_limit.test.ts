@@ -49,8 +49,8 @@ const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:mempool_limiter');
 
-const TX_FLOOD_SIZE = 30;
-const TX_MEMPOOL_LIMIT = 25;
+const TX_FLOOD_SIZE = 15;
+const TX_MEMPOOL_LIMIT = 10;
 const CONCURRENCY = 5;
 
 describe('mempool limiter test', () => {
@@ -141,8 +141,7 @@ describe('mempool limiter test', () => {
 
         await testAccounts.tokenContract.methods
           .mint_to_public(from, mintAmountPerWallet)
-          .send({ from: testAccounts.tokenAdminAddress, fee: { paymentMethod: sponsor } })
-          .wait({ timeout: 600 });
+          .send({ from: testAccounts.tokenAdminAddress, fee: { paymentMethod: sponsor }, wait: { timeout: 600 } });
 
         walletPool.push({ wallet: extraWallet, from });
       }
@@ -204,12 +203,12 @@ describe('mempool limiter test', () => {
         const tx = Tx.fromBuffer(sampleTx.toBuffer());
         // this only works on unproven networks, otherwise this will fail verification
         tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-        tx.getTxHash();
+        tx.txHash;
         return tx;
       });
 
       await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
-      const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.getTxHash()));
+      const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.txHash));
       const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
       expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
       return;
@@ -259,7 +258,7 @@ describe('mempool limiter test', () => {
     );
 
     await asyncPool(CONCURRENCY, provenTxs, tx => node.sendTx(tx));
-    const txHashes = provenTxs.map(tx => tx.getTxHash());
+    const txHashes = provenTxs.map(tx => tx.txHash);
 
     // Eviction can be async relative to the RPC send, so poll until the pool is under the cap
     await retryUntil(

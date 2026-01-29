@@ -1,6 +1,4 @@
-use dep::aztec::{
-    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
-};
+use dep::aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
 use crate::PrivateVoting;
 

@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -15,8 +15,9 @@ export async function createStore(
   name: string,
   schemaVersion: number,
   config: DataStoreConfig,
-  log: Logger = createLogger('kv-store:lmdb-v2:' + name),
+  bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const { dataDirectory, l1Contracts } = config;
 
   let store: AztecLMDBStoreV2;
@@ -33,7 +34,7 @@ export async function createStore(
       rollupAddress,
       dataDirectory: subDir,
       onOpen: dbDirectory =>
-        AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), log),
+        AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), bindings),
     });
 
     log.info(
@@ -41,7 +42,7 @@ export async function createStore(
     );
     [store] = await versionManager.open();
   } else {
-    store = await openTmpStore(name, true, config.dataStoreMapSizeKb, MAX_READERS, log);
+    store = await openTmpStore(name, true, config.dataStoreMapSizeKb, MAX_READERS, bindings);
   }
 
   return store;
@@ -52,8 +53,9 @@ export async function openTmpStore(
   ephemeral: boolean = true,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2:' + name),
+  bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
   log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
 
@@ -73,17 +75,18 @@ export async function openTmpStore(
 
   // For temporary stores, we don't need to worry about versioning
   // as they are ephemeral and get cleaned up after use
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, log);
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings);
 }
 
 export async function openStoreAt(
   dataDir: string,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2'),
+  bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2', bindings);
   log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
-  return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log);
+  return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, bindings);
 }
 
 export async function openVersionedStoreAt(
@@ -92,14 +95,15 @@ export async function openVersionedStoreAt(
   rollupAddress: EthAddress,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2'),
+  bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2', bindings);
   log.debug(`Opening data store at: ${dataDirectory} with size: ${dbMapSizeKb} KB (LMDB v2)`);
   const [store] = await new DatabaseVersionManager({
     schemaVersion,
     rollupAddress,
     dataDirectory,
-    onOpen: dataDir => AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log),
+    onOpen: dataDir => AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, bindings),
   }).open();
   return store;
 }

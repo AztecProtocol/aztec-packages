@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract StaticParent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{external, view}};
-    use dep::aztec::protocol_types::{
+    use dep::aztec::protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
     use dep::static_child_contract::StaticChild;

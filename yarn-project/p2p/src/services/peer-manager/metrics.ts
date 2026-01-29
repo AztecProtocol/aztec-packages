@@ -6,12 +6,13 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
   getTelemetryClient,
 } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
 
-import { type GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/index.js';
+import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/index.js';
 
 export class PeerManagerMetrics {
   private sentGoodbyes: UpDownCounter;
@@ -31,10 +32,26 @@ export class PeerManagerMetrics {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);
-    this.sentGoodbyes = meter.createUpDownCounter(Metrics.PEER_MANAGER_GOODBYES_SENT);
-    this.receivedGoodbyes = meter.createUpDownCounter(Metrics.PEER_MANAGER_GOODBYES_RECEIVED);
+    const goodbyeReasonAttrs = {
+      [Attributes.P2P_GOODBYE_REASON]: [
+        prettyGoodbyeReason(GoodByeReason.SHUTDOWN),
+        prettyGoodbyeReason(GoodByeReason.MAX_PEERS),
+        prettyGoodbyeReason(GoodByeReason.LOW_SCORE),
+        prettyGoodbyeReason(GoodByeReason.BANNED),
+        prettyGoodbyeReason(GoodByeReason.WRONG_NETWORK),
+        prettyGoodbyeReason(GoodByeReason.UNKNOWN),
+      ],
+    };
+    this.sentGoodbyes = createUpDownCounterWithDefault(meter, Metrics.PEER_MANAGER_GOODBYES_SENT, goodbyeReasonAttrs);
+    this.receivedGoodbyes = createUpDownCounterWithDefault(
+      meter,
+      Metrics.PEER_MANAGER_GOODBYES_RECEIVED,
+      goodbyeReasonAttrs,
+    );
     this.peerCount = meter.createGauge(Metrics.PEER_MANAGER_PEER_COUNT);
-    this.lowScoreDisconnects = meter.createUpDownCounter(Metrics.PEER_MANAGER_LOW_SCORE_DISCONNECTS);
+    this.lowScoreDisconnects = createUpDownCounterWithDefault(meter, Metrics.PEER_MANAGER_LOW_SCORE_DISCONNECTS, {
+      [Attributes.P2P_PEER_SCORE_STATE]: ['Banned', 'Disconnect'],
+    });
     this.peerConnectionDuration = meter.createHistogram(Metrics.PEER_MANAGER_PEER_CONNECTION_DURATION);
   }
 

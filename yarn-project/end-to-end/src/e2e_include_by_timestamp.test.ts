@@ -25,7 +25,7 @@ describe('e2e_include_by_timestamp', () => {
       aztecNode,
       accounts: [defaultAccountAddress],
     } = await setup());
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(() => teardown());
@@ -59,8 +59,7 @@ describe('e2e_include_by_timestamp', () => {
       it('does not invalidate the transaction', async () => {
         await contract.methods
           .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
       });
     });
 
@@ -79,8 +78,7 @@ describe('e2e_include_by_timestamp', () => {
       it('does not invalidate the transaction', async () => {
         await contract.methods
           .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .send({ from: defaultAccountAddress })
-          .wait();
+          .send({ from: defaultAccountAddress });
       });
     });
   });
@@ -113,8 +111,7 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress })
-            .wait(),
+            .send({ from: defaultAccountAddress }),
         ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
       });
     });
@@ -135,8 +132,7 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress })
-            .wait(),
+            .send({ from: defaultAccountAddress }),
         ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
       });
     });
@@ -161,8 +157,7 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress })
-            .wait(),
+            .send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
     });
@@ -174,8 +169,7 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress })
-            .wait(),
+            .send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
     });

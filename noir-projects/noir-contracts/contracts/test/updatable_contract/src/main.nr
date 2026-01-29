@@ -6,7 +6,7 @@ contract Updatable {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::{
+        protocol::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,
         },

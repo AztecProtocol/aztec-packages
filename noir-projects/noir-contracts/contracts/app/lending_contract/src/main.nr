@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::{Map, PublicMutable}};
+    use dep::aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
@@ -25,7 +25,7 @@ pub contract Lending {
 
     use dep::aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
 
-    use dep::aztec::protocol_types::traits::{FromField, ToField};
+    use dep::aztec::protocol::traits::{FromField, ToField};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]

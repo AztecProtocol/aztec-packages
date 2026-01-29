@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import {
   type AnyTx,
   TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
@@ -10,7 +10,7 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 
 export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('p2p:tx_validator:timestamp');
+  #log: Logger;
 
   constructor(
     private values: {
@@ -20,7 +20,10 @@ export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
       // Block number in which the tx is considered to be included.
       blockNumber: BlockNumber;
     },
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.#log = createLogger('p2p:tx_validator:timestamp', bindings);
+  }
 
   validateTx(tx: T): Promise<TxValidationResult> {
     const includeByTimestamp = tx.data.includeByTimestamp;

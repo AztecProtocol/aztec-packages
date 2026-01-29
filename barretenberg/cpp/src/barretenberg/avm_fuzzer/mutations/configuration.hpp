@@ -379,12 +379,11 @@ constexpr GetEnvVarMutationConfig BASIC_GETENVVAR_MUTATION_CONFIGURATION = GetEn
     { GetEnvVarMutationOptions::type, 1 },
 });
 
-enum class NullifierExistsMutationOptions { nullifier_address, contract_address_address, result_address };
-using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 3>;
+enum class NullifierExistsMutationOptions { siloed_nullifier_address, result_address };
+using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 2>;
 
 constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION = NullifierExistsMutationConfig({
-    { NullifierExistsMutationOptions::nullifier_address, 1 },
-    { NullifierExistsMutationOptions::contract_address_address, 1 },
+    { NullifierExistsMutationOptions::siloed_nullifier_address, 1 },
     { NullifierExistsMutationOptions::result_address, 1 },
 });
 
@@ -427,13 +426,11 @@ constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION =
     { CalldataCopyMutationOptions::dst_address, 1 },
 });
 
-enum class SendL2ToL1MsgMutationOptions { recipient, recipient_address, content, content_address };
-using SendL2ToL1MsgMutationConfig = WeightedSelectionConfig<SendL2ToL1MsgMutationOptions, 4>;
+enum class SendL2ToL1MsgMutationOptions { recipient_address, content_address };
+using SendL2ToL1MsgMutationConfig = WeightedSelectionConfig<SendL2ToL1MsgMutationOptions, 2>;
 
 constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION = SendL2ToL1MsgMutationConfig({
-    { SendL2ToL1MsgMutationOptions::recipient, 1 },
     { SendL2ToL1MsgMutationOptions::recipient_address, 1 },
-    { SendL2ToL1MsgMutationOptions::content, 1 },
     { SendL2ToL1MsgMutationOptions::content_address, 1 },
 });
 

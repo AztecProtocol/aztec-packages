@@ -11,7 +11,8 @@
  */
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { SentTx } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -117,7 +118,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     // Submit transactions through different nodes
     // This ensures transactions are gossiped through the P2P network
     t.logger.info('Submitting transactions through validator nodes');
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     for (const node of nodes) {
       const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       txsSentViaDifferentNodes.push(txs);
@@ -127,9 +128,9 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     t.logger.info('Waiting for transactions to be mined');
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
@@ -224,7 +225,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
 
     // Submit transactions
     t.logger.info('Submitting transactions');
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     for (const node of nodes) {
       const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       txsSentViaDifferentNodes.push(txs);
@@ -234,16 +235,17 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     t.logger.info('Waiting for transactions to be mined');
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
     t.logger.info('All transactions mined');
 
     // Wait for at least one block to be mined
-    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
+    const receipt = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]);
+    const blockNumber = receipt.blockNumber!;
     t.logger.info(`Block ${blockNumber} mined, verifying attestations`);
 
     // Retrieve blocks and check attestations
@@ -299,7 +301,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     await t.setupAccount();
 
     t.logger.info('Submitting transactions');
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     for (const node of nodes) {
       const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       txsSentViaDifferentNodes.push(txs);
@@ -308,9 +310,9 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     // Wait for transactions
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );

@@ -68,19 +68,17 @@ describe('Aztec persistence', () => {
     owner = initialFundedAccounts[0];
     ownerAddress = owner.address;
 
-    const { contract, instance } = await TokenBlacklistContract.deploy(wallet, ownerAddress)
-      .send({ from: ownerAddress })
-      .wait();
+    const { contract, instance } = await TokenBlacklistContract.deploy(wallet, ownerAddress).send({
+      from: ownerAddress,
+      wait: { returnReceipt: true },
+    });
     contractInstance = instance;
     contractAddress = contract.address;
 
     await progressBlocksPastDelay(contract);
 
     const adminMinterRole = new Role().withAdmin().withMinter();
-    await contract.methods
-      .update_roles(ownerAddress, adminMinterRole.toNoirStruct())
-      .send({ from: ownerAddress })
-      .wait();
+    await contract.methods.update_roles(ownerAddress, adminMinterRole.toNoirStruct()).send({ from: ownerAddress });
 
     await progressBlocksPastDelay(contract);
 
@@ -88,8 +86,7 @@ describe('Aztec persistence', () => {
 
     const mintTxReceipt = await contract.methods
       .mint_private(1000n, await computeSecretHash(secret))
-      .send({ from: ownerAddress })
-      .wait();
+      .send({ from: ownerAddress });
 
     await addPendingShieldNoteToPXE(
       contract,
@@ -100,7 +97,7 @@ describe('Aztec persistence', () => {
       aztecNode,
     );
 
-    await contract.methods.redeem_shield(ownerAddress, 1000n, secret).send({ from: ownerAddress }).wait();
+    await contract.methods.redeem_shield(ownerAddress, 1000n, secret).send({ from: ownerAddress });
 
     await progressBlocksPastDelay(contract);
 
@@ -109,7 +106,7 @@ describe('Aztec persistence', () => {
 
   const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
     for (let i = 0; i < BlacklistTokenContractTest.CHANGE_ROLES_DELAY; ++i) {
-      await contract.methods.get_roles(ownerAddress).send({ from: ownerAddress }).wait();
+      await contract.methods.get_roles(ownerAddress).send({ from: ownerAddress });
     }
   };
 
@@ -156,8 +153,7 @@ describe('Aztec persistence', () => {
       const secret = Fr.random();
       const mintTxReceipt = await contract.methods
         .mint_private(1000n, await computeSecretHash(secret))
-        .send({ from: ownerAddress })
-        .wait();
+        .send({ from: ownerAddress });
       await addPendingShieldNoteToPXE(
         contract,
         ownerAddress,
@@ -167,7 +163,7 @@ describe('Aztec persistence', () => {
         aztecNode,
       );
 
-      await contract.methods.redeem_shield(ownerAddress, 1000n, secret).send({ from: ownerAddress }).wait();
+      await contract.methods.redeem_shield(ownerAddress, 1000n, secret).send({ from: ownerAddress });
 
       await expect(contract.methods.balance_of_private(ownerAddress).simulate({ from: ownerAddress })).resolves.toEqual(
         balance + 1000n,
@@ -183,7 +179,7 @@ describe('Aztec persistence', () => {
         .balance_of_private(ownerAddress)
         .simulate({ from: ownerAddress });
 
-      await contract.methods.transfer(ownerAddress, otherAddress, 500n, 0).send({ from: ownerAddress }).wait();
+      await contract.methods.transfer(ownerAddress, otherAddress, 500n, 0).send({ from: ownerAddress });
 
       const [ownerBalance, targetBalance] = await Promise.all([
         contract.methods.balance_of_private(ownerAddress).simulate({ from: ownerAddress }),
@@ -280,16 +276,12 @@ describe('Aztec persistence', () => {
       mintAmount = 1000n;
       const mintTxReceipt = await contract.methods
         .mint_private(mintAmount, await computeSecretHash(secret))
-        .send({ from: ownerAddress })
-        .wait();
+        .send({ from: ownerAddress });
       mintTxHash = mintTxReceipt.txHash;
 
       // publicly reveal that I have 1000 tokens
       revealedAmount = 1000n;
-      await contract.methods
-        .unshield(ownerAddress, ownerAddress, revealedAmount, 0)
-        .send({ from: ownerAddress })
-        .wait();
+      await contract.methods.unshield(ownerAddress, ownerAddress, revealedAmount, 0).send({ from: ownerAddress });
 
       // shut everything down
       await temporaryContext.teardown();
@@ -329,7 +321,7 @@ describe('Aztec persistence', () => {
         .balance_of_private(ownerAddress)
         .simulate({ from: ownerAddress });
 
-      await contract.methods.redeem_shield(ownerAddress, mintAmount, secret).send({ from: ownerAddress }).wait();
+      await contract.methods.redeem_shield(ownerAddress, mintAmount, secret).send({ from: ownerAddress });
       const balanceAfterRedeem = await contract.methods
         .balance_of_private(ownerAddress)
         .simulate({ from: ownerAddress });

@@ -6,7 +6,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -38,7 +37,7 @@ export async function createArchiverStore(
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
-  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
   return new KVArchiverDataStore(store, config.maxLogs, l1Constants);
 }
 
@@ -157,7 +156,8 @@ export async function createArchiver(
   return archiver;
 }
 
-async function registerProtocolContracts(store: KVArchiverDataStore) {
+/** Registers protocol contracts in the archiver store. */
+export async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();

@@ -47,7 +47,7 @@ pub contract AppSubscription {
         macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };

@@ -1,4 +1,11 @@
-import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
 
 import type { CollectionMethod } from './tx_collection.js';
 
@@ -10,7 +17,9 @@ export class TxCollectionInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txsCollected = meter.createUpDownCounter(Metrics.TX_COLLECTOR_COUNT);
+    this.txsCollected = createUpDownCounterWithDefault(meter, Metrics.TX_COLLECTOR_COUNT, {
+      [Attributes.TX_COLLECTION_METHOD]: ['fast-req-resp', 'fast-node-rpc', 'slow-req-resp', 'slow-node-rpc'],
+    });
 
     this.collectionDurationPerTx = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_TX);
 

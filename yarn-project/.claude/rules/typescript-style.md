@@ -3,7 +3,7 @@
 ## Type Safety
 
 - Avoid `as Type` casts; prefer type guards
-- Never use `as any`
+- Never use `as any`; if a subclass need access to private members, change the visibility to `protected` instead of doing `this as any`
 - Use branded types for common domain types (`SlotNumber`, `BlockNumber`, `EpochNumber`, etc.)
 - Type guard functions follow `is<TypeName>` naming convention:
   ```typescript

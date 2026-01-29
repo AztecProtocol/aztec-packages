@@ -1,11 +1,9 @@
 use crate::{
     context::PrivateContext,
-    messages::{
-        logs::note::encode_private_note_message, message_delivery::do_private_message_delivery,
-    },
+    messages::{logs::note::encode_private_note_message, message_delivery::do_private_message_delivery},
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
-use protocol_types::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A message with information about a note that was created in the current contract call. This message **MUST** be
 /// delivered to a recipient in order to not lose the private note information.
@@ -60,13 +58,13 @@ where
     ///
     /// ## Use Cases
     ///
-    /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example,
-    /// an institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
-    /// low value application like a game might deliver all notes offchain to a centralized server that then serves them
-    /// via the app, bypassing the need for contract sync and improving UX.
+    /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example, an
+    /// institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
+    /// low value application like a game might deliver all notes offchain to a centralized server that then serves
+    /// them via the app, bypassing the need for contract sync and improving UX.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
-        // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to it
-        // because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
+        // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to
+        // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
         // not allowed. As a workaround, we create a variable without the context and capture that instead.
         let new_note = self.new_note;
@@ -106,9 +104,9 @@ where
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct MaybeNoteMessage<Note> {
     // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the
-    // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the contents,
-    // and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which only holds
-    // `NewNote` in the `Option`, keeping the `context` out.
+    // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the
+    // contents, and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which
+    // only holds `NewNote` in the `Option`, keeping the `context` out.
     maybe_new_note: Option<NewNote<Note>>,
 
     // MaybeNoteMessage is expected to be constructed when a note is created, which means that the `context` object
@@ -131,9 +129,7 @@ where
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver(self, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(
-                delivery_mode,
-            );
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(delivery_mode);
         }
     }
 
@@ -143,10 +139,7 @@ where
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(
-                recipient,
-                delivery_mode,
-            );
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(recipient, delivery_mode);
         }
     }
 

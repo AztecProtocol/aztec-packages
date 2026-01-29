@@ -1,4 +1,10 @@
-import { Attributes, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
 
 export class BlobArchiveClientInstrumentation {
   private blockRequestCounter: UpDownCounter;
@@ -11,11 +17,23 @@ export class BlobArchiveClientInstrumentation {
     name: string,
   ) {
     const meter = client.getMeter(name);
-    this.blockRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT);
+    const requestAttrs = {
+      [Attributes.HTTP_RESPONSE_STATUS_CODE]: [200, 404],
+      [Attributes.HTTP_REQUEST_HOST]: [httpHost],
+    };
+    this.blockRequestCounter = createUpDownCounterWithDefault(
+      meter,
+      Metrics.BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT,
+      requestAttrs,
+    );
 
-    this.blobRequestCounter = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT);
+    this.blobRequestCounter = createUpDownCounterWithDefault(
+      meter,
+      Metrics.BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT,
+      requestAttrs,
+    );
 
-    this.retrievedBlobs = meter.createUpDownCounter(Metrics.BLOB_SINK_ARCHIVE_BLOB_COUNT);
+    this.retrievedBlobs = createUpDownCounterWithDefault(meter, Metrics.BLOB_SINK_ARCHIVE_BLOB_COUNT);
   }
 
   incRequest(type: 'blocks' | 'blobs', status: number) {

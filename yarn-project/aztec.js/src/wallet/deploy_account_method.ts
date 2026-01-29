@@ -10,11 +10,11 @@ import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
   DeployMethod,
-  type DeployOptions,
+  type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
-import type { FeePaymentMethodOption } from '../contract/interaction_options.js';
+import type { FeePaymentMethodOption, InteractionWaitOptions } from '../contract/interaction_options.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
 import type { Wallet } from './index.js';
@@ -37,11 +37,26 @@ export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAd
 };
 
 /**
+ * Base configuration options for the send/prove methods without wait parameter. Omits:
+ * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
+ * - UniversalDeployment flag, since account contracts are always deployed with it set to true
+ */
+export type DeployAccountOptionsWithoutWait = Omit<DeployOptionsWithoutWait, 'contractAddressSalt' | 'universalDeploy'>;
+
+/**
  * The configuration options for the send/prove methods. Omits:
  * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
  * - UniversalDeployment flag, since account contracts are always deployed with it set to true
  */
-export type DeployAccountOptions = Omit<DeployOptions, 'contractAddressSalt' | 'universalDeploy'>;
+export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployAccountOptionsWithoutWait & {
+  /**
+   * Whether to wait for the transaction to be mined.
+   * - undefined (default): wait with default options and return TxReceipt
+   * - WaitOpts object: wait with custom options and return TxReceipt
+   * - false: return txHash immediately without waiting
+   */
+  wait?: W;
+};
 
 /**
  * The configuration options for the simulate method. Omits the contractAddressSalt, since
@@ -122,7 +137,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     return mergeExecutionPayloads(executionPayloads);
   }
 
-  override convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions {
+  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployOptions {
     return {
       ...options,
       // Deployer is handled in the request method and forcibly set to undefined,

@@ -1,4 +1,4 @@
-import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger, logLevel } from '@aztec/foundation/log';
 import { avmSimulate } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
@@ -37,9 +37,10 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_vs_public_tx_simulator`);
+    super(merkleTree, contractsDB, globalVariables, config, undefined, bindings);
+    this.log = createLogger(`simulator:cpp_vs_public_tx_simulator`, bindings);
   }
 
   /**
@@ -103,7 +104,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
+    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.bindings);
 
     // Serialize to msgpack and call the C++ simulator
     this.log.debug(`Serializing fast simulation inputs to msgpack...`);
@@ -220,8 +221,9 @@ export class MeasuredCppVsTsPublicTxSimulator
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, config, bindings);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

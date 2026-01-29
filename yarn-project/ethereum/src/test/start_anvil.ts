@@ -33,7 +33,7 @@ export async function startAnvil(
       const anvil = createAnvil({
         anvilBinary,
         host: '127.0.0.1',
-        port: opts.port ?? 8545,
+        port: opts.port ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : 8545),
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
         accounts: opts.accounts ?? 20,

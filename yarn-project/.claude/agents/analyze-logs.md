@@ -228,10 +228,7 @@ Do not use `diff` as an analysis, since timestamps or random values will mean th
 ## Key Behavior
 
 1. **Use local file if provided** - never re-download
-2. If only hash given and file not at `/tmp/<hash>.log`, download via:
-   ```bash
-   ./ci.sh dlog <hash> > /tmp/<hash>.log 2>&1
-   ```
+2. If only hash or `ci.aztec-labs.com` url given and file not at `/tmp/<hash>.log`, then download via `yarn ci dlog <hash> > /tmp/<hash>.log 2>&1`
 3. **Always check Jest report at end first** to identify actual failure
 4. For huge logs (>10k lines): grep for ERROR/WARN first, then expand context
 5. **Return summary, not raw content** - extract only relevant snippets

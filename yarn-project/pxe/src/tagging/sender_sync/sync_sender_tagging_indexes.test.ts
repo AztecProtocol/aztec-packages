@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -13,7 +13,7 @@ import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_s
 import { DirectionalAppTaggingSecret, SiloedTag, Tag, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('syncSenderTaggingIndexes', () => {
   // Contract address and secret to be used on the input of the syncSenderTaggingIndexes function.

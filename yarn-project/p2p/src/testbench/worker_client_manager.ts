@@ -1,10 +1,10 @@
-import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ChainConfig } from '@aztec/stdlib/config';
 
 import { type ChildProcess, fork } from 'child_process';
+import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -12,9 +12,19 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
+import { BENCHMARK_CONSTANTS } from '../test-helpers/testbench-utils.js';
+import type {
+  BenchReqRespCommand,
+  BenchResultMessage,
+  CollectorType,
+  DistributionPattern,
+} from './p2p_client_testbench_worker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
+const p2pRoot = path.resolve(__dirname, '../..');
+const workerTsPath = path.join(__dirname, 'p2p_client_testbench_worker.ts');
+const workerJsPath = path.join(p2pRoot, 'dest/testbench/p2p_client_testbench_worker.js');
+const tsconfigPath = path.join(p2pRoot, 'tsconfig.json');
 
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
@@ -24,11 +34,32 @@ const testChainConfig: ChainConfig = {
   },
 };
 
+export interface ReqRespBenchmarkConfig {
+  txCount: number;
+  distribution: DistributionPattern;
+  collectorType: CollectorType;
+  timeoutMs: number;
+  pinnedPeerIndex?: number;
+  blockNumber?: number;
+  seed?: number;
+}
+
+export interface ReqRespBenchmarkResult {
+  txCount: number;
+  distribution: DistributionPattern;
+  collector: CollectorType;
+  durationMs: number;
+  fetchedCount: number;
+  success: boolean;
+  error?: string;
+}
+
 class WorkerClientManager {
   public processes: ChildProcess[] = [];
   public peerIdPrivateKeys: string[] = [];
   public peerEnrs: string[] = [];
   public ports: number[] = [];
+  public peerIds: string[] = [];
   private p2pConfig: Partial<P2PConfig>;
   private logger: Logger;
   private messageReceivedByClient: number[] = [];
@@ -46,39 +77,55 @@ class WorkerClientManager {
   }
 
   /**
-   * Creates a client configuration object
+   * Creates a client configuration object for IPC.
+   * Note: We send the raw peerIdPrivateKey string instead of SecretValue
+   * because SecretValue.toJSON() returns '[Redacted]', losing the value.
+   * The worker must re-wrap it in SecretValue.
    */
   private createClientConfig(
     clientIndex: number,
     port: number,
     otherNodes: string[],
-  ): P2PConfig & Partial<ChainConfig> {
+  ): Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: new SecretValue(this.peerIdPrivateKeys[clientIndex]),
+      peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
       listenAddress: '127.0.0.1',
       p2pIp: '127.0.0.1',
       p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
-    };
+    } as Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>;
   }
 
   /**
-   * Spawns a worker process and returns a promise that resolves when the worker is ready
+   * Spawns a worker process and returns a promise that resolves when the worker is ready.
+   * Config uses raw string for peerIdPrivateKey (not SecretValue) for IPC serialization.
    */
   private spawnWorkerProcess(
-    config: P2PConfig & Partial<ChainConfig>,
+    config: Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>,
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
-    const childProcess = fork(workerPath);
-    // Extract the raw peerIdPrivateKey value since SecretValue can't be serialized via IPC
-    const serializedConfig = {
-      ...config,
-      peerIdPrivateKey: config.peerIdPrivateKey?.getValue(),
+    const useCompiled = existsSync(workerJsPath);
+    const workerPath = useCompiled ? workerJsPath : workerTsPath;
+
+    const execArgv = [...process.execArgv];
+    if (!useCompiled && !execArgv.includes('ts-node/esm')) {
+      execArgv.push('--loader', 'ts-node/esm');
+    }
+
+    const env = {
+      ...process.env,
+      TS_NODE_PROJECT: tsconfigPath,
     };
-    childProcess.send({ type: 'START', config: serializedConfig, clientIndex });
+
+    const childProcess = fork(workerPath, {
+      cwd: p2pRoot,
+      execArgv,
+      env,
+    });
+    childProcess.send({ type: 'START', config, clientIndex });
 
     // Handle unexpected child process exit
     childProcess.on('exit', (code, signal) => {
@@ -95,74 +142,131 @@ class WorkerClientManager {
 
     // Create ready signal promise
     const readySignal = new Promise<void>((resolve, reject) => {
-      // Set a timeout to avoid hanging indefinitely
-      const timeout = setTimeout(() => {
-        reject(new Error(`Timeout waiting for worker ${clientIndex} to be ready`));
-      }, 30000); // 30 second timeout
+      let resolved = false;
 
-      childProcess.once('message', (msg: any) => {
-        clearTimeout(timeout);
-        if (msg.type === 'READY') {
-          resolve();
+      const timeout = setTimeout(() => {
+        if (resolved) {
+          return;
         }
-        // For future use
-        if (msg.type === 'ERROR') {
+        resolved = true;
+        childProcess.off('message', messageHandler);
+        childProcess.off('exit', exitHandler);
+        reject(new Error(`Timeout waiting for worker ${clientIndex} to be ready`));
+      }, BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS);
+
+      const messageHandler = (msg: any) => {
+        if (resolved) {
+          return;
+        }
+        // Only handle READY or ERROR messages; ignore others (e.g., GOSSIP_RECEIVED)
+        if (msg.type === 'READY') {
+          resolved = true;
+          clearTimeout(timeout);
+          childProcess.off('message', messageHandler);
+          childProcess.off('exit', exitHandler);
+          if (typeof msg.peerId === 'string') {
+            this.peerIds[clientIndex] = msg.peerId;
+          }
+          resolve();
+        } else if (msg.type === 'ERROR') {
+          resolved = true;
+          clearTimeout(timeout);
+          childProcess.off('message', messageHandler);
+          childProcess.off('exit', exitHandler);
           reject(new Error(msg.error));
         }
-      });
+        // Ignore other message types and keep waiting for READY/ERROR
+      };
 
-      // Also resolve/reject if process exits before sending message
-      childProcess.once('exit', code => {
+      const exitHandler = (code: number | null) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
         clearTimeout(timeout);
+        childProcess.off('message', messageHandler);
         if (code === 0) {
           resolve();
         } else {
           reject(new Error(`Worker ${clientIndex} exited with code ${code} before becoming ready`));
         }
-      });
+      };
+
+      childProcess.on('message', messageHandler);
+      childProcess.once('exit', exitHandler);
     });
 
     return [childProcess, readySignal];
   }
 
   /**
-   * Creates a number of worker clients in separate processes
-   * All are configured to connect to each other and overrided with the test specific config
+   * Creates a number of worker clients in separate processes.
+   * All are configured to connect to each other and overridden with the test-specific config.
    *
    * @param numberOfClients - The number of clients to create
+   * @param options - Optional overrides for seeding/bootstrapping strategy
    * @returns The ENRs of the created clients
    */
-  async makeWorkerClients(numberOfClients: number) {
+  async makeWorkerClients(
+    numberOfClients: number,
+    options: {
+      bootstrapMode?: 'subset' | 'all';
+      seedPeerLimit?: number;
+      batchSize?: number;
+      batchDelayMs?: number;
+    } = {},
+  ) {
     try {
+      const bootstrapMode = options.bootstrapMode ?? (this.p2pConfig.bootstrapNodesAsFullPeers ? 'all' : 'subset');
+      const seedPeerLimit = options.seedPeerLimit ?? 10;
+      const batchSize = options.batchSize ?? (bootstrapMode === 'all' ? Math.min(5, numberOfClients) : numberOfClients);
+      const batchDelayMs = options.batchDelayMs ?? (bootstrapMode === 'all' ? 500 : 0);
+
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
       this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
+      this.peerIds = new Array(numberOfClients);
 
       this.processes = [];
       const readySignals: Promise<void>[] = [];
 
-      for (let i = 0; i < numberOfClients; i++) {
-        this.logger.info(`Creating client ${i}`);
+      for (let batchStart = 0; batchStart < numberOfClients; batchStart += batchSize) {
+        const batchEnd = Math.min(batchStart + batchSize, numberOfClients);
+        const batchPromises: Promise<void>[] = [];
 
-        // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
-        const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
+        for (let i = batchStart; i < batchEnd; i++) {
+          this.logger.info(`Creating client ${i}`);
 
-        const config = this.createClientConfig(i, this.ports[i], otherNodes);
-        const [childProcess, readySignal] = this.spawnWorkerProcess(config, i);
+          const otherNodes =
+            bootstrapMode === 'all'
+              ? this.peerEnrs.filter((_, ind) => ind !== i)
+              : this.peerEnrs.filter((_, ind) => ind < Math.min(i, seedPeerLimit));
 
-        readySignals.push(readySignal);
-        this.processes.push(childProcess);
+          const config = this.createClientConfig(i, this.ports[i], otherNodes);
+          const [childProcess, readySignal] = this.spawnWorkerProcess(config, i);
+
+          readySignals.push(readySignal);
+          batchPromises.push(readySignal);
+          this.processes.push(childProcess);
+        }
+
+        await Promise.all(batchPromises);
+
+        if (batchEnd < numberOfClients && batchDelayMs > 0) {
+          await sleep(batchDelayMs);
+        }
       }
 
-      // Wait for peers to all connect with each other
-      await sleep(10000);
+      await sleep(BENCHMARK_CONSTANTS.PEER_DISCOVERY_WAIT_MS);
 
-      // Wait for all peers to be booted up with timeout
       await Promise.race([
         Promise.all(readySignals),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout waiting for all workers to be ready')), 30000),
+          setTimeout(
+            () => reject(new Error('Timeout waiting for all workers to be ready')),
+            BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS,
+          ),
         ),
       ]);
 
@@ -220,11 +324,13 @@ class WorkerClientManager {
 
       this.processes[clientIndex] = childProcess;
 
-      // Wait for the process to be ready with a timeout
       await Promise.race([
         readySignal,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)), 30000),
+          setTimeout(
+            () => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)),
+            BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS,
+          ),
         ),
       ]);
     } catch (error) {
@@ -244,15 +350,14 @@ class WorkerClientManager {
     }
 
     return new Promise<void>(resolve => {
-      // Set a timeout for the graceful exit
       const forceKillTimeout = setTimeout(() => {
         this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
         try {
-          process.kill('SIGKILL'); // Force kill
+          process.kill('SIGKILL');
         } catch (e) {
           this.logger.error(`Error force killing process ${index}:`, e);
         }
-      }, 5000); // 5 second timeout for graceful exit
+      }, BENCHMARK_CONSTANTS.GRACEFUL_SHUTDOWN_TIMEOUT_MS);
 
       // Listen for process exit
       process.once('exit', () => {
@@ -285,7 +390,6 @@ class WorkerClientManager {
     // Create array of promises for each process termination
     const terminationPromises = this.processes.map((process, index) => this.terminateProcess(process, index));
 
-    // Wait for all processes to terminate with a timeout
     try {
       await Promise.race([
         Promise.all(terminationPromises),
@@ -302,7 +406,7 @@ class WorkerClientManager {
               }
             });
             resolve();
-          }, 10000); // 10 second timeout for all processes
+          }, BENCHMARK_CONSTANTS.CLEANUP_TIMEOUT_MS);
         }),
       ]);
     } catch (error) {
@@ -310,8 +414,161 @@ class WorkerClientManager {
     }
 
     this.processes = [];
+    this.peerIds = [];
     this.logger.info('All worker processes cleaned up');
+  }
+
+  /**
+   * Run a req/resp benchmark across all worker clients.
+   *
+   * This sends a BENCH_REQRESP command to all workers:
+   * - Aggregator (client 0) runs the collector and returns timing results
+   * - Responders (clients 1..N) populate their tx pools based on distribution
+   *
+   * All workers generate the same txs deterministically from a shared seed,
+   * then filter based on their peerIndex and distribution pattern.
+   */
+  async runReqRespBenchmark(config: ReqRespBenchmarkConfig): Promise<ReqRespBenchmarkResult> {
+    const peerCount = this.processes.length;
+    if (peerCount < 2) {
+      throw new Error('Need at least 2 peers to run req/resp benchmark');
+    }
+
+    const seed = config.seed ?? Date.now();
+    const blockNumber = config.blockNumber ?? 1;
+    const pinnedPeerId = config.pinnedPeerIndex !== undefined ? this.peerIds[config.pinnedPeerIndex] : undefined;
+
+    this.logger.info(
+      `Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}, collector=${config.collectorType}`,
+    );
+
+    const readyPromises: Promise<void>[] = [];
+
+    for (let i = 1; i < peerCount; i++) {
+      const cmd: BenchReqRespCommand = {
+        type: 'BENCH_REQRESP',
+        txCount: config.txCount,
+        peerCount,
+        distribution: config.distribution,
+        collectorType: config.collectorType,
+        timeoutMs: config.timeoutMs,
+        isAggregator: false,
+        peerIndex: i,
+        pinnedPeerIndex: config.pinnedPeerIndex,
+        pinnedPeerId,
+        blockNumber,
+        seed,
+      };
+
+      this.processes[i].send(cmd);
+      readyPromises.push(this.waitForBenchReady(i, 30000));
+    }
+
+    await Promise.all(readyPromises);
+    this.logger.info('All responder peers ready, starting aggregator benchmark...');
+
+    const aggregatorCmd: BenchReqRespCommand = {
+      type: 'BENCH_REQRESP',
+      txCount: config.txCount,
+      peerCount,
+      distribution: config.distribution,
+      collectorType: config.collectorType,
+      timeoutMs: config.timeoutMs,
+      isAggregator: true,
+      peerIndex: 0,
+      pinnedPeerIndex: config.pinnedPeerIndex,
+      pinnedPeerId,
+      blockNumber,
+      seed,
+    };
+
+    this.processes[0].send(aggregatorCmd);
+    const result = await this.waitForBenchResult(0, config.timeoutMs + 30000);
+
+    this.logger.info(
+      `Benchmark complete: fetched=${result.fetchedCount}/${config.txCount}, duration=${result.durationMs.toFixed(0)}ms, success=${result.success}`,
+    );
+
+    return {
+      txCount: config.txCount,
+      distribution: config.distribution,
+      collector: config.collectorType,
+      durationMs: result.durationMs,
+      fetchedCount: result.fetchedCount,
+      success: result.success,
+      error: result.error,
+    };
+  }
+
+  private waitForBenchReady(clientIndex: number, timeoutMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+
+      const handler = (msg: any) => {
+        if (resolved) {
+          return;
+        }
+        if (msg.type === 'BENCH_READY') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve();
+        } else if (msg.type === 'ERROR') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          reject(new Error(`Client ${clientIndex} error: ${msg.error}`));
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        this.processes[clientIndex].off('message', handler);
+        reject(new Error(`Timeout waiting for BENCH_READY from client ${clientIndex}`));
+      }, timeoutMs);
+
+      this.processes[clientIndex].on('message', handler);
+    });
+  }
+
+  private waitForBenchResult(clientIndex: number, timeoutMs: number): Promise<BenchResultMessage> {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+
+      const handler = (msg: any) => {
+        if (resolved) {
+          return;
+        }
+        if (msg.type === 'BENCH_RESULT') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve(msg as BenchResultMessage);
+        } else if (msg.type === 'ERROR') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          reject(new Error(`Client ${clientIndex} error: ${msg.error}`));
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        this.processes[clientIndex].off('message', handler);
+        reject(new Error(`Timeout waiting for BENCH_RESULT from client ${clientIndex}`));
+      }, timeoutMs);
+
+      this.processes[clientIndex].on('message', handler);
+    });
   }
 }
 
 export { WorkerClientManager, testChainConfig };
+export type { DistributionPattern, CollectorType } from './p2p_client_testbench_worker.js';
+export { COLLECTOR_DISPLAY_NAMES } from './p2p_client_testbench_worker.js';

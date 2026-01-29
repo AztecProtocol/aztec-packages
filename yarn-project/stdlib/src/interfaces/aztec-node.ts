@@ -23,7 +23,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHash } from '../block/block_hash.js';
+import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
@@ -256,6 +256,12 @@ export interface AztecNode
   getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Fetches the latest checkpointed block number.
+   * @returns The block number.
+   */
+  getCheckpointedBlockNumber(): Promise<BlockNumber>;
+
+  /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
    */
@@ -349,7 +355,7 @@ export interface AztecNode
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: L2BlockHash): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
@@ -368,7 +374,7 @@ export interface AztecNode
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]>;
 
   /**
@@ -581,6 +587,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProvenBlockNumber: z.function().returns(BlockNumberSchema),
 
+  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
+
   isReady: z.function().returns(z.boolean()),
 
   getNodeInfo: z.function().returns(NodeInfoSchema),
@@ -625,7 +633,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(L2BlockHash.schema))
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(BlockHash.schema))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   getPublicLogsByTagsFromContract: z
@@ -634,7 +642,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
       schemas.AztecAddress,
       z.array(Tag.schema).max(MAX_RPC_LEN),
       optional(z.number().gte(0)),
-      optional(L2BlockHash.schema),
+      optional(BlockHash.schema),
     )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 

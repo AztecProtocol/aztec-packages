@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
+use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 use std::meta::derive;
 
 /// We store the tokens of the DEX in a struct such that to load it from PublicImmutable asserts only a single
@@ -39,7 +39,7 @@ impl Config {
 
 mod test {
     use crate::config::Config;
-    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
+    use aztec::protocol::{address::AztecAddress, traits::FromField};
 
     global token0: AztecAddress = AztecAddress::from_field(1);
     global token1: AztecAddress = AztecAddress::from_field(2);

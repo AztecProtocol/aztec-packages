@@ -2,6 +2,7 @@ import type { Observable } from '@opentelemetry/api';
 import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import * as Attributes from './attributes.js';
+import { createUpDownCounterWithDefault } from './metric-utils.js';
 import * as Metrics from './metrics.js';
 import type { BatchObservableResult, Meter, ObservableGauge, UpDownCounter } from './telemetry.js';
 
@@ -41,7 +42,9 @@ export class NodejsMetricsMonitor {
     };
 
     this.eventLoopUilization = meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_UTILIZATION);
-    this.eventLoopTime = meter.createUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME);
+    this.eventLoopTime = createUpDownCounterWithDefault(meter, Metrics.NODEJS_EVENT_LOOP_TIME, {
+      [Attributes.NODEJS_EVENT_LOOP_STATE]: ['idle', 'active'],
+    });
     this.eventLoopDelay = monitorEventLoopDelay();
 
     this.memoryGauges = {

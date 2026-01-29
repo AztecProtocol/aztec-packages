@@ -3,10 +3,10 @@ import {
   BatchCall,
   ContractFunctionInteraction,
   type SendInteractionOptions,
-  SentTx,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -33,9 +33,7 @@ export abstract class BaseBot {
     const { followChain, txMinedWaitSeconds } = this.config;
 
     this.log.verbose(`Creating tx`, logCtx);
-    const tx = await this.createAndSendTx(logCtx);
-
-    const txHash = await tx.getTxHash();
+    const txHash = await this.createAndSendTx(logCtx);
 
     if (followChain === 'NONE') {
       this.log.info(`Transaction ${txHash.toString()} sent, not waiting for it to be mined`);
@@ -46,9 +44,7 @@ export abstract class BaseBot {
       `Awaiting tx ${txHash.toString()} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
       logCtx,
     );
-    const receipt = await tx.wait({
-      timeout: txMinedWaitSeconds,
-    });
+    const receipt = await waitForTx(this.node, txHash, { timeout: txMinedWaitSeconds });
     if (followChain === 'PROVEN') {
       await waitForProven(this.node, receipt, { provenTimeout: txMinedWaitSeconds });
     }
@@ -63,7 +59,7 @@ export abstract class BaseBot {
     return receipt;
   }
 
-  protected abstract createAndSendTx(logCtx: object): Promise<SentTx>;
+  protected abstract createAndSendTx(logCtx: object): Promise<TxHash>;
 
   protected onTxMined(_receipt: TxReceipt, _logCtx: object): Promise<void> {
     // no-op

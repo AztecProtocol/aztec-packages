@@ -31,7 +31,7 @@ export async function createSlasherFacade(
     throw new Error('Cannot initialize SlasherClient without a Rollup address');
   }
 
-  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, createLogger('slasher:lmdb'));
+  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, logger.getBindings());
   const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
 
   const slashValidatorsNever = config.slashSelfAllowed

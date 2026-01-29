@@ -4,6 +4,9 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+// Generic log-derivative utilities for lookups and permutations.
+// For the mathematical background, see relations/LOGDERIV_LOOKUP_RELATION_README.md
+
 #pragma once
 
 #include "barretenberg/common/constexpr_utils.hpp"

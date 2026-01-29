@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { makeBlockHeader, makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -17,7 +17,7 @@ import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_s
 // In this test suite we don't care about the anchor block behavior as that is sufficiently tested by
 // the loadLogsForRange test suite, so we use a high block number to ensure it occurs after all logs.
 const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadPrivateLogsForSenderRecipientPair', () => {
   let secret: DirectionalAppTaggingSecret;

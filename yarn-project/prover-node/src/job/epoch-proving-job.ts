@@ -3,7 +3,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -43,7 +43,7 @@ export type EpochProvingJobOptions = {
  */
 export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
-  private log = createLogger('prover-node:epoch-proving-job');
+  private log: Logger;
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
@@ -62,9 +62,14 @@ export class EpochProvingJob implements Traceable {
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
+    bindings?: LoggerBindings,
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
+    this.log = createLogger('prover-node:epoch-proving-job', {
+      ...bindings,
+      instanceId: `epoch-${data.epochNumber}`,
+    });
     this.tracer = metrics.tracer;
   }
 
@@ -363,7 +368,7 @@ export class EpochProvingJob implements Traceable {
     this.epochCheckPromise = new RunningPromise(
       async () => {
         const blockHeaders = await l2BlockSource.getCheckpointedBlockHeadersForEpoch(this.epochNumber);
-        const blockHashes = await Promise.all(blockHeaders.map(header => header.hash()));
+        const blockHashes = await Promise.all(blockHeaders.map(async header => (await header.hash()).toField()));
         const thisBlocks = this.checkpoints.flatMap(checkpoint => checkpoint.blocks);
         const thisBlockHashes = await Promise.all(thisBlocks.map(block => block.hash()));
         if (

@@ -1,5 +1,5 @@
 use crate::messages::encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN};
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Trait for encrypting and decrypting messages in the Aztec protocol.
 ///
@@ -12,6 +12,7 @@ use protocol_types::address::AztecAddress;
 /// - `MESSAGE_PLAINTEXT_LEN`: Maximum size of decrypted plaintext (defined globally)
 ///
 /// # Note on privacy sets
+///
 /// To preserve privacy, [MessageEncryption::encrypt] returns a fixed-length array ensuring all log types are
 /// indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 /// standardized length.
