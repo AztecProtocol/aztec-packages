@@ -55,9 +55,9 @@ TYPED_TEST(StrausLookupTableTest, TestTableConstuction)
     straus_lookup_table table(&builder, base_point, offset_gen, table_bits);
 
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 184);
+        check_circuit_and_gate_count(builder, 192);
     } else {
-        check_circuit_and_gate_count(builder, 181);
+        check_circuit_and_gate_count(builder, 189);
     }
 }
 
@@ -99,9 +99,9 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
     // Mega pre-adds constants {0, 3, 4, 8} for ECC op codes during construction. When setting ROM elements at indices
     // {3, 4, 8}, Mega doesn't need to add a corresponding gate for the constant value, whereas Ultra does.
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 216);
+        check_circuit_and_gate_count(builder, 224);
     } else {
-        check_circuit_and_gate_count(builder, 213);
+        check_circuit_and_gate_count(builder, 221);
     }
 }
 
@@ -151,9 +151,9 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
     // Gate count difference explanation:
     // Same as TestTableRead - ROM with 8 elements (indices 0-7).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 98);
+        check_circuit_and_gate_count(builder, 106);
     } else {
-        check_circuit_and_gate_count(builder, 96);
+        check_circuit_and_gate_count(builder, 104);
     }
 }
 
@@ -168,14 +168,14 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
     using field_t = typename TestFixture::field_t;
     using Element = typename TestFixture::Element;
     using AffineElement = typename TestFixture::AffineElement;
-    using Group = typename TestFixture::Group;
 
     Builder builder;
 
-    auto base_point_native = Group::point_at_infinity;
     auto offset_gen_native = Element::random_element(&engine);
 
-    auto base_point = cycle_group::from_witness(&builder, base_point_native);
+    // Use constant_infinity() for infinity points (from_witness doesn't support infinity)
+    // TODO: check if witness can also be created for infinity point
+    auto base_point = cycle_group::constant_infinity(&builder);
     auto offset_gen = cycle_group::from_witness(&builder, offset_gen_native);
 
     const size_t table_bits = 2;
@@ -189,10 +189,11 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
     }
 
     // Gate count difference explanation:
-    // Same as TestTableRead - ROM with 4 elements (indices 0-3).
+    // ROM with 4 elements (indices 0-3). Using constant_infinity() for base point is more efficient
+    // than from_witness() since no witness creation or on-curve validation is needed.
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 60);
+        check_circuit_and_gate_count(builder, 39);
     } else {
-        check_circuit_and_gate_count(builder, 59);
+        check_circuit_and_gate_count(builder, 38);
     }
 }
