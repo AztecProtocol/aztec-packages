@@ -344,16 +344,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl_internal(const std::optional<Affi
                              is_point_at_infinity(),
                              /*assert_on_curve=*/false);
 
-        // If coordinates are constant (e.g., infinity point from from_witness), convert to fixed witnesses
-        // for the gate since ecc_dbl_gate requires witness indices.
-        field_t x1_for_gate = _x;
-        if (_x.is_constant()) {
-            x1_for_gate.convert_constant_to_fixed_witness(context);
-        }
-        // modified_y is already a witness (from conditional_assign)
-
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
-            .x1 = x1_for_gate.get_witness_index(),
+            .x1 = _x.get_witness_index(),
             .y1 = modified_y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
@@ -453,30 +445,11 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                              /*is_infinity=*/bool_t(context, false),
                              /*assert_on_curve=*/false);
 
-        // If coordinates are constant (e.g., infinity point from from_witness), convert to fixed witnesses
-        // for the gate since ecc_add_gate requires witness indices.
-        field_t x1_for_gate = _x;
-        field_t y1_for_gate = _y;
-        field_t x2_for_gate = other._x;
-        field_t y2_for_gate = other._y;
-        if (_x.is_constant()) {
-            x1_for_gate.convert_constant_to_fixed_witness(context);
-        }
-        if (_y.is_constant()) {
-            y1_for_gate.convert_constant_to_fixed_witness(context);
-        }
-        if (other._x.is_constant()) {
-            x2_for_gate.convert_constant_to_fixed_witness(context);
-        }
-        if (other._y.is_constant()) {
-            y2_for_gate.convert_constant_to_fixed_witness(context);
-        }
-
         context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
-            .x1 = x1_for_gate.get_witness_index(),
-            .y1 = y1_for_gate.get_witness_index(),
-            .x2 = x2_for_gate.get_witness_index(),
-            .y2 = y2_for_gate.get_witness_index(),
+            .x1 = _x.get_witness_index(),
+            .y1 = _y.get_witness_index(),
+            .x2 = other._x.get_witness_index(),
+            .y2 = other._y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
             .sign_coefficient = is_addition ? 1 : -1,
