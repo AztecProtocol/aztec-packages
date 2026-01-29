@@ -20,28 +20,26 @@ namespace bb {
  * @details Each column of the databus can be thought of as a table from which we can look up values. The log-derivative
  * lookup argument seeks to prove lookups from a column by establishing the following sum:
  *
- * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
+ * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / lookup_term_i) + read_count_i * (1 / table_term_i) = 0
  *
- * where the read and write terms are both of the form value_i + idx_i*\beta + \gamma. This expression is motivated by
+ * where the lookup and table terms are both of the form value_i + idx_i*\beta + \gamma. This expression is motivated by
  * taking the derivative of the log of a more conventional grand product style set equivalence argument (see e.g.
- * https://eprint.iacr.org/2022/1530.pdf for details). For the write term, the (idx, value) pair comes from the "table"
- * (bus column), and for the read term the (idx, value) pair comes from wires 1 and 2 which should contain a valid entry
- * in the table. (Note: the meaning of "read" here is clear: the inputs are an (index, value) pair that we want to read
- * from the table. Here "write" refers to data that is present in the "table", i.e. the bus column. There is no gate
- * associated with a write, the data is simply populated in the corresponding column and committed to when constructing
- * a proof).
+ * https://eprint.iacr.org/2022/1530.pdf for details). For the table term, the (idx, value) pair comes from the "table"
+ * (bus column), and for the lookup term the (idx, value) pair comes from wires 1 and 2 which should contain a valid
+ * entry in the table.
  *
  * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
- * (indirectly) the rational functions in the above expression: I_i =  1/[(read_term_i) * (write_term_i)]. This leads to
- * two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the primary
- * lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
+ * (indirectly) the rational functions in the above expression: I_i =  1/[(lookup_term_i) * (table_term_i)]. This leads
+ * to two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the
+ * primary lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
  * subrelations can be expressed as follows:
  *
- *  (1) I_i * (read_term_i) * (write_term_i) - 1 = 0
- * In reality this relation is I_i * (read_term_i) * (write_term_i) - inverse_exists = 0, i.e. it is only checked for
+ *  (1) I_i * (lookup_term_i) * (table_term_i) - 1 = 0
+ *
+ * In reality this relation is I_i * (lookup_term_i) * (table_term_i) - inverse_exists = 0, i.e. it is only checked for
  * active gates (more explanation below).
  *
- *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
+ *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * table_term_i + read_count_i * I_i * lookup_term_i] = 0
  *
  * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
  * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
@@ -204,7 +202,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
@@ -225,7 +223,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      */
     template <typename Accumulator, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
+    static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
@@ -242,8 +240,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Construct the polynomial I whose components are the inverse of the product of the read and write terms
-     * @details If the denominators of log derivative lookup relation are read_term and write_term, then I_i =
-     * (read_term_i*write_term_i)^{-1}.
+     * @details If the denominators of log derivative lookup relation are lookup_term and table_term, then I_i =
+     * (lookup_term_i*table_term_i)^{-1}.
      * @note Importantly, I_i = 0 for rows i at which there is no read or write, so the cost of this method is
      * proportional to the actual databus usage.
      *
@@ -281,8 +279,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
                 if (is_read || nonzero_read_count) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                     auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                    auto value = compute_read_term<FF>(row, relation_parameters) *
-                                 compute_write_term<FF, bus_idx>(row, relation_parameters);
+                    auto value = compute_lookup_term<FF>(row, relation_parameters) *
+                                 compute_table_term<FF, bus_idx>(row, relation_parameters);
                     inverse_polynomial.at(i) = value;
                 }
             }
@@ -319,8 +317,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
         Accumulator inverses(inverses_m);
         const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
-        const auto read_term = compute_read_term<Accumulator>(in, params);                                 // Degree 1
-        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params);                      // Degree 1
+        const auto lookup_term = compute_lookup_term<Accumulator>(in, params);                             // Degree 1
+        const auto table_term = compute_table_term<Accumulator, bus_idx>(in, params);                      // Degree 1
         const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in);                      // Degree 3
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);                            // Degree 2
 
@@ -335,15 +333,15 @@ template <typename FF_> class DatabusLookupRelationImpl {
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
         // is 0 if !inverse_exists. Degree 3
         // degrees            3    =              1           1              1           3
-        std::get<subrel_idx_1>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+        std::get<subrel_idx_1>(accumulator) += (lookup_term * table_term * inverses - inverse_exists) * scaling_factor;
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis.
 
         // degree  3   =         2          1
-        Accumulator tmp = read_selector * write_term;
+        Accumulator tmp = read_selector * table_term;
         // degree 2 =             1           1
-        tmp -= Accumulator(read_counts_m) * read_term;
+        tmp -= Accumulator(read_counts_m) * lookup_term;
         // degree 1
         tmp *= inverses;
         std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (4)

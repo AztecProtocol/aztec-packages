@@ -1942,7 +1942,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             mulmod(mload(TABLE4_EVAL_LOC), beta_cube, p),
                             p
                         )
-                    let write_term := addmod(t0, t1, p)
+                    let table_term := addmod(t0, t1, p)
 
                     // read_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
                     t0 := addmod(
@@ -1953,12 +1953,12 @@ contract BlakeOptHonkVerifier is IVerifier {
                     t1 := addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
                     let t2 := addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_SHIFT_EVAL_LOC), p), p)
 
-                    let read_term := addmod(t0, mulmod(t1, beta, p), p)
-                    read_term := addmod(read_term, mulmod(t2, beta_sqr, p), p)
-                    read_term := addmod(read_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
+                    let lookup_term := addmod(t0, mulmod(t1, beta, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(t2, beta_sqr, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
 
-                    let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), write_term, p)
-                    let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), read_term, p)
+                    let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), table_term, p)
+                    let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), lookup_term, p)
 
                     let inverse_exists_xor := addmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), mload(QLOOKUP_EVAL_LOC), p)
                     inverse_exists_xor := addmod(
@@ -1967,7 +1967,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         p
                     )
 
-                    let accumulator_none := mulmod(mulmod(read_term, write_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
+                    let accumulator_none := mulmod(mulmod(lookup_term, table_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
                     accumulator_none := addmod(accumulator_none, sub(p, inverse_exists_xor), p)
                     accumulator_none := mulmod(accumulator_none, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
