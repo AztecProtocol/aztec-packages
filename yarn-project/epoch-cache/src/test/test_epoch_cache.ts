@@ -13,6 +13,7 @@ const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
   epochDuration: 16,
   ethereumSlotDuration: 12,
   proofSubmissionEpochs: 2,
+  targetCommitteeSize: 48,
 };
 
 /**
