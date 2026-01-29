@@ -31,7 +31,7 @@ use crate::protocol::{
 /// }
 /// ```
 ///
-/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what "owned" means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// The value of a PrivateImmutable is stored in the Aztec's private state and hence is represented as a note.
 ///
@@ -87,7 +87,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     }
 
     /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a
-    /// [crate::note::note_message::NoteMessage] that allows you to decide what method of note message delivery to use.
+    /// [`crate::note::note_message::NoteMessage`] that allows you to decide what method of note message delivery to
+    /// use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.

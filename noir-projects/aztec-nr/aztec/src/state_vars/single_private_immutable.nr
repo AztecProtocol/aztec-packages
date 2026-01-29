@@ -22,16 +22,16 @@ mod test;
 /// Contract-wide immutable private state.
 ///
 /// A state variable that holds a single private value that is set once and remains unchanged forever (unlike
-/// [crate::state_vars::private_immutable::PrivateImmutable], which holds one private value _per account_ - hence the
+/// [`crate::state_vars::private_immutable::PrivateImmutable`], which holds one private value _per account_ - hence the
 /// name 'single').
 ///
 /// Because this private value has no semantic owner, it is up to the application to determine which accounts will
-/// learn of its existence via [crate::note::note_message::NoteMessage::deliver_to].
+/// learn of its existence via [`crate::note::note_message::NoteMessage::deliver_to`].
 ///
 /// # Usage
 ///
-/// Unlike [crate::state_vars::private_immutable::PrivateImmutable] which is "owned" (requiring wrapping in an
-/// [crate::state_vars::owned::Owned] state variable), SinglePrivateImmutable is used directly in storage:
+/// Unlike [`crate::state_vars::private_immutable::PrivateImmutable`] which is "owned" (requiring wrapping in an
+/// [`crate::state_vars::owned::Owned`] state variable), SinglePrivateImmutable is used directly in storage:
 ///
 /// ```noir
 /// #[storage]
@@ -45,7 +45,7 @@ mod test;
 /// A contract's configuration parameters can be represented as a SinglePrivateImmutable. Once set during contract
 /// deployment or initial setup, these parameters remain constant for the lifetime of the contract. For example, an
 /// account contract's signing public key is typically stored using SinglePrivateImmutable. Note that the configuration
-/// would be visible only to the parties to which the [NoteMessage] returned from the `initialize(...)` function is
+/// would be visible only to the parties to which the [`NoteMessage`] returned from the `initialize(...)` function is
 /// delivered.
 ///
 /// # Requirements
@@ -94,7 +94,7 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     }
 
     /// Initializes a SinglePrivateImmutable state variable instance with a permanent `note` and returns a
-    /// [NoteMessage] that allows you to decide what method of note message delivery to use.
+    /// [`NoteMessage`] that allows you to decide what method of note message delivery to use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// SinglePrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.

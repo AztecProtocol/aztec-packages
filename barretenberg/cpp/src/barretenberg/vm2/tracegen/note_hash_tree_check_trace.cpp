@@ -62,6 +62,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::note_hash_tree_check_sel, 1 },
+                      { C::note_hash_tree_check_const_three, 3 },
                       { C::note_hash_tree_check_write, write },
                       { C::note_hash_tree_check_exists, exists },
                       { C::note_hash_tree_check_note_hash, note_hash },

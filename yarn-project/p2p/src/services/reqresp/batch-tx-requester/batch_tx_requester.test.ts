@@ -22,7 +22,7 @@ import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index
 import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
-import type { BatchTxRequesterLibP2PService } from './interface.js';
+import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -53,9 +53,11 @@ describe('BatchTxRequester', () => {
     logger = createLogger('test');
     connectionSampler = mock<ConnectionSampler>();
     reqResp = mock<ReqRespInterface>();
+    const peerScoring = mock<IPeerPenalizer>();
     mockP2PService = mock<BatchTxRequesterLibP2PService>({
       connectionSampler,
       reqResp,
+      peerScoring,
     });
     txValidator = new AlwaysValidTxValidator();
 

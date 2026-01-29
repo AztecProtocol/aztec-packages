@@ -23,16 +23,17 @@ mod test;
 /// Contract-wide mutable private state.
 ///
 /// A state variable that holds a single private value that can be changed (unlike
-/// [crate::state_vars::private_mutable::PrivateMutable], which holds one private value _per account_ - hence the name
+/// [`crate::state_vars::private_mutable::PrivateMutable`], which holds one private value _per account_ - hence the
+/// name
 /// 'single').
 ///
 /// Because this private value has no semantic owner, it is up to the application to determine which accounts will
-/// learn of its existence via [crate::note::note_message::NoteMessage::deliver_to].
+/// learn of its existence via [`crate::note::note_message::NoteMessage::deliver_to`].
 ///
 /// # Usage
 ///
-/// Unlike [crate::state_vars::private_immutable::PrivateImmutable] which is "owned" (requiring wrapping in an
-/// [crate::state_vars::owned::Owned] state variable), SinglePrivateMutable is used directly in storage:
+/// Unlike [`crate::state_vars::private_immutable::PrivateImmutable`] which is "owned" (requiring wrapping in an
+/// [`crate::state_vars::owned::Owned`] state variable), SinglePrivateMutable is used directly in storage:
 ///
 /// ```noir
 /// #[storage]
@@ -81,7 +82,7 @@ mod test;
 ///
 /// # Warning
 ///
-/// The methods of this state variable that replace the underlying note return a [NoteMessage] that allows you to
+/// The methods of this state variable that replace the underlying note return a [`NoteMessage`] that allows you to
 /// decide what method of note message delivery to use. Keep in mind that unless the caller of the relevant function is
 /// incentivized to deliver the note you should use constrained delivery or you are at a risk of a malicious actor
 /// bricking the contract.
@@ -127,7 +128,7 @@ where
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Initializes a SinglePrivateMutable state variable instance with its first `note` and returns a [NoteMessage]
+    /// Initializes a SinglePrivateMutable state variable instance with its first `note` and returns a [`NoteMessage`]
     /// that allows you to decide what method of note message delivery to use for the new note.
     ///
     /// This function can only be called once per SinglePrivateMutable. Subsequent calls will fail because the
@@ -146,7 +147,8 @@ where
     /// Reads the current note of a SinglePrivateMutable state variable, nullifies it, and inserts a new note for
     /// `new_owner` produced by the provided function `f`.
     ///
-    /// This function returns a [NoteMessage] that allows you to decide what method of note message delivery to use for
+    /// This function returns a [`NoteMessage`] that allows you to decide what method of note message delivery to use
+    /// for
     /// the new note.
     ///
     /// This function implements a "read-and-replace" pattern for updating private state in Aztec. It first retrieves
@@ -179,7 +181,8 @@ where
     /// function `f` while the new note is owned by `new_owner`. The function `f` takes an `Option` with the current
     /// `Note` and returns the `Note` to insert. The `Option` is `none` if the state variable was not initialized.
     ///
-    /// This function returns a [NoteMessage] that allows you to decide what method of note message delivery to use for
+    /// This function returns a [`NoteMessage`] that allows you to decide what method of note message delivery to use
+    /// for
     /// the new note.
     pub fn initialize_or_replace<Env>(
         self,
@@ -213,7 +216,8 @@ where
     /// the current note and inserting a new note with the same value. By nullifying the current note, we ensure that
     /// we're reading the latest note.
     ///
-    /// This function returns a [NoteMessage] that allows you to decide what method of note message delivery to use for
+    /// This function returns a [`NoteMessage`] that allows you to decide what method of note message delivery to use
+    /// for
     /// the new note.
     pub fn get_note(self) -> NoteMessage<Note>
     where
