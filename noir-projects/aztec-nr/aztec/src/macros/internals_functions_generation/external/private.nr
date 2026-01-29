@@ -6,7 +6,7 @@ use crate::macros::{
     },
 };
 use crate::protocol::meta::utils::derive_serialization_quotes;
-use std::meta::{ctstring::AsCtString, type_of};
+use std::meta::type_of;
 
 pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
@@ -70,8 +70,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message =
-            f"Function {original_function_name} can only be called statically".as_ctstring().as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
         quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         quote {}
