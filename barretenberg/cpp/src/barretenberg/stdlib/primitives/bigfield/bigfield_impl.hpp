@@ -1833,6 +1833,12 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
+    // For constant bigfields, just verify the value is in range (no circuit constraints needed)
+    if (is_constant()) {
+        BB_ASSERT((get_value() % modulus_u512).lo < upper_limit, msg);
+        return;
+    }
+
     bool is_default_msg = msg == "bigfield::assert_less_than";
 
     // Range constrain the binary basis limbs of the element to respective limb sizes.
