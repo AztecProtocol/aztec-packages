@@ -6,7 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 
 import { describeAttestationPool } from './attestation_pool_test_suite.js';
-import { ATTESTATION_CAP_BUFFER, KvAttestationPool, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
+import { ATTESTATION_CAP_BUFFER, KvAttestationPool } from './kv_attestation_pool.js';
 import { mockCheckpointAttestation } from './mocks.js';
 
 describe('KV Attestation Pool', () => {
@@ -23,24 +23,18 @@ describe('KV Attestation Pool', () => {
   describeAttestationPool(() => kvAttestationPool);
 
   describe('BlockProposal behavior', () => {
-    it('should allow adding multiple block proposals for the same slot without cap', async () => {
+    it('should allow adding block proposals up to position cap', async () => {
       const slotNumber = 100;
       const header = makeBlockHeader(1, { slotNumber: SlotNumber(slotNumber) });
 
-      // Add 1 proposal and re-add it (duplicate) → should be idempotent
+      // Add 1 proposal and re-add it (duplicate) → should return alreadyExists
       const p0 = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
-      await kvAttestationPool.addBlockProposal(p0);
-      await kvAttestationPool.addBlockProposal(p0); // idempotent
+      const result0 = await kvAttestationPool.tryAddBlockProposal(p0);
+      expect(result0.added).toBe(true);
 
-      // Add more unique proposals - all should succeed without cap
-      for (let i = 0; i < MAX_PROPOSALS_PER_SLOT + 5; i++) {
-        const p = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
-        await kvAttestationPool.addBlockProposal(p);
-      }
-
-      // canAddProposal should always return true
-      const overflow = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
-      expect(await kvAttestationPool.canAddProposal(overflow)).toBe(true);
+      const result0Dup = await kvAttestationPool.tryAddBlockProposal(p0);
+      expect(result0Dup.added).toBe(false);
+      expect(result0Dup.alreadyExists).toBe(true);
     });
   });
 

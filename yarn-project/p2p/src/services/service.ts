@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore, Gossipable } from '@aztec/stdlib/p2p';
@@ -43,6 +44,19 @@ export type P2PCheckpointReceivedCallback = (
 
 export type AuthReceivedCallback = (peerId: PeerId, authRequest: AuthRequest) => Promise<AuthResponse | undefined>;
 
+/** Minimal info passed to the duplicate proposal callback. */
+export type DuplicateProposalInfo = {
+  slot: SlotNumber;
+  proposer: EthAddress;
+  type: 'checkpoint' | 'block';
+};
+
+/**
+ * Callback for when a duplicate proposal is detected (equivocation).
+ * Invoked on the first duplicate (when count goes from 1 to 2).
+ */
+export type P2PDuplicateProposalCallback = (info: DuplicateProposalInfo) => void;
+
 /**
  * The interface for a P2P service implementation.
  */
@@ -85,6 +99,12 @@ export interface P2PService {
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
 
   registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+
+  /**
+   * Registers a callback invoked when a duplicate proposal is detected (equivocation).
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
 
   getEnr(): ENR | undefined;
 
