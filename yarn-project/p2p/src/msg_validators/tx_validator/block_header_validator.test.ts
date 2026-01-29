@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { BlockHash } from '@aztec/stdlib/block';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
 import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
 
@@ -27,8 +27,8 @@ describe('BlockHeaderTxValidator', () => {
     );
 
     const goodTx = await mockTxForRollup();
-    const goodTxHeaderHash = (await goodTx.data.constants.anchorBlockHeader.hash()).toField();
-    archiveSource.getArchiveIndices.mockImplementation((archives: Fr[]) => {
+    const goodTxHeaderHash = await goodTx.data.constants.anchorBlockHeader.hash();
+    archiveSource.getArchiveIndices.mockImplementation((archives: BlockHash[]) => {
       if (archives[0].equals(goodTxHeaderHash)) {
         return Promise.resolve([1n]);
       } else {

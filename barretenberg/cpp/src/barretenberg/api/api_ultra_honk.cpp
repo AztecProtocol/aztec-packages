@@ -27,7 +27,7 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
 {
     if (flags.output_format == "json") {
         std::string json_content =
-            build_json_output(vk_response.fields, "vk", flags, bytes_to_hex_string(vk_response.hash));
+            VkJson::build(vk_response.fields, bytes_to_hex_string(vk_response.hash), flags.scheme);
         write_file(output_dir / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
         info("VK (JSON) saved to ", output_dir / "vk.json");
     } else {
@@ -44,11 +44,11 @@ void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
 {
     if (flags.output_format == "json") {
         std::string vk_hash = bytes_to_hex_string(prove_response.vk.hash);
-        std::string proof_json = build_json_output(prove_response.proof, "proof", flags, vk_hash);
+        std::string proof_json = ProofJson::build(prove_response.proof, vk_hash, flags.scheme);
         write_file(output_dir / "proof.json", std::vector<uint8_t>(proof_json.begin(), proof_json.end()));
         info("Proof (JSON) saved to ", output_dir / "proof.json");
 
-        std::string pi_json = build_json_output(prove_response.public_inputs, "public_inputs", flags);
+        std::string pi_json = PublicInputsJson::build(prove_response.public_inputs, flags.scheme);
         write_file(output_dir / "public_inputs.json", std::vector<uint8_t>(pi_json.begin(), pi_json.end()));
         info("Public inputs (JSON) saved to ", output_dir / "public_inputs.json");
     } else {
@@ -119,10 +119,32 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("UltraHonkAPI::verify");
-    // Read input files
-    auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
-    auto vk_bytes = read_vk_file(vk_path);
+
+    // Read and parse input files (auto-detect JSON vs binary format)
+    std::vector<uint256_t> public_inputs;
+    std::vector<uint256_t> proof;
+    std::vector<uint8_t> vk_bytes;
+
+    auto public_inputs_content = read_file(public_inputs_path);
+    if (auto json = try_parse_json(public_inputs_content)) {
+        public_inputs = PublicInputsJson::parse(*json);
+    } else {
+        public_inputs = many_from_buffer<uint256_t>(public_inputs_content);
+    }
+
+    auto proof_content = read_file(proof_path);
+    if (auto json = try_parse_json(proof_content)) {
+        proof = ProofJson::parse(*json);
+    } else {
+        proof = many_from_buffer<uint256_t>(proof_content);
+    }
+
+    auto vk_content = read_file(vk_path);
+    if (auto json = try_parse_json(vk_content)) {
+        vk_bytes = VkJson::parse_to_bytes(*json);
+    } else {
+        vk_bytes = std::move(vk_content);
+    }
 
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,

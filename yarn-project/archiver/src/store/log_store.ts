@@ -271,7 +271,7 @@ export class LogStore {
     });
   }
 
-  #packWithBlockHash(blockHash: Fr, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
+  #packWithBlockHash(blockHash: BlockHash, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
     return Buffer.concat([blockHash.toBuffer(), ...data]);
   }
 
@@ -282,7 +282,7 @@ export class LogStore {
       throw new Error('Failed to read block hash from log entry buffer');
     }
 
-    return BlockHash.fromField(blockHash);
+    return new BlockHash(blockHash);
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {

@@ -143,7 +143,7 @@ export class PXE {
       proverEnabled = config.proverEnabled;
     } else {
       const nodeInfo = await node.getNodeInfo();
-      proverEnabled = nodeInfo.proofsRequired;
+      proverEnabled = nodeInfo.proofsRequired ?? false;
       log.info(`Auto-detected proverEnabled=${proverEnabled} from node`);
     }
     const addressStore = new AddressStore(store);

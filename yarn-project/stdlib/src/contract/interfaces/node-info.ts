@@ -33,4 +33,4 @@ export const NodeInfoSchema: ZodFor<NodeInfo> = z
     protocolContractAddresses: ProtocolContractAddressesSchema,
     proofsRequired: z.boolean().default(false),
   })
-  .transform(obj => ({ enr: undefined, proofsRequired: false, ...obj }));
+  .transform(obj => ({ enr: undefined, ...obj }));

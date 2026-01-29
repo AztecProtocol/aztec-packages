@@ -37,7 +37,7 @@ describe('L2BlockStream', () => {
       number: BlockNumber(number),
       checkpointNumber: CheckpointNumber(number),
       indexWithinCheckpoint: 0,
-      hash: () => Promise.resolve(new Fr(number)),
+      hash: () => Promise.resolve(new BlockHash(new Fr(number))),
     }) as L2Block;
 
   const makeCheckpointedBlock = (number: number, checkpointNum: number): CheckpointedL2Block =>
@@ -47,7 +47,7 @@ describe('L2BlockStream', () => {
     }) as CheckpointedL2Block;
 
   const makeHeader = (number: number) =>
-    ({ hash: () => Promise.resolve(BlockHash.fromField(new Fr(number))) }) as BlockHeader;
+    ({ hash: () => Promise.resolve(new BlockHash(new Fr(number))) }) as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 
@@ -388,7 +388,7 @@ describe('L2BlockStream', () => {
         number: BlockNumber(blockNum),
         checkpointNumber: CheckpointNumber(checkpointNum),
         indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
-        hash: () => Promise.resolve(new Fr(blockNum)),
+        hash: () => Promise.resolve(new BlockHash(new Fr(blockNum))),
       } as L2Block;
     };
 

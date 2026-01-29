@@ -234,7 +234,7 @@ export interface AztecNode
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its archive root.
@@ -579,7 +579,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 
-  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getBlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
 
   getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 

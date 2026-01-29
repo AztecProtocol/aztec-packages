@@ -75,6 +75,7 @@ describe('PXE', () => {
         instanceRegistry: await AztecAddress.random(),
         multiCallEntrypoint: await AztecAddress.random(),
       },
+      proofsRequired: false,
     });
 
     pxe = await PXE.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);

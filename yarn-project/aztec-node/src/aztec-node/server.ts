@@ -571,8 +571,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
-    if (BlockHash.isL2BlockHash(block)) {
-      return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
+    if (BlockHash.isBlockHash(block)) {
+      return this.getBlockByHash(block);
     }
     const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
     if (blockNumber === BlockNumber.ZERO) {
@@ -586,9 +586,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+  public async getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(Fr.fromBuffer(initialBlockHash.toBuffer()))) {
+    if (blockHash.equals(initialBlockHash)) {
       return this.buildInitialBlock();
     }
     return await this.blockSource.getL2BlockByHash(blockHash);
@@ -698,8 +698,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
@@ -719,8 +718,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
@@ -916,7 +914,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
       return {
         l2BlockNumber: BlockNumber(Number(blockNumber)),
-        l2BlockHash: BlockHash.fromField(blockHash),
+        l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
     });
@@ -1119,14 +1117,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getCommitted().getInitialHeader();
       }
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      return this.blockSource.getBlockHeaderByHash(blockHashFr);
+      return this.blockSource.getBlockHeaderByHash(block);
     } else {
       // Block source doesn't handle initial header so we need to handle the case separately.
       const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
@@ -1443,15 +1440,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    if (BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
       }
 
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+      const header = await this.blockSource.getBlockHeaderByHash(block);
       if (!header) {
         throw new Error(
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,

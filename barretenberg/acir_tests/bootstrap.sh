@@ -47,10 +47,10 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   # Extract fields from JSON output (already hex-encoded with 0x prefix)
-  local vk_fields=$(jq -c '.fields' "$outdir/vk.json")
-  local vk_hash_field=$(jq -c '.vk_hash' "$outdir/vk.json")
-  local public_inputs_fields=$(jq -c '.fields' "$outdir/public_inputs.json")
-  local proof_fields=$(jq -c '.fields' "$outdir/proof.json")
+  local vk_fields=$(jq -c '.vk' "$outdir/vk.json")
+  local vk_hash_field=$(jq -c '.hash' "$outdir/vk.json")
+  local public_inputs_fields=$(jq -c '.public_inputs' "$outdir/public_inputs.json")
+  local proof_fields=$(jq -c '.proof' "$outdir/proof.json")
 
   generate_toml "$program" "$vk_fields" "$vk_hash_field" "$proof_fields" "$public_inputs_fields"
 }

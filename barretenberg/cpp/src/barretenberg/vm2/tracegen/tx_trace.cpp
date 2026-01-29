@@ -445,6 +445,7 @@ std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEv
         { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
         { C::tx_dom_sep_public_storage_map_slot, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT },
         { C::tx_fee_juice_balance_slot, event.fee_juice_balance_slot },
+        { C::tx_const_three, 3 },
         { C::tx_fee_payer_balance, event.fee_payer_balance },
         { C::tx_fee_payer_new_balance, event.fee_payer_balance - event.fee },
         { C::tx_uint32_max, UINT32_MAX },

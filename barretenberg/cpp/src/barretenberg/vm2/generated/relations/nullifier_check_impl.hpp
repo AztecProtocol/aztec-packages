@@ -68,41 +68,47 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::nullifier_check_should_insert)) -
-                    static_cast<View>(in.get(C::nullifier_check_write)) *
-                        (FF(1) - static_cast<View>(in.get(C::nullifier_check_exists))));
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel)) *
+                   (static_cast<View>(in.get(C::nullifier_check_const_three)) - FF(3));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_write)) *
-                   static_cast<View>(in.get(C::nullifier_check_exists)) *
-                   (static_cast<View>(in.get(C::nullifier_check_root)) -
-                    static_cast<View>(in.get(C::nullifier_check_write_root)));
+        auto tmp = (static_cast<View>(in.get(C::nullifier_check_should_insert)) -
+                    static_cast<View>(in.get(C::nullifier_check_write)) *
+                        (FF(1) - static_cast<View>(in.get(C::nullifier_check_exists))));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_should_insert)) *
-                   (static_cast<View>(in.get(C::nullifier_check_tree_size_before_write)) -
-                    static_cast<View>(in.get(C::nullifier_check_updated_low_leaf_next_index)));
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_write)) *
+                   static_cast<View>(in.get(C::nullifier_check_exists)) *
+                   (static_cast<View>(in.get(C::nullifier_check_root)) -
+                    static_cast<View>(in.get(C::nullifier_check_write_root)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::nullifier_check_should_insert)) *
-                   (static_cast<View>(in.get(C::nullifier_check_siloed_nullifier)) -
-                    static_cast<View>(in.get(C::nullifier_check_updated_low_leaf_next_nullifier)));
+                   (static_cast<View>(in.get(C::nullifier_check_tree_size_before_write)) -
+                    static_cast<View>(in.get(C::nullifier_check_updated_low_leaf_next_index)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel)) *
-                   (static_cast<View>(in.get(C::nullifier_check_tree_height)) - CView(constants_NULLIFIER_TREE_HEIGHT));
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_should_insert)) *
+                   (static_cast<View>(in.get(C::nullifier_check_siloed_nullifier)) -
+                    static_cast<View>(in.get(C::nullifier_check_updated_low_leaf_next_nullifier)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
-    { // EXISTS_CHECK
+    {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel)) *
+                   (static_cast<View>(in.get(C::nullifier_check_tree_height)) - CView(constants_NULLIFIER_TREE_HEIGHT));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    { // EXISTS_CHECK
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::nullifier_check_sel)) *
             ((CView(nullifier_check_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF) *
@@ -111,23 +117,23 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    static_cast<View>(in.get(C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv))) -
               FF(1)) +
              static_cast<View>(in.get(C::nullifier_check_exists)));
-        std::get<12>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel)) *
-                   ((FF(1) - static_cast<View>(in.get(C::nullifier_check_exists))) -
-                    static_cast<View>(in.get(C::nullifier_check_leaf_not_exists)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_next_nullifier_is_nonzero)) *
-                   (FF(1) - static_cast<View>(in.get(C::nullifier_check_next_nullifier_is_nonzero)));
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel)) *
+                   ((FF(1) - static_cast<View>(in.get(C::nullifier_check_exists))) -
+                    static_cast<View>(in.get(C::nullifier_check_leaf_not_exists)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
-    { // NEXT_NULLIFIER_IS_ZERO_CHECK
+    {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_next_nullifier_is_nonzero)) *
+                   (FF(1) - static_cast<View>(in.get(C::nullifier_check_next_nullifier_is_nonzero)));
+        std::get<15>(evals) += (tmp * scaling_factor);
+    }
+    { // NEXT_NULLIFIER_IS_ZERO_CHECK
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::nullifier_check_leaf_not_exists)) *
                    ((static_cast<View>(in.get(C::nullifier_check_low_leaf_next_nullifier)) *
                          (CView(nullifier_check_NEXT_NULLIFIER_IS_ZERO) *
@@ -135,22 +141,22 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::nullifier_check_next_nullifier_inv))) -
                      FF(1)) +
                     CView(nullifier_check_NEXT_NULLIFIER_IS_ZERO));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::nullifier_check_should_insert)) *
-                        (FF(1) - static_cast<View>(in.get(C::nullifier_check_discard))) -
-                    static_cast<View>(in.get(C::nullifier_check_should_write_to_public_inputs)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::nullifier_check_should_insert)) *
+                        (FF(1) - static_cast<View>(in.get(C::nullifier_check_discard))) -
+                    static_cast<View>(in.get(C::nullifier_check_should_write_to_public_inputs)));
+        std::get<17>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::nullifier_check_should_write_to_public_inputs)) *
                    ((CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX) +
                      static_cast<View>(in.get(C::nullifier_check_nullifier_index))) -
                     static_cast<View>(in.get(C::nullifier_check_public_inputs_index)));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
 }
 

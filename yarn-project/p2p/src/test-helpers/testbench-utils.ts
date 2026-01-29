@@ -321,6 +321,8 @@ export const BENCHMARK_CONSTANTS = {
   FIXED_MAX_PEERS: 10,
   /** Fixed max retry attempts for fair benchmarking */
   FIXED_MAX_RETRY_ATTEMPTS: 3,
+  /** LMDB map size for temp stores used in benchmarks (in KB). */
+  KV_STORE_MAP_SIZE_KB: 256 * 1024,
 } as const;
 
 /**

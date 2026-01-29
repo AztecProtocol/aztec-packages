@@ -42,22 +42,22 @@ struct lookup_update_check_delayed_public_mutable_slot_poseidon2_settings_ {
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_update_check_delayed_public_mutable_slot_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_delayed_public_mutable_slot_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_sel,
         ColumnAndShifts::update_check_dom_sep_public_storage_map_slot,
         ColumnAndShifts::update_check_updated_class_ids_slot,
         ColumnAndShifts::update_check_address,
-        ColumnAndShifts::update_check_delayed_public_mutable_slot
+        ColumnAndShifts::update_check_delayed_public_mutable_slot,
+        ColumnAndShifts::update_check_const_three
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
+        ColumnAndShifts::poseidon2_hash_output,
+        ColumnAndShifts::poseidon2_hash_input_len
     };
 };
 
@@ -104,22 +104,22 @@ struct lookup_update_check_update_hash_poseidon2_settings_ {
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_sel,
         ColumnAndShifts::update_check_update_preimage_metadata,
         ColumnAndShifts::update_check_update_preimage_pre_class_id,
         ColumnAndShifts::update_check_update_preimage_post_class_id,
-        ColumnAndShifts::update_check_update_hash
+        ColumnAndShifts::update_check_update_hash,
+        ColumnAndShifts::update_check_const_three
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
+        ColumnAndShifts::poseidon2_hash_output,
+        ColumnAndShifts::poseidon2_hash_input_len
     };
 };
 
