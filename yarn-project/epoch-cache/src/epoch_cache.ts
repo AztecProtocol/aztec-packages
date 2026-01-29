@@ -45,6 +45,7 @@ export interface EpochCacheInterface {
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
+  getL1Constants(): L1RollupConstants;
 }
 
 /**
@@ -106,6 +107,7 @@ export class EpochCache implements EpochCacheInterface {
       epochDuration,
       lagInEpochsForValidatorSet,
       lagInEpochsForRandao,
+      targetCommitteeSize,
     ] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
@@ -114,6 +116,7 @@ export class EpochCache implements EpochCacheInterface {
       rollup.getEpochDuration(),
       rollup.getLagInEpochsForValidatorSet(),
       rollup.getLagInEpochsForRandao(),
+      rollup.getTargetCommitteeSize(),
     ] as const);
 
     const l1RollupConstants = {
@@ -125,6 +128,7 @@ export class EpochCache implements EpochCacheInterface {
       ethereumSlotDuration: config.ethereumSlotDuration,
       lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
       lagInEpochsForRandao: Number(lagInEpochsForRandao),
+      targetCommitteeSize: Number(targetCommitteeSize),
     };
 
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);

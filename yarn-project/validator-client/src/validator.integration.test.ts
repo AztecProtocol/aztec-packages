@@ -52,6 +52,7 @@ describe('ValidatorClient Integration', () => {
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
+    targetCommitteeSize: 48,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];

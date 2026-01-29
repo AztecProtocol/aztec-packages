@@ -100,6 +100,7 @@ export async function createArchiver(
     slotDuration,
     ethereumSlotDuration,
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
+    targetCommitteeSize: config.aztecTargetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
   };
 

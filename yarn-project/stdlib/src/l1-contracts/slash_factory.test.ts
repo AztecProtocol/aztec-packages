@@ -41,6 +41,7 @@ describe('SlashFactory', () => {
     epochDuration: 32,
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
+    targetCommitteeSize: 48,
     slashingRoundSize: 100,
     slashingPayloadLifetimeInRounds: 3,
     logsBatchSize: 50,
