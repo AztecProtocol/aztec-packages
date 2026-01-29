@@ -58,9 +58,10 @@ function build {
 function grind (
     echo "Grinding $GRIND_FLAKE_RUNS times or for $GRIND_TIMEOUT seconds..."
     function _grind {
+      set -euo pipefail
       if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
           rc=$?
-          [ "$rc" -eq 124 ] || return $rc
+          [ "$rc" -eq 124 ] || exit $rc
       fi
     }
     export -f _grind
@@ -99,7 +100,7 @@ fi
 # Inject some system load to better reproduce flakes.
 echo_header "installing stress-ng to load the system"
 sudo apt update && sudo apt install -y stress-ng
-stress-ng --cpu $(( $(nproc)/2 )) --cpu-load 60 --cpu-load-slice 0 &
+stress-ng --cpu $(( $(nproc)/2 )) --cpu-load 60 --cpu-load-slice 0 --quiet &
 stress_pid=$!
 trap "kill $stress_pid" EXIT
 
