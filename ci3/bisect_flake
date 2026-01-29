@@ -89,6 +89,10 @@ if ! seq 1 $CONFIRM_FLAKE_RUNS | parallel --halt now,success=1 --line-buffer \
     exit 0
 fi
 
+# Inject some system load to better reproduce flakes.
+sudo apt update && sudo apt install -y stress-ng
+stress-ng --cpu $(( $(nproc) / 2 )) --cpu-method all &
+
 # ============================================================
 # Step 2: Verify oldest commit is stable (not flaky)
 # ============================================================

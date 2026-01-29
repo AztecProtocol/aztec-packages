@@ -44,7 +44,7 @@ if [ "$CI" -eq 1 ]; then
   pass_log=1
   allow_flakes=1
 
-  # Track the test in the history tracker if this in merge queue or targetting a version branch.
+  # Track the test in the history tracker if this is in merge queue or targeting a version branch.
   [[ "$is_merge_queue" -eq 1 || ("${TARGET_BRANCH:-}" =~ ^v[0-9]) ]] && track_test=1
 
   # Notify on flakes if in merge queue or backport-to-v2-staging.
@@ -188,10 +188,11 @@ fi
 function track_test {
   local key=$1
   local line=$(pr_link "$2")
+  local max_lines=${3:-1000}
 
   redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last 1000 lines.
-  redis_cli RTRIM $key -1000 -1 &>/dev/null
+  # Keeps only the last max_lines lines.
+  redis_cli LTRIM $key 0 $max_lines &>/dev/null
 }
 
 # Show PASSED and early out on success.
@@ -260,7 +261,7 @@ function flake {
   if [ "$track_test" -eq 1 ]; then
     line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
     track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
-    track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
+    track_test "failed_tests_${TARGET_BRANCH:-}" "$line" 10000
   fi
 
   # Save flake to buffer file (for PR comment generation)
