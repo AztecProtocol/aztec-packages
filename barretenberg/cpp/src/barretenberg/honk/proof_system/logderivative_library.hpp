@@ -90,38 +90,29 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
 }
 
 /**
- * @brief Compute generic log-derivative lookup subrelation accumulation
- * @details The generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
- * inverse polynomial I, defined via I_i =  1/[(lookup_term_i) * (table_term_i)], has been computed correctly. The
- * second establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note that
- * the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows of the
- * exectution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
- * subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
- * respectively:
- *
- *  I_i * (lookup_term_i) * (table_term_i) - 1 = 0
- *
- * \sum_{i=0}^{n-1} [lookup_term_predicate_i * 1 /lookup_term_i
- *               + lookup_count_i * table_term_predicate_i * 1 / table_term_i] = 0
- *
- * The explicit expressions for lookup_term and table_term are dependent upon the particular structure of the lookup
- * being performed and methods for computing them must be defined in the corresponding relation class.
+ * @brief Unified implementation of log-derivative subrelation accumulation
  *
  * @tparam FF
  * @tparam Relation
  * @tparam ContainerOverSubrelations
  * @tparam AllEntities
  * @tparam Parameters
+ * @tparam IsPermutation If true, then the read counts used in the second subrelation are hard-coded to 1.
  * @param accumulator
  * @param in
  * @param params
  * @param scaling_factor
  */
-template <typename FF, typename Relation, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubrelations& accumulator,
-                                                               const AllEntities& in,
-                                                               const Parameters& params,
-                                                               const FF& scaling_factor)
+template <typename FF,
+          typename Relation,
+          typename ContainerOverSubrelations,
+          typename AllEntities,
+          typename Parameters,
+          bool IsPermutation>
+void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelations& accumulator,
+                                                         const AllEntities& in,
+                                                         const Parameters& params,
+                                                         const FF& scaling_factor)
 {
     constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
     constexpr size_t NUM_TABLE_TERMS = Relation::NUM_TABLE_TERMS;
@@ -134,13 +125,6 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
     constexpr size_t NUM_TOTAL_TERMS = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS;
     std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;
     std::array<Accumulator, NUM_TOTAL_TERMS> denominator_accumulator;
-
-    // The lookup relation = \sum_j (1 / read_term[j]) - \sum_k (read_counts[k] / write_term[k])
-    // To get the inverses (1 / read_term[i]), (1 / write_term[i]), we have a commitment to the product of all inverses
-    // i.e. lookup_inverse = \prod_j (1 / read_term[j]) * \prod_k (1 / write_term[k])
-    // The purpose of this next section is to derive individual inverse terms using `lookup_inverses`
-    // i.e. (1 / read_term[i]) = lookup_inverse * \prod_{j /ne i} (read_term[j]) * \prod_k (write_term[k])
-    //      (1 / write_term[i]) = lookup_inverse * \prod_j (read_term[j]) * \prod_{k ne i} (write_term[k])
 
     // The inverse polynomial gives us the produce of all the inverses, i.e.
     // lookup_inverse = \prod_j (1 / lookup_term[j]) * \prod_k (1 / table_term[k])
@@ -185,103 +169,17 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
             Relation::template get_lookup_term_predicate<Accumulator, i>(in) * denominator_accumulator[i];
     });
 
-    bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-        const auto p = Relation::template get_table_term_predicate<Accumulator, i>(in);
-        const auto lookup_read_count = Relation::template lookup_read_counts<Accumulator, i>(in);
-        std::get<1>(accumulator) -= p * (denominator_accumulator[i + NUM_LOOKUP_TERMS] * lookup_read_count);
-    });
-}
-
-/**
- * @brief Compute generic log-derivative set permutation subrelation accumulation
- * @details The generic log-derivative lookup relation consistes of two subrelations. The first demonstrates that the
- * inverse polynomial I, defined via I =  1/[(read_term) * (write_term)], has been computed correctly. The second
- * establishes the correctness of the permutation itself based on the log-derivative argument. Note that the
- * latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows of the
- * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
- * subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
- * respectively:
- *
- *  I * (read_term) * (write_term) - q_{permutation_enabler} = 0
- *
- * \sum_{i=0}^{n-1} [q_{write_enabler} * I * write_term +  q_{read_enabler} * I * read_term] = 0
- *
- * The explicit expressions for read_term and write_term are dependent upon the particular structure of the permutation
- * being performed and methods for computing them must be defined in the corresponding relation class. The entities
- * which are used to determine the use of permutation (is it enabled, is the first "read" set enabled, is the second
- * "write" set enabled) must be defined in the relation class.
- *
- * @tparam FF
- * @tparam Relation
- * @tparam ContainerOverSubrelations
- * @tparam AllEntities
- * @tparam Parameters
- * @param accumulator
- * @param in
- * @param params
- * @param scaling_factor
- */
-template <typename FF, typename Relation, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void accumulate_logderivative_permutation_subrelation_contributions(ContainerOverSubrelations& accumulator,
-                                                                    const AllEntities& in,
-                                                                    const Parameters& params,
-                                                                    const FF& scaling_factor)
-{
-    constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
-    constexpr size_t NUM_TABLE_TERMS = Relation::NUM_TABLE_TERMS;
-
-    // For now we only do simple permutations over tuples with 1 read and 1 write term
-    static_assert(NUM_LOOKUP_TERMS == 1);
-    static_assert(NUM_TABLE_TERMS == 1);
-
-    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-    using View = typename Accumulator::View;
-
-    auto permutation_inverses = View(Relation::get_inverse_polynomial(in));
-
-    constexpr size_t NUM_TOTAL_TERMS = 2;
-    std::array<Accumulator, NUM_TOTAL_TERMS> permutation_terms;
-    std::array<Accumulator, NUM_TOTAL_TERMS> denominator_accumulator;
-
-    // The permutation relation =  1 / read_term - 1 / write_term
-    // To get the inverses (1 / read_term), (1 / write_term), we have a commitment to the product ofinver ses
-    // i.e. permutation_inverses =  (1 / read_term) * (1 / write_term)
-    // The purpose of this next section is to derive individual inverse terms using `permutation_inverses`
-    // i.e. (1 / read_term) = permutation_inverses * write_term
-    //      (1 / write_term) = permutation_inverses * read_term
-    permutation_terms[0] = Relation::template compute_lookup_term<Accumulator, 0>(in, params);
-    permutation_terms[1] = Relation::template compute_table_term<Accumulator, 0>(in, params);
-
-    bb::constexpr_for<0, NUM_TOTAL_TERMS, 1>([&]<size_t i>() { denominator_accumulator[i] = permutation_terms[i]; });
-
-    bb::constexpr_for<0, NUM_TOTAL_TERMS - 1, 1>(
-        [&]<size_t i>() { denominator_accumulator[i + 1] *= denominator_accumulator[i]; });
-
-    auto inverse_accumulator = Accumulator(permutation_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
-
-    const auto inverse_exists = Relation::template compute_inverse_exists<Accumulator>(in);
-
-    // Note: the lookup_inverses are computed so that the value is 0 if !inverse_exists
-    std::get<0>(accumulator) +=
-        (denominator_accumulator[NUM_TOTAL_TERMS - 1] * permutation_inverses - inverse_exists) * scaling_factor;
-
-    // After this algo, total degree of denominator_accumulator = NUM_TOTAL_TERMS
-    for (size_t i = 0; i < NUM_TOTAL_TERMS - 1; ++i) {
-        denominator_accumulator[NUM_TOTAL_TERMS - 1 - i] =
-            denominator_accumulator[NUM_TOTAL_TERMS - 2 - i] * inverse_accumulator;
-        inverse_accumulator = inverse_accumulator * permutation_terms[NUM_TOTAL_TERMS - 1 - i];
+    if constexpr (IsPermutation) {
+        bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
+            const auto p = Relation::template get_table_term_predicate<Accumulator, i>(in);
+            std::get<1>(accumulator) -= p * (denominator_accumulator[i + NUM_LOOKUP_TERMS]);
+        });
+    } else {
+        bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
+            const auto p = Relation::template get_table_term_predicate<Accumulator, i>(in);
+            const auto lookup_read_count = Relation::template lookup_read_counts<Accumulator, i>(in);
+            std::get<1>(accumulator) -= p * (denominator_accumulator[i + NUM_LOOKUP_TERMS] * lookup_read_count);
+        });
     }
-    denominator_accumulator[0] = inverse_accumulator;
-
-    // each predicate is degree-1
-    // degree of relation at this point = NUM_TOTAL_TERMS + 1
-    std::get<1>(accumulator) +=
-        Relation::template get_lookup_term_predicate<Accumulator, 0>(in) * denominator_accumulator[0];
-
-    // each predicate is degree-1
-    // degree of relation = NUM_TOTAL_TERMS + 1
-    std::get<1>(accumulator) -=
-        Relation::template get_table_term_predicate<Accumulator, 0>(in) * denominator_accumulator[1];
 }
-
 } // namespace bb

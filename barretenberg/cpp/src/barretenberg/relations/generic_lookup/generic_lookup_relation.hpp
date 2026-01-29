@@ -80,7 +80,7 @@ enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
  *    \f$t(x) = \sum_i t_i \cdot Y^i\f$, and we check the existence of a function
  *    \f$\text{counts} : B_N \rightarrow F\f$ such that
  *    \f[
- *        \sum_{x \in H_N} \frac{1}{\gamma - f(x, \beta)} = \sum_{y \in H_M} \frac{\text{counts}(y)}{\gamma - t(y, \beta)}
+ *        \sum_{x \in H_N} \frac{1}{\gamma - f(x, \beta)} = \sum_{x \in H_M} \frac{\text{counts}(x)}{\gamma - t(x, \beta)}
  *    \f]
  *  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: We allow looking up values that are computed arbitrarily from
  *    \f$\{f_1, \ldots, f_n\}\f$ from values that are computed arbitrarily (and possibly in a different way)
@@ -481,7 +481,22 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     }
 
     /**
-     * @brief Expression for generic log-derivative-based set permutation
+     * @brief Compute generic log-derivative lookup subrelation accumulation
+     * @details The generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
+     * inverse polynomial I, defined via I_i =  1/[(lookup_term_i) * (table_term_i)], has been computed correctly. The
+     * second establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note
+     * that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows
+     * of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
+     * this subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
+     * respectively:
+     *
+     *  I_i * (lookup_term_i) * (table_term_i) - 1 = 0
+     *
+     * \sum_{i=0}^{n-1} [lookup_term_predicate_i * 1 /lookup_term_i
+     *               - lookup_count_i * table_term_predicate_i * 1 / table_term_i] = 0
+     *
+     * The explicit expressions for lookup_term and table_term are dependent upon the particular structure of the lookup
+     * being performed and methods for computing them must be defined in the corresponding relation class.
      *
      * @tparam ContainerOverSubrelations Container type for accumulating subrelation contributions
      * @tparam AllEntities Type containing all polynomial entities
@@ -497,8 +512,12 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        accumulate_logderivative_lookup_subrelation_contributions<FF, GenericLookupRelationImpl<Settings, FF>>(
-            accumulator, in, params, scaling_factor);
+        _accumulate_logderivative_subrelation_contributions<FF,
+                                                            GenericLookupRelationImpl<Settings, FF>,
+                                                            ContainerOverSubrelations,
+                                                            AllEntities,
+                                                            Parameters,
+                                                            false>(accumulator, in, params, scaling_factor);
     }
 };
 

@@ -36,6 +36,15 @@ enum GenericPermutationSettingIndices {
                                                 sets*/
 };
 
+/**
+ * @brief Implementation of a generic permutation relation
+ *
+ * @details Implementation of a generic permutation relation that uses a log-derivative argument to prove that elements
+ * in two columns of the execution trace are equal. The strategy is to use the lookup log-derivate argument with read
+ * counts (i.e., number of times the lookup terms are looked up) equal to 1. As the sets we are comparing are each
+ * comprised of the same number of elements, this means that they are permutations of one another.
+ *
+ */
 template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
   public:
     using FF = FF_;
@@ -43,7 +52,8 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     // sets (not as tuples).
     static constexpr size_t NUM_LOOKUP_TERMS = 1;
     static constexpr size_t NUM_TABLE_TERMS = 1;
-    // 1 + polynomial degree of this relation
+
+    // Relation length: 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 5
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
@@ -55,7 +65,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @brief We apply the power polynomial only to the first subrelation
      *
      *@details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
-     *The second relation computes the inverses of individual terms, which are then summed up with sumcheck
+     * The second relation computes the inverses of individual terms, which are then summed up with sumcheck
      *
      */
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
@@ -202,7 +212,25 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     }
 
     /**
-     * @brief Expression for generic log-derivative-based set permutation.
+     * @brief Compute generic log-derivative set permutation subrelation accumulation
+     * @details The generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
+     * inverse polynomial I, defined via I_i =  1/[(lookup_term_i) * (table_term_i)], has been computed correctly. The
+     * second establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note
+     * that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows
+     * of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
+     * this subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
+     * respectively:
+     *
+     *  I_i * (lookup_term_i) * (table_term_i) - 1 = 0
+     *
+     * \sum_{i=0}^{n-1} [lookup_term_predicate_i * 1 /lookup_term_i - table_term_predicate_i * 1 / table_term_i] = 0
+     *
+     * The explicit expressions for lookup_term and table_term are dependent upon the particular structure of the lookup
+     * being performed and methods for computing them must be defined in the corresponding relation class.
+     *
+     * @tparam ContainerOverSubrelations Container type for accumulating subrelation contributions
+     * @tparam AllEntities Type containing all polynomial entities
+     * @tparam Parameters Type containing relation parameters
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param relation_params contains beta, gamma, and public_input_delta, ....
@@ -214,9 +242,12 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        accumulate_logderivative_permutation_subrelation_contributions<FF,
-                                                                       GenericPermutationRelationImpl<Settings, FF>>(
-            accumulator, in, params, scaling_factor);
+        _accumulate_logderivative_subrelation_contributions<FF,
+                                                            GenericPermutationRelationImpl<Settings, FF>,
+                                                            ContainerOverSubrelations,
+                                                            AllEntities,
+                                                            Parameters,
+                                                            true>(accumulator, in, params, scaling_factor);
     }
 };
 
