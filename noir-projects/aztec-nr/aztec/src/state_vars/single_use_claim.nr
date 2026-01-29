@@ -16,12 +16,13 @@ mod test;
 ///
 /// A private state variable type that represents a right each user can exercise at most once.
 ///
-/// Because it is _owned_, you must wrap a [SingleUseClaim] inside an [crate::state_vars::owned::Owned] state variable
+/// Because it is _owned_, you must wrap a [`SingleUseClaim`] inside an [`crate::state_vars::owned::Owned`] state
+/// variable
 /// when using it in storage.
 ///
 /// ## Example
 ///
-/// The right to vote at most once can be implemented using [SingleUseClaim] as a primitive.
+/// The right to vote at most once can be implemented using [`SingleUseClaim`] as a primitive.
 ///
 /// ```noir
 /// #[derive(Serialize, Deserialize)]
@@ -48,15 +49,15 @@ mod test;
 /// }
 /// ```
 ///
-/// For more details on what _owned_ means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what _owned_ means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// ## Cost
 ///
-/// Exercising a claim (via the [SingleUseClaim::claim] function) emits one nullifier.
+/// Exercising a claim (via the [`SingleUseClaim::claim`] function) emits one nullifier.
 ///
 /// ## Privacy considerations
 ///
-/// The [SingleUseClaim::claim] function emits a public nullifier per owner: it's fully private, hidden behind the
+/// The [`SingleUseClaim::claim`] function emits a public nullifier per owner: it's fully private, hidden behind the
 /// owner's app-siloed nullifier secret key (aka `nsk`).
 ///
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
@@ -78,8 +79,8 @@ impl<Context> SingleUseClaim<Context> {
     /// Computes the nullifier that will be created when the single use claim is claimed by the owner (denoted by the
     /// app-siloed nullifier secret key `owner_nsk_app`).
     ///
-    /// This function is primarily used internally by functions [SingleUseClaim::claim],
-    /// [SingleUseClaim::assert_claimed] and [SingleUseClaim::has_claimed] to coherently write and read state.
+    /// This function is primarily used internally by functions [`SingleUseClaim::claim`],
+    /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nsk_app: Field) -> Field {
         // TODO(F-180): make sure we follow the nullifier convention
         poseidon2_hash_with_separator([owner_nsk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
@@ -105,13 +106,13 @@ impl SingleUseClaim<&mut PrivateContext> {
         self.context.push_nullifier(self.compute_nullifier(owner_nsk_app));
     }
 
-    /// Asserts that the owner has already claimed this single use claim (i.e. that [SingleUseClaim::claim] has been
+    /// Asserts that the owner has already claimed this single use claim (i.e. that [`SingleUseClaim::claim`] has been
     /// called).
     ///
     /// ## Advanced
     ///
     /// This function generates a kernel nullifier read request, so it can even assert the existence of pending claims,
-    /// i.e. when [SingleUseClaim::claim] was called in the same transaction as [SingleUseClaim::assert_claimed].
+    /// i.e. when [`SingleUseClaim::claim`] was called in the same transaction as [`SingleUseClaim::assert_claimed`].
     pub fn assert_claimed(self) {
         let owner_nsk_app = self.context.request_nsk_app(get_public_keys(self.owner).npk_m.hash());
         let nullifier = self.compute_nullifier(owner_nsk_app);

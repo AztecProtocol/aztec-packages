@@ -637,7 +637,7 @@ impl PrivateContext {
     /// ## Historical Notes
     ///
     /// If you need to assert that a note existed _by some specific block in the past_, instead of simply proving that
-    /// it exists by the current anchor block, use [crate::history::note::assert_note_existed_by] instead.
+    /// it exists by the current anchor block, use [`crate::history::note::assert_note_existed_by`] instead.
     ///
     /// ## Cost
     ///
@@ -673,7 +673,7 @@ impl PrivateContext {
     /// ## Historical Nullifiers
     ///
     /// If you need to assert that a nullifier existed _by some specific block in the past_, instead of simply proving
-    /// that it exists by the current anchor block, use [crate::history::nullifier::assert_nullifier_existed_by]
+    /// that it exists by the current anchor block, use [`crate::history::nullifier::assert_nullifier_existed_by`]
     /// instead.
     ///
     /// ## Public vs Private
@@ -685,7 +685,7 @@ impl PrivateContext {
     ///
     /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
     /// prove whether a nullifier exists or not via
-    /// [crate::context::public_context::PublicContext::nullifier_exists_unsafe].
+    /// [`crate::context::public_context::PublicContext::nullifier_exists_unsafe`].
     ///
     /// ## Cost
     ///

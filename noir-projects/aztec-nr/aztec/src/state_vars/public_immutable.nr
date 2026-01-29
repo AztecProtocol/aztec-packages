@@ -21,19 +21,20 @@ mod test;
 ///
 /// Unlike Solidity's `immutable` or `constant`, a `PublicImmutable`'s initialization does not need to occur during
 /// contract initialization - it can happen at any point in time (but only once). This also makes it possible to have a
-/// [Map](crate::state_vars::Map) of `PublicImmutable`s.
+/// [`Map`](crate::state_vars::Map) of `PublicImmutable`s.
 ///
 /// ## Access Patterns
 ///
 /// A value stored in a `PublicImmutable` can be read and initialized from public contract functions.
 ///
-/// Unlike [PublicMutable](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from a
+/// Unlike [`PublicMutable`](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from
+/// a
 /// private contract function, though it is not possible to initialize one. A common pattern is to have these functions
 /// [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the initialization
 /// operation is performed.
 ///
 /// For a mutable (with restrictions) variant which also can be read from private functions see
-/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable).
+/// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable).
 ///
 /// ## Privacy
 ///
@@ -48,16 +49,17 @@ mod test;
 /// This is suitable for any kind of fixed global configuration that needs to be accessible by private contract
 /// functions, such as token decimals, related contracts in a multi-contract configuration, etc.
 ///
-/// It is also useful for fixed per-user configuration by combining it with a [Map](crate::state_vars::Map), e.g. a
+/// It is also useful for fixed per-user configuration by combining it with a [`Map`](crate::state_vars::Map), e.g. a
 /// registry of their account types.
 ///
 /// `PublicImmutable`'s main limitation is the immutability, which in many cases leads to
-/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable) being used instead. But in those cases where fixed
+/// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) being used instead. But in those cases where
+/// fixed
 /// values are not a problem, this is a fine choice for storage.
 ///
 /// ## Examples
 ///
-/// Declaring a `PublicImmutable` in the the contract's [storage](crate::macros::storage::storage) struct requires
+/// Declaring a `PublicImmutable` in the the contract's [`storage`](crate::macros::storage::storage) struct requires
 /// specifying the type `T` that is stored in the variable:
 ///
 /// ```noir
@@ -78,7 +80,7 @@ mod test;
 /// Values are packed and stored directly in the public storage tree, along with the hash of the packed representation.
 /// A `PublicImmutable` therefore takes up as many storage slots as the packing length of the stored type `T`, plus
 /// one. This hash allows for efficient private reads, such that only a single public storage value is read. For more
-/// details, see [WithHash](crate::utils::WithHash).
+/// details, see [`WithHash`](crate::utils::WithHash).
 ///
 /// An initialization nullifier prevents re-initialization of the `PublicImmutable`. This allows reading an initialized
 /// `PublicImmutable` from a private contract function, since the value is guaranteed to not change.
@@ -185,7 +187,7 @@ impl<T> PublicImmutable<T, PublicContext> {
 
     /// Reads the permanent value, skipping the initialization check.
     ///
-    /// This is cheaper than [PublicImmutable::read], but it should only be used if the `PublicImmutable` is known to
+    /// This is cheaper than [`PublicImmutable::read`], but it should only be used if the `PublicImmutable` is known to
     /// be initialized.
     ///
     /// If the `PublicImmutable` is not initialized, this returns the default empty public storage value, which is all
@@ -286,7 +288,8 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     ///
     /// A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
     /// Additionally, a historical public storage read at the anchor block is performed for a single storage slot,
-    /// **regardless of `T`'s packed length**. This is because [PublicImmutable::initialize] stores not just the value
+    /// **regardless of `T`'s packed length**. This is because [`PublicImmutable::initialize`] stores not just the
+    /// value
     /// but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash from
     /// public storage.
     ///

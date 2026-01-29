@@ -19,10 +19,10 @@ use crate::state_vars::StateVariable;
 /// required operation is performed.
 ///
 /// For an immutable variant which can be read from private functions, see
-/// [PublicImmutable](crate::state_vars::PublicImmutable).
+/// [`PublicImmutable`](crate::state_vars::PublicImmutable).
 ///
 /// For a mutable (with restrictions) variant which can be read from private functions see
-/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable).
+/// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable).
 ///
 /// ## Privacy
 ///
@@ -45,11 +45,11 @@ use crate::state_vars::StateVariable;
 /// Such patterns preserve the privacy of the account that executed the action, as well as details related to the
 /// private execution itself, but they _do_ reveal that the transaction interacted with the `PublicMutable` value (and
 /// hence that the contract was called), as all accesses to it are public. The
-/// [only_self](crate::macros::functions::only_self) attribute is very useful when implementing this.
+/// [`only_self`](crate::macros::functions::only_self) attribute is very useful when implementing this.
 ///
 /// ## Examples
 ///
-/// Declaring a `PublicMutable` in the the contract's [storage](crate::macros::storage::storage) struct requires
+/// Declaring a `PublicMutable` in the the contract's [`storage`](crate::macros::storage::storage) struct requires
 /// specifying the type `T` that is stored in the variable:
 ///
 /// ```noir
@@ -74,8 +74,8 @@ use crate::state_vars::StateVariable;
 /// Private reads are not possible because private functions do not have access to the current network state, only the
 /// _past_ state at the anchor block. They _can_ perform historical reads of `PublicMutable` values at past times, but
 /// they have no way to guarantee that the value has not changed since then.
-/// [PublicImmutable](crate::state_vars::PublicImmutable) and
-/// [DelayedPublicMutable](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_
+/// [`PublicImmutable`](crate::state_vars::PublicImmutable) and
+/// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_
 /// be read privately by restricting mutation.
 pub struct PublicMutable<T, Context> {
     context: Context,
@@ -99,7 +99,7 @@ where
 impl<T> PublicMutable<T, PublicContext> {
     /// Returns the current value.
     ///
-    /// If [write](PublicMutable::write) has never been called, then this returns the default empty public storage
+    /// If [`write`](PublicMutable::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for
@@ -115,7 +115,7 @@ impl<T> PublicMutable<T, PublicContext> {
     /// }
     /// ```
     ///
-    /// An [only_self](crate::macros::functions::only_self) helper that asserts a condition a private function
+    /// An [`only_self`](crate::macros::functions::only_self) helper that asserts a condition a private function
     /// requires:
     /// ```noir
     /// #[external("private")]
@@ -145,7 +145,7 @@ impl<T> PublicMutable<T, PublicContext> {
     /// Stores a new value.
     ///
     /// The old value is overridden and cannot be recovered. The new value can be immediately retrieved by
-    /// [read](PublicMutable::read).
+    /// [`read`](PublicMutable::read).
     ///
     /// ## Examples
     ///
@@ -161,7 +161,7 @@ impl<T> PublicMutable<T, PublicContext> {
     /// }
     /// ```
     ///
-    /// An [only_self](crate::macros::functions::only_self) helper that updates public state trigered by a private
+    /// An [`only_self`](crate::macros::functions::only_self) helper that updates public state trigered by a private
     /// function:
     /// ```noir
     /// #[external("private")]
@@ -193,7 +193,7 @@ impl<T> PublicMutable<T, PublicContext> {
 impl<T> PublicMutable<T, UtilityContext> {
     /// Returns the value at the anchor block.
     ///
-    /// If [write](PublicMutable::write) has never been called, then this returns the default empty public storage
+    /// If [`write`](PublicMutable::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for

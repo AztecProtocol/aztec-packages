@@ -4,10 +4,11 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Ser
 /// A hint for a note that might exist.
 ///
 /// This contains the actual note content and all metadata that is required in order to prove note's existence,
-/// regardless of whether the note is pending or settled (see [crate::note::note_metadata::NoteMetadata]).
+/// regardless of whether the note is pending or settled (see [`crate::note::note_metadata::NoteMetadata`]).
 ///
 /// This value typically unconstrained (originating from oracles or as a contract function parameter), and can be
-/// converted into a [crate::note::confirmed_note::ConfirmedNote] via [crate::history::note::assert_note_existed_by].
+/// converted into a [`crate::note::confirmed_note::ConfirmedNote`] via
+/// [`crate::history::note::assert_note_existed_by`].
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct HintedNote<Note> {
     pub note: Note,

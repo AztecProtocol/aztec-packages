@@ -33,7 +33,7 @@ mod test;
 /// }
 /// ```
 ///
-/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what "owned" means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// A PrivateMutable state variable is initialized by inserting a very first note. Subsequently, the PrivateMutable can
 /// make changes to the state variable's value by nullifying the current note and inserting a replacement note.
