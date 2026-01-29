@@ -21,6 +21,7 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE = FF(144);
+    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(1106049611);
     const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
     const auto update_check_TWO_POW_32 = FF(4294967296UL);
 
@@ -47,51 +48,52 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   (static_cast<View>(in.get(C::update_check_const_two)) - FF(2));
+                   (CView(constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT) -
+                    static_cast<View>(in.get(C::update_check_dom_sep_public_storage_map_slot)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   ((static_cast<View>(in.get(C::update_check_delayed_public_mutable_slot)) +
-                     CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN)) -
-                    static_cast<View>(in.get(C::update_check_delayed_public_mutable_hash_slot)));
+                   (static_cast<View>(in.get(C::update_check_const_three)) - FF(3));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
-                    static_cast<View>(in.get(C::update_check_deployer_protocol_contract_address)));
+                   ((static_cast<View>(in.get(C::update_check_delayed_public_mutable_slot)) +
+                     CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN)) -
+                    static_cast<View>(in.get(C::update_check_delayed_public_mutable_hash_slot)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
-                   (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero)));
+        auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
+                   (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
+                    static_cast<View>(in.get(C::update_check_deployer_protocol_contract_address)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    { // HASH_IS_ZERO_CHECK
+    {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
+                   (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero)));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // HASH_IS_ZERO_CHECK
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = ((static_cast<View>(in.get(C::update_check_update_hash)) *
                          (CView(update_check_HASH_IS_ZERO) *
                               (FF(1) - static_cast<View>(in.get(C::update_check_update_hash_inv))) +
                           static_cast<View>(in.get(C::update_check_update_hash_inv))) -
                      FF(1)) +
                     CView(update_check_HASH_IS_ZERO));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // NEVER_UPDATED_CHECK
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero))) *
                    (static_cast<View>(in.get(C::update_check_current_class_id)) -
                     static_cast<View>(in.get(C::update_check_original_class_id)));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   (static_cast<View>(in.get(C::update_check_const_three)) - FF(3));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {

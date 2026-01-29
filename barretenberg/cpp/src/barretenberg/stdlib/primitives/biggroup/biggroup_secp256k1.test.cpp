@@ -373,6 +373,48 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
+
+    static void test_secp256k1_ecdsa_mul_point_at_infinity()
+    {
+        // This test checks if secp256k1_ecdsa_mul properly handles the case when
+        // the result u1*G + u2*P is the point at infinity, ensuring that the
+        // incomplete addition formulas don't cause issues.
+        //
+        // We'll use simple scalars where u1 and u2 are chosen such that:
+        // u1*G + u2*P = O (point at infinity)
+        //
+        // This means u1*G = -u2*P, or equivalently u1 = -u2*s where P = s*G
+
+        Builder builder = Builder();
+
+        // Choose a random scalar for the public key
+        fr scalar_s = fr::random_element();
+
+        // Choose a random u2
+        fr scalar_u2 = fr::random_element();
+
+        // Compute u1 such that u1*G = -u2*P
+        // u1 = -u2*s
+        fr scalar_u1 = -(scalar_u2 * scalar_s);
+
+        // Verify our construction
+        element expected_result = g1::one * scalar_u1 + (g1::one * scalar_s) * scalar_u2;
+        EXPECT_TRUE(expected_result.is_point_at_infinity());
+
+        // Create circuit elements
+        element_ct P_a = element_ct::from_witness(&builder, g1::one * scalar_s);
+        scalar_ct u1 = scalar_ct::from_witness(&builder, scalar_u1);
+        scalar_ct u2 = scalar_ct::from_witness(&builder, scalar_u2);
+
+        // Call secp256k1_ecdsa_mul
+        auto output = element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
+
+        // Check that the output is correctly identified as point at infinity
+        EXPECT_TRUE(output.is_point_at_infinity().get_value());
+
+        // Verify circuit correctness
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
 };
 
 // Then define the test types
@@ -418,4 +460,8 @@ TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1SkewHandlingRegression)
 TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1StaggerRegression)
 {
     TestFixture::test_secp256k1_ecdsa_mul_stagger_regression();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1PointAtInfinity)
+{
+    TestFixture::test_secp256k1_ecdsa_mul_point_at_infinity();
 }

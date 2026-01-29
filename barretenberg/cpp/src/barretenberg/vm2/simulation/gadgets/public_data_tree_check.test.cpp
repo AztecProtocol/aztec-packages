@@ -206,7 +206,7 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
 
     AztecAddress contract_address = 27;
     FF slot = 42;
-    std::vector<FF> leaf_slot_inputs = { DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot };
+    std::vector<FF> leaf_slot_inputs = { DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot };
     FF leaf_slot = RawPoseidon2::hash(leaf_slot_inputs);
     FF new_value = 27;
 

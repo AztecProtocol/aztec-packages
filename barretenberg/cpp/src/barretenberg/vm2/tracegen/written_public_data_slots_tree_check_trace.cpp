@@ -66,7 +66,7 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
                 { C::written_public_data_slots_tree_check_updated_low_leaf_next_slot, updated_low_leaf_next_key },
                 { C::written_public_data_slots_tree_check_low_leaf_index, event.low_leaf_index },
                 { C::written_public_data_slots_tree_check_leaf_slot, leaf_slot },
-                { C::written_public_data_slots_tree_check_siloing_separator, DOM_SEP__PUBLIC_LEAF_INDEX },
+                { C::written_public_data_slots_tree_check_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
                 { C::written_public_data_slots_tree_check_should_insert, append },
                 { C::written_public_data_slots_tree_check_low_leaf_hash, event.low_leaf_hash },
                 { C::written_public_data_slots_tree_check_intermediate_root, intermediate_root },

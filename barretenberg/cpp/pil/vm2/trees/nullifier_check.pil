@@ -105,7 +105,7 @@ namespace nullifier_check;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
-    sel * (constants.DOM_SEP__OUTER_NULLIFIER - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__SILOED_NULLIFIER - siloing_separator) = 0;
     pol commit const_three;
     sel * (const_three - 3) = 0;
 

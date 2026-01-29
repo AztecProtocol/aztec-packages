@@ -11,9 +11,10 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__OUTER_NULLIFIER,
-        DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE,
+        DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER,
+        DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -143,7 +144,7 @@ pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Field {
 pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field) -> Field {
     poseidon2_hash_with_separator(
         [contract_address.to_field(), nullifier],
-        DOM_SEP__OUTER_NULLIFIER,
+        DOM_SEP__SILOED_NULLIFIER,
     )
 }
 
@@ -170,8 +171,14 @@ pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullif
     )
 }
 
-pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
-    poseidon2_hash([contract_address.to_field(), field])
+pub fn compute_siloed_private_log_first_field(
+    contract_address: AztecAddress,
+    field: Field,
+) -> Field {
+    poseidon2_hash_with_separator(
+        [contract_address.to_field(), field],
+        DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
+    )
 }
 
 pub fn silo_private_log(private_log: Scoped<Counted<PrivateLogData>>) -> PrivateLog {
@@ -180,7 +187,7 @@ pub fn silo_private_log(private_log: Scoped<Counted<PrivateLogData>>) -> Private
         log
     } else {
         let mut fields = log.fields;
-        fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
+        fields[0] = compute_siloed_private_log_first_field(private_log.contract_address, fields[0]);
         PrivateLog::new(fields, log.length)
     }
 }

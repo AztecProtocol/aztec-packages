@@ -15,7 +15,7 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_DOM_SEP__CONTRACT_CLASS_ID = FF(16);
+    const auto constants_DOM_SEP__CONTRACT_CLASS_ID = FF(1134959961);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

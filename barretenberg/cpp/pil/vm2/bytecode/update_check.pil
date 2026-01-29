@@ -57,15 +57,17 @@ namespace update_check;
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit updated_class_ids_slot;
     sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
-    pol commit const_two;
-    sel * (const_two - 2) = 0;
+    pol commit dom_sep_public_storage_map_slot;
+    sel * (constants.DOM_SEP__PUBLIC_STORAGE_MAP_SLOT - dom_sep_public_storage_map_slot) = 0;
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
 
     pol commit delayed_public_mutable_slot;
 
     #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
     sel {
-         updated_class_ids_slot, address, precomputed.zero,
-         delayed_public_mutable_slot, const_two
+         dom_sep_public_storage_map_slot, updated_class_ids_slot, address,
+         delayed_public_mutable_slot, const_three
     } in poseidon2_hash.start {
          poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
          poseidon2_hash.output, poseidon2_hash.input_len
@@ -109,10 +111,6 @@ namespace update_check;
     pol commit update_preimage_metadata;
     pol commit update_preimage_pre_class_id;
     pol commit update_preimage_post_class_id;
-
-    // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit const_three;
-    sel * (const_three - 3) = 0;
 
     #[UPDATE_HASH_POSEIDON2]
     hash_not_zero {

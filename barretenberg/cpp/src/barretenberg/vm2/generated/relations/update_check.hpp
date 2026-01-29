@@ -14,7 +14,7 @@ template <typename FF_> class update_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 3, 3, 3, 3, 4, 3, 3,
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 3, 3, 3, 3, 3, 4, 3,
                                                                             3, 3, 2, 3, 5, 3, 5, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -36,8 +36,8 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
     static constexpr const std::string_view NAME = "update_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_HASH_IS_ZERO_CHECK = 7;
-    static constexpr size_t SR_NEVER_UPDATED_CHECK = 8;
+    static constexpr size_t SR_HASH_IS_ZERO_CHECK = 8;
+    static constexpr size_t SR_NEVER_UPDATED_CHECK = 9;
     static constexpr size_t SR_UPDATE_METADATA_DECOMPOSITION = 12;
     static constexpr size_t SR_UPDATE_PRE_CLASS_IS_ZERO = 14;
     static constexpr size_t SR_UPDATE_POST_CLASS_IS_ZERO = 16;

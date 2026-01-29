@@ -149,7 +149,7 @@ namespace public_data_check;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
-    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__PUBLIC_LEAF_SLOT - siloing_separator) = 0;
     pol commit const_three;
     pol commit const_four;
     sel * (const_three - 3) = 0;
