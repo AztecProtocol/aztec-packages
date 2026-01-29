@@ -16,14 +16,16 @@
 
 namespace bb::stdlib::recursion {
 
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P0_X(
-    "0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P0_Y(
-    "0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_X(
-    "0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
-    "0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
+// valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_X =
+    bb::fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_Y =
+    bb::fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_X =
+    bb::fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_Y =
+    bb::fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
 
 /**
  * @brief An object storing two EC points that represent the inputs to a pairing check.
@@ -39,20 +41,27 @@ template <typename Curve> struct PairingPoints {
     using Group = Curve::Group;
     using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
+
+    // Number of bb::fr field elements used to represent pairing points in public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+
+    // Array-like interface for Codec compatibility
+    using value_type = Group;
+    static constexpr size_t SIZE = 2;
+
+    // Points stored contiguously for iterator support
     Group P0;
     Group P1;
 
+    // Metadata (after points to keep P0/P1 contiguous)
     bool has_data = false;
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
-    // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
-
     PairingPoints() = default;
 
-    PairingPoints(const Group& P0, const Group& P1)
-        : P0(P0)
-        , P1(P1)
+    PairingPoints(const Group& p0, const Group& p1)
+        : P0(p0)
+        , P1(p1)
         , has_data(true)
     {
         // Get the builder from the group elements and assign a new tag
@@ -71,17 +80,16 @@ template <typename Curve> struct PairingPoints {
         : PairingPoints(points[0], points[1])
     {}
 
-    Group& operator[](size_t idx)
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
+    // Array-like accessors for Codec compatibility
+    Group& operator[](size_t idx) { return idx == 0 ? P0 : P1; }
+    const Group& operator[](size_t idx) const { return idx == 0 ? P0 : P1; }
 
-    const Group& operator[](size_t idx) const
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
+    // Iterator support for range-based for (required by Codec)
+    Group* begin() { return &P0; }
+    Group* end() { return &P1 + 1; }
+    const Group* begin() const { return &P0; }
+    const Group* end() const { return &P1 + 1; }
+    static constexpr size_t size() { return SIZE; }
 
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
@@ -224,87 +232,45 @@ template <typename Curve> struct PairingPoints {
 
     /**
      * @brief Set the witness indices for the pairing points to public
-     * @details Each point is 4 field elements (2 per coordinate), total 8 field elements.
-     *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     uint32_t set_public()
     {
         BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
-
-        const uint32_t start_idx = P0.set_public();
+        uint32_t start_idx = P0.set_public();
         P1.set_public();
-
         return start_idx;
     }
 
     /**
      * @brief Set the witness indices for the default limbs of the pairing points to public.
-     * @details Creates default pairing points as witnesses using bigfield, then sets them public.
+     * @details Creates default pairing points as witnesses, then sets them public.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        // Create default coordinates using the curve's Fq type (goblin_field for Mega, bigfield for Ultra)
-        Fq x0(DEFAULT_PAIRING_POINTS_P0_X);
-        Fq y0(DEFAULT_PAIRING_POINTS_P0_Y);
-        Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
-        Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
-
-        x0.convert_constant_to_fixed_witness(builder);
-        y0.convert_constant_to_fixed_witness(builder);
-        x1.convert_constant_to_fixed_witness(builder);
-        y1.convert_constant_to_fixed_witness(builder);
-
-        // Set all as public in correct order: P0.x, P0.y, P1.x, P1.y (2 frs per coordinate)
-        const uint32_t start_idx = x0.set_public();
-        y0.set_public();
-        x1.set_public();
-        y1.set_public();
-
-        return start_idx;
-    }
-
-    /**
-     * @brief Reconstruct PairingPoints from its representation as limbs (stored in the public inputs)
-     * @details Uses StdlibCodec deserialization for consistent 2-limb-per-coordinate representation.
-     *
-     * @param limbs The limbs of the pairing points (4 frs per point = 8 total)
-     * @return PairingPoints<Curve>
-     */
-    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        using Codec = StdlibCodec<Fr>;
-
-        constexpr size_t FRS_PER_POINT = Codec::template calc_num_fields<Group>();
-        static_assert(PUBLIC_INPUTS_SIZE == 2 * FRS_PER_POINT);
-
-        Group P0 = Codec::template deserialize_from_fields<Group>(limbs.subspan(0, FRS_PER_POINT));
-        Group P1 = Codec::template deserialize_from_fields<Group>(limbs.subspan(FRS_PER_POINT, FRS_PER_POINT));
-
-        return { P0, P1 };
+        PairingPoints pp = construct_default();
+        pp.P0.convert_constant_to_fixed_witness(builder);
+        pp.P1.convert_constant_to_fixed_witness(builder);
+        return pp.set_public();
     }
 
     /**
      * @brief Construct default pairing points.
-     *
-     * @param builder
      */
     static PairingPoints construct_default()
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
-        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        Fq x0(DEFAULT_PAIRING_POINTS_P0_X);
-        Fq y0(DEFAULT_PAIRING_POINTS_P0_Y);
-        Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
-        Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
+        Fq P0_x(DEFAULT_PAIRING_POINT_P0_X);
+        Fq P0_y(DEFAULT_PAIRING_POINT_P0_Y);
+        Fq P1_x(DEFAULT_PAIRING_POINT_P1_X);
+        Fq P1_y(DEFAULT_PAIRING_POINT_P1_Y);
 
         // These are known, valid points, so we can skip the curve checks.
-        Group P0(x0, y0, /*assert_on_curve=*/false);
-        Group P1(x1, y1, /*assert_on_curve=*/false);
+        Group P0(P0_x, P0_y, /*assert_on_curve=*/false);
+        Group P1(P1_x, P1_y, /*assert_on_curve=*/false);
 
-        return { P0, P1 };
+        return PairingPoints(P0, P1);
     }
 };
 
@@ -317,3 +283,9 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints
 }
 
 } // namespace bb::stdlib::recursion
+
+// Enable std::tuple_size for Codec compatibility (array-like deserialization)
+namespace std {
+template <typename Curve>
+struct tuple_size<bb::stdlib::recursion::PairingPoints<Curve>> : std::integral_constant<size_t, 2> {};
+} // namespace std

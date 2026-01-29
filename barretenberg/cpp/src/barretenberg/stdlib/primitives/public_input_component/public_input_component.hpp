@@ -68,8 +68,8 @@ class PublicInputComponent {
         }
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
 
-        // Use reconstruct_from_public if available (for composite types like PairingPoints),
-        // otherwise use Codec (for primitives like bn254_commitment/goblin_element)
+        // Use reconstruct_from_public if available (for composite types like OpeningClaim),
+        // otherwise use Codec (for primitives and array-like types like PairingPoints)
         if constexpr (HasReconstructFromPublic<ComponentType, Fr>) {
             return ComponentType::reconstruct_from_public(limbs);
         } else {

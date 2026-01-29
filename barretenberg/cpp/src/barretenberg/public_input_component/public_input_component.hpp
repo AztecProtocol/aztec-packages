@@ -58,8 +58,8 @@ class PublicInputComponent {
                       "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
         std::span<const bb::fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
 
-        // Use reconstruct_from_public if available (for composite types like PairingPoints),
-        // otherwise use Codec (for primitives like bn254_commitment)
+        // Use reconstruct_from_public if available (for composite types like OpeningClaim),
+        // otherwise use Codec (for primitives and array-like types like PairingPoints)
         if constexpr (HasReconstructFromPublic<ComponentType>) {
             return ComponentType::reconstruct_from_public(limbs);
         } else {

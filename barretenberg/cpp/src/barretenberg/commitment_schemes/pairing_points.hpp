@@ -33,46 +33,35 @@ template <typename Curve_> class PairingPoints {
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
+    // Array-like interface for Codec compatibility
+    using value_type = Point;
+    static constexpr size_t SIZE = 2;
+
+    // Storage - public for direct access as P0/P1
     Point P0 = Point::infinity();
     Point P1 = Point::infinity();
 
     PairingPoints() = default;
-    PairingPoints(const Point& P0, const Point& P1)
-        : P0(P0)
-        , P1(P1)
+    PairingPoints(const Point& p0, const Point& p1)
+        : P0(p0)
+        , P1(p1)
     {}
 
-    PairingPoints(std::array<Point, 2> const& points)
-        : PairingPoints(points[0], points[1])
+    PairingPoints(std::array<Point, 2> const& pts)
+        : P0(pts[0])
+        , P1(pts[1])
     {}
 
-    Point& operator[](size_t idx)
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
+    // Array-like accessors for Codec compatibility
+    Point& operator[](size_t idx) { return idx == 0 ? P0 : P1; }
+    const Point& operator[](size_t idx) const { return idx == 0 ? P0 : P1; }
 
-    const Point& operator[](size_t idx) const
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
-
-    /**
-     * @brief Reconstruct the pairing points from limbs stored on the public inputs.
-     *
-     */
-    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs_in)
-    {
-        using Codec = FrCodec;
-        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P0_limbs(limbs_in.data(), Point::PUBLIC_INPUTS_SIZE);
-        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P1_limbs(limbs_in.data() + Point::PUBLIC_INPUTS_SIZE,
-                                                                          Point::PUBLIC_INPUTS_SIZE);
-        Point P0 = Codec::deserialize_from_fields<Point>(P0_limbs);
-        Point P1 = Codec::deserialize_from_fields<Point>(P1_limbs);
-
-        return PairingPoints<Curve>{ P0, P1 };
-    }
+    // Iterator support for range-based for (required by Codec)
+    Point* begin() { return &P0; }
+    Point* end() { return &P1 + 1; }
+    const Point* begin() const { return &P0; }
+    const Point* end() const { return &P1 + 1; }
+    static constexpr size_t size() { return SIZE; }
 
     /**
      * @brief Aggregate the current pairing points with another set of pairing points using a random scalar
@@ -104,3 +93,8 @@ template <typename Curve_> class PairingPoints {
 };
 
 } // namespace bb
+
+// Enable std::tuple_size for Codec compatibility (array-like deserialization)
+namespace std {
+template <typename Curve> struct tuple_size<bb::PairingPoints<Curve>> : std::integral_constant<size_t, 2> {};
+} // namespace std
