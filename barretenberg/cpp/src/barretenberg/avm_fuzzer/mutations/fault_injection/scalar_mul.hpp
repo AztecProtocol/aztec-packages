@@ -26,6 +26,9 @@ void mutate_intermediate_state(bb::avm2::simulation::ScalarMulIntermediateState&
 
 void fault_injection_scalar_mul(bb::avm2::simulation::EventsContainer& events, std::mt19937_64& rng)
 {
+    if (events.scalar_mul.empty()) {
+        return;
+    }
     FaultInjectionScalarMul option = BASIC_FAULT_INJECTION_SCALAR_MUL_MUTATION_CONFIGURATION.select(rng);
     size_t index = std::uniform_int_distribution<size_t>(0, events.scalar_mul.size() - 1)(rng);
     switch (option) {

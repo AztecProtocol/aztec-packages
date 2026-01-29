@@ -27,6 +27,9 @@ void mutate_embedded_curve_point(EmbeddedCurvePoint& point, std::mt19937_64& rng
 
 void fault_injection_ecadd(bb::avm2::simulation::EventsContainer& events, std::mt19937_64& rng)
 {
+    if (events.ecc_add.empty()) {
+        return;
+    }
     uint32_t choice = std::uniform_int_distribution<uint32_t>(0, 2)(rng);
     size_t index = std::uniform_int_distribution<size_t>(0, events.ecc_add.size() - 1)(rng);
     switch (choice) {
