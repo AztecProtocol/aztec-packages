@@ -1,6 +1,5 @@
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -11,14 +10,31 @@
 
 using namespace bb;
 
+// Test parameters: <Flavor, IO>
+template <typename Flavor_, typename IO_> struct VKTestParams {
+    using Flavor = Flavor_;
+    using IO = IO_;
+};
+
 #ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraStarknetFlavor, MegaFlavor>;
+using TestTypes =
+    testing::Types<VKTestParams<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
+                   VKTestParams<UltraFlavor, stdlib::recursion::honk::RollupIO>,
+                   VKTestParams<UltraKeccakFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
+                   VKTestParams<UltraStarknetFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
+                   VKTestParams<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>>;
 #else
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, MegaFlavor>;
+using TestTypes =
+    testing::Types<VKTestParams<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
+                   VKTestParams<UltraFlavor, stdlib::recursion::honk::RollupIO>,
+                   VKTestParams<UltraKeccakFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
+                   VKTestParams<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>>;
 #endif
 
-template <typename Flavor> class NativeVerificationKeyTests : public ::testing::Test {
+template <typename Params> class NativeVerificationKeyTests : public ::testing::Test {
   public:
+    using Flavor = typename Params::Flavor;
+    using IO = typename Params::IO;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
 
@@ -27,11 +43,7 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
         if constexpr (IsUltraOrMegaHonk<Flavor>) {
             using ProverInstance = ProverInstance_<Flavor>;
             Builder builder;
-            if constexpr (HasIPAAccumulator<Flavor>) {
-                stdlib::recursion::honk::RollupIO::add_default(builder);
-            } else {
-                stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::add_default(builder);
-            }
+            IO::add_default(builder);
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             return VerificationKey{ prover_instance->get_precomputed() };
         } else {
@@ -42,7 +54,7 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
+TYPED_TEST_SUITE(NativeVerificationKeyTests, TestTypes);
 
 /**
  * @brief Checks that the hash produced from calling hash() is the same as hash_with_origin_tagging().
@@ -50,7 +62,7 @@ TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 {
-    using Flavor = TypeParam;
+    using Flavor = typename TypeParam::Flavor;
     using VerificationKey = typename Flavor::VerificationKey;
 
     VerificationKey vk(TestFixture::create_vk());
@@ -74,7 +86,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
  */
 TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
 {
-    using Flavor = TypeParam;
+    using Flavor = typename TypeParam::Flavor;
     using VerificationKey = typename Flavor::VerificationKey;
 
     VerificationKey vk(TestFixture::create_vk());

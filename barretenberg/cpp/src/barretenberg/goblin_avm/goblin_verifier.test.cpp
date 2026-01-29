@@ -16,13 +16,13 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = GoblinAvm::ECCVMVerificationKey;
     using TranslatorVK = GoblinAvm::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraRollupFlavor;
+    using OuterFlavor = UltraFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
+    using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using Commitment = UltraRollupFlavor::Commitment;
+    using Commitment = UltraFlavor::Commitment;
     using RecursiveCommitment = bb::GoblinAvmRecursiveVerifier::Commitment;
 
     using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;

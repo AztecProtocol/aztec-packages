@@ -682,7 +682,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             };
             auto non_empty_count =
                 std::count_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
-            BB_ASSERT(non_empty_count < 2U);
+            BB_ASSERT(non_empty_count < 2);
             auto not_empty_cc_it =
                 std::find_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
             if (not_empty_cc_it != all_cc.end() && connect_variables) {
@@ -903,7 +903,7 @@ template <typename FF, typename CircuitBuilder>
 std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components()
 {
     if (!connect_variables) {
-        throw std::runtime_error("find_connected_components() can only be called when connect_variables is true");
+        throw_or_abort("find_connected_components() can only be called when connect_variables is true");
     }
     connected_components.clear();
     std::unordered_set<uint32_t> visited;
