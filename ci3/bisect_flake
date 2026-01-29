@@ -57,17 +57,16 @@ function build {
 
 function grind (
     echo "Grinding $GRIND_FLAKE_RUNS times or for $GRIND_TIMEOUT seconds..."
-    function _grind {
+    local par_cmd="CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
+    function do_grind {
       set -euo pipefail
-      if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"; then
+      if ! seq 1 $1 | timeout $2 parallel --halt now,fail=1 -j $3 --line-buffer "$4"; then
           rc=$?
           [ "$rc" -eq 124 ] || exit $rc
       fi
     }
-    export -f _grind
-    export GRIND_FLAKE_RUNS
-    export GRIND_TIMEOUT
-    denoise _grind
+    export -f do_grind
+    denoise "do_grind $GRIND_FLAKE_RUNS $GRIND_TIMEOUT $jobs $par_cmd"
 )
 
 echo_header "deflake"
