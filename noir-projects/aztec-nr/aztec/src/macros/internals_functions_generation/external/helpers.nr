@@ -2,7 +2,6 @@ use crate::macros::{
     functions::auth_registry::AUTHORIZE_ONCE_REGISTRY,
     utils::{is_fn_initializer, is_fn_only_self, is_fn_view},
 };
-use std::meta::ctstring::AsCtString;
 
 /// Gathers all attributes relevant to the function's ABI and returns a quote that can be applied to the newly
 /// generated function. We apply the abi marker attributes instead of the original ones (e.g. abi_view instead of view)
@@ -98,7 +97,6 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
         quote { aztec::authwit::auth::assert_current_call_valid_authwit_public }
     };
     let invalid_nonce_message = f"Invalid authwit nonce. When '{from_arg_name}' and 'msg_sender' are the same, '{nonce_arg_name}' must be zero"
-        .as_ctstring()
         .as_quoted_str();
     quote {         
         if (!$from_arg_name_quoted.eq(self.msg_sender())) {
