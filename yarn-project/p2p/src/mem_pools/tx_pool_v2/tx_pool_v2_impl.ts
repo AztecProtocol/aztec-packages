@@ -45,8 +45,6 @@ export interface TxPoolV2Callbacks {
  *
  * This class contains all the actual transaction pool logic but is queue-unaware.
  * It is designed to be called from within a serial queue managed by the outer class.
- * This separation makes it structurally impossible to accidentally cause deadlocks
- * by calling queued methods from within queue tasks.
  */
 export class TxPoolV2Impl {
   // === Persistence ===
@@ -56,7 +54,7 @@ export class TxPoolV2Impl {
   // === Dependencies ===
   #l2BlockSource: L2BlockSource;
   #worldStateSynchronizer: WorldStateSynchronizer;
-  #pendingTxValidator?: TxValidator<Tx>;
+  #pendingTxValidator: TxValidator<Tx>;
 
   // === In-Memory Indices ===
   /** Primary metadata store: txHash -> TxMetaData */
@@ -177,7 +175,15 @@ export class TxPoolV2Impl {
           continue;
         }
 
-        // Step 1b: Build metadata and run pre-add rules
+        // Step 1b: Validate transaction
+        const validationResult = await this.#pendingTxValidator.validateTx(tx);
+        if (validationResult.result !== 'valid') {
+          this.#log.info(`Rejecting tx ${txHashStr}: ${validationResult.reason?.join(', ')}`);
+          state.rejected.push(txHash);
+          continue;
+        }
+
+        // Step 1c: Build metadata and run pre-add rules
         const meta = await buildTxMetaData(tx);
         const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
@@ -188,7 +194,7 @@ export class TxPoolV2Impl {
           continue;
         }
 
-        // Step 1c: Evict conflicts (tracking intra-batch evictions)
+        // Step 1d: Evict conflicts (tracking intra-batch evictions)
         const evictedFromBatch = await this.#evictConflictsAndTrackBatch(
           preAddResult.txHashesToEvict,
           txHashStr,
@@ -196,7 +202,7 @@ export class TxPoolV2Impl {
         );
         state.ignored.push(...evictedFromBatch);
 
-        // Step 1d: Add the transaction
+        // Step 1e: Add the transaction
         await this.#addNewPendingTx(tx);
         state.acceptedInBatch.add(txHashStr);
         state.added.push({ tx, meta });
@@ -222,15 +228,21 @@ export class TxPoolV2Impl {
       this.#callbacks.onTxsAdded(finalTxs, opts);
     }
 
-    return { accepted: finalHashes, ignored: state.ignored };
+    return { accepted: finalHashes, ignored: state.ignored, rejected: state.rejected };
   }
 
-  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
+  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
     const txHashStr = tx.getTxHash().toString();
 
     // Check if already in pool
     if (this.#metadata.has(txHashStr)) {
       return 'ignored';
+    }
+
+    // Validate transaction
+    const validationResult = await this.#pendingTxValidator.validateTx(tx);
+    if (validationResult.result !== 'valid') {
+      return 'rejected';
     }
 
     // Build metadata and use pre-add rules
@@ -677,10 +689,6 @@ export class TxPoolV2Impl {
 
   /** Validates transactions for pending pool, returning valid and invalid groups */
   async #validateForPending(txs: TxMetaData[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
-    if (!this.#pendingTxValidator) {
-      return { valid: txs, invalid: [] };
-    }
-
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
 
@@ -913,10 +921,6 @@ export class TxPoolV2Impl {
   async #validateNonMinedTxs(
     txs: { txHashStr: string; tx: Tx; meta: TxMetaData }[],
   ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
-    if (!this.#pendingTxValidator) {
-      return { valid: txs.map(t => t.meta), invalid: [] };
-    }
-
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
 
@@ -952,11 +956,13 @@ export class TxPoolV2Impl {
   /** State tracked during batch processing of pending txs */
   #createPendingTxBatchState(): {
     ignored: TxHash[];
+    rejected: TxHash[];
     added: { tx: Tx; meta: TxMetaData }[];
     acceptedInBatch: Set<string>;
   } {
     return {
       ignored: [],
+      rejected: [],
       added: [],
       acceptedInBatch: new Set(),
     };

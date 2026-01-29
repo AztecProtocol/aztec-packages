@@ -17,6 +17,11 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 // Tx type alias for cleaner type annotations
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
+/** A validator that accepts all transactions. Used in tests that don't need validation. */
+const alwaysValidValidator: TxValidator<Tx> = {
+  validateTx: () => Promise.resolve({ result: 'valid' }),
+};
+
 describe('TxPoolV2', () => {
   let pool: AztecKVTxPoolV2;
   let mockL2BlockSource: MockProxy<L2BlockSource>;
@@ -70,6 +75,7 @@ describe('TxPoolV2', () => {
     pool = new AztecKVTxPoolV2(await openTmpStore('p2p'), await openTmpStore('archive'), {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
+      pendingTxValidator: alwaysValidValidator,
     });
     await pool.start();
   });
@@ -113,6 +119,7 @@ describe('TxPoolV2', () => {
 
       expect(result.accepted).toHaveLength(2);
       expect(result.ignored).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
     });
 
@@ -124,6 +131,7 @@ describe('TxPoolV2', () => {
 
       expect(result.accepted).toHaveLength(0);
       expect(result.ignored).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
     });
 
@@ -138,6 +146,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
 
       expect(toStrings(result.accepted)).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toContain(hashOf(tx2));
       expect(pending).not.toContain(hashOf(tx1));
@@ -154,6 +163,7 @@ describe('TxPoolV2', () => {
 
       // tx2 is valid but ignored due to nullifier conflict with equal-priority tx1
       expect(toStrings(result.ignored)).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toContain(hashOf(tx1));
       expect(pending).not.toContain(hashOf(tx2));
@@ -208,6 +218,7 @@ describe('TxPoolV2', () => {
 
       const addResult = await pool.addPendingTxs([tx]);
       expect(addResult.accepted).toHaveLength(1);
+      expect(addResult.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
     });
 
@@ -217,6 +228,263 @@ describe('TxPoolV2', () => {
 
       const canAddResult = await pool.canAddPendingTx(tx);
       expect(canAddResult).toBe('ignored');
+    });
+  });
+
+  describe('duplicate handling across states', () => {
+    it('addPendingTxs ignores tx that is already pending', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+
+      const result = await pool.addPendingTxs([tx]);
+
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+    });
+
+    it('addPendingTxs ignores tx that is already protected', async () => {
+      const tx = await mockTx(1);
+      await pool.addProtectedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+
+      const result = await pool.addPendingTxs([tx]);
+
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+      // Status should remain protected
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+    });
+
+    it('addPendingTxs ignores tx that is already mined', async () => {
+      const tx = await mockTx(1);
+      await pool.addMinedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      const result = await pool.addPendingTxs([tx]);
+
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+      // Status should remain mined
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+    });
+
+    it('canAddPendingTx returns ignored for tx that is already pending', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+
+      const result = await pool.canAddPendingTx(tx);
+
+      expect(result).toBe('ignored');
+    });
+
+    it('canAddPendingTx returns ignored for tx that is already protected', async () => {
+      const tx = await mockTx(1);
+      await pool.addProtectedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+
+      const result = await pool.canAddPendingTx(tx);
+
+      expect(result).toBe('ignored');
+    });
+
+    it('canAddPendingTx returns ignored for tx that is already mined', async () => {
+      const tx = await mockTx(1);
+      await pool.addMinedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      const result = await pool.canAddPendingTx(tx);
+
+      expect(result).toBe('ignored');
+    });
+
+    it('addPendingTxs handles duplicate tx in same batch', async () => {
+      const tx = await mockTx(1);
+
+      // Add same tx twice in one batch
+      const result = await pool.addPendingTxs([tx, tx]);
+
+      // First occurrence accepted, second ignored
+      expect(result.accepted).toHaveLength(1);
+      expect(result.ignored).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+      expect(await pool.getPendingTxCount()).toBe(1);
+    });
+
+    it('addProtectedTxs handles duplicate tx in same batch', async () => {
+      const tx = await mockTx(1);
+
+      // Add same tx twice in one batch
+      await pool.addProtectedTxs([tx, tx], slot1Header);
+
+      // Should only have one tx in pool
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      // Verify we can retrieve the tx
+      const retrieved = await pool.getTxByHash(tx.getTxHash());
+      expect(retrieved).toBeDefined();
+    });
+
+    it('addMinedTxs handles duplicate tx in same batch', async () => {
+      const tx = await mockTx(1);
+
+      // Add same tx twice in one batch
+      await pool.addMinedTxs([tx, tx], slot1Header);
+
+      // Should only have one tx in pool
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getMinedTxCount()).toBe(1);
+    });
+
+    it('addPendingTxs handles multiple duplicates in batch with other txs', async () => {
+      const tx1 = await mockTx(1);
+      const tx2 = await mockTx(2);
+
+      // Batch: tx1, tx2, tx1, tx2, tx1
+      const result = await pool.addPendingTxs([tx1, tx2, tx1, tx2, tx1]);
+
+      // First occurrence of each accepted, rest ignored
+      expect(result.accepted).toHaveLength(2);
+      expect(result.ignored).toHaveLength(3);
+      expect(result.rejected).toHaveLength(0);
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+  });
+
+  describe('validator rejection', () => {
+    let rejectingPool: AztecKVTxPoolV2;
+    let rejectingValidator: TxValidator<Tx>;
+    let txsToReject: Set<string>;
+
+    beforeEach(async () => {
+      // Create a validator that rejects specific transactions
+      txsToReject = new Set<string>();
+      rejectingValidator = {
+        validateTx: async (tx: Tx) => {
+          const txHash = tx.getTxHash().toString();
+          if (txsToReject.has(txHash)) {
+            return { result: 'invalid', reason: ['test rejection'] };
+          }
+          return { result: 'valid' };
+        },
+      };
+
+      rejectingPool = new AztecKVTxPoolV2(await openTmpStore('p2p'), await openTmpStore('archive'), {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: rejectingValidator,
+      });
+      await rejectingPool.start();
+    });
+
+    afterEach(async () => {
+      await rejectingPool.stop();
+    });
+
+    it('addPendingTxs returns rejected for transaction that fails validation', async () => {
+      const tx = await mockTx(1);
+      txsToReject.add(tx.getTxHash().toString());
+
+      const result = await rejectingPool.addPendingTxs([tx]);
+
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+      expect(await rejectingPool.getPendingTxCount()).toBe(0);
+    });
+
+    it('canAddPendingTx returns rejected for transaction that fails validation', async () => {
+      const tx = await mockTx(1);
+      txsToReject.add(tx.getTxHash().toString());
+
+      const result = await rejectingPool.canAddPendingTx(tx);
+
+      expect(result).toBe('rejected');
+      expect(await rejectingPool.getPendingTxCount()).toBe(0); // State unchanged
+    });
+
+    it('addPendingTxs handles batch with mixed accepted and rejected', async () => {
+      const tx1 = await mockTx(1);
+      const tx2 = await mockTx(2);
+      const tx3 = await mockTx(3);
+      // Reject tx2 only
+      txsToReject.add(tx2.getTxHash().toString());
+
+      const result = await rejectingPool.addPendingTxs([tx1, tx2, tx3]);
+
+      expect(toStrings(result.accepted)).toContain(hashOf(tx1));
+      expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+      expect(result.ignored).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx2));
+      expect(await rejectingPool.getPendingTxCount()).toBe(2);
+    });
+
+    it('addPendingTxs handles batch with accepted, ignored, and rejected', async () => {
+      // First add a tx
+      const existingTx = await mockTx(1);
+      await rejectingPool.addPendingTxs([existingTx]);
+
+      const newTx = await mockTx(2);
+      const duplicateTx = existingTx; // Same tx, should be ignored
+      const rejectedTx = await mockTx(3);
+      txsToReject.add(rejectedTx.getTxHash().toString());
+
+      const result = await rejectingPool.addPendingTxs([newTx, duplicateTx, rejectedTx]);
+
+      expect(toStrings(result.accepted)).toContain(hashOf(newTx));
+      expect(toStrings(result.ignored)).toContain(hashOf(duplicateTx));
+      expect(toStrings(result.rejected)).toContain(hashOf(rejectedTx));
+      expect(await rejectingPool.getPendingTxCount()).toBe(2); // existingTx + newTx
+    });
+
+    it('rejected tx does not affect existing pool state', async () => {
+      // First add a valid tx
+      const tx1 = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await rejectingPool.addPendingTxs([tx1]);
+      expect(await rejectingPool.getPendingTxCount()).toBe(1);
+
+      // Try to add a rejected tx with same nullifier (validation happens before nullifier check)
+      const tx2 = await mockTx(2, { numberOfNonRevertiblePublicCallRequests: 1 });
+      setNullifier(tx2, 0, getNullifier(tx1, 0)); // Same nullifier
+      txsToReject.add(tx2.getTxHash().toString());
+
+      const result = await rejectingPool.addPendingTxs([tx2]);
+
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx2));
+      // Original tx should still be there
+      expect(await rejectingPool.getTxStatus(tx1.getTxHash())).toBe('pending');
+    });
+
+    it('validation happens before pre-add rules', async () => {
+      // Even if a tx would be ignored by pre-add rules (e.g., nullifier conflict),
+      // it should be rejected first if it fails validation
+      const tx1 = await mockTx(1, {
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await rejectingPool.addPendingTxs([tx1]);
+
+      // tx2 has same nullifier but lower priority - would be ignored if valid
+      // but should be rejected since it fails validation
+      const tx2 = await mockTx(2, {
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+      txsToReject.add(tx2.getTxHash().toString());
+
+      const result = await rejectingPool.addPendingTxs([tx2]);
+
+      // Should be rejected, not ignored (validation first)
+      expect(result.accepted).toHaveLength(0);
+      expect(result.ignored).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx2));
     });
   });
 
@@ -248,6 +516,50 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.addProtectedTxs([tx], slot2Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+    });
+  });
+
+  describe('addMinedTxs', () => {
+    it('adds new transactions as mined', async () => {
+      const tx = await mockTx(1);
+
+      await pool.addMinedTxs([tx], slot1Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getPendingTxCount()).toBe(0);
+    });
+
+    it('updates existing pending transactions to mined', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      await pool.addMinedTxs([tx], slot1Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expect(await pool.getPendingTxCount()).toBe(0);
+    });
+
+    it('updates existing protected transactions to mined', async () => {
+      const tx = await mockTx(1);
+      await pool.addProtectedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+
+      await pool.addMinedTxs([tx], slot1Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+    });
+
+    it('is idempotent for already mined transactions', async () => {
+      const tx = await mockTx(1);
+      await pool.addMinedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      // Adding same tx as mined again should be a no-op
+      await pool.addMinedTxs([tx], slot2Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
@@ -1195,6 +1507,7 @@ describe('TxPoolV2', () => {
 
       const result = await pool.addPendingTxs([tx2]);
       expect(toStrings(result.accepted)).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
     });
 
     it('removes nullifier entries when tx is mined', async () => {
@@ -1208,6 +1521,7 @@ describe('TxPoolV2', () => {
 
       const result = await pool.addPendingTxs([tx2]);
       expect(toStrings(result.accepted)).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
     });
 
     it('restores nullifier entries on reorg', async () => {
@@ -1223,6 +1537,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
       // tx2 is valid but ignored due to nullifier conflict with higher-priority tx1
       expect(toStrings(result.ignored)).toContain(hashOf(tx2)); // tx2 has lower fee
+      expect(result.rejected).toHaveLength(0);
     });
   });
 
@@ -1250,6 +1565,7 @@ describe('TxPoolV2', () => {
       // Tx is valid but ignored due to insufficient balance
       expect(toStrings(result.ignored)).toContain(hashOf(tx));
       expect(result.accepted).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(0);
     });
 
@@ -1272,6 +1588,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx]);
 
       expect(toStrings(result.accepted)).toContain(hashOf(tx));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
     });
 
@@ -1299,6 +1616,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([txHigh]);
 
       expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
       expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined(); // evicted
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
@@ -1327,6 +1645,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([txLow]);
 
       expect(toStrings(result.ignored)).toContain(hashOf(txLow));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
     });
@@ -1361,6 +1680,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(tx2));
       expect(accepted).toContain(hashOf(tx3));
       expect(ignored).toContain(hashOf(tx1));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
     });
   });
@@ -1642,6 +1962,7 @@ describe('TxPoolV2', () => {
       // The tx should be in the ignored array (pre-add rule handled it)
       expect(toStrings(result.ignored)).toContain(hashOf(txLow));
       expect(result.accepted).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
 
       // Pool count unchanged, tx not in pool
       expect(await pool.getPendingTxCount()).toBe(3);
@@ -1684,6 +2005,7 @@ describe('TxPoolV2', () => {
       // Adding txConflicting should evict both tx1 and tx2
       const result = await pool.addPendingTxs([txConflicting]);
       expect(toStrings(result.accepted)).toContain(hashOf(txConflicting));
+      expect(result.rejected).toHaveLength(0);
 
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toContain(hashOf(txConflicting));
@@ -1705,6 +2027,7 @@ describe('TxPoolV2', () => {
       // Should be ignored because it can't beat tx1 (valid tx but not desired)
       const result = await pool.addPendingTxs([txConflicting]);
       expect(toStrings(result.ignored)).toContain(hashOf(txConflicting));
+      expect(result.rejected).toHaveLength(0);
 
       // Original txs should remain
       const pending = toStrings(await pool.getPendingTxHashes());
@@ -1776,6 +2099,8 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs(txs);
 
       expect(result.accepted).toHaveLength(100);
+      expect(result.ignored).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(100);
 
       // Verify ordering is correct (highest fee first)
@@ -1901,6 +2226,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(tx3));
       expect(ignored).toHaveLength(1);
       expect(ignored).toContain(hashOf(tx1));
+      expect(result.rejected).toHaveLength(0);
     });
 
     it('returns correct status when nullifier conflict causes ignore', async () => {
@@ -1917,6 +2243,7 @@ describe('TxPoolV2', () => {
 
       expect(result.accepted).toHaveLength(0);
       expect(toStrings(result.ignored)).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
     });
 
     it('returns correct status when nullifier conflict causes eviction', async () => {
@@ -1933,6 +2260,7 @@ describe('TxPoolV2', () => {
 
       expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
       expect(result.ignored).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
 
       // Verify txLow was evicted
       const pending = toStrings(await pool.getPendingTxHashes());
@@ -1957,6 +2285,7 @@ describe('TxPoolV2', () => {
 
       expect(result.accepted).toHaveLength(0);
       expect(toStrings(result.ignored)).toContain(hashOf(tx));
+      expect(result.rejected).toHaveLength(0);
     });
 
     it('batch with mixed outcomes: accepted, duplicate, nullifier conflict, insufficient balance', async () => {
@@ -1992,6 +2321,7 @@ describe('TxPoolV2', () => {
       expect(ignored).toContain(hashOf(duplicateTx));
       expect(ignored).toContain(hashOf(conflictingTx));
       expect(ignored).toContain(hashOf(highFeeTx));
+      expect(result.rejected).toHaveLength(0);
     });
   });
 
@@ -2013,6 +2343,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(txHigh));
       expect(ignored).toContain(hashOf(txLow));
       expect(accepted).not.toContain(hashOf(txLow));
+      expect(result.rejected).toHaveLength(0);
 
       // Only txHigh should be in the pool
       const pending = toStrings(await pool.getPendingTxHashes());
@@ -2036,6 +2367,7 @@ describe('TxPoolV2', () => {
       const ignored = toStrings(result.ignored);
       expect(accepted).toContain(hashOf(txHigh));
       expect(ignored).toContain(hashOf(txLow));
+      expect(result.rejected).toHaveLength(0);
 
       // Only txHigh should be in the pool
       const pending = toStrings(await pool.getPendingTxHashes());
@@ -2063,6 +2395,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(tx3));
       expect(ignored).toContain(hashOf(tx1));
       expect(ignored).toContain(hashOf(tx2));
+      expect(result.rejected).toHaveLength(0);
 
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
@@ -2087,6 +2420,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(tx2));
       expect(accepted).toContain(hashOf(tx3));
       expect(ignored).toContain(hashOf(tx1));
+      expect(result.rejected).toHaveLength(0);
 
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
@@ -2115,6 +2449,7 @@ describe('TxPoolV2', () => {
       expect(accepted).toContain(hashOf(tx4));
       expect(ignored).toContain(hashOf(tx1));
       expect(ignored).toContain(hashOf(tx3));
+      expect(result.rejected).toHaveLength(0);
 
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
@@ -2162,6 +2497,8 @@ describe('TxPoolV2', () => {
 
       // tx3 should be accepted (evicts tx1 due to nullifier conflict)
       expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+      expect(result.ignored).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
       expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined(); // evicted
       expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
@@ -2193,7 +2530,9 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx3]);
 
       // tx3 should be ignored - loses nullifier conflict to tx1
+      expect(result.accepted).toHaveLength(0);
       expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
       expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
       expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
@@ -2232,6 +2571,8 @@ describe('TxPoolV2', () => {
 
       // txHigh wins - evicts txLow due to both nullifier conflict and fee payer balance
       expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
+      expect(result.ignored).toHaveLength(0);
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
       expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
@@ -2261,6 +2602,7 @@ describe('TxPoolV2', () => {
       const ignored = toStrings(result.ignored);
       expect(accepted).toContain(hashOf(tx2));
       expect(ignored).toContain(hashOf(tx1));
+      expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
     });
   });

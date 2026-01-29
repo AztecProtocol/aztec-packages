@@ -15,6 +15,8 @@ export type AddTxsResult = {
   accepted: TxHash[];
   /** Transactions ignored because they're valid but undesirable (e.g., duplicate, lower priority nullifier conflict) */
   ignored: TxHash[];
+  /** Transactions rejected because they failed validation (e.g., invalid proof, expired timestamp) */
+  rejected: TxHash[];
 };
 
 /**
@@ -52,7 +54,7 @@ export type TxPoolV2Dependencies = {
   /** World state synchronizer for validating transactions after chain prunes */
   worldStateSynchronizer: WorldStateSynchronizer;
   /** Validator for transactions entering the pending pool */
-  pendingTxValidator?: TxValidator<Tx>;
+  pendingTxValidator: TxValidator<Tx>;
 };
 
 /**
@@ -98,9 +100,9 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * Checks if a transaction can be added without modifying the pool.
    * Performs the same validation as addPendingTxs but doesn't persist changes.
    * @param tx - Transaction to check
-   * @returns Result: 'accepted' or 'ignored' (if already in pool or undesirable)
+   * @returns Result: 'accepted', 'ignored' (if already in pool or undesirable), or 'rejected' (if validation fails)
    */
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'>;
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'>;
 
   /**
    * Adds transactions as immediately protected for a given slot.

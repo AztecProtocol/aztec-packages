@@ -14,7 +14,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -24,6 +24,11 @@ import path from 'node:path';
 import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
 
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
+
+/** A validator that accepts all transactions. */
+const alwaysValidValidator: TxValidator<Tx> = {
+  validateTx: () => Promise.resolve({ result: 'valid' }),
+};
 
 const TEST_TIMEOUT = 150_000;
 
@@ -171,6 +176,7 @@ describe('TxPoolV2: Benchmarks', () => {
     pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
+      pendingTxValidator: alwaysValidValidator,
     });
     await pool.start();
   });
@@ -310,6 +316,7 @@ describe('TxPoolV2: Memory benchmark', () => {
     const pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: memMockL2BlockSource,
       worldStateSynchronizer: memMockWorldState,
+      pendingTxValidator: alwaysValidValidator,
     });
     await pool.start();
 
@@ -331,7 +338,11 @@ describe('TxPoolV2: Memory benchmark', () => {
           dataDirectory,
           dataStoreMapSizeKb: 1 * 1024 * 1024,
         }),
-        { l2BlockSource: freshMockL2BlockSource, worldStateSynchronizer: freshMockWorldState },
+        {
+          l2BlockSource: freshMockL2BlockSource,
+          worldStateSynchronizer: freshMockWorldState,
+          pendingTxValidator: alwaysValidValidator,
+        },
       );
       await freshPool.start();
 
