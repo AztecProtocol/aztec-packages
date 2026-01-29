@@ -55,14 +55,14 @@ function build {
     fi
 }
 
-function grind (
+function grind {
     echo "Grinding $GRIND_FLAKE_RUNS times or for $GRIND_TIMEOUT seconds..."
     local par_cmd="CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
-    if ! seq 1 $GRIND_FLAKE_RUNS | denoise timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "$par_cmd"; then
+    if ! seq 1 $GRIND_FLAKE_RUNS | timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "$par_cmd"; then
         rc=$?
         [ "$rc" -eq 124 ] || exit $rc
     fi
-)
+}
 
 echo_header "deflake"
 echo "Full cmd: $full_cmd"
