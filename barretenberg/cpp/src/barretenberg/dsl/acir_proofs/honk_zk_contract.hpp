@@ -829,7 +829,7 @@ library RelationsLib {
         Fr lookup_term;
 
         // Calculate the write term (the table accumulation)
-        // write_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
+        // table_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
         {
             Fr beta_sqr = rp.beta * rp.beta;
             table_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * rp.beta)
@@ -860,7 +860,7 @@ library RelationsLib {
         accumulatorNone = accumulatorNone * domainSep;
 
         // Inverse
-        Fr accumulatorOne = wire(p, WIRE.Q_LOOKUP) * lookup_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * write_inverse;
+        Fr accumulatorOne = wire(p, WIRE.Q_LOOKUP) * lookup_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * table_inverse;
 
         Fr read_tag = wire(p, WIRE.LOOKUP_READ_TAGS);
 
