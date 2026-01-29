@@ -283,7 +283,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const std::vector<Fr> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
             shplonk_batching_challenge, virtual_log_n, HasZK, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
-        const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
+        auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
         // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(A_{d-1}), [1]₁) where fᵢ
         // are the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
@@ -291,6 +291,25 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
+
+        // OriginTag: All evaluations and commitments received above are PCS-bound. The prover cannot choose them
+        // freely because they must satisfy the batched opening equation verified by the pairing check.
+        // Set their tags to the shplonk evaluation challenge tag.
+        if constexpr (Curve::is_stdlib_type) {
+            const auto challenge_tag = shplonk_evaluation_challenge.get_origin_tag();
+            // Tag the Gemini fold evaluations
+            for (auto& eval : const_cast<std::vector<Fr>&>(gemini_fold_neg_evaluations)) {
+                eval.set_origin_tag(challenge_tag);
+            }
+            // Tag the interleaved evaluations if present
+            if (claim_batcher.interleaved) {
+                const_cast<Fr&>(p_pos).set_origin_tag(challenge_tag);
+                const_cast<Fr&>(p_neg).set_origin_tag(challenge_tag);
+            }
+            // Tag the Q commitment
+            Q_commitment.set_origin_tag(challenge_tag);
+            commitments[0].set_origin_tag(challenge_tag);
+        }
 
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);

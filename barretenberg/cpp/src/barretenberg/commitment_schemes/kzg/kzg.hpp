@@ -136,6 +136,13 @@ template <typename Curve_> class KZG {
         // This challenge is used to compute offset generators in the batch_mul call below
         const Fr masking_challenge = transcript->template get_challenge<Fr>("KZG:masking_challenge");
 
+        // The quotient commitment is PCS-bound: the prover cannot choose it freely because it must
+        // satisfy the batched opening equation. Set its tag to the masking challenge tag.
+        if constexpr (Curve::is_stdlib_type) {
+            const auto challenge_tag = masking_challenge.get_origin_tag();
+            quotient_commitment.set_origin_tag(challenge_tag);
+        }
+
         // The pairing check can be expressed as
         // e(C + [W]₁ ⋅ z, [1]₂) * e(−[W]₁, [X]₂) = 1, where C = ∑ commitmentsᵢ ⋅ scalarsᵢ.
         GroupElement P_0;

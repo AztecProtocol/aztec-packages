@@ -801,6 +801,16 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class Sum
      */
     void check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
+        // The univariate is constrained by the sumcheck relation S^i(0) + S^i(1) = S^{i-1}(u_{i-1}).
+        // Although submitted after the previous challenge, the prover cannot choose it freely.
+        // Update the univariate's tag to reflect it's bound by the sumcheck protocol.
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            const auto bound_tag = target_total_sum.get_origin_tag();
+            for (auto& eval : univariate.evaluations) {
+                eval.set_origin_tag(bound_tag);
+            }
+        }
+
         FF total_sum =
             (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
         bool sumcheck_round_failed(false);

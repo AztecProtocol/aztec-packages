@@ -59,7 +59,6 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         auto& scalar = scalars[i];
 
         // Merge tags
-
         tag_union = OriginTag(tag_union, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
         // Populate the goblin-style ecc op gates for the given mul inputs
         ecc_op_tuple op_tuple;
