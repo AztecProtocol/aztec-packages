@@ -17,45 +17,62 @@ namespace bb {
 
 /**
  * @brief Log-derivative lookup argument relation for establishing DataBus reads
+ *
  * @details Each column of the databus can be thought of as a table from which we can look up values. The log-derivative
  * lookup argument seeks to prove lookups from a column by establishing the following sum:
  *
- * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / lookup_term_i) + read_count_i * (1 / table_term_i) = 0
+ * \f[
+ * \sum_{i=0}^{n-1} q_{\text{logderiv_lookup},i} \cdot \frac{1}{\text{lookup_term}_i} -
+ *                                      \text{read_count}_i \cdot \frac{1}{\text{table_term}_i} = 0
+ * \f]
  *
- * where the lookup and table terms are both of the form value_i + idx_i*\beta + \gamma. This expression is motivated by
- * taking the derivative of the log of a more conventional grand product style set equivalence argument (see e.g.
- * https://eprint.iacr.org/2022/1530.pdf for details). For the table term, the (idx, value) pair comes from the "table"
- * (bus column), and for the lookup term the (idx, value) pair comes from wires 1 and 2 which should contain a valid
- * entry in the table.
+ * where the lookup and table terms are both of the form \f$\text{value}_i + \text{idx}_i \cdot \beta + \gamma\f$.
+ * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
+ * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details). For the table term, the
+ * (idx, value) pair comes from the "table" (bus column), and for the lookup term the (idx, value) pair comes from
+ * wires 1 and 2 which should contain a valid entry in the table.
  *
- * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
- * (indirectly) the rational functions in the above expression: I_i =  1/[(lookup_term_i) * (table_term_i)]. This leads
- * to two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the
- * primary lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
- * subrelations can be expressed as follows:
+ * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial \f$I\f$
+ * containing (indirectly) the rational functions in the above expression:
+ * \f$I_i = 1/[(\text{lookup_term}_i) \cdot (\text{table_term}_i)]\f$. This leads to two subrelations. The first
+ * demonstrates that the inverse polynomial \f$I\f$ is correctly formed. The second is the primary lookup identity,
+ * where the rational functions are replaced by the use of the inverse polynomial \f$I\f$. These two subrelations can
+ * be expressed as follows:
  *
- *  (1) I_i * (lookup_term_i) * (table_term_i) - 1 = 0
+ * <b>Subrelation 1 (Inverse correctness):</b>
+ * \f[
+ * I_i \cdot (\text{lookup_term}_i) \cdot (\text{table_term}_i) - 1 = 0
+ * \f]
  *
- * In reality this relation is I_i * (lookup_term_i) * (table_term_i) - inverse_exists = 0, i.e. it is only checked for
- * active gates (more explanation below).
+ * In reality this relation is \f$I_i \cdot (\text{lookup_term}_i) \cdot (\text{table_term}_i) -
+ * \text{inverse_exists} = 0\f$, i.e. it is only checked for active gates (more explanation below).
  *
- *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * table_term_i + read_count_i * I_i * lookup_term_i] = 0
+ * <b>Subrelation 2 (Lookup identity):</b>
+ * \f[
+ * \sum_{i=0}^{n-1} [q_{\text{logderiv_lookup}} \cdot I_i \cdot \text{table_term}_i -
+ *                                  \text{read_count}_i \cdot I_i \cdot \text{lookup_term}_i] = 0
+ * \f]
  *
  * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
- * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
+ * product, i.e. a lookup from bus column \f$j\f$ is selected via \f$q_{\text{busread}} \cdot q_j\f$ (j = 1,2,...).
  *
- * To not compute the inverse terms packed in I_i for indices not included in the sum we introduce a
- * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
- * have a read gate. This is represented by setting inverse_exists = 1- (1- read_tag)*(1- is_read_gate). Since read_gate
- * is only dependent on selector values, we can assume that the verifier can check that it is boolean. However, if
- * read_tag (which is a derived witness), is not constrained to be boolean, one can set the inverse_exists to 0, even
- * when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
- * subrelation, that ensures that read_tag is a boolean value.
- * (3) read_tag * read_tag - read_tag = 0
- * Note: that subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
- * across all rows of the exectution trace is zero, rather than that some expression holds independently at each row.
- * Accordingly, this subrelation is not multiplied by a scaling factor at each accumulation step.
+ * To not compute the inverse terms packed in \f$I_i\f$ for indices not included in the sum we introduce a
+ * witness called inverse_exists, which is zero when either \f$\text{read_count}_i\f$ is nonzero (a boolean called
+ * read_tag) or we have a read gate. This is represented by setting \f$\text{inverse_exists} = 1 - (1 -
+ * \text{read_tag}) \cdot (1 - \text{is_read_gate})\f$. Since read_gate is only dependent on selector values, we can
+ * assume that the verifier can check that it is boolean. However, if read_tag (which is a derived witness), is not
+ * constrained to be boolean, one can set the inverse_exists to any value when is_read_gate = 0, because
+ * inverse_exists is a linear function of read_tag then. Thus we have a third subrelation, that ensures that read_tag
+ * is a boolean value.
  *
+ * <b>Subrelation 3 (Boolean check):</b>
+ * \f[
+ *  \text{read_tag} \cdot \text{read_tag} - \text{read_tag} = 0
+ * \f]
+ *
+ * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
+ * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
+ * subrelation is not multiplied by a scaling factor at each accumulation step.
  */
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
@@ -155,11 +172,13 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
+     *
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
-     * lookup relation is active at a given row.
-     * We skip the inverse computation for all the rows that read_count_i == 0 AND read_selector is 0
-     * @note read_tag is constructed such that read_tag_i = 1 or 0. We add a subrelation to check that read_tag is a
-     * boolean value
+     * lookup relation is active at a given row. We skip the inverse computation for all the rows that
+     * \f$\text{read_count}_i = 0\f$ AND \f$\text{read_selector}$ is 0.
+     *
+     * @note \f$\text{read_tag}\f$ is constructed such that \f$\text{read_tag}_i \in \{0, 1\}\f$. We add a subrelation
+     * to check that \f$\text{read_tag}$ is a boolean value.
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
@@ -182,7 +201,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Compute scalar for read term in log derivative lookup argument
-     * @details The selector indicating read from bus column j is given by q_busread * q_j, j = 1,2,3
+     *
+     * @details The selector indicating read from bus column \f$j\f$ is given by
+     * \f$q_{\text{busread}} \cdot q_j\f$, where \f$j \in \{1, 2, 3\}\f$.
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
@@ -239,11 +260,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     /**
-     * @brief Construct the polynomial I whose components are the inverse of the product of the read and write terms
-     * @details If the denominators of log derivative lookup relation are lookup_term and table_term, then I_i =
-     * (lookup_term_i*table_term_i)^{-1}.
-     * @note Importantly, I_i = 0 for rows i at which there is no read or write, so the cost of this method is
-     * proportional to the actual databus usage.
+     * @brief Construct the polynomial \f$I\f$ whose components are the inverse of the product of the read and write
+     * terms
+     *
+     * @details If the denominators of log derivative lookup relation are lookup_term and table_term, then
+     * \f$I_i = (\text{lookup_term}_i \cdot \text{table_term}_i)^{-1}\f$.
+     *
+     * @note Importantly, \f$I_i = 0\f$ for rows \f$i\f$ at which there is no read or write, so the cost of this method
+     * is proportional to the actual databus usage.
      *
      */
     template <size_t bus_idx, typename Polynomials>

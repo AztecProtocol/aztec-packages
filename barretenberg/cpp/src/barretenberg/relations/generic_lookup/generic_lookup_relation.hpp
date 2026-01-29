@@ -187,12 +187,12 @@ concept GenericLookupSettings = requires {
  * The relation implements the log-derivative lookup argument for two cases:
  *  - BASIC_LOOKUP/BASIC_TABLE: LOOKUP_TUPLE_SIZE := n = m and we wish to look up the multiset
  *    \f$\{(f_1(x), \ldots, f_n(x)) : x \in H_N\}\f$, where \f$H_N\f$ is the hypercube of size N, from the table
- *    \f$\{(t_1(y), \ldots, t_n(y)) : y \in H_M\}\f$. In this case, we perform the lookup by batching together
+ *    \f$\{(t_1(y), \ldots, t_n(y)) : y \in H_N\}\f$. In this case, we perform the lookup by batching together
  *    the \f$f_i\f$'s and the \f$t_i\f$'s: we define \f$f(x) = \sum_i f_i \cdot Y^i\f$,
  *    \f$t(x) = \sum_i t_i \cdot Y^i\f$, and we check the existence of a function
  *    \f$\text{counts} : B_N \rightarrow F\f$ such that
  *    \f[
- *        \sum_{x \in H_N} \frac{1}{\gamma - f(x, \beta)} = \sum_{x \in H_M} \frac{\text{counts}(x)}{\gamma - t(x, \beta)}
+ *        \sum_{x \in H_N} \frac{1}{\gamma - f(x, \beta)} = \sum_{x \in H_N} \frac{\text{counts}(x)}{\gamma - t(x, \beta)}
  *    \f]
  *  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: We allow looking up values that are computed arbitrarily from
  *    \f$\{f_1, \ldots, f_n\}\f$ from values that are computed arbitrarily (and possibly in a different way)
@@ -200,18 +200,18 @@ concept GenericLookupSettings = requires {
  *
  * In both cases, we rephrase the equation check in terms of two relations:
  *  1. \f[
- *     I(x) \cdot \prod_{i=1}^{\text{NUM_LOOKUP_TERMS}} \text{lookup\_entry}(x) \cdot
- *     \prod_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry}(x) - \text{inverse_exists}(x) = 0
+ *     I(x) \cdot \prod_{i=1}^{\text{NUM_LOOKUP_TERMS}} \text{lookup_entry}_i(x) \cdot
+ *     \prod_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry}_i(x) - \text{inverse_exists}(x) = 0
  *     \f]
  *  2. \f[
- *     \sum_{i=0}^{\text{NUM_LOOKUP_TERMS}} \text{lookup_entry_predicate}_i(x) \cdot \frac{1}{\text{lookup_entry}(x)}
+ *     \sum_{i=0}^{\text{NUM_LOOKUP_TERMS}} \text{lookup_entry_predicate}_i(x) \cdot \frac{1}{\text{lookup_entry}_i(x)}
  *     - \sum_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry_predicate}_i(x) \cdot
- *     \text{lookup_read_count}_i(x) \cdot \frac{1}{\text{table_entry}(x)}
+ *     \text{lookup_read_count}_i(x) \cdot \frac{1}{\text{table_entry}_i(x)}
  *     \f]
  *
  * The first relation ensures that the polynomial \f$I\f$ represents the inverse of the product of the entries to be
  * looked up and the table entries. As this polynomial doesn't need to be defined everywhere, we set the result
- * of the multiplication to be equal to the value of another polynomial: inverse\_exist, which is set to 1 only
+ * of the multiplication to be equal to the value of another polynomial: inverse_exist, which is set to 1 only
  * if the inverse must be computed. Note that relation 1) is *independent*: it must be satisfied at every row
  * in the trace.
  *
@@ -510,20 +510,12 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     /**
      * @brief Compute generic log-derivative lookup subrelation accumulation
      * @details The generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
-     * inverse polynomial I, defined via I_i =  1/[(lookup_term_i) * (table_term_i)], has been computed correctly. The
-     * second establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note
-     * that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows
-     * of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
-     * this subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
-     * respectively:
-     *
-     *  I_i * (lookup_term_i) * (table_term_i) - 1 = 0
-     *
-     * \sum_{i=0}^{n-1} [lookup_term_predicate_i * 1 /lookup_term_i
-     *               - lookup_count_i * table_term_predicate_i * 1 / table_term_i] = 0
-     *
-     * The explicit expressions for lookup_term and table_term are dependent upon the particular structure of the lookup
-     * being performed and methods for computing them must be defined in the corresponding relation class.
+     * inverse polynomial I has been computed correctly. The second establishes the correctness of the lookups
+     * themselves based on the log-derivative lookup argument. Note that the latter subrelation is "linearly dependent"
+     * in the sense that it establishes that a sum across all rows of the exectution trace is zero, rather than that
+     * some expression holds independently at each row. Accordingly, this subrelation is not multiplied by a scaling
+     * factor at each accumulation step. See the documentation for GenericLookupRelationImpl for the definition of the
+     * subrelations.
      *
      * @tparam ContainerOverSubrelations Container type for accumulating subrelation contributions
      * @tparam AllEntities Type containing all polynomial entities
@@ -531,7 +523,7 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
      * @param accumulator Transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in An std::array containing the fully extended Accumulator edges
      * @param params Contains beta, gamma relation parameters
-     * @param scaling\_factor Optional term to scale the evaluation before adding to evals
+     * @param scaling_factor Optional term to scale the evaluation before adding to evals
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

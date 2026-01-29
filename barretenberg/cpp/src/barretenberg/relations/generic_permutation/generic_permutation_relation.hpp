@@ -47,17 +47,22 @@ template <typename Settings> class PermutationPolynomialStructure {
     static constexpr size_t compute_table_term_polynomial_offset() { return TABLE_TERM_START_POLYNOMIAL_INDEX; }
 };
 
-/// TO BE UPDATED!!!!!!
 /**
  * @brief Implementation of a generic permutation relation
  *
  * @details Implementation of a generic permutation relation that uses a log-derivative argument to prove that elements
  * in two columns of the execution trace are equal. The strategy is to use the lookup log-derivate argument with read
- * counts (i.e., number of times the lookup terms are looked up) equal to 1. As the sets we are comparing are each
- * comprised of the same number of elements, this means that they are permutations of one another.
+ * counts (i.e., number of times the lookup terms are looked up) equal to 1. This enforces the sets we are comparing to
+ * be permutations of one another. The relation is composed of two subrelations, the first is equal to the first
+ * subrelation in GenericLookupRelationImpl. The second one is the modification of the second subrelation of the generic
+ * lookup in which we hard-code the read counts to 1:
+ * \f[
+ *     \sum_{i=0}^{\text{NUM_LOOKUP_TERMS}} \text{lookup_entry_predicate}_i(x) \cdot \frac{1}{\text{lookup_entry}_i(x)}
+ *     - \sum_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry_predicate}_i(x) \cdot \frac{1}{\text{table_entry}_i(x)}
+ * \f]
  *
- * @note The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this
- * relation.
+ * @note The predicates involved in the second subrelation are assumed to have been constrained to be boolean outside
+ * this relation.
  *
  */
 template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
@@ -248,20 +253,13 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 
     /**
      * @brief Compute generic log-derivative set permutation subrelation accumulation
-     * @details The generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
-     * inverse polynomial I, defined via I_i =  1/[(lookup_term_i) * (table_term_i)], has been computed correctly. The
-     * second establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note
-     * that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows
-     * of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
-     * this subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
-     * respectively:
-     *
-     *  I_i * (lookup_term_i) * (table_term_i) - 1 = 0
-     *
-     * \sum_{i=0}^{n-1} [lookup_term_predicate_i * 1 /lookup_term_i - table_term_predicate_i * 1 / table_term_i] = 0
-     *
-     * The explicit expressions for lookup_term and table_term are dependent upon the particular structure of the lookup
-     * being performed and methods for computing them must be defined in the corresponding relation class.
+     * @details he generic log-derivative lookup relation consists of two subrelations. The first demonstrates that the
+     * inverse polynomial I has been computed correctly. The second establishes the correctness of the lookups
+     * themselves based on the log-derivative lookup argument. Note that the latter subrelation is "linearly dependent"
+     * in the sense that it establishes that a sum across all rows of the exectution trace is zero, rather than that
+     * some expression holds independently at each row. Accordingly, this subrelation is not multiplied by a scaling
+     * factor at each accumulation step. See the documentation for GenericPermutationRelationImpl for the definition of
+     * the subrelations.
      *
      * @tparam ContainerOverSubrelations Container type for accumulating subrelation contributions
      * @tparam AllEntities Type containing all polynomial entities
