@@ -31,7 +31,6 @@ template <typename Circuit, typename Flavor, typename IO = DefaultIO> void gener
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     CircuitBuilder builder = Circuit::generate(inputs);
-    IO::add_default(builder);
 
     auto instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
