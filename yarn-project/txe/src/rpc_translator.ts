@@ -624,8 +624,8 @@ export class RPCTranslator {
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 
-  utilityGetUtilityContext() {
-    const context = this.handlerAsUtility().utilityGetUtilityContext();
+  async utilityGetUtilityContext() {
+    const context = await this.handlerAsUtility().utilityGetUtilityContext();
 
     return toForeignCallResult(context.toNoirRepresentation());
   }

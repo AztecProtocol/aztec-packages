@@ -42,7 +42,7 @@ export async function executePrivateFunction(
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
-  const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
+  const initialWitness = await privateExecutionOracle.getInitialWitness(artifact);
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator

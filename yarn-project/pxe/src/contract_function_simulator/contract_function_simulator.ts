@@ -62,7 +62,6 @@ import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
-  BlockHeader,
   CallContext,
   HashedValues,
   PrivateExecutionResult,
@@ -120,7 +119,6 @@ export class ContractFunctionSimulator {
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
    * or a specific account.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
    * the `privateGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -132,7 +130,6 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
-    anchorBlockHeader: BlockHeader,
     senderForTags: AztecAddress | undefined,
     scopes: AztecAddress[] | undefined,
     jobId: string,
@@ -169,9 +166,8 @@ export class ContractFunctionSimulator {
       request.firstCallArgsHash,
       request.txContext,
       callContext,
-      anchorBlockHeader,
       async call => {
-        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
+        await this.runUtility(call, [], scopes, jobId);
       },
       request.authWitnesses,
       request.capsules,
@@ -251,7 +247,6 @@ export class ContractFunctionSimulator {
    * Runs a utility function.
    * @param call - The function call to execute.
    * @param authwits - Authentication witnesses required for the function call.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
@@ -259,7 +254,6 @@ export class ContractFunctionSimulator {
   public async runUtility(
     call: FunctionCall,
     authwits: AuthWitness[],
-    anchorBlockHeader: BlockHeader,
     scopes: AztecAddress[] | undefined,
     jobId: string,
   ): Promise<Fr[]> {
@@ -273,7 +267,6 @@ export class ContractFunctionSimulator {
       call.to,
       authwits,
       [],
-      anchorBlockHeader,
       this.contractStore,
       this.noteStore,
       this.keyStore,

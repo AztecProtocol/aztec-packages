@@ -312,7 +312,6 @@ export class PXE {
         contractAddress,
         functionSelector,
         undefined,
-        anchorBlockHeader,
         // The sender for tags is set by contracts, typically by an account
         // contract entrypoint
         undefined, // senderForTags
@@ -347,8 +346,7 @@ export class PXE {
     jobId: string,
   ) {
     try {
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], anchorBlockHeader, scopes, jobId);
+      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], scopes, jobId);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractStore, this.log);

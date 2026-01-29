@@ -308,7 +308,7 @@ export class TXESession implements TXESessionStateHandler {
 
   async enterPrivateState(
     contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber?: BlockNumber,
+    _anchorBlockNumber?: BlockNumber,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
@@ -322,7 +322,6 @@ export class TXESession implements TXESessionStateHandler {
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
-    const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
@@ -337,12 +336,11 @@ export class TXESession implements TXESessionStateHandler {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
+    const utilityExecutor = this.utilityExecutorForContractSync();
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
       new TxContext(this.chainId, this.version, GasSettings.empty()),
       new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
-      anchorBlock!,
       utilityExecutor,
       [],
       [],
@@ -371,7 +369,7 @@ export class TXESession implements TXESessionStateHandler {
     this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
-    return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
+    return await (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {
@@ -413,13 +411,10 @@ export class TXESession implements TXESessionStateHandler {
       this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
 
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-
     this.oracleHandler = new UtilityExecutionOracle(
       contractAddress,
       [],
       [],
-      anchorBlockHeader,
       this.contractStore,
       this.noteStore,
       this.keyStore,
@@ -498,7 +493,7 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
-  private utilityExecutorForContractSync(anchorBlock: any) {
+  private utilityExecutorForContractSync() {
     return async (call: FunctionCall) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
@@ -510,7 +505,6 @@ export class TXESession implements TXESessionStateHandler {
           call.to,
           [],
           [],
-          anchorBlock!,
           this.contractStore,
           this.noteStore,
           this.keyStore,

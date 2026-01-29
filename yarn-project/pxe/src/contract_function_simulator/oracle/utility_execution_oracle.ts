@@ -55,7 +55,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
-    protected readonly anchorBlockHeader: BlockHeader,
     protected readonly contractStore: ContractStore,
     protected readonly noteStore: NoteStore,
     protected readonly keyStore: KeyStore,
@@ -81,8 +80,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Fr.random();
   }
 
-  public utilityGetUtilityContext(): UtilityContext {
-    return new UtilityContext(this.anchorBlockHeader, this.contractAddress);
+  public async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    return new UtilityContext(anchorBlockHeader, this.contractAddress);
   }
 
   /**

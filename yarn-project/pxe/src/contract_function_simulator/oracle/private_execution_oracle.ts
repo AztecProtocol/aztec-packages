@@ -21,7 +21,6 @@ import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from 
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
-  type BlockHeader,
   CallContext,
   Capsule,
   CountedContractClassLog,
@@ -74,8 +73,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
-    /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected override readonly anchorBlockHeader: BlockHeader,
     /** Needed to trigger contract synchronization before nested calls */
     private readonly utilityExecutor: (call: FunctionCall) => Promise<void>,
     /** List of transient auth witnesses to be used during this simulation */
@@ -107,7 +104,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       callContext.contractAddress,
       authWitnesses,
       capsules,
-      anchorBlockHeader,
       contractStore,
       noteStore,
       keyStore,
@@ -124,8 +120,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     );
   }
 
-  public getPrivateContextInputs(): PrivateContextInputs {
-    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
+  public async getPrivateContextInputs(): Promise<PrivateContextInputs> {
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    return new PrivateContextInputs(this.callContext, anchorBlockHeader, this.txContext, this.sideEffectCounter);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -135,7 +132,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param abi - The function ABI.
    * @returns The initial witness.
    */
-  public getInitialWitness(abi: FunctionAbi) {
+  public async getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.executionCache.getPreimage(this.argsHash);
@@ -144,7 +141,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args?.length}`);
     }
 
-    const privateContextInputsAsFields = this.getPrivateContextInputs().toFields();
+    const privateContextInputsAsFields = (await this.getPrivateContextInputs()).toFields();
     if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
       throw new Error('Invalid private context inputs size');
     }
@@ -266,12 +263,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
+      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
       await syncSenderTaggingIndexes(
         secret,
         this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
-        await this.anchorBlockHeader.hash(),
+        await anchorBlockHeader.hash(),
         this.jobId,
       );
 
@@ -540,13 +538,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
     await ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
       this.aztecNode,
       this.contractStore,
-      this.anchorBlockHeader,
+      anchorBlockHeader,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -562,7 +561,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.anchorBlockHeader,
       this.utilityExecutor,
       this.authWitnesses,
       this.capsules,

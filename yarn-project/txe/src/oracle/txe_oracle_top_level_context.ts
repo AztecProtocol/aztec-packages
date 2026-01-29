@@ -314,8 +314,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     // In production, the account contract sets the min revertible counter before calling the app function.
@@ -331,8 +329,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       argsHash,
       txContext,
       callContext,
-      /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-      blockHeader,
       utilityExecutor,
       /** List of transient auth witnesses to be used during this simulation */
       Array.from(this.authwits.values()),
@@ -694,12 +690,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
 
     try {
-      const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const oracle = new UtilityExecutionOracle(
         call.to,
         [],
         [],
-        anchorBlockHeader,
         this.contractStore,
         this.noteStore,
         this.keyStore,
