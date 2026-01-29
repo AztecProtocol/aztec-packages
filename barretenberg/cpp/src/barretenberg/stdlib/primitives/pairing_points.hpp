@@ -246,11 +246,11 @@ template <typename Curve> struct PairingPoints {
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        // Create default coordinates as bigfield witnesses
-        bigfield<Builder, bb::Bn254FqParams> x0(DEFAULT_PAIRING_POINTS_P0_X);
-        bigfield<Builder, bb::Bn254FqParams> y0(DEFAULT_PAIRING_POINTS_P0_Y);
-        bigfield<Builder, bb::Bn254FqParams> x1(DEFAULT_PAIRING_POINTS_P1_X);
-        bigfield<Builder, bb::Bn254FqParams> y1(DEFAULT_PAIRING_POINTS_P1_Y);
+        // Create default coordinates using the curve's Fq type (goblin_field for Mega, bigfield for Ultra)
+        Fq x0(DEFAULT_PAIRING_POINTS_P0_X);
+        Fq y0(DEFAULT_PAIRING_POINTS_P0_Y);
+        Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
+        Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
 
         x0.convert_constant_to_fixed_witness(builder);
         y0.convert_constant_to_fixed_witness(builder);

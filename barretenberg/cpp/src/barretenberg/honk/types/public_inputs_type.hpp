@@ -41,10 +41,11 @@ static constexpr std::size_t GOBLIN_GROUP_PUBLIC_INPUTS_SIZE = 2 * GOBLIN_FIELD_
  */
 static constexpr std::size_t PAIRING_POINTS_SIZE = 2 * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
 
-// Number of bb::fr elements used to represent a opening claim (C, (r, p(r))) over Grumpkin
-// Formula is: a point on Grumpkin (2 * FR_PUBLIC_INPUTS_SIZE) and two points on bb::fq (2 *
-// BIGFIELD_PUBLIC_INPUTS_SIZE)
-static constexpr std::size_t GRUMPKIN_OPENING_CLAIM_SIZE = 2 * FR_PUBLIC_INPUTS_SIZE + 2 * BIGFIELD_PUBLIC_INPUTS_SIZE;
+// Number of bb::fr elements used to represent an opening claim (C, (r, p(r))) over Grumpkin
+// Formula: challenge (fq) + evaluation (fq) + commitment (2 fr coords, since Grumpkin base field is BN254 scalar field)
+static constexpr std::size_t GRUMPKIN_OPENING_CLAIM_SIZE =
+    /*challenge*/ BIGFIELD_PUBLIC_INPUTS_SIZE + /*evaluation*/ BIGFIELD_PUBLIC_INPUTS_SIZE +
+    /*commitment*/ 2 * FR_PUBLIC_INPUTS_SIZE;
 
 // Invalid public input size, used in OpeningClaim<Curve> when Curve is not Grumpkin
 static constexpr std::size_t INVALID_PUBLIC_INPUTS_SIZE = 0;

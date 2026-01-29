@@ -739,6 +739,10 @@ template <typename Builder, typename T> class bigfield {
      */
     uint32_t set_public() const
     {
+        // Reduce bigfield to canonical form before combining into 2-limb format.
+        // This ensures each limb is < 2^NUM_LIMB_BITS, so combined lo < 2^(2*NUM_LIMB_BITS).
+        self_reduce();
+
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
 

@@ -55,7 +55,7 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12994866;
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12994745;
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
@@ -100,7 +100,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(817187, 0);
+        return std::make_tuple(817241, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -113,7 +113,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2385358;
+inline constexpr size_t CHONK_RECURSION_GATES = 2385256;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -147,7 +147,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 220411;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 220409;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

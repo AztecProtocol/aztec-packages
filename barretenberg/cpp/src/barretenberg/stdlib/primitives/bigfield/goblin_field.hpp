@@ -8,6 +8,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
@@ -38,9 +39,9 @@ template <class Builder> class goblin_field {
     using bool_ct = stdlib::bool_t<Builder>;
     std::array<field_ct, 2> limbs;
 
-    // Number of bb::fr elements used to represent a goblin field in the public inputs. (Note: 4 instead of 2 for
-    // consistency with bigfield).
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
+    // Number of bb::fr elements used to represent a goblin field in the public inputs
+    // This matches the Codec representation (2 limbs)
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FIELD_PUBLIC_INPUTS_SIZE;
 
     // constructors mirror bigfield constructors
     goblin_field()

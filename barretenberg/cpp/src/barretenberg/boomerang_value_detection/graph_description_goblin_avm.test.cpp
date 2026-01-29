@@ -126,10 +126,9 @@ TEST_F(BoomerangGoblinAvmRecursiveVerifierTests, graph_description_basic)
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
-    // The four variables that appear in one gate are the limbs of the y coordinate of the P1 point, which is the
-    // negation of the commitment sent by the prover. This negation results in a non-normalized y coordinate, which is
-    // normalized when P1 is set to a public input. As a result, the normalized limbs of P1.y appear only in one gate.
-    EXPECT_EQ(variables_in_one_gate.size(), 4);
+    // All pairing point coordinate limbs are now properly constrained. The self_reduce() call in bigfield::set_public()
+    // ensures limbs are in canonical form, adding constraints that use each limb in multiple gates.
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 } // namespace bb::stdlib::recursion::honk
