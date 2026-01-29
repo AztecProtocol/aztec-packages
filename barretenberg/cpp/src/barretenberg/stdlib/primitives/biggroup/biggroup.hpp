@@ -70,13 +70,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        // Create field_t witnesses for x and y
-        Fq x = Fq::from_witness(ctx, input.x);
-        Fq y = Fq::from_witness(ctx, input.y);
+        // By convention we set the coordinates of the point at infinity to (0,0).
+        Fq x;
+        Fq y;
+        if (input.is_point_at_infinity()) {
+            x = Fq::from_witness(ctx, typename NativeGroup::Fq(0));
+            y = Fq::from_witness(ctx, typename NativeGroup::Fq(0));
+        } else {
+            x = Fq::from_witness(ctx, input.x);
+            y = Fq::from_witness(ctx, input.y);
+        }
 
-        // Create _is_infinity as a witness for consistency with points from arithmetic operations.
+        // Create _is_infinity as a witness with the actual infinity status.
         // Security: Since assert_on_curve is true, validate_on_curve() enforces that if infinity=true, then x = y = 0.
-        bool_ct is_infinity = bool_ct(witness_ct(ctx, false));
+        bool_ct is_infinity = bool_ct(witness_ct(ctx, input.is_point_at_infinity()));
         mark_witness_as_used(field_t<Builder>(is_infinity));
 
         // Construct the biggroup element with private constructor to avoid redundant on-curve check
