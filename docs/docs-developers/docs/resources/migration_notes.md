@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [AztecNode] Removed sibling path RPC methods
+
+The following methods have been removed from the `AztecNode` interface:
+
+- `getNullifierSiblingPath`
+- `getNoteHashSiblingPath`
+- `getArchiveSiblingPath`
+- `getPublicDataSiblingPath`
+
+These methods were not used by PXE and returned a subset of the information already available through the corresponding membership witness methods:
+
+| Removed Method | Use Instead |
+|----------------|-------------|
+| `getNullifierSiblingPath` | `getNullifierMembershipWitness` |
+| `getNoteHashSiblingPath` | `getNoteHashMembershipWitness` |
+| `getArchiveSiblingPath` | `getArchiveMembershipWitness` |
+| `getPublicDataSiblingPath` | `getPublicDataWitness` |
+
+The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
+
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 
 The `protocol_types` re-export from the `aztec` crate has been renamed to `protocol`. Update all imports accordingly:

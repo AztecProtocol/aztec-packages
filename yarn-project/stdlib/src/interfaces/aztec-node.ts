@@ -1,10 +1,4 @@
-import {
-  ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
   BlockNumber,
@@ -103,41 +97,6 @@ export interface AztecNode
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]>;
-
-  /**
-   * Returns a sibling path for the given index in the nullifier tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNullifierSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for the given index in the note hash tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNoteHashSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed historic blocks tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getArchiveSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed public data tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -517,26 +476,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
     .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
-
-  getNullifierSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NULLIFIER_TREE_HEIGHT)),
-
-  getNoteHashSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NOTE_HASH_TREE_HEIGHT)),
-
-  getArchiveSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(ARCHIVE_HEIGHT)),
-
-  getPublicDataSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT)),
 
   getNullifierMembershipWitness: z
     .function()
