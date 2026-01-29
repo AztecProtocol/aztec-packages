@@ -456,10 +456,11 @@ struct SSTORE_Instruction {
 
 /// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
 struct SLOAD_Instruction {
-    uint16_t slot_index;     // index of the slot in memory_manager.storage_addresses
-    AddressRef slot_address; // address where we set slot value
+    uint16_t slot_index;               // index of the slot in memory_manager.storage_addresses
+    AddressRef slot_address;           // address where we set slot value
+    ParamRef contract_address_address; // address where the contract address will be stored
     AddressRef result_address;
-    MSGPACK_FIELDS(slot_index, slot_address, result_address);
+    MSGPACK_FIELDS(slot_index, slot_address, contract_address_address, result_address);
 };
 
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)

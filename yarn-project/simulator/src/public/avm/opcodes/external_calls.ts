@@ -1,6 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import type { AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import { CallDataMemory, ReturnDataMemory } from '../calldata.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -45,8 +46,8 @@ abstract class ExternalCall extends Instruction {
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
-    // This is a DOS vector. CalldataSize is chosen by the bytecode, and can be arbitrarily large leading to a OOM here.
-    const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
+
+    const calldata = new CallDataMemory(memory, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
     // If we are already in a static call, we propagate the environment.
@@ -73,8 +74,8 @@ abstract class ExternalCall extends Instruction {
     const success = !nestedCallResults.reverted;
 
     // Save return/revert data for later.
-    const fullReturnData = nestedCallResults.output;
-    context.machineState.nestedReturndata = fullReturnData;
+    const returnData = nestedCallResults.output;
+    context.machineState.nestedReturndata = returnData;
 
     // Track the success status directly
     context.machineState.nestedCallSuccess = success;
@@ -89,7 +90,7 @@ abstract class ExternalCall extends Instruction {
     // (in Noir code).
     if (!success) {
       context.machineState.collectedRevertInfo = {
-        revertDataRepresentative: fullReturnData,
+        revertDataRepresentative: returnData.bestEffortReadAll(),
         recursiveRevertReason: nestedCallResults.revertReason!,
       };
     }
@@ -195,7 +196,7 @@ export class Return extends Instruction {
     memory.checkTag(TypeTag.UINT32, returnSizeOffset);
     const returnSize = memory.get(returnSizeOffset).toNumber();
 
-    const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
+    const output = new ReturnDataMemory(memory, returnOffset, returnSize);
 
     context.machineState.return(output);
   }
@@ -243,7 +244,7 @@ export class Revert extends Instruction {
 
     memory.checkTag(TypeTag.UINT32, retSizeOffset);
     const retSize = memory.get(retSizeOffset).toNumber();
-    const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
+    const output = new ReturnDataMemory(memory, returnOffset, retSize);
 
     context.machineState.revert(output);
   }

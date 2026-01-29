@@ -26,6 +26,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
     for (const auto& event : events) {
         FF value = event.value;
         uint32_t radix = event.radix;
+        BB_ASSERT(!(radix > 256), "Invalid radix");
         size_t radix_index = static_cast<size_t>(radix);
         uint32_t safe_limbs = static_cast<uint32_t>(p_limbs_per_radix[radix_index].size()) - 1;
 
