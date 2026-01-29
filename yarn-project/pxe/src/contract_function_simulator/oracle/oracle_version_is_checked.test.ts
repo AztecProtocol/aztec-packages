@@ -13,7 +13,6 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -32,7 +31,6 @@ describe('Oracle Version Check test suite', () => {
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let anchorBlockStore: ReturnType<typeof mock<AnchorBlockStore>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
@@ -51,7 +49,6 @@ describe('Oracle Version Check test suite', () => {
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
     aztecNode = mock<AztecNode>();
-    anchorBlockStore = mock<AnchorBlockStore>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
@@ -65,7 +62,6 @@ describe('Oracle Version Check test suite', () => {
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
-    anchorBlockStore.getBlockHeader.mockResolvedValue(anchorBlockHeader);
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -97,7 +93,6 @@ describe('Oracle Version Check test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
