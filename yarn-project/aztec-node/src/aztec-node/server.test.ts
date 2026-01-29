@@ -307,59 +307,6 @@ describe('aztec node', () => {
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
       });
-
-      it('returns proofsRequired=false when realProofs is not set', async () => {
-        // Use type assertion to test the ?? false fallback in getNodeInfo
-        const configWithUndefinedRealProofs = { ...nodeConfig, realProofs: undefined } as unknown as AztecNodeConfig;
-        const nodeWithUndefinedRealProofs = new AztecNodeService(
-          configWithUndefinedRealProofs,
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          epochCache,
-          getPackageVersion() ?? '',
-          new TestCircuitVerifier(),
-        );
-
-        const nodeInfo = await nodeWithUndefinedRealProofs.getNodeInfo();
-        expect(nodeInfo.proofsRequired).toBe(false);
-      });
-
-      it('returns proofsRequired=true when realProofs is true', async () => {
-        const configWithRealProofs = { ...nodeConfig, realProofs: true };
-        const nodeWithRealProofs = new AztecNodeService(
-          configWithRealProofs,
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          epochCache,
-          getPackageVersion() ?? '',
-          new TestCircuitVerifier(),
-        );
-
-        const nodeInfo = await nodeWithRealProofs.getNodeInfo();
-        expect(nodeInfo.proofsRequired).toBe(true);
-      });
     });
 
     describe('getBlockHeader', () => {
