@@ -26,13 +26,13 @@ namespace bb {
  * \f]
  * where
  * \f[
- *  \text{table_term} = \text{table_col}_1 + \gamma + \text{table_col}_2 \cdot \eta_1
- *                                  + \text{table_col}_3 \cdot \eta_2 + \text{table_index} \cdot \eta_3
+ *  \text{table_term} = \text{table_col}_1 + \gamma + \text{table_col}_2 \cdot \beta
+ *                                  + \text{table_col}_3 \cdot \beta^2 + \text{table_index} \cdot \beta^3
  * \f]
  * and
  * \f[
- *  \text{lookup_term} = \text{derived_table_entry}_1 + \gamma + \text{derived_table_entry}_2 \cdot \eta_1
- *                     + \text{derived_table_entry}_3 \cdot \eta_2 + \text{table_index} \cdot \eta_3
+ *  \text{lookup_term} = \text{derived_table_entry}_1 + \gamma + \text{derived_table_entry}_2 \cdot \beta
+ *                     + \text{derived_table_entry}_3 \cdot \beta^2 + \text{table_index} \cdot \beta^3
  * \f]
  * with
  * \f[
