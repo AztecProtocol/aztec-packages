@@ -32,12 +32,12 @@ concurrency:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Run Network Scenarios
+        timeout-minutes: 350
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
