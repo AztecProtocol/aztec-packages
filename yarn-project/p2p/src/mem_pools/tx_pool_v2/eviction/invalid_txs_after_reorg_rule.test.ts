@@ -17,7 +17,7 @@ describe('InvalidTxsAfterReorgRule', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let rule: InvalidTxsAfterReorgRule;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Helper to create TxMetaData for testing

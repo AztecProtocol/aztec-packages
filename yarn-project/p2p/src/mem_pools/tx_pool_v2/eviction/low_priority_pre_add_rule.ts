@@ -20,24 +20,24 @@ export class LowPriorityPreAddRule implements PreAddRule {
     this.maxPoolSize = config.maxPoolSize;
   }
 
-  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
     // Skip if max pool size is disabled (0 = unlimited)
     if (this.maxPoolSize === 0) {
-      return { shouldIgnore: false, txHashesToEvict: [] };
+      return Promise.resolve({ shouldIgnore: false, txHashesToEvict: [] });
     }
 
     const currentCount = poolAccess.getPendingTxCount();
 
     // If pool is not at capacity, accept the tx
     if (currentCount < this.maxPoolSize) {
-      return { shouldIgnore: false, txHashesToEvict: [] };
+      return Promise.resolve({ shouldIgnore: false, txHashesToEvict: [] });
     }
 
     // Pool is at capacity - need to compare priorities
     const lowestPriorityMeta = poolAccess.getLowestPriorityPendingTx();
     if (!lowestPriorityMeta) {
       // No pending txs (shouldn't happen if count > 0, but handle gracefully)
-      return { shouldIgnore: false, txHashesToEvict: [] };
+      return Promise.resolve({ shouldIgnore: false, txHashesToEvict: [] });
     }
 
     // If incoming tx has strictly higher priority, evict the lowest priority tx
@@ -46,10 +46,10 @@ export class LowPriorityPreAddRule implements PreAddRule {
         `Pool at capacity (${currentCount}/${this.maxPoolSize}), evicting ${lowestPriorityMeta.txHash} ` +
           `(priority ${lowestPriorityMeta.priorityFee}) for ${incomingMeta.txHash} (priority ${incomingMeta.priorityFee})`,
       );
-      return {
+      return Promise.resolve({
         shouldIgnore: false,
         txHashesToEvict: [lowestPriorityMeta.txHash],
-      };
+      });
     }
 
     // Incoming tx has equal or lower priority - ignore it (it would be evicted anyway)
@@ -57,11 +57,11 @@ export class LowPriorityPreAddRule implements PreAddRule {
       `Pool at capacity (${currentCount}/${this.maxPoolSize}), ignoring ${incomingMeta.txHash} ` +
         `(priority ${incomingMeta.priorityFee}) - lower than existing minimum (priority ${lowestPriorityMeta.priorityFee})`,
     );
-    return {
+    return Promise.resolve({
       shouldIgnore: true,
       txHashesToEvict: [],
       reason: `pool at capacity and tx has lower priority than existing transactions`,
-    };
+    });
   }
 
   updateConfig(config: EvictionConfig): void {

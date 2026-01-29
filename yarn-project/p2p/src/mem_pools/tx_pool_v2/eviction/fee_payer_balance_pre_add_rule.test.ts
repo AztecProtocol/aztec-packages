@@ -29,7 +29,7 @@ describe('FeePayerBalancePreAddRule', () => {
   const createPoolAccess = (balance: bigint, existingTxs: TxMetaData[] = []): PreAddPoolAccess => ({
     getMetadata: (txHashStr: string) => existingTxs.find(t => t.txHash === txHashStr),
     getTxHashByNullifier: () => undefined,
-    getFeePayerBalance: async () => balance,
+    getFeePayerBalance: () => Promise.resolve(balance),
     getFeePayerPendingTxs: () => existingTxs,
     getPendingTxCount: () => existingTxs.length,
     getLowestPriorityPendingTx: () =>

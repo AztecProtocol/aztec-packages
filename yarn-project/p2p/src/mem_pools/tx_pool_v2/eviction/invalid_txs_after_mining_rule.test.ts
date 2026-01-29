@@ -11,7 +11,7 @@ import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
 describe('InvalidTxsAfterMiningRule', () => {
   let pool: PoolOperations;
   let rule: InvalidTxsAfterMiningRule;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Default timestamp used in tests - must be > block timestamp (1000n) to avoid expiration

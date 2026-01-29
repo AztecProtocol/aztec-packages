@@ -1,4 +1,4 @@
-import { type TxMetaData } from '../tx_metadata.js';
+import type { TxMetaData } from '../tx_metadata.js';
 import type { PreAddPoolAccess } from './interfaces.js';
 import { NullifierConflictRule } from './nullifier_conflict_rule.js';
 
@@ -29,7 +29,7 @@ describe('NullifierConflictRule', () => {
   ): PreAddPoolAccess => ({
     getMetadata: (txHashStr: string) => metadataMap.get(txHashStr),
     getTxHashByNullifier: (nullifier: string) => nullifierMap.get(nullifier),
-    getFeePayerBalance: async () => 10n ** 18n,
+    getFeePayerBalance: () => Promise.resolve(10n ** 18n),
     getFeePayerPendingTxs: () => [],
     getPendingTxCount: () => metadataMap.size,
     getLowestPriorityPendingTx: () => undefined,

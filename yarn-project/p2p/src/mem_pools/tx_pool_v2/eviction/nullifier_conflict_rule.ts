@@ -15,7 +15,7 @@ export class NullifierConflictRule implements PreAddRule {
 
   private log = createLogger('p2p:tx_pool_v2:nullifier_conflict_rule');
 
-  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
     const txHashesToEvict: string[] = [];
 
     for (const nullifier of incomingMeta.nullifiers) {
@@ -43,14 +43,14 @@ export class NullifierConflictRule implements PreAddRule {
         this.log.debug(
           `Ignoring tx ${incomingMeta.txHash}: nullifier conflict with ${conflictingHashStr} which has higher or equal fee`,
         );
-        return {
+        return Promise.resolve({
           shouldIgnore: true,
           txHashesToEvict: [],
           reason: `nullifier conflict with ${conflictingHashStr}`,
-        };
+        });
       }
     }
 
-    return { shouldIgnore: false, txHashesToEvict };
+    return Promise.resolve({ shouldIgnore: false, txHashesToEvict });
   }
 }

@@ -10,7 +10,7 @@ import { LowPriorityEvictionRule } from './low_priority_eviction_rule.js';
 describe('LowPriorityEvictionRule', () => {
   let pool: PoolOperations;
   let rule: LowPriorityEvictionRule;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Create mock pool operations

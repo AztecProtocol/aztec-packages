@@ -2,8 +2,9 @@ import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
-import { GasFees } from '@aztec/stdlib/gas';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -79,6 +80,10 @@ describe('TxPoolV2', () => {
 
   const mockTxWithFee = (seed: number, fee: number) => mockTx(seed, { maxPriorityFeesPerGas: new GasFees(fee, fee) });
 
+  // Helper functions for string-based TxHash comparisons
+  const toStrings = (hashes: TxHash[]) => hashes.map(h => h.toString());
+  const hashOf = (tx: Tx) => tx.getTxHash().toString();
+
   const mockPublicTx = (seed: number, fee: number = 1) =>
     mockTx(seed, {
       maxPriorityFeesPerGas: new GasFees(fee, fee),
@@ -132,10 +137,10 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx1]);
       const result = await pool.addPendingTxs([tx2]);
 
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(tx2.getTxHash());
-      expect(pending).not.toContainEqual(tx1.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(tx2));
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx2));
+      expect(pending).not.toContain(hashOf(tx1));
     });
 
     it('challenges transactions with conflicting nullifiers - existing wins on tie', async () => {
@@ -148,10 +153,10 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
 
       // tx2 is valid but ignored due to nullifier conflict with equal-priority tx1
-      expect(result.ignored).toContainEqual(tx2.getTxHash());
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(tx1.getTxHash());
-      expect(pending).not.toContainEqual(tx2.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(tx2));
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx1));
+      expect(pending).not.toContain(hashOf(tx2));
     });
 
     it('emits txs-added event with source', async () => {
@@ -168,7 +173,7 @@ describe('TxPoolV2', () => {
     });
 
     it('respects maxPendingTxCount limit', async () => {
-      await await pool.updateConfig({ maxPendingTxCount: 3 });
+      await pool.updateConfig({ maxPendingTxCount: 3 });
 
       const tx1 = await mockTxWithFee(1, 1);
       const tx2 = await mockTxWithFee(2, 2);
@@ -183,12 +188,12 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx4, tx5]);
       expect(await pool.getPendingTxCount()).toBe(3);
 
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(tx5.getTxHash());
-      expect(pending).toContainEqual(tx4.getTxHash());
-      expect(pending).toContainEqual(tx3.getTxHash());
-      expect(pending).not.toContainEqual(tx1.getTxHash());
-      expect(pending).not.toContainEqual(tx2.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx5));
+      expect(pending).toContain(hashOf(tx4));
+      expect(pending).toContain(hashOf(tx3));
+      expect(pending).not.toContain(hashOf(tx1));
+      expect(pending).not.toContain(hashOf(tx2));
     });
   });
 
@@ -266,7 +271,7 @@ describe('TxPoolV2', () => {
 
       const missing = await pool.protectTxs([tx1.getTxHash(), tx2.getTxHash()], slot1Header);
 
-      expect(missing).toContainEqual(tx2.getTxHash());
+      expect(toStrings(missing)).toContain(hashOf(tx2));
       expect(missing).toHaveLength(1);
     });
 
@@ -275,7 +280,7 @@ describe('TxPoolV2', () => {
 
       // Pre-record protection for a tx we don't have yet
       const missing = await pool.protectTxs([tx.getTxHash()], slot1Header);
-      expect(missing).toContainEqual(tx.getTxHash());
+      expect(toStrings(missing)).toContain(hashOf(tx));
 
       // Now add the tx via gossip - it should be immediately protected
       await pool.addPendingTxs([tx]);
@@ -308,11 +313,11 @@ describe('TxPoolV2', () => {
 
       // Pre-record protection for slot 1
       const missing1 = await pool.protectTxs([tx.getTxHash()], slot1Header);
-      expect(missing1).toContainEqual(tx.getTxHash());
+      expect(toStrings(missing1)).toContain(hashOf(tx));
 
       // Pre-record protection for slot 2 (overwrites slot 1)
       const missing2 = await pool.protectTxs([tx.getTxHash()], slot2Header);
-      expect(missing2).toContainEqual(tx.getTxHash());
+      expect(toStrings(missing2)).toContain(hashOf(tx));
 
       // Now add the tx - it should be protected for slot 2
       await pool.addPendingTxs([tx]);
@@ -353,97 +358,25 @@ describe('TxPoolV2', () => {
 
     it('deletes pending transactions with conflicting nullifiers', async () => {
       // Create two transactions with the same nullifier
-      const tx1 = await mockPublicTx(1, 10);
-      const tx2 = await mockPublicTx(2, 5);
+      const txLow = await mockPublicTx(1, 5);
+      const txHigh = await mockPublicTx(2, 10);
+      setNullifier(txHigh, 0, getNullifier(txLow, 0));
 
-      // Give tx2 the same nullifier as tx1
-      setNullifier(tx2, 0, getNullifier(tx1, 0));
+      // Add low priority tx as pending
+      await pool.addPendingTxs([txLow]);
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('pending');
 
-      // Add tx1 as protected (it will be mined)
-      await pool.addProtectedTxs([tx1], slot1Header);
+      // Add high priority tx as protected (bypasses nullifier conflict check)
+      await pool.addProtectedTxs([txHigh], slot1Header);
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('protected');
 
-      // Add tx2 as pending (different tx hash, but shares a nullifier with tx1)
-      // We need to add it differently since direct addPendingTxs would conflict
-      // First, let's create a scenario where tx2 doesn't conflict initially
-      const tx3 = await mockPublicTx(3, 5);
-      await pool.addPendingTxs([tx3]);
+      // Unprotect - nullifier conflict resolution should delete the lower priority pending tx
+      await pool.prepareForSlot(SlotNumber(2));
 
-      // Now manually set tx3's nullifier to match tx1's to simulate the conflict
-      // Actually, let's use a cleaner approach: add tx2 first, then mine tx1
-      await pool.stop();
-
-      // Restart with fresh pool
-      mockL2BlockSource = mock<L2BlockSource>();
-      mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
-      pool = new AztecKVTxPoolV2(await openTmpStore('p2p-2'), await openTmpStore('archive-2'), {
-        l2BlockSource: mockL2BlockSource,
-        worldStateSynchronizer: mockWorldState,
-      });
-      await pool.start();
-
-      // Create fresh transactions
-      const minedTx = await mockPublicTx(100, 10);
-      const pendingTx = await mockPublicTx(200, 5);
-
-      // Set pendingTx to have a different nullifier initially
-      // Add both to the pool - minedTx as protected, pendingTx as pending
-      await pool.addProtectedTxs([minedTx], slot1Header);
-      await pool.addPendingTxs([pendingTx]);
-
+      // High priority tx should now be pending, low priority tx should be deleted
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
       expect(await pool.getPendingTxCount()).toBe(1);
-      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBe('pending');
-
-      // Now give pendingTx the same nullifier as minedTx by manipulating the metadata
-      // This simulates a situation where the nullifier wasn't visible before (e.g., from public execution)
-      // For testing purposes, we'll just verify the behavior with a simpler approach
-
-      // Actually, the design says "nullifiers emitted from public will be added to the tree"
-      // which means the mined tx's nullifiers weren't visible before mining.
-      // The test should be: when we mine tx1, any pending tx2 that shares nullifiers should be deleted.
-
-      // Let's set up this properly: pendingTx has a unique nullifier, but we'll pretend
-      // the mined tx also emits that same nullifier (simulating public execution adding it)
-      // Since we can't easily modify the nullifier index after the fact, let's test this differently
-
-      // The actual behavior is: when handleMinedBlock is called, we look at the mined txs' nullifiers
-      // and delete any pending txs that share those nullifiers.
-      // So let's verify that if we have two txs where one is pending and shares a nullifier with
-      // a tx being mined, the pending one gets deleted.
-
-      // For this test, we need two txs with the same nullifier where one is pending and one gets mined.
-      // The trick is they can't both be in the pool initially with the same nullifier.
-      // Solution: add pending tx first, then mine a DIFFERENT tx that happens to share a nullifier.
-
-      // Reset again for a clean test
-      await pool.stop();
-      pool = new AztecKVTxPoolV2(await openTmpStore('p2p-3'), await openTmpStore('archive-3'), {
-        l2BlockSource: mockL2BlockSource,
-        worldStateSynchronizer: mockWorldState,
-      });
-      await pool.start();
-
-      // Add a pending transaction
-      const pendingTxFinal = await mockPublicTx(300, 5);
-      await pool.addPendingTxs([pendingTxFinal]);
-      expect(await pool.getPendingTxCount()).toBe(1);
-
-      // Create a "mined" transaction that shares a nullifier (but was never in our pool)
-      // This simulates a tx from another node that got mined with a conflicting nullifier
-      const minedTxFinal = await mockPublicTx(400, 10);
-      setNullifier(minedTxFinal, 0, getNullifier(pendingTxFinal, 0));
-
-      // Add the mined tx as protected first (simulating receiving it for block validation)
-      await pool.addProtectedTxs([minedTxFinal], slot1Header);
-
-      // Now mine it - this should delete the pending tx with conflicting nullifier
-      await pool.handleMinedBlock([minedTxFinal.getTxHash()], slot1Header);
-
-      // The pending transaction should be deleted due to nullifier conflict
-      expect(await pool.getTxStatus(pendingTxFinal.getTxHash())).toBeUndefined();
-      expect(await pool.getPendingTxCount()).toBe(0);
-
-      // The mined transaction should still be there
-      expect(await pool.getTxStatus(minedTxFinal.getTxHash())).toBe('mined');
     });
   });
 
@@ -563,9 +496,9 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
 
       // Only the higher priority tx (previously protected) should remain
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txProtected.getTxHash());
+      expect(pending).toContain(hashOf(txProtected));
       expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
     });
 
@@ -586,9 +519,9 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
 
       // Only the higher priority pending tx should remain
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txPending.getTxHash());
+      expect(pending).toContain(hashOf(txPending));
       expect(await pool.getTxStatus(txProtected.getTxHash())).toBeUndefined();
     });
 
@@ -607,9 +540,9 @@ describe('TxPoolV2', () => {
       // Unprotect all - only highest priority should survive
       await pool.prepareForSlot(SlotNumber(2));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(tx2.getTxHash()); // tx2 has fee=15, highest
+      expect(pending).toContain(hashOf(tx2)); // tx2 has fee=15, highest
       expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(tx3.getTxHash())).toBeUndefined();
     });
@@ -633,9 +566,9 @@ describe('TxPoolV2', () => {
       // Unprotect - txProtected should evict both pending txs
       await pool.prepareForSlot(SlotNumber(2));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txProtected.getTxHash());
+      expect(pending).toContain(hashOf(txProtected));
       expect(await pool.getTxStatus(txPending1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(txPending2.getTxHash())).toBeUndefined();
     });
@@ -658,10 +591,10 @@ describe('TxPoolV2', () => {
       // Unprotect - txProtected should be deleted because it can't beat txPendingHigh
       await pool.prepareForSlot(SlotNumber(2));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
-      expect(pending).toContainEqual(txPendingHigh.getTxHash());
-      expect(pending).toContainEqual(txPendingLow.getTxHash());
+      expect(pending).toContain(hashOf(txPendingHigh));
+      expect(pending).toContain(hashOf(txPendingLow));
       expect(await pool.getTxStatus(txProtected.getTxHash())).toBeUndefined();
     });
   });
@@ -701,9 +634,9 @@ describe('TxPoolV2', () => {
       // Reorg - txMined returns to pending and should evict txPending
       await pool.handlePrunedBlocks(block0Id);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txMined.getTxHash());
+      expect(pending).toContain(hashOf(txMined));
       expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
     });
 
@@ -727,9 +660,9 @@ describe('TxPoolV2', () => {
       // Reorg - txMined tries to return but should be deleted (lower priority)
       await pool.handlePrunedBlocks(block0Id);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txPending.getTxHash());
+      expect(pending).toContain(hashOf(txPending));
       expect(await pool.getTxStatus(txMined.getTxHash())).toBeUndefined();
     });
 
@@ -759,9 +692,9 @@ describe('TxPoolV2', () => {
       // Reorg all - only highest priority should survive
       await pool.handlePrunedBlocks(block0Id);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(tx2.getTxHash()); // tx2 has fee=15, highest
+      expect(pending).toContain(hashOf(tx2)); // tx2 has fee=15, highest
       expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(tx3.getTxHash())).toBeUndefined();
     });
@@ -788,9 +721,9 @@ describe('TxPoolV2', () => {
       // Reorg - txMined returns and should evict both pending txs
       await pool.handlePrunedBlocks(block0Id);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txMined.getTxHash());
+      expect(pending).toContain(hashOf(txMined));
       expect(await pool.getTxStatus(txPending1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(txPending2.getTxHash())).toBeUndefined();
     });
@@ -816,10 +749,10 @@ describe('TxPoolV2', () => {
       // Reorg - txMined should be deleted because it can't beat txPendingHigh
       await pool.handlePrunedBlocks(block0Id);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
-      expect(pending).toContainEqual(txPendingHigh.getTxHash());
-      expect(pending).toContainEqual(txPendingLow.getTxHash());
+      expect(pending).toContain(hashOf(txPendingHigh));
+      expect(pending).toContain(hashOf(txPendingLow));
       expect(await pool.getTxStatus(txMined.getTxHash())).toBeUndefined();
     });
   });
@@ -887,11 +820,11 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txValid, txInvalid, txAlsoValid], slot1Header);
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation(async (tx: Tx) => {
+      mockValidator.validateTx.mockImplementation((tx: Tx) => {
         if (tx.getTxHash().equals(txInvalid.getTxHash())) {
-          return { result: 'invalid', reason: ['invalid proof'] };
+          return Promise.resolve({ result: 'invalid', reason: ['invalid proof'] });
         }
-        return { result: 'valid' };
+        return Promise.resolve({ result: 'valid' });
       });
 
       await poolWithValidator.prepareForSlot(SlotNumber(2));
@@ -956,11 +889,11 @@ describe('TxPoolV2', () => {
       );
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation(async (tx: Tx) => {
+      mockValidator.validateTx.mockImplementation((tx: Tx) => {
         if (tx.getTxHash().equals(txInvalid.getTxHash())) {
-          return { result: 'invalid', reason: ['nullifier exists'] };
+          return Promise.resolve({ result: 'invalid', reason: ['nullifier exists'] });
         }
-        return { result: 'valid' };
+        return Promise.resolve({ result: 'valid' });
       });
 
       await poolWithValidator.handlePrunedBlocks(block0Id);
@@ -985,20 +918,20 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txProtected], slot1Header);
 
       // Make validator reject the protected tx
-      mockValidator.validateTx.mockImplementation(async (tx: Tx) => {
+      mockValidator.validateTx.mockImplementation((tx: Tx) => {
         if (tx.getTxHash().equals(txProtected.getTxHash())) {
-          return { result: 'invalid', reason: ['invalid'] };
+          return Promise.resolve({ result: 'invalid', reason: ['invalid'] });
         }
-        return { result: 'valid' };
+        return Promise.resolve({ result: 'valid' });
       });
 
       // Unprotect - protected tx should be deleted (validation fails before conflict check)
       // So pending tx should remain even though it has lower priority
       await poolWithValidator.prepareForSlot(SlotNumber(2));
 
-      const pending = await poolWithValidator.getPendingTxHashes();
+      const pending = toStrings(await poolWithValidator.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txPending.getTxHash());
+      expect(pending).toContain(hashOf(txPending));
       expect(await poolWithValidator.getTxStatus(txProtected.getTxHash())).toBeUndefined();
     });
   });
@@ -1038,7 +971,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       const archived = await pool.getArchivedTxByHash(tx.getTxHash());
       expect(archived).toBeDefined();
-      expect(archived!.getTxHash()).toEqual(tx.getTxHash());
+      expect(archived!.getTxHash().toString()).toEqual(hashOf(tx));
     });
   });
 
@@ -1117,10 +1050,10 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([tx1, tx2, tx3]);
 
-      const pending = await pool.getPendingTxHashes();
-      expect(pending[0]).toEqual(tx2.getTxHash());
-      expect(pending[1]).toEqual(tx3.getTxHash());
-      expect(pending[2]).toEqual(tx1.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending[0].toString()).toEqual(hashOf(tx2));
+      expect(pending[1].toString()).toEqual(hashOf(tx3));
+      expect(pending[2].toString()).toEqual(hashOf(tx1));
     });
 
     it('getPendingTxHashes uses tx hash as tiebreaker when fees are equal', async () => {
@@ -1132,7 +1065,7 @@ describe('TxPoolV2', () => {
       // Add in random order
       await pool.addPendingTxs([tx2, tx1, tx3]);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(3);
 
       // All have the same fee, so they should be sorted by hash (highest first)
@@ -1153,7 +1086,7 @@ describe('TxPoolV2', () => {
       // Add in random order
       await pool.addPendingTxs([txLowFee2, txHighFee1, txMidFee, txLowFee1, txHighFee2]);
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(5);
 
       // Group by expected order: high fees first (sorted by hash), then mid, then low (sorted by hash)
@@ -1205,8 +1138,8 @@ describe('TxPoolV2', () => {
 
       const lowest = await pool.getLowestPriorityEvictable(2);
       expect(lowest).toHaveLength(2);
-      expect(lowest).toContainEqual(tx1.getTxHash());
-      expect(lowest).toContainEqual(tx2.getTxHash());
+      expect(toStrings(lowest)).toContain(hashOf(tx1));
+      expect(toStrings(lowest)).toContain(hashOf(tx2));
     });
   });
 
@@ -1261,7 +1194,7 @@ describe('TxPoolV2', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       const result = await pool.addPendingTxs([tx2]);
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(tx2));
     });
 
     it('removes nullifier entries when tx is mined', async () => {
@@ -1274,7 +1207,7 @@ describe('TxPoolV2', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       const result = await pool.addPendingTxs([tx2]);
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(tx2));
     });
 
     it('restores nullifier entries on reorg', async () => {
@@ -1289,52 +1222,7 @@ describe('TxPoolV2', () => {
 
       const result = await pool.addPendingTxs([tx2]);
       // tx2 is valid but ignored due to nullifier conflict with higher-priority tx1
-      expect(result.ignored).toContainEqual(tx2.getTxHash()); // tx2 has lower fee
-    });
-  });
-
-  describe('fee payer balance eviction', () => {
-    it('keeps txs when fee payer has sufficient balance', async () => {
-      // Default mock has balance of 1e18, which is sufficient
-      const tx1 = await mockTxWithFee(1, 10);
-      const tx2 = await mockTxWithFee(2, 5);
-
-      await pool.addPendingTxs([tx1, tx2]);
-      expect(await pool.getPendingTxCount()).toBe(2);
-
-      // Mine a block - triggers fee payer balance check
-      await pool.handleMinedBlock([], slot1Header);
-
-      // Both should remain with sufficient balance
-      expect(await pool.getPendingTxCount()).toBe(2);
-    });
-
-    it('does not evict txs from different fee payers', async () => {
-      // Different seeds = different fee payers
-      const tx1 = await mockTxWithFee(1, 10);
-      const tx2 = await mockTxWithFee(2, 5);
-
-      await pool.addPendingTxs([tx1, tx2]);
-      expect(await pool.getPendingTxCount()).toBe(2);
-
-      // Each fee payer has their own balance, no eviction needed
-      await pool.handleMinedBlock([], slot1Header);
-      expect(await pool.getPendingTxCount()).toBe(2);
-    });
-
-    it('eviction rule checks balance after block is mined', async () => {
-      // Add txs with default high balance
-      const tx1 = await mockTxWithFee(1, 10);
-      const tx2 = await mockTxWithFee(2, 5);
-
-      await pool.addPendingTxs([tx1, tx2]);
-      expect(await pool.getPendingTxCount()).toBe(2);
-
-      // Mine block - balance check happens at block's state
-      await pool.handleMinedBlock([], slot1Header);
-
-      // Txs remain since balance is sufficient
-      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(toStrings(result.ignored)).toContain(hashOf(tx2)); // tx2 has lower fee
     });
   });
 
@@ -1360,7 +1248,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx]);
 
       // Tx is valid but ignored due to insufficient balance
-      expect(result.ignored).toContainEqual(tx.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(tx));
       expect(result.accepted).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(0);
     });
@@ -1383,8 +1271,97 @@ describe('TxPoolV2', () => {
 
       const result = await pool.addPendingTxs([tx]);
 
-      expect(result.accepted).toContainEqual(tx.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(tx));
       expect(await pool.getPendingTxCount()).toBe(1);
+    });
+
+    it('high priority tx evicts lower priority tx from same fee payer', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Fee limit per tx is ~186M (DEFAULT_L2_GAS_LIMIT * 10 + DEFAULT_DA_GAS_LIMIT * 10)
+      // Set balance to cover only one tx
+      setFeePayerBalance(BigInt(2e8));
+
+      // Add low priority tx first
+      const txLow = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await pool.addPendingTxs([txLow]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      // Add high priority tx from same fee payer - should evict low priority
+      const txHigh = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const result = await pool.addPendingTxs([txHigh]);
+
+      expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
+      expect(await pool.getPendingTxCount()).toBe(1);
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined(); // evicted
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+    });
+
+    it('low priority tx ignored when fee payer balance exhausted by existing tx', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Balance covers only one tx
+      setFeePayerBalance(BigInt(2e8));
+
+      // Add high priority tx first
+      const txHigh = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await pool.addPendingTxs([txHigh]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      // Try to add low priority tx - should be ignored (balance exhausted)
+      const txLow = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const result = await pool.addPendingTxs([txLow]);
+
+      expect(toStrings(result.ignored)).toContain(hashOf(txLow));
+      expect(await pool.getPendingTxCount()).toBe(1);
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+    });
+
+    it('batch from same fee payer - only top N by priority accepted', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Balance covers exactly 2 tx fee limits (~372M for 2 txs)
+      setFeePayerBalance(BigInt(4e8));
+
+      // Add 3 txs in one batch, all from same fee payer
+      const tx1 = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5), // lowest
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const tx2 = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(15, 15), // highest
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const tx3 = await mockTx(3, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10), // middle
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+      const result = await pool.addPendingTxs([tx1, tx2, tx3]);
+
+      // tx2 (highest) and tx3 (middle) should be accepted, tx1 (lowest) ignored
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(tx2));
+      expect(accepted).toContain(hashOf(tx3));
+      expect(ignored).toContain(hashOf(tx1));
+      expect(await pool.getPendingTxCount()).toBe(2);
     });
   });
 
@@ -1419,22 +1396,32 @@ describe('TxPoolV2', () => {
     });
 
     it('handles mixed valid/invalid anchor blocks in batch', async () => {
-      // Both txs from same mock likely share the same anchor block hash
-      // So we test that when anchor block is valid, both are restored
       const txValid = await mockTx(1);
-      const txAlsoValid = await mockTx(2);
+      const txInvalid = await mockTx(2);
 
-      await pool.addPendingTxs([txValid, txAlsoValid]);
-      await pool.handleMinedBlock([txValid.getTxHash(), txAlsoValid.getTxHash()], slot1Header);
+      // Give txInvalid a different anchor block header
+      txInvalid.data.constants.anchorBlockHeader = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({
+          blockNumber: BlockNumber(999),
+        }),
+      });
 
-      // Mock: anchor block exists
-      db.findLeafIndices.mockResolvedValue([1n]);
+      await pool.addPendingTxs([txValid, txInvalid]);
+      await pool.handleMinedBlock([txValid.getTxHash(), txInvalid.getTxHash()], slot1Header);
+
+      // Get the anchor block hashes
+      const validAnchorHash = await txValid.data.constants.anchorBlockHeader.hash();
+
+      // Mock: valid anchor exists, invalid anchor does not
+      db.findLeafIndices.mockImplementation((_treeId, leaves) => {
+        return Promise.resolve((leaves as Fr[]).map(leaf => (leaf.equals(validAnchorHash) ? 1n : undefined)));
+      });
 
       await pool.handlePrunedBlocks(block0Id);
 
-      // Both should be restored to pending since they share valid anchor block
+      // Valid tx should be restored to pending, invalid tx should be deleted
       expect(await pool.getTxStatus(txValid.getTxHash())).toBe('pending');
-      expect(await pool.getTxStatus(txAlsoValid.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txInvalid.getTxHash())).toBeUndefined();
     });
 
     it('evicts all txs when shared anchor block is pruned', async () => {
@@ -1460,6 +1447,14 @@ describe('TxPoolV2', () => {
       globalVariables: GlobalVariables.empty({
         blockNumber: BlockNumber(3),
         slotNumber: SlotNumber(3),
+        timestamp: 72n,
+      }),
+    });
+
+    const slot4Header = BlockHeader.empty({
+      globalVariables: GlobalVariables.empty({
+        blockNumber: BlockNumber(4),
+        slotNumber: SlotNumber(4),
         timestamp: 72n,
       }),
     });
@@ -1524,7 +1519,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       // Re-mine in block 3
-      await pool.handleMinedBlock([tx.getTxHash()], slot3Header);
+      await pool.handleMinedBlock([tx.getTxHash()], slot4Header);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Second reorg all the way to block 0
@@ -1532,30 +1527,27 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
-    it('cleans up indices properly through multiple state transitions', async () => {
-      db.findLeafIndices.mockResolvedValue([1n]);
+    it('evicts pending tx when mined tx has conflicting nullifier', async () => {
+      const txPending = await mockPublicTx(1, 5);
+      const txToMine = await mockPublicTx(2, 10);
 
-      const tx1 = await mockPublicTx(1, 10);
-      const tx2 = await mockPublicTx(2, 5);
+      // Give txToMine the same nullifier as txPending
+      setNullifier(txToMine, 0, getNullifier(txPending, 0));
 
-      // Set same nullifier
-      setNullifier(tx2, 0, getNullifier(tx1, 0));
+      // Add txPending to the pool
+      await pool.addPendingTxs([txPending]);
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
 
-      // Add tx1, mine it
-      await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
+      // Add txToMine as protected (bypasses nullifier conflict check)
+      await pool.addProtectedTxs([txToMine], slot1Header);
 
-      // Now tx2 can be added (tx1's nullifier is no longer in pending)
-      const result1 = await pool.addPendingTxs([tx2]);
-      expect(result1.accepted).toContainEqual(tx2.getTxHash());
+      // Mine txToMine - this should evict txPending because its nullifier is now in the mined block
+      await pool.handleMinedBlock([txToMine.getTxHash()], slot1Header);
 
-      // Reorg - tx1 comes back to pending
-      await pool.handlePrunedBlocks(block0Id);
-
-      // tx1 is pending again, tx2 should be evicted due to nullifier conflict
-      // (depends on which has higher priority)
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(tx1.getTxHash()); // tx1 has higher fee
+      // txPending should be evicted (nullifier conflict with mined tx)
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
+      // txToMine should be mined
+      expect(await pool.getTxStatus(txToMine.getTxHash())).toBe('mined');
     });
   });
 
@@ -1648,7 +1640,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([txLow]);
 
       // The tx should be in the ignored array (pre-add rule handled it)
-      expect(result.ignored).toContainEqual(txLow.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(txLow));
       expect(result.accepted).toHaveLength(0);
 
       // Pool count unchanged, tx not in pool
@@ -1691,12 +1683,12 @@ describe('TxPoolV2', () => {
 
       // Adding txConflicting should evict both tx1 and tx2
       const result = await pool.addPendingTxs([txConflicting]);
-      expect(result.accepted).toContainEqual(txConflicting.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(txConflicting));
 
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(txConflicting.getTxHash());
-      expect(pending).not.toContainEqual(tx1.getTxHash());
-      expect(pending).not.toContainEqual(tx2.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(txConflicting));
+      expect(pending).not.toContain(hashOf(tx1));
+      expect(pending).not.toContain(hashOf(tx2));
     });
 
     it('ignores tx when one conflict would win but another would lose', async () => {
@@ -1712,12 +1704,12 @@ describe('TxPoolV2', () => {
 
       // Should be ignored because it can't beat tx1 (valid tx but not desired)
       const result = await pool.addPendingTxs([txConflicting]);
-      expect(result.ignored).toContainEqual(txConflicting.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(txConflicting));
 
       // Original txs should remain
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(tx1.getTxHash());
-      expect(pending).toContainEqual(tx2.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx1));
+      expect(pending).toContain(hashOf(tx2));
     });
   });
 
@@ -1787,9 +1779,9 @@ describe('TxPoolV2', () => {
       expect(await pool.getPendingTxCount()).toBe(100);
 
       // Verify ordering is correct (highest fee first)
-      const pending = await pool.getPendingTxHashes();
-      expect(pending[0]).toEqual(txs[99].getTxHash()); // fee=99
-      expect(pending[99]).toEqual(txs[0].getTxHash()); // fee=0
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending[0].toString()).toEqual(hashOf(txs[99])); // fee=99
+      expect(pending[99].toString()).toEqual(hashOf(txs[0])); // fee=0
     });
 
     it('handles txs with zero priority fee', async () => {
@@ -1798,9 +1790,9 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([txZeroFee, txLowFee]);
 
-      const pending = await pool.getPendingTxHashes();
-      expect(pending[0]).toEqual(txLowFee.getTxHash());
-      expect(pending[1]).toEqual(txZeroFee.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending[0].toString()).toEqual(hashOf(txLowFee));
+      expect(pending[1].toString()).toEqual(hashOf(txZeroFee));
     });
   });
 
@@ -1817,10 +1809,10 @@ describe('TxPoolV2', () => {
       await pool.handleFailedExecution([tx3.getTxHash()]);
 
       // Check remaining txs are still accessible and ordered correctly
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
-      expect(pending[0]).toEqual(tx2.getTxHash()); // fee=20
-      expect(pending[1]).toEqual(tx1.getTxHash()); // fee=10
+      expect(pending[0].toString()).toEqual(hashOf(tx2)); // fee=20
+      expect(pending[1].toString()).toEqual(hashOf(tx1)); // fee=10
     });
 
     it('fee payer index is maintained through state transitions', async () => {
@@ -1878,7 +1870,7 @@ describe('TxPoolV2', () => {
 
       // Verify pool state unchanged
       expect(await pool.getPendingTxCount()).toBe(1);
-      expect((await pool.getPendingTxHashes())[0]).toEqual(txExisting.getTxHash());
+      expect((await pool.getPendingTxHashes())[0].toString()).toEqual(hashOf(txExisting));
     });
 
     it('returns accepted when pool has capacity', async () => {
@@ -1902,11 +1894,13 @@ describe('TxPoolV2', () => {
       // Add tx1 again (duplicate) along with new txs
       const result = await pool.addPendingTxs([tx1, tx2, tx3]);
 
-      expect(result.accepted).toHaveLength(2);
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
-      expect(result.accepted).toContainEqual(tx3.getTxHash());
-      expect(result.ignored).toHaveLength(1);
-      expect(result.ignored).toContainEqual(tx1.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toHaveLength(2);
+      expect(accepted).toContain(hashOf(tx2));
+      expect(accepted).toContain(hashOf(tx3));
+      expect(ignored).toHaveLength(1);
+      expect(ignored).toContain(hashOf(tx1));
     });
 
     it('returns correct status when nullifier conflict causes ignore', async () => {
@@ -1922,7 +1916,7 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx2]);
 
       expect(result.accepted).toHaveLength(0);
-      expect(result.ignored).toContainEqual(tx2.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(tx2));
     });
 
     it('returns correct status when nullifier conflict causes eviction', async () => {
@@ -1937,13 +1931,13 @@ describe('TxPoolV2', () => {
       // txHigh should be accepted, and txLow should be evicted
       const result = await pool.addPendingTxs([txHigh]);
 
-      expect(result.accepted).toContainEqual(txHigh.getTxHash());
+      expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
       expect(result.ignored).toHaveLength(0);
 
       // Verify txLow was evicted
-      const pending = await pool.getPendingTxHashes();
-      expect(pending).toContainEqual(txHigh.getTxHash());
-      expect(pending).not.toContainEqual(txLow.getTxHash());
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toContain(hashOf(txHigh));
+      expect(pending).not.toContain(hashOf(txLow));
     });
 
     it('returns ignored for fee payer balance insufficient', async () => {
@@ -1962,14 +1956,22 @@ describe('TxPoolV2', () => {
       const result = await pool.addPendingTxs([tx]);
 
       expect(result.accepted).toHaveLength(0);
-      expect(result.ignored).toContainEqual(tx.getTxHash());
+      expect(toStrings(result.ignored)).toContain(hashOf(tx));
     });
 
-    it('batch with mixed outcomes: accepted, duplicate, nullifier conflict', async () => {
+    it('batch with mixed outcomes: accepted, duplicate, nullifier conflict, insufficient balance', async () => {
       const existingTx = await mockPublicTx(1, 10);
       const duplicateTx = existingTx; // Same tx
       const newTx = await mockPublicTx(2);
       const conflictingTx = await mockPublicTx(3, 5);
+
+      // Create a tx with very high maxFeesPerGas so fee limit exceeds 1e18 balance
+      // Fee limit = gasLimits.l2 * maxFees.l2 + gasLimits.da * maxFees.da
+      // Default gas limits are ~1e7 each, so with maxFees of 1e12 we get ~1e19 fee limit
+      const highFeeTx = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
+      highFeeTx.data.constants.txContext.gasSettings = GasSettings.default({
+        maxFeesPerGas: new GasFees(1e12, 1e12),
+      });
 
       // Give conflictingTx a nullifier conflict with existingTx
       setNullifier(conflictingTx, 0, getNullifier(existingTx, 0));
@@ -1978,14 +1980,18 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([existingTx]);
 
       // Now add all in one batch
-      const result = await pool.addPendingTxs([duplicateTx, newTx, conflictingTx]);
+      const result = await pool.addPendingTxs([duplicateTx, newTx, conflictingTx, highFeeTx]);
 
       // duplicateTx is ignored (already in pool)
       // newTx is accepted (no conflicts)
       // conflictingTx is ignored (loses to existingTx)
-      expect(result.accepted).toContainEqual(newTx.getTxHash());
-      expect(result.ignored).toContainEqual(duplicateTx.getTxHash());
-      expect(result.ignored).toContainEqual(conflictingTx.getTxHash());
+      // highFeeTx is ignored (fee limit exceeds balance)
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(newTx));
+      expect(ignored).toContain(hashOf(duplicateTx));
+      expect(ignored).toContain(hashOf(conflictingTx));
+      expect(ignored).toContain(hashOf(highFeeTx));
     });
   });
 
@@ -2002,14 +2008,16 @@ describe('TxPoolV2', () => {
 
       // txLow should be ignored (evicted by txHigh within the same batch)
       // txHigh should be accepted
-      expect(result.accepted).toContainEqual(txHigh.getTxHash());
-      expect(result.ignored).toContainEqual(txLow.getTxHash());
-      expect(result.accepted).not.toContainEqual(txLow.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(txHigh));
+      expect(ignored).toContain(hashOf(txLow));
+      expect(accepted).not.toContain(hashOf(txLow));
 
       // Only txHigh should be in the pool
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txHigh.getTxHash());
+      expect(pending).toContain(hashOf(txHigh));
     });
 
     it('earlier tx in batch is NOT evicted if it has higher priority', async () => {
@@ -2024,13 +2032,15 @@ describe('TxPoolV2', () => {
 
       // txHigh should be accepted
       // txLow should be ignored (loses to txHigh)
-      expect(result.accepted).toContainEqual(txHigh.getTxHash());
-      expect(result.ignored).toContainEqual(txLow.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(txHigh));
+      expect(ignored).toContain(hashOf(txLow));
 
       // Only txHigh should be in the pool
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(txHigh.getTxHash());
+      expect(pending).toContain(hashOf(txHigh));
     });
 
     it('chain of evictions within batch', async () => {
@@ -2048,13 +2058,15 @@ describe('TxPoolV2', () => {
 
       // Only tx3 should survive (highest priority)
       // tx1 and tx2 should be ignored
-      expect(result.accepted).toContainEqual(tx3.getTxHash());
-      expect(result.ignored).toContainEqual(tx1.getTxHash());
-      expect(result.ignored).toContainEqual(tx2.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(tx3));
+      expect(ignored).toContain(hashOf(tx1));
+      expect(ignored).toContain(hashOf(tx2));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
-      expect(pending).toContainEqual(tx3.getTxHash());
+      expect(pending).toContain(hashOf(tx3));
     });
 
     it('mixed batch with some evictions and some independent txs', async () => {
@@ -2070,14 +2082,16 @@ describe('TxPoolV2', () => {
 
       // tx1 should be ignored (evicted by tx2)
       // tx2 and tx3 should be accepted
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
-      expect(result.accepted).toContainEqual(tx3.getTxHash());
-      expect(result.ignored).toContainEqual(tx1.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(tx2));
+      expect(accepted).toContain(hashOf(tx3));
+      expect(ignored).toContain(hashOf(tx1));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
-      expect(pending).toContainEqual(tx2.getTxHash());
-      expect(pending).toContainEqual(tx3.getTxHash());
+      expect(pending).toContain(hashOf(tx2));
+      expect(pending).toContain(hashOf(tx3));
     });
 
     it('multiple independent nullifier conflicts within batch', async () => {
@@ -2095,13 +2109,159 @@ describe('TxPoolV2', () => {
 
       // tx1 and tx3 should be ignored (evicted)
       // tx2 and tx4 should be accepted
-      expect(result.accepted).toContainEqual(tx2.getTxHash());
-      expect(result.accepted).toContainEqual(tx4.getTxHash());
-      expect(result.ignored).toContainEqual(tx1.getTxHash());
-      expect(result.ignored).toContainEqual(tx3.getTxHash());
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(tx2));
+      expect(accepted).toContain(hashOf(tx4));
+      expect(ignored).toContain(hashOf(tx1));
+      expect(ignored).toContain(hashOf(tx3));
 
-      const pending = await pool.getPendingTxHashes();
+      const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(2);
+    });
+  });
+
+  describe('rule interactions in addPendingTxs', () => {
+    // Helper to set a specific nullifier on a transaction
+    const setNullifier = (tx: MockTx, index: number, value: Fr) => {
+      if (tx.data.forPublic) {
+        tx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[index] = value;
+      }
+    };
+
+    const getNullifier = (tx: MockTx, index: number): Fr => {
+      if (tx.data.forPublic) {
+        return tx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[index];
+      }
+      throw new Error('Transaction is not for public');
+    };
+
+    it('nullifier conflict + pool size limit - conflict resolved first', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      // Fill pool with 2 txs
+      const tx1 = await mockTx(1, {
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const tx2 = await mockTx(2, {
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // New tx conflicts with tx1 (lower priority) and has higher priority than both
+      const tx3 = await mockTx(3, {
+        maxPriorityFeesPerGas: new GasFees(15, 15),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      setNullifier(tx3, 0, getNullifier(tx1, 0));
+
+      const result = await pool.addPendingTxs([tx3]);
+
+      // tx3 should be accepted (evicts tx1 due to nullifier conflict)
+      expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined(); // evicted
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+    });
+
+    it('pool full + new tx lower priority than all but conflicts with lowest', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      // Fill pool with 2 txs
+      const tx1 = await mockTx(1, {
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const tx2 = await mockTx(2, {
+        maxPriorityFeesPerGas: new GasFees(15, 15),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // New tx has lowest priority but conflicts with tx1
+      const tx3 = await mockTx(3, {
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      setNullifier(tx3, 0, getNullifier(tx1, 0));
+
+      const result = await pool.addPendingTxs([tx3]);
+
+      // tx3 should be ignored - loses nullifier conflict to tx1
+      expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+    });
+
+    it('fee payer balance + nullifier conflict - higher priority wins both', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Set balance to only cover 1 tx
+      db.getLeafPreimage.mockImplementation((tree, index) => {
+        if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+          return Promise.resolve(
+            new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(BigInt(2e8))), Fr.ONE, 1n),
+          );
+        }
+        return Promise.resolve(undefined);
+      });
+
+      // Add low priority tx
+      const txLow = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      await pool.addPendingTxs([txLow]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      // New tx: same fee payer, same nullifier, higher priority
+      const txHigh = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      setNullifier(txHigh, 0, getNullifier(txLow, 0));
+
+      const result = await pool.addPendingTxs([txHigh]);
+
+      // txHigh wins - evicts txLow due to both nullifier conflict and fee payer balance
+      expect(toStrings(result.accepted)).toContain(hashOf(txHigh));
+      expect(await pool.getPendingTxCount()).toBe(1);
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+    });
+
+    it('batch with nullifier conflicts across different fee payers', async () => {
+      const feePayerA = AztecAddress.fromBigInt(111n);
+      const feePayerB = AztecAddress.fromBigInt(222n);
+
+      // tx1 (fee payer A, low priority) and tx2 (fee payer B, high priority) share nullifier
+      const tx1 = await mockTx(1, {
+        feePayer: feePayerA,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const tx2 = await mockTx(2, {
+        feePayer: feePayerB,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+
+      const result = await pool.addPendingTxs([tx1, tx2]);
+
+      // tx2 wins nullifier conflict
+      const accepted = toStrings(result.accepted);
+      const ignored = toStrings(result.ignored);
+      expect(accepted).toContain(hashOf(tx2));
+      expect(ignored).toContain(hashOf(tx1));
+      expect(await pool.getPendingTxCount()).toBe(1);
     });
   });
 });

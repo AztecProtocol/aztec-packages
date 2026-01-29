@@ -21,7 +21,7 @@ describe('LowPriorityPreAddRule', () => {
   const createPoolAccess = (pendingCount: number, lowestPriorityTx?: TxMetaData): PreAddPoolAccess => ({
     getMetadata: () => undefined,
     getTxHashByNullifier: () => undefined,
-    getFeePayerBalance: async () => 10n ** 18n,
+    getFeePayerBalance: () => Promise.resolve(10n ** 18n),
     getFeePayerPendingTxs: () => [],
     getPendingTxCount: () => pendingCount,
     getLowestPriorityPendingTx: () => lowestPriorityTx,
