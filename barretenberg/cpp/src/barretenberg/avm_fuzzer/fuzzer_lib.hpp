@@ -5,6 +5,9 @@
 #include <tuple>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/common/copyable_trace_container.hpp"
+#include "barretenberg/avm_fuzzer/common/fuzzer_tracegen_helper.hpp"
+
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
@@ -18,6 +21,10 @@
 
 // A transaction with multiple enqueued calls and tx-level parameters
 // Almost identical to the fast simulation input
+
+const bb::avm2::fuzzer::CopyableTraceContainer TRACE_WITH_PRECOMPUTED_COLUMNS =
+    bb::avm2::fuzzer::AvmFuzzerTraceGenHelper().generate_precomputed_columns();
+
 struct FuzzerTxData {
     // Enqueued calls data
     std::vector<FuzzerData> input_programs;

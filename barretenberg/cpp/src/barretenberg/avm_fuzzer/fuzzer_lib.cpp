@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
 
+#include "barretenberg/avm_fuzzer/common/fuzzer_tracegen_helper.hpp"
 #include <cstdint>
 #include <string>
 #include <unordered_set>
@@ -217,8 +218,15 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     // 5. Run check_circuit (skip in coverage builds since it's slow and not needed for coverage measurement)
 
 #ifndef COVERAGE_AVM
-    avm2::AvmAPI avm_api;
-    bool check_circuit_result = avm_api.check_circuit(proving_inputs);
+
+    AvmSimulationHelper simulation_helper;
+    auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    AvmFuzzerTraceGenHelper fuzzer_tracegen_helper;
+    CopyableTraceContainer trace = TRACE_WITH_PRECOMPUTED_COLUMNS;
+    fuzzer_tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
+    fuzzer_tracegen_helper.fill_trace_interactions(trace);
+    AvmProvingHelper proving_helper;
+    bool check_circuit_result = proving_helper.check_circuit(std::move(trace));
     BB_ASSERT(check_circuit_result,
               "check_circuit returned false in fuzzer with no exception, this indicates a failure");
 #else
@@ -231,6 +239,11 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     tracegen::TraceContainer trace;
     tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
 #endif
+
+    auto stats_dump = bb::avm2::Stats::get().to_string(3);
+    if (!stats_dump.empty()) {
+        fuzz_info("AVM timing stats:\n", stats_dump);
+    }
 
     return fast_result;
 }
