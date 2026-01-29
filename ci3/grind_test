@@ -39,11 +39,18 @@ function build {
 function grind {
     echo "Grinding for $GRIND_TIMEOUT seconds..."
     local par_cmd="CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
-    if ! awk 'BEGIN {i=1; while (1) print i++}' | squash_args denoise timeout $GRIND_TIMEOUT parallel -j $jobs --line-buffer "$par_cmd"; then
-        rc=$?
-        [ "$rc" -eq 124 ] || return $rc
+    local joblog=$(mktemp)
+
+    # Run for full timeout, logging all results (no --halt, collect all failure data)
+    awk 'BEGIN {i=1; while (1) print i++}' | timeout $GRIND_TIMEOUT parallel --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
+
+    # Check if any jobs failed (column 7 is exitval in joblog)
+    if awk 'NR>1 && $7!=0 {found=1} END {exit !found}' "$joblog"; then
+        rm -f "$joblog"
+        return 1  # Had failures
     fi
-    return 0
+    rm -f "$joblog"
+    return 0  # No failures
 }
 
 echo_header "grind test"
