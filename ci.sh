@@ -139,7 +139,7 @@ case "$cmd" in
     export CI_DASHBOARD="deflake"
     export JOB_ID="grind-test-$test_hash"
     export INSTANCE_POSTFIX=$JOB_ID
-    bootstrap_ec2 "./bootstrap.sh ci-grind-test '$full_cmd' $commit"
+    bootstrap_ec2 "./bootstrap.sh ci-grind-test '$full_cmd' $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
 
   ##########################################

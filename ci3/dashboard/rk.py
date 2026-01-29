@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, Response
+from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
 import gzip
@@ -6,7 +6,9 @@ import json
 import os
 import re
 import requests
+import subprocess
 import threading
+import uuid
 from ansi2html import Ansi2HTMLConverter
 from pathlib import Path
 
@@ -390,6 +392,33 @@ def get_breakdown(runtime, flow_name, sha):
 
     return Response('{"error": "Breakdown not found"}', mimetype='application/json', status=404)
 
+
+@app.route('/grind')
+@auth.login_required
+def trigger_grind():
+    """Trigger a grind job for a flaky test."""
+    full_cmd = request.args.get('cmd')
+    commit = request.args.get('commit', 'HEAD')
+
+    if not full_cmd:
+        return "Missing cmd parameter", 400
+
+    # Generate unique run ID (16 hex chars)
+    run_id = uuid.uuid4().hex[:16]
+
+    # Start grind job in background
+    # Dashboard server needs local repo checkout at REPO_PATH
+    repo_path = os.environ.get('REPO_PATH')
+    if repo_path:
+        subprocess.Popen(
+            ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} ./ci.sh grind-test "{full_cmd}" {commit}'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+    # Redirect to log view (will show "Key not found" until job starts writing)
+    return redirect(f'/{run_id}')
 
 @app.route('/<key>')
 @auth.login_required

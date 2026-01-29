@@ -54,6 +54,15 @@ if [ "$CI" -eq 1 ]; then
   [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
 fi
 
+# Env overrides.
+live_logging=${LIVE_LOGGING:-$live_logging}
+publish=${PUBLISH:-$publish}
+pass_log=${PASS_LOG:-$pass_log}
+allow_flakes=${ALLOW_FLAKES:-$allow_flakes}
+track_test=${TRACK_TEST:-$track_test}
+slack_notify_flake=${SLACK_NOTIFY_FLAKE:-$slack_notify_flake}
+slack_notify_fail=${SLACK_NOTIFY_FAIL:-$slack_notify_fail}
+
 # Extract the test command (without hash prefix) for display and tracking.
 export test_cmd="${cmd#* }"
 key=$(hash_str_orig "$cmd")
@@ -201,8 +210,11 @@ function pass {
   echo -e "$line"
 
   if [ "$track_test" -eq 1 ]; then
-    line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
-    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+    local grind_link="/grind?cmd=$(urlencode "$cmd")"
+    local grind_emoji=$(term_link "$grind_link" "🔄")
+    local track_line="${green}PASSED${reset}${log_info:-} ${grind_emoji}: $test_cmd (${SECONDS}s)"
+    track_line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$track_line"
   fi
 
   exit 0
@@ -219,15 +231,15 @@ function fail {
   fi
 
   if [ "$track_test" -eq 1 ]; then
-    line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
-    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
-    track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+    local grind_link="/grind?cmd=$(urlencode "$cmd")"
+    local grind_emoji=$(term_link "$grind_link" "🔄")
+    local track_line="${red}FAILED${reset}${log_info:-} ${grind_emoji}: $test_cmd (${SECONDS}s) (code: $code)"
+    track_line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$track_line"
+    track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$track_line"
   fi
 
   if [ "$publish" -eq 1 ]; then
-    # Publish failed status to Redis channel
-    # Note: We publish $cmd (with hash prefix containing CPUS/TIMEOUT etc) rather than $test_cmd
-    # so that deflaker and other consumers can extract test parameters.
     local redis_data=$(jq -n \
       --arg status "failed" \
       --arg test_cmd "$cmd" \
@@ -259,9 +271,12 @@ function flake {
   echo -e "$line"
 
   if [ "$track_test" -eq 1 ]; then
-    line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
-    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
-    track_test "failed_tests_${TARGET_BRANCH:-}" "$line" 10000
+    local grind_link="/grind?cmd=$(urlencode "$cmd")"
+    local grind_emoji=$(term_link "$grind_link" "🔄")
+    local track_line="${purple}FLAKED${reset}${log_info:-} ${grind_emoji}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
+    track_line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+    track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$track_line"
+    track_test "failed_tests_${TARGET_BRANCH:-}" "$track_line" 10000
   fi
 
   # Save flake to buffer file (for PR comment generation)
