@@ -43,6 +43,7 @@ function grind {
         rc=$?
         [ "$rc" -eq 124 ] || return $rc
     fi
+    return 0
 }
 
 echo_header "grind test"
@@ -51,6 +52,8 @@ echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Commit: $commit"
 echo "Ref name: $REF_NAME"
 echo
+
+ulimit -n $(ulimit -Hn)
 
 checkout $commit
 build
