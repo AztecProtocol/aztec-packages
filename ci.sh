@@ -124,10 +124,22 @@ case "$cmd" in
     test_cmd="${full_cmd#* }"
     test_hash=$(hash_str_orig "$test_cmd")
     export CI_DASHBOARD="deflake"
-    export JOB_ID="deflake-$test_hash"
-    export INSTANCE_POSTFIX="deflake-$test_hash"
+    export JOB_ID="bisect-test-$test_hash"
+    export INSTANCE_POSTFIX=$JOB_ID
     # Allow 3 hours.
     AWS_SHUTDOWN_TIME=180 bootstrap_ec2 "./bootstrap.sh ci-bisect-flake '$full_cmd' $commit"
+    ;;
+  grind-test)
+    full_cmd="$1"
+    commit="${2:-}"
+    # Extract test command (strip rebuild hash prefix) and hash it
+    # Uses same hash as run_test_cmd's test_hash for consistency
+    test_cmd="${full_cmd#* }"
+    test_hash=$(hash_str_orig "$test_cmd")
+    export CI_DASHBOARD="deflake"
+    export JOB_ID="grind-test-$test_hash"
+    export INSTANCE_POSTFIX=$JOB_ID
+    bootstrap_ec2 "./bootstrap.sh ci-grind-test '$full_cmd' $commit"
     ;;
 
   ##########################################

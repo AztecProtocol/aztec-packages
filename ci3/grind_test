@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+# Wrapping in {} ensures bash parses the entire script before executing it.
+# Avoids nerfing self when checking out different commits.
+{
+
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+
+full_cmd="$1"
+commit_tip=$(git rev-parse HEAD)
+commit="${2:-$commit_tip}"
+jobs=$(($(nproc) * 4))
+
+# Ensure we return to the original commit on exit.
+trap 'git checkout $commit_tip' EXIT
+
+# Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MAKEFILE_TARGET, etc.)
+source $ci3/source_test_params
+
+GRIND_TIMEOUT=${GRIND_TIMEOUT:-600}
+
+function checkout {
+    git reset --hard $1 --quiet
+    git submodule update --init --recursive --depth 1 --jobs 8
+    git checkout $commit_tip -- ci3
+}
+
+function build {
+    if [ -n "${MAKEFILE_TARGET:-}" ]; then
+        echo "Building target: $MAKEFILE_TARGET..."
+        make $MAKEFILE_TARGET
+    else
+        echo "Building (full bootstrap)..."
+        ./bootstrap.sh
+    fi
+}
+
+function grind {
+    echo "Grinding for $GRIND_TIMEOUT seconds..."
+    local par_cmd="CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
+    if ! awk 'BEGIN {i=1; while (1) print i++}' | squash_args denoise timeout $GRIND_TIMEOUT parallel -j $jobs --line-buffer "$par_cmd"; then
+        rc=$?
+        [ "$rc" -eq 124 ] || return $rc
+    fi
+}
+
+echo_header "grind test"
+echo "Full cmd: $full_cmd"
+echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
+echo "Commit: $commit"
+echo "Ref name: $REF_NAME"
+echo
+
+checkout $commit
+build
+grind
+
+}

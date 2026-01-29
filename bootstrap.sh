@@ -600,8 +600,16 @@ case "$cmd" in
     full_cmd="${1:?full_cmd required}"
     commit="${2:-}"
 
-    prep
     bisect_flake "$full_cmd" "$commit"
+    ;;
+  "ci-grind-test")
+    export CI=1
+    export USE_TEST_CACHE=0
+
+    full_cmd="${1:?full_cmd required}"
+    commit="${2:-}"
+
+    grind_test "$full_cmd" "$commit"
     ;;
 
   ##########################################

@@ -61,7 +61,7 @@ function grind {
     local par_cmd="CI=0 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
     if ! seq 1 $GRIND_FLAKE_RUNS | squash_args denoise timeout $GRIND_TIMEOUT parallel --halt now,fail=1 -j $jobs --line-buffer "$par_cmd"; then
         rc=$?
-        [ "$rc" -eq 124 ] || exit $rc
+        [ "$rc" -eq 124 ] || return $rc
     fi
 }
 
