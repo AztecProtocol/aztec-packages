@@ -117,6 +117,7 @@ describe('ValidatorClient', () => {
       slashBroadcastedInvalidBlockPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
+      l1Contracts: { rollupAddress: EthAddress.random() },
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,

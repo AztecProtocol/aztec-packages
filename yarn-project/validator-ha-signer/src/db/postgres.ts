@@ -101,6 +101,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
     const result = await retry<QueryResult<InsertOrGetRow>>(
       async () => {
         const queryResult: QueryResult<InsertOrGetRow> = await this.pool.query(INSERT_OR_GET_DUTY, [
+          params.rollupAddress.toString(),
           params.validatorAddress.toString(),
           params.slot.toString(),
           params.blockNumber.toString(),
@@ -148,6 +149,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
    * @returns true if the update succeeded, false if token didn't match or duty not found
    */
   async updateDutySigned(
+    rollupAddress: EthAddress,
     validatorAddress: EthAddress,
     slot: SlotNumber,
     dutyType: DutyType,
@@ -157,6 +159,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
   ): Promise<boolean> {
     const result = await this.pool.query(UPDATE_DUTY_SIGNED, [
       signature,
+      rollupAddress.toString(),
       validatorAddress.toString(),
       slot.toString(),
       dutyType,
@@ -166,6 +169,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
 
     if (result.rowCount === 0) {
       this.log.warn('Failed to update duty to signed status: invalid token or duty not found', {
+        rollupAddress: rollupAddress.toString(),
         validatorAddress: validatorAddress.toString(),
         slot: slot.toString(),
         dutyType,
@@ -184,6 +188,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
    * @returns true if the delete succeeded, false if token didn't match or duty not found
    */
   async deleteDuty(
+    rollupAddress: EthAddress,
     validatorAddress: EthAddress,
     slot: SlotNumber,
     dutyType: DutyType,
@@ -191,6 +196,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
     blockIndexWithinCheckpoint: number,
   ): Promise<boolean> {
     const result = await this.pool.query(DELETE_DUTY, [
+      rollupAddress.toString(),
       validatorAddress.toString(),
       slot.toString(),
       dutyType,
@@ -200,6 +206,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
 
     if (result.rowCount === 0) {
       this.log.warn('Failed to delete duty: invalid token or duty not found', {
+        rollupAddress: rollupAddress.toString(),
         validatorAddress: validatorAddress.toString(),
         slot: slot.toString(),
         dutyType,
@@ -215,6 +222,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
    */
   private rowToRecord(row: DutyRow): ValidatorDutyRecord {
     return {
+      rollupAddress: EthAddress.fromString(row.rollup_address),
       validatorAddress: EthAddress.fromString(row.validator_address),
       slot: SlotNumber.fromString(row.slot),
       blockNumber: BlockNumber.fromString(row.block_number),
