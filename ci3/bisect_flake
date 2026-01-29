@@ -64,6 +64,8 @@ function grind (
       fi
     }
     export -f _grind
+    export GRIND_FLAKE_RUNS
+    export GRIND_TIMEOUT
     denoise _grind
 )
 
