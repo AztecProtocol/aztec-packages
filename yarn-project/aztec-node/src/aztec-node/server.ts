@@ -559,6 +559,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
+      proofsRequired: this.config.realProofs ?? false,
     };
 
     return nodeInfo;

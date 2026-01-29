@@ -23,10 +23,11 @@ export class TestWallet extends BaseTestWallet {
     overridePXEConfig?: Partial<PXEConfig>,
     options: PXECreationOptions = { loggers: {} },
   ): Promise<TestWallet> {
-    const pxeConfig = Object.assign(getPXEConfig(), {
-      proverEnabled: overridePXEConfig?.proverEnabled ?? false,
+    // Allow proverEnabled to be auto-detected from node if not explicitly set
+    const pxeConfig = {
+      ...getPXEConfig(),
       ...overridePXEConfig,
-    });
+    };
     const pxe = await createPXE(node, pxeConfig, options);
     return new TestWallet(pxe, node);
   }

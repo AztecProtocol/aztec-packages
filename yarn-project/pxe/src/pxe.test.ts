@@ -320,4 +320,152 @@ describe('PXE', () => {
   });
   // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUtility` here as it
   //       requires a larger setup and it's sufficiently tested in the e2e tests.
+
+  describe('proverEnabled auto-detection', () => {
+    const createMockNodeInfo = async (proofsRequired?: boolean) => {
+      const mockContracts: L1ContractAddresses = {
+        rollupAddress: EthAddress.random(),
+        registryAddress: EthAddress.random(),
+        inboxAddress: EthAddress.random(),
+        outboxAddress: EthAddress.random(),
+        feeJuiceAddress: EthAddress.random(),
+        stakingAssetAddress: EthAddress.random(),
+        feeJuicePortalAddress: EthAddress.random(),
+        governanceAddress: EthAddress.random(),
+        coinIssuerAddress: EthAddress.random(),
+        rewardDistributorAddress: EthAddress.random(),
+        governanceProposerAddress: EthAddress.random(),
+        slashFactoryAddress: EthAddress.random(),
+      };
+      const result: Record<string, unknown> = {
+        nodeVersion: '1.0.0',
+        l1ChainId: 31337,
+        rollupVersion: 1,
+        enr: undefined,
+        l1ContractAddresses: mockContracts,
+        protocolContractAddresses: {
+          classRegistry: await AztecAddress.random(),
+          feeJuice: await AztecAddress.random(),
+          instanceRegistry: await AztecAddress.random(),
+          multiCallEntrypoint: await AztecAddress.random(),
+        },
+      };
+      if (proofsRequired !== undefined) {
+        result.proofsRequired = proofsRequired;
+      }
+      return result;
+    };
+
+    it('auto-detects proverEnabled=true from node when config is undefined', async () => {
+      const testNode = mock<AztecNode>();
+      testNode.getNodeInfo.mockResolvedValue((await createMockNodeInfo(true)) as any);
+
+      const testStore = await openTmpStore('test-autodetect-true');
+      const simulator = new WASMSimulator();
+      const kernelProver = new BBBundlePrivateKernelProver(simulator);
+      const protocolContractsProvider = new BundledProtocolContractsProvider();
+      const config: PXEConfig = {
+        // proverEnabled is NOT set (undefined)
+        l2BlockBatchSize: 50,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        l1ChainId: 31337,
+        rollupVersion: 1,
+      };
+
+      const testPxe = await PXE.create(testNode, testStore, kernelProver, simulator, protocolContractsProvider, config);
+      // Access private field to verify auto-detection
+      expect((testPxe as any).proverEnabled).toBe(true);
+    }, 120_000);
+
+    it('auto-detects proverEnabled=false from node when config is undefined', async () => {
+      const testNode = mock<AztecNode>();
+      testNode.getNodeInfo.mockResolvedValue((await createMockNodeInfo(false)) as any);
+
+      const testStore = await openTmpStore('test-autodetect-false');
+      const simulator = new WASMSimulator();
+      const kernelProver = new BBBundlePrivateKernelProver(simulator);
+      const protocolContractsProvider = new BundledProtocolContractsProvider();
+      const config: PXEConfig = {
+        // proverEnabled is NOT set (undefined)
+        l2BlockBatchSize: 50,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        l1ChainId: 31337,
+        rollupVersion: 1,
+      };
+
+      const testPxe = await PXE.create(testNode, testStore, kernelProver, simulator, protocolContractsProvider, config);
+      expect((testPxe as any).proverEnabled).toBe(false);
+    }, 120_000);
+
+    it('uses explicit proverEnabled=true even when node has proofsRequired=false', async () => {
+      const testNode = mock<AztecNode>();
+      testNode.getNodeInfo.mockResolvedValue((await createMockNodeInfo(false)) as any);
+
+      const testStore = await openTmpStore('test-explicit-true');
+      const simulator = new WASMSimulator();
+      const kernelProver = new BBBundlePrivateKernelProver(simulator);
+      const protocolContractsProvider = new BundledProtocolContractsProvider();
+      const config: PXEConfig = {
+        proverEnabled: true, // Explicitly set
+        l2BlockBatchSize: 50,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        l1ChainId: 31337,
+        rollupVersion: 1,
+      };
+
+      const testPxe = await PXE.create(testNode, testStore, kernelProver, simulator, protocolContractsProvider, config);
+      expect((testPxe as any).proverEnabled).toBe(true);
+    }, 120_000);
+
+    it('uses explicit proverEnabled=false even when node has proofsRequired=true', async () => {
+      const testNode = mock<AztecNode>();
+      testNode.getNodeInfo.mockResolvedValue((await createMockNodeInfo(true)) as any);
+
+      const testStore = await openTmpStore('test-explicit-false');
+      const simulator = new WASMSimulator();
+      const kernelProver = new BBBundlePrivateKernelProver(simulator);
+      const protocolContractsProvider = new BundledProtocolContractsProvider();
+      const config: PXEConfig = {
+        proverEnabled: false, // Explicitly set
+        l2BlockBatchSize: 50,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        l1ChainId: 31337,
+        rollupVersion: 1,
+      };
+
+      const testPxe = await PXE.create(testNode, testStore, kernelProver, simulator, protocolContractsProvider, config);
+      expect((testPxe as any).proverEnabled).toBe(false);
+    }, 120_000);
+
+    it('defaults to false when node does not expose proofsRequired (backward compatibility)', async () => {
+      const testNode = mock<AztecNode>();
+      // Simulate older node that doesn't have proofsRequired field
+      testNode.getNodeInfo.mockResolvedValue((await createMockNodeInfo(undefined)) as any);
+
+      const testStore = await openTmpStore('test-backcompat');
+      const simulator = new WASMSimulator();
+      const kernelProver = new BBBundlePrivateKernelProver(simulator);
+      const protocolContractsProvider = new BundledProtocolContractsProvider();
+      const config: PXEConfig = {
+        // proverEnabled is NOT set (undefined)
+        l2BlockBatchSize: 50,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        l1ChainId: 31337,
+        rollupVersion: 1,
+      };
+
+      const testPxe = await PXE.create(testNode, testStore, kernelProver, simulator, protocolContractsProvider, config);
+      expect((testPxe as any).proverEnabled).toBe(false);
+    }, 120_000);
+  });
 });

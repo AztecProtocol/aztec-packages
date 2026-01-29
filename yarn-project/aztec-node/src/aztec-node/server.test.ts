@@ -307,6 +307,39 @@ describe('aztec node', () => {
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
       });
+
+      it('returns proofsRequired=false when realProofs is not set', async () => {
+        // Default node config has realProofs: undefined
+        const nodeInfo = await node.getNodeInfo();
+        expect(nodeInfo.proofsRequired).toBe(false);
+      });
+
+      it('returns proofsRequired matching realProofs config', async () => {
+        // Create a node with realProofs: true
+        const configWithRealProofs = { ...nodeConfig, realProofs: true };
+        const nodeWithRealProofs = new AztecNodeService(
+          configWithRealProofs,
+          p2p,
+          l2BlockSource,
+          mock<L2LogsSource>(),
+          mock<ContractDataSource>(),
+          mock<L1ToL2MessageSource>(),
+          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          12345,
+          rollupVersion.toNumber(),
+          globalVariablesBuilder,
+          epochCache,
+          getPackageVersion() ?? '',
+          new TestCircuitVerifier(),
+        );
+
+        const nodeInfo = await nodeWithRealProofs.getNodeInfo();
+        expect(nodeInfo.proofsRequired).toBe(true);
+      });
     });
 
     describe('getBlockHeader', () => {

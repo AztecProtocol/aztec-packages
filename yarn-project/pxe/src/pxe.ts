@@ -137,7 +137,15 @@ export class PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
 
-    const proverEnabled = !!config.proverEnabled;
+    // Auto-detect proverEnabled from node if not explicitly configured
+    let proverEnabled: boolean;
+    if (config.proverEnabled !== undefined) {
+      proverEnabled = config.proverEnabled;
+    } else {
+      const nodeInfo = await node.getNodeInfo();
+      proverEnabled = nodeInfo.proofsRequired;
+      log.info(`Auto-detected proverEnabled=${proverEnabled} from node`);
+    }
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);

@@ -19,6 +19,8 @@ export interface NodeInfo {
   l1ContractAddresses: L1ContractAddresses;
   /** Protocol contract addresses */
   protocolContractAddresses: ProtocolContractAddresses;
+  /** Whether the node requires real proofs for transaction submission. */
+  proofsRequired: boolean;
 }
 
 export const NodeInfoSchema: ZodFor<NodeInfo> = z
@@ -29,5 +31,6 @@ export const NodeInfoSchema: ZodFor<NodeInfo> = z
     enr: z.string().optional(),
     l1ContractAddresses: L1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,
+    proofsRequired: z.boolean().default(false),
   })
-  .transform(obj => ({ enr: undefined, ...obj }));
+  .transform(obj => ({ enr: undefined, proofsRequired: false, ...obj }));
