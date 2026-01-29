@@ -18,7 +18,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { P2P, PeerId } from '@aztec/p2p';
+import type { DuplicateProposalInfo, P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -308,6 +308,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         proposalSender: PeerId,
       ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
       this.p2pClient.registerCheckpointProposalHandler(checkpointHandler);
+
+      // Duplicate proposal handler - triggers slashing for equivocation
+      this.p2pClient.registerDuplicateProposalCallback((info: DuplicateProposalInfo) => {
+        this.handleDuplicateProposal(info);
+      });
 
       const myAddresses = this.getValidatorAddresses();
       this.p2pClient.registerThisValidatorAddresses(myAddresses);
@@ -717,6 +722,30 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         amount: this.config.slashBroadcastedInvalidBlockPenalty,
         offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         epochOrSlot: BigInt(proposal.slotNumber),
+      },
+    ]);
+  }
+
+  /**
+   * Handle detection of a duplicate proposal (equivocation).
+   * Emits a slash event when a proposer sends multiple proposals for the same position.
+   */
+  private handleDuplicateProposal(info: DuplicateProposalInfo): void {
+    const { slot, proposer, type } = info;
+
+    this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
+      proposer: proposer.toString(),
+      slot,
+      type,
+    });
+
+    // Emit slash event
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashDuplicateProposalPenalty,
+        offenseType: OffenseType.DUPLICATE_PROPOSAL,
+        epochOrSlot: BigInt(slot),
       },
     ]);
   }

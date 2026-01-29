@@ -55,7 +55,9 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & { disableTransactions: boolean };
+    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty'> & {
+      disableTransactions: boolean;
+    };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
@@ -115,6 +117,7 @@ describe('ValidatorClient', () => {
       disabledValidators: [],
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
       l1Contracts: { rollupAddress: EthAddress.random() },

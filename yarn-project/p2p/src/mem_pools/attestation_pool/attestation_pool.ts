@@ -1,10 +1,15 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposal,
-  CheckpointProposalCore,
-} from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+
+/** Result of trying to add a proposal (block or checkpoint) */
+export type TryAddProposalResult = {
+  /** Whether proposal was added */
+  added: boolean;
+  /** Whether exact proposal already existed */
+  alreadyExists: boolean;
+  /** Total proposals for this position - used for duplicate detection */
+  totalForPosition: number;
+};
 
 /**
  * An Attestation Pool contains attestations collected by a validator
@@ -14,12 +19,20 @@ import type {
  */
 export interface AttestationPool {
   /**
-   * Adds new block proposal to the pool
+   * Attempts to add a block proposal to the pool.
+   *
+   * This method performs validation and addition in a single call:
+   * - Checks if the proposal already exists (returns alreadyExists: true if so)
+   * - Checks if the position has reached the proposal cap (returns added: false if so)
+   * - Adds the proposal if validation passes
+   *
+   * @param blockProposal - The block proposal to add
+   * @returns Result indicating whether the proposal was added and duplicate detection info
    */
-  addBlockProposal(blockProposal: BlockProposal): Promise<void>;
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult>;
 
   /**
-   * Get block proposal by it's ID
+   * Get block proposal by its ID.
    *
    * @param id - The ID of the block proposal to retrieve. The ID is proposal.payload.archive
    *
@@ -28,25 +41,21 @@ export interface AttestationPool {
   getBlockProposal(id: string): Promise<BlockProposal | undefined>;
 
   /**
-   * Check if a block proposal exists in the pool
+   * Attempts to add a checkpoint proposal to the pool.
    *
-   * @param idOrProposal - The ID of the block proposal or the block proposal itself to check. The ID is proposal.payload.archive
+   * This method performs validation and addition in a single call:
+   * - Checks if the proposal already exists (returns alreadyExists: true if so)
+   * - Checks if the slot has reached the proposal cap (returns added: false if so)
+   * - Adds the proposal if validation passes
    *
-   * @return True if the block proposal exists, false otherwise.
+   * Note: This method only handles the CheckpointProposalCore. If the original
+   * CheckpointProposal contains a lastBlock, the caller should extract it via
+   * getBlockProposal() and add it separately via tryAddBlockProposal().
+   *
+   * @param proposal - The checkpoint proposal core to add
+   * @returns Result indicating whether the proposal was added and duplicate detection info
    */
-  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean>;
-
-  /**
-   * Adds a checkpoint proposal to the pool.
-   *
-   * If the proposal contains a lastBlock, the BlockProposal is automatically extracted
-   * and stored separately via addBlockProposal. The checkpoint proposal is then stored
-   * without the lastBlock info (as CheckpointProposalCore).
-   *
-   * @param proposal - The checkpoint proposal to add
-   * @throws ProposalSlotCapExceededError if the slot has reached the maximum number of proposals
-   */
-  addCheckpointProposal(proposal: CheckpointProposal): Promise<void>;
+  tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult>;
 
   /**
    * Get checkpoint proposal by its ID.
@@ -60,14 +69,6 @@ export interface AttestationPool {
   getCheckpointProposal(id: string): Promise<CheckpointProposalCore | undefined>;
 
   /**
-   * Check if a checkpoint proposal exists in the pool
-   *
-   * @param idOrProposal - The ID of the checkpoint proposal or the proposal itself
-   * @return True if the proposal exists, false otherwise.
-   */
-  hasCheckpointProposal(idOrProposal: string | CheckpointProposal): Promise<boolean>;
-
-  /**
    * Add checkpoint attestations to the pool
    *
    * @param attestations - Checkpoint attestations to add into the pool
@@ -75,11 +76,11 @@ export interface AttestationPool {
   addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 
   /**
-   * Delete checkpoint attestations older than the given slot
+   * Delete all pool data (attestations, proposals) older than the given slot
    *
    * @param slot - The oldest slot to keep.
    */
-  deleteCheckpointAttestationsOlderThan(slot: SlotNumber): Promise<void>;
+  deleteOlderThan(slot: SlotNumber): Promise<void>;
 
   /**
    * Get all checkpoint attestations for a given slot
@@ -107,25 +108,6 @@ export interface AttestationPool {
   hasCheckpointAttestation(attestation: CheckpointAttestation): Promise<boolean>;
 
   /**
-   * Returns whether adding this proposal is permitted at current capacity:
-   * - True if the proposal already exists, allow overwrite to keep parity with tests.
-   * - True if the slot is below the proposal cap.
-   * - False if the slot is at/above cap and this would be a new unique proposal.
-   *
-   * @param block - The block proposal to check
-   * @returns True if the proposal can be added (or already exists), false otherwise.
-   */
-  canAddProposal(block: BlockProposal): Promise<boolean>;
-
-  /**
-   * Returns whether adding this checkpoint proposal is permitted at current capacity.
-   *
-   * @param proposal - The checkpoint proposal to check
-   * @returns True if the proposal can be added, false otherwise.
-   */
-  canAddCheckpointProposal(proposal: CheckpointProposal): Promise<boolean>;
-
-  /**
    * Returns whether a checkpoint attestation would be accepted for (slot, proposalId).
    *
    * @param attestation - The attestation to check
@@ -133,14 +115,6 @@ export interface AttestationPool {
    * @returns True if the attestation can be added, false otherwise.
    */
   canAddCheckpointAttestation(attestation: CheckpointAttestation, committeeSize: number): Promise<boolean>;
-
-  /**
-   * Returns whether the checkpoint proposal cap for the given slot has been reached.
-   *
-   * @param slot - The slot to check
-   * @returns True if the cap has been reached, false otherwise.
-   */
-  hasReachedCheckpointProposalCap(slot: SlotNumber): Promise<boolean>;
 
   /**
    * Returns whether the checkpoint attestation cap for the given slot and proposal has been reached.
