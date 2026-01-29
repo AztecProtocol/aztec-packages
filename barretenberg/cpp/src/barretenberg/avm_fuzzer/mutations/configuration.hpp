@@ -606,9 +606,18 @@ enum class FaultInjectionEventOptions {
     RangeCheckEvent,
     GtEvent,
     EcaddEvent,
+    EcaddMemoryEvent,
     ScalarMulEvent,
+    Poseidon2Event,
+    ToRadixEvent,
+    BytecodeEvent,
+    MemoryEvent,
+    AddressDerivationEvent,
+    ClassIdDerivationEvent,
+    Sha256CompressionEvent,
+    KeccakF1600Event,
 };
-using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 6>;
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 15>;
 
 constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
     { FaultInjectionEventOptions::AluEvent, 1 },
@@ -616,6 +625,16 @@ constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = 
     { FaultInjectionEventOptions::RangeCheckEvent, 1 },
     { FaultInjectionEventOptions::GtEvent, 1 },
     { FaultInjectionEventOptions::EcaddEvent, 1 },
+    { FaultInjectionEventOptions::EcaddMemoryEvent, 1 },
+    { FaultInjectionEventOptions::ScalarMulEvent, 1 },
+    { FaultInjectionEventOptions::Poseidon2Event, 1 },
+    { FaultInjectionEventOptions::ToRadixEvent, 0 },
+    { FaultInjectionEventOptions::BytecodeEvent, 1 },
+    { FaultInjectionEventOptions::MemoryEvent, 1 },
+    { FaultInjectionEventOptions::AddressDerivationEvent, 1 },
+    { FaultInjectionEventOptions::ClassIdDerivationEvent, 1 },
+    { FaultInjectionEventOptions::Sha256CompressionEvent, 1 },
+    { FaultInjectionEventOptions::KeccakF1600Event, 1 },
 });
 
 enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
@@ -667,6 +686,287 @@ constexpr FaultInjectionGtEventConfig BASIC_FAULT_INJECTION_GT_EVENT_CONFIGURATI
     { FaultInjectionGtEventOptions::B, 1 },
     { FaultInjectionGtEventOptions::Result, 1 },
 });
+
+enum class FaultInjectionEccAddMemoryEventOptions : uint8_t {
+    PointP,
+    PointQ,
+    Result,
+    DstAddress,
+    SpaceId,
+    ExecutionClk,
+};
+using FaultInjectionEccAddMemoryEventConfig = WeightedSelectionConfig<FaultInjectionEccAddMemoryEventOptions, 6>;
+constexpr FaultInjectionEccAddMemoryEventConfig BASIC_FAULT_INJECTION_ECCADD_MEMORY_EVENT_CONFIGURATION =
+    FaultInjectionEccAddMemoryEventConfig({
+        { FaultInjectionEccAddMemoryEventOptions::PointP, 1 },
+        { FaultInjectionEccAddMemoryEventOptions::PointQ, 1 },
+        { FaultInjectionEccAddMemoryEventOptions::Result, 1 },
+        { FaultInjectionEccAddMemoryEventOptions::DstAddress, 1 },
+        { FaultInjectionEccAddMemoryEventOptions::SpaceId, 1 },
+        { FaultInjectionEccAddMemoryEventOptions::ExecutionClk, 1 },
+    });
+
+enum class FaultInjectionPoseidon2HashEventOptions : uint8_t { Input, IntermediateState, Output };
+using FaultInjectionPoseidon2HashEventConfig = WeightedSelectionConfig<FaultInjectionPoseidon2HashEventOptions, 3>;
+constexpr FaultInjectionPoseidon2HashEventConfig BASIC_FAULT_INJECTION_POSEIDON2_HASH_EVENT_CONFIGURATION =
+    FaultInjectionPoseidon2HashEventConfig({
+        { FaultInjectionPoseidon2HashEventOptions::Input, 1 },
+        { FaultInjectionPoseidon2HashEventOptions::IntermediateState, 1 },
+        { FaultInjectionPoseidon2HashEventOptions::Output, 1 },
+    });
+
+enum class FaultInjectionPoseidon2PermEventOptions : uint8_t { Input, Output };
+using FaultInjectionPoseidon2PermEventConfig = WeightedSelectionConfig<FaultInjectionPoseidon2PermEventOptions, 2>;
+constexpr FaultInjectionPoseidon2PermEventConfig BASIC_FAULT_INJECTION_POSEIDON2_PERM_EVENT_CONFIGURATION =
+    FaultInjectionPoseidon2PermEventConfig({
+        { FaultInjectionPoseidon2PermEventOptions::Input, 1 },
+        { FaultInjectionPoseidon2PermEventOptions::Output, 1 },
+    });
+
+enum class FaultInjectionPoseidon2PermMemoryEventOptions : uint8_t {
+    Input,
+    Output,
+    SrcAddress,
+    DstAddress,
+    SpaceId,
+    ExecutionClk,
+};
+using FaultInjectionPoseidon2PermMemoryEventConfig =
+    WeightedSelectionConfig<FaultInjectionPoseidon2PermMemoryEventOptions, 6>;
+constexpr FaultInjectionPoseidon2PermMemoryEventConfig BASIC_FAULT_INJECTION_POSEIDON2_PERM_MEMORY_EVENT_CONFIGURATION =
+    FaultInjectionPoseidon2PermMemoryEventConfig({
+        { FaultInjectionPoseidon2PermMemoryEventOptions::Input, 1 },
+        { FaultInjectionPoseidon2PermMemoryEventOptions::Output, 1 },
+        { FaultInjectionPoseidon2PermMemoryEventOptions::SrcAddress, 1 },
+        { FaultInjectionPoseidon2PermMemoryEventOptions::DstAddress, 1 },
+        { FaultInjectionPoseidon2PermMemoryEventOptions::SpaceId, 1 },
+        { FaultInjectionPoseidon2PermMemoryEventOptions::ExecutionClk, 1 },
+    });
+
+enum class FaultInjectionToRadixEventOptions : uint8_t { Value, Radix, Limbs };
+using FaultInjectionToRadixEventConfig = WeightedSelectionConfig<FaultInjectionToRadixEventOptions, 3>;
+constexpr FaultInjectionToRadixEventConfig BASIC_FAULT_INJECTION_TORADIX_EVENT_CONFIGURATION =
+    FaultInjectionToRadixEventConfig({
+        { FaultInjectionToRadixEventOptions::Value, 1 },
+        { FaultInjectionToRadixEventOptions::Radix, 1 },
+        { FaultInjectionToRadixEventOptions::Limbs, 1 },
+    });
+
+enum class FaultInjectionToRadixMemoryEventOptions : uint8_t {
+    Value,
+    Radix,
+    NumLimbs,
+    DstAddress,
+    SpaceId,
+    ExecutionClk,
+    IsOutputBits,
+    Limbs,
+};
+using FaultInjectionToRadixMemoryEventConfig = WeightedSelectionConfig<FaultInjectionToRadixMemoryEventOptions, 8>;
+constexpr FaultInjectionToRadixMemoryEventConfig BASIC_FAULT_INJECTION_TORADIX_MEMORY_EVENT_CONFIGURATION =
+    FaultInjectionToRadixMemoryEventConfig({
+        { FaultInjectionToRadixMemoryEventOptions::Value, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::Radix, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::NumLimbs, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::DstAddress, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::SpaceId, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::ExecutionClk, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::IsOutputBits, 1 },
+        { FaultInjectionToRadixMemoryEventOptions::Limbs, 1 },
+    });
+
+enum class FaultInjectionBytecodeEventOptions : uint8_t { Retrieval, Hashing, Decomposition, InstructionFetching };
+using FaultInjectionBytecodeEventConfig = WeightedSelectionConfig<FaultInjectionBytecodeEventOptions, 4>;
+constexpr FaultInjectionBytecodeEventConfig BASIC_FAULT_INJECTION_BYTECODE_EVENT_CONFIGURATION =
+    FaultInjectionBytecodeEventConfig({
+        { FaultInjectionBytecodeEventOptions::Retrieval, 1 },
+        { FaultInjectionBytecodeEventOptions::Hashing, 1 },
+        { FaultInjectionBytecodeEventOptions::Decomposition, 1 },
+        { FaultInjectionBytecodeEventOptions::InstructionFetching, 1 },
+    });
+
+enum class FaultInjectionBytecodeRetrievalSnapshotOptions : uint8_t { Root, NextIndex };
+using FaultInjectionBytecodeRetrievalSnapshotConfig =
+    WeightedSelectionConfig<FaultInjectionBytecodeRetrievalSnapshotOptions, 2>;
+constexpr FaultInjectionBytecodeRetrievalSnapshotConfig
+    BASIC_FAULT_INJECTION_BYTECODE_RETRIEVAL_SNAPSHOT_CONFIGURATION = FaultInjectionBytecodeRetrievalSnapshotConfig({
+        { FaultInjectionBytecodeRetrievalSnapshotOptions::Root, 1 },
+        { FaultInjectionBytecodeRetrievalSnapshotOptions::NextIndex, 1 },
+    });
+
+enum class FaultInjectionBytecodeRetrievalEventOptions : uint8_t {
+    BytecodeId,
+    Address,
+    CurrentClassId,
+    ContractClassArtifactHash,
+    ContractClassPrivateFunctionsRoot,
+    NullifierRoot,
+    PublicDataTreeRoot,
+    SnapshotBefore,
+    SnapshotAfter,
+    Flags,
+};
+using FaultInjectionBytecodeRetrievalEventConfig =
+    WeightedSelectionConfig<FaultInjectionBytecodeRetrievalEventOptions, 10>;
+constexpr FaultInjectionBytecodeRetrievalEventConfig BASIC_FAULT_INJECTION_BYTECODE_RETRIEVAL_EVENT_CONFIGURATION =
+    FaultInjectionBytecodeRetrievalEventConfig({
+        { FaultInjectionBytecodeRetrievalEventOptions::BytecodeId, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::Address, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::CurrentClassId, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::ContractClassArtifactHash, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::ContractClassPrivateFunctionsRoot, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::NullifierRoot, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::PublicDataTreeRoot, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::SnapshotBefore, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::SnapshotAfter, 1 },
+        { FaultInjectionBytecodeRetrievalEventOptions::Flags, 1 },
+    });
+
+enum class FaultInjectionBytecodeHashingEventOptions : uint8_t { BytecodeId, BytecodeLength, Field };
+using FaultInjectionBytecodeHashingEventConfig = WeightedSelectionConfig<FaultInjectionBytecodeHashingEventOptions, 3>;
+constexpr FaultInjectionBytecodeHashingEventConfig BASIC_FAULT_INJECTION_BYTECODE_HASHING_EVENT_CONFIGURATION =
+    FaultInjectionBytecodeHashingEventConfig({
+        { FaultInjectionBytecodeHashingEventOptions::BytecodeId, 1 },
+        { FaultInjectionBytecodeHashingEventOptions::BytecodeLength, 1 },
+        { FaultInjectionBytecodeHashingEventOptions::Field, 1 },
+    });
+
+enum class FaultInjectionBytecodeDecompositionEventOptions : uint8_t { BytecodeId, Byte };
+using FaultInjectionBytecodeDecompositionEventConfig =
+    WeightedSelectionConfig<FaultInjectionBytecodeDecompositionEventOptions, 2>;
+constexpr FaultInjectionBytecodeDecompositionEventConfig BASIC_FAULT_INJECTION_BYTECODE_DECOMP_EVENT_CONFIGURATION =
+    FaultInjectionBytecodeDecompositionEventConfig({
+        { FaultInjectionBytecodeDecompositionEventOptions::BytecodeId, 1 },
+        { FaultInjectionBytecodeDecompositionEventOptions::Byte, 1 },
+    });
+
+enum class FaultInjectionInstructionFetchingEventOptions : uint8_t {
+    Pc,
+    AddressingMode,
+    Operand,
+    BytecodeByte,
+    Error,
+};
+using FaultInjectionInstructionFetchingEventConfig =
+    WeightedSelectionConfig<FaultInjectionInstructionFetchingEventOptions, 5>;
+constexpr FaultInjectionInstructionFetchingEventConfig BASIC_FAULT_INJECTION_INSTR_FETCH_EVENT_CONFIGURATION =
+    FaultInjectionInstructionFetchingEventConfig({
+        { FaultInjectionInstructionFetchingEventOptions::Pc, 1 },
+        { FaultInjectionInstructionFetchingEventOptions::AddressingMode, 1 },
+        { FaultInjectionInstructionFetchingEventOptions::Operand, 1 },
+        { FaultInjectionInstructionFetchingEventOptions::BytecodeByte, 1 },
+        { FaultInjectionInstructionFetchingEventOptions::Error, 1 },
+    });
+
+enum class FaultInjectionMemoryEventOptions : uint8_t { Value, Address, SpaceId, ExecutionClk, Mode };
+using FaultInjectionMemoryEventConfig = WeightedSelectionConfig<FaultInjectionMemoryEventOptions, 5>;
+constexpr FaultInjectionMemoryEventConfig BASIC_FAULT_INJECTION_MEMORY_EVENT_CONFIGURATION =
+    FaultInjectionMemoryEventConfig({
+        { FaultInjectionMemoryEventOptions::Value, 1 },
+        { FaultInjectionMemoryEventOptions::Address, 1 },
+        { FaultInjectionMemoryEventOptions::SpaceId, 1 },
+        { FaultInjectionMemoryEventOptions::ExecutionClk, 1 },
+        { FaultInjectionMemoryEventOptions::Mode, 1 },
+    });
+
+enum class FaultInjectionAddressDerivationEventOptions : uint8_t {
+    Address,
+    Salt,
+    Deployer,
+    ClassId,
+    InitHash,
+    NullifierKey,
+    IncomingViewingKey,
+    OutgoingViewingKey,
+    TaggingKey,
+    SaltedInitHash,
+    PartialAddress,
+    PublicKeysHash,
+    Preaddress,
+    PreaddressPublicKey,
+    AddressPoint,
+};
+using FaultInjectionAddressDerivationEventConfig =
+    WeightedSelectionConfig<FaultInjectionAddressDerivationEventOptions, 15>;
+constexpr FaultInjectionAddressDerivationEventConfig BASIC_FAULT_INJECTION_ADDRESS_DERIVATION_EVENT_CONFIGURATION =
+    FaultInjectionAddressDerivationEventConfig({
+        { FaultInjectionAddressDerivationEventOptions::Address, 1 },
+        { FaultInjectionAddressDerivationEventOptions::Salt, 1 },
+        { FaultInjectionAddressDerivationEventOptions::Deployer, 1 },
+        { FaultInjectionAddressDerivationEventOptions::ClassId, 1 },
+        { FaultInjectionAddressDerivationEventOptions::InitHash, 1 },
+        { FaultInjectionAddressDerivationEventOptions::NullifierKey, 1 },
+        { FaultInjectionAddressDerivationEventOptions::IncomingViewingKey, 1 },
+        { FaultInjectionAddressDerivationEventOptions::OutgoingViewingKey, 1 },
+        { FaultInjectionAddressDerivationEventOptions::TaggingKey, 1 },
+        { FaultInjectionAddressDerivationEventOptions::SaltedInitHash, 1 },
+        { FaultInjectionAddressDerivationEventOptions::PartialAddress, 1 },
+        { FaultInjectionAddressDerivationEventOptions::PublicKeysHash, 1 },
+        { FaultInjectionAddressDerivationEventOptions::Preaddress, 1 },
+        { FaultInjectionAddressDerivationEventOptions::PreaddressPublicKey, 1 },
+        { FaultInjectionAddressDerivationEventOptions::AddressPoint, 1 },
+    });
+
+enum class FaultInjectionClassIdDerivationEventOptions : uint8_t {
+    ClassId,
+    ArtifactHash,
+    PrivateFunctionsRoot,
+    PublicBytecodeCommitment,
+};
+using FaultInjectionClassIdDerivationEventConfig =
+    WeightedSelectionConfig<FaultInjectionClassIdDerivationEventOptions, 4>;
+constexpr FaultInjectionClassIdDerivationEventConfig BASIC_FAULT_INJECTION_CLASS_ID_DERIVATION_EVENT_CONFIGURATION =
+    FaultInjectionClassIdDerivationEventConfig({
+        { FaultInjectionClassIdDerivationEventOptions::ClassId, 1 },
+        { FaultInjectionClassIdDerivationEventOptions::ArtifactHash, 1 },
+        { FaultInjectionClassIdDerivationEventOptions::PrivateFunctionsRoot, 1 },
+        { FaultInjectionClassIdDerivationEventOptions::PublicBytecodeCommitment, 1 },
+    });
+
+enum class FaultInjectionSha256CompressionEventOptions : uint8_t {
+    State,
+    Input,
+    Output,
+    StateAddr,
+    InputAddr,
+    OutputAddr,
+    SpaceId,
+    ExecutionClk,
+};
+using FaultInjectionSha256CompressionEventConfig =
+    WeightedSelectionConfig<FaultInjectionSha256CompressionEventOptions, 8>;
+constexpr FaultInjectionSha256CompressionEventConfig BASIC_FAULT_INJECTION_SHA256_COMPRESSION_EVENT_CONFIGURATION =
+    FaultInjectionSha256CompressionEventConfig({
+        { FaultInjectionSha256CompressionEventOptions::State, 1 },
+        { FaultInjectionSha256CompressionEventOptions::Input, 1 },
+        { FaultInjectionSha256CompressionEventOptions::Output, 1 },
+        { FaultInjectionSha256CompressionEventOptions::StateAddr, 1 },
+        { FaultInjectionSha256CompressionEventOptions::InputAddr, 1 },
+        { FaultInjectionSha256CompressionEventOptions::OutputAddr, 1 },
+        { FaultInjectionSha256CompressionEventOptions::SpaceId, 1 },
+        { FaultInjectionSha256CompressionEventOptions::ExecutionClk, 1 },
+    });
+
+enum class FaultInjectionKeccakF1600EventOptions : uint8_t {
+    SrcMemValue,
+    SrcAddr,
+    DstAddr,
+    SpaceId,
+    ExecutionClk,
+    Flags,
+    RoundData,
+};
+using FaultInjectionKeccakF1600EventConfig = WeightedSelectionConfig<FaultInjectionKeccakF1600EventOptions, 7>;
+constexpr FaultInjectionKeccakF1600EventConfig BASIC_FAULT_INJECTION_KECCAKF1600_EVENT_CONFIGURATION =
+    FaultInjectionKeccakF1600EventConfig({
+        { FaultInjectionKeccakF1600EventOptions::SrcMemValue, 1 },
+        { FaultInjectionKeccakF1600EventOptions::SrcAddr, 1 },
+        { FaultInjectionKeccakF1600EventOptions::DstAddr, 1 },
+        { FaultInjectionKeccakF1600EventOptions::SpaceId, 1 },
+        { FaultInjectionKeccakF1600EventOptions::ExecutionClk, 1 },
+        { FaultInjectionKeccakF1600EventOptions::Flags, 1 },
+        { FaultInjectionKeccakF1600EventOptions::RoundData, 1 },
+    });
 
 enum class EmbeddedCurvePointMutationOptions { SetIdentity, SetGenerator, SetInvalid, SetInfiniteWithNonZeroX };
 using EmbeddedCurvePointMutationConfig = WeightedSelectionConfig<EmbeddedCurvePointMutationOptions, 4>;
