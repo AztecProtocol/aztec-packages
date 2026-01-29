@@ -16,7 +16,7 @@
 namespace bb {
 
 /**
- * Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
+ * Write f_1, .., f_n for the values at a row i of the columns we wish to look up, and t_1, .., t_m for table
  * columns. We allow two types of lookups:
  *  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
  *                              t_m}
@@ -243,11 +243,11 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     static constexpr size_t NUM_LOOKUP_TERMS = Settings::NUM_LOOKUP_TERMS;
     static constexpr size_t NUM_TABLE_TERMS = Settings::NUM_TABLE_TERMS;
 
-    /// NOTE: WE ARE ASSUMING THAT ALL BASIC LOOKUPS HAVE THE SAME NUMBER OF COLUMNS TO BE BATCHED, IS THIS NECESSARY?
     /**
      * When performing a basic lookup, we batch columns for efficiency. This constant represents the number of columns
      * to be batched together. For example, it would be 1 for a range constraint lookup, 3 for a XOR lookup.
      *
+     * @note For simplicity of implementation, we assume that all basic lookups use the same tuple size.
      */
     static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
 
@@ -316,6 +316,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // log-derived terms sub-relation
     static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
 
+    // We use the max of the subrelation lengths because the inverses of lookup/table terms must be used in both
+    // subrelations
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{ LENGTH, LENGTH };
 
     // The first subrelation must be satisfied at every row.

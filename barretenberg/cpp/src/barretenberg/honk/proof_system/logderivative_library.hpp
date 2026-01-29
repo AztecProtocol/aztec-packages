@@ -5,7 +5,7 @@
 // =====================
 
 // Generic log-derivative utilities for lookups and permutations.
-// For the mathematical background, see relations/LOGDERIV_LOOKUP_RELATION_README.md
+// For the mathematical background, see relations/LOGUP_README.md
 
 #pragma once
 

@@ -85,6 +85,8 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 2; // log-derived terms sub-relation
     static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
 
+    // We use the max of the subrelation lengths because the inverses of lookup/table terms must be used in both
+    // subrelations
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
         LENGTH  // log-derived terms subrelation
@@ -148,7 +150,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @brief Extract predicate enabling looking up a given lookup term at this row
      *
      * @tparam Accumulator Accumulator type for polynomial evaluations
-     * @tparam lookup_index Index of the lookup term (must be less than NUM_LOOKUP_TERMS)
+     * @tparam lookup_index Index of the lookup term (kept for compatibility with lookups, always 0)
      * @tparam AllEntities Type containing all polynomial entities
      * @param in All entities
      * @return Accumulator containing the predicate for the specified lookup term
@@ -170,7 +172,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @brief Extract predicate enabling looking up a given table term at this row
      *
      * @tparam Accumulator Accumulator type for polynomial evaluations
-     * @tparam table_index Index of the table term (must be less than NUM_TABLE_TERMS)
+     * @tparam table_index Index of the table term (kept for compatibility with lookups, always 0)
      * @tparam AllEntities Type containing all polynomial entities
      * @param in All entities
      * @return Accumulator containing the predicate for the specified table term
@@ -189,7 +191,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @brief Compute the value of the lookup term at a given index
      *
      * @tparam Accumulator Accumulator type for polynomial evaluations
-     * @tparam lookup_index Index of the lookup term to compute
+     * @tparam lookup_index Index of the lookup term to compute (kept for compatibility with lookups, always 0)
      * @tparam AllEntities Type containing all polynomial entities
      * @tparam Parameters Type containing relation parameters (beta, gamma)
      * @param in All entities
@@ -222,7 +224,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @brief Compute the value of a table term at a given index
      *
      * @tparam Accumulator Accumulator type for polynomial evaluations
-     * @tparam table_index Index of the table term to compute
+     * @tparam table_index Index of the table term to compute (kept for compatibility with lookups, always 0)
      * @tparam AllEntities Type containing all polynomial entities
      * @tparam Parameters Type containing relation parameters (beta, gamma)
      * @param in All entities
