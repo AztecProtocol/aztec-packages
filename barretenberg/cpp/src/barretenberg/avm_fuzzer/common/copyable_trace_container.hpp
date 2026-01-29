@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <span>
 #include <unordered_map>
