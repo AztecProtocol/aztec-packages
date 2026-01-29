@@ -190,14 +190,17 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const AffineElement& _in)
 {
-
     cycle_group result(_context);
-    result._x = field_t::from_witness(_context, _in.x);
-    result._y = field_t::from_witness(_context, _in.y);
 
-    // Create _is_infinity as a witness for consistency with points from arithmetic operations.
-    // Security: validate_on_curve() enforces that if infinity=true, then x=y=0.
-    result._is_infinity = bool_t(witness_t(_context, false));
+    // By convention we set the coordinates of the point at infinity to (0,0).
+    if (_in.is_point_at_infinity()) {
+        result._x = field_t::from_witness(_context, bb::fr::zero());
+        result._y = field_t::from_witness(_context, bb::fr::zero());
+    } else {
+        result._x = field_t::from_witness(_context, _in.x);
+        result._y = field_t::from_witness(_context, _in.y);
+    }
+    result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
     result.validate_on_curve();
     result.set_free_witness_tag();
     return result;
