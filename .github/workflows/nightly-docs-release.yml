@@ -139,6 +139,15 @@ jobs:
           chmod +x /tmp/bb-bin/bb
           echo "BB_PATH=/tmp/bb-bin" >> $GITHUB_ENV
 
+      - name: Build noir packages
+        run: |
+          # Initialize noir submodule (required for yarn-project portal dependencies)
+          git submodule update --init --recursive noir/noir-repo
+          # Build noir JS packages (creates noir/packages/ directory needed by yarn-project)
+          cd noir
+          ./bootstrap.sh install_deps
+          ./bootstrap.sh build_packages
+
       - name: Build aztec CLI
         working-directory: ./yarn-project
         run: |
