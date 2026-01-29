@@ -223,48 +223,29 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Set the witness indices for the pairing points to public using Codec serialization
-     * @details Uses StdlibCodec to serialize each point to 4 field elements (2 per coordinate),
-     * then sets each field element as a public input.
+     * @brief Set the witness indices for the pairing points to public
+     * @details Each point is 4 field elements (2 per coordinate), total 8 field elements.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     uint32_t set_public()
     {
-        using Codec = StdlibCodec<Fr>;
-
         BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
 
-        Builder* builder = P0.get_context();
-        const uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
-
-        // Serialize P0 and P1 using Codec (4 frs per point)
-        std::vector<Fr> p0_frs = Codec::template serialize_to_fields<Group>(P0);
-        std::vector<Fr> p1_frs = Codec::template serialize_to_fields<Group>(P1);
-
-        // Set each field element as public
-        for (auto& fr : p0_frs) {
-            fr.set_public();
-        }
-        for (auto& fr : p1_frs) {
-            fr.set_public();
-        }
+        const uint32_t start_idx = P0.set_public();
+        P1.set_public();
 
         return start_idx;
     }
 
     /**
      * @brief Set the witness indices for the default limbs of the pairing points to public.
-     * @details Creates default pairing points as witnesses using bigfield, then serializes using Codec.
+     * @details Creates default pairing points as witnesses using bigfield, then sets them public.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        using Codec = StdlibCodec<Fr>;
-
-        const uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
-
         // Create default coordinates as bigfield witnesses
         bigfield<Builder, bb::Bn254FqParams> x0(DEFAULT_PAIRING_POINTS_P0_X);
         bigfield<Builder, bb::Bn254FqParams> y0(DEFAULT_PAIRING_POINTS_P0_Y);
@@ -276,25 +257,11 @@ template <typename Curve> struct PairingPoints {
         x1.convert_constant_to_fixed_witness(builder);
         y1.convert_constant_to_fixed_witness(builder);
 
-        // Serialize each coordinate using Codec (2 frs per coordinate)
-        std::vector<Fr> x0_frs = Codec::template serialize_to_fields<decltype(x0)>(x0);
-        std::vector<Fr> y0_frs = Codec::template serialize_to_fields<decltype(y0)>(y0);
-        std::vector<Fr> x1_frs = Codec::template serialize_to_fields<decltype(x1)>(x1);
-        std::vector<Fr> y1_frs = Codec::template serialize_to_fields<decltype(y1)>(y1);
-
-        // Set all as public in correct order: P0.x, P0.y, P1.x, P1.y
-        for (auto& fr : x0_frs) {
-            fr.set_public();
-        }
-        for (auto& fr : y0_frs) {
-            fr.set_public();
-        }
-        for (auto& fr : x1_frs) {
-            fr.set_public();
-        }
-        for (auto& fr : y1_frs) {
-            fr.set_public();
-        }
+        // Set all as public in correct order: P0.x, P0.y, P1.x, P1.y (2 frs per coordinate)
+        const uint32_t start_idx = x0.set_public();
+        y0.set_public();
+        x1.set_public();
+        y1.set_public();
 
         return start_idx;
     }

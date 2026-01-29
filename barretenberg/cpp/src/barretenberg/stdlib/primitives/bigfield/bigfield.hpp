@@ -731,6 +731,8 @@ template <typename Builder, typename T> class bigfield {
     }
     /**
      * @brief Set the witness indices for the limbs of the bigfield to public
+     * @details Bigfield is represented in public inputs using 2 limbs (lo, hi), matching the Codec representation.
+     *          lo = limb0 + limb1 * 2^NUM_LIMB_BITS, hi = limb2 + limb3 * 2^NUM_LIMB_BITS
      *
      * @return uint32_t The public input index at which the representation of the bigfield starts
      */
@@ -739,10 +741,13 @@ template <typename Builder, typename T> class bigfield {
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
 
-        ctx->set_public_input(binary_basis_limbs[0].element.normalize().get_witness_index());
-        ctx->set_public_input(binary_basis_limbs[1].element.normalize().get_witness_index());
-        ctx->set_public_input(binary_basis_limbs[2].element.normalize().get_witness_index());
-        ctx->set_public_input(binary_basis_limbs[3].element.normalize().get_witness_index());
+        // Combine limbs into 2-limb Codec format
+        constexpr uint256_t shift = uint256_t(1) << NUM_LIMB_BITS;
+        field_t<Builder> lo = binary_basis_limbs[0].element + binary_basis_limbs[1].element * shift;
+        field_t<Builder> hi = binary_basis_limbs[2].element + binary_basis_limbs[3].element * shift;
+
+        ctx->set_public_input(lo.get_witness_index());
+        ctx->set_public_input(hi.get_witness_index());
 
         return start_index;
     }

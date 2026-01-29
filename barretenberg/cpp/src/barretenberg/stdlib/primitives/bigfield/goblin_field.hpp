@@ -183,10 +183,12 @@ template <class Builder> class goblin_field {
      */
     uint32_t set_public() const
     {
-        using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
+        Builder* ctx = limbs[0].get_context() != nullptr ? limbs[0].get_context() : limbs[1].get_context();
+        const uint32_t start_idx = static_cast<uint32_t>(ctx->num_public_inputs());
 
-        BigFq bigfield_equivalent(limbs[0], limbs[1]);
-        const uint32_t start_idx = bigfield_equivalent.set_public();
+        // Goblin field already stores (lo, hi) in the Codec format
+        ctx->set_public_input(limbs[0].normalize().get_witness_index());
+        ctx->set_public_input(limbs[1].normalize().get_witness_index());
 
         return start_idx;
     }

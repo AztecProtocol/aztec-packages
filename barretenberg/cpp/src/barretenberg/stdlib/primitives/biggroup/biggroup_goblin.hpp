@@ -400,10 +400,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     }
     /**
      * @brief Set the witness indices representing the goblin element to public
-     * @details Even though the coordinates of a goblin element are goblin field elements which may be represented using
-     * two native field elements, we store them in the public inputs as if they were bigfield elements, each of which is
-     * represented by four native field elements. This uniformity is imposed for simplicity but could be reconsidered if
-     * desired.
+     * @details Each coordinate (x, y) is represented using 2 native field elements (lo, hi), matching the Codec format.
+     * Total: 4 field elements per goblin element.
      *
      * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
      */
