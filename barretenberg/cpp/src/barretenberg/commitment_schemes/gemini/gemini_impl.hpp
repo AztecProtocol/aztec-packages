@@ -128,8 +128,9 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     BB_BENCH_NAME("Gemini::compute_fold_polynomials");
     const size_t virtual_log_n = multilinear_challenge.size();
 
-    constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
-                                                           // would be a point in sending them to a separate thread
+    // Cost per iteration: 1 subtraction + 1 multiplication + 1 addition
+    constexpr size_t fold_iteration_cost =
+        (2 * thread_heuristics::FF_ADDITION_COST) + thread_heuristics::FF_MULTIPLICATION_COST;
 
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
@@ -156,14 +157,15 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
 
-        parallel_for(n_l, efficient_operations_per_thread, [&](ThreadChunk chunk) {
-            for (size_t j : chunk.range(n_l)) {
+        parallel_for_heuristic(
+            n_l,
+            [&](size_t j) {
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
                 //            = Aₗ₊₁[j]
                 A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
-            }
-        });
+            },
+            fold_iteration_cost);
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
     }

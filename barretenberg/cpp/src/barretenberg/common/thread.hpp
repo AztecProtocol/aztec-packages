@@ -200,15 +200,4 @@ void parallel_for(size_t num_threads, const Func& func)
     });
 }
 
-// Overload that computes optimal thread count based on work size and minimum iterations per thread
-template <typename Func>
-    requires std::invocable<Func, ThreadChunk>
-void parallel_for(size_t work_size, size_t min_iterations_per_thread, const Func& func)
-{
-    size_t num_threads = calculate_num_threads(work_size, min_iterations_per_thread);
-    parallel_for(num_threads, [&](size_t thread_index) {
-        func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_threads });
-    });
-}
-
 } // namespace bb

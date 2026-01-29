@@ -176,44 +176,53 @@ template <typename FF> struct GateSeparatorPolynomial {
         // only if the jth bit of i is 1 (j starting with 0 for the least significant bit). For instance, i = 13 = 1101
         // in binary, so the product is betas[0] * betas[2] * betas[3].
         //
-        // Key insight: beta_products[i] = beta_products[i with LSB cleared] * betas[position of LSB]
-        // So if the predecessor (i with LSB cleared) is in our thread's range, we just multiply by one beta.
-        // Otherwise, we compute directly by iterating over only the set bits using ctz (O(popcount) multiplications).
+        // Key insight: beta_products[i] = beta_products[predecessor] * betas[lsb_position], where predecessor is i
+        // with the least significant bit cleared. For example:
+        //   - i = 6 (binary 110): LSB is at position 1, predecessor = 4 (binary 100)
+        //     beta_products[6] = beta_products[4] * betas[1]
+        //   - i = 12 (binary 1100): LSB is at position 2, predecessor = 8 (binary 1000)
+        //     beta_products[12] = beta_products[8] * betas[2]
+        //
+        // For each index i, if the predecessor falls within our thread's range [start, start + chunk_size), we use
+        // this O(1) recurrence. Otherwise, we compute directly by iterating over all set bits in i, which requires
+        // O(popcount(i)) multiplications. This direct computation handles boundary cases between thread chunks.
+        //
+        // This algorithm works with any number of threads (not just powers of 2), unlike the previous prefix/suffix
+        // approach which required power-of-2 thread counts to ensure even work distribution.
 
-        constexpr size_t MIN_ITERATIONS_PER_THREAD = 1 << 6;
-        parallel_for(pow_size, MIN_ITERATIONS_PER_THREAD, [&](ThreadChunk chunk) {
-            auto range = chunk.range(pow_size);
-            if (range.empty()) {
-                return;
-            }
-            size_t start = *range.begin();
-
-            for (size_t i : range) {
-                if (i == 0) {
-                    beta_products.at(0) = scaling_factor;
-                    continue;
-                }
-
-                // Find the lowest set bit position and the predecessor index
-                size_t lsb_pos = numeric::get_lsb(i);
-                size_t predecessor = i ^ (static_cast<size_t>(1) << lsb_pos); // clear the lowest set bit
-
-                if (predecessor >= start) {
-                    // Predecessor is in our range, O(1) computation
-                    beta_products.at(i) = beta_products.at(predecessor) * betas[lsb_pos];
-                } else {
-                    // Predecessor is not in our range, compute directly from set bits only
-                    FF result = scaling_factor;
-                    size_t remaining = i;
-                    while (remaining != 0) {
-                        size_t bit = numeric::get_lsb(remaining);
-                        result *= betas[bit];
-                        remaining ^= static_cast<size_t>(1) << bit; // clear this bit
+        // Cost per iteration: typically 1 multiplication (when predecessor is in range),
+        // occasionally O(popcount) multiplications at chunk boundaries
+        constexpr size_t iteration_cost = thread_heuristics::FF_MULTIPLICATION_COST;
+        parallel_for_heuristic(
+            pow_size,
+            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                for (size_t i = start; i < end; i++) {
+                    if (i == 0) {
+                        beta_products.at(0) = scaling_factor;
+                        continue;
                     }
-                    beta_products.at(i) = result;
+
+                    // Find the lowest set bit position and the predecessor index
+                    size_t lsb_pos = numeric::get_lsb(i);
+                    size_t predecessor = i ^ (static_cast<size_t>(1) << lsb_pos); // clear the lowest set bit
+
+                    if (predecessor >= start) {
+                        // Predecessor is in our range, O(1) computation
+                        beta_products.at(i) = beta_products.at(predecessor) * betas[lsb_pos];
+                    } else {
+                        // Predecessor is not in our range, compute directly from set bits only
+                        FF result = scaling_factor;
+                        size_t remaining = i;
+                        while (remaining != 0) {
+                            size_t bit = numeric::get_lsb(remaining);
+                            result *= betas[bit];
+                            remaining ^= static_cast<size_t>(1) << bit; // clear this bit
+                        }
+                        beta_products.at(i) = result;
+                    }
                 }
-            }
-        });
+            },
+            iteration_cost);
 
         return beta_products;
     }
