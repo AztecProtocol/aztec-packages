@@ -18,7 +18,7 @@ TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
-    static constexpr size_t NUM_GATES_ADDED = 20;
+    static constexpr size_t NUM_GATES_ADDED = 28;
 
     typename TypeParam::Builder builder;
 

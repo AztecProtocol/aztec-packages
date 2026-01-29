@@ -9,6 +9,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <type_traits>
@@ -222,54 +223,99 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Set the witness indices for the limbs of the pairing points to public
+     * @brief Set the witness indices for the pairing points to public using Codec serialization
+     * @details Uses StdlibCodec to serialize each point to 4 field elements (2 per coordinate),
+     * then sets each field element as a public input.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     uint32_t set_public()
     {
+        using Codec = StdlibCodec<Fr>;
+
         BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
-        uint32_t start_idx = P0.set_public();
-        P1.set_public();
 
-        return start_idx;
-    }
+        Builder* builder = P0.get_context();
+        const uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
 
-    /**
-     * @brief Set the witness indices for the default limbs of the pairing points to public.
-     *
-     * @return uint32_t The index into the public inputs array at which the representation is stored
-     */
-    static uint32_t set_default_to_public(Builder* builder)
-    {
-        uint32_t start_idx = 0;
-        for (size_t idx = 0; auto const& coordinate : { DEFAULT_PAIRING_POINTS_P0_X,
-                                                        DEFAULT_PAIRING_POINTS_P0_Y,
-                                                        DEFAULT_PAIRING_POINTS_P1_X,
-                                                        DEFAULT_PAIRING_POINTS_P1_Y }) {
-            bigfield<Builder, bb::Bn254FqParams> bigfield_coordinate(coordinate);
-            bigfield_coordinate.convert_constant_to_fixed_witness(builder);
-            uint32_t index = bigfield_coordinate.set_public();
-            start_idx = idx == 0 ? index : start_idx;
-            idx++;
+        // Serialize P0 and P1 using Codec (4 frs per point)
+        std::vector<Fr> p0_frs = Codec::template serialize_to_fields<Group>(P0);
+        std::vector<Fr> p1_frs = Codec::template serialize_to_fields<Group>(P1);
+
+        // Set each field element as public
+        for (auto& fr : p0_frs) {
+            fr.set_public();
+        }
+        for (auto& fr : p1_frs) {
+            fr.set_public();
         }
 
         return start_idx;
     }
 
     /**
-     * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
+     * @brief Set the witness indices for the default limbs of the pairing points to public.
+     * @details Creates default pairing points as witnesses using bigfield, then serializes using Codec.
      *
-     * @param limbs The limbs of the pairing points
+     * @return uint32_t The index into the public inputs array at which the representation is stored
+     */
+    static uint32_t set_default_to_public(Builder* builder)
+    {
+        using Codec = StdlibCodec<Fr>;
+
+        const uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
+
+        // Create default coordinates as bigfield witnesses
+        bigfield<Builder, bb::Bn254FqParams> x0(DEFAULT_PAIRING_POINTS_P0_X);
+        bigfield<Builder, bb::Bn254FqParams> y0(DEFAULT_PAIRING_POINTS_P0_Y);
+        bigfield<Builder, bb::Bn254FqParams> x1(DEFAULT_PAIRING_POINTS_P1_X);
+        bigfield<Builder, bb::Bn254FqParams> y1(DEFAULT_PAIRING_POINTS_P1_Y);
+
+        x0.convert_constant_to_fixed_witness(builder);
+        y0.convert_constant_to_fixed_witness(builder);
+        x1.convert_constant_to_fixed_witness(builder);
+        y1.convert_constant_to_fixed_witness(builder);
+
+        // Serialize each coordinate using Codec (2 frs per coordinate)
+        std::vector<Fr> x0_frs = Codec::template serialize_to_fields<decltype(x0)>(x0);
+        std::vector<Fr> y0_frs = Codec::template serialize_to_fields<decltype(y0)>(y0);
+        std::vector<Fr> x1_frs = Codec::template serialize_to_fields<decltype(x1)>(x1);
+        std::vector<Fr> y1_frs = Codec::template serialize_to_fields<decltype(y1)>(y1);
+
+        // Set all as public in correct order: P0.x, P0.y, P1.x, P1.y
+        for (auto& fr : x0_frs) {
+            fr.set_public();
+        }
+        for (auto& fr : y0_frs) {
+            fr.set_public();
+        }
+        for (auto& fr : x1_frs) {
+            fr.set_public();
+        }
+        for (auto& fr : y1_frs) {
+            fr.set_public();
+        }
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct PairingPoints from its representation as limbs (stored in the public inputs)
+     * @details Uses StdlibCodec deserialization for consistent 2-limb-per-coordinate representation.
+     *
+     * @param limbs The limbs of the pairing points (4 frs per point = 8 total)
      * @return PairingPoints<Curve>
      */
     static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
-        const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
-        std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
-        std::span<const Fr, FRS_PER_POINT> P1_limbs{ limbs.data() + FRS_PER_POINT, FRS_PER_POINT };
-        Group P0 = Group::reconstruct_from_public(P0_limbs);
-        Group P1 = Group::reconstruct_from_public(P1_limbs);
+        using Codec = StdlibCodec<Fr>;
+
+        constexpr size_t FRS_PER_POINT = Codec::template calc_num_fields<Group>();
+        static_assert(PUBLIC_INPUTS_SIZE == 2 * FRS_PER_POINT);
+
+        Group P0 = Codec::template deserialize_from_fields<Group>(limbs.subspan(0, FRS_PER_POINT));
+        Group P1 = Codec::template deserialize_from_fields<Group>(limbs.subspan(FRS_PER_POINT, FRS_PER_POINT));
+
         return { P0, P1 };
     }
 

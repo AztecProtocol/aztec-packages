@@ -180,20 +180,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         return buffer;
     }
 
-    static affine_element reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> x_limbs(limbs.data(), Fq::PUBLIC_INPUTS_SIZE);
-        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> y_limbs(limbs.data() + Fq::PUBLIC_INPUTS_SIZE,
-                                                                      Fq::PUBLIC_INPUTS_SIZE);
-
-        affine_element result;
-        result.x = Fq::reconstruct_from_public(x_limbs);
-        result.y = Fq::reconstruct_from_public(y_limbs);
-
-        BB_ASSERT(result.on_curve());
-        return result;
-    }
-
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)
     {
         os << "{ " << a.x << ", " << a.y << " }";

@@ -730,7 +730,7 @@ template <typename Builder, typename T> class bigfield {
         prime_basis_limb.unset_free_witness_tag();
     }
     /**
-     * @brief Set the witness indices of the binary basis limbs to public
+     * @brief Set the witness indices for the limbs of the bigfield to public
      *
      * @return uint32_t The public input index at which the representation of the bigfield starts
      */
@@ -738,18 +738,13 @@ template <typename Builder, typename T> class bigfield {
     {
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
-        for (auto& limb : binary_basis_limbs) {
-            ctx->set_public_input(limb.element.get_witness_index());
-        }
-        return start_index;
-    }
 
-    /**
-     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
-     */
-    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        ctx->set_public_input(binary_basis_limbs[0].element.normalize().get_witness_index());
+        ctx->set_public_input(binary_basis_limbs[1].element.normalize().get_witness_index());
+        ctx->set_public_input(binary_basis_limbs[2].element.normalize().get_witness_index());
+        ctx->set_public_input(binary_basis_limbs[3].element.normalize().get_witness_index());
+
+        return start_index;
     }
 
     static constexpr uint512_t get_maximum_unreduced_value()

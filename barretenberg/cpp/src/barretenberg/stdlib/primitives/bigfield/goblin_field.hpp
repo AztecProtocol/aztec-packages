@@ -177,7 +177,7 @@ template <class Builder> class goblin_field {
     }
     /**
      * @brief Set the witness indices for the limbs of the goblin field to public
-     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
+     * @details Goblin field is represented in public inputs using 2 limbs (lo, hi), matching the Codec representation.
      *
      * @return uint32_t The public input index at which the representation of the goblin field starts
      */
@@ -189,16 +189,6 @@ template <class Builder> class goblin_field {
         const uint32_t start_idx = bigfield_equivalent.set_public();
 
         return start_idx;
-    }
-
-    /**
-     * @brief Reconstruct goblin field from its representation as limbs as stored in the public inputs
-     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
-     *
-     */
-    static goblin_field reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)

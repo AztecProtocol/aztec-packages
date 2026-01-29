@@ -21,10 +21,11 @@ namespace bb {
 static constexpr std::size_t FR_PUBLIC_INPUTS_SIZE = 1;
 
 // Number of bb::fr elements used to represent a bigfield element in the public inputs
-static constexpr std::size_t BIGFIELD_PUBLIC_INPUTS_SIZE = 4;
+// This matches the Codec representation (2 limbs of ~127 bits each)
+static constexpr std::size_t BIGFIELD_PUBLIC_INPUTS_SIZE = 2;
 
 // Number of bb::fr elements used to represent a goblin bigfield element in the public inputs
-static constexpr std::size_t GOBLIN_FIELD_PUBLIC_INPUTS_SIZE = 4;
+static constexpr std::size_t GOBLIN_FIELD_PUBLIC_INPUTS_SIZE = 2;
 
 // Number of bb::fr elements used to represent a biggroup element in the public inputs
 static constexpr std::size_t BIGGROUP_PUBLIC_INPUTS_SIZE = 2 * BIGFIELD_PUBLIC_INPUTS_SIZE;

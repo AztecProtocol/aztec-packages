@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -99,36 +100,35 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         std::copy(serialized.begin(), serialized.end(), inner_proof.begin() + static_cast<std::ptrdiff_t>(offset));
     } else {
         // Tamper with the first pairing point (P0) by adding the generator
-        // Pairing points use a different encoding (reconstruct_from_public) than regular commitments
+        // Pairing points use FrCodec encoding (2 limbs per coordinate for BN254, 1 for Grumpkin)
         static constexpr size_t FRS_PER_POINT = Commitment::PUBLIC_INPUTS_SIZE;
-        static constexpr size_t NUM_LIMB_BITS = bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+        static constexpr size_t NUM_LIMB_BITS = 2 * bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 136 bits per limb
 
         if (inner_proof.size() >= FRS_PER_POINT) {
-            // Deserialize P0 using the native reconstruct_from_public method
-            std::array<ProofFF, FRS_PER_POINT> p0_limbs;
-            std::copy_n(inner_proof.begin(), FRS_PER_POINT, p0_limbs.begin());
-            Commitment P0 = Commitment::reconstruct_from_public(p0_limbs);
+            // Deserialize P0 using FrCodec
+            std::span<const ProofFF, FRS_PER_POINT> p0_limbs(inner_proof.data(), FRS_PER_POINT);
+            Commitment P0 = FrCodec::deserialize_from_fields<Commitment>(p0_limbs);
 
             // Tamper: P0 + G (still on curve, but invalid for verification)
             Commitment tampered = P0 + Commitment::one();
 
             // Serialize back based on curve type
-            if constexpr (FRS_PER_POINT == 8) {
-                // BN254: 4 limbs per coordinate
+            if constexpr (FRS_PER_POINT == 4) {
+                // BN254: 2 limbs per coordinate (136 bits each)
                 constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
                 uint256_t x_val = uint256_t(tampered.x);
                 uint256_t y_val = uint256_t(tampered.y);
-                for (size_t i = 0; i < 4; ++i) {
-                    inner_proof[i] = ProofFF((x_val >> (i * NUM_LIMB_BITS)) & LIMB_MASK);
-                    inner_proof[i + 4] = ProofFF((y_val >> (i * NUM_LIMB_BITS)) & LIMB_MASK);
-                }
+                inner_proof[0] = ProofFF(x_val & LIMB_MASK);
+                inner_proof[1] = ProofFF((x_val >> NUM_LIMB_BITS) & LIMB_MASK);
+                inner_proof[2] = ProofFF(y_val & LIMB_MASK);
+                inner_proof[3] = ProofFF((y_val >> NUM_LIMB_BITS) & LIMB_MASK);
             } else if constexpr (FRS_PER_POINT == 2) {
                 // Grumpkin: 1 field element per coordinate
                 inner_proof[0] = ProofFF(tampered.x);
                 inner_proof[1] = ProofFF(tampered.y);
             } else {
-                static_assert(FRS_PER_POINT == 8 || FRS_PER_POINT == 2,
-                              "Unsupported curve: FRS_PER_POINT must be 8 (BN254) or 2 (Grumpkin)");
+                static_assert(FRS_PER_POINT == 4 || FRS_PER_POINT == 2,
+                              "Unsupported curve: FRS_PER_POINT must be 4 (BN254) or 2 (Grumpkin)");
             }
         }
     }

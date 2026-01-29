@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -63,11 +64,12 @@ template <typename Curve_> class PairingPoints {
      */
     static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs_in)
     {
+        using Codec = FrCodec;
         const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P0_limbs(limbs_in.data(), Point::PUBLIC_INPUTS_SIZE);
         const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P1_limbs(limbs_in.data() + Point::PUBLIC_INPUTS_SIZE,
                                                                           Point::PUBLIC_INPUTS_SIZE);
-        Point P0 = Point::reconstruct_from_public(P0_limbs);
-        Point P1 = Point::reconstruct_from_public(P1_limbs);
+        Point P0 = Codec::deserialize_from_fields<Point>(P0_limbs);
+        Point P1 = Codec::deserialize_from_fields<Point>(P1_limbs);
 
         return PairingPoints<Curve>{ P0, P1 };
     }
