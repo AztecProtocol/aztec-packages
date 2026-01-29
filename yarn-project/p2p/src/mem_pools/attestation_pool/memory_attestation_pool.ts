@@ -1,17 +1,11 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposal,
-  CheckpointProposalCore,
-} from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
-import type { AttestationPool } from './attestation_pool.js';
-import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
+import type { AttestationPool, TryAddProposalResult } from './attestation_pool.js';
+import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_POSITION, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<CheckpointAttestation>;
@@ -26,6 +20,16 @@ export class InMemoryAttestationPool implements AttestationPool {
   >;
   private checkpointProposals: Map<string, CheckpointProposalCore>;
 
+  // Checkpoint proposals indexed by slot for duplicate detection
+  // Key: slot number, Value: Set of proposal archives
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private checkpointProposalsForSlot: Map<SlotNumber, Set<string>>;
+
+  // Block proposals indexed by position for duplicate detection
+  // Key: slot number, Value: Map of "indexWithinCheckpoint" -> Set of archives
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private blockProposalsForSlot: Map<SlotNumber, Map<number, Set<string>>>;
+
   constructor(
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p:attestation_pool'),
@@ -33,6 +37,8 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.proposals = new Map();
     this.checkpointAttestations = new Map();
     this.checkpointProposals = new Map();
+    this.checkpointProposalsForSlot = new Map();
+    this.blockProposalsForSlot = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
 
@@ -46,64 +52,115 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve(this.checkpointAttestations.size === 0 && this.proposals.size === 0);
   }
 
-  public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+  public tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+    const proposalId = blockProposal.archive.toString();
+    const slot = blockProposal.slotNumber;
+    const index = blockProposal.indexWithinCheckpoint;
+
+    // 1. Check if already exists
+    const alreadyExists = this.proposals.has(proposalId);
+    if (alreadyExists) {
+      const totalForPosition = this.getBlockProposalCountForPosition(slot, index);
+      return Promise.resolve({ added: false, alreadyExists: true, totalForPosition });
+    }
+
+    // 2. Get current count for position
+    const totalForPosition = this.getBlockProposalCountForPosition(slot, index);
+
+    // 3. Check cap
+    if (totalForPosition >= MAX_PROPOSALS_PER_POSITION) {
+      return Promise.resolve({ added: false, alreadyExists: false, totalForPosition });
+    }
+
+    // 4. Add the proposal
+    this.addBlockProposal(blockProposal);
+
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 });
+  }
+
+  /** Gets the count of block proposals for a given position (slot, indexWithinCheckpoint). */
+  private getBlockProposalCountForPosition(slot: SlotNumber, indexWithinCheckpoint: number): number {
+    const slotMap = this.blockProposalsForSlot.get(slot);
+    if (!slotMap) {
+      return 0;
+    }
+    const archives = slotMap.get(indexWithinCheckpoint);
+    return archives?.size ?? 0;
+  }
+
+  private addBlockProposal(blockProposal: BlockProposal): void {
     // Strip signedTxs before storing to avoid holding full tx data in memory
     this.proposals.set(blockProposal.archive.toString(), blockProposal.withoutSignedTxs());
-    return Promise.resolve();
+
+    // Index by slot and position for duplicate detection
+    const slot = blockProposal.slotNumber;
+    const index = blockProposal.indexWithinCheckpoint;
+    const archive = blockProposal.archive.toString();
+
+    if (!this.blockProposalsForSlot.has(slot)) {
+      this.blockProposalsForSlot.set(slot, new Map());
+    }
+    const slotMap = this.blockProposalsForSlot.get(slot)!;
+    if (!slotMap.has(index)) {
+      slotMap.set(index, new Set());
+    }
+    slotMap.get(index)!.add(archive);
   }
 
   public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return Promise.resolve(this.proposals.has(id));
-  }
-
-  public canAddProposal(_block: BlockProposal): Promise<boolean> {
-    // TODO(palla/mbps): See when to allow
-    return Promise.resolve(true);
-  }
-
   // Checkpoint attestation methods
 
-  public async addCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
-    if (!(await this.canAddCheckpointProposal(proposal))) {
-      throw new ProposalSlotCapExceededError(
-        `Maximum checkpoint proposals per slot reached: slot=${proposal.slotNumber} cap=${MAX_PROPOSALS_PER_SLOT} proposal=${proposal.archive.toString()}`,
-      );
+  public tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult> {
+    const proposalId = proposal.archive.toString();
+
+    // 1. Check if already exists
+    const alreadyExists = this.checkpointProposals.has(proposalId);
+    if (alreadyExists) {
+      const totalForPosition = this.getCheckpointProposalCountForSlot(proposal.slotNumber);
+      return Promise.resolve({ added: false, alreadyExists: true, totalForPosition });
     }
 
-    // Extract and validate the block proposal if present
-    const blockProposal = proposal.getBlockProposal();
-    if (blockProposal && !(await this.canAddProposal(blockProposal))) {
-      throw new ProposalSlotCapExceededError(
-        `Maximum block proposals per slot reached when extracting from checkpoint: slot=${proposal.slotNumber} proposal=${blockProposal.archive.toString()}`,
-      );
+    // 2. Get current count for slot
+    const totalForPosition = this.getCheckpointProposalCountForSlot(proposal.slotNumber);
+
+    // 3. Check cap
+    if (totalForPosition >= MAX_PROPOSALS_PER_SLOT) {
+      return Promise.resolve({ added: false, alreadyExists: false, totalForPosition });
     }
 
-    const slotProposalMapping = getCheckpointSlotOrDefault(this.checkpointAttestations, proposal.slotNumber);
-    slotProposalMapping.set(proposal.archive.toString(), new Map<string, CheckpointAttestation>());
+    // 4. Add the proposal
+    this.addCheckpointProposal(proposal);
 
-    // Store the checkpoint proposal as core (without lastBlock) to avoid duplication
-    this.checkpointProposals.set(proposal.archive.toString(), proposal.toCore());
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 });
+  }
 
-    // Store the extracted block proposal separately
-    if (blockProposal) {
-      this.proposals.set(blockProposal.archive.toString(), blockProposal.withoutSignedTxs());
+  /** Gets the count of checkpoint proposals for a given slot. */
+  private getCheckpointProposalCountForSlot(slot: SlotNumber): number {
+    return this.checkpointProposalsForSlot.get(slot)?.size ?? 0;
+  }
+
+  private addCheckpointProposal(proposal: CheckpointProposalCore): void {
+    const proposalId = proposal.archive.toString();
+    const slot = proposal.slotNumber;
+
+    const slotProposalMapping = getCheckpointSlotOrDefault(this.checkpointAttestations, slot);
+    slotProposalMapping.set(proposalId, new Map<string, CheckpointAttestation>());
+
+    // Store the checkpoint proposal
+    this.checkpointProposals.set(proposalId, proposal);
+
+    // Index by slot for duplicate detection
+    if (!this.checkpointProposalsForSlot.has(slot)) {
+      this.checkpointProposalsForSlot.set(slot, new Set());
     }
-
-    return Promise.resolve();
+    this.checkpointProposalsForSlot.get(slot)!.add(proposalId);
   }
 
   public getCheckpointProposal(id: string): Promise<CheckpointProposalCore | undefined> {
     return Promise.resolve(this.checkpointProposals.get(id));
-  }
-
-  public hasCheckpointProposal(idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return Promise.resolve(this.checkpointProposals.has(id));
   }
 
   public addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
@@ -159,8 +216,8 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  public deleteCheckpointAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
-    const olderThan = [];
+  public deleteOlderThan(oldestSlot: SlotNumber): Promise<void> {
+    const olderThan: SlotNumber[] = [];
 
     const slots = this.checkpointAttestations.keys();
     for (const slot of slots) {
@@ -175,14 +232,17 @@ export class InMemoryAttestationPool implements AttestationPool {
       const proposalIds = this.checkpointAttestations.get(oldSlot)?.keys();
       proposalIds?.forEach(proposalId => this.checkpointProposals.delete(proposalId));
       this.checkpointAttestations.delete(oldSlot);
+      this.checkpointProposalsForSlot.delete(oldSlot);
     }
-    return Promise.resolve();
-  }
 
-  public hasReachedCheckpointProposalCap(slot: SlotNumber): Promise<boolean> {
-    const slotAttestationMap = this.checkpointAttestations.get(slot);
-    const proposalCount = slotAttestationMap?.size ?? 0;
-    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
+    // Also clean up block proposals for old slots
+    for (const slot of this.blockProposalsForSlot.keys()) {
+      if (slot < oldestSlot) {
+        this.blockProposalsForSlot.delete(slot);
+      }
+    }
+
+    return Promise.resolve();
   }
 
   public hasReachedCheckpointAttestationCap(
@@ -193,13 +253,6 @@ export class InMemoryAttestationPool implements AttestationPool {
     const limit = committeeSize + ATTESTATION_CAP_BUFFER;
     const count = this.checkpointAttestations.get(slot)?.get(proposalId)?.size ?? 0;
     return Promise.resolve(limit <= 0 || count >= limit);
-  }
-
-  public async canAddCheckpointProposal(proposal: CheckpointProposal): Promise<boolean> {
-    return (
-      this.checkpointProposals.has(proposal.archive.toString()) ||
-      !(await this.hasReachedCheckpointProposalCap(proposal.slotNumber))
-    );
   }
 
   public async canAddCheckpointAttestation(

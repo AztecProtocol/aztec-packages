@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -11,39 +11,49 @@ import {
 } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
-import type { AttestationPool } from './attestation_pool.js';
+import type { AttestationPool, TryAddProposalResult } from './attestation_pool.js';
 
 export const MAX_PROPOSALS_PER_SLOT = 5;
+export const MAX_PROPOSALS_PER_POSITION = 3;
 export const ATTESTATION_CAP_BUFFER = 10;
 
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<CheckpointAttestation>;
 
-  private proposals: AztecAsyncMap<
-    /*  proposal.payload.archive  */ string,
-    /* buffer representation of proposal */ Buffer
-  >;
-
-  // Checkpoint attestation storage
+  // Checkpoint attestations from attestation key (slot-proposalId-signer) to serialized CheckpointAttestation
+  // Keys are lexicographically sortable allowing range queries by slot or by (slot, proposalId)
   private checkpointAttestations: AztecAsyncMap<string, Buffer>;
+
+  // Checkpoint proposals from proposal archive to serialized CheckpointProposal
   private checkpointProposals: AztecAsyncMap<string, Buffer>;
+
+  // Checkpoint proposals indexed by slot for querying all proposals in a slot
+  // Key: slot number, Value: proposal archive strings
   private checkpointProposalsForSlot: AztecAsyncMultiMap<number, string>;
-  private checkpointAttestationsForProposal: AztecAsyncMultiMap<string, string>;
+
+  // Block proposals from proposal archive to serialized BlockProposal
+  private blockProposals: AztecAsyncMap<string, Buffer>;
+
+  // Block proposals indexed by slot and index-within-checkpoint for duplicate detection
+  // Key: (slot << 10) | indexWithinCheckpoint, Value: archive string
+  private blockProposalsForSlotAndIndex: AztecAsyncMultiMap<number, string>;
 
   constructor(
     private store: AztecAsyncKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('aztec:attestation_pool'),
   ) {
-    this.proposals = store.openMap('proposals');
+    // Initialize block proposal storage
+    this.blockProposals = store.openMap('proposals');
+    this.blockProposalsForSlotAndIndex = store.openMultiMap('block_proposals_for_slot_and_index');
 
-    // Initialize checkpoint attestation storage
+    // Initialize checkpoint attestations storage
     this.checkpointAttestations = store.openMap('checkpoint_attestations');
+
+    // Initialize checkpoint proposal storage
     this.checkpointProposals = store.openMap('checkpoint_proposals');
     this.checkpointProposalsForSlot = store.openMultiMap('checkpoint_proposals_for_slot');
-    this.checkpointAttestationsForProposal = store.openMultiMap('checkpoint_attestations_for_proposal');
 
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
@@ -58,7 +68,7 @@ export class KvAttestationPool implements AttestationPool {
     for await (const _ of this.checkpointAttestations.entriesAsync()) {
       return false;
     }
-    for await (const _ of this.proposals.entriesAsync()) {
+    for await (const _ of this.blockProposals.entriesAsync()) {
       return false;
     }
     return true;
@@ -80,16 +90,85 @@ export class KvAttestationPool implements AttestationPool {
     return `${this.getProposalKey(slot, proposalId)}-${address}`;
   }
 
-  public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+  /** Returns range bounds for querying all attestations for a given slot. */
+  private getAttestationKeyRangeForSlot(slot: SlotNumber): { start: string; end: string } {
+    const slotStr = new Fr(slot).toString();
+    return { start: `${slotStr}-`, end: `${slotStr}-Z` }; // 'Z' sorts after any hex character
+  }
+
+  /** Returns range bounds for querying all attestations for a given (slot, proposalId). */
+  private getAttestationKeyRangeForProposal(slot: SlotNumber, proposalId: string): { start: string; end: string } {
+    const proposalKey = this.getProposalKey(slot, proposalId);
+    return { start: `${proposalKey}-`, end: `${proposalKey}-Z` };
+  }
+
+  /** Number of bits reserved for indexWithinCheckpoint in position keys. */
+  private static readonly INDEX_BITS = 10;
+  /** Maximum indexWithinCheckpoint value (2^10 - 1 = 1023). */
+  private static readonly MAX_INDEX = (1 << KvAttestationPool.INDEX_BITS) - 1;
+
+  /** Creates a position key for block proposals: (slot << 10) | indexWithinCheckpoint. */
+  private getBlockPositionKey(slot: number, indexWithinCheckpoint: number): number {
+    if (indexWithinCheckpoint > KvAttestationPool.MAX_INDEX) {
+      throw new Error(
+        `Value for indexWithinCheckpoint ${indexWithinCheckpoint} exceeds maximum ${KvAttestationPool.MAX_INDEX}`,
+      );
+    }
+    return (slot << KvAttestationPool.INDEX_BITS) | indexWithinCheckpoint;
+  }
+
+  public async tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+    const proposalId = blockProposal.archive.toString();
+
+    // Check if already exists
+    const alreadyExists = await this.blockProposals.hasAsync(proposalId);
+    if (alreadyExists) {
+      const totalForPosition = await this.getBlockProposalCountForPosition(
+        blockProposal.slotNumber,
+        blockProposal.indexWithinCheckpoint,
+      );
+      return { added: false, alreadyExists: true, totalForPosition };
+    }
+
+    // Get current count for position and check cap, do not add if exceeded
+    const totalForPosition = await this.getBlockProposalCountForPosition(
+      blockProposal.slotNumber,
+      blockProposal.indexWithinCheckpoint,
+    );
+
+    if (totalForPosition >= MAX_PROPOSALS_PER_POSITION) {
+      return { added: false, alreadyExists: false, totalForPosition };
+    }
+
+    // Add the proposal
+    await this.addBlockProposal(blockProposal);
+
+    return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
+  }
+
+  /** Gets the count of block proposals for a given position (slot, indexWithinCheckpoint). */
+  private getBlockProposalCountForPosition(
+    slot: SlotNumber,
+    indexWithinCheckpoint: IndexWithinCheckpoint,
+  ): Promise<number> {
+    const positionKey = this.getBlockPositionKey(slot, indexWithinCheckpoint);
+    return this.blockProposalsForSlotAndIndex.getValueCountAsync(positionKey);
+  }
+
+  private async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     await this.store.transactionAsync(async () => {
       const proposalId = blockProposal.archive.toString();
       // Strip signedTxs before storing to avoid persisting full tx data
-      await this.proposals.set(proposalId, blockProposal.withoutSignedTxs().toBuffer());
+      await this.blockProposals.set(proposalId, blockProposal.withoutSignedTxs().toBuffer());
+
+      // Index by slot and position for duplicate detection
+      const positionKey = this.getBlockPositionKey(blockProposal.slotNumber, blockProposal.indexWithinCheckpoint);
+      await this.blockProposalsForSlotAndIndex.set(positionKey, proposalId);
     });
   }
 
   public async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
-    const buffer = await this.proposals.getAsync(id);
+    const buffer = await this.blockProposals.getAsync(id);
     try {
       if (buffer && buffer.length > 0) {
         return BlockProposal.fromBuffer(buffer);
@@ -101,38 +180,35 @@ export class KvAttestationPool implements AttestationPool {
     return Promise.resolve(undefined);
   }
 
-  public async hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return await this.proposals.hasAsync(id);
+  public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult> {
+    const proposalId = proposal.archive.toString();
+
+    // Check if already exists
+    const alreadyExists = await this.checkpointProposals.hasAsync(proposalId);
+    if (alreadyExists) {
+      const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+      return { added: false, alreadyExists: true, totalForPosition };
+    }
+
+    // Get current count for slot and check cap
+    const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+    if (totalForPosition >= MAX_PROPOSALS_PER_SLOT) {
+      return { added: false, alreadyExists: false, totalForPosition };
+    }
+
+    // Add the proposal if cap not exceeded
+    await this.addCheckpointProposal(proposal);
+
+    return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
   }
 
-  public async addCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
-    if (!(await this.canAddCheckpointProposal(proposal))) {
-      throw new ProposalSlotCapExceededError(
-        `Maximum checkpoint proposals per slot reached: slot=${proposal.slotNumber} cap=${MAX_PROPOSALS_PER_SLOT} proposal=${proposal.archive.toString()}`,
-      );
-    }
-
-    // Extract and validate the block proposal if present
-    const blockProposal = proposal.getBlockProposal();
-    if (blockProposal && !(await this.canAddProposal(blockProposal))) {
-      throw new ProposalSlotCapExceededError(
-        `Maximum block proposals per slot reached when extracting from checkpoint: slot=${proposal.slotNumber} proposal=${blockProposal.archive.toString()}`,
-      );
-    }
-
+  private async addCheckpointProposal(proposal: CheckpointProposalCore): Promise<void> {
     await this.store.transactionAsync(async () => {
       const slotKey = proposal.slotNumber;
       const proposalId = proposal.archive.toString();
 
       await this.checkpointProposalsForSlot.set(slotKey, proposalId);
-      // Store the checkpoint proposal as core (without lastBlock) to avoid duplication
-      await this.checkpointProposals.set(proposalId, proposal.toCore().toBuffer());
-
-      // Store the extracted block proposal separately
-      if (blockProposal) {
-        await this.proposals.set(blockProposal.archive.toString(), blockProposal.withoutSignedTxs().toBuffer());
-      }
+      await this.checkpointProposals.set(proposalId, proposal.toBuffer());
     });
   }
 
@@ -147,11 +223,6 @@ export class KvAttestationPool implements AttestationPool {
     }
 
     return Promise.resolve(undefined);
-  }
-
-  public async hasCheckpointProposal(idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return await this.checkpointProposals.hasAsync(id);
   }
 
   public async addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
@@ -178,12 +249,6 @@ export class KvAttestationPool implements AttestationPool {
           attestation.toBuffer(),
         );
 
-        await this.checkpointProposalsForSlot.set(slotNumber, proposalId.toString());
-        await this.checkpointAttestationsForProposal.set(
-          this.getProposalKey(slotNumber, proposalId),
-          this.getAttestationKey(slotNumber, proposalId, address),
-        );
-
         this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${address}`, {
           signature: attestation.signature.toString(),
           slotNumber,
@@ -195,11 +260,11 @@ export class KvAttestationPool implements AttestationPool {
   }
 
   public async getCheckpointAttestationsForSlot(slot: SlotNumber): Promise<CheckpointAttestation[]> {
-    const proposalIds = await toArray(this.checkpointProposalsForSlot.getValuesAsync(slot));
+    const range = this.getAttestationKeyRangeForSlot(slot);
     const attestations: CheckpointAttestation[] = [];
 
-    for (const proposalId of proposalIds) {
-      attestations.push(...(await this.getCheckpointAttestationsForSlotAndProposal(slot, proposalId)));
+    for await (const [_, buf] of this.checkpointAttestations.entriesAsync(range)) {
+      attestations.push(CheckpointAttestation.fromBuffer(buf));
     }
 
     return attestations;
@@ -209,53 +274,54 @@ export class KvAttestationPool implements AttestationPool {
     slot: SlotNumber,
     proposalId: string,
   ): Promise<CheckpointAttestation[]> {
-    const attestationIds = await toArray(
-      this.checkpointAttestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
-    );
+    const range = this.getAttestationKeyRangeForProposal(slot, proposalId);
     const attestations: CheckpointAttestation[] = [];
 
-    for (const id of attestationIds) {
-      const buf = await this.checkpointAttestations.getAsync(id);
-
-      if (!buf) {
-        throw new Error('Checkpoint attestation not found ' + id);
-      }
-
-      const attestation = CheckpointAttestation.fromBuffer(buf);
-      attestations.push(attestation);
+    for await (const [_, buf] of this.checkpointAttestations.entriesAsync(range)) {
+      attestations.push(CheckpointAttestation.fromBuffer(buf));
     }
 
     return attestations;
   }
 
-  public async deleteCheckpointAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
-    const olderThan = await toArray(this.checkpointProposalsForSlot.keysAsync({ end: oldestSlot }));
-    for (const oldSlot of olderThan) {
-      await this.deleteCheckpointAttestationsForSlot(SlotNumber(oldSlot));
-    }
-  }
-
-  private async deleteCheckpointAttestationsForSlot(slot: SlotNumber): Promise<void> {
+  public async deleteOlderThan(oldestSlot: SlotNumber): Promise<void> {
     let numberOfAttestations = 0;
+    let numberOfCheckpointProposals = 0;
+    let numberOfBlockPositions = 0;
+
     await this.store.transactionAsync(async () => {
-      const proposalIds = await toArray(this.checkpointProposalsForSlot.getValuesAsync(slot));
-      for (const proposalId of proposalIds) {
-        const attestations = await toArray(
-          this.checkpointAttestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
-        );
-
-        numberOfAttestations += attestations.length;
-        for (const attestation of attestations) {
-          await this.checkpointAttestations.delete(attestation);
-        }
-
-        await this.checkpointProposals.delete(proposalId);
-        await this.checkpointAttestationsForProposal.delete(this.getProposalKey(slot, proposalId));
+      // Delete checkpoint attestations with slot < oldestSlot
+      // Attestation keys start with Fr(slot).toString(), so we use end bound of Fr(oldestSlot).toString()
+      const attestationEndKey = new Fr(oldestSlot).toString();
+      for await (const key of this.checkpointAttestations.keysAsync({ end: attestationEndKey })) {
+        await this.checkpointAttestations.delete(key);
+        numberOfAttestations++;
       }
 
-      await this.checkpointProposalsForSlot.delete(slot);
+      // Delete checkpoint proposals for slots < oldestSlot, using checkpointProposalsForSlot as index
+      for await (const slot of this.checkpointProposalsForSlot.keysAsync({ end: oldestSlot })) {
+        const proposalIds = await toArray(this.checkpointProposalsForSlot.getValuesAsync(slot));
+        for (const proposalId of proposalIds) {
+          await this.checkpointProposals.delete(proposalId);
+          numberOfCheckpointProposals++;
+        }
+        await this.checkpointProposalsForSlot.delete(slot);
+      }
 
-      this.log.verbose(`Removed ${numberOfAttestations} checkpoint attestations for slot ${slot}`);
+      // Delete block proposal position index for slots < oldestSlot
+      // Key format: (slot << INDEX_BITS) | indexWithinCheckpoint
+      const blockPositionEndKey = oldestSlot << KvAttestationPool.INDEX_BITS;
+      for await (const positionKey of this.blockProposalsForSlotAndIndex.keysAsync({ end: blockPositionEndKey })) {
+        await this.blockProposalsForSlotAndIndex.delete(positionKey);
+        numberOfBlockPositions++;
+      }
+    });
+
+    this.log.verbose(`Deleted old pool data`, {
+      oldestSlot,
+      numberOfAttestations,
+      numberOfCheckpointProposals,
+      numberOfBlockPositions,
     });
   }
 
@@ -275,19 +341,6 @@ export class KvAttestationPool implements AttestationPool {
     return await this.checkpointAttestations.hasAsync(key);
   }
 
-  public canAddProposal(_block: BlockProposal): Promise<boolean> {
-    // TODO(palla/mbps): implement proposal cap logic
-    return Promise.resolve(true);
-  }
-
-  public async canAddCheckpointProposal(proposal: CheckpointProposal): Promise<boolean> {
-    // TODO(palla/mbps): Adjust checkpoint proposal limit to 1. Also connect to slashing condition in the caller.
-    return (
-      (await this.checkpointProposals.hasAsync(proposal.archive.toString())) ||
-      !(await this.hasReachedCheckpointProposalCap(proposal.slotNumber))
-    );
-  }
-
   public async canAddCheckpointAttestation(
     attestation: CheckpointAttestation,
     committeeSize: number,
@@ -302,19 +355,20 @@ export class KvAttestationPool implements AttestationPool {
     );
   }
 
-  public async hasReachedCheckpointProposalCap(slot: SlotNumber): Promise<boolean> {
-    const uniqueProposalCount = await this.checkpointProposalsForSlot.getValueCountAsync(slot);
-    return uniqueProposalCount >= MAX_PROPOSALS_PER_SLOT;
-  }
-
   public async hasReachedCheckpointAttestationCap(
     slot: SlotNumber,
     proposalId: string,
     committeeSize: number,
   ): Promise<boolean> {
     const limit = committeeSize + ATTESTATION_CAP_BUFFER;
-    return (
-      (await this.checkpointAttestationsForProposal.getValueCountAsync(this.getProposalKey(slot, proposalId))) >= limit
-    );
+    const range = this.getAttestationKeyRangeForProposal(slot, proposalId);
+    let count = 0;
+    for await (const _ of this.checkpointAttestations.keysAsync(range)) {
+      count++;
+      if (count >= limit) {
+        return true;
+      }
+    }
+    return false;
   }
 }

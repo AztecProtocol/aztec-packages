@@ -12,7 +12,7 @@ import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
 
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPool, TryAddProposalResult } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 
@@ -150,37 +150,31 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
 export class InMemoryAttestationPool implements AttestationPool {
   private proposals = new Map<string, BlockProposal>();
 
-  addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    this.proposals.set(blockProposal.archive.toString(), blockProposal);
-    return Promise.resolve();
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+    const id = blockProposal.archive.toString();
+    const alreadyExists = this.proposals.has(id);
+    if (alreadyExists) {
+      return Promise.resolve({ added: false, alreadyExists: true, totalForPosition: 1 });
+    }
+    this.proposals.set(id, blockProposal);
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
   }
 
   getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return Promise.resolve(this.proposals.has(id));
+  tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddProposalResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
   }
-
-  canAddProposal(_block: BlockProposal): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  async addCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {}
 
   getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
     return Promise.resolve(undefined);
   }
 
-  hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
   async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
 
-  async deleteCheckpointAttestationsOlderThan(_slot: SlotNumber): Promise<void> {}
+  async deleteOlderThan(_slot: SlotNumber): Promise<void> {}
 
   getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
     return Promise.resolve([]);
@@ -197,16 +191,8 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve(false);
   }
 
-  canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
   canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
     return Promise.resolve(true);
-  }
-
-  hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
-    return Promise.resolve(false);
   }
 
   hasReachedCheckpointAttestationCap(_slot: SlotNumber, _proposalId: string, _committeeSize: number): Promise<boolean> {

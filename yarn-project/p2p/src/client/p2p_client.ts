@@ -39,7 +39,12 @@ import {
   type ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
-import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback, P2PService } from '../services/service.js';
+import type {
+  DuplicateProposalInfo,
+  P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
+  P2PService,
+} from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { TxProvider } from '../services/tx_provider.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
@@ -329,7 +334,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
     // Store our own proposal so we can respond to req/resp requests for it
-    await this.attestationPool.addBlockProposal(proposal);
+    const { totalForPosition } = await this.attestationPool.tryAddBlockProposal(proposal);
+    if (totalForPosition > 1) {
+      throw new Error(`Attempted to broadcast a duplicate block proposal for slot ${proposal.slotNumber}`);
+    }
     return this.p2pService.propagate(proposal);
   }
 
@@ -369,6 +377,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public registerCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
     this.p2pService.registerCheckpointReceivedCallback(handler);
+  }
+
+  public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
+    this.p2pService.registerDuplicateProposalCallback(callback);
   }
 
   /**
@@ -735,7 +747,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.txPool.deleteTxs(txHashes, { permanently: true });
     await this.txPool.cleanupDeletedMinedTxs(lastBlockNum);
 
-    await this.attestationPool.deleteCheckpointAttestationsOlderThan(lastBlockSlot);
+    await this.attestationPool.deleteOlderThan(lastBlockSlot);
 
     this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
   }

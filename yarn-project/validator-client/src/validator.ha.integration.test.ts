@@ -116,13 +116,15 @@ describe('ValidatorClient HA Integration', () => {
     keyStoreManager = new KeystoreManager(keyStore);
 
     // Create 5 HA validator instances for use across all tests
-    const baseConfig: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> = {
+    const baseConfig: ValidatorClientConfig &
+      Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty'> = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
@@ -161,7 +163,8 @@ describe('ValidatorClient HA Integration', () => {
    */
   async function createHAValidator(
     pool: Pool,
-    config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
+    config: ValidatorClientConfig &
+      Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty'>,
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
     pools.push(pool);

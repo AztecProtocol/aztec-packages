@@ -18,6 +18,7 @@ export interface SlasherConfig {
   slashDataWithholdingPenalty: bigint;
   slashInactivityPenalty: bigint;
   slashBroadcastedInvalidBlockPenalty: bigint;
+  slashDuplicateProposalPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
   slashUnknownPenalty: bigint;
@@ -40,6 +41,7 @@ export const SlasherConfigSchema = zodFor<SlasherConfig>()(
     slashInactivityConsecutiveEpochThreshold: z.number(),
     slashInactivityPenalty: schemas.BigInt,
     slashProposeInvalidAttestationsPenalty: schemas.BigInt,
+    slashDuplicateProposalPenalty: schemas.BigInt,
     slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
     slashUnknownPenalty: schemas.BigInt,
     slashOffenseExpirationRounds: z.number(),
