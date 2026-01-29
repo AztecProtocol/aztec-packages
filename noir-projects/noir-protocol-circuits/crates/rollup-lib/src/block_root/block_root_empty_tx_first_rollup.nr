@@ -7,7 +7,6 @@ use types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
-    blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH},
     proof::proof_data::UltraHonkProofData,
 };

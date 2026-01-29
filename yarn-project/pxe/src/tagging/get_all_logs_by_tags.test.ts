@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -13,7 +13,7 @@ import { getAllPrivateLogsByTags } from './get_all_logs_by_tags.js';
 // We don't bother testing getAllPublicLogsByTagsFromContract because both of the functions are a simple wrapper around
 // getAllPages function so just testing the private logs function is enough.
 
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('getAllPrivateLogsByTags', () => {
   let aztecNode: MockProxy<AztecNode>;

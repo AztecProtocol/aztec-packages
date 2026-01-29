@@ -5,7 +5,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { schemas } from '../schemas/schemas.js';
 
 /** Hash of an L2 block. */
-export class L2BlockHash extends Buffer32 {
+export class BlockHash extends Buffer32 {
   constructor(
     /** The buffer containing the hash. */
     hash: Buffer,
@@ -14,12 +14,12 @@ export class L2BlockHash extends Buffer32 {
   }
 
   /**
-   * Type guard that checks if a value is an L2BlockHash instance.
+   * Type guard that checks if a value is an BlockHash instance.
    * Uses duck typing to handle cases where instanceof fails due to module duplication.
    * Checks for Buffer32-like structure with a 32-byte buffer.
    */
-  static isL2BlockHash(value: unknown): value is L2BlockHash {
-    if (value instanceof L2BlockHash) {
+  static isL2BlockHash(value: unknown): value is BlockHash {
+    if (value instanceof BlockHash) {
       return true;
     }
     // Duck typing fallback: check if it looks like a Buffer32 with a 32-byte buffer
@@ -36,31 +36,35 @@ export class L2BlockHash extends Buffer32 {
   }
 
   static override random() {
-    return new L2BlockHash(Fr.random().toBuffer());
+    return new BlockHash(Fr.random().toBuffer());
   }
 
-  static override fromNumber(num: number): L2BlockHash {
-    return new L2BlockHash(super.fromNumber(num).toBuffer());
+  static override fromNumber(num: number): BlockHash {
+    return new BlockHash(super.fromNumber(num).toBuffer());
   }
 
   static override fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new L2BlockHash(reader.readBytes(L2BlockHash.SIZE));
+    return new BlockHash(reader.readBytes(BlockHash.SIZE));
   }
 
-  static override fromString(str: string): Buffer32 {
-    return new L2BlockHash(super.fromString(str).toBuffer());
+  static override fromString(str: string): BlockHash {
+    return new BlockHash(super.fromString(str).toBuffer());
   }
 
   static get schema() {
-    return schemas.BufferHex.transform(value => new L2BlockHash(value));
+    return schemas.BufferHex.transform(value => new BlockHash(value));
   }
 
   static zero() {
-    return new L2BlockHash(Buffer32.ZERO.toBuffer());
+    return new BlockHash(Buffer32.ZERO.toBuffer());
   }
 
   static override fromField(hash: Fr) {
-    return new L2BlockHash(hash.toBuffer());
+    return new BlockHash(hash.toBuffer());
+  }
+
+  toField(): Fr {
+    return Fr.fromBuffer(this.toBuffer());
   }
 }

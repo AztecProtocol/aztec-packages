@@ -6,13 +6,13 @@ use types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-/// Validates that the `sorted_padded_transformed_array` is sorted in ascending order by counter and that all
+/// Validates that the `output_array` is sorted in ascending order by counter and that all
 /// transformations and padding are correctly applied.
 ///
 /// ### Arguments
 /// - `original_array`: The original array of unsorted items with a claimed length.
-/// - `padded_items`: The array of padded items to be added to the `sorted_padded_transformed_array`.
-/// - `sorted_padded_transformed_array`: The array of items that have been sorted, padded, and transformed.
+/// - `padded_items`: The array of padded items to be added to the `output_array`.
+/// - `output_array`: The array of items that have been sorted, padded, and transformed.
 /// - `assert_transformed`: A user-provided assertion function that verifies the transformation of each item.
 ///
 /// ### Argument requirements:
@@ -23,28 +23,28 @@ use types::{
 /// - `assert_transformed` must guarantee that the transformed value is empty if and only if the original item is empty.
 ///
 /// This function checks that:
-/// 1. Each item in the `original_array` is correctly transformed and placed in the `sorted_padded_transformed_array`.
-/// 2. The items within the `sorted_padded_transformed_array` are sorted in ascending order by their counters.
+/// 1. Each item in the `original_array` is correctly transformed and placed in the `output_array`.
+/// 2. The items within the `output_array` are sorted in ascending order by their counters.
 /// 3. The items in the `padded_items` within the range [original_array.length, CappedSize) are correctly padded to the
-///    `sorted_padded_transformed_array` after the `original_array.length` items from `original_array`.
-/// 4. All items within the claimed length in the `sorted_padded_transformed_array` must have non-zero counter.
-/// 5. All items beyond the claimed length in the `sorted_padded_transformed_array` must have zero counter.
+///    `output_array` after the `original_array.length` items from `original_array`.
+/// 4. All items within the claimed length in the `output_array` must have non-zero counter.
+/// 5. All items beyond the claimed length in the `output_array` must have zero counter.
 ///
 /// ### Notes:
 /// 1. `CappedSize` must be large enough to cover all valid items in `original_array`
 ///    (i.e. `CappedSize >= original_array.length`).
 /// 2. Items in `padded_items` with index < `original_array.length` or >= `CappedSize` are ignored.
 /// 3. `is_transformed` does not need to validate counters. This function ensures that each item in
-///    `sorted_padded_transformed_array` has the same counter as its corresponding item in either `original_array` or
+///    `output_array` has the same counter as its corresponding item in either `original_array` or
 ///    `padded_items`.
 /// 4. This function can only be called at most once per side effect type. Once padded items have been added to the
-///   `sorted_padded_transformed_array`, the array cannot be used again as the `original_array` for this function.
-/// 5. The items beyond `CappedSize` in the `sorted_padded_transformed_array` must have a counter of 0, but their values
+///   `output_array`, the array cannot be used again as the `original_array` for this function.
+/// 5. The items beyond `CappedSize` in the `output_array` must have a counter of 0, but their values
 ///    are not checked here. However, if any of them are not nullish, the tail circuits will fail to validate that the
 ///    array is "dense trimmed". The non-nullish values cannot be used for squashing, since they are beyond the claimed
 ///    length of the array.
 ///
-/// Expected structure of the output `sorted_padded_transformed_array`:
+/// Expected structure of the output `output_array`:
 ///   [...sorted_items_from_original_array, ...padded_items, ...empty_items]
 ///
 /// Example:
@@ -60,7 +60,7 @@ use types::{
 pub fn assert_sorted_padded_transformed_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
     original_array: ClaimedLengthArray<Value, N>, // "kept" values (after squashing)
     padded_items: [Value; N],
-    sorted_padded_transformed_array: ClaimedLengthArray<TransformedValue, N>,
+    output_array: ClaimedLengthArray<TransformedValue, N>,
     // "Transformed" here means: "assert siloed" or "assert siloed & unique-ified".
     assert_transformed: fn[Env](Value, TransformedValue) -> (),
 )
@@ -71,7 +71,7 @@ where
     assert_sorted_padded_transformed_i_array_capped_size::<_, _, _, _, CappedSize>(
         original_array,
         padded_items,
-        sorted_padded_transformed_array,
+        output_array,
         |prev, out, _i| assert_transformed(prev, out),
     );
 }
@@ -87,19 +87,20 @@ where
     let mut num_padded_items = 0;
     for i in original_array_length..CappedSize {
         if padded_items[i].counter() == MAX_U32_VALUE {
+            // Only padding items have this counter.
             num_padded_items += 1;
         }
     }
     num_padded_items
 }
 
-/// Same as `assert_sorted_padded_transformed_array_capped_size`, but the callback `assert_transformed_i` has an
-/// additional index (`i`) argument.
+/// Same as `assert_sorted_padded_transformed_array_capped_size` (see that fn for more details), but this callback
+/// `assert_transformed_i` has an additional index (`i`) argument.
 /// Used for note hashes to compute the unique note hash value with the index.
 pub fn assert_sorted_padded_transformed_i_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
     original_array: ClaimedLengthArray<Value, N>,
     padded_items: [Value; N],
-    sorted_padded_transformed_array: ClaimedLengthArray<TransformedValue, N>,
+    output_array: ClaimedLengthArray<TransformedValue, N>,
     assert_transformed_i: fn[Env](Value, TransformedValue, u32) -> (),
 )
 where
@@ -107,7 +108,7 @@ where
     TransformedValue: Ordered + Empty,
 {
     // Safety: The hints are constrained by `assert_sorted_padded_transformed_i_array_capped_size_with_hints`.
-    let (sorted_index_hints, num_padded_items) = unsafe {
+    let (sorted_index_hints, num_padded_items_hint) = unsafe {
         let sorted_indexes = get_order_hints(original_array.array).sorted_indexes;
         let num_padded_items =
             get_num_padded_items(padded_items, original_array.length, CappedSize);
@@ -117,20 +118,23 @@ where
     assert_sorted_padded_transformed_i_array_capped_size_with_hints::<_, _, _, _, CappedSize>(
         original_array,
         padded_items,
-        sorted_padded_transformed_array,
+        output_array,
         assert_transformed_i,
         sorted_index_hints,
-        num_padded_items,
+        num_padded_items_hint,
     )
 }
 
+/// @param original_array - is technically the so-called `kept_` array that's already been through squashing; it's "original" from
+/// the perspective of this function and the transformations it will apply.
+/// @param CappedSize - is a comptime constant for the number of siloing iterations this variant of the circuit supports.
 fn assert_sorted_padded_transformed_i_array_capped_size_with_hints<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
     original_array: ClaimedLengthArray<Value, N>,
     padded_items: [Value; N],
-    sorted_padded_transformed_array: ClaimedLengthArray<TransformedValue, N>,
+    output_array: ClaimedLengthArray<TransformedValue, N>, // after sorting, siloing, padding, etc.
     assert_transformed_i: fn[Env](Value, TransformedValue, u32) -> (),
     sorted_index_hints: [u32; N],
-    num_padded_items: u32,
+    num_padded_items_hint: u32,
 )
 where
     Value: Ordered + Empty,
@@ -142,78 +146,88 @@ where
         "CappedSize not large enough to cover all valid items in original_array",
     );
 
-    // The claimed length of the result array is the original array length plus the hinted number of padded items.
+    // The claimed length of the result array (`output_array`) should be the original array length
+    // plus the hinted number of padded items.
     // It is checked below to ensure that all items within the claimed length do not have a counter of 0.
-    let result_array_length = original_array_length + num_padded_items;
+    // We also assert below that items between original_array_length and result_array_length (in the resulting array)
+    // have all the characteristics of padding items.
+    let result_array_length = original_array_length + num_padded_items_hint;
 
-    let mut should_be_padded = false;
+    let mut should_be_padding = false;
     let mut should_be_empty = false;
     for i in 0..N {
-        let output_item_i = sorted_padded_transformed_array.array[i];
+        let output_item_i = output_array.array[i];
 
         // Note: because `CappedSize` is known at compile-time, Noir is clever enough to only compute the `else` block
         // `CappedSize` number of times, instead of `N` times.
         // This is why we do siloing (via `assert_transformed_i`) in the reset circuit instead of the tail: we can
         // iterate over much smaller arrays by choosing a proper reset circuit variant.
         if i >= CappedSize {
-            // Ensure that all items with index >= `CappedSize` have a counter of 0.
+            // Ensure that all items with index >= `CappedSize` have a counter of 0. A counter of `0` implies
+            // the item is nullish (because all non-nullish items are assigned a counter by the Init / Inner kernels
+            // (or by this reset circuit in the case of padding items)).
             // It's fine that the value is not checked here, see Note 5 in the comment at the top to know why.
             // Without this check, an original item can be mapped to a trailing item.
             // For an example, see the test `use_items_outside_of_capped_size_to_add_random_item`.
             // Comment out this check and the test will fail because no error is raised.
             assert_eq(output_item_i.counter(), 0, "Trailing items must have counter 0");
         } else {
-            should_be_padded |= i == original_array_length;
+            should_be_padding |= i == original_array_length;
             should_be_empty |= i == result_array_length;
 
             let original = original_array.array[i];
             let sorted_index = sorted_index_hints[i];
             let padded_item = padded_items[i];
 
-            let (from, to_index) = if should_be_padded {
-                // For i >= `original_array.length`, `sorted_padded_transformed_array[i]` is from `padded_items[i]`.
+            // Naming: We're mapping "from" the original_array "to" the output_array:
+            let (from, to_index) = if should_be_padding {
+                // For i >= `original_array.length`, `output_array[i]` is from `padded_items[i]`.
                 (padded_item, i)
             } else {
                 // For i < `original_array.length`, we loop through the items in `original_array`, ensuring that every
                 // item within the range [0, original_array.length) is mapped to an item in the
-                // `sorted_padded_transformed_array` at `sorted_index`.
+                // `output_array` at `sorted_index`.
                 //
                 // We can be certain that `sorted_index` must be < `original_array.length`, because:
-                // - Items with index >= `CappedSize` in the `sorted_padded_transformed_array` have counter 0 (checked
+                // - Items with index >= `CappedSize` in the `output_array` have counter 0 (checked
                 //   in the above `if` block).
-                // - Items within the range [original_array.length, CappedSize) in the `sorted_padded_transformed_array`
-                //   are padded items, which must have a counter of `MAX_U32_VALUE` or 0.
+                // - Items within the range [original_array.length, result_array_length) in the `output_array`
+                //   are padded items, which must have a counter of `MAX_U32_VALUE`.
+                // - Items within the range [result_array_length, CappedSize) in the `output_array`
+                //   must have a counter of 0.
                 // - Items within the range [0, original_array.length) in the `original_array` must not have a counter
                 //   of 0 (requirement of the parameter) or `MAX_U32_VALUE` (checked above).
                 (original, sorted_index)
             };
 
             // Validate that the transformation of the value is correct.
-            let to = sorted_padded_transformed_array.array[to_index];
+            // "Transformation" =
+            // - Siloing (for nullifiers and logs)
+            // - Siloing and unique-ifying for notes.
+            let to = output_array.array[to_index];
             assert_transformed_i(from, to, to_index);
 
             // Validate that the counter of the transformed item matches the counter of the original/padded item.
             assert_eq(from.counter(), to.counter(), "mapped item has mismatch counter");
 
-            if !should_be_padded {
+            if !should_be_padding {
                 // Validate that counters within the range [0, original_array.length) are strictly increasing.
                 // Since all items within the range [0, original_array.length) in the `original_array` must have a
                 // unique counter (a requirement of the parameter), this check guarantees that all items in the
-                // `sorted_padded_transformed_array` within the same range can't be skipped or mapped to more than once.
+                // `output_array` within the same range can't be skipped or mapped to more than once.
                 if i != 0 {
                     assert(
-                        output_item_i.counter()
-                            > sorted_padded_transformed_array.array[i - 1].counter(),
+                        output_item_i.counter() > output_array.array[i - 1].counter(),
                         "value array must be sorted by counter in ascending order",
                     );
                 }
             }
 
-            // Validate that all items within the claimed length of the `sorted_padded_transformed_array` do not have a
+            // Validate that all items within the claimed length of the `output_array` do not have a
             // counter of 0, and items beyond the claimed length must have a counter of 0.
             // Without this check, the hinted `num_padded_items` could be larger than the number of non-empty padded
-            // items, allowing empty items within the claimed length of the `sorted_padded_transformed_array`. And the
-            // empty items can be used to add random items to the `sorted_padded_transformed_array` if this function
+            // items, allowing empty items within the claimed length of the `output_array`. And the
+            // empty items can be used to add random items to the `output_array` if this function
             // is called again.
             // For an example, see the test `use_empty_items_within_claimed_length_to_add_random_item`.
             // Comment out this check and the test will fail because no error is raised.
@@ -238,9 +252,9 @@ where
         }
     }
 
-    // Validate that the length of the `sorted_padded_transformed_array` is the `original_array_length` plus the hinted
+    // Validate that the length of the `output_array` is the `original_array_length` plus the hinted
     // `num_padded_items`.
-    assert_eq(sorted_padded_transformed_array.length, result_array_length);
+    assert_eq(output_array.length, result_array_length);
 }
 
 mod tests {

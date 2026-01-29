@@ -122,7 +122,7 @@ class ECCVMFlavor {
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+    static constexpr size_t PROOF_LENGTH =
         /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS) * num_frs_comm) +
         /* 2. Libra concatenation commitment*/ (num_frs_comm) +
         /* 3. Libra sum */ (num_frs_fq) +

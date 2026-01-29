@@ -68,30 +68,6 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 }
 
 /**
- * @brief Apply an implicit 32-bit range constraint by performing a lookup on the input.
- *
- * @details This is more efficient in the context of SHA-256 operations than explicit 32-bit range constraints since the
- * lookup table is already in use. We use the SHA256_MAJ_INPUT MultiTable since it results in only 3 lookup gates per
- * lookup.
- *
- * @note The result of the lookup is not used, but the accumulator outputs are marked as intentionally unused to
- * avoid false positives in the boomerang value detection analysis.
- *
- * @param input The field element to constrain to 32 bits.
- */
-template <typename Builder>
-void SHA256<Builder>::apply_32_bit_range_constraint_via_lookup(const field_t<Builder>& input)
-{
-    auto lookup_data = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, input);
-    // Mark all accumulator outputs as intentionally unused (they exist only for the range constraint side-effect)
-    for (auto& col : lookup_data.columns) {
-        for (auto& elem : col) {
-            mark_witness_as_used(elem);
-        }
-    }
-}
-
-/**
  * @brief Extend the 16-word message block to 64 words per SHA-256 specification.
  *
  * SHA-256 Spec (FIPS 180-4, Section 6.2.2):
@@ -190,6 +166,15 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
 
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
+
+    /**
+     * Explicitly constrain w[62] and w[63] to 32 bits. All other computed w_out values
+     * (w[16..61]) are implicitly constrained via lookups in convert_witness().
+     *
+     * While not strictly necessary for soundness, this simplifies security analysis at minimal cost.
+     */
+    w_sparse[62].normal.create_range_constraint(32);
+    w_sparse[63].normal.create_range_constraint(32);
 
     std::array<field_pt, 64> w_extended;
     for (size_t i = 0; i < 64; ++i) {
@@ -330,48 +315,14 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
 }
 
 /**
- * @brief Compute (a + b) mod 2^32 with circuit constraints.
- *
- * Constrains: result = a + b - overflow * 2^32, where overflow is range-checked to overflow_bits.
- *
- * @param overflow_bits Number of bits for overflow range constraint. Must accommodate max(a + b) / 2^32.
- *
- * @warning Marked `unsafe` since result is not explicitly range-constrained herein because it is typically used
- * downstream in lookup tables which implicitly impose the 32-bit range.
- */
-template <typename Builder>
-field_t<Builder> SHA256<Builder>::add_normalize_unsafe(const field_t<Builder>& a,
-                                                       const field_t<Builder>& b,
-                                                       size_t overflow_bits)
-{
-    using field_pt = field_t<Builder>;
-    using witness_pt = witness_t<Builder>;
-
-    Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
-
-    uint256_t sum = a.get_value() + b.get_value();
-    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]); // lower 32 bits
-
-    if (a.is_constant() && b.is_constant()) {
-        return field_pt(ctx, normalized_sum);
-    }
-
-    fr overflow_value = fr((sum - normalized_sum) >> 32);
-    field_pt overflow = witness_pt(ctx, overflow_value);
-
-    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr(1ULL << 32ULL)));
-    overflow.create_range_constraint(overflow_bits);
-    return result;
-}
-
-/**
  * @brief Apply the SHA-256 compression function to a single 512-bit message block.
  *
  * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
  * (rather than a full hash) because this is all that is required in DSL.
  *
- * @note It is assumed that all 24 inputs (8 hash state + 16 message words) are 32-bit constrained externally so that
- * the input has a unique representation.
+ * @note All 24 inputs (8 hash state + 16 message words) are 32-bit range constrained to ensure unique representation.
+ * Most are implicitly constrained via lookup tables; only h_init[3], h_init[7], and input[0] require explicit
+ * constraints as they are used purely in arithmetic operations.
  *
  * @param h_init The 8-word (256-bit) initial hash state. For the first block of a message,
  *               this should be the standard SHA-256 IV. For subsequent blocks, this is the
@@ -384,6 +335,12 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
                                                               const std::array<field_t<Builder>, 16>& input)
 {
     using field_pt = field_t<Builder>;
+
+    // Constrain inputs not implicitly constrained via lookups (h_init[3], h_init[7], input[0]).
+    // Other inputs are lookup-constrained in sparse form conversions or message extension.
+    h_init[3].create_range_constraint(32);
+    h_init[7].create_range_constraint(32);
+    input[0].create_range_constraint(32);
 
     /**
      * Initialize round variables with previous block output.
@@ -423,30 +380,32 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
         h = g;
         g = f;
         f = e;
-        e.normal = add_normalize_unsafe(d.normal, T1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
+        e.normal =
+            hash_utils::add_normalize_unsafe(d.normal, T1, /*overflow_bits=*/3); // d + T1: 6 × 32-bit, overflow ≤ 5
         d = c;
         c = b;
         b = a;
-        a.normal = add_normalize_unsafe(T1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
+        a.normal =
+            hash_utils::add_normalize_unsafe(T1, maj, /*overflow_bits=*/3); // T1 + Σ0+Maj: 7 × 32-bit, overflow ≤ 6
     }
 
     // Apply range constraints to `a` and `e` which are the only outputs of the previous loop not already
     // lookup-constrained via sparse form conversion. Although not strictly necessary, this simplifies the analysis that
     // the output of compression is fully constrained at minimal cost.
-    apply_32_bit_range_constraint_via_lookup(a.normal);
-    apply_32_bit_range_constraint_via_lookup(e.normal);
+    a.normal.create_range_constraint(32);
+    e.normal.create_range_constraint(32);
 
     // Add round results into previous block output.
     // Overflow bits = 1 since each summand is constrained to 32 bits.
     std::array<field_pt, 8> output;
-    output[0] = add_normalize_unsafe(a.normal, h_init[0], /*overflow_bits=*/1);
-    output[1] = add_normalize_unsafe(b.normal, h_init[1], /*overflow_bits=*/1);
-    output[2] = add_normalize_unsafe(c.normal, h_init[2], /*overflow_bits=*/1);
-    output[3] = add_normalize_unsafe(d.normal, h_init[3], /*overflow_bits=*/1);
-    output[4] = add_normalize_unsafe(e.normal, h_init[4], /*overflow_bits=*/1);
-    output[5] = add_normalize_unsafe(f.normal, h_init[5], /*overflow_bits=*/1);
-    output[6] = add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
-    output[7] = add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
+    output[0] = hash_utils::add_normalize_unsafe(a.normal, h_init[0], /*overflow_bits=*/1);
+    output[1] = hash_utils::add_normalize_unsafe(b.normal, h_init[1], /*overflow_bits=*/1);
+    output[2] = hash_utils::add_normalize_unsafe(c.normal, h_init[2], /*overflow_bits=*/1);
+    output[3] = hash_utils::add_normalize_unsafe(d.normal, h_init[3], /*overflow_bits=*/1);
+    output[4] = hash_utils::add_normalize_unsafe(e.normal, h_init[4], /*overflow_bits=*/1);
+    output[5] = hash_utils::add_normalize_unsafe(f.normal, h_init[5], /*overflow_bits=*/1);
+    output[6] = hash_utils::add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
+    output[7] = hash_utils::add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
 
     // The final add_normalize outputs are not consumed by lookup tables, so they must be explicitly range-constrained.
     // (Within the compression loop, lookup tables provide implicit 32-bit constraints on add_normalize outputs.)

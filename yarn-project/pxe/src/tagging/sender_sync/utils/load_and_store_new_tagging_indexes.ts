@@ -1,5 +1,5 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -29,7 +29,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
   jobId: string,
 ) {
   // We compute the tags for the current window of indexes
@@ -55,7 +55,7 @@ export async function loadAndStoreNewTaggingIndexes(
 async function getTxsContainingTags(
   tags: SiloedTag[],
   aztecNode: AztecNode,
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
 ): Promise<TxHash[][]> {
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
   // pagination here.

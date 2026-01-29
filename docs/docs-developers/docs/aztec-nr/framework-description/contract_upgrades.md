@@ -26,7 +26,7 @@ During an upgrade:
 Contract upgrades must be initiated by the contract itself calling the `ContractInstanceRegistry`:
 
 ```rust
-use aztec::protocol_types::{
+use aztec::protocol::{
     constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
     contract_class_id::ContractClassId,
 };

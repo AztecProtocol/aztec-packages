@@ -20,6 +20,10 @@ export {
   waitForResourceByName,
   waitForResourcesByName,
   getChartDir,
+  type ServiceEndpoint,
+  getServiceEndpoint,
+  getRPCEndpoint,
+  getEthereumEndpoint,
 } from './k8s.js';
 
 // Chaos Mesh

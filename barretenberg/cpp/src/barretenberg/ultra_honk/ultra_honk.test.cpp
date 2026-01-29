@@ -1,4 +1,5 @@
 #include "ultra_honk.test.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 
 #include <gtest/gtest.h>
@@ -46,7 +47,12 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     UltraProver_<Flavor> prover(prover_instance, verification_key);
     Proof ultra_proof = prover.construct_proof();
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
+    size_t expected_proof_length =
+        ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
+    // UltraRollupFlavor has HasIPAAccumulator=true, so proof includes IPA_PROOF_LENGTH
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        expected_proof_length += IPA_PROOF_LENGTH;
+    }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 

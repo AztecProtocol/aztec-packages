@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Sergei], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -39,7 +39,7 @@ template <typename Params> class Poseidon2Permutation {
     using MatrixDiagonal = std::array<FF, t>;
     using RoundConstantsContainer = std::array<RoundConstants, NUM_ROUNDS>;
 
-    static constexpr MatrixDiagonal internal_matrix_diagonal = Params::internal_matrix_diagonal;
+    static constexpr MatrixDiagonal internal_matrix_diagonal_minus_one = Params::internal_matrix_diagonal_minus_one;
     static constexpr RoundConstantsContainer round_constants = Params::round_constants;
 
     static constexpr void matrix_multiplication_4x4(State& input)
@@ -85,12 +85,14 @@ template <typename Params> class Poseidon2Permutation {
     static constexpr void matrix_multiplication_internal(State& input)
     {
         // for t = 4
+        // Computes: result[i] = (D_i - 1) * input[i] + sum = D_i * input[i] + (sum of other elements)
+        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1
         auto sum = input[0];
         for (size_t i = 1; i < t; ++i) {
             sum += input[i];
         }
         for (size_t i = 0; i < t; ++i) {
-            input[i] *= internal_matrix_diagonal[i];
+            input[i] *= internal_matrix_diagonal_minus_one[i];
             input[i] += sum;
         }
     }
@@ -109,9 +111,9 @@ template <typename Params> class Poseidon2Permutation {
      */
     static constexpr void apply_single_sbox(FF& input)
     {
-        auto xx = input.sqr();
-        auto xxxx = xx.sqr();
-        input *= xxxx;
+        auto x2 = input.sqr();
+        x2.self_sqr(); // x2 -> x4
+        input *= x2;
     }
 
     static constexpr void apply_sbox(State& input)
@@ -122,43 +124,47 @@ template <typename Params> class Poseidon2Permutation {
     }
 
     /**
-     * @brief Native form of Poseidon2 permutation from https://eprint.iacr.org/2023/323.
+     * @brief In-place Poseidon2 permutation from https://eprint.iacr.org/2023/323.
      * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
      * rounds, and a set of external rounds.
-     * @param input
-     * @return constexpr State
      */
-    static constexpr State permutation(const State& input)
+    static constexpr void permutation_inplace(State& state)
     {
-        // deep copy
-        State current_state(input);
-
         // Apply 1st linear layer
-        matrix_multiplication_external(current_state);
+        matrix_multiplication_external(state);
 
         // First set of external rounds
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
-            add_round_constants(current_state, round_constants[i]);
-            apply_sbox(current_state);
-            matrix_multiplication_external(current_state);
+            add_round_constants(state, round_constants[i]);
+            apply_sbox(state);
+            matrix_multiplication_external(state);
         }
 
         // Internal rounds
-        const size_t p_end = rounds_f_beginning + rounds_p;
+        constexpr size_t p_end = rounds_f_beginning + rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-            current_state[0] += round_constants[i][0];
-            apply_single_sbox(current_state[0]);
-            matrix_multiplication_internal(current_state);
+            state[0] += round_constants[i][0];
+            apply_single_sbox(state[0]);
+            matrix_multiplication_internal(state);
         }
 
         // Remaining external rounds
         for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
-            add_round_constants(current_state, round_constants[i]);
-            apply_sbox(current_state);
-            matrix_multiplication_external(current_state);
+            add_round_constants(state, round_constants[i]);
+            apply_sbox(state);
+            matrix_multiplication_external(state);
         }
-        return current_state;
+    }
+
+    /**
+     * @brief Native form of Poseidon2 permutation (returns new state).
+     */
+    static constexpr State permutation(const State& input)
+    {
+        State result(input);
+        permutation_inplace(result);
+        return result;
     }
 };
 } // namespace bb::crypto

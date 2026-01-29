@@ -49,7 +49,7 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 ```rust
 use crate::MyContract;
 use aztec::{
-    protocol_types::address::AztecAddress,
+    protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
 };
 

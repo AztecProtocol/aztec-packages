@@ -75,7 +75,8 @@ export async function getSimulator(
       logger?.info(
         `Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`,
       );
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
+      const acvmLogger = logger?.createChild('acvm-native');
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, acvmLogger);
     } catch {
       logger?.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
     }

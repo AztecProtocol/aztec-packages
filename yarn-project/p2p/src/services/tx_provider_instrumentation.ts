@@ -1,4 +1,10 @@
-import { type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
 
 export class TxProviderInstrumentation {
   private txFromProposalCount: UpDownCounter;
@@ -12,13 +18,13 @@ export class TxProviderInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT);
+    this.txFromProposalCount = createUpDownCounterWithDefault(meter, Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT);
 
-    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT);
+    this.txFromMempoolCount = createUpDownCounterWithDefault(meter, Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT);
 
-    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT);
+    this.txFromP2PCount = createUpDownCounterWithDefault(meter, Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT);
 
-    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT);
+    this.missingTxsCount = createUpDownCounterWithDefault(meter, Metrics.TX_PROVIDER_MISSING_TXS_COUNT);
 
     this.fractionOfTxsRequestedFromP2P = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION);
 

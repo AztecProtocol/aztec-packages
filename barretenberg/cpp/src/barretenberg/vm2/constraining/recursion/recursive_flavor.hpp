@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,24 +8,26 @@
 
 #include <cstdint>
 
+#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
-#include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
 
 namespace bb::avm2 {
 
 class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = AvmRecursiveFlavorSettings::CircuitBuilder;
-    using Curve = AvmRecursiveFlavorSettings::Curve;
-    using PCS = AvmRecursiveFlavorSettings::PCS;
-    using GroupElement = AvmRecursiveFlavorSettings::GroupElement;
-    using Commitment = AvmRecursiveFlavorSettings::Commitment;
-    using FF = AvmRecursiveFlavorSettings::FF;
-    using BF = AvmRecursiveFlavorSettings::BF;
+    using CircuitBuilder = MegaCircuitBuilder;
+    using Curve = stdlib::bn254<CircuitBuilder>;
+    using PCS = KZG<Curve>;
+    using GroupElement = Curve::Element;
+    using Commitment = Curve::AffineElement;
+    using FF = Curve::ScalarField;
+    using BF = Curve::BaseField;
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -45,7 +47,7 @@ class AvmRecursiveFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // To achieve fixed proof size so that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
 
@@ -59,57 +61,20 @@ class AvmRecursiveFlavor {
         using Base::Base;
     };
 
-    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
-                                                          NativeFlavor::PrecomputedEntities<Commitment>,
-                                                          NativeVerificationKey,
-                                                          VKSerializationMode::NO_METADATA> {
-      public:
-        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        {
-            for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
-                comm = Commitment::from_witness(builder, native_comm);
-            }
-        }
+    /**
+     * @brief In-circuit representation of the verification key of the AVM. It is reconstructed from precomputed values
+     * and fixed as a constant of the circuit when the AVM verifier is constructed. The vk commitments and vk hash are
+     * stored in the selectors of the circuit that contains an AVM verifier.
+     *
+     */
+    using VerificationKey =
+        FixedStdlibVKAndHash_<CircuitBuilder, AvmFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
 
-        /**
-         * @brief Deserialize a verification key from a vector of field elements
-         *
-         * @param builder
-         * @param elements
-         */
-        VerificationKey(std::span<const FF> elements)
-        {
-            using Codec = stdlib::StdlibCodec<FF>;
-
-            size_t num_frs_read = 0;
-            size_t num_frs_Comm = Codec::template calc_num_fields<Commitment>();
-
-            for (Commitment& comm : this->get_all()) {
-                comm =
-                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
-            }
-        }
-
-        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        /**
-         * @brief Fixes witnesses of VK to be constants.
-         *
-         */
-        void fix_witness()
-        {
-            for (Commitment& commitment : this->get_all()) {
-                commitment.fix_witness();
-            }
-        }
-    };
     template <typename Builder> class TemplatedTranscript : public StdlibTranscript<Builder> {
         using Base = StdlibTranscript<Builder>;
         using FF = stdlib::field_t<Builder>;
+        using StdlibCurve = stdlib::bn254<Builder>;
+        using StdlibCommitment = typename StdlibCurve::AffineElement;
 
       private:
         /**
@@ -128,8 +93,12 @@ class AvmRecursiveFlavor {
             const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs,
             const bool enable_manifest = false)
         {
-            auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
-            auto native_vk_hash = native_vk->hash();
+            // Container for challenges used in the PCS. Also used to get correct labels for transcript hashing.
+            using Challenges = AllValues;
+            Challenges challenges;
+
+            auto native_vk = std::make_shared<NativeVerificationKey>();
+            NativeFlavor::FF native_vk_hash = native_vk->get_hash();
             FF vk_hash = FF::from_witness(&builder, native_vk_hash);
             vk_hash.fix_witness();
 
@@ -149,24 +118,15 @@ class AvmRecursiveFlavor {
                 }
             }
 
-            size_t proof_idx = 0;
-            std::span<const stdlib::field_t<Builder>> proof_span = stdlib_proof;
-
-            constexpr size_t num_frs_comm =
-                Base::Codec::template calc_num_fields<typename Base::Codec::bn254_commitment>();
-            for (size_t idx = WIRE_START_IDX; idx < WIRE_START_IDX + NUM_WIRE_ENTITIES; idx++) {
-                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+            for (const auto& wire_label : challenges.get_wires_labels()) {
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(wire_label);
             }
 
             [[maybe_unused]] auto [_beta, _gamma] =
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
-            for (size_t idx = DERIVED_START_IDX; idx < DERIVED_START_IDX + NUM_DERIVED_ENTITIES; idx++) {
-                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+            for (const auto& derived_label : challenges.get_derived_labels()) {
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(derived_label);
             }
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -174,60 +134,43 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] const FF _initial_gate_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge");
 
-            for (size_t i = 0; i < native_vk->log_circuit_size; i++) {
+            using SumcheckUnivariate = std::array<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+            for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; i++) {
                 std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
-                transcript->add_element_frs_to_hash_buffer(
-                    round_univariate_label, proof_span.subspan(proof_idx, AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH));
-                proof_idx += AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<SumcheckUnivariate>(round_univariate_label);
                 [[maybe_unused]] FF _round_challenge =
                     transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(i));
             }
 
-            transcript->add_element_frs_to_hash_buffer("Sumcheck:evaluations",
-                                                       proof_span.subspan(proof_idx, NUM_ALL_ENTITIES));
-            proof_idx += NUM_ALL_ENTITIES;
-
-            std::vector<std::string> unshifted_batching_challenge_labels;
-            unshifted_batching_challenge_labels.reserve(NUM_UNSHIFTED_ENTITIES - 1);
-            for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES - 1; idx++) {
-                unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
-            }
-            std::vector<std::string> shifted_batching_challenge_labels;
-            shifted_batching_challenge_labels.reserve(NUM_WIRES_TO_BE_SHIFTED);
-            for (size_t idx = 0; idx < NUM_WIRES_TO_BE_SHIFTED; idx++) {
-                shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_UNSHIFTED_ENTITIES - 1 + idx));
-            }
+            [[maybe_unused]] auto _evals =
+                transcript->template receive_from_prover<std::array<FF, NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
 
             [[maybe_unused]] auto _unshifted_challenges =
-                transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
-            [[maybe_unused]] auto _shifted_challenges =
-                transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+                transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
 
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
-            for (size_t i = 1; i < native_vk->log_circuit_size; ++i) {
-                transcript->add_element_frs_to_hash_buffer("Gemini:FOLD_" + std::to_string(i),
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
-                proof_idx += num_frs_comm;
+            for (size_t i = 1; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<StdlibCommitment>("Gemini:FOLD_" + std::to_string(i));
             }
 
             [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
-            for (size_t i = 1; i <= native_vk->log_circuit_size; ++i) {
-                transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), proof_span[proof_idx++]);
+            for (size_t i = 1; i <= MAX_AVM_TRACE_LOG_SIZE; ++i) {
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<FF>("Gemini:a_" + std::to_string(i));
             }
 
             [[maybe_unused]] const FF _shplonk_batching_challenge =
                 transcript->template get_challenge<FF>("Shplonk:nu");
 
-            transcript->add_element_frs_to_hash_buffer("Shplonk:Q", proof_span.subspan(proof_idx, num_frs_comm));
-            proof_idx += num_frs_comm;
+            [[maybe_unused]] auto _shplonk_q = transcript->template receive_from_prover<StdlibCommitment>("Shplonk:Q");
 
             [[maybe_unused]] const FF _shplonk_evaluation_challenge =
                 transcript->template get_challenge<FF>("Shplonk:z");
 
-            transcript->add_element_frs_to_hash_buffer("KZG:W", proof_span.subspan(proof_idx, num_frs_comm));
-            proof_idx += num_frs_comm;
+            [[maybe_unused]] auto _kzg_w = transcript->template receive_from_prover<StdlibCommitment>("KZG:W");
 
             [[maybe_unused]] const FF _masking_challenge =
                 transcript->template get_challenge<FF>("KZG:masking_challenge");

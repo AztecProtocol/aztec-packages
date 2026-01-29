@@ -20,7 +20,7 @@ pub contract NFT {
             constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };

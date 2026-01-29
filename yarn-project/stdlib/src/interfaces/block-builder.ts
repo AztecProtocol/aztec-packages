@@ -1,5 +1,6 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { LoggerBindings } from '@aztec/foundation/log';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
@@ -92,5 +93,6 @@ export interface ICheckpointsBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
+    bindings?: LoggerBindings,
   ): Promise<ICheckpointBlockBuilder>;
 }

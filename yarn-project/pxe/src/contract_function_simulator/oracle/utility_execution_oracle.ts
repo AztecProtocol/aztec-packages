@@ -1,18 +1,21 @@
+import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
@@ -29,7 +32,6 @@ import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
-import { TreeMembershipService } from '../../tree_membership/tree_membership_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
@@ -94,15 +96,29 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Fetches the index and sibling path of a leaf at a given block from a given tree.
+   * Fetches the index and sibling path of a leaf at a given block from the note hash tree.
    * @param blockHash - The block hash at which to get the membership witness.
-   * @param treeId - Id of the tree to get the sibling path from.
    * @param leafValue - The leaf value
-   * @returns The index and sibling path concatenated [index, sibling_path]
+   * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetMembershipWitness(blockHash: L2BlockHash, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode);
-    return treeMembershipService.getMembershipWitness(blockHash, treeId, leafValue);
+  public utilityGetNoteHashMembershipWitness(
+    blockHash: BlockHash,
+    leafValue: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    return this.aztecNode.getNoteHashMembershipWitness(blockHash, leafValue);
+  }
+
+  /**
+   * Fetches the index and sibling path of a leaf at a given block from the archive tree.
+   * @param blockHash - The block hash at which to get the membership witness.
+   * @param leafValue - The leaf value
+   * @returns The membership witness containing the leaf index and sibling path
+   */
+  public utilityGetArchiveMembershipWitness(
+    blockHash: BlockHash,
+    leafValue: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    return this.aztecNode.getArchiveMembershipWitness(blockHash, leafValue);
   }
 
   /**
@@ -111,11 +127,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public async utilityGetNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+  public utilityGetNullifierMembershipWitness(
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier);
+    return this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier);
   }
 
   /**
@@ -127,12 +143,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public async utilityGetLowNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+  public utilityGetLowNullifierMembershipWitness(
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode);
-    return await treeMembershipService.getLowNullifierMembershipWitness(blockHash, nullifier);
+    return this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier);
   }
 
   /**
@@ -141,12 +156,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public async utilityGetPublicDataWitness(
-    blockHash: L2BlockHash,
-    leafSlot: Fr,
-  ): Promise<PublicDataWitness | undefined> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode);
-    return await treeMembershipService.getPublicDataWitness(blockHash, leafSlot);
+  public utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
   }
 
   /**
@@ -276,9 +287,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const treeMembershipService = new TreeMembershipService(this.aztecNode);
-    const index = await treeMembershipService.getNullifierIndex(nullifier);
-    return index !== undefined;
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+    return leafIndex?.data !== undefined;
   }
 
   /**
@@ -290,14 +300,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode);
-    const [messageIndex, siblingPath] = await treeMembershipService.getL1ToL2MembershipWitness(
+    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
+      this.aztecNode,
       contractAddress,
       messageHash,
       secret,
     );
 
-    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
   }
 
@@ -309,24 +318,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public async utilityStorageRead(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,
   ) {
-    const values = [];
+    const slots = Array(numberOfElements)
+      .fill(0)
+      .map((_, i) => new Fr(startStorageSlot.value + BigInt(i)));
 
-    // TODO: why do we serialize these requests? This should probably a single call
-    // Privacy considerations?
-    for (let i = 0n; i < numberOfElements; i++) {
-      const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
+    const values = await Promise.all(
+      slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
+    );
 
-      this.log.debug(
-        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
-      );
-      values.push(value);
-    }
+    this.log.debug(
+      `Oracle storage read: slots=[${slots.map(slot => slot.toString()).join(', ')}] address=${contractAddress.toString()} values=[${values.join(', ')}]`,
+    );
+
     return values;
   }
 
@@ -348,6 +356,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
@@ -372,7 +381,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
    * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -394,7 +403,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
-      noteService.storeNote(
+      noteService.validateAndStoreNote(
         request.contractAddress,
         request.owner,
         request.storageSlot,
@@ -410,7 +419,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore, this.jobId);
     const eventStorePromises = eventValidationRequests.map(request =>
-      eventService.storeEvent(
+      eventService.validateAndStoreEvent(
         request.contractAddress,
         request.eventTypeId,
         request.randomness,
@@ -453,6 +462,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);

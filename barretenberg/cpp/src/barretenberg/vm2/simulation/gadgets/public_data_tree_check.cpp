@@ -6,7 +6,7 @@ namespace bb::avm2::simulation {
 
 FF PublicDataTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 }
 
 void PublicDataTreeCheck::validate_low_leaf_jumps_over_slot(const PublicDataTreeLeafPreimage& low_leaf_preimage,

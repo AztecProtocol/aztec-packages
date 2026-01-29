@@ -10,8 +10,7 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -352,7 +351,7 @@ export class RPCTranslator {
     foreignStartStorageSlot: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
-    const blockHash = L2BlockHash.fromString(foreignBlockHash);
+    const blockHash = BlockHash.fromString(foreignBlockHash);
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
@@ -368,7 +367,7 @@ export class RPCTranslator {
   }
 
   async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = L2BlockHash.fromString(foreignBlockHash);
+    const blockHash = BlockHash.fromString(foreignBlockHash);
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
@@ -513,6 +512,15 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  async privateIsNullifierPending(foreignInnerNullifier: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
+    const innerNullifier = fromSingle(foreignInnerNullifier);
+    const contractAddress = addressFromSingle(foreignContractAddress);
+
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(innerNullifier, contractAddress);
+
+    return toForeignCallResult([toSingle(new Fr(isPending))]);
+  }
+
   async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
@@ -566,7 +574,7 @@ export class RPCTranslator {
   }
 
   async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
-    const blockHash = L2BlockHash.fromString(foreignBlockHash);
+    const blockHash = BlockHash.fromString(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
@@ -633,30 +641,35 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetMembershipWitness(
-    foreignBlockHash: ForeignCallSingle,
-    foreignTreeId: ForeignCallSingle,
-    foreignLeafValue: ForeignCallSingle,
-  ) {
-    const blockHash = L2BlockHash.fromString(foreignBlockHash);
-    const treeId = fromSingle(foreignTreeId).toNumber();
+  async utilityGetNoteHashMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
+    const blockHash = BlockHash.fromString(foreignBlockHash);
     const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockHash, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, leafValue);
 
     if (!witness) {
-      throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockHash}.`,
-      );
+      throw new Error(`Note hash ${leafValue} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
-    return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
+    return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  async utilityGetArchiveMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
+    const blockHash = BlockHash.fromString(foreignBlockHash);
+    const leafValue = fromSingle(foreignLeafValue);
+
+    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(blockHash, leafValue);
+
+    if (!witness) {
+      throw new Error(`Block hash ${leafValue} not found in the archive tree at block ${blockHash.toString()}.`);
+    }
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetLowNullifierMembershipWitness(
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = L2BlockHash.fromString(foreignBlockHash);
+    const blockHash = BlockHash.fromString(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
@@ -675,7 +688,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -684,7 +697,7 @@ export class RPCTranslator {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
-    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -898,11 +911,10 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeNullifierExists(foreignInnerNullifier: ForeignCallSingle, foreignTargetAddress: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
+  async avmOpcodeNullifierExists(foreignSiloedNullifier: ForeignCallSingle) {
+    const siloedNullifier = fromSingle(foreignSiloedNullifier);
 
-    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(innerNullifier, targetAddress);
+    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(siloedNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }

@@ -27,7 +27,6 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Helper function to create and verify native proof
     struct NativeProofResult {
         typename InnerProver::Proof proof;
         std::vector<std::vector<FF>> public_inputs_cols;
@@ -45,8 +44,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
             InnerProver prover;
             const auto proof = prover.prove(std::move(trace));
-            const auto verification_key = InnerProver::create_verification_key(InnerProver().get_verification_key());
-            InnerVerifier verifier(verification_key);
+            InnerVerifier verifier;
 
             const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
@@ -62,15 +60,15 @@ class AvmRecursiveTests : public ::testing::Test {
 class AvmRecursiveTestsParameterized : public AvmRecursiveTests, public ::testing::WithParamInterface<bool> {};
 
 /**
- * @brief A test of the Goblinized AVM recursive verifier.
- * @details Constructs a simple AVM circuit for which a proof is verified using the Goblinized AVM recursive verifier. A
+ * @brief A test of the Two Layer AVM recursive verifier.
+ * @details Constructs a simple AVM circuit for which a proof is verified using the Two Layer AVM recursive verifier. A
  * proof is constructed and verified for the outer (Ultra) circuit produced by this algorithm. See the documentation in
  * TwoLayerAvmRecursiveVerifier for details of the recursive verification algorithm.
  *
  * When pad_proof=true (Padded variant), the proof is padded to AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED to match production
  * behavior where TypeScript pads the proof before passing it to noir circuits.
  */
-TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
+TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
 {
     if (testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
@@ -78,7 +76,7 @@ TEST_P(AvmRecursiveTestsParameterized, GoblinRecursion)
 
     const bool pad_proof = GetParam();
 
-    // Type aliases specific to GoblinRecursion test
+    // Type aliases specific to TwoLayerAvmRecursion test
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
@@ -247,12 +245,11 @@ TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
     auto manifest = transcript->get_manifest();
     auto mocked_manifest = mocked_transcript->get_manifest();
 
-    // Note: a manifest can be printed using manifest.print()
     BB_ASSERT_GT(manifest.size(), 0U);
     BB_ASSERT_EQ(manifest.size(), mocked_manifest.size());
     for (size_t round = 0; round < manifest.size(); ++round) {
         ASSERT_EQ(manifest[round], mocked_manifest[round])
-            << std::format("Real/Mocked manifest discrepency in round {}", round);
+            << std::format("Real/Mocked manifest discrepancy in round {}", round);
     }
 
     // Check that the circuit is satisfied
@@ -267,13 +264,13 @@ INSTANTIATE_TEST_SUITE_P(PaddingVariants,
                          [](const auto& info) { return info.param ? "Padded" : "Unpadded"; });
 
 // Ensures that the recursive verifier fails with wrong PIs.
-TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
+TEST_F(AvmRecursiveTests, TwoLayerAvmRecursionFailsWithWrongPIs)
 {
     if (testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
 
-    // Type aliases specific to GoblinRecursion test
+    // Type aliases specific to TwoLayerAvmRecursion test
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
     using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
 

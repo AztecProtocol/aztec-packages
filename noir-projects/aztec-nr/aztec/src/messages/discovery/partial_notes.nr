@@ -3,9 +3,7 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
-        logs::partial_note::{
-            decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
-        },
+        logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
             enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
             log_retrieval_response::LogRetrievalResponse,
@@ -14,7 +12,7 @@ use crate::{
     utils::array,
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     debug_log::debug_log_format,
     hash::sha256_to_field,
@@ -45,8 +43,8 @@ pub unconstrained fn process_partial_note_private_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
-    // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later search
-    // for the public log that will complete it.
+    // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
+    // search for the public log that will complete it.
     let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
         decode_partial_note_private_message(msg_metadata, msg_content);
 
@@ -86,12 +84,11 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     // Each of the pending partial notes might get completed by a log containing its public values. For performance
     // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
     // waiting for the node roundtrip.
-    let maybe_completion_logs =
-        get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    let maybe_completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
     // Each entry in the maybe completion logs array corresponds to the entry in the pending partial notes array at the
-    // same index. This means we can use the same index as we iterate through the responses to get both the partial note
-    // and the log that might complete it.
+    // same index. This means we can use the same index as we iterate through the responses to get both the partial
+    // note and the log that might complete it.
     assert_eq(maybe_completion_logs.len(), pending_partial_notes.len());
 
     maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
@@ -118,8 +115,8 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
             let log = maybe_log.unwrap();
 
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the private message and public log plaintext to get
-            // the complete packed content.
+            // private and public packed fields (i.e. the contents of the private message and public log plaintext to
+            // get the complete packed content.
             let complete_packed_note = array::append(
                 pending_partial_note.packed_private_note_content,
                 log.log_payload,
@@ -165,8 +162,8 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 );
             });
 
-            // Because there is only a single log for a given tag, once we've processed the tagged log then we
-            // simply delete the pending work entry, regardless of whether it was actually completed or not.
+            // Because there is only a single log for a given tag, once we've processed the tagged log then we simply
+            // delete the pending work entry, regardless of whether it was actually completed or not.
             pending_partial_notes.remove(i);
         }
     });

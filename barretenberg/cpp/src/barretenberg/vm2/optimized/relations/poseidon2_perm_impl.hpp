@@ -142,14 +142,16 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         state[0] = state[0] * state[0] * state[0] * state[0] * state[0]; // A^5
     };
 
-    // The partial round uses the internal matrix diagonal values
-    const auto internal_matrix_mul = []<typename T, typename U>(std::array<T, 4>& state,
-                                                                const std::array<U, 4>& internal_matrix_diagonal) {
-        auto sum = state[0] + state[1] + state[2] + state[3];
-        for (size_t i = 0; i < 4; ++i) {
-            state[i] = state[i] * internal_matrix_diagonal[i] + sum;
-        }
-    };
+    // The partial round uses the internal matrix diagonal minus one values.
+    // Computes: result[i] = (D_i - 1) * state[i] + sum = D_i * state[i] + (sum of other elements)
+    const auto internal_matrix_mul =
+        []<typename T, typename U>(std::array<T, 4>& state,
+                                   const std::array<U, 4>& internal_matrix_diagonal_minus_one) {
+            auto sum = state[0] + state[1] + state[2] + state[3];
+            for (size_t i = 0; i < 4; ++i) {
+                state[i] = state[i] * internal_matrix_diagonal_minus_one[i] + sum;
+            }
+        };
 
     //=========================================
     // Start Accumulation Relations
@@ -265,7 +267,7 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         constexpr size_t relation_offset = START_RELATION_OF_PERM + (i * 4);
         partial_round_add_constant(state, Poseidon2Params::round_constants[i][0]);
         partial_round_s_box(state);
-        internal_matrix_mul(state, Poseidon2Params::internal_matrix_diagonal);
+        internal_matrix_mul(state, Poseidon2Params::internal_matrix_diagonal_minus_one);
         // Set the state 0
         {
             using Accumulator = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>;

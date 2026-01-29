@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, constants::L1_TO_L2_MSG_TREE_HEIGHT};
+use crate::protocol::{address::AztecAddress, constants::L1_TO_L2_MSG_TREE_HEIGHT};
 
 /// Returns the leaf index and sibling path of an entry in the L1 to L2 messaging tree, which can then be used to prove
 /// its existence.

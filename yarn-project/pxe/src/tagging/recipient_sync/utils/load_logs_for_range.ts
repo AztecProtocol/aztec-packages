@@ -1,6 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, PreTag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -19,7 +19,7 @@ export async function loadLogsForRange(
   start: number,
   end: number,
   anchorBlockNumber: BlockNumber,
-  anchorBlockHash: L2BlockHash,
+  anchorBlockHash: BlockHash,
 ): Promise<Array<{ log: TxScopedL2Log; taggingIndex: number }>> {
   // Derive tags for the window
   const preTags: PreTag[] = Array(end - start)

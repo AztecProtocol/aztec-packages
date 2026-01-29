@@ -6,7 +6,7 @@ use crate::{
     note::note_interface::NoteType,
     utils::array,
 };
-use protocol_types::{address::AztecAddress, traits::{FromField, Packable, ToField}};
+use crate::protocol::{address::AztecAddress, traits::{FromField, Packable, ToField}};
 
 /// The number of fields in a private note message content that are not the note's packed representation.
 pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN: u32 = 3;
@@ -17,8 +17,7 @@ pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 2;
 
 /// The maximum length of the packed representation of a note's contents. This is limited by private log size,
 /// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
-pub global MAX_NOTE_PACKED_LEN: u32 =
-    MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
+pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
 /// Creates the plaintext for a private note message (i.e. one of type [PRIVATE_NOTE_MSG_TYPE_ID]).
 ///
@@ -28,7 +27,7 @@ pub fn encode_private_note_message<Note>(
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
-    ) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
+) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
     Note: NoteType + Packable,
 {
@@ -41,8 +40,7 @@ where
         "unexpected value for PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
     );
 
-    let mut msg_content =
-        [0; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N];
+    let mut msg_content = [0; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N];
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_OWNER_INDEX] = owner.to_field();
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX] = storage_slot;
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX] = randomness;
@@ -59,8 +57,8 @@ where
 /// This plaintext is meant to have originated from [encode_private_note_message].
 ///
 /// Note that while [encode_private_note_message] returns a fixed-size array, this function takes a [BoundedVec]
-/// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically, those
-/// that originate from [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
+/// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
+/// those that originate from [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
 pub(crate) unconstrained fn decode_private_note_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
@@ -96,8 +94,8 @@ mod test {
         },
         note::note_interface::NoteType,
     };
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
     use crate::test::mocks::mock_note::MockNote;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     global VALUE: Field = 7;
     global OWNER: AztecAddress = AztecAddress::from_field(8);
@@ -110,8 +108,7 @@ mod test {
 
         let message_plaintext = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
 
-        let (msg_type_id, msg_metadata, msg_content) =
-            decode_message(BoundedVec::from_array(message_plaintext));
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(message_plaintext));
 
         assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
 

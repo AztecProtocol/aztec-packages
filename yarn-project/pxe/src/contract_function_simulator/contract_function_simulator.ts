@@ -7,6 +7,7 @@ import {
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
+  GeneratorIndex,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
   L2_GAS_PER_PRIVATE_LOG,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -17,7 +18,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -85,7 +86,7 @@ import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { Oracle } from './oracle/oracle.js';
-import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
+import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 
@@ -137,12 +138,6 @@ export class ContractFunctionSimulator {
     jobId: string,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-
-    await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
-      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobId),
-    );
-
-    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
 
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
 
@@ -268,8 +263,6 @@ export class ContractFunctionSimulator {
     scopes: AztecAddress[] | undefined,
     jobId: string,
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.aztecNode, this.contractStore, anchorBlockHeader);
-
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
@@ -409,7 +402,10 @@ export async function generateSimulatedProvingResult(
 
     const privateLogsFromExecution = await Promise.all(
       execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
-        metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
+        metadata.log.fields[0] = await poseidon2HashWithSeparator(
+          [contractAddress, metadata.log.fields[0]],
+          GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+        );
         return new OrderedSideEffect(metadata.log, metadata.counter);
       }),
     );

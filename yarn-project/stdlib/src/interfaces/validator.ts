@@ -51,12 +51,10 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode?: boolean;
 
-  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
-  /** Skip checkpoint proposal validation and always attest (default: true) */
+  /** Skip checkpoint proposal validation and always attest (default: false) */
   skipCheckpointProposalValidation?: boolean;
 
-  // TODO(palla/mbps): Change default to false once block sync is stable
-  /** Skip pushing re-executed blocks to archiver (default: true) */
+  /** Skip pushing re-executed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
 };
 

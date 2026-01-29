@@ -1,5 +1,5 @@
 use aztec::{
-    protocol_types::traits::Packable,
+    protocol::traits::Packable,
     macros::notes::note
 };
 

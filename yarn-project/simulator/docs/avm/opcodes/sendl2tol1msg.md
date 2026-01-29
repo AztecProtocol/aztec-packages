@@ -18,7 +18,7 @@ Sends a message to L1, with the specified recipient, from the currently executin
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 418 | - |
+| L2 Base | 478 | - |
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
@@ -84,6 +84,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Recipient or content is not FIELD
+- **INVALID_RECIPIENT** Recipient is larger than 20 bytes
 - **STATIC_CALL_VIOLATION**: Attempted L2-to-L1 message send in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum L2-to-L1 messages per transaction (MAX_L2_TO_L1_MSGS_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory

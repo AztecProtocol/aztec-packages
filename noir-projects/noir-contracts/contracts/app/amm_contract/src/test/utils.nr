@@ -1,6 +1,6 @@
 use crate::AMM;
 use aztec::{
-    protocol_types::address::AztecAddress,
+    protocol::address::AztecAddress,
     test::helpers::{authwit::add_private_authwit_from_call, test_environment::TestEnvironment},
 };
 use token::Token;

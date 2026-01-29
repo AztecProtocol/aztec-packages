@@ -164,7 +164,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Bufferable } from '@aztec/foundation/serialize';
 import { type CallStackMetadata, PublicDataWrite, type PublicTxResult } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -295,9 +295,8 @@ export interface SpamConfigsForOpcode {
 export const WARM_NOTE_HASH = new Fr(0xdeadbeefn);
 export const WARM_L1_TO_L2_MSG = new Fr(0xcafebabedeadbeefn);
 
-/** Warm nullifier constants - uses a fixed address since NULLIFIEREXISTS takes address as parameter */
-export const WARM_NULLIFIER = new Fr(0xdeadbeef0001n);
-export const WARM_NULLIFIER_ADDRESS = AztecAddress.fromNumber(0xbeef);
+/** Warm nullifier constant - a pre-siloed nullifier value inserted directly into the tree */
+export const WARM_SILOED_NULLIFIER = new Fr(0xdeadbeef0001n);
 
 /** Warm storage constants - storage is inserted for the deployed contract's address */
 export const WARM_STORAGE_SLOT = new Fr(0xdeadbeef0002n);
@@ -331,9 +330,8 @@ export async function insertWarmTreeEntries(
   // Insert into L1 to L2 message tree
   await merkleTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [WARM_L1_TO_L2_MSG]);
 
-  // Insert siloed nullifier into nullifier tree
-  const siloedNullifier = await siloNullifier(WARM_NULLIFIER_ADDRESS, WARM_NULLIFIER);
-  await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
+  // Insert siloed nullifier into nullifier tree (already siloed - used directly by NULLIFIEREXISTS)
+  await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [WARM_SILOED_NULLIFIER.toBuffer()]);
 
   // Insert storage value into public data tree
   const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, WARM_STORAGE_SLOT);
@@ -1060,55 +1058,24 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
   [Opcode.NULLIFIEREXISTS]: [
     {
       label: 'Non-existent nullifier',
+      // NULLIFIEREXISTS now takes a siloed nullifier directly (no address parameter)
       setup: [
-        { offset: 0, value: new Field(Fr.random()) }, // random nullifier
-        { offset: 1, value: new Field(Fr.random()) }, // random address
+        { offset: 0, value: new Field(Fr.random()) }, // random siloed nullifier (won't exist)
       ],
       targetInstructions: () => [
-        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
+        new NullifierExists(/*addressing_mode=*/ 0, /*siloedNullifierOffset=*/ 0, /*existsOffset=*/ 1),
       ],
     },
     {
       label: 'Existing nullifier (warm - from tree)',
-      // Uses pre-inserted nullifier from insertWarmTreeEntries()
+      // Uses pre-inserted siloed nullifier from insertWarmTreeEntries()
+      // NULLIFIEREXISTS now takes a siloed nullifier directly
       setup: [
-        { offset: 0, value: new Field(WARM_NULLIFIER) }, // pre-inserted nullifier
-        { offset: 1, value: new Field(WARM_NULLIFIER_ADDRESS.toField()) }, // address it was siloed with
+        { offset: 0, value: new Field(WARM_SILOED_NULLIFIER) }, // pre-inserted siloed nullifier
       ],
       targetInstructions: () => [
-        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
+        new NullifierExists(/*addressing_mode=*/ 0, /*siloedNullifierOffset=*/ 0, /*existsOffset=*/ 1),
       ],
-    },
-    {
-      label: 'Existing nullifier (warm - EMITNULLIFIER first)',
-      // Memory layout: nullifier (incremented), constant 1, current address (from GETENVVAR), revertSize, exists result
-      setup: [
-        { offset: 0, value: new Field(Fr.random()) }, // nullifier (will be incremented)
-        { offset: 1, value: new Field(1n) }, // constant 1 for ADD
-        () => [
-          // Get current contract address into offset 2
-          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*varEnum=*/ 0).as(
-            Opcode.GETENVVAR_16,
-            GetEnvVar.wireFormat16,
-          ),
-        ],
-        { offset: 3, value: new Uint32(0n) }, // revertSize
-      ],
-      targetInstructions: () => [
-        new EmitNullifier(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0),
-        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 2, /*existsOffset=*/ 4),
-        new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
-          Opcode.ADD_8,
-          Add.wireFormat8,
-        ), // nullifier++
-      ],
-      cleanupInstructions: () => [
-        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(
-          Opcode.REVERT_8,
-          Revert.wireFormat8,
-        ),
-      ],
-      limit: MAX_NULLIFIERS_PER_TX - 1,
     },
   ],
 

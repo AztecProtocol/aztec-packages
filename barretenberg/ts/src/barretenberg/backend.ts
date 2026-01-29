@@ -1,6 +1,6 @@
 import { Barretenberg } from './index.js';
 import { ProofData, uint8ArrayToHex, hexToUint8Array } from '../proof/index.js';
-import { fromChonkProof, toChonkProof } from '../cbind/generated/api_types.js';
+import { fromChonkProof, toChonkProof, ChonkProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Decoder, Encoder } from 'msgpackr';
 
@@ -341,8 +341,8 @@ export class AztecClientBackend {
       proveResult.proof.goblinProof.translatorProof,
     ].flat();
 
-    // Note: Verification may not work correctly until we properly serialize the proof
-    if (!(await this.verify(proof, vkResult.bytes))) {
+    // Verify using native proof directly to avoid redundant encode/decode cycle
+    if (!(await this.verifyNative(proveResult.proof, vkResult.bytes))) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
     return [proofFields, proof, vkResult.bytes];
@@ -351,6 +351,18 @@ export class AztecClientBackend {
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     const result = await this.api.chonkVerify({
       proof: toChonkProof(new Decoder({ useRecords: false }).decode(proof)),
+      vk,
+    });
+    return result.valid;
+  }
+
+  /**
+   * Internal verification using native ChonkProof type.
+   * Avoids encode/decode cycle when called from prove().
+   */
+  private async verifyNative(proof: ChonkProof, vk: Uint8Array): Promise<boolean> {
+    const result = await this.api.chonkVerify({
+      proof,
       vk,
     });
     return result.valid;

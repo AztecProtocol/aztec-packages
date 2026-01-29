@@ -14,7 +14,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
@@ -31,6 +30,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { ensureContractSynced } from '../../contract_sync/index.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
@@ -47,7 +47,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
+import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -266,13 +266,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      const anchorBlockHash = L2BlockHash.fromField(await this.anchorBlockHeader.hash());
       await syncSenderTaggingIndexes(
         secret,
         this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
-        anchorBlockHash,
+        await this.anchorBlockHeader.hash(),
         this.jobId,
       );
 
@@ -473,6 +472,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Check if a nullifier has been emitted in the same transaction, i.e. if privateNotifyCreatedNullifier has been
+   * called for this inner nullifier from the contract with the specified address.
+   * @param innerNullifier - The inner nullifier to check.
+   * @param contractAddress - Address of the contract that emitted the nullifier.
+   * @returns A boolean indicating whether the nullifier is pending or not.
+   */
+  public async privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
+    const isNullifierPending = this.noteCache.getNullifiers(contractAddress).has(siloedNullifier.toBigInt());
+    return Promise.resolve(isNullifierPending);
+  }
+
+  /**
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
@@ -528,9 +540,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.aztecNode, this.contractStore, this.anchorBlockHeader);
-
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
+    await ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      this.utilityExecutor,
+      this.aztecNode,
+      this.contractStore,
+      this.anchorBlockHeader,
+    );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,

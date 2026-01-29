@@ -276,8 +276,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             serialize(commitment, elements);
         }
 
-        NativeVerificationKey_ key;
-        key.from_field_elements(elements);
         return elements;
     };
 

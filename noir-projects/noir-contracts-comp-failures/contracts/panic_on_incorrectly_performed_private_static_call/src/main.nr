@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 pub contract PanicOnIncorrectlyPerformedPrivateStaticCall {
     use aztec::{
         macros::functions::{external, view},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
     };
 
     #[external("private")]

@@ -25,7 +25,7 @@ describe('e2e_double_spend', () => {
       logger,
     } = await setup(1));
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
 
     logger.info(`Test contract deployed at ${contract.address}`);
   });
@@ -35,7 +35,7 @@ describe('e2e_double_spend', () => {
   describe('double spends', () => {
     it('emits a public nullifier and then tries to emit the same nullifier', async () => {
       const nullifier = new Fr(1);
-      await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait();
+      await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress });
 
       // We try emitting again, but our TX is dropped due to trying to emit a duplicate nullifier
       // first confirm that it fails simulation
@@ -45,7 +45,7 @@ describe('e2e_double_spend', () => {
       // if we skip simulation before submitting the tx,
       // tx will be included in a block but with app logic reverted
       await expect(
-        contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait(),
+        contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }),
       ).rejects.toThrow(TxExecutionResult.APP_LOGIC_REVERTED);
     });
   });

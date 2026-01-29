@@ -46,7 +46,7 @@ class BytecodeHashingTest : public ::testing::Test {
 TEST_F(BytecodeHashingTest, SimpleHash)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
-    FF hash = FF("0x16d621c3387156ef53754679e7b2c9be8f0bceeb44aa59a74991df3b0b42a0bf");
+    FF hash = FF("0x2c5e4c67ad5e1e4d840a6c4db4cee765fe09fbb6dfbb89ab649c295bb01f206e");
 
     std::vector<FF> bytecode_fields = {};
     for (uint32_t i = 1; i < 100; i++) {
@@ -78,6 +78,7 @@ TEST_F(BytecodeHashingTest, Hash)
     std::vector<uint8_t> bytecode = testing::random_bytes(500);
     std::vector<FF> bytecode_fields = encode_bytecode(bytecode);
     std::vector<FF> prepended_bytecode_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    prepended_bytecode_fields.reserve(1 + bytecode_fields.size());
     prepended_bytecode_fields.insert(prepended_bytecode_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
 
     auto hash = RawPoseidon2::hash(prepended_bytecode_fields);

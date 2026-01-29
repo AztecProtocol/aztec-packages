@@ -1,7 +1,7 @@
-use protocol_types::traits::Serialize;
+use crate::protocol::traits::Serialize;
 
-/// Emits data that will be delivered to PXE unaltered. This data can be interpreted freely by a
-/// downstream consumer (such as a wallet).
+/// Emits data that will be delivered to PXE unaltered. This data can be interpreted freely by a downstream consumer
+/// (such as a wallet).
 ///
 /// # Arguments
 ///

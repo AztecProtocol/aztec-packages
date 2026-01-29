@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -34,8 +34,6 @@ class AvmRecursiveVerifier {
                                   const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     /**
@@ -48,12 +46,11 @@ class AvmRecursiveVerifier {
   private:
     Builder& builder;
     std::shared_ptr<VerificationKey> key;
-    FF vk_hash;
     std::shared_ptr<Transcript> transcript;
 
     bool is_verification_complete = false;
 
-    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
+    static FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2

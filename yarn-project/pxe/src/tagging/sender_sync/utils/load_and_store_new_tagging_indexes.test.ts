@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -12,7 +12,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 import { loadAndStoreNewTaggingIndexes } from './load_and_store_new_tagging_indexes.js';
 
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadAndStoreNewTaggingIndexes', () => {
   // App contract address and secret to be used on the input of the loadAndStoreNewTaggingIndexes function.

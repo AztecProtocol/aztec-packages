@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol::address::AztecAddress;
 
     use dep::aztec::{
         macros::{functions::external, storage::storage},

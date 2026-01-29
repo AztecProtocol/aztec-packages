@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -eu
+
+# Sends Slack notification for alpha team canary CI failures.
+# Called from ci3/bootstrap_ec2 on CI failure.
+#
+# Usage: alpha_team_canary_slack_notify <ci_log_id>
+#
+# Environment variables:
+#   SLACK_BOT_TOKEN - Required for sending Slack messages
+#   PR_HEAD_REF - Branch name (set for PR runs)
+#   REF_NAME - Git ref name (set for tag runs)
+
+ALPHA_CANARY_BRANCH="ad/chore/ci-release-pr-canary"
+
+# Determine if this is an alpha canary run:
+# 1. PR run on the canary branch
+# 2. Release tag (v0.0.1-commit.*) where the commit is on the canary branch
+is_alpha_canary=false
+
+if [[ "${PR_HEAD_REF:-}" == "$ALPHA_CANARY_BRANCH" ]]; then
+  # Case 1: Direct PR run on the canary branch
+  is_alpha_canary=true
+elif [[ "${REF_NAME:-}" =~ ^v0\.0\.1-commit\. ]]; then
+  # Case 2: Release tag from ci-release-pr label - check if commit is on canary branch
+  if git fetch --depth=50 origin "$ALPHA_CANARY_BRANCH" 2>/dev/null && \
+     git merge-base --is-ancestor HEAD FETCH_HEAD 2>/dev/null; then
+    is_alpha_canary=true
+  fi
+fi
+
+if [[ "$is_alpha_canary" != "true" ]]; then
+  exit 0
+fi
+
+ci_log_id=${1:-}
+
+send_slack_message() {
+  local message=$1
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "SLACK_BOT_TOKEN not set, skipping notification"
+    return 0
+  fi
+
+  local data=$(cat <<EOF
+{
+  "channel": "#alpha-team",
+  "text": "$message"
+}
+EOF
+)
+  curl -s -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"
+}
+
+set -x
+
+send_slack_message "CI failed on alpha team canary (ci-release-pr): http://ci.aztec-labs.com/$ci_log_id"

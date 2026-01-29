@@ -1,31 +1,33 @@
-use protocol_types::{
+use crate::protocol::{
     abis::block_header::BlockHeader,
     constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
     traits::{Deserialize, Hash, Serialize},
 };
-
-global NOTE_HASH_TREE_ID: Field = 1;
-global ARCHIVE_TREE_ID: Field = 4;
 
 // Note: We have M here because we need to somehow set it when calling get_membership_witness function and one way to
 // do it is to set M here and then set type of the return param, e.g.:
 //
 // `let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> = get_membership_witness(...);`
 //
-// Another way to do it would be to add "type_hint: [Field; T]" as argument to `get_membership_witness` but that's
-// a bit too boilerplatey for my taste.
+// Another way to do it would be to add "type_hint: [Field; T]" as argument to `get_membership_witness` but that's a
+// bit too boilerplatey for my taste.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct MembershipWitness<let N: u32, let M: u32> {
     pub index: Field,
     pub path: [Field; N],
 }
 
-#[oracle(utilityGetMembershipWitness)]
-unconstrained fn get_membership_witness<let N: u32, let M: u32>(
-    _block_hash: Field,
-    _tree_id: Field,
-    _leaf_value: Field,
-) -> MembershipWitness<N, M> {}
+#[oracle(utilityGetNoteHashMembershipWitness)]
+unconstrained fn get_note_hash_membership_witness_oracle(
+    block_hash: Field,
+    leaf_value: Field,
+) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {}
+
+#[oracle(utilityGetArchiveMembershipWitness)]
+unconstrained fn get_archive_membership_witness_oracle(
+    block_hash: Field,
+    leaf_value: Field,
+) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {}
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 
@@ -34,7 +36,7 @@ pub unconstrained fn get_note_hash_membership_witness(
     leaf_value: Field,
 ) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
     let block_hash = block_header.hash();
-    get_membership_witness(block_hash, NOTE_HASH_TREE_ID, leaf_value)
+    get_note_hash_membership_witness_oracle(block_hash, leaf_value)
 }
 
 // There is no `get_public_data_membership_witness` function because it doesn't make sense to be getting a membership
@@ -45,5 +47,5 @@ pub unconstrained fn get_archive_membership_witness(
     leaf_value: Field,
 ) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {
     let block_hash = block_header.hash();
-    get_membership_witness(block_hash, ARCHIVE_TREE_ID, leaf_value)
+    get_archive_membership_witness_oracle(block_hash, leaf_value)
 }

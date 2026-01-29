@@ -18,7 +18,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -538,8 +537,8 @@ describe('CheckpointProposalJob', () => {
       metrics,
       eventEmitter,
       setStateFn,
-      createLogger('sequencer:checkpoint-proposal-job'),
       getTelemetryClient().getTracer('test'),
+      { actor: 'test' }, // bindings
     );
   }
 

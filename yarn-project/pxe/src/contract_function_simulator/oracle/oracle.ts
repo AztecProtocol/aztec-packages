@@ -12,9 +12,8 @@ import {
 } from '@aztec/simulator/client';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { packAsHintedNote } from './note_packing_utils.js';
@@ -138,33 +137,39 @@ export class Oracle {
     ].map(toACVMField);
   }
 
-  async utilityGetMembershipWitness(
+  async utilityGetNoteHashMembershipWitness(
     [blockHash]: ACVMField[],
-    [treeId]: ACVMField[],
     [leafValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = L2BlockHash.fromString(blockHash);
-    const parsedTreeId = Fr.fromString(treeId).toNumber();
+    const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedLeafValue = Fr.fromString(leafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(
-      parsedBlockHash,
-      parsedTreeId,
-      parsedLeafValue,
-    );
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(parsedBlockHash, parsedLeafValue);
     if (!witness) {
-      throw new Error(
-        `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block hash ${parsedBlockHash.toString()}.`,
-      );
+      throw new Error(`Leaf ${leafValue} not found in the note hash tree at block hash ${parsedBlockHash.toString()}.`);
     }
-    return [toACVMField(witness[0]), witness.slice(1).map(toACVMField)];
+    return witness.toNoirRepresentation();
+  }
+
+  async utilityGetArchiveMembershipWitness(
+    [blockHash]: ACVMField[],
+    [leafValue]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const parsedBlockHash = BlockHash.fromString(blockHash);
+    const parsedLeafValue = Fr.fromString(leafValue);
+
+    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(parsedBlockHash, parsedLeafValue);
+    if (!witness) {
+      throw new Error(`Leaf ${leafValue} not found in the archive tree at block hash ${parsedBlockHash.toString()}.`);
+    }
+    return witness.toNoirRepresentation();
   }
 
   async utilityGetNullifierMembershipWitness(
     [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = L2BlockHash.fromString(blockHash);
+    const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(
@@ -183,7 +188,7 @@ export class Oracle {
     [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = L2BlockHash.fromString(blockHash);
+    const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(
@@ -202,7 +207,7 @@ export class Oracle {
     [blockHash]: ACVMField[],
     [leafSlot]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = L2BlockHash.fromString(blockHash);
+    const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
     const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(parsedBlockHash, parsedLeafSlot);
@@ -341,6 +346,14 @@ export class Oracle {
     return [];
   }
 
+  async privateIsNullifierPending([innerNullifier]: ACVMField[], [contractAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(
+      Fr.fromString(innerNullifier),
+      AztecAddress.fromString(contractAddress),
+    );
+    return [toACVMField(isPending)];
+  }
+
   async utilityCheckNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
     const exists = await this.handlerAsUtility().utilityCheckNullifierExists(Fr.fromString(innerNullifier));
     return [toACVMField(exists)];
@@ -366,7 +379,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[][]> {
     const values = await this.handlerAsUtility().utilityStorageRead(
-      L2BlockHash.fromString(blockHash),
+      BlockHash.fromString(blockHash),
       new AztecAddress(Fr.fromString(contractAddress)),
       Fr.fromString(startStorageSlot),
       +numberOfElements,
@@ -478,12 +491,12 @@ export class Oracle {
     return [];
   }
 
-  async utilityValidateEnqueuedNotesAndEvents(
+  async utilityValidateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),

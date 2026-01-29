@@ -7,7 +7,7 @@ pub contract ContractClassRegistry {
     use dep::aztec::{
         hash::compute_public_bytecode_commitment,
         macros::functions::external,
-        protocol_types::{
+        protocol::{
             constants::{
                 ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
                 FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,

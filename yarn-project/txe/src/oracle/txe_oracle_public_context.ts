@@ -78,13 +78,11 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     this.transientUniqueNoteHashes.push(siloedNoteHash);
   }
 
-  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
-    const nullifier = await siloNullifier(targetAddress, innerNullifier!);
-
+  async avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean> {
     const treeIndex = (
-      await this.forkedWorldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()])
+      await this.forkedWorldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()])
     )[0];
-    const transientIndex = this.transientSiloedNullifiers.find(n => n.equals(nullifier));
+    const transientIndex = this.transientSiloedNullifiers.find(n => n.equals(siloedNullifier));
 
     return treeIndex !== undefined || transientIndex !== undefined;
   }

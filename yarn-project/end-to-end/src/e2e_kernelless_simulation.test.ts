@@ -49,11 +49,11 @@ describe('Kernelless simulation', () => {
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
 
-    amm = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address)
-      .send({ from: adminAddress })
-      .deployed();
+    amm = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
+      from: adminAddress,
+    });
 
-    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress }).wait();
+    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress });
 
     // We mint the tokens to the liquidity provider
     await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
@@ -86,9 +86,8 @@ describe('Kernelless simulation', () => {
       const nonceForAuthwits = Fr.random();
 
       // This interaction requires 2 authwitnesses, one for each token so they can be transferred from the provider's
-      // private balance to the AMM's public balance. Using the copycat wallet, we collect the request hashes
+      // private balance to the AMM's public balance. Using the stub account, we collect the request hashes
       // for later comparison
-
       const addLiquidityInteraction = amm.methods.add_liquidity(
         amount0Max,
         amount1Max,

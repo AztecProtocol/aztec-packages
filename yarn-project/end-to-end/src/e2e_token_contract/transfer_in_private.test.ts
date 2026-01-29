@@ -35,14 +35,15 @@ describe('e2e_token_contract transfer private', () => {
     const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
     // Perform the transfer
-    await action.send({ from: account1Address, authWitnesses: [witness] }).wait();
+    await action.send({ from: account1Address, authWitnesses: [witness] });
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset.methods
-      .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-      .send({ from: account1Address, authWitnesses: [witness] });
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(
+      asset.methods
+        .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
+        .send({ from: account1Address, authWitnesses: [witness] }),
+    ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
   describe('failure cases', () => {
@@ -144,13 +145,14 @@ describe('e2e_token_contract transfer private', () => {
       const witness = await wallet.createAuthWit(adminAddress, intent);
 
       const innerHash = await computeInnerAuthWitHashFromAction(account1Address, action);
-      await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress }).wait();
+      await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress });
 
       // Perform the transfer, should fail because nullifier already emitted
-      const txCancelledAuthwit = asset.methods
-        .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-        .send({ from: account1Address, authWitnesses: [witness] });
-      await expect(txCancelledAuthwit.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+      await expect(
+        asset.methods
+          .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
+          .send({ from: account1Address, authWitnesses: [witness] }),
+      ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
     it('transfer on behalf of other, invalid verify_private_authwit on "from"', async () => {

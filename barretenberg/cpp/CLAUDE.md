@@ -2,6 +2,14 @@ succint aztec-packages cheat sheet.
 
 THE PROJECT ROOT IS AT TWO LEVELS ABOVE THIS FOLDER. Typically, the repository is at ~/aztec-packages. all advice is from the root.
 
+# Git workflow for barretenberg
+
+**IMPORTANT**: When comparing branches or looking at diffs for barretenberg work, use `merge-train/barretenberg` as the base branch, NOT `master`. The master branch is often outdated for barretenberg development.
+
+Examples:
+- `git diff merge-train/barretenberg...HEAD` (not `git diff master...HEAD`)
+- `git log merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
+
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
 
@@ -24,11 +32,17 @@ Bootstrap modes:
   ninja <test>
   NOTE: DO NOT add the -j flag, default is optimal.
   where test is based on what you're working on:
-  - `./bin/ultra_honk_tests` - Ultra Honk circuit tests
-  - `./bin/chonk_tests` - Chonk tests
-  - `./bin/api_tests` - API/CLI tests
-  - `./bin/stdlib_*_tests` - Standard library tests
-  - `./bin/crypto_*_tests` - Cryptographic primitive tests
+  - `ultra_honk_tests` - Ultra Honk circuit tests
+  - `chonk_tests` - Chonk tests
+  - `dsl_tests` - ACIR/DSL tests (acir_format/, mock_verifier_inputs)
+  - `hypernova_tests` - HyperNova folding tests
+  - `eccvm_tests` - ECCVM circuit tests
+  - `translator_vm_tests` - Translator circuit tests
+  - `goblin_tests` - Goblin tests
+  - `stdlib_*_tests` - Standard library tests
+  - `crypto_*_tests` - Cryptographic primitive tests
+
+  To find test targets: `ninja -t targets | grep "_tests:" | grep -v cmake`
 
 ### Barretenberg module components:
 
@@ -95,3 +109,24 @@ BB_VERBOSE=1 yarn-project/scripts/run_test.sh ivc-integration/src/rollup_ivc_int
 ````
 
 When making barretenberg changes, ensure these tests still pass.
+
+## Benchmarking:
+
+**IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.
+
+To run benchmarks for a specific target:
+```bash
+cd barretenberg/cpp
+./scripts/benchmark_remote.sh <target_name>
+```
+
+Common benchmark targets:
+- `pippenger_bench` - MSM/Pippenger benchmarks
+- `ultra_honk_bench` - Ultra Honk prover benchmarks
+- `commitment_schemes_bench` - Commitment scheme benchmarks
+
+The remote benchmark script:
+- Runs on a dedicated benchmarking machine for consistent results
+- Automatically builds the target if needed
+- Returns performance metrics and timing data
+- Should be used instead of local benchmarks for performance validation

@@ -5,8 +5,8 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract CardGame {
-    use dep::aztec::protocol_types::address::AztecAddress;
-    use dep::aztec::protocol_types::hash::poseidon2_hash;
+    use dep::aztec::protocol::address::AztecAddress;
+    use dep::aztec::protocol::hash::poseidon2_hash;
     use dep::aztec::state_vars::{Map, PublicMutable};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
@@ -15,7 +15,7 @@ pub contract CardGame {
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
     use dep::aztec::macros::{functions::{external, only_self}, storage::storage};
 
-    use dep::aztec::protocol_types::traits::{FromField, ToField};
+    use dep::aztec::protocol::traits::{FromField, ToField};
 
     #[storage]
     struct Storage<Context> {

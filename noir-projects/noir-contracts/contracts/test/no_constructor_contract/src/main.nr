@@ -7,7 +7,7 @@ pub contract NoConstructor {
     use aztec::{
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };
 
