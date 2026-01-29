@@ -9,6 +9,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -745,6 +746,10 @@ template <typename Builder, typename T> class bigfield {
         constexpr uint256_t shift = uint256_t(1) << NUM_LIMB_BITS;
         field_t<Builder> lo = binary_basis_limbs[0].element + binary_basis_limbs[1].element * shift;
         field_t<Builder> hi = binary_basis_limbs[2].element + binary_basis_limbs[3].element * shift;
+
+        // Mark as used witnesses (these are intentionally in one gate for public input encoding)
+        mark_witness_as_used(lo);
+        mark_witness_as_used(hi);
 
         ctx->set_public_input(lo.get_witness_index());
         ctx->set_public_input(hi.get_witness_index());
