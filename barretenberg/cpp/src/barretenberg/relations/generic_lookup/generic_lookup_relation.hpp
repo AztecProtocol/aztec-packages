@@ -15,6 +15,131 @@
 
 namespace bb {
 
+/**
+ * Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
+ * columns. We allow two types of lookups:
+ *  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
+ *                              t_m}
+ *  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: Looking up values that are computed arbitrarily from {f_1, .., f_n} from
+ *                                        values that are computed arbitrarily (and possibly in a different way)
+ *                                        from {t_1, .., t_m}
+ *
+ */
+enum LOOKUP_TYPE : uint8_t { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
+enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
+
+/**
+ * @brief Polynomial structure required for the lookup argument
+ *
+ * @details The implementor must provide methods get_const_entities and get_nonconst_entities via Settings
+ * that return the polynomials required for the lookup argument. These polynomials have a structure that is in
+ * part fixed and in part variable:
+ *
+ * <b>Fixed Part:</b>
+ *  1. The first polynomial is the inverse polynomial
+ *  2. Next we have NUM_TABLE_TERMS polynomials representing the lookup read counts, i.e., how many times each
+ *     table term has been read
+ *  3. Next we have NUM_LOOKUP_TERMS polynomials representing the lookup term predicates, which toggle
+ *     whether a lookup term can be looked up in this row or not
+ *  4. Next we have NUM_TABLE_TERMS polynomials representing the table term predicates, which toggle whether a
+ *     table term can be looked up in this row or not
+ *
+ * <b>Variable Part:</b>
+ *  5. For each lookup term, we have a variable number of polynomials depending on the type of lookup:
+ *     - BASIC_LOOKUP: LOOKUP_TUPLE_SIZE polynomials representing the columns being looked up (and that will be
+ * batched)
+ *     - CUSTOMIZED_LOOKUP: No additional polynomials are required, as the logic is fully specified in Settings
+ *  6. For each table term, we have a variable number of polynomials depending on the type of table:
+ *     - BASIC_TABLE: LOOKUP_TUPLE_SIZE polynomials representing the table columns (and that will be batched)
+ *     - CUSTOMIZED_TABLE: No additional polynomials are required, as the logic is fully specified in Settings
+ */
+template <typename Settings_> class LookupPolynomialStructure {
+  private:
+    static constexpr size_t NUM_LOOKUP_TERMS = Settings_::NUM_LOOKUP_TERMS;
+    static constexpr size_t NUM_TABLE_TERMS = Settings_::NUM_TABLE_TERMS;
+
+    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
+    static constexpr size_t LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
+    static constexpr size_t TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUP_TERMS;
+    static constexpr size_t LOOKUP_TERM_START_POLYNOMIAL_INDEX =
+        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
+
+  public:
+    static size_t get_inverse_polynomial_index() { return INVERSE_POLYNOMIAL_INDEX; }
+
+    static size_t get_read_count_polynomial_index(const size_t index)
+    {
+        return LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + index;
+    }
+
+    static size_t get_lookup_term_predicate_index(const size_t lookup_index)
+    {
+        return LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + lookup_index;
+    }
+
+    static size_t get_table_term_predicate_index(const size_t table_index)
+    {
+        return TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + table_index;
+    }
+
+    /**
+     * @brief Compute where the polynomials defining a particular lookup term are located
+     *
+     * @param lookup_index Index of the lookup term
+     * @return Offset in the polynomial array where this lookup term's polynomials begin
+     */
+    static constexpr size_t compute_lookup_term_polynomial_offset(size_t lookup_index)
+    {
+        // If it's the starting index, then there is nothing to compute, just get the starting index
+        if (lookup_index == 0) {
+            return LOOKUP_TERM_START_POLYNOMIAL_INDEX;
+        }
+
+        switch (Settings_::LOOKUP_TYPES[lookup_index - 1]) {
+        case BASIC_LOOKUP:
+            // If the previous lookup was a basic lookup, add lookup tuple size (it was using just a linear combination
+            // of polynomials)
+            return compute_lookup_term_polynomial_offset(lookup_index - 1) + Settings_::LOOKUP_TUPLE_SIZE;
+        case CUSTOMIZED_LOOKUP:
+            // In case of customized lookup, no polynomials from the tuple are being used
+            return compute_lookup_term_polynomial_offset(lookup_index - 1);
+        default:
+            bb::assert_failure("Invalid lookup type");
+            return SIZE_MAX;
+        }
+    }
+
+    /**
+     * @brief Compute where the polynomials defining a particular table term are located
+     *
+     * @param table_index Index of the table term
+     * @return Offset in the polynomial array where this table term's polynomials begin
+     */
+    static constexpr size_t compute_table_term_polynomial_offset(size_t table_index)
+    {
+        // If it's the starting index, then we need to find out how many polynomials were taken by lookup terms
+        if (table_index == 0) {
+            return compute_lookup_term_polynomial_offset(NUM_LOOKUP_TERMS);
+        }
+
+        switch (Settings_::TABLE_TYPES[table_index - 1]) {
+        case BASIC_TABLE:
+            // If the previous lookup was a basic table, add lookup tuple size (it was using just a linear combination
+            // of polynomials)
+            return compute_table_term_polynomial_offset(table_index - 1) + Settings_::LOOKUP_TUPLE_SIZE;
+        case CUSTOMIZED_TABLE:
+            // In case of customized table, no polynomials from the tuple are being used
+            return compute_table_term_polynomial_offset(table_index - 1);
+        default:
+            bb::assert_failure("Invalid lookup type");
+            return SIZE_MAX;
+        }
+    }
+};
+
 // clang-format off
 template <typename S>
 concept GenericLookupSettings = requires {
@@ -41,24 +166,11 @@ concept GenericLookupSettings = requires {
     // Settings also require the following methods, but some of them are templated, so we can't check them here.
     // 1) Settings::inverse_polynomial_is_computed_at_row(const AllValues& row), method to compute whether the inverse polynomial should be computed at a given row
     // 2) Settings::compute_inverse_exists<Accumulator>(const AllEntities& in), method to compute the value of the inverse_exists polynomial at a given row
-    // 3) Settings::template compute_lookup_term<Accumulator, lookup_index>(in, params), method to compute the lookup term at index lookup_index
-    // 4) Settings::template compute_table_term<Accumulator, table_index>(in, params), method to compute the table term at index table_index
-    // 5) Settings::get_nonconst_entities(AllEntities& in), method to extract non constant references to the columns used in the relation
-    // 6) Settings::get_const_entities(AllEntities& in), method to extract constant references to the columns used in the relation
+    // 3) Settings::template compute_lookup_term<Accumulator, size_t>(const AllEntities&, const Parameters&), method to compute the lookup term at a given index
+    // 4) Settings::template compute_table_term<Accumulator, size_t>(const AllEntities&, const Parameters&), method to compute the table term at a given index
+    // 5) Settings::get_nonconst_entities(AllEntities&), method to extract non constant references to the columns used in the relation
+    // 6) Settings::get_const_entities(const AllEntities&), method to extract constant references to the columns used in the relation
 };
-
-/**
-* Write f_1, .., f_n for the values at a row i the columns we wish to look up, and t_1, .., t_m for table
-* columns. We allow two types of lookups:
-*  - BASIC_LOOKUP/BASIC_TABLE: Looking up a subset S_f \subset {f_1, .., f_n} from a subset S_t \subset {t_1, ..,
-*                              t_m}
-*  - CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE: Looking up values that are computed arbitrarily from {f_1, .., f_n} from
-*                                        values that are computed arbitrarily (and possibly in a different way)
-*                                        from {t_1, .., t_m}
-*
-*/
-enum LOOKUP_TYPE : uint8_t { BASIC_LOOKUP, CUSTOMIZED_LOOKUP };
-enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
 
 /**
  * @brief Generic implementation of a log-derivative based lookup relation
@@ -88,36 +200,36 @@ enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
  *
  * In both cases, we rephrase the equation check in terms of two relations:
  *  1. \f[
- *     I(x) \cdot \prod_{i=1}^{\text{NUM\_LOOKUP\_TERMS}} \text{lookup\_entry}(x) \cdot
- *     \prod_{i=0}^{\text{NUM\_TABLE\_TERMS}} \text{table\_entry}(x) - \text{inverse\_exists}(x) = 0
+ *     I(x) \cdot \prod_{i=1}^{\text{NUM_LOOKUP_TERMS}} \text{lookup\_entry}(x) \cdot
+ *     \prod_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry}(x) - \text{inverse_exists}(x) = 0
  *     \f]
  *  2. \f[
- *     \sum_{i=0}^{\text{NUM\_LOOKUP\_TERMS}} \text{lookup\_entry\_predicate}_i(x) \cdot \frac{1}{\text{lookup\_entry}(x)}
- *     - \sum_{i=0}^{\text{NUM\_TABLE\_TERMS}} \text{table\_entry\_predicate}_i(x) \cdot
- *     \text{lookup\_read\_count}_i(x) \cdot \frac{1}{\text{table\_entry}(x)}
+ *     \sum_{i=0}^{\text{NUM_LOOKUP_TERMS}} \text{lookup_entry_predicate}_i(x) \cdot \frac{1}{\text{lookup_entry}(x)}
+ *     - \sum_{i=0}^{\text{NUM_TABLE_TERMS}} \text{table_entry_predicate}_i(x) \cdot
+ *     \text{lookup_read_count}_i(x) \cdot \frac{1}{\text{table_entry}(x)}
  *     \f]
  *
- * Relation 1) ensures that the polynomial \f$I\f$ represents the inverse of the product of the entries to be
+ * The first relation ensures that the polynomial \f$I\f$ represents the inverse of the product of the entries to be
  * looked up and the table entries. As this polynomial doesn't need to be defined everywhere, we set the result
  * of the multiplication to be equal to the value of another polynomial: inverse\_exist, which is set to 1 only
  * if the inverse must be computed. Note that relation 1) is *independent*: it must be satisfied at every row
  * in the trace.
  *
- * Relation 2) is a *dependent* relation, it is satisfied only when its values are summed over the entire trace.
+ * The second relation is a *dependent* relation, it is satisfied only when its values are summed over the entire trace.
  * The result of the sum is the log-derivative expression that bears witness to the validity of the lookup. Note
  * that the lookup and table entries are multiplied by predicates that enable specifying which table lookup/table
  * entries the prover is allowed to use at any given row.
  *
  * The degrees of the above relations are:
- *  1. The degree of relation 1) is \f$\max(1 + \max(\deg(\text{lookup\_entries})) +
- *     \max(\deg(\text{table\_entries})), \deg(\text{inverse\_exists}))\f$
- *  2. The degree of relation 2) is \f$2 + \text{NUM\_LOOKUP\_TERMS} + \text{NUM\_TABLE\_TERMS}\f$.
+ *  1. The degree of relation 1) is \f$\max(1 + \max(\deg(\text{lookup_entries})) +
+ *     \max(\deg(\text{table_entries})), \deg(\text{inverse_exists}))\f$
+ *  2. The degree of relation 2) is \f$2 + \text{NUM_LOOKUP_TERMS} + \text{NUM_TABLE_TERMS}\f$.
  *     This is because we compute the inverses as:
  *     \f[
- *         \frac{1}{\text{table\_entry}(x)} = I(x) \cdot \prod_{j \neq i} \text{table\_entry}_j(x) \cdot
- *         \prod_{i} \text{lookup\_entry}_i(x)
+ *         \frac{1}{\text{table_entry}(x)} = I(x) \cdot \prod_{j \neq i} \text{table_entry}_j(x) \cdot
+ *         \prod_{i} \text{lookup_entry}_i(x)
  *     \f]
- *     whose degree is \f$1 + \text{NUM\_LOOKUP\_TERMS} + \text{NUM\_TABLE\_TERMS} - 1\f$.
+ *     whose degree is \f$1 + \text{NUM_LOOKUP_TERMS} + \text{NUM_TABLE_TERMS} - 1\f$.
  *
  * @note The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this relation.
  *
@@ -126,6 +238,7 @@ enum TABLE_TYPE : uint8_t { BASIC_TABLE, CUSTOMIZED_TABLE };
 template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
+    using PolynomialStructure = LookupPolynomialStructure<Settings>;
 
     static constexpr size_t NUM_LOOKUP_TERMS = Settings::NUM_LOOKUP_TERMS;
     static constexpr size_t NUM_TABLE_TERMS = Settings::NUM_TABLE_TERMS;
@@ -210,40 +323,6 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     /**
-     * @brief Polynomial structure required for the lookup argument
-     *
-     * @details The implementor must provide methods get_const_entities and get_nonconst_entities via Settings
-     * that return the polynomials required for the lookup argument. These polynomials have a structure that is in
-     * part fixed and in part variable:
-     *
-     * <b>Fixed Part:</b>
-     *  1. The first polynomial is the inverse polynomial
-     *  2. Next we have NUM_TABLE_TERMS polynomials representing the lookup read counts, i.e., how many times each
-     *     table term has been read
-     *  3. Next we have NUM_LOOKUP_TERMS polynomials representing the lookup term predicates, which toggle
-     *     whether a lookup term can be looked up in this row or not
-     *  4. Next we have NUM_TABLE_TERMS polynomials representing the table term predicates, which toggle whether a
-     *     table term can be looked up in this row or not
-     *
-     * <b>Variable Part:</b>
-     *  5. For each lookup term, we have a variable number of polynomials depending on the type of lookup:
-     *     - BASIC_LOOKUP: LOOKUP_TUPLE_SIZE polynomials representing the columns being looked up (and that will be
-     * batched)
-     *     - CUSTOMIZED_LOOKUP: No additional polynomials are required, as the logic is fully specified in Settings
-     *  6. For each table term, we have a variable number of polynomials depending on the type of table:
-     *     - BASIC_TABLE: LOOKUP_TUPLE_SIZE polynomials representing the table columns (and that will be batched)
-     *     - CUSTOMIZED_TABLE: No additional polynomials are required, as the logic is fully specified in Settings
-     */
-    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
-    static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
-    static constexpr size_t LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
-    static constexpr size_t TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
-        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUP_TERMS;
-    static constexpr size_t LOOKUP_TERM_START_POLYNOMIAL_INDEX =
-        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
-
-    /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
      *
      * @tparam AllValues Type containing all polynomial values at a given row
@@ -267,7 +346,7 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
-        return std::get<INVERSE_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
+        return std::get<PolynomialStructure::get_inverse_polynomial_index()>(Settings::get_nonconst_entities(in));
     }
 
     /**
@@ -305,8 +384,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         static_assert(index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
-        return Accumulator(
-            View(std::get<LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + index>(Settings::get_const_entities(in))));
+        return Accumulator(View(
+            std::get<PolynomialStructure::get_read_count_polynomial_index(index)>(Settings::get_const_entities(in))));
     }
 
     /**
@@ -325,8 +404,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         static_assert(lookup_index < NUM_LOOKUP_TERMS);
         using View = typename Accumulator::View;
 
-        return Accumulator(View(
-            std::get<LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + lookup_index>(Settings::get_const_entities(in))));
+        return Accumulator(View(std::get<PolynomialStructure::get_lookup_term_predicate_index(lookup_index)>(
+            Settings::get_const_entities(in))));
     }
 
     /**
@@ -345,62 +424,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         static_assert(table_index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
-        return Accumulator(View(
-            std::get<TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + table_index>(Settings::get_const_entities(in))));
-    }
-
-    /**
-     * @brief Compute where the polynomials defining a particular lookup term are located
-     *
-     * @param lookup_index Index of the lookup term
-     * @return Offset in the polynomial array where this lookup term's polynomials begin
-     */
-    static constexpr size_t compute_lookup_term_polynomial_offset(size_t lookup_index)
-    {
-        // If it's the starting index, then there is nothing to compute, just get the starting index
-        if (lookup_index == 0) {
-            return LOOKUP_TERM_START_POLYNOMIAL_INDEX;
-        }
-
-        switch (Settings::LOOKUP_TYPES[lookup_index - 1]) {
-        case BASIC_LOOKUP:
-            // If the previous lookup was a basic lookup, add lookup tuple size (it was using just a linear combination
-            // of polynomials)
-            return compute_lookup_term_polynomial_offset(lookup_index - 1) + LOOKUP_TUPLE_SIZE;
-        case CUSTOMIZED_LOOKUP:
-            // In case of customized lookup, no polynomials from the tuple are being used
-            return compute_lookup_term_polynomial_offset(lookup_index - 1);
-        default:
-            bb::assert_failure("Invalid lookup type");
-            return SIZE_MAX;
-        }
-    }
-
-    /**
-     * @brief Compute where the polynomials defining a particular table term are located
-     *
-     * @param table_index Index of the table term
-     * @return Offset in the polynomial array where this table term's polynomials begin
-     */
-    static constexpr size_t compute_table_term_polynomial_offset(size_t table_index)
-    {
-        // If it's the starting index, then we need to find out how many polynomials were taken by lookup terms
-        if (table_index == 0) {
-            return compute_lookup_term_polynomial_offset(NUM_LOOKUP_TERMS);
-        }
-
-        switch (Settings::TABLE_TYPES[table_index - 1]) {
-        case BASIC_TABLE:
-            // If the previous lookup was a basic table, add lookup tuple size (it was using just a linear combination
-            // of polynomials)
-            return compute_table_term_polynomial_offset(table_index - 1) + LOOKUP_TUPLE_SIZE;
-        case CUSTOMIZED_TABLE:
-            // In case of customized table, no polynomials from the tuple are being used
-            return compute_table_term_polynomial_offset(table_index - 1);
-        default:
-            bb::assert_failure("Invalid lookup type");
-            return SIZE_MAX;
-        }
+        return Accumulator(View(std::get<PolynomialStructure::get_table_term_predicate_index(table_index)>(
+            Settings::get_const_entities(in))));
     }
 
     /**
@@ -420,7 +445,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         using View = typename Accumulator::View;
 
         static_assert(lookup_index < NUM_LOOKUP_TERMS);
-        constexpr size_t start_polynomial_index = compute_lookup_term_polynomial_offset(lookup_index);
+        constexpr size_t start_polynomial_index =
+            PolynomialStructure::compute_lookup_term_polynomial_offset(lookup_index);
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
@@ -458,7 +484,8 @@ template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelat
         using View = typename Accumulator::View;
 
         static_assert(table_index < NUM_TABLE_TERMS);
-        constexpr size_t start_polynomial_index = compute_table_term_polynomial_offset(table_index);
+        constexpr size_t start_polynomial_index =
+            PolynomialStructure::compute_table_term_polynomial_offset(table_index);
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
