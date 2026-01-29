@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -20,26 +20,16 @@ namespace bb {
 
 /**
  * @brief Compute the inverse polynomial I(X) required for logderivative lookups
- * *
- * details
- * Inverse may be defined in terms of its values  on X_i = 0,1,...,n-1 as Z_perm[0] = 1 and for i = 1:n-1
- *                           1                              1
- * Inverse[i] = ∏ -------------------------- * ∏' --------------------------
- *                  relation::read_term(j)         relation::write_term(j)
  *
- * where ∏ := ∏_{j=0:relation::NUM_READ_TERMS-1} and ∏' := ∏'_{j=0:relation::NUM_WRITE_TERMS-1}
+ * @details For \f$x \in H_N\f$, where \f$H_N\f$ is the hypercube of size N, we define the inverse polynomial
+ * \f[
+ *      I(x) = \prod_{j} \frac{1}{\text{lookup_term}_{j}(x)} \cdot \prod_{k} \frac{1}{\text{table_term}_{k}(x)}
+ * \f]
  *
- * If row [i] does not contain a lookup read gate or a write gate, Inverse[i] = 0
- * N.B. by "write gate" we mean; do the lookup table polynomials contain nonzero values at this row?
- * (in the ECCVM, the lookup table is not precomputed, so we have a concept of a "write gate", unlike when precomputed
- * lookup tables are used)
+ * If a given row does not contain a lookup gate, the inverse polynomial is set to zero.
  *
- * The specific algebraic relations that define read terms and write terms are defined in Flavor::LookupRelation
- *
- * Note: tparam UseMultithreading exists because the AVM calls this fn in a multithreaded loop (no nested multithreading
- * allowed) but the ECCVM benefits from multithreading this fn
  */
-template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
+template <typename FF, typename Relation, typename Polynomials, bool IsAvm = false>
 void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
 {
     using Accumulator = typename Relation::ValueAccumulator0;
@@ -57,14 +47,14 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
                 continue;
             }
             FF denominator = 1;
-            bb::constexpr_for<0, NUM_LOOKUP_TERMS, 1>([&]<size_t read_index> {
+            bb::constexpr_for<0, NUM_LOOKUP_TERMS, 1>([&]<size_t lookup_index> {
                 auto denominator_term =
-                    Relation::template compute_lookup_term<Accumulator, read_index>(row, relation_parameters);
+                    Relation::template compute_lookup_term<Accumulator, lookup_index>(row, relation_parameters);
                 denominator *= denominator_term;
             });
-            bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t write_index> {
+            bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t table_index> {
                 auto denominator_term =
-                    Relation::template compute_table_term<Accumulator, write_index>(row, relation_parameters);
+                    Relation::template compute_table_term<Accumulator, table_index>(row, relation_parameters);
                 denominator *= denominator_term;
             });
             inverse_polynomial.at(i) = denominator;
@@ -75,18 +65,15 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
         // Note: zeroes are ignored as they are not used anyway
         FF::batch_invert(to_invert);
     };
-    if constexpr (UseMultithreading) {
-        parallel_for([&](const ThreadChunk& chunk) {
-            auto range = chunk.range(circuit_size);
-            if (!range.empty()) {
-                size_t start = *range.begin();
-                size_t end = start + range.size();
-                compute_inverses(start, end);
-            }
-        });
-    } else {
-        compute_inverses(0, inverse_polynomial.size());
-    }
+    size_t range_size = IsAvm ? inverse_polynomial.size() : circuit_size;
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(range_size);
+        if (!range.empty()) {
+            size_t start = *range.begin();
+            size_t end = start + range.size();
+            compute_inverses(start, end);
+        }
+    });
 }
 
 /**
@@ -158,7 +145,7 @@ void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelatio
     for (size_t i = NUM_TOTAL_TERMS - 1; i > 0; --i) {
         // Take the cumulative product up to the previous index and multiply by the current inverse accumulator
         denominator_accumulator[i] = denominator_accumulator[i - 1] * inverse_accumulator;
-        // Multiply the inverse accumulator by the current term to "remove" it from the product of the inverses
+        // Multiply the inverse accumulator by the current term to remove it from the product of the inverses
         inverse_accumulator = inverse_accumulator * lookup_terms[i];
     }
     denominator_accumulator[0] = inverse_accumulator;

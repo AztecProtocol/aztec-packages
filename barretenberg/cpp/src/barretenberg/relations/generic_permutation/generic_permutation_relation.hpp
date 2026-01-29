@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -73,7 +73,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     // Specialization of the calculation of the length for the generic lookup relation to the permutation relation; note
     // that the second subrelation degree is one lower than the one in the lookup argument because there is not read
     // count polynomial
-    static constexpr size_t FIRST_RELATION_PARTIAL_LENGTH = std::max(3,
+    static constexpr size_t FIRST_RELATION_PARTIAL_LENGTH = std::max(NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 1,
                                                                      Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
                                                             1; // inverse polynomial correctness sub-relation
     static constexpr size_t SECOND_RELATION_PARTIAL_LENGTH =

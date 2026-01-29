@@ -41,7 +41,8 @@ bool ECCVMTraceChecker::check(Builder& builder,
 #endif
     const size_t num_rows = polynomials.get_polynomial_size();
     const size_t unmasked_witness_size = num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>, ProverPolynomials, false>(
+        polynomials, params, unmasked_witness_size);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params, unmasked_witness_size);
 
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
