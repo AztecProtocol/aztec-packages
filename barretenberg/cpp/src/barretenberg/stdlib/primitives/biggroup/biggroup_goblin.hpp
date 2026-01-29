@@ -90,13 +90,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        // Handle point at infinity using the canonical representation with constant (0, 0) coordinates
+        goblin_element out;
+
+        // ECCVM requires points at infinity to be represented by 0-value x/y coords
         if (input.is_point_at_infinity()) {
-            return point_at_infinity(ctx);
+            Fq x = Fq::from_witness(ctx, bb::fq(0));
+            Fq y = Fq::from_witness(ctx, bb::fq(0));
+            out._x = x;
+            out._y = y;
+        } else {
+            Fq x = Fq::from_witness(ctx, input.x);
+            Fq y = Fq::from_witness(ctx, input.y);
+            out._x = x;
+            out._y = y;
         }
-        Fq x = Fq::from_witness(ctx, input.x);
-        Fq y = Fq::from_witness(ctx, input.y);
-        goblin_element out(x, y);
+        out._is_infinity = bool_ct(witness_ct(ctx, input.is_point_at_infinity()));
         out.set_free_witness_tag();
         return out;
     }
