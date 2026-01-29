@@ -17,11 +17,11 @@ pub contract SampleContract {
         // Example public mutable variable
         pub_mut: PublicMutable<u64, Context>,
         // Example private mutable variable
-        priv_mut: PrivateMutable<u64, Context>,
+        priv_mut: Owned<PrivateMutable<u64, Context>>,
         // Example public immutable variable
         pub_imm: PublicImmutable<u64, Context>,
         // Example private immutable variable
-        priv_imm: PrivateImmutable<u64, Context>,
+        priv_imm: Owned<PrivateImmutable<u64, Context>>,
         // Example single private mutable variable
         single_priv_mut: SinglePrivateMutable<u64, Context>,
         // Example single public mutable variable
@@ -34,8 +34,6 @@ pub contract SampleContract {
         priv_set: PrivateSet<u64, Context>,
         // Example map
         map: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
-        // Example owned variable
-        owned_var: Owned<PrivateMutable<u64, Context>, Context>,
     }
 
     #[initializer]
@@ -49,7 +47,7 @@ pub contract SampleContract {
         self.storage.pub_mut.write(value);
     }
 
-    fn priv_mutable_example(value: u64, new_value: u64) {
+    fn priv_mutable_example(value: u64, new_value: u64, address: AztecAddress) {
         // only callable in utility context
         self.storage.priv_mut.is_initialized();
         self.storage.priv_mut.view_note();
@@ -61,7 +59,7 @@ pub contract SampleContract {
         // initialize if it hasn't yet been initialized or replace if it has
         self.storage.priv_mut.initialize_or_replace(new_value);
         // read the value from storage (this also consumes the note and replaces it with another note of the same value)
-        self.storage.priv_mut.get_note();
+        self.storage.priv_mut.at(address).get_note();
     }
 
     fn pub_immutable_example(value: u64) -> u64 {
