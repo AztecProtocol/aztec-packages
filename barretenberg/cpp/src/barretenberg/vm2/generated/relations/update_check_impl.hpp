@@ -55,71 +55,77 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   ((static_cast<View>(in.get(C::update_check_delayed_public_mutable_slot)) +
-                     CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN)) -
-                    static_cast<View>(in.get(C::update_check_delayed_public_mutable_hash_slot)));
+                   (static_cast<View>(in.get(C::update_check_const_three)) - FF(3));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
-                   (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
-                    static_cast<View>(in.get(C::update_check_deployer_protocol_contract_address)));
+                   ((static_cast<View>(in.get(C::update_check_delayed_public_mutable_slot)) +
+                     CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN)) -
+                    static_cast<View>(in.get(C::update_check_delayed_public_mutable_hash_slot)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
-                   (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero)));
+        auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
+                   (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
+                    static_cast<View>(in.get(C::update_check_deployer_protocol_contract_address)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    { // HASH_IS_ZERO_CHECK
+    {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
+                   (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero)));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // HASH_IS_ZERO_CHECK
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = ((static_cast<View>(in.get(C::update_check_update_hash)) *
                          (CView(update_check_HASH_IS_ZERO) *
                               (FF(1) - static_cast<View>(in.get(C::update_check_update_hash_inv))) +
                           static_cast<View>(in.get(C::update_check_update_hash_inv))) -
                      FF(1)) +
                     CView(update_check_HASH_IS_ZERO));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // NEVER_UPDATED_CHECK
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::update_check_hash_not_zero))) *
                    (static_cast<View>(in.get(C::update_check_current_class_id)) -
                     static_cast<View>(in.get(C::update_check_original_class_id)));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
-                   ((CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE) -
-                     CView(constants_TIMESTAMP_OF_CHANGE_BIT_SIZE)) -
-                    static_cast<View>(in.get(C::update_check_update_hi_metadata_bit_size)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
-                   (CView(constants_TIMESTAMP_OF_CHANGE_BIT_SIZE) -
-                    static_cast<View>(in.get(C::update_check_timestamp_of_change_bit_size)));
+                   ((CView(constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE) -
+                     CView(constants_TIMESTAMP_OF_CHANGE_BIT_SIZE)) -
+                    static_cast<View>(in.get(C::update_check_update_hi_metadata_bit_size)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // UPDATE_METADATA_DECOMPOSITION
+    {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
+                   (CView(constants_TIMESTAMP_OF_CHANGE_BIT_SIZE) -
+                    static_cast<View>(in.get(C::update_check_timestamp_of_change_bit_size)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // UPDATE_METADATA_DECOMPOSITION
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = ((static_cast<View>(in.get(C::update_check_update_hi_metadata)) * CView(update_check_TWO_POW_32) +
                      static_cast<View>(in.get(C::update_check_timestamp_of_change))) -
                     static_cast<View>(in.get(C::update_check_update_preimage_metadata)));
-        std::get<11>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)) *
-                   (FF(1) - static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
-    { // UPDATE_PRE_CLASS_IS_ZERO
+    {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)) *
+                   (FF(1) - static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    { // UPDATE_PRE_CLASS_IS_ZERO
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
                    ((static_cast<View>(in.get(C::update_check_update_preimage_pre_class_id)) *
                          (static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)) *
@@ -127,16 +133,16 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::update_check_update_pre_class_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)));
-        std::get<13>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)) *
-                   (FF(1) - static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
-    { // UPDATE_POST_CLASS_IS_ZERO
+    {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)) *
+                   (FF(1) - static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)));
+        std::get<15>(evals) += (tmp * scaling_factor);
+    }
+    { // UPDATE_POST_CLASS_IS_ZERO
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
                    ((static_cast<View>(in.get(C::update_check_update_preimage_post_class_id)) *
                          (static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)) *
@@ -144,27 +150,27 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::update_check_update_post_class_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)));
-        std::get<15>(evals) += (tmp * scaling_factor);
+        std::get<16>(evals) += (tmp * scaling_factor);
     }
     { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
                    static_cast<View>(in.get(C::update_check_timestamp_is_lt_timestamp_of_change)) *
                    ((static_cast<View>(in.get(C::update_check_original_class_id)) *
                          static_cast<View>(in.get(C::update_check_update_pre_class_id_is_zero)) +
                      static_cast<View>(in.get(C::update_check_update_preimage_pre_class_id))) -
                     static_cast<View>(in.get(C::update_check_current_class_id)));
-        std::get<16>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // PAST_UPDATE_CLASS_ID_ASSIGNMENT
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_hash_not_zero)) *
                    (FF(1) - static_cast<View>(in.get(C::update_check_timestamp_is_lt_timestamp_of_change))) *
                    ((static_cast<View>(in.get(C::update_check_original_class_id)) *
                          static_cast<View>(in.get(C::update_check_update_post_class_id_is_zero)) +
                      static_cast<View>(in.get(C::update_check_update_preimage_post_class_id))) -
                     static_cast<View>(in.get(C::update_check_current_class_id)));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
 }
 

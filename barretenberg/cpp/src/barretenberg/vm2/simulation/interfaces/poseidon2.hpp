@@ -1,6 +1,8 @@
 #pragma once
 
 #include <array>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
