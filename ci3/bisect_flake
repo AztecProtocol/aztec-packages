@@ -7,7 +7,8 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
 full_cmd="$1"
-commit="${2:-$(git rev-parse HEAD)}"
+commit_tip=$(git rev-parse HEAD)
+commit="${2:-$commit_tip}"
 
 # Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MAKEFILE_TARGET, etc.)
 source $ci3/source_test_params
@@ -40,9 +41,9 @@ function slack_report {
 }
 
 function checkout {
-    local commit="$1"
-    git checkout $commit --quiet
+    git reset --hard $1 --quiet
     git submodule update --init --recursive --depth 1 --jobs 8
+    git checkout $commit_tip -- ci3
 }
 
 function build {
@@ -79,6 +80,7 @@ echo
 # If ALL fail, it's a real failure, not a flake
 # ============================================================
 echo_header "confirm flake at $commit"
+checkout $commit
 build
 
 echo "Expecting all to fail if real failure, any pass if flake..."
