@@ -4,13 +4,6 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-/**
- * @file generic_permutation_relation.hpp
- * @author Rumata888
- * @brief This file contains the template for the generic permutation that can be specialized to enforce various
- * permutations (for explanation on how to define them, see "relation_definer.hpp")
- *
- */
 #pragma once
 #include <array>
 #include <tuple>
@@ -21,21 +14,40 @@
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
-/**
- * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
- *
- */
-enum GenericPermutationSettingIndices {
-    INVERSE_POLYNOMIAL_INDEX,                       /* The index of the inverse polynomial*/
-    FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX,  /* The index of the polynomial that adds an element from the first
-                                                       set to the sum*/
-    SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX, /* The index of the polynomial that adds an element from the second
-                                                       set to the sum*/
 
-    PERMUTATION_SETS_START_POLYNOMIAL_INDEX, /* The starting index of the polynomials that are used in the permutation
-                                                sets*/
+/**
+ * @brief Specialization of the polynomial structure required for the lookup argument to the case of the permutation
+ * argument
+ *
+ * @details This class works exactly as LookupPolynomialStructure, but with fixed parameters for the permutation
+ * argument: NUM_LOOKUP_TERMS = NUM_TABLE_TERMS = 1 and all terms are of type BASIC
+ */
+template <typename Settings> class PermutationPolynomialStructure {
+  private:
+    static constexpr size_t NUM_LOOKUP_TERMS = 1;
+    static constexpr size_t NUM_TABLE_TERMS = 1;
+
+    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    static constexpr size_t LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX = INVERSE_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
+    static constexpr size_t TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_LOOKUP_TERMS;
+    static constexpr size_t LOOKUP_TERM_START_POLYNOMIAL_INDEX =
+        TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
+    static constexpr size_t TABLE_TERM_START_POLYNOMIAL_INDEX =
+        LOOKUP_TERM_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
+
+  public:
+    static constexpr size_t get_inverse_polynomial_index() { return INVERSE_POLYNOMIAL_INDEX; }
+
+    static constexpr size_t get_lookup_term_predicate_index() { return LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX; }
+    static constexpr size_t get_table_term_predicate_index() { return TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX; }
+
+    static constexpr size_t compute_lookup_term_polynomial_offset() { return LOOKUP_TERM_START_POLYNOMIAL_INDEX; }
+
+    static constexpr size_t compute_table_term_polynomial_offset() { return TABLE_TERM_START_POLYNOMIAL_INDEX; }
 };
 
+/// TO BE UPDATED!!!!!!
 /**
  * @brief Implementation of a generic permutation relation
  *
@@ -48,7 +60,9 @@ enum GenericPermutationSettingIndices {
 template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
   public:
     using FF = FF_;
-    // Read and write terms counts should stay set to 1 unless we want to permute several columns at once as accumulated
+    using PolynomialStructure = PermutationPolynomialStructure<Settings>;
+
+    // The term counts should stay set to 1 unless we want to permute several columns at once as accumulated
     // sets (not as tuples).
     static constexpr size_t NUM_LOOKUP_TERMS = 1;
     static constexpr size_t NUM_TABLE_TERMS = 1;
@@ -88,37 +102,41 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
-        // WIRE containing the inverse of the product of terms at this row. Used to reconstruct individual inversed
-        // terms
-        return std::get<INVERSE_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
+
+        return std::get<PolynomialStructure::get_inverse_polynomial_index()>(Settings::get_nonconst_entities(in));
     }
 
     /**
-     * @brief Get selector/wire switching on(1) or off(0) inverse computation
-     * We turn it on if either of the permutation contribution selectors are active
+     * @brief Get selector/wire switching on (1) or off (0) inverse computation
      *
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam AllEntities Type containing all polynomial entities
+     * @param in All entities
+     * @return Accumulator value indicating whether inverse should be computed (1) or not (0)
      */
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
 
-        // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first
-        // subrelation
         Accumulator const& first_set_enabled = Accumulator(
-            View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+            View(std::get<PolynomialStructure::get_lookup_term_predicate_index()>(Settings::get_const_entities(in))));
 
         Accumulator const& second_set_enabled = Accumulator(
-            View(std::get<SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+            View(std::get<PolynomialStructure::get_table_term_predicate_index()>(Settings::get_const_entities(in))));
 
-        // This has the truth table of a logical OR
+        // The following expression (assuming the values are boolean) is the algebraic representation of a logical OR
         return (first_set_enabled + second_set_enabled - (first_set_enabled * second_set_enabled));
     }
 
     /**
-     * @brief Compute if the value from the first set exists in this row
+     * @brief Extract predicate enabling looking up a given lookup term at this row
      *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam lookup_index Index of the lookup term (must be less than NUM_LOOKUP_TERMS)
+     * @tparam AllEntities Type containing all polynomial entities
+     * @param in All entities
+     * @return Accumulator containing the predicate for the specified lookup term
      */
     template <typename Accumulator, size_t lookup_index, typename AllEntities>
     static Accumulator get_lookup_term_predicate(const AllEntities& in)
@@ -130,13 +148,17 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         // The selector/wire value that determines that an element from the first set needs to be included. Can be
         // different from the wire used in the write part.
         return Accumulator(
-            View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+            View(std::get<PolynomialStructure::get_lookup_term_predicate_index()>(Settings::get_const_entities(in))));
     }
 
     /**
-     * @brief Compute if the value from the second set exists in this row
+     * @brief Extract predicate enabling looking up a given table term at this row
      *
-     * @tparam table_index Kept for compatibility with lookups, behavior doesn't change
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam table_index Index of the table term (must be less than NUM_TABLE_TERMS)
+     * @tparam AllEntities Type containing all polynomial entities
+     * @param in All entities
+     * @return Accumulator containing the predicate for the specified table term
      */
     template <typename Accumulator, size_t table_index, typename AllEntities>
     static Accumulator get_table_term_predicate(const AllEntities& in)
@@ -144,21 +166,20 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         static_assert(table_index < NUM_TABLE_TERMS);
         using View = typename Accumulator::View;
 
-        // The selector/wire value that determines that an element from the second set needs to be included. Can be
-        // different from the wire used in the read part.
         return Accumulator(
-            View(std::get<SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+            View(std::get<PolynomialStructure::get_table_term_predicate_index()>(Settings::get_const_entities(in))));
     }
 
     /**
-     * @brief Compute the value of a single item in the set
+     * @brief Compute the value of the lookup term at a given index
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
-     * in the first set
-     *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
-     *
-     * @param params Used for beta and gamma
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam lookup_index Index of the lookup term to compute
+     * @tparam AllEntities Type containing all polynomial entities
+     * @tparam Parameters Type containing relation parameters (beta, gamma)
+     * @param in All entities
+     * @param params Relation parameters
+     * @return Accumulator containing the computed lookup term value
      */
     template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
     static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
@@ -166,30 +187,32 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         using View = typename Accumulator::View;
 
         static_assert(lookup_index < NUM_LOOKUP_TERMS);
+        constexpr size_t start_polynomial_index = PolynomialStructure::compute_lookup_term_polynomial_offset();
+        const FF beta = params.beta;
+        const FF gamma = params.gamma;
+
+        auto result = Accumulator(0);
 
         // Retrieve all polynomials used
         const auto all_polynomials = Settings::get_const_entities(in);
 
-        auto result = Accumulator(0);
-
         // Iterate over tuple and sum as a polynomial over beta
-        bb::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX,
-                          PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
-                          1>([&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
+        bb::constexpr_for<start_polynomial_index, start_polynomial_index + Settings::COLUMNS_PER_SET, 1>(
+            [&]<size_t i>() { result = result * beta + View(std::get<i>(all_polynomials)); });
 
-        const auto& gamma = params.gamma;
         return result + gamma;
     }
 
     /**
-     * @brief Compute the value of a single item in the set
+     * @brief Compute the value of a table term at a given index
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
-     * in the second set
-     *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     *
-     * @param params Used for beta and gamma
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam table_index Index of the table term to compute
+     * @tparam AllEntities Type containing all polynomial entities
+     * @tparam Parameters Type containing relation parameters (beta, gamma)
+     * @param in All entities
+     * @param params Relation parameters
+     * @return Accumulator containing the computed table term value
      */
     template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
     static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
@@ -197,17 +220,19 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         using View = typename Accumulator::View;
 
         static_assert(table_index < NUM_TABLE_TERMS);
-
-        // Get all used entities
-        const auto& used_entities = Settings::get_const_entities(in);
+        constexpr size_t start_polynomial_index = PolynomialStructure::compute_table_term_polynomial_offset();
+        const FF beta = params.beta;
+        const FF gamma = params.gamma;
 
         auto result = Accumulator(0);
-        // Iterate over tuple and sum as a polynomial over beta
-        bb::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
-                          PERMUTATION_SETS_START_POLYNOMIAL_INDEX + 2 * Settings::COLUMNS_PER_SET,
-                          1>([&]<size_t i>() { result = result * params.beta + View(std::get<i>(used_entities)); });
 
-        const auto& gamma = params.gamma;
+        // Retrieve all polynomials used
+        const auto all_polynomials = Settings::get_const_entities(in);
+
+        // Iterate over tuple and sum as a polynomial over beta
+        bb::constexpr_for<start_polynomial_index, start_polynomial_index + Settings::COLUMNS_PER_SET, 1>(
+            [&]<size_t i>() { result = result * beta + View(std::get<i>(all_polynomials)); });
+
         return result + gamma;
     }
 

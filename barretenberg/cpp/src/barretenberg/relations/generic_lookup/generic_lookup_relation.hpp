@@ -68,19 +68,19 @@ template <typename Settings_> class LookupPolynomialStructure {
         TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + NUM_TABLE_TERMS;
 
   public:
-    static size_t get_inverse_polynomial_index() { return INVERSE_POLYNOMIAL_INDEX; }
+    static constexpr size_t get_inverse_polynomial_index() { return INVERSE_POLYNOMIAL_INDEX; }
 
-    static size_t get_read_count_polynomial_index(const size_t index)
+    static constexpr size_t get_read_count_polynomial_index(const size_t index)
     {
         return LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + index;
     }
 
-    static size_t get_lookup_term_predicate_index(const size_t lookup_index)
+    static constexpr size_t get_lookup_term_predicate_index(const size_t lookup_index)
     {
         return LOOKUP_TERM_PREDICATE_START_POLYNOMIAL_INDEX + lookup_index;
     }
 
-    static size_t get_table_term_predicate_index(const size_t table_index)
+    static constexpr size_t get_table_term_predicate_index(const size_t table_index)
     {
         return TABLE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + table_index;
     }
