@@ -56,6 +56,9 @@ template <typename Settings> class PermutationPolynomialStructure {
  * counts (i.e., number of times the lookup terms are looked up) equal to 1. As the sets we are comparing are each
  * comprised of the same number of elements, this means that they are permutations of one another.
  *
+ * @note The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this
+ * relation.
+ *
  */
 template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
   public:
@@ -67,8 +70,15 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     static constexpr size_t NUM_LOOKUP_TERMS = 1;
     static constexpr size_t NUM_TABLE_TERMS = 1;
 
-    // Relation length: 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 5
+    // Specialization of the calculation of the length for the generic lookup relation to the permutation relation; note
+    // that the second subrelation degree is one lower than the one in the lookup argument because there is not read
+    // count polynomial
+    static constexpr size_t FIRST_RELATION_PARTIAL_LENGTH = std::max(3,
+                                                                     Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
+                                                            1; // inverse polynomial correctness sub-relation
+    static constexpr size_t SECOND_RELATION_PARTIAL_LENGTH =
+        NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 2; // log-derived terms sub-relation
+    static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
@@ -78,7 +88,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     /**
      * @brief We apply the power polynomial only to the first subrelation
      *
-     *@details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
+     * @details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
      * The second relation computes the inverses of individual terms, which are then summed up with sumcheck
      *
      */
@@ -86,9 +96,10 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 
     /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
-     * @details This proxies to a method in the Settings class
      *
+     * @tparam AllValues Type containing all polynomial values at a given row
      * @param row All values at row
+     * @return true if the inverse polynomial should be computed at this row, false otherwise
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
@@ -102,7 +113,6 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
-
         return std::get<PolynomialStructure::get_inverse_polynomial_index()>(Settings::get_nonconst_entities(in));
     }
 

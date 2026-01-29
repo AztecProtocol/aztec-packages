@@ -94,6 +94,8 @@ template <typename FF_, typename Settings_> struct lookup_relation_base : public
 /////////////////// PERMUTATIONS ///////////////////
 
 template <typename Settings_> struct permutation_settings : public Settings_ {
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
+
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
         return (in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)) == 1 ||
