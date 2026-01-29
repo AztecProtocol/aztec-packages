@@ -18,6 +18,30 @@ The `protocol_types` re-export from the `aztec` crate has been renamed to `proto
 + use dep::aztec::protocol::address::AztecAddress;
 ```
 
+### Protocol contract interface separate from protocol contracts
+
+We've stripped protocol contract of `aztec-nr` macros in order for auditors to not need to audit them (protocol contracts are to be audited during the protocol circuits audit).
+This results in the nice Noir interface no longer being generated.
+
+For context, this is the interface I am talking about:
+
+```noir
+let update_delay = self.view(MyContract::at(my_contract_address).my_fn());
+```
+
+where the macros generate the `MyContract` struct.
+
+For this reason we've created place holder protocol contracts in `noir-projects/noir-contracts/contracts/protocol_interface` that still have these macros applied and hence you can use them to get the interface.
+
+On your side all you need to do is update the dependency in `Nargo.toml`:
+
+```diff
+-auth_contract = { path = "../../protocol/auth_registry_contract" }
++auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
+-instance_contract = { path = "../../protocol/contract_instance_registry" }
++instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
+```
+
 ### [aztec-nr] History module refactored to use standalone functions
 
 The `aztec::history` module has been refactored to use standalone functions instead of traits. This changes the calling convention from method syntax to function syntax.
@@ -33,19 +57,19 @@ let block_header = context.get_anchor_block_header();
 
 **Function name and module mapping:**
 
-| Old (trait method) | New (standalone function) |
-|--------------------|---------------------------|
-| `history::note_inclusion::prove_note_inclusion` | `history::note::assert_note_existed_by` |
-| `history::note_validity::prove_note_validity` | `history::note::assert_note_was_valid_by` |
-| `history::nullifier_inclusion::prove_nullifier_inclusion` | `history::nullifier::assert_nullifier_existed_by` |
-| `history::nullifier_inclusion::prove_note_is_nullified` | `history::note::assert_note_was_nullified_by` |
-| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by` |
-| `history::nullifier_non_inclusion::prove_note_not_nullified` | `history::note::assert_note_was_not_nullified_by` |
-| `history::contract_inclusion::prove_contract_deployment` | `history::deployment::assert_contract_bytecode_was_published_by` |
-| `history::contract_inclusion::prove_contract_non_deployment` | `history::deployment::assert_contract_bytecode_was_not_published_by` |
-| `history::contract_inclusion::prove_contract_initialization` | `history::deployment::assert_contract_was_initialized_by` |
-| `history::contract_inclusion::prove_contract_non_initialization` | `history::deployment::assert_contract_was_not_initialized_by` |
-| `history::public_storage::public_storage_historical_read` | `history::storage::public_storage_historical_read` |
+| Old (trait method)                                                | New (standalone function)                                            |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `history::note_inclusion::prove_note_inclusion`                   | `history::note::assert_note_existed_by`                              |
+| `history::note_validity::prove_note_validity`                     | `history::note::assert_note_was_valid_by`                            |
+| `history::nullifier_inclusion::prove_nullifier_inclusion`         | `history::nullifier::assert_nullifier_existed_by`                    |
+| `history::nullifier_inclusion::prove_note_is_nullified`           | `history::note::assert_note_was_nullified_by`                        |
+| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by`              |
+| `history::nullifier_non_inclusion::prove_note_not_nullified`      | `history::note::assert_note_was_not_nullified_by`                    |
+| `history::contract_inclusion::prove_contract_deployment`          | `history::deployment::assert_contract_bytecode_was_published_by`     |
+| `history::contract_inclusion::prove_contract_non_deployment`      | `history::deployment::assert_contract_bytecode_was_not_published_by` |
+| `history::contract_inclusion::prove_contract_initialization`      | `history::deployment::assert_contract_was_initialized_by`            |
+| `history::contract_inclusion::prove_contract_non_initialization`  | `history::deployment::assert_contract_was_not_initialized_by`        |
+| `history::public_storage::public_storage_historical_read`         | `history::storage::public_storage_historical_read`                   |
 
 ### [Aztec.js] Transaction sending API redesign
 

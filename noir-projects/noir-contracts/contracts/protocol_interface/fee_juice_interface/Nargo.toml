@@ -1,9 +1,8 @@
 [package]
-name = "contract_instance_registry"
+name = "fee_juice_interface"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
-contract_class_registry = { path = "../contract_class_registry" }
