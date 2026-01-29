@@ -217,7 +217,6 @@ export class PXE {
       this.keyStore,
       this.addressStore,
       BenchmarkedNodeFactory.create(this.node),
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,

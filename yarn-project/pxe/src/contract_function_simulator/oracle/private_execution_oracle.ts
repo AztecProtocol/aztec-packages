@@ -33,7 +33,6 @@ import {
 import { ensureContractSynced } from '../../contract_sync/index.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -89,7 +88,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     keyStore: KeyStore,
     addressStore: AddressStore,
     aztecNode: AztecNode,
-    anchorBlockStore: AnchorBlockStore,
     private readonly senderTaggingStore: SenderTaggingStore,
     recipientTaggingStore: RecipientTaggingStore,
     senderAddressBookStore: SenderAddressBookStore,
@@ -113,7 +111,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
@@ -364,7 +361,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -574,7 +571,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
