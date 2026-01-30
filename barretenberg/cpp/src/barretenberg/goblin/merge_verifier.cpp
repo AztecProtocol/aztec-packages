@@ -182,6 +182,14 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
+    if constexpr (IsRecursive) {
+        for (auto& eval : evals) {
+            eval.set_origin_tag(kappa.get_origin_tag());
+        }
+        const auto tag = degree_check_challenges.back().get_origin_tag();
+        evals.back().set_origin_tag(tag);
+    }
+
     // Check concatenation identities
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
 

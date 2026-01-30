@@ -307,7 +307,6 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 const_cast<Fr&>(p_neg).set_origin_tag(challenge_tag);
             }
             // Tag the Q commitment
-            Q_commitment.set_origin_tag(challenge_tag);
             commitments[0].set_origin_tag(challenge_tag);
         }
 
