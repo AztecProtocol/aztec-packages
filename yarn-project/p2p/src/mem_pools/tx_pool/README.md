@@ -241,7 +241,7 @@ Evicts low-priority transactions when a fee payer's pending fee limits exceed th
 Enforces maximum pool size by evicting lowest-priority (by fee) transactions:
 
 - Configured via `maxPendingTxCount` option (0 = disabled)
-- Uses `getLowestPriorityEvictable()` to find txs to evict
+- Uses `getLowestPriorityPending()` to find txs to evict
 
 ### Non-Evictable Transactions
 

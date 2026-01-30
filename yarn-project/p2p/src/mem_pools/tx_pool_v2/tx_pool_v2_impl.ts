@@ -518,7 +518,7 @@ export class TxPoolV2Impl {
     return this.#archive.getTxByHash(txHash);
   }
 
-  getLowestPriorityEvictable(limit: number): TxHash[] {
+  getLowestPriorityPending(limit: number): TxHash[] {
     if (limit <= 0) {
       return [];
     }
@@ -1214,8 +1214,8 @@ export class TxPoolV2Impl {
       getPendingTxCount: (): number => {
         return this.getPendingTxCount();
       },
-      getLowestPriorityEvictable: (limit: number): string[] => {
-        return this.getLowestPriorityEvictable(limit).map(h => h.toString());
+      getLowestPriorityPending: (limit: number): string[] => {
+        return this.getLowestPriorityPending(limit).map(h => h.toString());
       },
       deleteTxs: async (txHashes: string[]): Promise<void> => {
         await this.#store.transactionAsync(async () => {

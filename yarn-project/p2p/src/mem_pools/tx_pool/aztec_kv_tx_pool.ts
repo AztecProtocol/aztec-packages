@@ -706,10 +706,10 @@ export class AztecKVTxPool
   }
 
   /**
-   * Returns up to `limit` lowest-priority evictable pending tx hashes without hydrating transactions.
+   * Returns up to `limit` lowest-priority pending tx hashes without hydrating transactions.
    * Iterates the priority index in ascending order and skips non-evictable txs.
    */
-  public async getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
+  public async getLowestPriorityPending(limit: number): Promise<TxHash[]> {
     const txsToEvict: TxHash[] = [];
     if (limit <= 0) {
       return txsToEvict;

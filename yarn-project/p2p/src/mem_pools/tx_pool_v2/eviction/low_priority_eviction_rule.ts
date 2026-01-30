@@ -52,7 +52,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
         `Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`,
       );
       const numberToEvict = currentTxCount - this.maxPoolSize;
-      const txsToEvict = pool.getLowestPriorityEvictable(numberToEvict);
+      const txsToEvict = pool.getLowestPriorityPending(numberToEvict);
 
       if (txsToEvict.length > 0) {
         await pool.deleteTxs(txsToEvict);

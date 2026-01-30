@@ -12,7 +12,7 @@ export enum TxPoolOperation {
   HANDLE_MINED_BLOCK = 'handleMinedBlock',
   PREPARE_FOR_SLOT = 'prepareForSlot',
   HANDLE_PRUNED_BLOCKS = 'handlePrunedBlocks',
-  GET_LOWEST_PRIORITY_EVICTABLE = 'getLowestPriorityEvictable',
+  GET_LOWEST_PRIORITY_PENDING = 'getLowestPriorityPending',
 }
 
 type OperationMetric = {

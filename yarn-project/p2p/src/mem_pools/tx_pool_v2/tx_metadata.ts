@@ -71,16 +71,18 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
   };
 }
 
+/** Minimal fields required for priority comparison. */
+type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
+
 /**
- * Compares two TxMetaData by priority fee.
+ * Compares two transactions by priority fee, with txHash as tiebreaker.
  * Returns negative if a < b, positive if a > b, 0 if equal.
+ * Use with sort() for ascending order, or negate/reverse for descending.
  */
-export function comparePriority(a: TxMetaData, b: TxMetaData): number {
-  if (a.priorityFee < b.priorityFee) {
-    return -1;
+export function comparePriority(a: PriorityComparable, b: PriorityComparable): number {
+  if (a.priorityFee !== b.priorityFee) {
+    return a.priorityFee < b.priorityFee ? -1 : 1;
   }
-  if (a.priorityFee > b.priorityFee) {
-    return 1;
-  }
-  return 0;
+  // Use txHash as tiebreaker for deterministic ordering
+  return a.txHash < b.txHash ? -1 : a.txHash > b.txHash ? 1 : 0;
 }

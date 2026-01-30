@@ -1441,14 +1441,14 @@ describe('TxPoolV2', () => {
       expect(tx2Entry![1].hash).toBeDefined();
     });
 
-    it('getLowestPriorityEvictable returns lowest priority txs', async () => {
+    it('getLowestPriorityPending returns lowest priority txs', async () => {
       const tx1 = await mockTxWithFee(1, 1);
       const tx2 = await mockTxWithFee(2, 2);
       const tx3 = await mockTxWithFee(3, 3);
 
       await pool.addPendingTxs([tx1, tx2, tx3]);
 
-      const lowest = await pool.getLowestPriorityEvictable(2);
+      const lowest = await pool.getLowestPriorityPending(2);
       expect(lowest).toHaveLength(2);
       expect(toStrings(lowest)).toContain(hashOf(tx1));
       expect(toStrings(lowest)).toContain(hashOf(tx2));
@@ -2041,7 +2041,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getPendingTxCount()).toBe(0);
       expect(await pool.getPendingTxHashes()).toHaveLength(0);
       expect(await pool.getMinedTxHashes()).toHaveLength(0);
-      expect(await pool.getLowestPriorityEvictable(10)).toHaveLength(0);
+      expect(await pool.getLowestPriorityPending(10)).toHaveLength(0);
 
       // Operations on non-existent txs
       await pool.handleMinedBlock([TxHash.random()], slot1Header);

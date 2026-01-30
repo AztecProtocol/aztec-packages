@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority } from '../tx_metadata.js';
 import type { EvictionContext, EvictionResult, EvictionRule, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 
@@ -100,13 +100,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
     let balance = initialBalance;
 
     // Sort by priority descending (highest first), with hash as tiebreaker
-    txs.sort((a, b) => {
-      if (a.priorityFee !== b.priorityFee) {
-        return a.priorityFee > b.priorityFee ? -1 : 1;
-      }
-      // Descending by hash for deterministic ordering
-      return b.txHash < a.txHash ? -1 : b.txHash > a.txHash ? 1 : 0;
-    });
+    txs.sort((a, b) => -comparePriority(a, b));
 
     for (const tx of txs) {
       const available = balance + tx.claimAmount;

@@ -40,7 +40,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       getPendingFeePayers: () => [...new Set(pendingTxs.map(t => t.feePayer))],
       getFeePayerPendingTxs: (feePayer: string) => pendingTxs.filter(t => t.feePayer === feePayer),
       getPendingTxCount: () => pendingTxs.length,
-      getLowestPriorityEvictable: () => [],
+      getLowestPriorityPending: () => [],
       deleteTxs: deleteTxsMock as (txHashes: string[]) => Promise<void>,
     };
   };

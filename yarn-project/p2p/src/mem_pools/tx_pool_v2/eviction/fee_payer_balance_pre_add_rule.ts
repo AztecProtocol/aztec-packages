@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority } from '../tx_metadata.js';
 import type { PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
 
 /**
@@ -29,21 +29,21 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     // Create combined list with incoming tx
     const allTxs: Array<{
       txHash: string;
-      priority: bigint;
+      priorityFee: bigint;
       feeLimit: bigint;
       claimAmount: bigint;
       isIncoming: boolean;
     }> = [
       ...existingTxs.map(t => ({
         txHash: t.txHash,
-        priority: t.priorityFee,
+        priorityFee: t.priorityFee,
         feeLimit: t.feeLimit,
         claimAmount: t.claimAmount,
         isIncoming: false,
       })),
       {
         txHash: incomingMeta.txHash,
-        priority: incomingMeta.priorityFee,
+        priorityFee: incomingMeta.priorityFee,
         feeLimit: incomingMeta.feeLimit,
         claimAmount: incomingMeta.claimAmount,
         isIncoming: true,
@@ -51,13 +51,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     ];
 
     // Sort by priority descending (highest first), with hash as tiebreaker
-    allTxs.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return a.priority > b.priority ? -1 : 1;
-      }
-      // Descending by hash for deterministic ordering
-      return b.txHash < a.txHash ? -1 : b.txHash > a.txHash ? 1 : 0;
-    });
+    allTxs.sort((a, b) => -comparePriority(a, b));
 
     // Walk through in priority order, tracking balance
     let balance = initialBalance;

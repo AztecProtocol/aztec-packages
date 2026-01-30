@@ -200,8 +200,8 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   /** Gets an archived transaction by its hash */
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /** Gets the lowest priority evictable pending transactions */
-  getLowestPriorityEvictable(limit: number): Promise<TxHash[]>;
+  /** Gets the lowest priority pending transactions */
+  getLowestPriorityPending(limit: number): Promise<TxHash[]>;
 
   // === Configuration ===
 

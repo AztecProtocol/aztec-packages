@@ -611,7 +611,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
 
-  describe('getLowestPriorityEvictable', () => {
+  describe('getLowestPriorityPending', () => {
     it('returns the lowest-priority evictable tx hashes up to limit', async () => {
       await pool.stop();
       pool = new AztecKVTxPoolV2(
@@ -633,13 +633,13 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
       await pool.addPendingTxs([tx3, tx1, tx4, tx2]);
 
-      const res1 = await pool.getLowestPriorityEvictable(1);
+      const res1 = await pool.getLowestPriorityPending(1);
       expect(res1).toEqual([tx1.getTxHash()]);
 
-      const res2 = await pool.getLowestPriorityEvictable(2);
+      const res2 = await pool.getLowestPriorityPending(2);
       expect(res2).toEqual([tx1.getTxHash(), tx2.getTxHash()]);
 
-      const res3 = await pool.getLowestPriorityEvictable(10);
+      const res3 = await pool.getLowestPriorityPending(10);
       expect(res3).toEqual([tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash(), tx4.getTxHash()]);
     });
 
@@ -647,7 +647,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1) });
       await pool.addPendingTxs([tx1]);
 
-      expect(await pool.getLowestPriorityEvictable(0)).toEqual([]);
+      expect(await pool.getLowestPriorityPending(0)).toEqual([]);
     });
   });
 

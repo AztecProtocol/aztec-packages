@@ -287,21 +287,21 @@ describe('TxPoolV2: benchmarks', () => {
     metrics.addMetric(TxPoolOperation.PREPARE_FOR_SLOT, poolSize, protectedCount, duration);
   });
 
-  // === getLowestPriorityEvictable benchmarks ===
+  // === getLowestPriorityPending benchmarks ===
 
   it.each([
     [100, 10],
     [100, 50],
     [1000, 10],
     [1000, 100],
-  ])('getLowestPriorityEvictable: pool=%d, limit=%d', async (poolSize: number, limit: number) => {
+  ])('getLowestPriorityPending: pool=%d, limit=%d', async (poolSize: number, limit: number) => {
     await populatePool(poolSize);
 
     const duration = await measureOperation(async () => {
-      await pool.getLowestPriorityEvictable(limit);
+      await pool.getLowestPriorityPending(limit);
     }, 100);
 
-    metrics.addMetric(TxPoolOperation.GET_LOWEST_PRIORITY_EVICTABLE, poolSize, limit, duration);
+    metrics.addMetric(TxPoolOperation.GET_LOWEST_PRIORITY_PENDING, poolSize, limit, duration);
   });
 
   // === canAddPendingTx benchmarks ===

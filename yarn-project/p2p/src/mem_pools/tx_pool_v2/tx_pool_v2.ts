@@ -149,8 +149,8 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.getArchivedTxByHash(txHash));
   }
 
-  getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getLowestPriorityEvictable(limit)));
+  getLowestPriorityPending(limit: number): Promise<TxHash[]> {
+    return this.#queue.put(() => Promise.resolve(this.#impl.getLowestPriorityPending(limit)));
   }
 
   // === Configuration ===

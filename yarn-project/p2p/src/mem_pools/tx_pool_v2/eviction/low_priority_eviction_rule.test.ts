@@ -14,14 +14,14 @@ describe('LowPriorityEvictionRule', () => {
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Create mock pool operations
-  const createPoolOps = (pendingTxCount: number, lowestPriorityEvictable: string[] = []): PoolOperations => {
+  const createPoolOps = (pendingTxCount: number, lowestPriorityPending: string[] = []): PoolOperations => {
     deleteTxsMock = jest.fn(() => Promise.resolve());
     return {
       getPendingTxs: () => [],
       getPendingFeePayers: () => [],
       getFeePayerPendingTxs: () => [],
       getPendingTxCount: () => pendingTxCount,
-      getLowestPriorityEvictable: () => lowestPriorityEvictable,
+      getLowestPriorityPending: () => lowestPriorityPending,
       deleteTxs: deleteTxsMock as (txHashes: string[]) => Promise<void>,
     };
   };

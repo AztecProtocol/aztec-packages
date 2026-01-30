@@ -117,8 +117,8 @@ export interface PoolOperations {
   /** Get current count of pending transactions */
   getPendingTxCount(): number;
 
-  /** Get the N lowest priority evictable pending tx hashes */
-  getLowestPriorityEvictable(limit: number): string[];
+  /** Get the N lowest priority pending tx hashes */
+  getLowestPriorityPending(limit: number): string[];
 
   /** Delete transactions by hash */
   deleteTxs(txHashes: string[]): Promise<void>;
