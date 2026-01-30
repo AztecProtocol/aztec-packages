@@ -22,7 +22,7 @@ GRIND_TIMEOUT=${GRIND_TIMEOUT:-600}
 
 function checkout {
     git reset --hard $1 --quiet
-    git submodule update --init --recursive --depth 1 --jobs 8
+    denoise "git submodule update --init --recursive --depth 1 --jobs 8"
     git checkout $commit_tip -- ci3
 }
 

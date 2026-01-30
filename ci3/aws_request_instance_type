@@ -46,7 +46,7 @@ echo "$launch_spec" > "$spec_path"
 info="(name: $name) (type: $instance_type) (ami: $ami) (bid: $price)"
 
 if [ "${NO_SPOT:-0}" -ne 1 ]; then
-  >&2 echo "Requesting $instance_type spot instance $info..."
+  echo "Requesting $instance_type spot instance $info..."
   sir=$(aws ec2 request-spot-instances \
     --spot-price "$price" \
     --instance-count 1 \
@@ -56,7 +56,7 @@ if [ "${NO_SPOT:-0}" -ne 1 ]; then
     --output text)
   echo $sir > $sir_path
 
-  >&2 echo "Waiting for instance id for spot request: $sir..."
+  echo "Waiting for instance id for spot request: $sir..."
   sleep 5
   for i in {1..6}; do
     iid=$(aws ec2 describe-spot-instance-requests \
@@ -66,7 +66,7 @@ if [ "${NO_SPOT:-0}" -ne 1 ]; then
     [ -z "$iid" -o "$iid" == "None" ] || break
 
     if [ $i -eq 6 ]; then
-      >&2 echo "Timeout waiting for spot request."
+      echo "Timeout waiting for spot request."
       # Cancel spot request. We may still get allocated an instance if it's *just* happened.
       aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir > /dev/null
     fi
@@ -78,7 +78,7 @@ fi
 
 if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
   # Request on-demand instance.
-  >&2 echo "Requesting $instance_type on-demand instance $info..."
+  echo "Requesting $instance_type on-demand instance $info..."
   iid=$(aws ec2 run-instances \
     --cli-input-json file://$spec_path \
     --query "Instances[*].[InstanceId]" \
@@ -99,13 +99,13 @@ while [ -z "${ip:-}" ]; do
 done
 
 # Wait till ssh port is open.
->&2 echo "Waiting for SSH at $ip..."
+echo "Waiting for SSH at $ip..."
 SECONDS=0
 SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
 [ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
 while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>&1; do
   if (( SECONDS >= 60 )); then
-    >&2 echo "Timeout: SSH could not login to $ip within 60 seconds."
+    echo "Timeout: SSH could not login to $ip within 60 seconds."
     exit 1
   fi
   sleep 1

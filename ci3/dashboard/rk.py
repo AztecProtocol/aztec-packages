@@ -419,14 +419,17 @@ def trigger_grind():
         confirm_page = (
             f"{BOLD}Grind Test{RESET}\n\n"
             f"This will start a grind run for 10 minutes.\n\n"
-            f"Command:\n{YELLOW}{full_cmd}{RESET}\n\n"
+            f"Command:\n{PURPLE}{full_cmd}{RESET}\n\n"
             f"Commit: {commit}\n\n"
-            f"{GREEN}{hyperlink(confirm_url, 'Click here to proceed.')}{RESET}\n"
+            f"{YELLOW}{hyperlink(confirm_url, 'Click here to proceed.')}{RESET}\n"
         )
         return render_template_string(TEMPLATE, value=ansi_to_html(confirm_page), filter_str='grind', follow='top')
 
     # Generate unique run ID (16 hex chars)
     run_id = uuid.uuid4().hex[:16]
+
+    # Initialize the log key so redirect doesn't show "Key not found"
+    r.setex(run_id, 86400, b'Starting grind...\n')
 
     # Cache this grind request for 24 hours
     r.setex(cache_key, 86400, run_id)
