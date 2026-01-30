@@ -29,7 +29,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
@@ -70,7 +70,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
   private txPool: TxPool;
-  private attestationPool: AttestationPool;
+  private attestationPool: AttestationPoolApi;
 
   private config: P2PConfig;
 
