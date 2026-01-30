@@ -53,16 +53,18 @@ TEST(OriginTag, RejectsStaleChallengeCoverage)
     //
     // Neither c1 nor c2 is bound by alpha since they were chosen after seeing it
 
-    auto alpha_tag = OriginTag(transcript_id, /*round=*/0, /*is_submitted=*/false);
-    auto c1_tag = OriginTag(transcript_id, /*round=*/1, /*is_submitted=*/true);
+    auto alpha_tag = OriginTag(transcript_id, /*round_number=*/0, /*is_submitted=*/false);
+    auto c1_tag = OriginTag(transcript_id, /*round_number=*/1, /*is_submitted=*/true);
     auto c2_tag = OriginTag(transcript_id, /*round=*/2, /*is_submitted=*/true);
 
-    // OK to combine c1 with alpha (the check is about coverage, not causality)
+    // OK: c1 * alpha - alpha has no submitted data, so the cross-round check doesn't apply.
+    // The check only triggers when mixing PROVER VALUES from different rounds.
     OriginTag c1_times_alpha;
     EXPECT_NO_THROW(c1_times_alpha = OriginTag(c1_tag, alpha_tag));
 
     // REJECT: (c1 * alpha) + c2
-    // max_submitted = 2, max_challenge = 0 → insufficient coverage
+    // Now we're mixing prover values from rounds 1 and 2.
+    // max_submitted = 2, max_challenge = 0 -> insufficient coverage
     EXPECT_THROW(OriginTag(c1_times_alpha, c2_tag), std::runtime_error);
 }
 
@@ -181,6 +183,63 @@ TEST(OriginTag, TranscriptIntegration)
     // OK: c0 * alpha + c1 * beta - properly bound
     FF c1_times_beta = c1 * beta;
     EXPECT_NO_THROW([[maybe_unused]] auto good = c0_times_alpha + c1_times_beta);
+}
+
+// Test that free witness tags cannot interact with transcript-tagged values
+TEST(OriginTag, RejectsFreeWitnessInteraction)
+{
+    const size_t transcript_id = 0;
+
+    auto transcript_tag = OriginTag(transcript_id, /*round_number=*/0, /*is_submitted=*/true);
+    auto free_witness_tag = OriginTag::free_witness();
+
+    // REJECT: free witness interacting with transcript-tagged value
+    // Free witnesses are untracked values that shouldn't mix with protocol values
+    EXPECT_THROW(OriginTag(transcript_tag, free_witness_tag), std::runtime_error);
+    EXPECT_THROW(OriginTag(free_witness_tag, transcript_tag), std::runtime_error);
+
+    // OK: free witnesses can combine with each other
+    auto another_free_witness = OriginTag::free_witness();
+    EXPECT_NO_THROW(OriginTag(free_witness_tag, another_free_witness));
+
+    // OK: free witnesses can combine with constants
+    auto constant_tag = OriginTag::constant();
+    EXPECT_NO_THROW(OriginTag(free_witness_tag, constant_tag));
+}
+
+// Test demonstrating use of origin tags to "override" common false positive pattern in provenance checking.
+TEST(OriginTag, RetaggingReflectsProtocolConstraints)
+{
+    const size_t transcript_id = 0;
+
+    // Scenario: In a PCS protocol:
+    // Round 0: Prover sends commitment C
+    // Round 1: Verifier derives evaluation challenge z
+    // Round 2: Prover sends evaluation v = f(z) and opening proof
+    // Round 3: Verifier derives batching challenge for final check
+    //
+    // Naively, a combination like C * z + v would be rejected since the round provenance of z is less than the highest
+    // summitted round (1). However, this is a false positive since v is actually bound to C via the PCS opening. The
+    // pattern for signaling this to the tooling is to re-tag v with the challenge z that binds it after PCS
+    // verification.
+
+    auto commitment_tag = OriginTag(transcript_id, /*round_number=*/0, /*is_submitted=*/true);
+    auto eval_challenge_tag = OriginTag(transcript_id, /*round_number=*/0, /*is_submitted=*/false);
+    auto eval_tag = OriginTag(transcript_id, /*round_number=*/1, /*is_submitted=*/true);
+
+    // False positive: Mixing commitment (round 0) with evaluation (round 1) using only round 0 challenge
+    // The evaluation appears unbound from the verifier's perspective
+    auto comm_times_challenge = OriginTag(commitment_tag, eval_challenge_tag);
+    EXPECT_THROW(OriginTag(comm_times_challenge, eval_tag), std::runtime_error);
+
+    // In reality, the evaluation is constrained by the PCS opening.
+    // Re-tag the evaluation with the challenge that binds it (the one derived after
+    // the commitment was fixed but before the evaluation was sent).
+    // This reflects the protocol-level constraint: v must equal f(z) for committed f.
+    const auto& eval_retagged = eval_challenge_tag;
+
+    // OK: Now the "evaluation" is tagged as bound by the eval challenge
+    EXPECT_NO_THROW(OriginTag(comm_times_challenge, eval_retagged));
 }
 
 #endif // AZTEC_NO_ORIGIN_TAGS
