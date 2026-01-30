@@ -40,6 +40,11 @@ inline int highest_set_bit_128(uint128_t value)
  * The key invariant: a challenge from round N binds all data from rounds 0..N (via Fiat-Shamir hash chain).
  * Therefore, max(challenge_rounds) must be >= max(submitted_rounds).
  *
+ * @note A failure in this check indicates a potentially insecure pattern but there are many legitimate sources of false
+ * positives. E.g. PCS openings bind evaluations to commitments across rounds; the pattern C*z + v is actually safe if
+ * v is the evaluation of the committed polynomial at challenge z. In such cases, the evaluation can be re-tagged
+ * with the challenge that binds it after PCS verification to correctly avoid triggering an error here.
+ *
  * @param provenance_a Round provenance of first element
  * @param provenance_b Round provenance of second element
  */
