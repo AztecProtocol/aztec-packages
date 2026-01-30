@@ -5,20 +5,19 @@
 // =====================
 
 #include "barretenberg/transcript/origin_tag.hpp"
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include <sstream>
 
 namespace bb {
 using namespace numeric;
 #ifndef AZTEC_NO_ORIGIN_TAGS
 
+namespace {
 /**
  * @brief Find the position of the highest set bit in a uint128_t
  * @return -1 if no bits are set, otherwise the bit position (0-127)
  */
-static inline int highest_set_bit_128(uint128_t value)
+inline int highest_set_bit_128(uint128_t value)
 {
     if (value == 0) {
         return -1;
@@ -32,32 +31,7 @@ static inline int highest_set_bit_128(uint128_t value)
     auto low = static_cast<uint64_t>(value);
     return 63 - __builtin_clzll(low);
 }
-
-/**
- * @brief Convert a round bitmask to a human-readable string listing the set rounds
- * @param bitmask The bitmask where bit i indicates round i is set
- * @return String like "{0, 2, 5}" or "{}" if empty
- */
-static std::string rounds_to_string(uint128_t bitmask)
-{
-    if (bitmask == 0) {
-        return "{}";
-    }
-    std::ostringstream oss;
-    oss << "{";
-    bool first = true;
-    for (int i = 0; i <= highest_set_bit_128(bitmask); ++i) {
-        if ((bitmask >> i) & 1) {
-            if (!first) {
-                oss << ", ";
-            }
-            oss << i;
-            first = false;
-        }
-    }
-    oss << "}";
-    return oss.str();
-}
+} // namespace
 
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
@@ -92,25 +66,6 @@ void check_round_provenance(const uint256_t& provenance_a, const uint256_t& prov
     const uint128_t merged_submitted = submitted_a | submitted_b;
 
     if (merged_challenges == 0) {
-        info("");
-        info("=== ORIGIN TAG ROUND PROVENANCE CHECK FAILED ===");
-        info("Failure reason: No challenges present when mixing values from different rounds");
-        info("");
-        info("Element A:");
-        info("  Submitted rounds: ", rounds_to_string(submitted_a));
-        info("  Challenge rounds: ", rounds_to_string(challenges_a));
-        info("Element B:");
-        info("  Submitted rounds: ", rounds_to_string(submitted_b));
-        info("  Challenge rounds: ", rounds_to_string(challenges_b));
-        info("");
-        info("Merged state:");
-        info("  All submitted rounds: ", rounds_to_string(merged_submitted));
-        info("  All challenge rounds: {} (NONE!)");
-        info("");
-        info("Problem: Values from different submitted rounds are being combined,");
-        info("but no challenge has been incorporated to bind them.");
-        info("=================================================");
-        info("");
         throw_or_abort("Round provenance check failed: mixing submitted values from different rounds without any "
                        "challenge coverage");
     }
@@ -121,31 +76,6 @@ void check_round_provenance(const uint256_t& provenance_a, const uint256_t& prov
     // The highest challenge round must be >= the highest submitted round
     // This ensures all submitted data is bound by a challenge from at least that round
     if (max_challenge_round < max_submitted_round) {
-        info("");
-        info("=== ORIGIN TAG ROUND PROVENANCE CHECK FAILED ===");
-        info("Failure reason: Challenge coverage insufficient for submitted rounds");
-        info("");
-        info("Element A:");
-        info("  Submitted rounds: ", rounds_to_string(submitted_a));
-        info("  Challenge rounds: ", rounds_to_string(challenges_a));
-        info("Element B:");
-        info("  Submitted rounds: ", rounds_to_string(submitted_b));
-        info("  Challenge rounds: ", rounds_to_string(challenges_b));
-        info("");
-        info("Merged state:");
-        info("  All submitted rounds: ", rounds_to_string(merged_submitted));
-        info("  All challenge rounds: ", rounds_to_string(merged_challenges));
-        info("  Max submitted round: ", max_submitted_round);
-        info("  Max challenge round: ", max_challenge_round);
-        info("");
-        info("Problem: The highest challenge round (", max_challenge_round, ") is less than");
-        info("the highest submitted round (", max_submitted_round, ").");
-        info("A value submitted in round ", max_submitted_round, " is being combined with earlier data,");
-        info("but no challenge from round ", max_submitted_round, " or later has been incorporated.");
-        info("This means a malicious prover could choose the round-", max_submitted_round, " value");
-        info("after seeing the challenges, potentially breaking soundness.");
-        info("=================================================");
-        info("");
         throw_or_abort("Round provenance check failed: max challenge round < max submitted round");
     }
 }
