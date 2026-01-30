@@ -96,10 +96,10 @@ template <typename Builder> void create_quad_constraint(Builder& builder, QuadCo
  * arithmetic gate as it contains 2 multiplications terms (and also because it contains 7 distinct witnesses). We turn this expression into
  * the following series of gates (where w4_shift is toggled on in all gates but the last one):
  *
- * | a_idx | b_idx | c_idx | d_idx                        | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |
+ * | a_idx | b_idx | c_idx | d_idx                        | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const       |
  * |-------|-------|-------|------------------------------|-------------|-----------|-----------|-----------|-----------|-------------|
- * | w1    | w2    | w5    | w6                           | 1           | 1         | 1         | 1         | 1         | const       |
- * | w3    | w4    | w7    | -(w1 * w2 + w5 + w6 + const) | 1           | 1         | 1         | 1         | -1        | IS_CONSTANT |
+ * | w1    | w2    | w5    | w6                           | 1           | 0         | 0         | 1         | 1         | const       |
+ * | w3    | w4    | w7    | -(w1 * w2 + w5 + w6 + const) | 1           | 1         | 1         | 1         | -1        | 0           |
  *
  * If we didn't have the option of using w4_shift, we would have needed a third gate to accomodate the expression. Note that we
  * don't know the witness index of the witness -(w1 * w2 + w5 + w6 + const) when we split the expression into multiple gates.

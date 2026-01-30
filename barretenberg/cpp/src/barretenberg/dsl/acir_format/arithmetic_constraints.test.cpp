@@ -341,7 +341,7 @@ using QuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 3, false, true>, // Maximal case in one gate
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 4, true, true>,  // Maximal case in one gate
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 0, 4, false, false>,
-    ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 0, 4, false, true>, // Maximal case in one gate
+    ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 0, 5, false, true>, // Maximal case in one gate
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 0, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 1, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 2, false, false>,
