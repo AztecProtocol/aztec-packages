@@ -29,6 +29,33 @@ These methods were not used by PXE and returned a subset of the information alre
 
 The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
 
+### [Protocol] "Nullifier secret key" renamed to "nullifier hiding key" (nsk → nhk)
+
+The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hiding key (`nhk_m` / `nhk_app`). This is a protocol-breaking change: the domain separator string changes from `"az_nsk_m"` to `"az_nhk_m"`, producing a different constant value.
+
+**Noir changes:**
+```diff
+- context.request_nsk_app(npk_m_hash)
++ context.request_nhk_app(npk_m_hash)
+
+- get_nsk_app(npk_m_hash)
++ get_nhk_app(npk_m_hash)
+```
+
+**TypeScript changes:**
+```diff
+- import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/stdlib/keys';
++ import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/stdlib/keys';
+
+- const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
++ const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
+
+- const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, contractAddress);
++ const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, contractAddress);
+```
+
+The `GeneratorIndex.NSK_M` enum member is now `GeneratorIndex.NHK_M`.
+
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 
 The `protocol_types` re-export from the `aztec` crate has been renamed to `protocol`. Update all imports accordingly:

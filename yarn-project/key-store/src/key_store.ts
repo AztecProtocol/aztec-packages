@@ -17,6 +17,11 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/stdlib/keys';
 
+/** Maps a key prefix to the storage suffix for the corresponding master secret key. */
+function secretKeyStorageSuffix(prefix: KeyPrefix): string {
+  return prefix === 'n' ? 'nhk_m' : `${prefix}sk_m`;
+}
+
 /**
  * Used for managing keys. Can hold keys of multiple accounts.
  */
@@ -48,7 +53,7 @@ export class KeyStore {
    */
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const {
-      masterNullifierSecretKey,
+      masterNullifierHidingKey,
       masterIncomingViewingSecretKey,
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
@@ -69,7 +74,7 @@ export class KeyStore {
       await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
       await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
       await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-nhk_m`, masterNullifierHidingKey.toBuffer());
 
       await this.#keys.set(`${account.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
       await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
@@ -124,10 +129,11 @@ export class KeyStore {
     }
 
     // Now we find the secret key for the public key
-    const skMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}sk_m`);
+    const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
+    const skMBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
     if (!skMBuffer) {
       throw new Error(
-        `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+        `Could not find ${skStorageSuffix} for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
       );
     }
 
@@ -257,17 +263,18 @@ export class KeyStore {
   public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
     const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
-    const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}sk_m`);
+    const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
+    const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
     if (!secretKeyBuffer) {
       throw new Error(
-        `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
+        `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
       );
     }
 
     const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
     const derivedpkM = await derivePublicKeyFromSecretKey(skM);
     if (!derivedpkM.equals(pkM)) {
-      throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
+      throw new Error(`Could not find ${skStorageSuffix} for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 
     return Promise.resolve(skM);

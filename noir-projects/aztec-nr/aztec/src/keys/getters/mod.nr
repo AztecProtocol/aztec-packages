@@ -4,7 +4,7 @@ use crate::{
 };
 use crate::protocol::{address::AztecAddress, public_keys::PublicKeys};
 
-pub unconstrained fn get_nsk_app(npk_m_hash: Field) -> Field {
+pub unconstrained fn get_nhk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }
 
