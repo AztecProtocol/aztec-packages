@@ -3,8 +3,8 @@ use crate::{
         DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER,
         DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__CONTRACT_ADDRESS_V1, DOM_SEP__CONTRACT_CLASS_ID,
         DOM_SEP__EVENT_COMMITMENT, DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER,
-        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NOTE_HASH,
-        DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__NSK_M, DOM_SEP__OVSK_M,
+        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M,
+        DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__OVSK_M,
         DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH,
         DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
@@ -116,8 +116,8 @@ unconstrained fn initializer_matches_derived() {
 }
 
 #[test]
-unconstrained fn nsk_m_matches_derived() {
-    assert_dom_sep_matches_derived(DOM_SEP__NSK_M, "az_nsk_m");
+unconstrained fn nhk_m_matches_derived() {
+    assert_dom_sep_matches_derived(DOM_SEP__NHK_M, "az_nhk_m");
 }
 
 #[test]
@@ -264,7 +264,7 @@ unconstrained fn no_dom_sep_collisions() {
         DOM_SEP__PUBLIC_BYTECODE,
         DOM_SEP__CONTRACT_CLASS_ID,
         DOM_SEP__INITIALIZER,
-        DOM_SEP__NSK_M,
+        DOM_SEP__NHK_M,
         DOM_SEP__IVSK_M,
         DOM_SEP__OVSK_M,
         DOM_SEP__TSK_M,
