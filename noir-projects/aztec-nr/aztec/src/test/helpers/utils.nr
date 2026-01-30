@@ -1,12 +1,5 @@
-use crate::{
-    context::{PrivateCall, PublicCall},
-    test::helpers::{test_environment::TestEnvironment, txe_oracles},
-};
-use protocol_types::{
-    address::AztecAddress,
-    public_keys::PublicKeys,
-    traits::{Deserialize, Serialize},
-};
+use crate::{context::{PrivateCall, PublicCall}, test::helpers::{test_environment::TestEnvironment, txe_oracles}};
+use crate::protocol::{address::AztecAddress, public_keys::PublicKeys, traits::{Deserialize, Serialize}};
 use std::meta::derive;
 
 pub struct ContractDeployment<let O: u32> {
@@ -16,8 +9,8 @@ pub struct ContractDeployment<let O: u32> {
 }
 
 impl<let O: u32> ContractDeployment<O> {
-    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` by calling a private initializer function
-    /// from the `from` account.
+    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` by calling a private initializer
+    /// function from the `from` account.
     ///
     /// The `initializer_call` is created by calling the intended private initializer function inside the contract's
     /// `interface()` with its arguments:
@@ -49,13 +42,11 @@ impl<let O: u32> ContractDeployment<O> {
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
-        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
+        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface
+        // with
         // the address and perform the call.
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_private::<_, _, T>(
-            from,
-            PrivateCall::new(instance.to_address(), selector, name, args),
-        );
+        let _ = self.env.call_private::<_, _, T>(from, PrivateCall::new(instance.to_address(), selector, name, args));
 
         instance.to_address()
     }
@@ -67,13 +58,10 @@ impl<let O: u32> ContractDeployment<O> {
     /// `interface()` with its arguments:
     /// ```noir
     /// contract MyContract {
-    ///   #[external("public")]
-    ///   #[initializer]
-    ///   fn init_fn(owner: AztecAddress) { ... }
+    ///   #[external("public")] #[initializer] fn init_fn(owner: AztecAddress) { ... }
     /// }
     ///
-    /// #[test]
-    /// unconstrained fn test_deployment() {
+    /// #[test] unconstrained fn test_deployment() {
     ///   let contract_address = TestEnvironment::new().deploy("MyContract").with_public_initializer(
     ///     MyContract::interface().init_fn(owner)
     ///   );
@@ -93,18 +81,16 @@ impl<let O: u32> ContractDeployment<O> {
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
-        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
-        // the address and perform the call.
-        // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_public::<_, _, T>(
-            from,
-            PublicCall::new(instance.to_address(), selector, name, args),
-        );
+        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface
+        // with the address and perform the call. We probably want to introduce an intermediate struct to represent
+        // this, if we're going to keep this API.
+        let _ = self.env.call_public::<_, _, T>(from, PublicCall::new(instance.to_address(), selector, name, args));
 
         instance.to_address()
     }
 
-    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` without calling any initializer function.
+    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` without calling any initializer
+    /// function.
     ///
     /// Note that initializers cannot be manually called once this function returns, since the contract address itself
     /// contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only

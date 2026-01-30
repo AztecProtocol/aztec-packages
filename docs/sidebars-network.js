@@ -45,6 +45,11 @@ const sidebars = {
       label: "Proof of Stake",
     },
     {
+      type: "doc",
+      id: "concepts/economics/index",
+      label: "Economics & Rewards",
+    },
+    {
       type: "category",
       label: "Governance",
       link: {

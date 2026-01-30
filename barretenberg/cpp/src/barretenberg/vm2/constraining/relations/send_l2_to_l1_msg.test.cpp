@@ -7,9 +7,12 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -17,11 +20,17 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using simulation::EventEmitter;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
+using simulation::MockRangeCheck;
+
 using tracegen::ExecutionTraceBuilder;
 using tracegen::PublicInputsTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using testing::PublicInputsBuilder;
+using tracegen::FieldGreaterThanTraceBuilder;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -32,6 +41,7 @@ TEST(SendL2ToL1MsgConstrainingTest, Positive)
     uint64_t prev_num_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - 1;
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_register_0_, /*recipient=*/42 },
         { C::execution_register_1_, /*content=*/27 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -54,6 +64,7 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
     uint64_t prev_num_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX;
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_register_0_, /*recipient=*/42 },
         { C::execution_register_1_, /*content=*/27 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -88,6 +99,7 @@ TEST(SendL2ToL1MsgConstrainingTest, Discard)
     uint64_t prev_num_l2_to_l1_msgs = 0;
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_register_0_, /*recipient=*/42 },
         { C::execution_register_1_, /*content=*/27 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -119,6 +131,12 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
     AztecAddress address = 0xdeadbeef;
     AvmAccumulatedData accumulated_data = {};
 
+    MockRangeCheck mock_range_check;
+    EventEmitter<FieldGreaterThanEvent> ff_gt_event_emitter;
+    FieldGreaterThan field_gt(mock_range_check, ff_gt_event_emitter);
+
+    ASSERT_FALSE(field_gt.ff_gt(recipient, FF(MAX_ETH_ADDRESS_VALUE)));
+
     accumulated_data.l2_to_l1_msgs[0] = {
         .message =
             L2ToL1Message{
@@ -135,6 +153,7 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
 
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_register_0_, recipient },
         { C::execution_register_1_, content },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -150,6 +169,9 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
     } });
 
+    FieldGreaterThanTraceBuilder field_gt_builder;
+    field_gt_builder.process(ff_gt_event_emitter.dump_events(), trace);
+
     PublicInputsTraceBuilder public_inputs_builder;
     public_inputs_builder.process_public_inputs(trace, public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
@@ -158,13 +180,34 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
     precomputed_builder.process_misc(trace, trace.get_num_rows());
 
     check_relation<send_l2_to_l1_msg>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings>(trace);
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings,
+                      lookup_send_l2_to_l1_msg_recipient_check_settings>(trace);
+}
+
+TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfRecipientTooLarge)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
+        { C::execution_sel_too_large_recipient_error, 1 },
+        { C::execution_sel_l2_to_l1_msg_limit_error, 0 },
+        { C::execution_is_static, 0 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
+    check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR);
+
+    // Negative test: sel_opcode_error must be on
+    trace.set(C::execution_sel_opcode_error, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
+                              "OPCODE_ERROR");
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfStatic)
 {
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_sel_l2_to_l1_msg_limit_error, 0 },
         { C::execution_is_static, 1 },
         { C::execution_sel_opcode_error, 1 },
@@ -182,6 +225,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNotWriteIfDiscard)
 {
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_discard, 1 },
         { C::execution_sel_write_l2_to_l1_msg, 0 },
@@ -199,6 +243,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
 {
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_prev_num_l2_to_l1_messages, 0 },
         { C::execution_num_l2_to_l1_messages, 1 },

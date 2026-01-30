@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct Nullifier documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Nullifier</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Nullifier</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.note_hash">note_hash</a></li>
+<li><a href="#structfield.value">value</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#count">count</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-Nullifier">Deserialize</a></li>
+<li><a href="#impl-Empty-for-Nullifier">Empty</a></li>
+<li><a href="#impl-Eq-for-Nullifier">Eq</a></li>
+<li><a href="#impl-Readable-for-Nullifier">Readable</a></li>
+<li><a href="#impl-Serialize-for-Nullifier">Serialize</a></li>
+</ul>
+<h2>In module nullifier</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Nullifier.html">Nullifier</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">abis</a>::<a href="index.html">nullifier</a></div>
+<h1>Struct <span id="struct" class="struct">Nullifier</span></h1>
+<pre><code>pub struct Nullifier {
+    pub value: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub note_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.value" class="struct-field"><code class="code-header">value: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.note_hash" class="struct-field"><code class="code-header">note_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code id="count" class="code-header">pub fn <a href="#count"><span class="fn">count</span></a>(self, counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;Self&gt;</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-Nullifier"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-Nullifier"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-Nullifier"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Readable-for-Nullifier"><code class="code-header">impl <a href="../../../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">assert_match_read_request</span>(self, read_request: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+</div><h3 id="impl-Serialize-for-Nullifier"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+</div></main>
+</span>
+</body>
+</html>

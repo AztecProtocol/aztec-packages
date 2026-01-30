@@ -20,9 +20,7 @@ pub mod poseidon2;
 pub mod abis;
 
 pub mod hash;
-pub mod type_serialization;
 pub mod type_packing;
-pub mod tuple_serialization;
 
 pub mod blob_data;
 

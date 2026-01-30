@@ -2,15 +2,17 @@ import type { ComponentLogger, Logger } from '@libp2p/interface';
 
 import { getLogLevelFromFilters } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
-import { logFilters, logger } from './pino-logger.js';
+import { type LoggerBindings, logFilters, logger } from './pino-logger.js';
 
 /**
  * Creates a libp2p compatible logger that wraps our pino logger.
  * This adapter implements the ComponentLogger interface required by libp2p.
+ * @param namespace - Base namespace for the logger
+ * @param bindings - Optional bindings to pass to the logger (actor, instanceId)
  */
-export function createLibp2pComponentLogger(namespace: string): ComponentLogger {
+export function createLibp2pComponentLogger(namespace: string, bindings?: LoggerBindings): ComponentLogger {
   return {
-    forComponent: (component: string) => createLibp2pLogger(`${namespace}:${component}`),
+    forComponent: (component: string) => createLibp2pLogger(`${namespace}:${component}`, bindings),
   };
 }
 
@@ -24,9 +26,14 @@ function replaceFormatting(message: string) {
   return message.replace(/(%p|%a)/g, '%s');
 }
 
-function createLibp2pLogger(component: string): Logger {
+function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logger {
   // Create a direct pino logger instance for libp2p that supports string interpolation
-  const log = logger.child({ module: component }, { level: getLogLevelFromFilters(logFilters, component) });
+  const actor = bindings?.actor;
+  const instanceId = bindings?.instanceId;
+  const log = logger.child(
+    { module: component, ...(actor && { actor }), ...(instanceId && { instanceId }) },
+    { level: getLogLevelFromFilters(logFilters, component) },
+  );
 
   const logIfEnabled = (level: LogLevel, message: string, ...args: unknown[]) => {
     if (!log.isLevelEnabled(level)) {

@@ -358,34 +358,6 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(2000);
     });
 
-    it('benchmarks getNullifierSiblingPath', async () => {
-      const { stats } = await benchmark('getNullifierSiblingPath', () =>
-        aztecNode.getNullifierSiblingPath('latest', 0n),
-      );
-      addResult('getNullifierSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getNoteHashSiblingPath', async () => {
-      const { stats } = await benchmark('getNoteHashSiblingPath', () => aztecNode.getNoteHashSiblingPath('latest', 0n));
-      addResult('getNoteHashSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getArchiveSiblingPath', async () => {
-      const { stats } = await benchmark('getArchiveSiblingPath', () => aztecNode.getArchiveSiblingPath('latest', 0n));
-      addResult('getArchiveSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getPublicDataSiblingPath', async () => {
-      const { stats } = await benchmark('getPublicDataSiblingPath', () =>
-        aztecNode.getPublicDataSiblingPath('latest', 0n),
-      );
-      addResult('getPublicDataSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
     it('benchmarks getNullifierMembershipWitness', async () => {
       const nullifier = Fr.random();
       const { stats } = await benchmark('getNullifierMembershipWitness', () =>

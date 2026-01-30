@@ -176,6 +176,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
+      this.log.getBindings(),
     );
 
     const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});

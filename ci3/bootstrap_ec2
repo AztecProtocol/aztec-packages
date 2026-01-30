@@ -191,6 +191,7 @@ container_script=$(
     *)
       log_ci_run FAILED \$ci_log_id
       merge_train_failure_slack_notify \$ci_log_id
+      release_canary_slack_notify \$ci_log_id
       ci_failed_data=\$(jq -n \\
         --arg status "failed" \\
         --arg log_id "\$ci_log_id" \\

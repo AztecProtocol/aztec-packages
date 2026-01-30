@@ -1,5 +1,6 @@
 # CI for Aztec Network Scenarios.
 # Manually triggered to deploy and test a network.
+# If test_set is empty, runs both sets in parallel.
 name: Test Network Scenarios
 
 on:
@@ -18,6 +19,11 @@ on:
         required: false
         type: string
         default: next-scenario
+      test_set:
+        description: Test set to run (1, 2, or empty for both in parallel)
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: test-network-scenarios-${{ inputs.namespace }}
@@ -26,12 +32,12 @@ concurrency:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 540
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Run
+      - name: Run Network Scenarios
+        timeout-minutes: 350
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -44,4 +50,25 @@ jobs:
           NO_SPOT: 1
         run: |
           namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          ./.github/ci3.sh network-deploy "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}"
+          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
+          # Run scenario tests (both sets in parallel, or specific set if provided)
+          ./.github/ci3.sh network-scenarios "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}" "${{ inputs.test_set }}"
+
+      - name: Cleanup network resources
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
+        run: |
+          test_set="${{ inputs.test_set }}"
+          if [[ -z "$test_set" ]]; then
+            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-1" || true
+            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-2" || true
+          else
+            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-${test_set}" || true
+          fi

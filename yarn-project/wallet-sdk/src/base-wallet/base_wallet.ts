@@ -5,6 +5,7 @@ import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type {
   Aliased,
+  AppCapabilities,
   BatchResults,
   BatchedMethod,
   PrivateEvent,
@@ -13,6 +14,7 @@ import type {
   SendOptions,
   SimulateOptions,
   Wallet,
+  WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
@@ -135,6 +137,23 @@ export abstract class BaseWallet implements Wallet {
     const account = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
     return account.createAuthWit(messageHashOrIntent, chainInfo);
+  }
+
+  /**
+   * Request capabilities from the wallet.
+   *
+   * This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet.
+   * Embedded wallets typically don't support capability-based authorization (no user authorization flow),
+   * while external wallets (browser extensions, hardware wallets) implement this to reduce authorization
+   * friction by allowing apps to request permissions upfront.
+   *
+   * TODO: Consider making it abstract so implementing it is a conscious decision. Leaving it as-is
+   * while the feature stabilizes.
+   *
+   * @param _manifest - Application capability manifest declaring what operations the app needs
+   */
+  public requestCapabilities(_manifest: AppCapabilities): Promise<WalletCapabilities> {
+    throw new Error('Not implemented');
   }
 
   public async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
@@ -352,14 +371,7 @@ export abstract class BaseWallet implements Wallet {
     const instance = await this.pxe.getContractInstance(address);
     const initNullifier = await siloNullifier(address, address.toField());
     const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const [initNullifierMembershipWitness, publiclyRegisteredContractClass] = await Promise.all([
-      this.aztecNode.getNullifierMembershipWitness('latest', initNullifier),
-      publiclyRegisteredContract
-        ? this.aztecNode.getContractClass(
-            publiclyRegisteredContract.currentContractClassId || instance?.currentContractClassId,
-          )
-        : undefined,
-    ]);
+    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
@@ -367,7 +379,6 @@ export abstract class BaseWallet implements Wallet {
       instance: instance ?? undefined,
       isContractInitialized: !!initNullifierMembershipWitness,
       isContractPublished: !!publiclyRegisteredContract,
-      isContractClassPubliclyRegistered: !!publiclyRegisteredContractClass,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,
     };

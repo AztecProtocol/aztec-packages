@@ -21,13 +21,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     super(store);
   }
 
-  // TXE-specific method for adding checkpoints
-  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
-    await this.updater.setNewCheckpointData(checkpoints, result);
-    return true;
+  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {
+    await this.updater.addCheckpoints(checkpoints, result);
   }
-
-  // Abstract method implementations
 
   public getRollupAddress(): Promise<EthAddress> {
     throw new Error('TXE Archiver does not implement "getRollupAddress"');

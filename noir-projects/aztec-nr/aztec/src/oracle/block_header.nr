@@ -1,10 +1,6 @@
-use protocol_types::{
-    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
-};
+use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
 
-use crate::{
-    context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
-};
+use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
 
 #[oracle(utilityGetBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
@@ -22,9 +18,8 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
         // skip the inclusion proofs and just return the historical header from context.
         anchor_block_header
     } else {
-        // 1) Get block number corresponding to the last_archive root in the header
-        // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous
-        // block
+        // 1) Get block number corresponding to the last_archive root in the header Note: We subtract 1 because the
+        // last_archive root is the root of the archive after applying the previous block
         let last_archive_block_number = anchor_block_number - 1;
 
         // 2) Check that the last archive block number is more than or equal to the block number we want to prove
@@ -38,7 +33,7 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
             "Last archive block number is smaller than the block number we want to prove against",
         );
 
-        // 3) Get the header hint of a given block from an oracle
+        // 3) Get the header hint of a given block from an oracle.
         // Safety: The header is constrained to be in the archive tree below.
         let header = unsafe { get_block_header_at_internal(block_number) };
 
@@ -59,7 +54,7 @@ fn constrain_get_block_header_at_internal(
     // 1) Compute the block hash from the block header
     let block_hash = header_hint.hash();
 
-    // 2) Get the membership witness of the block in the archive tree
+    // 2) Get the membership witness of the block in the archive tree.
     // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
     let witness = unsafe { get_archive_membership_witness(anchor_block_header, block_hash) };
 
@@ -100,11 +95,7 @@ mod test {
             let bad_header = get_block_header_at_internal(target_block_number);
 
             // We pass in a different block number than the header received
-            constrain_get_block_header_at_internal(
-                bad_header,
-                target_block_number - 1,
-                anchor_block_header,
-            );
+            constrain_get_block_header_at_internal(bad_header, target_block_number - 1, anchor_block_header);
         });
     }
 }

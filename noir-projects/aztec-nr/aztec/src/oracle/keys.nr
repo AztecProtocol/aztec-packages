@@ -1,4 +1,4 @@
-use dep::protocol_types::{
+use crate::protocol::{
     address::{AztecAddress, PartialAddress},
     point::Point,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
@@ -7,9 +7,7 @@ use dep::protocol_types::{
 #[oracle(utilityGetPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 13] {}
 
-pub unconstrained fn get_public_keys_and_partial_address(
-    address: AztecAddress,
-) -> (PublicKeys, PartialAddress) {
+pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
     let result = get_public_keys_and_partial_address_oracle(address);
 
     let keys = PublicKeys {

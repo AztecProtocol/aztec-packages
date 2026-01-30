@@ -176,10 +176,10 @@ namespace scalar_mul;
     temp_inf' - temp_inf' = 0;
 
     #[DOUBLE]
-    sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
+    sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', sel_not_end /* = 1 */ }
     in
     ecc.sel
-        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.double_op };
 
     ///////////////////////////////
     // Result Computation
@@ -191,8 +191,8 @@ namespace scalar_mul;
 
     // If end is true, conditional assign res as (bit = 1) point or (bit = 0) infinity (mapped to (0,0)).
     // Else, conditional assign res as (bit = 1) res' + temp, constrained by the lookup #[ADD], or unchanged from the next row.
-    end * (point_x * bit - res_x) = 0;
-    end * (point_y * bit - res_y) = 0;
+    end * (point_x * bit + ecc.INFINITY_X * (1 - bit) - res_x) = 0;
+    end * (point_y * bit + ecc.INFINITY_Y * (1 - bit) - res_y) = 0;
     end * ((point_inf - 1) * bit + 1 - res_inf) = 0;
 
     // Needs to be committed because it's used in the #[ADD] lookup

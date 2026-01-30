@@ -24,22 +24,35 @@ where
     Value: Readable,
     SettledReadLeafPreimage: LeafPreimage + Readable,
 {
-    // Generic parameters are used because generic arrays cannot have zero length.
+    // The `...Len` generic names passed through this circuit (see main.nr) are used to dictate array lengths.
+    // But sometimes we want to compile variants of the reset circuit with some of these arrays having zero
+    // length, so as to effectively "skip" constraints relating to the array's concept. E.g. we might
+    // want a reset circuit variant which doesn't process any read requests, so we want the read_request arrays
+    // to have zero length, so that our `for` loops over those arrays compile to nothingness.
+    // Unfortunately, Noir's generic arrays _cannot_ have zero length (the min length is 1). Therefore, we
+    // need to feed extra generics through the circuit to enable us to convey "zero length". That's what the
+    // `...Amount` generic parameters are for.
     // When a reset circuit does not require read request validation, the hints array will still contain at least one
     // item, while `_ReadAmount` will be set to zero.
+    //
+    // Valid pairs of `...Len` and `...Amount` (they only differ in the case of wanting to convey zero length):
+    // `...Len`:    1 1 2 3
+    // `...Amount`: 0 1 2 3
     pub fn validate<let PendingReadAmount: u32, let SettledReadAmount: u32>(self) {
         if PendingReadAmount != 0 {
-            // `PendingReadAmount` is not used in validation and propagation when it's larger than 0. However, it should
-            // still match `PendingReadHintsLen` to ensure consistency and avoid confusion.
+            // `PendingReadAmount` is not used in validation and propagation when it's larger than 0 (`PendingReadHintsLen`
+            // is used instead). However, it should still match `PendingReadHintsLen` to ensure consistency and avoid
+            // confusion.
             std::static_assert(
-                PendingReadAmount == self.hints.pending_read_hints.len(),
+                PendingReadAmount == PendingReadHintsLen,
                 "PendingReadAmount should match the length of the hints array",
             );
 
-            // Since all hints are consumed in `validate_pending_read_requests`, it is not possible to skip propagating
-            // a read request by referencing a hint.
-            // This allows us to skip validation of unused hints (because there are none), unlike the case where
+            // Explaining a difference between this `if` branch vs the `else` branch:
+            // We can skip validation of unused hints here (because all hints are used), unlike the case where
             // `PendingReadAmount` is 0.
+            // The reason all hints are used is because all `pending_read_hints` are iterated over in `validate_pending_read_requests`,
+            // so it is not possible to skip propagating a read request by referencing a hint.
             validate_pending_read_requests(
                 self.read_requests,
                 self.pending_values,

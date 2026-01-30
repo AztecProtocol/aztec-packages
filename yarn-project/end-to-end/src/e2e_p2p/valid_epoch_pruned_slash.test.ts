@@ -36,8 +36,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
-  const ethereumSlotDuration = 4;
-  const aztecSlotDuration = 8;
+  const ethereumSlotDuration = 8;
+  const aztecSlotDuration = 24;
   const aztecEpochDuration = 2;
   const initialEpoch = 8;
   const slashingUnit = BigInt(1e18);
@@ -50,6 +50,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        enforceTimeTable: true,
         cancelTxOnTimeout: false,
         publisherAllowInvalidStates: true,
         listenAddress: '127.0.0.1',

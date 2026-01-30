@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
@@ -75,8 +75,9 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     dbMapSizeKb: number = 10 * 1024 * 1024,
     maxReaders: number = 16,
     cleanup?: () => Promise<void>,
-    log = createLogger('kv-store:lmdb-v2'),
+    bindings?: LoggerBindings,
   ) {
+    const log = createLogger('kv-store:lmdb-v2', bindings);
     const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
     await db.start();
     return db;

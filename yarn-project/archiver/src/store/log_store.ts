@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
@@ -271,18 +271,18 @@ export class LogStore {
     });
   }
 
-  #packWithBlockHash(blockHash: Fr, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
+  #packWithBlockHash(blockHash: BlockHash, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
     return Buffer.concat([blockHash.toBuffer(), ...data]);
   }
 
-  #unpackBlockHash(reader: BufferReader): L2BlockHash {
+  #unpackBlockHash(reader: BufferReader): BlockHash {
     const blockHash = reader.remainingBytes() > 0 ? reader.readObject(Fr) : undefined;
 
     if (!blockHash) {
       throw new Error('Failed to read block hash from log entry buffer');
     }
 
-    return L2BlockHash.fromField(blockHash);
+    return new BlockHash(blockHash);
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
@@ -543,7 +543,7 @@ export class LogStore {
   #accumulateLogs(
     results: (ExtendedContractClassLog | ExtendedPublicLog)[],
     blockNumber: number,
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     txIndex: number,
     txLogs: (ContractClassLog | PublicLog)[],
     filter: LogFilter = {},

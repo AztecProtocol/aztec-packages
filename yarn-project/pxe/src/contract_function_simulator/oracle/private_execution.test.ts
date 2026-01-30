@@ -33,7 +33,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockParameter, L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -65,7 +65,6 @@ import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-ex
 import { toFunctionSelector } from 'viem';
 
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -119,7 +118,6 @@ describe('Private Execution test suite', () => {
   let recipientTaggingStore: MockProxy<RecipientTaggingStore>;
   let senderAddressBookStore: MockProxy<SenderAddressBookStore>;
   let aztecNode: MockProxy<AztecNode>;
-  let anchorBlockStore: MockProxy<AnchorBlockStore>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
   let acirSimulator: ContractFunctionSimulator;
@@ -319,13 +317,11 @@ describe('Private Execution test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
-    anchorBlockStore = mock<AnchorBlockStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
-    anchorBlockStore.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
 
     // Mock sender tagging data provider methods
@@ -453,9 +449,6 @@ describe('Private Execution test suite', () => {
         returnTypes: functionArtifact.returnTypes,
       };
     });
-    contractStore.syncState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
-      await contractStore.getFunctionCall('sync_state', [], contractAddress);
-    });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
@@ -471,7 +464,6 @@ describe('Private Execution test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
@@ -528,7 +520,7 @@ describe('Private Execution test suite', () => {
         new Fr(0),
         TxHash.random(),
         BlockNumber(Math.abs(randomInt(1000))),
-        L2BlockHash.random().toString(),
+        BlockHash.random().toString(),
         0,
         0,
       );
@@ -718,7 +710,9 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       // First fetch of the function artifact is the parent contract
-      expect(contractStore.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      // Second fetch is for sync_state on the child contract (calls[1])
+      // Third fetch is for the actual child function (calls[2])
+      expect(contractStore.getFunctionArtifact.mock.calls[2]).toEqual([childAddress, childSelector]);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(

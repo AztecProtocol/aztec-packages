@@ -322,9 +322,10 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(1);
     const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
+    const tx1HeaderHashFr = tx1HeaderHash;
     db.findLeafIndices.mockImplementation((tree, leaves) => {
       if (tree === MerkleTreeId.ARCHIVE) {
-        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHash) ? undefined : 1n)));
+        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHashFr) ? undefined : 1n)));
       }
       return Promise.resolve([]);
     });

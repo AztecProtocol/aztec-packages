@@ -52,9 +52,8 @@
 </code></pre>
 <div class="comments">
 <p>A struct that allows for efficient reading of value <code>T</code> from public storage in private.</p>
-<p>The efficient reads are achieved by verifying large values through a single hash check
-and then proving inclusion only of the hash in public storage. This reduces the number
-of required tree inclusion proofs from <code>M</code> to 1.</p>
+<p>The efficient reads are achieved by verifying large values through a single hash check and then proving inclusion
+only of the hash in public storage. This reduces the number of required tree inclusion proofs from <code>M</code> to 1.</p>
 <h2>Type Parameters</h2>
 <ul>
 <li><code>T</code>: The underlying type being wrapped, must implement <code>Packable&lt;N&gt;</code></li>
@@ -85,11 +84,11 @@ of required tree inclusion proofs from <code>M</code> to 1.</p>
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads the value stored in this <a href="../../noir_aztec/utils/struct.WithHash.html">WithHash</a> from public storage.</p>
-<p>Note that unlike a full public storage read, this will <em>not</em> read (not return) the stored hash of the
-value, resulting in reduced gas costs.</p>
-<p>This is the public counterpart to <a href="../../noir_aztec/utils/struct.WithHash.html#utility_public_storage_read">WithHash::utility_public_storage_read</a> and
-<a href="../../noir_aztec/utils/struct.WithHash.html#historical_public_storage_read">WithHash::historical_public_storage_read</a>.</p></div>
+<p>Reads the value stored in this <a href="../../noir_aztec/utils/struct.WithHash.html"><code>WithHash</code></a> from public storage.</p>
+<p>Note that unlike a full public storage read, this will <em>not</em> read (not return) the stored hash of the value,
+resulting in reduced gas costs.</p>
+<p>This is the public counterpart to <a href="../../noir_aztec/utils/struct.WithHash.html#utility_public_storage_read"><code>WithHash::utility_public_storage_read</code></a> and
+<a href="../../noir_aztec/utils/struct.WithHash.html#historical_public_storage_read"><code>WithHash::historical_public_storage_read</code></a>.</p></div>
 </div><code id="utility_public_storage_read" class="code-header">pub unconstrained fn <a href="#utility_public_storage_read"><span class="fn">utility_public_storage_read</span></a>(
     context: <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>,
     storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,

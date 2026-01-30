@@ -30,7 +30,9 @@ describe('BlockHeader', () => {
     const seed = 9870243;
     const header = makeBlockHeader(seed);
     const hash = await header.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchInlineSnapshot(
+      '"0x20d46dceda5d61ea884e476bef5ff972557b8a9f5be393bb769c656a3be93367"',
+    );
   });
 
   it('number of fields matches constant', () => {
@@ -41,7 +43,9 @@ describe('BlockHeader', () => {
   it('computes empty hash', async () => {
     const header = BlockHeader.empty();
     const hash = await header.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchInlineSnapshot(
+      '"0x2332f3e8426f1e4fbf66323836e2de1916d47eeb53feb7d3d09ee30d001374be"',
+    );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

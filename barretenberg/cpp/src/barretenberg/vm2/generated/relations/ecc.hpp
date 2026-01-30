@@ -14,8 +14,8 @@ template <typename FF_> class eccImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
-                                                                            5, 3, 5, 6, 6, 5, 6, 6, 3 };
+    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+                                                                            5, 3, 3, 5, 6, 6, 5, 6, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -40,11 +40,11 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static constexpr size_t SR_X_MATCH = 8;
     static constexpr size_t SR_Y_MATCH = 10;
     static constexpr size_t SR_DOUBLE_PRED = 11;
-    static constexpr size_t SR_COMPUTED_LAMBDA = 13;
-    static constexpr size_t SR_INFINITY_RESULT = 15;
-    static constexpr size_t SR_OUTPUT_X_COORD = 16;
-    static constexpr size_t SR_OUTPUT_Y_COORD = 17;
-    static constexpr size_t SR_OUTPUT_INF_FLAG = 18;
+    static constexpr size_t SR_COMPUTED_LAMBDA = 14;
+    static constexpr size_t SR_INFINITY_RESULT = 16;
+    static constexpr size_t SR_OUTPUT_X_COORD = 17;
+    static constexpr size_t SR_OUTPUT_Y_COORD = 18;
+    static constexpr size_t SR_OUTPUT_INF_FLAG = 19;
 
     static std::string get_subrelation_label(size_t index)
     {

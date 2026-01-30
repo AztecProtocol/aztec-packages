@@ -7,6 +7,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import type { ExecutorMetricsInterface } from './executor_metrics_interface.js';
@@ -25,7 +26,9 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     this.tracer = client.getTracer(name);
     const meter = client.getMeter(name);
 
-    this.fnCount = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT);
+    this.fnCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT, {
+      [Attributes.OK]: [true, false],
+    });
 
     this.fnDuration = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION);
 

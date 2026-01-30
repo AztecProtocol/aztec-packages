@@ -44,7 +44,9 @@ describe('TxRequest', () => {
 
     const hash = await txRequest.hash();
 
-    expect(hash.toString()).toMatchSnapshot();
+    expect(hash.toString()).toMatchInlineSnapshot(
+      '"0x138613b6b771cd17311e8db847cd14f26ad3b466d8530257a59c10e0c6719c59"',
+    );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

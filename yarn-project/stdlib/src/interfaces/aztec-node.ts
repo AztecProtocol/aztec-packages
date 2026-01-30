@@ -1,10 +1,4 @@
-import {
-  ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
   BlockNumber,
@@ -23,7 +17,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHash } from '../block/block_hash.js';
+import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
@@ -103,41 +97,6 @@ export interface AztecNode
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]>;
-
-  /**
-   * Returns a sibling path for the given index in the nullifier tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNullifierSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for the given index in the note hash tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNoteHashSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed historic blocks tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getArchiveSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed public data tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -234,7 +193,7 @@ export interface AztecNode
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its archive root.
@@ -355,7 +314,7 @@ export interface AztecNode
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: L2BlockHash): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
@@ -374,7 +333,7 @@ export interface AztecNode
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]>;
 
   /**
@@ -518,26 +477,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
     .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
 
-  getNullifierSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NULLIFIER_TREE_HEIGHT)),
-
-  getNoteHashSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NOTE_HASH_TREE_HEIGHT)),
-
-  getArchiveSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(ARCHIVE_HEIGHT)),
-
-  getPublicDataSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT)),
-
   getNullifierMembershipWitness: z
     .function()
     .args(BlockParameterSchema, schemas.Fr)
@@ -579,7 +518,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 
-  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getBlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
 
   getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
@@ -633,7 +572,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(L2BlockHash.schema))
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(BlockHash.schema))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   getPublicLogsByTagsFromContract: z
@@ -642,7 +581,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
       schemas.AztecAddress,
       z.array(Tag.schema).max(MAX_RPC_LEN),
       optional(z.number().gte(0)),
-      optional(L2BlockHash.schema),
+      optional(BlockHash.schema),
     )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 

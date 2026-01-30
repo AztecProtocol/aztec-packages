@@ -16,27 +16,33 @@ export class SenderAddressBookStore {
     this.#addressBook = this.#store.openMap('address_book');
   }
 
-  async addSender(address: AztecAddress): Promise<boolean> {
-    if (await this.#addressBook.hasAsync(address.toString())) {
-      return false;
-    }
+  addSender(address: AztecAddress): Promise<boolean> {
+    return this.#store.transactionAsync(async () => {
+      if (await this.#addressBook.hasAsync(address.toString())) {
+        return false;
+      }
 
-    await this.#addressBook.set(address.toString(), true);
+      await this.#addressBook.set(address.toString(), true);
 
-    return true;
+      return true;
+    });
   }
 
-  async getSenders(): Promise<AztecAddress[]> {
-    return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
+  getSenders(): Promise<AztecAddress[]> {
+    return this.#store.transactionAsync(async () => {
+      return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
+    });
   }
 
-  async removeSender(address: AztecAddress): Promise<boolean> {
-    if (!(await this.#addressBook.hasAsync(address.toString()))) {
-      return false;
-    }
+  removeSender(address: AztecAddress): Promise<boolean> {
+    return this.#store.transactionAsync(async () => {
+      if (!(await this.#addressBook.hasAsync(address.toString()))) {
+        return false;
+      }
 
-    await this.#addressBook.delete(address.toString());
+      await this.#addressBook.delete(address.toString());
 
-    return true;
+      return true;
+    });
   }
 }

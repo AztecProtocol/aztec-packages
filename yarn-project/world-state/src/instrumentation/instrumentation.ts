@@ -7,6 +7,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import {
@@ -63,7 +64,14 @@ export class WorldStateInstrumentation {
 
     this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME);
 
-    this.criticalErrors = meter.createUpDownCounter(Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT);
+    this.criticalErrors = createUpDownCounterWithDefault(meter, Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT, {
+      [Attributes.ERROR_TYPE]: [
+        'synch_pending_block',
+        'finalize_block',
+        'prune_pending_block',
+        'prune_historical_block',
+      ],
+    });
   }
 
   private updateTreeStats(treeDbStats: TreeDBStats, treeMeta: TreeMeta, tree: MerkleTreeId) {

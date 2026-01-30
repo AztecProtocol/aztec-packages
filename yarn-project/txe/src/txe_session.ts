@@ -312,17 +312,14 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
-    await new NoteService(
-      this.noteStore,
-      this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
-      this.currentJobId,
-    ).syncNoteNullifiers(contractAddress);
-
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
     const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+
+    await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
+      contractAddress,
+    );
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
@@ -354,7 +351,6 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
@@ -401,6 +397,8 @@ export class TXESession implements TXESessionStateHandler {
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
     this.exitTopLevelState();
 
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+
     // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
     // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
@@ -409,11 +407,9 @@ export class TXESession implements TXESessionStateHandler {
     await new NoteService(
       this.noteStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
+      anchorBlockHeader,
       this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
-
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     this.oracleHandler = new UtilityExecutionOracle(
       contractAddress,
@@ -425,7 +421,6 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
@@ -516,7 +511,6 @@ export class TXESession implements TXESessionStateHandler {
           this.keyStore,
           this.addressStore,
           this.stateMachine.node,
-          this.stateMachine.anchorBlockStore,
           this.recipientTaggingStore,
           this.senderAddressBookStore,
           this.capsuleStore,

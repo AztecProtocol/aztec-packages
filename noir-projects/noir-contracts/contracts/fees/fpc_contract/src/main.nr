@@ -15,7 +15,7 @@ pub contract FPC {
     use dep::uint_note::PartialUintNote;
     use aztec::{
         macros::{functions::{external, initializer, nophasecheck, only_self}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
     use token::Token;

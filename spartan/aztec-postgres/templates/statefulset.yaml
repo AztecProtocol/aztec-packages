@@ -16,6 +16,7 @@ spec:
       labels:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: {{ .Values.component | default .Chart.Name }}
     spec:
       containers:
         - name: postgres
@@ -62,6 +63,10 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: data
+        labels:
+          app.kubernetes.io/name: {{ .Chart.Name }}
+          app.kubernetes.io/instance: {{ .Release.Name }}
+          app.kubernetes.io/component: {{ .Values.component | default .Chart.Name }}
       spec:
         accessModes: ["ReadWriteOnce"]
         {{- if .Values.persistence.storageClass }}

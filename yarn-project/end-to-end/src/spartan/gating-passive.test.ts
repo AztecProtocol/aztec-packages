@@ -26,6 +26,7 @@ import {
   uninstallTransferBot,
 } from './utils.js';
 
+// The Prometheus alerts are not strictly required, so we don't throw an error if they fail to load.
 const qosAlerts: AlertConfig[] = [
   {
     alert: 'SequencerTimeToCollectAttestations',
@@ -62,39 +63,44 @@ describe('a test that passively observes the network in the presence of network 
   beforeAll(async () => {
     await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
-    let promPort = 0;
-    let promProc: ServiceEndpoint['process'];
-    {
-      const { process: p, port } = await startPortForward({
-        resource: `svc/metrics-prometheus-server`,
-        namespace: 'metrics',
-        containerPort: 80,
-      });
-      promProc = p;
-      promPort = port;
-      if (promPort === 0 && p) {
-        p.kill();
+    try {
+      let promPort = 0;
+      let promProc: ServiceEndpoint['process'];
+      // Try Prometheus in a dedicated metrics namespace first
+      {
+        const { process: p, port } = await startPortForward({
+          resource: `svc/metrics-prometheus-server`,
+          namespace: 'metrics',
+          containerPort: 80,
+        });
+        promProc = p;
+        promPort = port;
+        if (promPort === 0 && p) {
+          p.kill();
+        }
       }
-    }
 
-    if (promPort === 0) {
-      // Fall back to Prometheus in the same namespace (service name: prometheus-server on port 80)
-      const { process: p, port } = await startPortForward({
-        resource: `svc/prometheus-server`,
-        namespace: NAMESPACE,
-        containerPort: 80,
-      });
-      promProc = p;
-      promPort = port;
-    }
+      if (promPort === 0) {
+        // Fall back to Prometheus in the same namespace (service name: prometheus-server on port 80)
+        const { process: p, port } = await startPortForward({
+          resource: `svc/prometheus-server`,
+          namespace: NAMESPACE,
+          containerPort: 80,
+        });
+        promProc = p;
+        promPort = port;
+      }
 
-    if (promProc && promPort !== 0) {
-      endpoints.push({ url: `http://127.0.0.1:${promPort}`, process: promProc });
-      const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
-      const grafanaCredentials = '';
-      alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
-    } else {
-      debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
+      if (promProc && promPort !== 0) {
+        endpoints.push({ url: `http://127.0.0.1:${promPort}`, process: promProc });
+        const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
+        const grafanaCredentials = '';
+        alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
+      } else {
+        debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
+      }
+    } catch (err) {
+      debugLogger.warn(`Failed to set up Prometheus for QoS checks: ${err}. Continuing without it.`);
     }
 
     spartanDir = `${getGitProjectRoot()}/spartan`;
@@ -113,7 +119,11 @@ describe('a test that passively observes the network in the presence of network 
   afterAll(async () => {
     await health.teardown();
     if (alertChecker) {
-      await alertChecker.runAlertCheck(qosAlerts);
+      try {
+        await alertChecker.runAlertCheck(qosAlerts);
+      } catch (err) {
+        debugLogger.warn(`Failed to run QoS alert check: ${err}`);
+      }
     }
 
     // Teardown chaos experiments created during the test

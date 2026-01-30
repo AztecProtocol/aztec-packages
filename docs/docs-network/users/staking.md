@@ -56,6 +56,31 @@ Before staking, understand that your stake can be partially slashed if:
 
 See [Slashing Concepts](../concepts/proof-of-stake/#slashing) for detailed information.
 
+## Unstaking
+
+When you want to withdraw your staked tokens, you must go through an unstaking process with a mandatory exit delay.
+
+#if(testnet)
+The exit delay for testnet is **2 days**. For a breakdown of how this is calculated, see [Unstaking Concepts](../concepts/proof-of-stake/#unstaking).
+#else
+The exit delay for mainnet is **14.6 days**. For a breakdown of how this is calculated, see [Unstaking Concepts](../concepts/proof-of-stake/#unstaking).
+#endif
+
+### How to Unstake
+
+To unstake your tokens, use the [Aztec Staking Dashboard](https://stake.aztec.network/). The dashboard guides you through the unstaking process:
+
+1. **Initiate withdrawal**: Select your validator and begin the exit process
+2. **Wait for the exit delay**: Your tokens remain locked during this period
+3. **Finalize withdrawal**: After the delay, complete the withdrawal to receive your tokens
+
+If you've delegated stake, contact your operator or use the delegation interface to request unstaking.
+
+### Important Considerations
+
+- **Slashing Risk**: You can still be slashed during the exit delay if misbehavior is detected from when you were active
+- **No Rewards During Exit**: You do not earn staking rewards during the exit delay period
+
 ## Next Steps
 
 - [Delegate your stake](./delegation) if you prefer not to run infrastructure

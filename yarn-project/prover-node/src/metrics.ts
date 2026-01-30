@@ -13,6 +13,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { formatEther, formatUnits } from 'viem';
@@ -65,7 +66,7 @@ export class ProverNodeRewardsMetrics {
   ) {
     this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH);
 
-    this.accumulatedRewards = this.meter.createUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL);
+    this.accumulatedRewards = createUpDownCounterWithDefault(this.meter, Metrics.PROVER_NODE_REWARDS_TOTAL);
   }
 
   public async start() {
@@ -128,7 +129,10 @@ export class ProverNodePublisherMetrics {
 
     this.gasPrice = this.meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE);
 
-    this.txCount = this.meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT);
+    this.txCount = createUpDownCounterWithDefault(this.meter, Metrics.L1_PUBLISHER_TX_COUNT, {
+      [Attributes.L1_TX_TYPE]: ['submitProof'],
+      [Attributes.OK]: [true, false],
+    });
 
     this.txDuration = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION);
 

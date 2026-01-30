@@ -51,10 +51,6 @@ class UltraZKFlavor : public UltraFlavor {
         return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
     }
 
-    // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
-    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments (includes gemini_masking_poly) */ (NUM_WITNESS_ENTITIES * num_frs_comm);
-
     using AllValues = UltraFlavor::AllValues_<HasZK>;
     using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
@@ -63,26 +59,5 @@ class UltraZKFlavor : public UltraFlavor {
     // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
-
-    // Proof length formula method
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
-    {
-        return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
-               /* 2. Libra concatenation commitment*/ (num_frs_comm) +
-               /* 3. Libra sum */ (num_frs_fr) +
-               /* 4. virtual_log_n sumcheck univariates */
-               (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-               /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-               /* 6. Libra claimed evaluation */ (num_frs_fr) +
-               /* 7. Libra grand sum commitment */ (num_frs_comm) +
-               /* 8. Libra quotient commitment */ (num_frs_comm) +
-               /* 9. virtual_log_n - 1 Gemini Fold commitments */
-               ((virtual_log_n - 1) * num_frs_comm) +
-               /* 10. virtual_log_n Gemini a evaluations */
-               (virtual_log_n * num_frs_fr) +
-               /* 11. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-               /* 12. Shplonk Q commitment */ (num_frs_comm) +
-               /* 13. KZG W commitment */ (num_frs_comm);
-    }
 };
 } // namespace bb

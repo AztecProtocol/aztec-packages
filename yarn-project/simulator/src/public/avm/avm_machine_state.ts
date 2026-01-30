@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
+import { type ReturnData, ReturnDataArray } from './calldata.js';
 import { type AvmRevertReason, OutOfGasError } from './errors.js';
 
 /**
@@ -39,7 +40,7 @@ export class AvmMachineState {
   /** program counter of the next instruction, byte based */
   public nextPc: number = 0;
   /** return/revertdata of the last nested call. */
-  public nestedReturndata: Fr[] = [];
+  public nestedReturndata: ReturnData = new ReturnDataArray([]);
   /** Tracks whether the last external call was successful */
   public nestedCallSuccess: boolean = false;
   /**
@@ -66,7 +67,7 @@ export class AvmMachineState {
   /** Signals that execution has reverted normally (this does not cover exceptional halts) */
   private reverted: boolean = false;
   /** Output data must NOT be modified once it is set */
-  private output: Fr[] = [];
+  private output: ReturnData = new ReturnDataArray([]);
 
   // Metrics only - not needed for execution
   /** instruction counter, including nested calls */
@@ -129,7 +130,7 @@ export class AvmMachineState {
    * Output data must NOT be modified once it is set
    * @param output
    */
-  public return(output: Fr[]) {
+  public return(output: ReturnData) {
     this.halted = true;
     this.output = output;
   }
@@ -139,7 +140,7 @@ export class AvmMachineState {
    * Output data must NOT be modified once it is set
    * @param output
    */
-  public revert(output: Fr[]) {
+  public revert(output: ReturnData) {
     this.halted = true;
     this.reverted = true;
     this.output = output;
@@ -153,7 +154,7 @@ export class AvmMachineState {
     return this.reverted;
   }
 
-  public getOutput(): Fr[] {
+  public getOutput(): ReturnData {
     return this.output;
   }
 

@@ -7,6 +7,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { formatEther } from 'viem/utils';
@@ -41,7 +42,10 @@ export class SequencerPublisherMetrics {
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE);
 
-    this.txCount = meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT);
+    this.txCount = createUpDownCounterWithDefault(meter, Metrics.L1_PUBLISHER_TX_COUNT, {
+      [Attributes.L1_TX_TYPE]: ['process'],
+      [Attributes.OK]: [true, false],
+    });
 
     this.txDuration = meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION);
 
@@ -59,9 +63,9 @@ export class SequencerPublisherMetrics {
 
     this.blobInclusionBlocksHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_INCLUSION_BLOCKS);
 
-    this.blobTxSuccessCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_SUCCESS);
+    this.blobTxSuccessCounter = createUpDownCounterWithDefault(meter, Metrics.L1_PUBLISHER_BLOB_TX_SUCCESS);
 
-    this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE);
+    this.blobTxFailureCounter = createUpDownCounterWithDefault(meter, Metrics.L1_PUBLISHER_BLOB_TX_FAILURE);
 
     this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE);
 

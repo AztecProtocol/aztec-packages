@@ -1,16 +1,14 @@
 use crate::{
     context::PrivateContext,
-    messages::{
-        logs::note::encode_private_note_message, message_delivery::do_private_message_delivery,
-    },
+    messages::{logs::note::encode_private_note_message, message_delivery::do_private_message_delivery},
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
-use protocol_types::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A message with information about a note that was created in the current contract call. This message **MUST** be
 /// delivered to a recipient in order to not lose the private note information.
 ///
-/// Use [NoteMessage::deliver] to select a delivery mechanism. The same message can be delivered to multiple
+/// Use [`NoteMessage::deliver`] to select a delivery mechanism. The same message can be delivered to multiple
 /// recipients.
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct NoteMessage<Note> {
@@ -34,11 +32,11 @@ where
     ///
     /// The message is first encrypted to the owner's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be one of [crate::messages::message_delivery::MessageDeliveryEnum], and will inform
+    /// The `delivery_mode` must be one of [`crate::messages::message_delivery::MessageDeliveryEnum`], and will inform
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///
-    /// To deliver the message to a recipient that is not the note's owner, use [deliver_to](NoteMessage::deliver_to)
+    /// To deliver the message to a recipient that is not the note's owner, use [`deliver_to`](NoteMessage::deliver_to)
     /// instead.
     ///
     /// ## Invalid Recipients
@@ -51,7 +49,8 @@ where
         self.deliver_to(self.new_note.owner, delivery_mode);
     }
 
-    /// Same as [deliver](NoteMessage::deliver), except the message gets delivered to an arbitrary `recipient` instead
+    /// Same as [`deliver`](NoteMessage::deliver), except the message gets delivered to an arbitrary `recipient`
+    /// instead
     /// of the note owner.
     ///
     /// Note that `recipient` getting the message does not let them **use** the note, it only means that thy will know
@@ -60,13 +59,13 @@ where
     ///
     /// ## Use Cases
     ///
-    /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example,
-    /// an institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
-    /// low value application like a game might deliver all notes offchain to a centralized server that then serves them
-    /// via the app, bypassing the need for contract sync and improving UX.
+    /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example, an
+    /// institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
+    /// low value application like a game might deliver all notes offchain to a centralized server that then serves
+    /// them via the app, bypassing the need for contract sync and improving UX.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
-        // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to it
-        // because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
+        // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to
+        // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
         // not allowed. As a workaround, we create a variable without the context and capture that instead.
         let new_note = self.new_note;
@@ -90,25 +89,25 @@ where
         self.new_note.note
     }
 
-    /// Returns the [NewNote] container in the message.
+    /// Returns the [`NewNote`] container in the message.
     ///
     /// This is an advanced function, typically needed only when creating new kinds of state variables that need to
-    /// create [MaybeNoteMessage] values.
+    /// create [`MaybeNoteMessage`] values.
     pub fn get_new_note(self) -> NewNote<Note> {
         self.new_note
     }
 }
 
-/// Same as [NoteMessage], except this type also handles the possibility where the note may not have been actually
+/// Same as [`NoteMessage`], except this type also handles the possibility where the note may not have been actually
 /// created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).
 ///
-/// Other than that, it and [MaybeNoteMessage::deliver] behave the exact same way as [NoteMessage].
+/// Other than that, it and [`MaybeNoteMessage::deliver`] behave the exact same way as [`NoteMessage`].
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct MaybeNoteMessage<Note> {
     // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the
-    // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the contents,
-    // and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which only holds
-    // `NewNote` in the `Option`, keeping the `context` out.
+    // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the
+    // contents, and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which
+    // only holds `NewNote` in the `Option`, keeping the `context` out.
     maybe_new_note: Option<NewNote<Note>>,
 
     // MaybeNoteMessage is expected to be constructed when a note is created, which means that the `context` object
@@ -125,28 +124,25 @@ where
         Self { maybe_new_note, context }
     }
 
-    /// Same as [NoteMessage::deliver], except the message will only be delivered if it actually exists.
+    /// Same as [`NoteMessage::deliver`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
+    /// Messages delivered using [`crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED`] will
+    /// pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver(self, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(
-                delivery_mode,
-            );
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(delivery_mode);
         }
     }
 
-    /// Same as [NoteMessage::deliver_to], except the message will only be delivered if it actually exists.
+    /// Same as [`NoteMessage::deliver_to`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
+    /// Messages delivered using [`crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED`] will
+    /// pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(
-                recipient,
-                delivery_mode,
-            );
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(recipient, delivery_mode);
         }
     }
 

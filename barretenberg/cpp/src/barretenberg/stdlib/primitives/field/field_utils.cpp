@@ -22,24 +22,35 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     const uint256_t r_lo = field_modulus.slice(0, lo_bits);
     const uint256_t r_hi = field_modulus.slice(lo_bits, field_modulus.get_msb() + 1);
 
-    // Check if we need to borrow
-    bool need_borrow = uint256_t(lo.get_value()) > r_lo;
-    field_t<Builder> borrow =
-        lo.is_constant()
-            ? need_borrow
-            : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
+    // Algorithm: Validate lo + hi * 2^lo_bits < field_modulus using borrow logic
+    //
+    // We want: value < modulus, i.e., value <= modulus - 1
+    // We compute: hi_diff = r_hi - hi - borrow, lo_diff = (r_lo - 1) - lo + borrow * 2^lo_bits
+    // Both must be in range [0, 2^{*_bits}) for the check to pass.
+    //
+    //   - If lo <= r_lo - 1: no borrow needed
+    //   - If lo > r_lo - 1 (i.e., lo >= r_lo): set borrow=1, which reduces the allowed hi value by 1
+    bool need_borrow = uint256_t(lo.get_value()) > r_lo - 1;
 
-    // directly call `create_small_range_constraint` to avoid creating an arithmetic gate
-    if (!lo.is_constant()) {
+    // If both lo and hi are constant, the validation is straightforward
+    const bool both_constant = lo.is_constant() && hi.is_constant();
+    Builder* ctx = validate_context(lo.get_context(), hi.get_context());
+
+    field_t<Builder> borrow = both_constant
+                                  ? need_borrow
+                                  : field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(need_borrow));
+
+    // Constrain borrow to be boolean (0 or 1) unless both inputs are constant.
+    if (!both_constant) {
         // We need to manually propagate the origin tag
-        borrow.set_origin_tag(lo.get_origin_tag());
-        lo.get_context()->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
+        borrow.set_origin_tag(lo.is_constant() ? hi.get_origin_tag() : lo.get_origin_tag());
+        ctx->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow
-    // Lo range check = r_lo - lo + borrow * 2^lo_bits
+    // Lo range check = (r_lo - 1) - lo + borrow * 2^lo_bits
     field_t<Builder> hi_diff = (-hi + r_hi) - borrow;
-    field_t<Builder> lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << lo_bits));
+    field_t<Builder> lo_diff = (-lo + (r_lo - fr(1))) + (borrow * (uint256_t(1) << lo_bits));
 
     hi_diff.create_range_constraint(hi_bits);
     lo_diff.create_range_constraint(lo_bits);
@@ -86,8 +97,7 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     // Component 3: Range constraints (unless skipped)
     if (!skip_range_constraints) {
         lo.create_range_constraint(lo_bits);
-        // For bn254 scalar field, hi_bits = 254 - lo_bits
-        const size_t hi_bits = 254 - lo_bits;
+        const size_t hi_bits = max_bits - lo_bits;
         hi.create_range_constraint(hi_bits);
     }
 

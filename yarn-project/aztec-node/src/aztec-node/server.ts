@@ -1,13 +1,7 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
-import {
-  ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -41,7 +35,7 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockParameter, type DataInBlock, L2Block, L2BlockHash, type L2BlockSource } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -119,7 +113,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
-  private initialHeaderHashPromise: Promise<L2BlockHash> | undefined = undefined;
+  private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -570,8 +564,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
-      return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
+    if (BlockHash.isBlockHash(block)) {
+      return this.getBlockByHash(block);
     }
     const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
     if (blockNumber === BlockNumber.ZERO) {
@@ -585,9 +579,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+  public async getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(Fr.fromBuffer(initialBlockHash.toBuffer()))) {
+    if (blockHash.equals(initialBlockHash)) {
       return this.buildInitialBlock();
     }
     return await this.blockSource.getL2BlockByHash(blockHash);
@@ -692,13 +686,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getPrivateLogsByTags(
     tags: SiloedTag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
@@ -713,13 +706,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
@@ -915,26 +907,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
       return {
         l2BlockNumber: BlockNumber(Number(blockNumber)),
-        l2BlockHash: L2BlockHash.fromField(blockHash),
+        l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
     });
-  }
-
-  public async getNullifierSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
-  }
-
-  public async getNoteHashSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 
   public async getArchiveMembershipWitness(
@@ -1017,22 +993,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
-  }
-
-  public async getArchiveSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
-  }
-
-  public async getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
   }
 
   public async getNullifierMembershipWitness(
@@ -1118,14 +1078,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getCommitted().getInitialHeader();
       }
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      return this.blockSource.getBlockHeaderByHash(blockHashFr);
+      return this.blockSource.getBlockHeaderByHash(block);
     } else {
       // Block source doesn't handle initial header so we need to handle the case separately.
       const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
@@ -1183,6 +1142,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.contractDataSource,
       new DateProvider(),
       this.telemetry,
+      this.log.getBindings(),
     );
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
@@ -1236,16 +1196,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
-      timestamp: nextSlotTimestamp,
-      blockNumber,
-      l1ChainId: this.l1ChainId,
-      rollupVersion: this.version,
-      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentMinFees(),
-      skipFeeEnforcement,
-      txsPermitted: !this.config.disableTransactions,
-    });
+    const validator = createValidatorForAcceptingTxs(
+      db,
+      this.contractDataSource,
+      verifier,
+      {
+        timestamp: nextSlotTimestamp,
+        blockNumber,
+        l1ChainId: this.l1ChainId,
+        rollupVersion: this.version,
+        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        gasFees: await this.getCurrentMinFees(),
+        skipFeeEnforcement,
+        txsPermitted: !this.config.disableTransactions,
+      },
+      this.log.getBindings(),
+    );
 
     return await validator.validateTx(tx);
   }
@@ -1409,13 +1375,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  #getInitialHeaderHash(): Promise<L2BlockHash> {
+  #getInitialHeaderHash(): Promise<BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer
-        .getCommitted()
-        .getInitialHeader()
-        .hash()
-        .then(hash => L2BlockHash.fromField(hash));
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
     }
     return this.initialHeaderHashPromise;
   }
@@ -1439,15 +1401,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
       }
 
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+      const header = await this.blockSource.getBlockHeaderByHash(block);
       if (!header) {
         throw new Error(
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,

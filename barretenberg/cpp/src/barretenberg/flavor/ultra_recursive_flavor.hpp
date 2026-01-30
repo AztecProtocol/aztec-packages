@@ -44,6 +44,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using Codec = stdlib::StdlibCodec<FF>;
     using Transcript = StdlibTranscript<CircuitBuilder>;
 
     static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;

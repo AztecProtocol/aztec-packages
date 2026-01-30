@@ -22,9 +22,11 @@ import {
  */
 export class KeyStore {
   public static readonly SCHEMA_VERSION = 1;
+  #db: AztecAsyncKVStore;
   #keys: AztecAsyncMap<string, Buffer>;
 
   constructor(database: AztecAsyncKVStore) {
+    this.#db = database;
     this.#keys = database.openMap('key_store');
   }
 
@@ -56,27 +58,31 @@ export class KeyStore {
     const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
     const { address: account } = completeAddress;
 
-    // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
-    await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
-
-    await this.#keys.set(`${account.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
-
-    // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
-    // using the #getKeyPrefixAndAccount function later on
+    // Compute hashes before transaction
     const masterNullifierPublicKeyHash = await publicKeys.masterNullifierPublicKey.hash();
-    await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
     const masterIncomingViewingPublicKeyHash = await publicKeys.masterIncomingViewingPublicKey.hash();
-    await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
     const masterOutgoingViewingPublicKeyHash = await publicKeys.masterOutgoingViewingPublicKey.hash();
-    await this.#keys.set(`${account.toString()}-ovpk_m_hash`, masterOutgoingViewingPublicKeyHash.toBuffer());
     const masterTaggingPublicKeyHash = await publicKeys.masterTaggingPublicKey.hash();
-    await this.#keys.set(`${account.toString()}-tpk_m_hash`, masterTaggingPublicKeyHash.toBuffer());
+
+    await this.#db.transactionAsync(async () => {
+      // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
+      await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+
+      await this.#keys.set(`${account.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
+
+      // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
+      // using the #getKeyPrefixAndAccount function later on
+      await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m_hash`, masterOutgoingViewingPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m_hash`, masterTaggingPublicKeyHash.toBuffer());
+    });
 
     // At last, we return the newly derived account address
     return completeAddress;

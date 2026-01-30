@@ -9,10 +9,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys } from '@aztec/aztec.js/keys';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import type {
-  DeployAccountOptions,
-  Wallet,
-} from '@aztec/aztec.js/wallet';
+import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { type AztecNode } from '@aztec/aztec.js/node';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { createStore } from '@aztec/kv-store/lmdb';
@@ -43,10 +40,7 @@ async function setupWallet(aztecNode: AztecNode) {
   config.dataDirectory = 'pxe';
   config.proverEnabled = PROVER_ENABLED;
 
-  return await TestWallet.create(aztecNode, config, {
-    store,
-    useLogSuffix: true,
-  });
+  return await TestWallet.create(aztecNode, config, { store });
 }
 
 async function getSponsoredPFCContract() {

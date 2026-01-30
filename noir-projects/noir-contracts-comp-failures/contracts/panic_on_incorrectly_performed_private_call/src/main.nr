@@ -2,7 +2,7 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract PanicOnIncorrectlyPerformedPrivateCall {
-    use aztec::{macros::functions::external, protocol_types::address::AztecAddress};
+    use aztec::{macros::functions::external, protocol::address::AztecAddress};
 
     #[external("private")]
     fn arbitrary_external_function() {

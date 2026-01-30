@@ -21,13 +21,9 @@ pub contract AvmTest {
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
-    use dep::aztec::protocol_types::{
-        address::{AztecAddress, EthAddress},
-        point::Point,
-        scalar::Scalar,
-    };
-    use dep::aztec::protocol_types::{
+    use dep::aztec::protocol::abis::function_selector::FunctionSelector;
+    use dep::aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
+    use dep::aztec::protocol::{
         constants::{
             CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
@@ -39,9 +35,9 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::state_vars::state_variable::StateVariable;
+    use dep::aztec::state_vars::StateVariable;
     use dep::compressed_string::CompressedString;
-    use aztec::protocol_types::traits::Serialize;
+    use aztec::protocol::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     use dep::auth_contract::AuthRegistry;
@@ -687,6 +683,11 @@ pub contract AvmTest {
         for i in 0..num {
             self.context.message_portal(EthAddress::from_field(i as Field), i as Field)
         }
+    }
+
+    #[external("public")]
+    fn raw_l2_to_l1_msg(recipient: EthAddress, content: Field) {
+        self.context.message_portal(recipient, content)
     }
 
     #[external("public")]
