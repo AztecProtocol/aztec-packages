@@ -329,6 +329,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
 
+<<<<<<< ours
+||||||| ancestor
+    // Create dynamic topic score params based on network configuration
+    const l1Constants = epochCache.getL1Constants();
+    const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
+      slotDurationMs: l1Constants.slotDuration * 1000,
+      heartbeatIntervalMs: config.gossipsubInterval,
+      targetCommitteeSize: l1Constants.targetCommitteeSize,
+      blockDurationMs: config.blockDurationMs,
+    });
+
+=======
+    // Create dynamic topic score params based on network configuration
+    const l1Constants = epochCache.getL1Constants();
+    const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
+      slotDurationMs: l1Constants.slotDuration * 1000,
+      targetCommitteeSize: l1Constants.targetCommitteeSize,
+      blockDurationMs: config.blockDurationMs,
+    });
+
+>>>>>>> theirs
     const node = await createLibp2p({
       start: false,
       peerId,
