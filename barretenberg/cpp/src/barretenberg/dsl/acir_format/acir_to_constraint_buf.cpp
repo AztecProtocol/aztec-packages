@@ -363,20 +363,20 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
     // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
-    auto program = deserialize_msgpack_compact<Acir::Program>(std::move(buf), [](auto o) -> Acir::Program {
-        Acir::Program program;
-        try {
-            // Deserialize into a partial structure that ignores the Brillig parts,
-            // so that new opcodes can be added without breaking Barretenberg.
+    auto program = deserialize_msgpack_compact<Acir::ProgramWithoutBrillig>(
+        std::move(buf), [](auto o) -> Acir::ProgramWithoutBrillig {
             Acir::ProgramWithoutBrillig program_wob;
-            o.convert(program_wob);
-            program.functions = program_wob.functions;
-        } catch (const msgpack::type_error&) {
-            std::cerr << o << std::endl;
-            bb::assert_failure("acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
-        }
-        return program;
-    });
+            try {
+                // Deserialize into a partial structure that ignores the Brillig parts,
+                // so that new opcodes can be added without breaking Barretenberg.
+                o.convert(program_wob);
+            } catch (const msgpack::type_error&) {
+                std::cerr << o << std::endl;
+                bb::assert_failure(
+                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
+            }
+            return program_wob;
+        });
     BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
 
     return circuit_serde_to_acir_format(program.functions[0]);
