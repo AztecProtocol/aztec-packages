@@ -24,8 +24,9 @@ import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { P2PConfig } from '../config.js';
-import { InMemoryAttestationPool, type P2PService } from '../index.js';
+import type { P2PService } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { createTestAttestationPool } from '../mem_pools/attestation_pool/kv_attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool } from '../mem_pools/tx_pool/aztec_kv_tx_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
@@ -60,7 +61,7 @@ describe('P2P Client', () => {
     txCollection = mock<TxCollection>();
     txCollection.getConstants.mockReturnValue(l1Constants);
 
-    attestationPool = new InMemoryAttestationPool();
+    attestationPool = await createTestAttestationPool();
 
     blockSource = new MockL2BlockSource();
     await blockSource.createBlocks(100);
