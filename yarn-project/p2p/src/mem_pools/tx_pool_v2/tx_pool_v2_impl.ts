@@ -29,7 +29,7 @@ import {
   type TxPoolV2Config,
   type TxPoolV2Dependencies,
 } from './interfaces.js';
-import { type TxMetaData, type TxState, buildTxMetaData } from './tx_metadata.js';
+import { type TxMetaData, type TxState, buildTxMetaData, checkNullifierConflict } from './tx_metadata.js';
 
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
@@ -720,7 +720,11 @@ export class TxPoolV2Impl {
     const toEvict: string[] = [];
 
     for (const meta of txs) {
-      const conflict = this.#checkNullifierConflict(meta);
+      const conflict = checkNullifierConflict(
+        meta,
+        nullifier => this.#nullifierToTxHash.get(nullifier),
+        txHash => this.#metadata.get(txHash),
+      );
       if (conflict.shouldIgnore) {
         // Lower priority than existing - don't add, mark for deletion
         toEvict.push(meta.txHash);
@@ -1092,40 +1096,6 @@ export class TxPoolV2Impl {
         this.#pendingByPriority.delete(meta.priorityFee);
       }
     }
-  }
-
-  /**
-   * Checks if a transaction (by metadata) conflicts with existing pending txs via nullifiers.
-   * Used when restoring txs to pending (unprotect, un-mine) where we have metadata but not full Tx.
-   * @returns shouldIgnore=true if incoming should be dropped, or txHashesToEvict if existing should be evicted
-   */
-  #checkNullifierConflict(incomingMeta: TxMetaData): { shouldIgnore: boolean; txHashesToEvict: string[] } {
-    const txHashesToEvict: string[] = [];
-
-    for (const nullifier of incomingMeta.nullifiers) {
-      const existingTxHashStr = this.#nullifierToTxHash.get(nullifier);
-      if (!existingTxHashStr || existingTxHashStr === incomingMeta.txHash) {
-        continue;
-      }
-
-      const existingMeta = this.#metadata.get(existingTxHashStr);
-      if (!existingMeta) {
-        continue;
-      }
-
-      // Compare priorities - higher priority wins
-      if (incomingMeta.priorityFee > existingMeta.priorityFee) {
-        // Incoming has higher priority - evict existing
-        if (!txHashesToEvict.includes(existingTxHashStr)) {
-          txHashesToEvict.push(existingTxHashStr);
-        }
-      } else {
-        // Existing has equal or higher priority - ignore incoming
-        return { shouldIgnore: true, txHashesToEvict: [] };
-      }
-    }
-
-    return { shouldIgnore: false, txHashesToEvict };
   }
 
   #updateProtection(txHashStr: string, slotNumber: SlotNumber): void {

@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, checkNullifierConflict } from '../tx_metadata.js';
 import type { PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
 
 /**
@@ -16,41 +16,18 @@ export class NullifierConflictRule implements PreAddRule {
   private log = createLogger('p2p:tx_pool_v2:nullifier_conflict_rule');
 
   check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
-    const txHashesToEvict: string[] = [];
+    const result = checkNullifierConflict(
+      incomingMeta,
+      nullifier => poolAccess.getTxHashByNullifier(nullifier),
+      txHash => poolAccess.getMetadata(txHash),
+    );
 
-    for (const nullifier of incomingMeta.nullifiers) {
-      const conflictingHashStr = poolAccess.getTxHashByNullifier(nullifier);
-
-      if (!conflictingHashStr || conflictingHashStr === incomingMeta.txHash) {
-        continue;
-      }
-
-      // Skip if already marked for eviction
-      if (txHashesToEvict.includes(conflictingHashStr)) {
-        continue;
-      }
-
-      const conflictingMeta = poolAccess.getMetadata(conflictingHashStr);
-      if (!conflictingMeta) {
-        continue;
-      }
-
-      // If incoming tx has strictly higher priority, mark for eviction
-      // Otherwise, ignore incoming tx (ties go to existing tx)
-      if (incomingMeta.priorityFee > conflictingMeta.priorityFee) {
-        txHashesToEvict.push(conflictingHashStr);
-      } else {
-        this.log.debug(
-          `Ignoring tx ${incomingMeta.txHash}: nullifier conflict with ${conflictingHashStr} which has higher or equal fee`,
-        );
-        return Promise.resolve({
-          shouldIgnore: true,
-          txHashesToEvict: [],
-          reason: `nullifier conflict with ${conflictingHashStr}`,
-        });
-      }
+    if (result.shouldIgnore) {
+      this.log.debug(
+        `Ignoring tx ${incomingMeta.txHash}: ${result.reason}`,
+      );
     }
 
-    return Promise.resolve({ shouldIgnore: false, txHashesToEvict });
+    return Promise.resolve(result);
   }
 }

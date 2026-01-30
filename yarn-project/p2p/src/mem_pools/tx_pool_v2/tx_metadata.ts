@@ -86,3 +86,64 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   // Use txHash as tiebreaker for deterministic ordering
   return a.txHash < b.txHash ? -1 : a.txHash > b.txHash ? 1 : 0;
 }
+
+/** Result of checking for nullifier conflicts */
+export type NullifierConflictResult = {
+  /** Whether the incoming tx should be ignored (existing tx has equal or higher priority) */
+  shouldIgnore: boolean;
+  /** Tx hashes that should be evicted (incoming tx has higher priority) */
+  txHashesToEvict: string[];
+  /** Reason for ignoring, if applicable */
+  reason?: string;
+};
+
+/**
+ * Checks for nullifier conflicts between an incoming transaction and existing pool state.
+ *
+ * When the incoming tx shares nullifiers with existing pending txs:
+ * - If the incoming tx has strictly higher priority, mark conflicting txs for eviction
+ * - If any conflicting tx has equal or higher priority, ignore the incoming tx
+ *
+ * @param incomingMeta - Metadata for the incoming transaction
+ * @param getTxHashByNullifier - Accessor to find which tx uses a nullifier
+ * @param getMetadata - Accessor to get metadata for a tx hash
+ */
+export function checkNullifierConflict(
+  incomingMeta: TxMetaData,
+  getTxHashByNullifier: (nullifier: string) => string | undefined,
+  getMetadata: (txHash: string) => TxMetaData | undefined,
+): NullifierConflictResult {
+  const txHashesToEvict: string[] = [];
+
+  for (const nullifier of incomingMeta.nullifiers) {
+    const conflictingHashStr = getTxHashByNullifier(nullifier);
+
+    if (!conflictingHashStr || conflictingHashStr === incomingMeta.txHash) {
+      continue;
+    }
+
+    // Skip if already marked for eviction
+    if (txHashesToEvict.includes(conflictingHashStr)) {
+      continue;
+    }
+
+    const conflictingMeta = getMetadata(conflictingHashStr);
+    if (!conflictingMeta) {
+      continue;
+    }
+
+    // If incoming tx has strictly higher priority, mark for eviction
+    // Otherwise, ignore incoming tx (ties go to existing tx)
+    if (incomingMeta.priorityFee > conflictingMeta.priorityFee) {
+      txHashesToEvict.push(conflictingHashStr);
+    } else {
+      return {
+        shouldIgnore: true,
+        txHashesToEvict: [],
+        reason: `nullifier conflict with ${conflictingHashStr}`,
+      };
+    }
+  }
+
+  return { shouldIgnore: false, txHashesToEvict };
+}
