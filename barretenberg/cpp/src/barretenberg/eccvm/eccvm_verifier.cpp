@@ -242,6 +242,10 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
     FF v_cubed = v_squared * v;
     FF v_fourth = v_cubed * v;
 
+    if constexpr (IsRecursive) {
+        translation_masking_term_eval.set_origin_tag(batching_challenge_v.get_origin_tag());
+    }
+
     FF batched_eval_minus_masking = translation_evaluations.op + v * translation_evaluations.Px +
                                     v_squared * translation_evaluations.Py + v_cubed * translation_evaluations.z1 +
                                     v_fourth * translation_evaluations.z2 - translation_masking_term_eval;
