@@ -29,6 +29,10 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
+template <class... Ts> struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
 bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
 {
     BB_ASSERT_EQ(buffer.size(), 32U, "acir_format::from_buffer_with_bound_checks: buffer size must be 32 bytes.");
@@ -37,27 +41,21 @@ bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
 
 WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input)
 {
-    WitnessOrConstant<bb::fr> result = std::visit(
-        [&](auto&& e) {
-            using T = std::decay_t<decltype(e)>;
-            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = e.value.value,
-                    .value = bb::fr::zero(),
-                    .is_constant = false,
-                };
-            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_buffer_with_bound_checks(e.value),
-                    .is_constant = true,
-                };
-            } else {
-                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant. An error here "
-                                   "means there was a serialization error.");
-            }
-        },
-        input.value);
+    WitnessOrConstant<bb::fr> result = std::visit(overloaded{ [&](const Acir::FunctionInput::Witness& e) {
+                                                                 return WitnessOrConstant<bb::fr>{
+                                                                     .index = e.value.value,
+                                                                     .value = bb::fr::zero(),
+                                                                     .is_constant = false,
+                                                                 };
+                                                             },
+                                                              [&](const Acir::FunctionInput::Constant& e) {
+                                                                  return WitnessOrConstant<bb::fr>{
+                                                                      .index = bb::stdlib::IS_CONSTANT,
+                                                                      .value = from_buffer_with_bound_checks(e.value),
+                                                                      .is_constant = true,
+                                                                  };
+                                                              } },
+                                                  input.value);
     return result;
 }
 
@@ -104,166 +102,195 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
     };
 
     std::visit(
-        [&](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                update_max_witness_index_from_expression(arg.value, af);
-            } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                std::visit(
-                    [&](auto&& bb_arg) {
-                        using BBT = std::decay_t<decltype(bb_arg)>;
-                        if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::AND> ||
-                                      std::is_same_v<BBT, Acir::BlackBoxFuncCall::XOR>) {
-                            update_max_witness_index_from_function_input(bb_arg.lhs);
-                            update_max_witness_index_from_function_input(bb_arg.rhs);
-                            update_max_witness_index_from_witness(bb_arg.output);
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::RANGE>) {
-                            update_max_witness_index_from_function_input(bb_arg.input);
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::AES128Encrypt>) {
-                            for (const auto& input : bb_arg.inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.iv) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.key) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& output : bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Sha256Compression>) {
-                            for (const auto& input : *bb_arg.inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.hash_values) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& output : *bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Blake2s> ||
-                                             std::is_same_v<BBT, Acir::BlackBoxFuncCall::Blake3>) {
-                            for (const auto& input : bb_arg.inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& output : *bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::EcdsaSecp256k1> ||
-                                             std::is_same_v<BBT, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
-                            for (const auto& input : *bb_arg.public_key_x) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.public_key_y) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.signature) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.hashed_message) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            update_max_witness_index_from_function_input(bb_arg.predicate);
-                            update_max_witness_index_from_witness(bb_arg.output);
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::MultiScalarMul>) {
-                            for (const auto& input : bb_arg.points) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : bb_arg.scalars) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            update_max_witness_index_from_function_input(bb_arg.predicate);
-                            for (const auto& output : *bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                            for (const auto& input : *bb_arg.input1) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : *bb_arg.input2) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            update_max_witness_index_from_function_input(bb_arg.predicate);
-                            for (const auto& output : *bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Keccakf1600>) {
-                            for (const auto& input : *bb_arg.inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& output : *bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
-                            for (const auto& input : bb_arg.verification_key) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : bb_arg.proof) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& input : bb_arg.public_inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            update_max_witness_index_from_function_input(bb_arg.key_hash);
-                            update_max_witness_index_from_function_input(bb_arg.predicate);
-                        } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
-                            for (const auto& input : bb_arg.inputs) {
-                                update_max_witness_index_from_function_input(input);
-                            }
-                            for (const auto& output : bb_arg.outputs) {
-                                update_max_witness_index_from_witness(output);
-                            }
-                        }
-                    },
-                    arg.value.value);
-            } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
+        overloaded{
+            [&](const Acir::Opcode::AssertZero& arg) { update_max_witness_index_from_expression(arg.value, af); },
+            [&](const Acir::Opcode::BlackBoxFuncCall& arg) {
+                std::visit(overloaded{ [&](const Acir::BlackBoxFuncCall::AND& bb_arg) {
+                                          update_max_witness_index_from_function_input(bb_arg.lhs);
+                                          update_max_witness_index_from_function_input(bb_arg.rhs);
+                                          update_max_witness_index_from_witness(bb_arg.output);
+                                      },
+                                       [&](const Acir::BlackBoxFuncCall::XOR& bb_arg) {
+                                           update_max_witness_index_from_function_input(bb_arg.lhs);
+                                           update_max_witness_index_from_function_input(bb_arg.rhs);
+                                           update_max_witness_index_from_witness(bb_arg.output);
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::RANGE& bb_arg) {
+                                           update_max_witness_index_from_function_input(bb_arg.input);
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::AES128Encrypt& bb_arg) {
+                                           for (const auto& input : bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.iv) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.key) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::Sha256Compression& bb_arg) {
+                                           for (const auto& input : *bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.hash_values) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::Blake2s& bb_arg) {
+                                           for (const auto& input : bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::Blake3& bb_arg) {
+                                           for (const auto& input : bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::EcdsaSecp256k1& bb_arg) {
+                                           for (const auto& input : *bb_arg.public_key_x) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.public_key_y) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.signature) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.hashed_message) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           update_max_witness_index_from_function_input(bb_arg.predicate);
+                                           update_max_witness_index_from_witness(bb_arg.output);
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::EcdsaSecp256r1& bb_arg) {
+                                           for (const auto& input : *bb_arg.public_key_x) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.public_key_y) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.signature) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.hashed_message) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           update_max_witness_index_from_function_input(bb_arg.predicate);
+                                           update_max_witness_index_from_witness(bb_arg.output);
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::MultiScalarMul& bb_arg) {
+                                           for (const auto& input : bb_arg.points) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : bb_arg.scalars) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           update_max_witness_index_from_function_input(bb_arg.predicate);
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::EmbeddedCurveAdd& bb_arg) {
+                                           for (const auto& input : *bb_arg.input1) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : *bb_arg.input2) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           update_max_witness_index_from_function_input(bb_arg.predicate);
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::Keccakf1600& bb_arg) {
+                                           for (const auto& input : *bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : *bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::RecursiveAggregation& bb_arg) {
+                                           for (const auto& input : bb_arg.verification_key) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : bb_arg.proof) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& input : bb_arg.public_inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           update_max_witness_index_from_function_input(bb_arg.key_hash);
+                                           update_max_witness_index_from_function_input(bb_arg.predicate);
+                                       },
+                                       [&](const Acir::BlackBoxFuncCall::Poseidon2Permutation& bb_arg) {
+                                           for (const auto& input : bb_arg.inputs) {
+                                               update_max_witness_index_from_function_input(input);
+                                           }
+                                           for (const auto& output : bb_arg.outputs) {
+                                               update_max_witness_index_from_witness(output);
+                                           }
+                                       } },
+                           arg.value.value);
+            },
+            [&](const Acir::Opcode::MemoryInit& arg) {
                 for (const auto& init : arg.init) {
                     update_max_witness_index_from_witness(init);
                 }
-            } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
+            },
+            [&](const Acir::Opcode::MemoryOp& arg) {
                 update_max_witness_index_from_expression(arg.op.index, af);
                 update_max_witness_index_from_expression(arg.op.value, af);
                 update_max_witness_index_from_expression(arg.op.operation, af);
-            } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                // Process inputs
+            },
+            [&](const Acir::Opcode::BrilligCall& arg) {
                 for (const auto& input : arg.inputs) {
-                    std::visit(
-                        [&](auto&& e) {
-                            using IT = std::decay_t<decltype(e)>;
-                            if constexpr (std::is_same_v<IT, Acir::BrilligInputs::Single>) {
-                                update_max_witness_index_from_expression(e.value, af);
-                            } else if constexpr (std::is_same_v<IT, Acir::BrilligInputs::Array>) {
-                                for (const auto& expr : e.value) {
-                                    update_max_witness_index_from_expression(expr, af);
-                                }
-                            }
-                            // MemoryArray contains a BlockId, no direct witnesses to track
-                        },
-                        input.value);
+                    std::visit(overloaded{
+                                   [&](const Acir::BrilligInputs::Single& e) {
+                                       update_max_witness_index_from_expression(e.value, af);
+                                   },
+                                   [&](const Acir::BrilligInputs::Array& e) {
+                                       for (const auto& expr : e.value) {
+                                           update_max_witness_index_from_expression(expr, af);
+                                       }
+                                   },
+                                   [&](const Acir::BrilligInputs::MemoryArray&) {
+                                       // MemoryArray does not contain witnesses directly, so nothing to do here.
+                                   },
+                               },
+                               input.value);
                 }
-                // Process outputs
                 for (const auto& output : arg.outputs) {
-                    std::visit(
-                        [&](auto&& e) {
-                            using OT = std::decay_t<decltype(e)>;
-                            if constexpr (std::is_same_v<OT, Acir::BrilligOutputs::Simple>) {
-                                update_max_witness_index_from_witness(e.value);
-                            } else if constexpr (std::is_same_v<OT, Acir::BrilligOutputs::Array>) {
-                                for (const auto& witness : e.value) {
-                                    update_max_witness_index_from_witness(witness);
-                                }
-                            }
-                        },
-                        output.value);
+                    std::visit(overloaded{
+                                   [&](const Acir::BrilligOutputs::Simple& e) {
+                                       update_max_witness_index_from_witness(e.value);
+                                   },
+                                   [&](const Acir::BrilligOutputs::Array& e) {
+                                       for (const auto& witness : e.value) {
+                                           update_max_witness_index_from_witness(witness);
+                                       }
+                                   },
+                               },
+                               output.value);
                 }
-                // Process optional predicate
                 if (arg.predicate.has_value()) {
                     update_max_witness_index_from_expression(arg.predicate.value(), af);
                 }
-            } else {
-                bb::assert_failure("acir_format::update_max_witness_index_from_opcode: Unrecognized opcode.");
-            }
+            },
+            [&](const Acir::Opcode::Call&) { bb::assert_failure("Call opcode is not supported."); },
         },
         opcode.value);
 }
@@ -325,29 +352,24 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
         const auto& gate = circuit.opcodes[i];
         update_max_witness_index_from_opcode(gate, af);
         std::visit(
-            [&](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                    assert_zero_to_quad_constraints(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    add_blackbox_func_call_to_acir_format(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
+            overloaded{
+                [&](const Acir::Opcode::AssertZero& arg) { assert_zero_to_quad_constraints(arg, af, i); },
+                [&](const Acir::Opcode::BlackBoxFuncCall& arg) { add_blackbox_func_call_to_acir_format(arg, af, i); },
+                [&](const Acir::Opcode::MemoryInit& arg) {
                     auto block = memory_init_to_block_constraint(arg);
                     uint32_t block_id = arg.block_id.value;
                     block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
+                },
+                [&](const Acir::Opcode::MemoryOp& arg) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
                         bb::assert_failure("acir_format::circuit_serder_to_acir_format: unitialized MemoryOp.");
                     }
                     add_memory_op_to_block_constraint(arg, block->second.first);
                     block->second.second.push_back(i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    // This is a no-op in barretenberg
-                } else {
-                    bb::assert_failure("acir_format::circuit_serde_to_acir_format: Unrecognized Acir Opcode. An error "
-                                       "here means there was a serialization error.");
-                }
+                },
+                [&](const Acir::Opcode::BrilligCall&) {},
+                [&](const Acir::Opcode::Call&) { bb::assert_failure("Call opcode is not supported."); },
             },
             gate.value);
     }
@@ -579,165 +601,172 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
     auto to_witness_from_input = [&](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
 
     std::visit(
-        [&](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AND>) {
-                af.logic_constraints.push_back(LogicConstraint{
-                    .a = parse_input(arg.lhs),
-                    .b = parse_input(arg.rhs),
-                    .result = to_witness(arg.output),
-                    .num_bits = arg.num_bits,
-                    .is_xor_gate = false,
-                });
-                af.original_opcode_indices.logic_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::XOR>) {
-                af.logic_constraints.push_back(LogicConstraint{
-                    .a = parse_input(arg.lhs),
-                    .b = parse_input(arg.rhs),
-                    .result = to_witness(arg.output),
-                    .num_bits = arg.num_bits,
-                    .is_xor_gate = true,
-                });
-                af.original_opcode_indices.logic_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RANGE>) {
-                af.range_constraints.push_back(RangeConstraint{
-                    .witness = get_witness_from_function_input(arg.input),
-                    .num_bits = arg.num_bits,
-                });
-                af.original_opcode_indices.range_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
-                af.aes128_constraints.push_back(AES128Constraint{
-                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
-                    .iv = transform::map(*arg.iv, to_witness_or_constant),
-                    .key = transform::map(*arg.key, to_witness_or_constant),
-                    .outputs = transform::map(arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
-                af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = transform::map(*arg.inputs, to_witness_or_constant),
-                    .hash_values = transform::map(*arg.hash_values, to_witness_or_constant),
-                    .result = transform::map(*arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.sha256_compression.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
-                af.blake2s_constraints.push_back(Blake2sConstraint{
-                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
-                    .result = transform::map(*arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
-                af.blake3_constraints.push_back(Blake3Constraint{
-                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
-                    .result = transform::map(*arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
-                af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
-                    .type = bb::CurveType::SECP256K1,
-                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
-                    .signature = transform::map(*arg.signature, to_witness_from_input),
-                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
-                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
-                    .predicate = parse_input(arg.predicate),
-                    .result = to_witness(arg.output),
-                });
-                af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
-                af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
-                    .type = bb::CurveType::SECP256R1,
-                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
-                    .signature = transform::map(*arg.signature, to_witness_from_input),
-                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
-                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
-                    .predicate = parse_input(arg.predicate),
-                    .result = to_witness(arg.output),
-                });
-                af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::MultiScalarMul>) {
-                af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
-                    .points = transform::map(arg.points, to_witness_or_constant),
-                    .scalars = transform::map(arg.scalars, to_witness_or_constant),
-                    .predicate = parse_input(arg.predicate),
-                    .out_point_x = to_witness((*arg.outputs)[0]),
-                    .out_point_y = to_witness((*arg.outputs)[1]),
-                    .out_point_is_infinite = to_witness((*arg.outputs)[2]),
-                });
-                af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                af.ec_add_constraints.push_back(EcAdd{
-                    .input1_x = parse_input((*arg.input1)[0]),
-                    .input1_y = parse_input((*arg.input1)[1]),
-                    .input1_infinite = parse_input((*arg.input1)[2]),
-                    .input2_x = parse_input((*arg.input2)[0]),
-                    .input2_y = parse_input((*arg.input2)[1]),
-                    .input2_infinite = parse_input((*arg.input2)[2]),
-                    .predicate = parse_input(arg.predicate),
-                    .result_x = to_witness((*arg.outputs)[0]),
-                    .result_y = to_witness((*arg.outputs)[1]),
-                    .result_infinite = to_witness((*arg.outputs)[2]),
-                });
-                af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
-                af.keccak_permutations.push_back(Keccakf1600{
-                    .state = transform::map(*arg.inputs, to_witness_or_constant),
-                    .result = transform::map(*arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
-                auto predicate = parse_input(arg.predicate);
-                if (predicate.is_constant && predicate.value.is_zero()) {
-                    // No constraint if the recursion is disabled
-                    return;
-                }
-                auto c = RecursionConstraint{
-                    .key = transform::map(arg.verification_key, to_witness_from_input),
-                    .proof = transform::map(arg.proof, to_witness_from_input),
-                    .public_inputs = transform::map(arg.public_inputs, to_witness_from_input),
-                    .key_hash = get_witness_from_function_input(arg.key_hash),
-                    .proof_type = arg.proof_type,
-                    .predicate = predicate,
-                };
+        overloaded{ [&](const Acir::BlackBoxFuncCall::AND& arg) {
+                       af.logic_constraints.push_back(LogicConstraint{
+                           .a = parse_input(arg.lhs),
+                           .b = parse_input(arg.rhs),
+                           .result = to_witness(arg.output),
+                           .num_bits = arg.num_bits,
+                           .is_xor_gate = false,
+                       });
+                       af.original_opcode_indices.logic_constraints.push_back(opcode_index);
+                   },
+                    [&](const Acir::BlackBoxFuncCall::XOR& arg) {
+                        af.logic_constraints.push_back(LogicConstraint{
+                            .a = parse_input(arg.lhs),
+                            .b = parse_input(arg.rhs),
+                            .result = to_witness(arg.output),
+                            .num_bits = arg.num_bits,
+                            .is_xor_gate = true,
+                        });
+                        af.original_opcode_indices.logic_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::RANGE& arg) {
+                        af.range_constraints.push_back(RangeConstraint{
+                            .witness = get_witness_from_function_input(arg.input),
+                            .num_bits = arg.num_bits,
+                        });
+                        af.original_opcode_indices.range_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::AES128Encrypt& arg) {
+                        af.aes128_constraints.push_back(AES128Constraint{
+                            .inputs = transform::map(arg.inputs, to_witness_or_constant),
+                            .iv = transform::map(*arg.iv, to_witness_or_constant),
+                            .key = transform::map(*arg.key, to_witness_or_constant),
+                            .outputs = transform::map(arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::Sha256Compression& arg) {
+                        af.sha256_compression.push_back(Sha256Compression{
+                            .inputs = transform::map(*arg.inputs, to_witness_or_constant),
+                            .hash_values = transform::map(*arg.hash_values, to_witness_or_constant),
+                            .result = transform::map(*arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.sha256_compression.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::Blake2s& arg) {
+                        af.blake2s_constraints.push_back(Blake2sConstraint{
+                            .inputs = transform::map(arg.inputs, to_witness_or_constant),
+                            .result = transform::map(*arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::Blake3& arg) {
+                        af.blake3_constraints.push_back(Blake3Constraint{
+                            .inputs = transform::map(arg.inputs, to_witness_or_constant),
+                            .result = transform::map(*arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::EcdsaSecp256k1& arg) {
+                        af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
+                            .type = bb::CurveType::SECP256K1,
+                            .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                            .signature = transform::map(*arg.signature, to_witness_from_input),
+                            .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                            .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
+                            .predicate = parse_input(arg.predicate),
+                            .result = to_witness(arg.output),
+                        });
+                        af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::EcdsaSecp256r1& arg) {
+                        af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
+                            .type = bb::CurveType::SECP256R1,
+                            .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                            .signature = transform::map(*arg.signature, to_witness_from_input),
+                            .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                            .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
+                            .predicate = parse_input(arg.predicate),
+                            .result = to_witness(arg.output),
+                        });
+                        af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::MultiScalarMul& arg) {
+                        af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
+                            .points = transform::map(arg.points, to_witness_or_constant),
+                            .scalars = transform::map(arg.scalars, to_witness_or_constant),
+                            .predicate = parse_input(arg.predicate),
+                            .out_point_x = to_witness((*arg.outputs)[0]),
+                            .out_point_y = to_witness((*arg.outputs)[1]),
+                            .out_point_is_infinite = to_witness((*arg.outputs)[2]),
+                        });
+                        af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::EmbeddedCurveAdd& arg) {
+                        af.ec_add_constraints.push_back(EcAdd{
+                            .input1_x = parse_input((*arg.input1)[0]),
+                            .input1_y = parse_input((*arg.input1)[1]),
+                            .input1_infinite = parse_input((*arg.input1)[2]),
+                            .input2_x = parse_input((*arg.input2)[0]),
+                            .input2_y = parse_input((*arg.input2)[1]),
+                            .input2_infinite = parse_input((*arg.input2)[2]),
+                            .predicate = parse_input(arg.predicate),
+                            .result_x = to_witness((*arg.outputs)[0]),
+                            .result_y = to_witness((*arg.outputs)[1]),
+                            .result_infinite = to_witness((*arg.outputs)[2]),
+                        });
+                        af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::Keccakf1600& arg) {
+                        af.keccak_permutations.push_back(Keccakf1600{
+                            .state = transform::map(*arg.inputs, to_witness_or_constant),
+                            .result = transform::map(*arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
+                    },
+                    [&](const Acir::BlackBoxFuncCall::RecursiveAggregation& arg) {
+                        auto predicate = parse_input(arg.predicate);
+                        if (predicate.is_constant && predicate.value.is_zero()) {
+                            // No constraint if the recursion is disabled
+                            return;
+                        }
+                        auto c = RecursionConstraint{
+                            .key = transform::map(arg.verification_key, to_witness_from_input),
+                            .proof = transform::map(arg.proof, to_witness_from_input),
+                            .public_inputs = transform::map(arg.public_inputs, to_witness_from_input),
+                            .key_hash = get_witness_from_function_input(arg.key_hash),
+                            .proof_type = arg.proof_type,
+                            .predicate = predicate,
+                        };
 
-                // Add the recursion constraint to the appropriate container based on proof type
-                switch (c.proof_type) {
-                case HONK_ZK:
-                case HONK:
-                case ROLLUP_HONK:
-                case ROOT_ROLLUP_HONK:
-                    af.honk_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
-                    break;
-                case OINK:
-                case HN:
-                case HN_TAIL:
-                case HN_FINAL:
-                    af.hn_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.hn_recursion_constraints.push_back(opcode_index);
-                    break;
-                case AVM:
-                    af.avm_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
-                    break;
-                case CHONK:
-                    af.chonk_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
-                    break;
-                default:
-                    bb::assert_failure(
-                        "acir_format::handle_black_box_fun_call: Invalid PROOF_TYPE in RecursionConstraint.");
-                }
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
-                af.poseidon2_constraints.push_back(Poseidon2Constraint{
-                    .state = transform::map(arg.inputs, to_witness_or_constant),
-                    .result = transform::map(arg.outputs, to_witness),
-                });
-                af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
-            } else {
-                bb::assert_failure("acir_format::handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant. An "
-                                   "error here means there was a serialization error.");
-            }
-        },
+                        // Add the recursion constraint to the appropriate container based on proof type
+                        switch (c.proof_type) {
+                        case HONK_ZK:
+                        case HONK:
+                        case ROLLUP_HONK:
+                        case ROOT_ROLLUP_HONK:
+                            af.honk_recursion_constraints.push_back(c);
+                            af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
+                            break;
+                        case OINK:
+                        case HN:
+                        case HN_TAIL:
+                        case HN_FINAL:
+                            af.hn_recursion_constraints.push_back(c);
+                            af.original_opcode_indices.hn_recursion_constraints.push_back(opcode_index);
+                            break;
+                        case AVM:
+                            af.avm_recursion_constraints.push_back(c);
+                            af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
+                            break;
+                        case CHONK:
+                            af.chonk_recursion_constraints.push_back(c);
+                            af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
+                            break;
+                        default:
+                            bb::assert_failure(
+                                "acir_format::handle_black_box_fun_call: Invalid PROOF_TYPE in RecursionConstraint.");
+                        }
+                    },
+                    [&](const Acir::BlackBoxFuncCall::Poseidon2Permutation& arg) {
+                        af.poseidon2_constraints.push_back(Poseidon2Constraint{
+                            .state = transform::map(arg.inputs, to_witness_or_constant),
+                            .result = transform::map(arg.outputs, to_witness),
+                        });
+                        af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
+                    } },
         arg.value.value);
 }
 
