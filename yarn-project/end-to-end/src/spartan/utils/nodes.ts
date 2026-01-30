@@ -21,6 +21,7 @@ import {
   getChartDir,
   startPortForward,
   waitForResourceByLabel,
+  waitForResourceByName,
   waitForStatefulSetsReady,
 } from './k8s.js';
 
@@ -154,6 +155,8 @@ export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNo
   const results = [];
 
   for (const sequencer of sequencers) {
+    // Ensure pod is Ready before attempting port-forward.
+    await waitForResourceByName({ resource: 'pods', name: sequencer, namespace });
     // Wrap port-forward + fetch in a retry to handle flaky port-forwards
     const result = await retry(
       async () => {
