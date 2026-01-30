@@ -165,7 +165,13 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
     const auto check_sum = scalar_sum_shift - sum_delta;
     std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
-
+    // We must constrain `precompute_select` to be of the correct shape: 0 1 1 ... 1 0 ...0. In other words, after the
+    // first row, it is monotonically non-decreasing. In other words, a malicious prover cannot inject the value '0' in
+    // the middle.
+    const auto scaled_lagrange_first_minus_one =
+        scaled_lagrange_first - scaling_factor; // (if not at the first row, is -1, else 0) * scaling_factor
+    const auto precompute_select_check = precompute_select_shift * (precompute_select - 1);
+    std::get<22>(accumulator) += scaled_lagrange_first_minus_one * precompute_select_check;
     /**
      * @brief Transition logic with `round` and `q_transition`.
      * Goal: `round` is an integer in [0, ... 7] that tracks how many slices we have processed for a given scalar.
