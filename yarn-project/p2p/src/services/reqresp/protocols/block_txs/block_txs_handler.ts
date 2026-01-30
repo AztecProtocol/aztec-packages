@@ -31,7 +31,7 @@ export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool:
       throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
     }
 
-    const blockProposal = await attestationPool.getBlockProposal(request.blockHash.toString());
+    const blockProposal = await attestationPool.getBlockProposal(request.archiveRoot.toString());
 
     let requestedTxsHashes;
     if (request.txHashes.length > 0) {
@@ -60,7 +60,7 @@ export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool:
     requestedTxsHashes = blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx));
 
     const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-    const response = new BlockTxsResponse(request.blockHash, new TxArray(...responseTxs), responseBitVector);
+    const response = new BlockTxsResponse(request.archiveRoot, new TxArray(...responseTxs), responseBitVector);
 
     return response.toBuffer();
   };

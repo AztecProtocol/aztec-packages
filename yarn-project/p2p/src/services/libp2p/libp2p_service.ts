@@ -1214,7 +1214,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the requested block transactions are valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateRequestedBlockTxs', request => ({
-    [Attributes.BLOCK_HASH]: request.blockHash.toString(),
+    [Attributes.BLOCK_ARCHIVE]: request.archiveRoot.toString(),
   }))
   private async validateRequestedBlockTxs(
     request: BlockTxsRequest,
@@ -1224,10 +1224,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const requestedTxValidator = this.createRequestedTxValidator();
 
     try {
-      if (!response.blockHash.equals(request.blockHash)) {
+      if (!response.archiveRoot.equals(request.archiveRoot)) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(
-          `Received block txs for unexpected block: expected ${request.blockHash.toString()}, got ${response.blockHash.toString()}`,
+          `Received block txs for unexpected archive root: expected ${request.archiveRoot.toString()}, got ${response.archiveRoot.toString()}`,
         );
       }
 
@@ -1257,7 +1257,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       }
 
       // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
-      const proposal = await this.mempools.attestationPool.getBlockProposal(request.blockHash.toString());
+      const proposal = await this.mempools.attestationPool.getBlockProposal(request.archiveRoot.toString());
       if (proposal) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
@@ -1277,7 +1277,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       } else {
         // No local proposal, cannot check the membership/order of the returned txs
         this.logger.warn(
-          `Block proposal not found for block hash ${request.blockHash.toString()}; cannot validate membership/order of returned txs`,
+          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
         );
         return false;
       }

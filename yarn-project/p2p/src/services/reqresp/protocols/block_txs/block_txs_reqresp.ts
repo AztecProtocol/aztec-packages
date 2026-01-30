@@ -10,8 +10,8 @@ import { BitVector } from './bitvector.js';
  */
 export class BlockTxsRequest {
   constructor(
-    // 32 byte hash of the proposed block header
-    readonly blockHash: Fr,
+    // Archive root after the proposed block is applied (proposal identifier)
+    readonly archiveRoot: Fr,
     // Hashes of txs we are requesting
     readonly txHashes: TxHashArray,
     // BitVector indicating which txs from the proposal we are requesting
@@ -22,7 +22,7 @@ export class BlockTxsRequest {
   ) {}
 
   /**
-   * Crates new BlockTxsRequest given proposal and missing tx hashes
+   * Creates new BlockTxsRequest given proposal and missing tx hashes
    *
    * @param: blockProposal - The block proposal for which we are making request
    * @param: missingTxHashes - Tx hashes from the proposal we are missing
@@ -63,11 +63,11 @@ export class BlockTxsRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsRequest {
     const reader = BufferReader.asReader(buffer);
-    const blockHash = Fr.fromBuffer(reader);
+    const archiveRoot = Fr.fromBuffer(reader);
     const txHashes = TxHashArray.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
-    return new BlockTxsRequest(blockHash, txHashes, txIndices);
+    return new BlockTxsRequest(archiveRoot, txHashes, txIndices);
   }
 
   /**
@@ -75,7 +75,7 @@ export class BlockTxsRequest {
    * @returns Buffer representation of the BlockTxRequest object
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockHash, this.txHashes.toBuffer(), this.txIndices.toBuffer()]);
+    return serializeToBuffer([this.archiveRoot, this.txHashes.toBuffer(), this.txIndices.toBuffer()]);
   }
 }
 
@@ -84,7 +84,7 @@ export class BlockTxsRequest {
  */
 export class BlockTxsResponse {
   constructor(
-    readonly blockHash: Fr,
+    readonly archiveRoot: Fr,
     readonly txs: TxArray, // List of transactions we requested and peer has
     // BitVector indicating which txs from the proposal are available at the peer
     // 1 means the tx is available, 0 means it is not
@@ -98,11 +98,11 @@ export class BlockTxsResponse {
    */
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsResponse {
     const reader = BufferReader.asReader(buffer);
-    const blockHash = Fr.fromBuffer(reader);
+    const archiveRoot = Fr.fromBuffer(reader);
     const txs = TxArray.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
-    return new BlockTxsResponse(blockHash, txs, txIndices);
+    return new BlockTxsResponse(archiveRoot, txs, txIndices);
   }
 
   /**
@@ -112,7 +112,7 @@ export class BlockTxsResponse {
    * @returns Buffer representation of the BlockTxResponse object
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockHash, this.txs.toBuffer(), this.txIndices.toBuffer()]);
+    return serializeToBuffer([this.archiveRoot, this.txs.toBuffer(), this.txIndices.toBuffer()]);
   }
 
   static empty(): BlockTxsResponse {
