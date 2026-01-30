@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && docusaurus build",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && docusaurus build && node scripts/append_api_docs_to_llms.js",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "clean": "./scripts/clean.sh",
     "dev:netlify": "yarn netlify dev",
