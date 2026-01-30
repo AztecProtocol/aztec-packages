@@ -24,6 +24,11 @@ export function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
+/** Type guard for error classes */
+export function isErrorClass<T extends Error>(value: unknown, errorClass: new (...args: any[]) => T): value is T {
+  return value instanceof errorClass || (value instanceof Error && value.name === errorClass.name);
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
