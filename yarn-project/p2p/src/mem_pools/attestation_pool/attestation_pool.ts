@@ -1,13 +1,13 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 
-/** Result of trying to add a proposal (block or checkpoint) */
-export type TryAddProposalResult = {
-  /** Whether proposal was added */
+/** Result of trying to add an item (proposal or attestation) to the pool */
+export type TryAddResult = {
+  /** Whether the item was added */
   added: boolean;
-  /** Whether exact proposal already existed */
+  /** Whether the exact item already existed */
   alreadyExists: boolean;
-  /** Total proposals for this position - used for duplicate detection */
+  /** Total items for this position - used for duplicate detection */
   totalForPosition: number;
 };
 
@@ -29,7 +29,7 @@ export interface AttestationPool {
    * @param blockProposal - The block proposal to add
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
-  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult>;
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult>;
 
   /**
    * Get block proposal by its ID.
@@ -55,7 +55,7 @@ export interface AttestationPool {
    * @param proposal - The checkpoint proposal core to add
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
-  tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult>;
+  tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult>;
 
   /**
    * Get checkpoint proposal by its ID.
@@ -74,6 +74,20 @@ export interface AttestationPool {
    * @param attestations - Checkpoint attestations to add into the pool
    */
   addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
+
+  /**
+   * Attempts to add a checkpoint attestation to the pool.
+   *
+   * This method performs validation and addition in a single call:
+   * - Checks if the attestation already exists (returns alreadyExists: true if so)
+   * - Checks if the (slot, proposalId) has reached the attestation cap (returns added: false if so)
+   * - Adds the attestation if validation passes
+   *
+   * @param attestation - The checkpoint attestation to add
+   * @param committeeSize - Committee size for the attestation's slot
+   * @returns Result indicating whether the attestation was added and existence info
+   */
+  tryAddCheckpointAttestation(attestation: CheckpointAttestation, committeeSize: number): Promise<TryAddResult>;
 
   /**
    * Delete all pool data (attestations, proposals) older than the given slot
@@ -98,33 +112,6 @@ export interface AttestationPool {
    * @return CheckpointAttestations
    */
   getCheckpointAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<CheckpointAttestation[]>;
-
-  /**
-   * Check if a specific checkpoint attestation exists in the pool
-   *
-   * @param attestation - The attestation to check
-   * @return True if the attestation exists, false otherwise
-   */
-  hasCheckpointAttestation(attestation: CheckpointAttestation): Promise<boolean>;
-
-  /**
-   * Returns whether a checkpoint attestation would be accepted for (slot, proposalId).
-   *
-   * @param attestation - The attestation to check
-   * @param committeeSize - Committee size for the attestation's slot
-   * @returns True if the attestation can be added, false otherwise.
-   */
-  canAddCheckpointAttestation(attestation: CheckpointAttestation, committeeSize: number): Promise<boolean>;
-
-  /**
-   * Returns whether the checkpoint attestation cap for the given slot and proposal has been reached.
-   *
-   * @param slot - The slot to check
-   * @param proposalId - The proposal to check
-   * @param committeeSize - Committee size for the slot
-   * @returns True if the cap has been reached, false otherwise.
-   */
-  hasReachedCheckpointAttestationCap(slot: SlotNumber, proposalId: string, committeeSize: number): Promise<boolean>;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;

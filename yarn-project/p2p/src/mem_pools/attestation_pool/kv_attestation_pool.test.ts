@@ -51,23 +51,25 @@ describe('KV Attestation Pool', () => {
       // Create 'limit' distinct checkpoint attestations for the same (slot, proposalId)
       const signers = Array.from({ length: limit }, () => Secp256k1Signer.random());
       const attestations = signers.map(s => mockCheckpointAttestation(s, slotNumber, archive));
-      await kvAttestationPool.addCheckpointAttestations(attestations);
 
-      // We should now be at cap
-      expect(
-        await kvAttestationPool.hasReachedCheckpointAttestationCap(
-          SlotNumber(slotNumber),
-          archive.toString(),
-          committeeSize,
-        ),
-      ).toBe(true);
+      // Add each attestation using tryAddCheckpointAttestation
+      for (let i = 0; i < attestations.length; i++) {
+        const result = await kvAttestationPool.tryAddCheckpointAttestation(attestations[i], committeeSize);
+        expect(result.added).toBe(true);
+        expect(result.totalForPosition).toBe(i + 1);
+      }
 
-      // A new attestation from a new signer should not be accepted (per validation helper semantics)
+      // A new attestation from a new signer should not be added (cap reached)
       const extra = mockCheckpointAttestation(Secp256k1Signer.random(), slotNumber, archive);
-      expect(await kvAttestationPool.canAddCheckpointAttestation(extra, committeeSize)).toBe(false);
+      const extraResult = await kvAttestationPool.tryAddCheckpointAttestation(extra, committeeSize);
+      expect(extraResult.added).toBe(false);
+      expect(extraResult.alreadyExists).toBe(false);
+      expect(extraResult.totalForPosition).toBe(limit);
 
-      // Re-adding an existing attestation should be allowed
-      expect(await kvAttestationPool.canAddCheckpointAttestation(attestations[0], committeeSize)).toBe(true);
+      // Re-adding an existing attestation should return alreadyExists
+      const existingResult = await kvAttestationPool.tryAddCheckpointAttestation(attestations[0], committeeSize);
+      expect(existingResult.added).toBe(false);
+      expect(existingResult.alreadyExists).toBe(true);
     });
   });
 });

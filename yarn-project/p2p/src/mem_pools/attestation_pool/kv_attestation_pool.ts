@@ -12,7 +12,7 @@ import {
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
-import type { AttestationPool, TryAddProposalResult } from './attestation_pool.js';
+import type { AttestationPool, TryAddResult } from './attestation_pool.js';
 
 export const MAX_PROPOSALS_PER_SLOT = 5;
 export const MAX_PROPOSALS_PER_POSITION = 3;
@@ -117,7 +117,7 @@ export class KvAttestationPool implements AttestationPool {
     return (slot << KvAttestationPool.INDEX_BITS) | indexWithinCheckpoint;
   }
 
-  public async tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+  public async tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
     const proposalId = blockProposal.archive.toString();
 
     // Check if already exists
@@ -180,7 +180,7 @@ export class KvAttestationPool implements AttestationPool {
     return Promise.resolve(undefined);
   }
 
-  public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult> {
+  public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
     const proposalId = proposal.archive.toString();
 
     // Check if already exists
@@ -325,50 +325,52 @@ export class KvAttestationPool implements AttestationPool {
     });
   }
 
-  public async hasCheckpointAttestation(attestation: CheckpointAttestation): Promise<boolean> {
-    const slotNumber = attestation.payload.header.slotNumber;
-    const proposalId = attestation.archive;
-    const sender = attestation.getSender();
-
-    // Attestations with invalid signatures are never in the pool
-    if (!sender) {
-      return false;
-    }
-
-    const address = sender.toString();
-    const key = this.getAttestationKey(slotNumber, proposalId, address);
-
-    return await this.checkpointAttestations.hasAsync(key);
-  }
-
-  public async canAddCheckpointAttestation(
+  public async tryAddCheckpointAttestation(
     attestation: CheckpointAttestation,
     committeeSize: number,
-  ): Promise<boolean> {
-    return (
-      (await this.hasCheckpointAttestation(attestation)) ||
-      !(await this.hasReachedCheckpointAttestationCap(
-        attestation.payload.header.slotNumber,
-        attestation.archive.toString(),
-        committeeSize,
-      ))
-    );
+  ): Promise<TryAddResult> {
+    const slotNumber = attestation.payload.header.slotNumber;
+    const proposalId = attestation.archive.toString();
+    const sender = attestation.getSender();
+
+    if (!sender) {
+      return { added: false, alreadyExists: false, totalForPosition: 0 };
+    }
+
+    const key = this.getAttestationKey(slotNumber, proposalId, sender.toString());
+    const alreadyExists = await this.checkpointAttestations.hasAsync(key);
+
+    if (alreadyExists) {
+      const total = await this.getAttestationCount(slotNumber, proposalId);
+      return { added: false, alreadyExists: true, totalForPosition: total };
+    }
+
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const currentCount = await this.getAttestationCount(slotNumber, proposalId);
+
+    if (currentCount >= limit) {
+      return { added: false, alreadyExists: false, totalForPosition: currentCount };
+    }
+
+    await this.checkpointAttestations.set(key, attestation.toBuffer());
+
+    this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${sender.toString()}`, {
+      signature: attestation.signature.toString(),
+      slotNumber,
+      address: sender.toString(),
+      proposalId,
+    });
+
+    return { added: true, alreadyExists: false, totalForPosition: currentCount + 1 };
   }
 
-  public async hasReachedCheckpointAttestationCap(
-    slot: SlotNumber,
-    proposalId: string,
-    committeeSize: number,
-  ): Promise<boolean> {
-    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+  /** Gets the count of attestations for a given (slot, proposalId). */
+  private async getAttestationCount(slot: SlotNumber, proposalId: string): Promise<number> {
     const range = this.getAttestationKeyRangeForProposal(slot, proposalId);
     let count = 0;
     for await (const _ of this.checkpointAttestations.keysAsync(range)) {
       count++;
-      if (count >= limit) {
-        return true;
-      }
     }
-    return false;
+    return count;
   }
 }
