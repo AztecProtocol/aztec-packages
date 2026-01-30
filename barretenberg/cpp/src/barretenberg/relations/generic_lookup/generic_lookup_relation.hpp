@@ -228,7 +228,7 @@ concept GenericLookupSettings = requires {
  *
  * The degrees of the above relations are:
  *  1. The degree of relation 1) is \f$\max(1 + \sum \deg(\text{lookup_entries}) + \sum \deg(\text{table_entries}), \deg(\text{inverse_exists}))\f$
- *  2. The degree of relation 2) is is \f$2 + M\f$, where \f$M = \max(\sum \deg(\text{lookup_entries}) + \sum \deg(\text{table_entries} - \deg(\text{term}_i))\f$
+ *  2. The degree of relation 2) is is \f$3 + M\f$, where \f$M = \max(\sum \deg(\text{lookup_entries}) + \sum \deg(\text{table_entries} - \deg(\text{term}_i))\f$
  *     for \f$\text{term}_i\f$ iterating over all terms. This is because we compute the inverses as:
  *     \f[
  *         \frac{1}{\text{table_entry}_i(x)} = I(x) \cdot \prod_{j \neq i} \text{table_entry}_j(x) \cdot
@@ -310,13 +310,16 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * @brief Compute the degree of the second subrelation
      *
      * @details Iterate over all terms and compute the maximum of the sum of the degree of all terms minus the degree of
-     * the term we are currently looking at. The degree of the subrelation is the maximum plus 2 to account for the
-     * inverse polynomial and the read count.
+     * the term we are currently looking at. The degree of the subrelation is the maximum plus 3 to account for the
+     * inverse polynomial, the read count, and the table term predicate.
      *
      */
     static constexpr size_t compute_second_subrelation_degree()
     {
-        size_t total_term_product_degree = compute_lookup_term_product_degree() + compute_table_term_product_degree();
+        // Account for inverse polynomial, read count, and table term predicate
+        constexpr size_t ADDITIONAL_DEGREE = 3;
+        constexpr size_t TOTAL_TERM_PRODUCT_DEGREE =
+            compute_lookup_term_product_degree() + compute_table_term_product_degree();
 
         size_t max_degree = 0;
         for (size_t i = 0; i < NUM_LOOKUP_TERMS; i++) {
@@ -331,7 +334,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
             default:
                 bb::assert_failure("Invalid lookup type");
             }
-            size_t adjusted_degree = total_term_product_degree - current_degree;
+            size_t adjusted_degree = TOTAL_TERM_PRODUCT_DEGREE - current_degree;
             max_degree = std::max(max_degree, adjusted_degree);
         }
         for (size_t i = 0; i < NUM_TABLE_TERMS; i++) {
@@ -347,10 +350,10 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
                 bb::assert_failure("Invalid table type");
                 break;
             }
-            size_t adjusted_degree = total_term_product_degree - current_degree;
+            size_t adjusted_degree = TOTAL_TERM_PRODUCT_DEGREE - current_degree;
             max_degree = std::max(max_degree, adjusted_degree);
         }
-        return max_degree + 2;
+        return max_degree + ADDITIONAL_DEGREE;
     }
 
     // (Sub)relation lengths: equal to 1 + relation degree

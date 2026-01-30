@@ -52,7 +52,7 @@ $$
 
 The degrees of the above relations are:
 1. The degree of the first relation is $\max(1 + \sum \deg(L_i)  + \sum \deg(T_i), \deg(\text{inverse\_exists}))$
-2. The degree of the second relation is is $2 + M$, where
+2. The degree of the second relation is is $3 + M$, where
 $$ M = \max(\sum\deg(L_i) + \sum \deg(T_i) - \deg(\text{term}))$$
 for $\text{term}$ iterates over all terms. This is because we compute the inverses as:
 $$
