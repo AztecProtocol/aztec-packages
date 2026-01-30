@@ -359,16 +359,16 @@ export class TxPoolV2Impl {
     const { valid, invalid } = await this.#validateForPending(txsToRestore);
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
-    const { toAdd, toEvict } = this.#resolveNullifierConflicts(valid);
+    const { added, toEvict } = this.#resolveNullifierConflicts(valid);
 
     // Step 6: Delete invalid and evicted txs
     await this.#deleteTxsBatch([...invalid, ...toEvict]);
 
     // Step 7: Run eviction rules (enforce pool size limit)
-    if (toAdd.length > 0) {
-      const feePayers = toAdd.map(meta => meta.feePayer);
+    if (added.length > 0) {
+      const feePayers = added.map(meta => meta.feePayer);
       await this.#evictionManager.evictAfterNewTxs(
-        toAdd.map(m => m.txHash),
+        added.map(m => m.txHash),
         feePayers,
       );
     }
@@ -715,8 +715,8 @@ export class TxPoolV2Impl {
    * Modifies the pending indices during iteration to maintain consistent state
    * for subsequent conflict checks within the same batch.
    */
-  #resolveNullifierConflicts(txs: TxMetaData[]): { toAdd: TxMetaData[]; toEvict: string[] } {
-    const toAdd: TxMetaData[] = [];
+  #resolveNullifierConflicts(txs: TxMetaData[]): { added: TxMetaData[]; toEvict: string[] } {
+    const added: TxMetaData[] = [];
     const toEvict: string[] = [];
 
     for (const meta of txs) {
@@ -740,11 +740,11 @@ export class TxPoolV2Impl {
         }
         // Add to pending indices immediately so subsequent txs in the batch see this tx
         this.#addToPendingIndices(meta);
-        toAdd.push(meta);
+        added.push(meta);
       }
     }
 
-    return { toAdd, toEvict };
+    return { added, toEvict };
   }
 
   // --- State Transition Steps ---
