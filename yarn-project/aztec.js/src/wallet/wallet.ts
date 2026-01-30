@@ -40,6 +40,7 @@ import {
   type SimulateInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
+import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 
 /**
  * A wrapper type that allows any item to be associated with an alias.
@@ -223,6 +224,7 @@ export type Wallet = {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>>;
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
+  requestCapabilities(manifest: AppCapabilities): Promise<WalletCapabilities>;
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 
@@ -333,6 +335,119 @@ export const ContractClassMetadataSchema = z.object({
   isContractClassPubliclyRegistered: z.boolean(),
 });
 
+export const ContractFunctionPatternSchema = z.object({
+  contract: z.union([schemas.AztecAddress, z.literal('*')]),
+  function: z.union([z.string(), z.literal('*')]),
+});
+
+export const AccountsCapabilitySchema = z.object({
+  type: z.literal('accounts'),
+  canGet: optional(z.boolean()),
+  canCreateAuthWit: optional(z.boolean()),
+});
+
+export const GrantedAccountsCapabilitySchema = AccountsCapabilitySchema.extend({
+  accounts: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+});
+
+export const ContractsCapabilitySchema = z.object({
+  type: z.literal('contracts'),
+  contracts: z.union([z.literal('*'), z.array(schemas.AztecAddress)]),
+  canRegister: optional(z.boolean()),
+  canGetMetadata: optional(z.boolean()),
+});
+
+export const GrantedContractsCapabilitySchema = ContractsCapabilitySchema;
+
+export const ContractClassesCapabilitySchema = z.object({
+  type: z.literal('contractClasses'),
+  classes: z.union([z.literal('*'), z.array(schemas.Fr)]),
+  canGetMetadata: z.boolean(),
+});
+
+export const GrantedContractClassesCapabilitySchema = ContractClassesCapabilitySchema;
+
+export const SimulationCapabilitySchema = z.object({
+  type: z.literal('simulation'),
+  transactions: optional(
+    z.object({
+      scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+    }),
+  ),
+  utilities: optional(
+    z.object({
+      scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+    }),
+  ),
+});
+
+export const GrantedSimulationCapabilitySchema = SimulationCapabilitySchema;
+
+export const TransactionCapabilitySchema = z.object({
+  type: z.literal('transaction'),
+  scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+});
+
+export const GrantedTransactionCapabilitySchema = TransactionCapabilitySchema;
+
+export const DataCapabilitySchema = z.object({
+  type: z.literal('data'),
+  addressBook: optional(z.boolean()),
+  privateEvents: optional(
+    z.object({
+      contracts: z.union([z.literal('*'), z.array(schemas.AztecAddress)]),
+    }),
+  ),
+});
+
+export const GrantedDataCapabilitySchema = DataCapabilitySchema;
+
+export const CapabilitySchema = z.discriminatedUnion('type', [
+  AccountsCapabilitySchema,
+  ContractsCapabilitySchema,
+  ContractClassesCapabilitySchema,
+  SimulationCapabilitySchema,
+  TransactionCapabilitySchema,
+  DataCapabilitySchema,
+]);
+
+export const GrantedCapabilitySchema = z.discriminatedUnion('type', [
+  GrantedAccountsCapabilitySchema,
+  GrantedContractsCapabilitySchema,
+  GrantedContractClassesCapabilitySchema,
+  GrantedSimulationCapabilitySchema,
+  GrantedTransactionCapabilitySchema,
+  GrantedDataCapabilitySchema,
+]);
+
+export const AppCapabilitiesSchema = z.object({
+  version: z.literal('1.0'),
+  metadata: z.object({
+    name: z.string(),
+    version: z.string(),
+    description: optional(z.string()),
+    url: optional(z.string()),
+    icon: optional(z.string()),
+  }),
+  capabilities: z.array(CapabilitySchema),
+  behavior: optional(
+    z.object({
+      mode: optional(z.enum(['strict', 'permissive'])),
+      expiration: optional(z.number()),
+    }),
+  ),
+});
+
+export const WalletCapabilitiesSchema = z.object({
+  version: z.literal('1.0'),
+  granted: z.array(GrantedCapabilitySchema),
+  wallet: z.object({
+    name: z.string(),
+    version: z.string(),
+  }),
+  expiresAt: optional(z.number()),
+});
+
 /**
  * Record of all wallet method schemas (excluding batch).
  * This is the single source of truth for method schemas - batch schemas are derived from this.
@@ -372,6 +487,7 @@ const WalletMethodSchemas = {
     .args(ExecutionPayloadSchema, SendOptionsSchema)
     .returns(z.union([TxHash.schema, TxReceipt.schema])),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
+  requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
 };
 
 /**
