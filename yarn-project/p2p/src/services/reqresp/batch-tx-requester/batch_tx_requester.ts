@@ -4,7 +4,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
-import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -24,6 +25,11 @@ import { MissingTxMetadata, MissingTxMetadataCollection } from './missing_txs.js
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_validator.js';
 
+type BlockTxsRequestContext = {
+  archive: Fr;
+  txHashes: TxHash[];
+};
+
 /*
  * Tries to fetch all missing transaction until deadline is hit.
  * Transactions are yield by calling run*() method
@@ -42,7 +48,7 @@ import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_val
  *    - Is the peer which was unable to send us successful response N times in a row
  * */
 export class BatchTxRequester {
-  private readonly blockProposal: BlockProposal;
+  private readonly blockContext: BlockTxsRequestContext;
   private readonly pinnedPeer: PeerId | undefined;
   private readonly timeoutMs: number;
   private readonly p2pService: BatchTxRequesterLibP2PService;
@@ -61,7 +67,7 @@ export class BatchTxRequester {
 
   constructor(
     missingTxs: TxHash[],
-    blockProposal: BlockProposal,
+    blockContext: BlockTxsRequestContext,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
     p2pService: BatchTxRequesterLibP2PService,
@@ -69,7 +75,7 @@ export class BatchTxRequester {
     dateProvider?: DateProvider,
     opts?: BatchTxRequesterOptions,
   ) {
-    this.blockProposal = blockProposal;
+    this.blockContext = blockContext;
     this.pinnedPeer = pinnedPeer;
     this.timeoutMs = timeoutMs;
     this.p2pService = p2pService;
@@ -205,7 +211,7 @@ export class BatchTxRequester {
         return;
       }
 
-      const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      const request = this.createBlockTxsRequest(txs);
       if (!request) {
         return;
       }
@@ -249,11 +255,7 @@ export class BatchTxRequester {
       // If peer is dumb peer, we don't know yet if they received full blockProposal
       // there is solid chance that peer didn't receive proposal yet, thus we must send full hashes
       const includeFullHashesInRequestNotJustIndices = true;
-      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(
-        this.blockProposal,
-        txs,
-        includeFullHashesInRequestNotJustIndices,
-      );
+      const blockRequest = this.createBlockTxsRequest(txs, includeFullHashesInRequestNotJustIndices);
       const blockRequestHasNoMissingTxsFromTheProposal = !blockRequest;
 
       if (blockRequestHasNoMissingTxsFromTheProposal) {
@@ -342,7 +344,7 @@ export class BatchTxRequester {
 
     const makeRequest = (pid: PeerId) => {
       const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid);
-      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      const blockRequest = this.createBlockTxsRequest(txs);
       if (!blockRequest) {
         return undefined;
       }
@@ -605,7 +607,7 @@ export class BatchTxRequester {
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    const archiveRootsMatch = this.blockProposal.archive.toString() === response.archiveRoot.toString();
+    const archiveRootsMatch = this.blockContext.archive.toString() === response.archiveRoot.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
     return archiveRootsMatch && peerHasSomeTxsFromProposal;
   }
@@ -624,13 +626,22 @@ export class BatchTxRequester {
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
     const hashes: TxHash[] = [];
     const indicesOfHashesPeerHas = new Set(response.txIndices.getTrueIndices());
-    this.blockProposal.txHashes.forEach((hash, idx) => {
+    this.blockContext.txHashes.forEach((hash, idx) => {
       if (indicesOfHashesPeerHas.has(idx)) {
         hashes.push(hash);
       }
     });
 
     return hashes;
+  }
+
+  private createBlockTxsRequest(txs: TxHash[], includeFullTxHashes = false) {
+    return BlockTxsRequest.fromTxHashesAndMissingTxs(
+      this.blockContext.archive,
+      this.blockContext.txHashes,
+      txs,
+      includeFullTxHashes,
+    );
   }
 
   /*

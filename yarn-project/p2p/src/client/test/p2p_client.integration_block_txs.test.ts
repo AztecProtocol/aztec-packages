@@ -1,3 +1,4 @@
+import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -7,6 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { L2Block } from '@aztec/stdlib/block';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
@@ -217,6 +219,48 @@ describe('p2p client integration block txs protocol ', () => {
 
     const expectedHashes = [0, 2].map(index => txHashes[index]);
     const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    expect(actualHashes).toEqual(expectedHashes);
+  });
+
+  it('responds with txs when peer does not have proposal but has block', async () => {
+    // Peer doesn't have the block proposal
+    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+    const [, client2] = clients as any;
+    const archiver = client2.p2pService.archiver as MockL2BlockSource;
+
+    const block = await L2Block.random(blockNumber, { txsPerBlock: txHashes.length });
+    block.archive.root = archiveRoot;
+    block.body.txEffects.forEach((txEffect, i) => {
+      txEffect.txHash = txHashes[i];
+    });
+    archiver.addProposedBlocks([block]);
+
+    const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+      Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+    );
+
+    txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+      const txsInPool = new Set(hashToTx.keys());
+      return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+    });
+
+    const requestedIndices = [0, 2, 4];
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+    );
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.txIndices.getLength()).toBe(txHashes.length);
+    expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
+    expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
+
+    const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    const expectedHashes = requestedIndices.map(index => txHashes[index]);
     expect(actualHashes).toEqual(expectedHashes);
   });
 

@@ -2,7 +2,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
@@ -14,8 +13,7 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import { ReqRespSubProtocol } from '../reqresp/interface.js';
-import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
+import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { TxCollectionConfig } from './config.js';
 import {
   BatchTxRequesterCollector,
@@ -258,8 +256,6 @@ export class FastTxCollection {
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
     const timeoutMs = +request.deadline - this.dateProvider.now();
     const pinnedPeer = opts.pinnedPeer;
-    const maxPeers = boundInclusive(Math.ceil(request.missingTxHashes.size / 2), 8, 32);
-    const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
     if (timeoutMs < 100) {
@@ -281,16 +277,36 @@ export class FastTxCollection {
           if (request.type === 'proposal') {
             return await this.proposalTxCollector.collectTxs(txHashes, request.blockProposal, pinnedPeer, timeoutMs);
           } else if (request.type === 'block') {
-            const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
-              ReqRespSubProtocol.TX,
-              chunkTxHashesRequest(txHashes),
+            const batchTxRequesterConfig = this.config as Partial<BatchTxRequesterConfig>;
+            const {
+              batchTxRequesterSmartParallelWorkerCount: smartParallelWorkerCount,
+              batchTxRequesterDumbParallelWorkerCount: dumbParallelWorkerCount,
+              batchTxRequesterTxBatchSize: txBatchSize,
+              batchTxRequesterBadPeerThreshold: badPeerThreshold,
+            } = batchTxRequesterConfig;
+
+            const blockContext = {
+              archive: request.block.archive.root,
+              txHashes: request.block.body.txEffects.map(txEffect => txEffect.txHash),
+            };
+
+            const batchRequester = new BatchTxRequester(
+              txHashes,
+              blockContext,
               pinnedPeer,
               timeoutMs,
-              maxPeers,
-              maxRetryAttempts,
+              this.p2pService,
+              this.log,
+              this.dateProvider,
+              {
+                smartParallelWorkerCount,
+                dumbParallelWorkerCount,
+                txBatchSize,
+                badPeerThreshold,
+              },
             );
 
-            return txs.flat();
+            return await BatchTxRequester.collectAllTxs(batchRequester.run());
           } else {
             throw new Error(`Unknown request type: ${(request as any).type}`);
           }

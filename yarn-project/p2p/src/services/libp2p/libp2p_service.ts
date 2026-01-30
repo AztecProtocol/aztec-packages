@@ -524,7 +524,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
 
     if (!this.config.disableTransactions) {
-      const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+      const blockTxsHandler = reqRespBlockTxsHandler(
+        this.mempools.attestationPool,
+        this.mempools.txPool,
+        this.archiver,
+      );
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
     }
 
@@ -1256,15 +1260,21 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         );
       }
 
-      // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
+      // Given proposal or block (should have locally), ensure returned txs are valid subset and match request indices
       const proposal = await this.mempools.attestationPool.getBlockProposal(request.archiveRoot.toString());
-      if (proposal) {
+      const referenceTxHashes = proposal
+        ? proposal.txHashes
+        : (await this.archiver.getL2BlockByArchive(request.archiveRoot))?.body.txEffects.map(
+            txEffect => txEffect.txHash,
+          );
+
+      if (referenceTxHashes) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
 
         // Enforce subset membership and preserve increasing order by index.
         const hashToIndexInProposal = new Map<string, number>(
-          proposal.txHashes.map((h, i) => [h.toString(), i] as [string, number]),
+          referenceTxHashes.map((h, i) => [h.toString(), i] as [string, number]),
         );
         const allowedIndexSet = new Set(intersectIdx);
         const indices = returnedHashes.map(h => hashToIndexInProposal.get(h));
@@ -1275,9 +1285,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
         }
       } else {
-        // No local proposal, cannot check the membership/order of the returned txs
+        // No local proposal or block, cannot check the membership/order of the returned txs
         this.logger.warn(
-          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
+          `Block proposal or block not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
         );
         return false;
       }

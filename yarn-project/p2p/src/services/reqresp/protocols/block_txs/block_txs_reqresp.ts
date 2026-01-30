@@ -35,25 +35,49 @@ export class BlockTxsRequest {
     missingTxHashes: TxHash[],
     includeFullTxHashes = false,
   ): BlockTxsRequest | undefined {
+    return BlockTxsRequest.fromTxHashesAndMissingTxs(
+      blockProposal.archive,
+      blockProposal.txHashes,
+      missingTxHashes,
+      includeFullTxHashes,
+    );
+  }
+
+  /**
+   * Creates new BlockTxsRequest given archive root, full tx list and missing tx hashes.
+   *
+   * @param: archiveRoot - Archive root after the block is applied
+   * @param: blockTxHashes - Full list of tx hashes in the block
+   * @param: missingTxHashes - Tx hashes from the block we are missing
+   * @param: includeFullTxHashes - Whether to include full list of missing tx hashes in the request or just Bitvector indices
+   *
+   * @returns undefined if there were no missingTxHashes matching block hashes, otherwise
+   * returns new BlockTxsRequest*/
+  static fromTxHashesAndMissingTxs(
+    archiveRoot: Fr,
+    blockTxHashes: TxHash[],
+    missingTxHashes: TxHash[],
+    includeFullTxHashes = false,
+  ): BlockTxsRequest | undefined {
     if (missingTxHashes.length === 0) {
       return undefined; // No missing txs to request
     }
 
     const missingHashesSet = new Set(missingTxHashes.map(t => t.toString()));
 
-    // We cannot request txs that are not part of the block proposal
-    if (!missingHashesSet.isSubsetOf(new Set(blockProposal.txHashes.map(t => t.toString())))) {
+    // We cannot request txs that are not part of the block
+    if (!missingHashesSet.isSubsetOf(new Set(blockTxHashes.map(t => t.toString())))) {
       return undefined;
     }
 
-    const missingIndices = blockProposal.txHashes
+    const missingIndices = blockTxHashes
       .map((hash, idx) => (missingHashesSet.has(hash.toString()) ? idx : -1))
       .filter(i => i != -1);
 
-    const requestBitVector = BitVector.init(blockProposal.txHashes.length, missingIndices);
+    const requestBitVector = BitVector.init(blockTxHashes.length, missingIndices);
     const hashes = includeFullTxHashes ? new TxHashArray(...missingTxHashes) : new TxHashArray();
 
-    return new BlockTxsRequest(blockProposal.archive, hashes, requestBitVector);
+    return new BlockTxsRequest(archiveRoot, hashes, requestBitVector);
   }
 
   /**
