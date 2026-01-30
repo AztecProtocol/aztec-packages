@@ -1,13 +1,7 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
-import {
-  ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -919,22 +913,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     });
   }
 
-  public async getNullifierSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
-  }
-
-  public async getNoteHashSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-  }
-
   public async getArchiveMembershipWitness(
     block: BlockParameter,
     archive: Fr,
@@ -1015,22 +993,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
-  }
-
-  public async getArchiveSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
-  }
-
-  public async getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
   }
 
   public async getNullifierMembershipWitness(

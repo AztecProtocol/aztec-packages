@@ -37,11 +37,11 @@
 
 <div class="comments">
 <p>Returns the next app tag for a given sender and recipient pair.</p>
-<p>This also notifies the simulator that a tag has been used in a note, and to therefore increment the
-associated index so that future notes get a different tag and can be discovered by the recipient.
-This change should only be persisted in a non-volatile database if the tagged log is found in an actual block -
-otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
-that are not found by the recipient.</p>
+<p>This also notifies the simulator that a tag has been used in a note, and to therefore increment the associated
+index so that future notes get a different tag and can be discovered by the recipient. This change should only be
+persisted in a non-volatile database if the tagged log is found in an actual block - otherwise e.g. a reverting
+transaction can cause the sender to accidentally skip indices and later produce notes that are not found by the
+recipient.</p>
 </div>
 </main>
 </span>

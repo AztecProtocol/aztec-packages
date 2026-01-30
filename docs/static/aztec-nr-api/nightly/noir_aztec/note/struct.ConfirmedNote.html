@@ -64,12 +64,13 @@
 and the note hash that was used to prove its existence.</p>
 <p>Only <code>ConfirmedNote</code>s can be nullified, since emitting a nullifier for a note that does not exist is a meaningless
 action, and in the vast majority of cases an error.</p>
-<p><code>ConfirmedNote</code>s can be obtained by reading notes from PXE via <a href="../../noir_aztec/note/note_getter/fn.get_note.html">crate::note::note_getter::get_note</a> and
-<a href="../../noir_aztec/note/note_getter/fn.get_notes.html">crate::note::note_getter::get_notes</a>, or by confirming a <a href="../../noir_aztec/note/struct.HintedNote.html">crate::note::hinted_note::HintedNote</a> via
-<a href="../../noir_aztec/history/note_inclusion/trait.ProveNoteInclusion.html#prove_note_inclusion">crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion</a>.</p>
+<p><code>ConfirmedNote</code>s can be obtained by reading notes from PXE via <a href="../../noir_aztec/note/note_getter/fn.get_note.html"><code>crate::note::note_getter::get_note</code></a> and
+<a href="../../noir_aztec/note/note_getter/fn.get_notes.html"><code>crate::note::note_getter::get_notes</code></a>, or by confirming a <a href="../../noir_aztec/note/struct.HintedNote.html"><code>crate::note::hinted_note::HintedNote</code></a> via
+<a href="../../noir_aztec/history/note/fn.assert_note_existed_by.html"><code>crate::history::note::assert_note_existed_by</code></a>.</p>
 <h2>Pending Notes</h2>
-<p>A pending <code>ConfirmedNote</code> (i.e. one of [crate::note::note_metadata::NoteStageEnum::PENDING_SAME_PHASE] or
-[crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE]) will <strong>not</strong> necessarily be inserted into the
+<p>A pending <code>ConfirmedNote</code> (i.e. one of [<code>crate::note::note_metadata::NoteStageEnum::PENDING_SAME_PHASE</code>] or
+[<code>crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE</code>]) will <strong>not</strong> necessarily be inserted into
+the
 note hash tree: if it is nullified in the same transaction, both note hash and nullifier will be squashed (deleted)
 by the kernel, resulting in a <em>transient note</em>.</p></div>
 <h2>Fields</h2>

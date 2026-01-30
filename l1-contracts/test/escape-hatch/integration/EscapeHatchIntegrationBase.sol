@@ -315,7 +315,10 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     bytes32 endArchive = rollup.archiveAt(_end);
 
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: previousArchive, endArchive: endArchive, outHash: bytes32(0), proverId: _prover
+      previousArchive: previousArchive,
+      endArchive: endArchive,
+      outHash: endFull.checkpoint.header.outHash,
+      proverId: _prover
     });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);

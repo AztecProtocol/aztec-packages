@@ -28,18 +28,22 @@ export class ContractClassStore {
     bytecodeCommitment: Fr,
     blockNumber: number,
   ): Promise<void> {
-    await this.#contractClasses.setIfNotExists(
-      contractClass.id.toString(),
-      serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
-    );
-    await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
+    await this.db.transactionAsync(async () => {
+      await this.#contractClasses.setIfNotExists(
+        contractClass.id.toString(),
+        serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
+      );
+      await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
+    });
   }
 
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
     const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
-      await this.#contractClasses.delete(contractClass.id.toString());
-      await this.#bytecodeCommitments.delete(contractClass.id.toString());
+      await this.db.transactionAsync(async () => {
+        await this.#contractClasses.delete(contractClass.id.toString());
+        await this.#bytecodeCommitments.delete(contractClass.id.toString());
+      });
     }
   }
 

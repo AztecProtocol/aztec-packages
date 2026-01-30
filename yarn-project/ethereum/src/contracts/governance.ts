@@ -211,6 +211,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
           to: this.governanceContract.address,
+          abi: GovernanceAbi,
           data: encodedVoteData,
         });
 
@@ -265,6 +266,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
           to: this.governanceContract.address,
+          abi: GovernanceAbi,
           data: encodedExecuteData,
         });
 

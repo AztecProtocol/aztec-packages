@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ContractInstance documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ContractInstance</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractInstance</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.contract_class_id">contract_class_id</a></li>
+<li><a href="#structfield.deployer">deployer</a></li>
+<li><a href="#structfield.initialization_hash">initialization_hash</a></li>
+<li><a href="#structfield.public_keys">public_keys</a></li>
+<li><a href="#structfield.salt">salt</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#to_address">to_address</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ContractInstance">Deserialize</a></li>
+<li><a href="#impl-Eq-for-ContractInstance">Eq</a></li>
+<li><a href="#impl-Hash-for-ContractInstance">Hash</a></li>
+<li><a href="#impl-Serialize-for-ContractInstance">Serialize</a></li>
+</ul>
+<h2>In module contract_instance</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractInstance.html">ContractInstance</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">contract_instance</a></div>
+<h1>Struct <span id="struct" class="struct">ContractInstance</span></h1>
+<pre><code>pub struct ContractInstance {
+    pub salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
+    pub initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.salt" class="struct-field"><code class="code-header">salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.deployer" class="struct-field"><code class="code-header">deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_id" class="struct-field"><code class="code-header">contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></div>
+<div class="padded-description"></div><div id="structfield.initialization_hash" class="struct-field"><code class="code-header">initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.public_keys" class="struct-field"><code class="code-header">public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<div class="padded-methods"><code id="to_address" class="code-header">pub fn <a href="#to_address"><span class="fn">to_address</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ContractInstance"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 16]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-ContractInstance"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-ContractInstance"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Serialize-for-ContractInstance"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 16]</code>
+
+</div></main>
+</span>
+</body>
+</html>

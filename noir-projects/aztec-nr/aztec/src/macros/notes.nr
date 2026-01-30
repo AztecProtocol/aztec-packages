@@ -1,5 +1,5 @@
 use crate::note::note_getter_options::PropertySelector;
-use std::{collections::bounded_vec::BoundedVec, meta::{ctstring::AsCtString, type_of}};
+use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
 /// Maximum number of note types within 1 contract.
 comptime global MAX_NOTE_TYPES: u32 = 128;
@@ -34,7 +34,7 @@ comptime fn get_next_note_type_id() -> Field {
 comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
-    let note_type_name: str<_> = f"{name}".as_ctstring().as_quoted_str!();
+    let note_type_name: str<_> = f"{name}".as_quoted_str!();
     let max_note_packed_len = crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 
     quote {

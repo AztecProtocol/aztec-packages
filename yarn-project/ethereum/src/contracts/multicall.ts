@@ -34,10 +34,13 @@ export class Multicall3 {
     };
 
     const encodedForwarderData = encodeFunctionData(forwarderFunctionData);
-
     try {
       const { receipt, state } = await l1TxUtils.sendAndMonitorTransaction(
-        { to: MULTI_CALL_3_ADDRESS, data: encodedForwarderData },
+        {
+          to: MULTI_CALL_3_ADDRESS,
+          data: encodedForwarderData,
+          abi: multicall3Abi,
+        },
         gasConfig,
         blobConfig,
       );
