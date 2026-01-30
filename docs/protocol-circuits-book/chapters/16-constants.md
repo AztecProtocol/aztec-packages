@@ -80,18 +80,27 @@ This chapter documents the key constants and limits defined in the Aztec protoco
 
 ### Domain Separators
 
-| Separator | Value | Usage |
-|-----------|-------|-------|
-| `DOM_SEP__NOTE_HASH` | 1 | Base note hash |
-| `DOM_SEP__UNIQUE_NOTE_HASH` | 3 | Uniquified hash |
-| `DOM_SEP__SILOED_NOTE_HASH` | 4 | Siloed hash |
-| `DOM_SEP__MESSAGE_NULLIFIER` | 5 | L1-to-L2 message nullifier |
-| `DOM_SEP__OUTER_NULLIFIER` | 7 | Siloed nullifier |
-| `DOM_SEP__NOTE_NULLIFIER` | 53 | Note nullifier |
+Domain separators are computed as `poseidon2_hash('az_name') as u32`
+for "nothing up my sleeve" guarantees.
+
+| Separator | Usage |
+|-----------|-------|
+| `DOM_SEP__NOTE_HASH` | Base note hash |
+| `DOM_SEP__UNIQUE_NOTE_HASH` | Uniquified hash |
+| `DOM_SEP__SILOED_NOTE_HASH` | Siloed hash |
+| `DOM_SEP__SILOED_NULLIFIER` | Siloed nullifier |
+| `DOM_SEP__MESSAGE_NULLIFIER` | L1-to-L2 message nullifier |
+| `DOM_SEP__NOTE_NULLIFIER` | Note nullifier |
+| `DOM_SEP__BLOCK_HEADER_HASH` | Block header hash |
+| `DOM_SEP__PRIVATE_FUNCTION_LEAF` | Private function leaf |
+| `DOM_SEP__INITIALIZER` | Contract initializer |
+| `DOM_SEP__PUBLIC_LEAF_SLOT` | Public storage slot |
+| `DOM_SEP__PUBLIC_STORAGE_MAP_SLOT` | Map storage slot |
+| `DOM_SEP__PRIVATE_LOG_FIRST_FIELD` | Private log header |
 
 ### Generator Indices
 
-Generator indices are used for Pedersen/Poseidon commitments to ensure domain separation.
+Generator indices are used for Pedersen/Poseidon commitments.
 
 ## VK Tree Indices
 

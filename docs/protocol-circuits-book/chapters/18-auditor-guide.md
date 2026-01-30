@@ -296,10 +296,13 @@ Siloing prevents cross-contract note/nullifier collisions:
 ```noir
 // From: hash.nr
 
-pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field) -> Field {
+pub fn compute_siloed_nullifier(
+    contract_address: AztecAddress,
+    nullifier: Field
+) -> Field {
     poseidon2_hash_with_separator(
         [contract_address.to_field(), nullifier],
-        DOM_SEP__OUTER_NULLIFIER,
+        DOM_SEP__SILOED_NULLIFIER,
     )
 }
 
@@ -315,7 +318,7 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
 ```
 
 **Security considerations:**
-- Uses domain separator (`DOM_SEP__OUTER_NULLIFIER`) to prevent hash collisions
+- Uses domain separator (`DOM_SEP__SILOED_NULLIFIER`) to prevent collisions
 - Zero contract address means already siloed (don't double-silo)
 - Returns value unchanged for pre-siloed nullifiers
 
