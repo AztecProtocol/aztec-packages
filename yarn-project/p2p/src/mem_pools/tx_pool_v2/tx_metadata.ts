@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { L2BlockId } from '@aztec/stdlib/block';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -83,8 +84,10 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   if (a.priorityFee !== b.priorityFee) {
     return a.priorityFee < b.priorityFee ? -1 : 1;
   }
+  const fieldA = Fr.fromHexString(a.txHash);
+  const fieldB = Fr.fromHexString(b.txHash);
   // Use txHash as tiebreaker for deterministic ordering
-  return a.txHash < b.txHash ? -1 : a.txHash > b.txHash ? 1 : 0;
+  return fieldA.cmp(fieldB);
 }
 
 /** Result of checking for nullifier conflicts */

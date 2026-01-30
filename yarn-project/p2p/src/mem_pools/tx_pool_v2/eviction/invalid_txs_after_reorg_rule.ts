@@ -40,7 +40,7 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
         const blockHashStr = meta.anchorBlockHeaderHash;
         if (!txsByBlockHash.has(blockHashStr)) {
           txsByBlockHash.set(blockHashStr, []);
-          uniqueBlockHashes.set(blockHashStr, Fr.fromHexString(blockHashStr as `0x${string}`));
+          uniqueBlockHashes.set(blockHashStr, Fr.fromHexString(blockHashStr));
         }
         txsByBlockHash.get(blockHashStr)!.push(meta.txHash);
       }
