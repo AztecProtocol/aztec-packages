@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    keys::getters::{get_nsk_app, get_public_keys},
+    keys::getters::{get_nhk_app, get_public_keys},
     note::{
         lifecycle::{create_note, destroy_note},
         note_getter::{get_note, view_note},
@@ -76,7 +76,7 @@ mod test;
 /// # Requirements
 ///
 /// The contract that holds this state variable must have keys associated with it. This is because the initialization
-/// nullifier includes the contract's nullifying secret key (nsk) in its preimage. This is expected to not ever be a
+/// nullifier includes the contract's nullifier hiding key (nhk) in its preimage. This is expected to not ever be a
 /// problem because the contracts that use SinglePrivateMutable generally have keys associated with them (account
 /// contracts or escrow contracts).
 ///
@@ -124,7 +124,7 @@ where
         let contract_address = self.context.this_address();
         let contract_npk_m = get_public_keys(contract_address).npk_m;
         let contract_npk_m_hash = contract_npk_m.hash();
-        let secret = self.context.request_nsk_app(contract_npk_m_hash);
+        let secret = self.context.request_nhk_app(contract_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 
@@ -245,7 +245,7 @@ where
         let contract_address = self.context.this_address();
         let contract_npk_m = get_public_keys(contract_address).npk_m;
         let contract_npk_m_hash = contract_npk_m.hash();
-        let secret = get_nsk_app(contract_npk_m_hash);
+        let secret = get_nhk_app(contract_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 
