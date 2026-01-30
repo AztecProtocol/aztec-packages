@@ -1,26 +1,23 @@
-use protocol_types::{point::Point, utils::field::sqrt};
+use crate::protocol::{point::Point, utils::field::sqrt};
 
 // I am storing the modulus minus 1 divided by 2 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
-global BN254_FR_MODULUS_DIV_2: Field =
-    10944121435919637611123202872628637544274182200208017171849102093287904247808;
+global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
 
-/**
- * Returns: true if p.y <= MOD_DIV_2, else false.
- */
+/// Returns: true if p.y <= MOD_DIV_2, else false.
 pub fn get_sign_of_point(p: Point) -> bool {
-    // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
-    // the sign we check if the y coordinate is less or equal than the field's modulus minus 1 divided by 2.
-    // Ideally we'd do `y <= MOD_DIV_2`, but there's no `lte` function, so instead we do `!(y > MOD_DIV_2)`, which is
-    // equivalent, and then rewrite that as `!(MOD_DIV_2 < y)`, since we also have no `gt` function.
+    // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get the
+    // sign we check if the y coordinate is less or equal than the field's modulus minus 1 divided by 2. Ideally we'd
+    // do `y <= MOD_DIV_2`, but there's no `lte` function, so instead we do `!(y > MOD_DIV_2)`, which is equivalent,
+    // and then rewrite that as `!(MOD_DIV_2 < y)`, since we also have no `gt` function.
     !BN254_FR_MODULUS_DIV_2.lt(p.y)
 }
 
 /// Returns a `Point` in the Grumpkin curve given its x coordinate.
 ///
-/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there
-/// is no corresponding y value in the field that satisfies the curve equation), it may not be
-/// possible to reconstruct a `Point`. `Option::none()` is returned in such cases.
+/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
+/// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.
+/// `Option::none()` is returned in such cases.
 pub fn point_from_x_coord(x: Field) -> Option<Point> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
@@ -29,12 +26,12 @@ pub fn point_from_x_coord(x: Field) -> Option<Point> {
 
 /// Returns a `Point` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
 ///
-/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there
-/// is no corresponding y value in the field that satisfies the curve equation), it may not be
-/// possible to reconstruct a `Point`. `Option::none()` is returned in such cases.
+/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
+/// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.
+/// `Option::none()` is returned in such cases.
 ///
-/// @param x - The x coordinate of the point
-/// @param sign - The "sign" of the y coordinate - determines whether y <= (Fr.MODULUS - 1) / 2
+/// @param x - The x coordinate of the point @param sign - The "sign" of the y coordinate - determines whether y <=
+/// (Fr.MODULUS - 1) / 2
 pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
@@ -48,10 +45,10 @@ pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
 }
 
 mod test {
+    use crate::protocol::point::Point;
     use crate::utils::point::{
         BN254_FR_MODULUS_DIV_2, get_sign_of_point, point_from_x_coord, point_from_x_coord_and_sign,
     };
-    use dep::protocol_types::point::Point;
 
     #[test]
     unconstrained fn test_point_from_x_coord_and_sign() {
@@ -155,8 +152,8 @@ mod test {
 
     #[test]
     unconstrained fn test_bn254_fr_modulus_div_2() {
-        // Verify that BN254_FR_MODULUS_DIV_2 == (p - 1) / 2
-        // This means: 2 * BN254_FR_MODULUS_DIV_2 + 1 == p == 0 (in the field)
+        // Verify that BN254_FR_MODULUS_DIV_2 == (p - 1) / 2 This means: 2 * BN254_FR_MODULUS_DIV_2 + 1 == p == 0 (in
+        // the field)
         assert_eq(2 * BN254_FR_MODULUS_DIV_2 + 1, 0);
     }
 

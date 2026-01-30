@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep, sleepUntil } from '@aztec/foundation/sleep';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { type TypedEventEmitter, unfreeze } from '@aztec/foundation/types';
@@ -59,6 +59,8 @@ const TXS_POLLING_MS = 500;
  * the Sequencer once the check for being the proposer for the slot has succeeded.
  */
 export class CheckpointProposalJob implements Traceable {
+  protected readonly log: Logger;
+
   constructor(
     private readonly epoch: EpochNumber,
     private readonly slot: SlotNumber,
@@ -86,9 +88,11 @@ export class CheckpointProposalJob implements Traceable {
     private readonly metrics: SequencerMetrics,
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
-    protected readonly log: Logger,
     public readonly tracer: Tracer,
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('sequencer:checkpoint-proposal', { ...bindings, instanceId: `slot-${slot}` });
+  }
 
   /**
    * Executes the checkpoint proposal job.
@@ -190,6 +194,7 @@ export class CheckpointProposalJob implements Traceable {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        this.log.getBindings(),
       );
 
       // Options for the validator client when creating block and checkpoint proposals
@@ -432,6 +437,8 @@ export class CheckpointProposalJob implements Traceable {
       this.syncProposedBlockToArchiver(block).catch(err => {
         this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
       });
+
+      usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // If this is the last block, exit the loop now so we start collecting attestations
       if (timingInfo.isLastBlock) {
@@ -684,7 +691,7 @@ export class CheckpointProposalJob implements Traceable {
     const attestationTimeAllowed = this.config.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)!
       : this.l1Constants.slotDuration;
-    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+    const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
 
     this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
 

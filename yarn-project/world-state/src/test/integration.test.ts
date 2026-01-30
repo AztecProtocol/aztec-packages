@@ -94,7 +94,7 @@ describe('world-state integration', () => {
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
-    const archiverBlockHash = await archiver.getBlockHeader(number).then(h => h?.hash());
+    const archiverBlockHash = await (await archiver.getBlockHeader(number))?.hash();
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };
 

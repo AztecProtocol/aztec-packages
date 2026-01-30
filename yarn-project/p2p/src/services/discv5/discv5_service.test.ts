@@ -1,4 +1,3 @@
-import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -49,10 +48,6 @@ describe('Discv5Service', () => {
     queryForIp: false,
     ...emptyChainConfig,
   };
-
-  beforeAll(() => {
-    addLogNameHandler(name => (name === 'p2p:discv5_service' ? `${name}:${basePort}` : name));
-  });
 
   beforeEach(async () => {
     const telemetryClient = getTelemetryClient();

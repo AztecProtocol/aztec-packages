@@ -1,4 +1,3 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
@@ -6,6 +5,7 @@ import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
+import type { CallData } from './calldata.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -45,7 +45,7 @@ export class AvmContext {
    */
   public async createNestedContractCallContext(
     address: AztecAddress,
-    calldata: Fr[],
+    calldata: CallData,
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
   ): Promise<AvmContext> {

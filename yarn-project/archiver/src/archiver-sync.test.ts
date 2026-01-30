@@ -1076,8 +1076,44 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
 
-      // Now try and add one of the blocks via the addBlocks method. It should throw
+      // Now try and add one of the blocks via the addProposedBlocks method. It should throw
       await expect(archiver.addBlock(blockAlreadySyncedFromCheckpoint)).rejects.toThrow();
+    }, 10_000);
+
+    it('rejects adding blocks for past slots', async () => {
+      // L1 constants from setup: slotDuration=24, ethereumSlotDuration=12
+      // L1 blocks per L2 slot = 24/12 = 2
+      // L2 slot for L1 block N = floor((N * 12) / 24) = floor(N / 2)
+
+      // Sync checkpoint 1 from L1 to establish a baseline
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 4n, // This is in L2 slot 2
+        messagesL1BlockNumber: 2n,
+        numL1ToL2Messages: 3,
+        slotNumber: SlotNumber(2),
+      });
+      const cp1Archive = cp1.blocks[cp1.blocks.length - 1].archive;
+
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Now advance L1 significantly to slot 10 (L1 block 20)
+      // Current slot = floor(20 / 2) = 10
+      // Slot at next L1 block = floor(21 / 2) = 10
+      fake.setL1BlockNumber(20n);
+      await archiver.syncImmediate();
+
+      // Create a block for slot 5 (which has already passed)
+      const pastSlotBlocks = await fake.makeBlocks(CheckpointNumber(2), {
+        l1BlockNumber: 10n, // Would be slot 5
+        previousArchive: cp1Archive,
+        slotNumber: SlotNumber(5), // Explicitly set past slot
+      });
+
+      // Try to add the block for the past slot - should be rejected
+      await expect(archiver.addBlock(pastSlotBlocks[0])).rejects.toThrow(/past slot/);
     }, 10_000);
 
     it('adds missing blocks when checkpoint has more blocks than local', async () => {
@@ -1141,8 +1177,8 @@ describe('Archiver Sync', () => {
       const { checkpoint: cp3 } = await fake.addCheckpoint(CheckpointNumber(3), { l1BlockNumber: 5010n });
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
-      await archiverStore.addBlocks(cp2.blocks, { force: true });
-      await archiverStore.addBlocks(cp3.blocks, { force: true });
+      await archiverStore.addProposedBlocks(cp2.blocks, { force: true });
+      await archiverStore.addProposedBlocks(cp3.blocks, { force: true });
 
       // Verify all blocks are visible locally
       const lastBlockInCheckpoint3 = cp3.blocks[cp3.blocks.length - 1].number;

@@ -697,7 +697,6 @@ template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_valu
 namespace bb {
 class UltraFlavor;
 class UltraZKFlavor;
-class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -716,7 +715,6 @@ class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
-template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;

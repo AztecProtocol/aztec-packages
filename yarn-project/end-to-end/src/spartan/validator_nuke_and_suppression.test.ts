@@ -10,19 +10,18 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { expect, jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
 import {
   ChainHealth,
+  type ServiceEndpoint,
   applyValidatorFailure,
   applyValidatorKill,
-  getExternalIP,
+  getEthereumEndpoint,
   getGitProjectRoot,
-  getPublicViemClient,
+  getRPCEndpoint,
   getSequencers,
   setupEnvironment,
-  startPortForwardForRPC,
   uninstallChaosMesh,
   updateSequencersConfig,
   waitForResourcesByName,
@@ -33,7 +32,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
 
   const logger = createLogger('e2e:spartan:suppress-nuke-slash');
   const config = setupEnvironment(process.env);
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
@@ -55,41 +54,20 @@ describe('validator suppression and nuke with slashing assertions', () => {
       ),
     );
 
-    // Prefer direct access to the Aztec RPC if it is exposed, otherwise fall back to port-forward.
-    try {
-      const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
-      if (!rpcIP) {
-        throw new Error('No external IP for rpc-aztec-node service');
-      }
-      nodeRpcUrl = `http://${rpcIP}:8080`;
-      logger.info(`Found external Aztec RPC url`);
-    } catch (err) {
-      logger.warn(`Failed to use external Aztec RPC, falling back to port-forward`, err as Error);
-      const { process: rpcProc, port } = await startPortForwardForRPC(config.NAMESPACE);
-      forwardProcesses.push(rpcProc);
-      nodeRpcUrl = `http://127.0.0.1:${port}`;
-    }
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    nodeRpcUrl = rpcEndpoint.url;
+    logger.info(`Connected to RPC at ${nodeRpcUrl}`);
 
-    // Reuse RPC port-forward to fetch L1 deployment addresses
+    // Reuse RPC to fetch L1 deployment addresses
     const deployAddresses = await createAztecNodeClient(nodeRpcUrl)
       .getNodeInfo()
       .then(i => i.l1ContractAddresses);
 
-    try {
-      const ethExecutionIp = await getExternalIP(config.NAMESPACE, 'eth-execution');
-      if (!ethExecutionIp) {
-        throw new Error('No external IP for eth-execution service');
-      }
-      const url = `http://${ethExecutionIp}:8545`;
-      client = createPublicClient({ transport: fallback([http(url, { batch: false, timeout: 60_000 })]) });
-      // Ensure the endpoint is actually responsive; otherwise fall back to port-forward.
-      await client.getBlockNumber();
-      logger.info(`Found external L1 RPC url`);
-    } catch (err) {
-      logger.warn(`Failed to use external L1 RPC, falling back to port-forward`, err as Error);
-      const viem = await getPublicViemClient(config, forwardProcesses);
-      client = viem.client;
-    }
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(ethEndpoint);
+    client = createPublicClient({ transport: fallback([http(ethEndpoint.url, { batch: false, timeout: 60_000 })]) });
+    logger.info(`Connected to Ethereum at ${ethEndpoint.url}`);
 
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
@@ -115,7 +93,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
 
     monitor?.removeAllListeners();
     await monitor?.stop();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   // Wait for validator/sequencer pods by name (discovered via `getSequencers`) to satisfy a condition.

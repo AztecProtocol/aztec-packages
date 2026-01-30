@@ -170,8 +170,7 @@ class Execution : public ExecutionInterface {
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
     void nullifier_exists(ContextInterface& context,
-                          MemoryAddress nullifier_offset,
-                          MemoryAddress address_offset,
+                          MemoryAddress siloed_nullifier_offset,
                           MemoryAddress exists_offset);
     void emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr);
     void get_contract_instance(ContextInterface& context,

@@ -8,6 +8,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
+import { CallDataArray, ReturnDataArray } from '../calldata.js';
 import { MemorySliceOutOfRangeError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
@@ -407,7 +408,7 @@ describe('Memory instructions', () => {
     });
 
     it('Writes nothing if size is 0', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(0)); // size
@@ -422,7 +423,7 @@ describe('Memory instructions', () => {
     });
 
     it('Copies all calldata', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
@@ -436,7 +437,7 @@ describe('Memory instructions', () => {
     });
 
     it('Copies slice of calldata', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(1)); // cdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
@@ -450,7 +451,7 @@ describe('Memory instructions', () => {
     });
 
     it('Should return error when memory slice calldatacopy target is out-of-range', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(0)); // cdStart = 0
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
@@ -466,7 +467,7 @@ describe('Memory instructions', () => {
     });
 
     it('Should pad with zeros when the calldata slice is out-of-range', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(2)); // cdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
@@ -483,7 +484,7 @@ describe('Memory instructions', () => {
     });
 
     it('Should charge dynamic gas', async () => {
-      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
@@ -515,7 +516,7 @@ describe('Memory instructions', () => {
 
     it('Writes size', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
 
       await new ReturndataSize(/*addressing_mode=*/ 0, /*dstOffset=*/ 10).execute(context);
 
@@ -546,7 +547,7 @@ describe('Memory instructions', () => {
 
     it('Writes nothing if size is 0', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(0)); // rdoffset
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
@@ -561,7 +562,7 @@ describe('Memory instructions', () => {
 
     it('Copies all returndata', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(0)); // rdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
@@ -575,7 +576,7 @@ describe('Memory instructions', () => {
 
     it('Copies slice of returndata', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(1)); // rdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
@@ -589,7 +590,7 @@ describe('Memory instructions', () => {
 
     it('Should return error when memory slice target is out-of-range', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(1)); // rdStart = 1
       context.machineState.memory.set(1, new Uint32(2)); // copySize = 2
 
@@ -605,7 +606,7 @@ describe('Memory instructions', () => {
 
     it('Should pad with zeros when returndata slice is out-of-range', async () => {
       context = initContext();
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(2)); // rdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
@@ -623,7 +624,7 @@ describe('Memory instructions', () => {
     it('Should charge dynamic gas', async () => {
       context = initContext();
       const size = 3;
-      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.nestedReturndata = new ReturnDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
       context.machineState.memory.set(0, new Uint32(0)); // rdoffset
       context.machineState.memory.set(1, new Uint32(size)); // size
 

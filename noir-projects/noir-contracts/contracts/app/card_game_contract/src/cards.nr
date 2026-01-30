@@ -6,7 +6,7 @@ use aztec::{
         constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,
     },
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Packable, Serialize, ToField},

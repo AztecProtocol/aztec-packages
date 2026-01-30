@@ -29,7 +29,7 @@ describe('e2e_authwit_tests', () => {
     } = await setup(2));
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
-    auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }).deployed();
+    auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address });
   });
 
   describe('Private', () => {
@@ -62,8 +62,7 @@ describe('e2e_authwit_tests', () => {
         // Consume the inner hash using the account1 as the "on behalf of".
         await auth.methods
           .consume(account1Address, innerHash)
-          .send({ from: account2Address, authWitnesses: [witness] })
-          .wait();
+          .send({ from: account2Address, authWitnesses: [witness] });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: false,
@@ -72,10 +71,7 @@ describe('e2e_authwit_tests', () => {
 
         // Try to consume the same authwit again, it should fail
         await expect(
-          auth.methods
-            .consume(account1Address, innerHash)
-            .send({ from: account2Address, authWitnesses: [witness] })
-            .wait(),
+          auth.methods.consume(account1Address, innerHash).send({ from: account2Address, authWitnesses: [witness] }),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });
     });
@@ -96,14 +92,14 @@ describe('e2e_authwit_tests', () => {
         });
 
         const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-        await validateActionInteraction.send().wait();
+        await validateActionInteraction.send();
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
           isValidInPublic: true,
         });
 
         const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
-        await registry.methods.consume(account1Address, innerHash).send({ from: account2Address }).wait();
+        await registry.methods.consume(account1Address, innerHash).send({ from: account2Address });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
@@ -124,7 +120,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-          await validateActionInteraction.send().wait();
+          await validateActionInteraction.send();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,
@@ -132,7 +128,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const cancelActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, false);
-          await cancelActionInteraction.send().wait();
+          await cancelActionInteraction.send();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,

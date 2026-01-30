@@ -288,6 +288,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
+      this.log.getBindings(),
     );
 
     // Set deadline for this job to run. It will abort if it takes too long.
@@ -384,6 +385,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.jobMetrics,
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+      this.log.getBindings(),
     );
   }
 

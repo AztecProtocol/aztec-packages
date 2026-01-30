@@ -17,7 +17,8 @@ using namespace bb;
 /**
  * @brief Add to the builder the constraints to recursively verify a Honk proof.
  *
- * @tparam Flavor The flavor with which the proof was generated.
+ * @tparam Flavor The recursive flavor with which the proof was generated.
+ * @tparam IO The IO type (stdlib) that determines public inputs handling and whether to handle IPA.
  *
  * @details A recursion constraint contains the data representing a Honk proof (verification key, verification key hash,
  * proof, public inputs), the proof type, and a predicate indicating whether the constraint should be active. If the
@@ -35,17 +36,17 @@ using namespace bb;
  * a PairingPoints object. The recursive verification was successful if the object passes the check: \f$(P_1, P_2)\f$
  * must satisfy \f$e(P_1, [1]) e(P_2, [x]) = 1\f$, where \f$x\f$ is the randomness used to generate the SRS.
  *
- * @note If the Flavor is of Rollup type, then the recursive verification returns also an IPA claim whose validity must
+ * @note If IO::HasIPA is true, then the recursive verification returns also an IPA claim whose validity must
  * be verified to complete the recursive verification of the proof.
  */
-template <typename Flavor>
+template <typename Flavor, typename IO>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<
     typename Flavor::CircuitBuilder>
 create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
 #ifndef NDEBUG
-template <typename Flavor>
+template <typename Flavor, typename IO>
 void native_verification_debug(const std::shared_ptr<typename Flavor::VerificationKey> vkey,
                                const typename Flavor::NativeFlavor::FF vkey_hash,
                                const bb::stdlib::Proof<typename Flavor::CircuitBuilder>& proof_fields);

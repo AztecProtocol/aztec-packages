@@ -8,9 +8,9 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  BlockHash,
   CheckpointedL2Block,
   L2Block,
-  L2BlockHash,
   type L2BlockSource,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -43,9 +43,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
-  public addBlocks(blocks: L2Block[]) {
+  public addProposedBlocks(blocks: L2Block[]) {
     this.l2Blocks.push(...blocks);
-    this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
+    this.log.verbose(`Added ${blocks.length} proposed blocks to the mock L2 block source`);
   }
 
   public removeBlocks(numBlocks: number) {
@@ -195,7 +195,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return checkpoint;
   }
 
-  public async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  public async getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -225,7 +225,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public async getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+  public async getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -240,7 +240,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(block);
   }
 
-  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+  public async getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -322,7 +322,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: L2BlockHash.fromField(await block.hash()),
+      l2BlockHash: await block.hash(),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -343,7 +343,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             TxExecutionResult.SUCCESS,
             undefined,
             txEffect.transactionFee.toBigInt(),
-            L2BlockHash.fromField(await block.hash()),
+            await block.hash(),
             block.number,
           );
         }

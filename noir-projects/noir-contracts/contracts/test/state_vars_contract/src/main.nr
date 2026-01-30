@@ -6,7 +6,7 @@ pub contract StateVars {
     use aztec::{
         macros::{functions::{external, view}, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
-        protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+        protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
         state_vars::{
             Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable,
         },

@@ -68,27 +68,34 @@ function test_cmds {
   :
 }
 
+_test_cmd_prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=210m"
+_test_cmd_run="yarn-project/end-to-end/scripts/run_test.sh simple"
+_emit_test() { echo "$_test_cmd_prefix $_test_cmd_run src/spartan/$1"; }
+
+function network_test_cmds_1 {
+  _emit_test smoke.test.ts
+  _emit_test reorg.test.ts
+  _emit_test upgrade_rollup_version.test.ts
+  _emit_test validator_ha.test.ts
+}
+
+function network_test_cmds_2 {
+  _emit_test smoke.test.ts
+  _emit_test transfer.test.ts
+  _emit_test slash_inactivity.test.ts
+  _emit_test proving.test.ts
+  _emit_test prover-node.test.ts
+  _emit_test gating-passive.test.ts
+  _emit_test invalidate_blocks.test.ts
+  _emit_test mempool_limit.test.ts
+  _emit_test upgrade_governance_proposer.test.ts
+  _emit_test validator_nuke_and_suppression.test.ts
+}
+
+# All network tests (for local/manual runs)
 function network_test_cmds {
-  # a github runner has a maximum of 6 hours.
-  # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
-  # If we have more tests, we can reduce the epoch/slot duration in the tests,
-  # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
-  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=210m"
-  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  echo $prefix $run_test_script simple src/spartan/smoke.test.ts
-  echo $prefix $run_test_script simple src/spartan/transfer.test.ts
-  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
-  echo $prefix $run_test_script simple src/spartan/proving.test.ts
-  echo $prefix $run_test_script simple src/spartan/prover-node.test.ts #needs partial epoch proved first
-  echo $prefix $run_test_script simple src/spartan/invalidate_blocks.test.ts
-  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts #runs >~4 epochs
-  echo $prefix $run_test_script simple src/spartan/gating-passive.test.ts
-  echo $prefix $run_test_script simple src/spartan/mempool_limit.test.ts
-  echo $prefix $run_test_script simple src/spartan/upgrade_governance_proposer.test.ts
-  echo $prefix $run_test_script simple src/spartan/validator_nuke_and_suppression.test.ts
-  echo $prefix $run_test_script simple src/spartan/reorg.test.ts #runs >~5 epochs
-  echo $prefix $run_test_script simple src/spartan/upgrade_rollup_version.test.ts
-  echo $prefix $run_test_script simple src/spartan/validator_ha.test.ts
+  network_test_cmds_1
+  network_test_cmds_2 | tail -n +2  # skip duplicate smoke test
 }
 
 function single_test {
@@ -103,9 +110,12 @@ function test {
   :
 }
 
-function network_tests {
+function _run_network_tests {
   local env_file="$1"
-  echo_header "spartan scenario test"
+  local test_cmds_func="$2"
+  local set_name="$3"
+
+  echo_header "spartan scenario test${set_name:+ (set $set_name)}"
 
   # no parallelize here as we want to run the tests sequentially
   export SCENARIO_TESTS=1
@@ -115,12 +125,25 @@ function network_tests {
   source_network_env $env_file
 
   gcp_auth
-  network_test_cmds | filter_test_cmds | parallelize 1
+  $test_cmds_func | filter_test_cmds | parallelize 1
+}
+
+function network_tests_1 {
+  _run_network_tests "$1" network_test_cmds_1 "1"
+}
+
+function network_tests_2 {
+  _run_network_tests "$1" network_test_cmds_2 "2"
+}
+
+# All network tests
+function network_tests {
+  _run_network_tests "$1" network_test_cmds ""
 }
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1 2)
+  local low_value_tps_list=(0.1 0.2 0.5 1)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
@@ -185,7 +208,9 @@ case "$cmd" in
     ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
     ;;
   "network_deploy")
+    # Args: <env_file> [test_set]
     env_file="$1"
+    test_set="${2:-}"
 
     #Sets up basic env vars like RUN_TESTS
     source_env_basic "$env_file"
@@ -194,23 +219,28 @@ case "$cmd" in
     DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
-      echo "Running tests"
-      denoise "./bootstrap.sh network_tests $env_file"
+      if [[ -n "$test_set" ]]; then
+        echo "Running tests (set $test_set)"
+        denoise "./bootstrap.sh network_tests_$test_set $env_file"
+      else
+        echo "Running all tests"
+        denoise "./bootstrap.sh network_tests $env_file"
+      fi
     fi
     ;;
   "single_test")
     env_file="$1"
     test_file="$2"
     source_network_env $env_file
-
     gcp_auth
     single_test $test_file
     ;;
 
-  network_tests|network_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench)
     env_file="$1"
-    $cmd $env_file
+    $cmd "$env_file"
     ;;
+
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing

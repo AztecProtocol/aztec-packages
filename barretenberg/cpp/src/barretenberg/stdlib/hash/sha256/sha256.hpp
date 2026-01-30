@@ -139,8 +139,6 @@ template <typename Builder> class SHA256 {
 
     static sparse_witness_limbs convert_witness(const field_ct& input);
 
-    static void apply_32_bit_range_constraint_via_lookup(const field_ct& input);
-
     static field_ct choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g);
 
     static field_ct majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c);

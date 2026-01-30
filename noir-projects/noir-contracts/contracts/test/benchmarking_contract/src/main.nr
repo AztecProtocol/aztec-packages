@@ -11,7 +11,7 @@ pub contract Benchmarking {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use field_note::FieldNote;

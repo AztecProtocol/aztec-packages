@@ -131,7 +131,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 7.
-    result.is_point_at_infinity().assert_equal(
+    auto result_is_infinity = result.is_point_at_infinity();
+    result_is_infinity.assert_equal(
         bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
 
     // Step 8.
@@ -149,8 +150,10 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
     }
 
-    // Check result.x() = r mod n
-    bool_t<Builder> is_signature_valid = result_x_mod_r == r;
+    // Check result.x() = r mod n AND result is not point at infinity
+    bool_t<Builder> x_matches = result_x_mod_r == r;
+    bool_t<Builder> is_not_infinity = !result_is_infinity;
+    bool_t<Builder> is_signature_valid = x_matches && is_not_infinity;
 
     // Logging
     if (is_signature_valid.get_value()) {

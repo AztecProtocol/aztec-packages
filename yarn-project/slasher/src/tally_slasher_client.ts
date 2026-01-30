@@ -281,8 +281,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
         return undefined;
       }
 
+      const slashActionsWithAmounts = slashActions.map(action => ({
+        validator: action.validator.toString(),
+        slashAmount: action.slashAmount.toString(),
+      }));
       this.log.info(`Round ${executableRound} is ready to execute with ${slashActions.length} slashes`, {
-        slashActions,
+        slashActions: slashActionsWithAmounts,
         payloadAddress: payload.address.toString(),
         ...logData,
       });
@@ -348,11 +352,15 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
+    const offensesToSlashLog = offensesToSlash.map(offense => ({
+      ...offense,
+      amount: offense.amount.toString(),
+    }));
     this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
-      offensesToSlash,
+      offensesToSlash: offensesToSlashLog,
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);

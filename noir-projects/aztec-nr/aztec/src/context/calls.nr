@@ -1,8 +1,4 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector,
-    address::AztecAddress,
-    traits::{Deserialize, ToField},
-};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::{Deserialize, ToField}};
 
 use crate::context::{gas::GasOpts, PrivateContext, PublicContext};
 use crate::hash::{hash_args, hash_calldata_array};
@@ -10,8 +6,8 @@ use crate::oracle::execution_cache;
 
 // Having T associated on the structs and then instantiating it with `std::mem::zeroed()` is ugly but we need to do it
 // like this to avoid forcing users to specify the return type when calling functions on the structs (that's the only
-// way how we can specify the type when we generate the call stubs. The return types are specified in
-// the `external_functions_stubs.nr` file.)
+// way how we can specify the type when we generate the call stubs. The return types are specified in the
+// `external_functions_stubs.nr` file.)
 
 // PrivateCall
 
@@ -26,12 +22,7 @@ pub struct PrivateCall<let M: u32, let N: u32, T> {
 }
 
 impl<let M: u32, let N: u32, T> PrivateCall<M, N, T> {
-    pub fn new(
-        target_contract: AztecAddress,
-        selector: FunctionSelector,
-        name: str<M>,
-        args: [Field; N],
-    ) -> Self {
+    pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
     }
@@ -43,17 +34,12 @@ where
 {
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.call(MyContract::at(address).my_private_function(...args))`
-    /// instead of manually constructing and calling `PrivateCall`.
+    /// Please use the new contract API: `self.call(MyContract::at(address).my_private_function(...args))` instead of
+    /// manually constructing and calling `PrivateCall`.
     pub fn call(self, context: &mut PrivateContext) -> T {
         execution_cache::store(self.args, self.args_hash);
-        let returns_hash = context.call_private_function_with_args_hash(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-        );
+        let returns_hash =
+            context.call_private_function_with_args_hash(self.target_contract, self.selector, self.args_hash, false);
 
         // If T is () (i.e. if the function does not return anything) then `get_preimage` will constrain that the
         // returns hash is empty as per the protocol rules.
@@ -74,32 +60,22 @@ pub struct PrivateStaticCall<let M: u32, let N: u32, T> {
 }
 
 impl<let M: u32, let N: u32, T> PrivateStaticCall<M, N, T> {
-    pub fn new(
-        target_contract: AztecAddress,
-        selector: FunctionSelector,
-        name: str<M>,
-        args: [Field; N],
-    ) -> Self {
+    pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
     }
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.view(MyContract::at(address).my_private_static_function(...args))`
+    /// Please use the new contract API: `self.view(MyContract::at(address).my_private_static_function(...args))`
     /// instead of manually constructing and calling `PrivateCall`.
     pub fn view(self, context: &mut PrivateContext) -> T
     where
         T: Deserialize,
     {
         execution_cache::store(self.args, self.args_hash);
-        let returns = context.call_private_function_with_args_hash(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            true,
-        );
+        let returns =
+            context.call_private_function_with_args_hash(self.target_contract, self.selector, self.args_hash, true);
         returns.get_preimage()
     }
 }
@@ -117,20 +93,8 @@ pub struct PublicCall<let M: u32, let N: u32, T> {
 }
 
 impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
-    pub fn new(
-        target_contract: AztecAddress,
-        selector: FunctionSelector,
-        name: str<M>,
-        args: [Field; N],
-    ) -> Self {
-        Self {
-            target_contract,
-            selector,
-            name,
-            args,
-            gas_opts: GasOpts::default(),
-            return_type: std::mem::zeroed(),
-        }
+    pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
+        Self { target_contract, selector, name, args, gas_opts: GasOpts::default(), return_type: std::mem::zeroed() }
     }
 
     pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
@@ -140,19 +104,13 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.call(MyContract::at(address).my_public_function(...args))`
-    /// instead of manually constructing and calling `PublicCall`.
+    /// Please use the new contract API: `self.call(MyContract::at(address).my_public_function(...args))` instead of
+    /// manually constructing and calling `PublicCall`.
     pub unconstrained fn call(self, context: PublicContext) -> T
     where
         T: Deserialize,
     {
-        let returns = context.call_public_function(
-            self.target_contract,
-            self.selector,
-            self.args,
-            self.gas_opts,
-        );
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         // If T is () (i.e. if the function does not return anything) then `as_array` will constrain that `returns` has
         // a length of 0 (since that is ()'s deserialization length).
         Deserialize::deserialize(returns.as_array())
@@ -160,28 +118,21 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.enqueue(MyContract::at(address).my_public_function(...args))`
-    /// instead of manually constructing and calling `PublicCall`.
+    /// Please use the new contract API: `self.enqueue(MyContract::at(address).my_public_function(...args))` instead of
+    /// manually constructing and calling `PublicCall`.
     pub fn enqueue(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, false)
     }
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.enqueue_incognito(MyContract::at(address).my_public_function(...args))`
+    /// Please use the new contract API: `self.enqueue_incognito(MyContract::at(address).my_public_function(...args))`
     /// instead of manually constructing and calling `PublicCall`.
     pub fn enqueue_incognito(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, true)
     }
 
-    fn enqueue_impl(
-        self,
-        context: &mut PrivateContext,
-        is_static_call: bool,
-        hide_msg_sender: bool,
-    ) {
+    fn enqueue_impl(self, context: &mut PrivateContext, is_static_call: bool, hide_msg_sender: bool) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
@@ -195,8 +146,7 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.set_as_teardown(MyContract::at(address).my_public_function(...args))`
+    /// Please use the new contract API: `self.set_as_teardown(MyContract::at(address).my_public_function(...args))`
     /// instead of manually constructing and setting the teardown function `PublicCall`.
     pub fn set_as_teardown(self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, false);
@@ -205,8 +155,8 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     /// **DEPRECATED**.
     ///
     /// Please use the new contract API:
-    /// `self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))`
-    /// instead of manually constructing and setting the teardown function `PublicCall`.
+    /// `self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))` instead of manually
+    /// constructing and setting the teardown function `PublicCall`.
     pub fn set_as_teardown_incognito(self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, true);
     }
@@ -237,20 +187,8 @@ pub struct PublicStaticCall<let M: u32, let N: u32, T> {
 }
 
 impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
-    pub fn new(
-        target_contract: AztecAddress,
-        selector: FunctionSelector,
-        name: str<M>,
-        args: [Field; N],
-    ) -> Self {
-        Self {
-            target_contract,
-            selector,
-            name,
-            args,
-            return_type: std::mem::zeroed(),
-            gas_opts: GasOpts::default(),
-        }
+    pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
+        Self { target_contract, selector, name, args, return_type: std::mem::zeroed(), gas_opts: GasOpts::default() }
     }
 
     pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
@@ -260,56 +198,53 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
 
     /// **DEPRECATED**.
     ///
-    /// Please use the new contract API:
-    /// `self.view(MyContract::at(address).my_public_static_function(...args))`
+    /// Please use the new contract API: `self.view(MyContract::at(address).my_public_static_function(...args))`
     /// instead of manually constructing and calling `PublicStaticCall`.
     pub unconstrained fn view(self, context: PublicContext) -> T
     where
         T: Deserialize,
     {
-        let returns = context.static_call_public_function(
-            self.target_contract,
-            self.selector,
-            self.args,
-            self.gas_opts,
-        );
+        let returns =
+            context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         Deserialize::deserialize(returns.as_array())
     }
 
     /// **DEPRECATED**.
     ///
     /// Please use the new contract API:
-    /// `self.enqueue_view(MyContract::at(address).my_public_static_function(...args))`
-    /// instead of manually constructing and calling `PublicStaticCall`.
+    /// `self.enqueue_view(MyContract::at(address).my_public_static_function(...args))` instead of manually
+    /// constructing and calling `PublicStaticCall`.
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        context.call_public_function_with_calldata_hash(
-            self.target_contract,
-            calldata_hash,
-            /*static=*/
-            true,
-            false,
-        )
+        context
+            .call_public_function_with_calldata_hash(
+                self.target_contract,
+                calldata_hash,
+                /*static=*/
+                true,
+                false,
+            )
     }
 
     /// **DEPRECATED**.
     ///
     /// Please use the new contract API:
-    /// `self.enqueue_view_incognito(MyContract::at(address).my_public_static_function(...args))`
-    /// instead of manually constructing and calling `PublicStaticCall`.
+    /// `self.enqueue_view_incognito(MyContract::at(address).my_public_static_function(...args))` instead of manually
+    /// constructing and calling `PublicStaticCall`.
     pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        context.call_public_function_with_calldata_hash(
-            self.target_contract,
-            calldata_hash,
-            /*static=*/
-            true,
-            true,
-        )
+        context
+            .call_public_function_with_calldata_hash(
+                self.target_contract,
+                calldata_hash,
+                /*static=*/
+                true,
+                true,
+            )
     }
 }
 
@@ -325,12 +260,7 @@ pub struct UtilityCall<let M: u32, let N: u32, T> {
 }
 
 impl<let M: u32, let N: u32, T> UtilityCall<M, N, T> {
-    pub fn new(
-        target_contract: AztecAddress,
-        selector: FunctionSelector,
-        name: str<M>,
-        args: [Field; N],
-    ) -> Self {
+    pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
     }

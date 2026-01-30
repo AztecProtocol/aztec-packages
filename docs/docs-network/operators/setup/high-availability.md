@@ -148,7 +148,7 @@ Generate a base keystore with multiple publishers using the Aztec CLI. This will
 # Generate base keystore with one attester and 3 publishers
 aztec validator-keys new \
   --fee-recipient [YOUR_AZTEC_FEE_RECIPIENT_ADDRESS] \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your shared mnemonic phrase for key derivation" \
   --address-index 0 \

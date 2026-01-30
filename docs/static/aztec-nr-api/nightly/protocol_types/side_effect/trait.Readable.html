@@ -24,10 +24,10 @@
 </ul>
 <h3>Implementors</h3>
 <ul class="sidebar-list">
+<li><a href="#impl-Readable-for-NoteHash">NoteHash</a></li>
 <li><a href="#impl-Readable-for-NoteHashLeafPreimage">NoteHashLeafPreimage</a></li>
+<li><a href="#impl-Readable-for-Nullifier">Nullifier</a></li>
 <li><a href="#impl-Readable-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
-<li><a href="#impl-Readable-for-Scoped<Counted<NoteHash>>">Scoped<Counted<NoteHash>></a></li>
-<li><a href="#impl-Readable-for-Scoped<Counted<Nullifier>>">Scoped<Counted<Nullifier>></a></li>
 </ul>
 <h2>In module side_effect</h2>
 <h3>Modules</h3><ul class="item-list">
@@ -44,20 +44,20 @@
 <h1>Trait <span id="trait" class="trait">Readable</span></h1>
 <pre><code>pub trait Readable {
     <span class="comment">// Required methods</span>
-    pub fn <a href="#assert_match_read_request"><span class="fn">assert_match_read_request</span></a>(self, read_request: <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;);
+    pub fn <a href="#assert_match_read_request"><span class="fn">assert_match_read_request</span></a>(self, read_request: <a href="../../std/primitive.Field.html" class="primitive">Field</a>);
 }</code></pre>
 
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="assert_match_read_request" class="code-header">pub fn <a href="#assert_match_read_request"><span class="fn">assert_match_read_request</span></a>(self, read_request: <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;)</code>
+<div class="padded-methods"><code id="assert_match_read_request" class="code-header">pub fn <a href="#assert_match_read_request"><span class="fn">assert_match_read_request</span></a>(self, read_request: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 </div><h2>Implementors</h2>
+<h3 id="impl-Readable-for-NoteHash"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a></code></h3>
+
 <h3 id="impl-Readable-for-NoteHashLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/abis/note_hash_leaf_preimage/struct.NoteHashLeafPreimage.html" class="struct">NoteHashLeafPreimage</a></code></h3>
 
+<h3 id="impl-Readable-for-Nullifier"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
 <h3 id="impl-Readable-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
-
-<h3 id="impl-Readable-for-Scoped<Counted<NoteHash>>"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;&gt;</code></h3>
-
-<h3 id="impl-Readable-for-Scoped<Counted<Nullifier>>"><code class="code-header">impl <a href="../../protocol_types/side_effect/trait.Readable.html" class="trait">Readable</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;&gt;</code></h3>
 
 </main>
 </span>

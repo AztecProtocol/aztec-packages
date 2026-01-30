@@ -29,7 +29,7 @@ describe('docs_examples', () => {
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccountManager = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
     const newAccountDeployMethod = await newAccountManager.getDeployMethod();
-    await newAccountDeployMethod.send({ from: prefundedAccount.address }).wait();
+    await newAccountDeployMethod.send({ from: prefundedAccount.address });
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 
@@ -39,13 +39,11 @@ describe('docs_examples', () => {
       'TokenName', // constructor arg1
       'TokenSymbol', // constructor arg2
       18,
-    )
-      .send({ from: defaultAccountAddress })
-      .deployed();
+    ).send({ from: defaultAccountAddress });
 
     const contract = Contract.at(deployedContract.address, TokenContractArtifact, wallet);
 
-    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress });
 
     // docs:start:simulate_function
     const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });

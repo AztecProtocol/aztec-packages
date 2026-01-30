@@ -4,6 +4,7 @@
 #include "../field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
@@ -1082,6 +1083,43 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(scalar_val, reconstructed_val);
         EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
 
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_compute_naf_overflow_lower_half()
+    {
+        Builder builder = Builder();
+
+        // Create a scalar that is even (skew=1) and has least-significant 2L bits all 0 (L=68, 2L=136)
+        // This causes overflow in negative_lo = skew + sum_{i=0}^{135} a'_{i+1} * 2^i = 1 + (2^136 - 1) = 2^136
+        //
+        // Scalar chosen such that least significant 136 bits are zero:
+        fr scalar_native = fr::random_element();
+        uint256_t scalar_raw = uint256_t(scalar_native);
+        scalar_raw = (scalar_raw >> 136) << 136;
+        fr scalar_val = fr(scalar_raw);
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+        scalar.set_origin_tag(submitted_value_origin_tag);
+
+        // Compute NAF with full field size
+        const size_t length = fr::modulus.get_msb() + 1;
+
+        // This should not overflow with the fix in place
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        // Verify NAF correctness
+        for (const auto& bit : naf) {
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Reconstruct scalar from NAF: scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+        }
+        reconstructed_val -= fr(naf[length].get_value());
+
+        EXPECT_EQ(scalar_val, reconstructed_val);
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -2281,6 +2319,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_overflow_lower_half)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_overflow_lower_half();
     } else {
         GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }

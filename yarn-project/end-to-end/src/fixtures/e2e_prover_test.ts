@@ -114,9 +114,7 @@ export class FullProverTest {
       FullProverTest.TOKEN_NAME,
       FullProverTest.TOKEN_SYMBOL,
       FullProverTest.TOKEN_DECIMALS,
-    )
-      .send({ from: this.accounts[0] })
-      .wait();
+    ).send({ from: this.accounts[0], wait: { returnReceipt: true } });
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
     this.fakeProofsAsset = asset;
@@ -200,7 +198,7 @@ export class FullProverTest {
       this.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
-      true,
+      'pxe-proven',
     );
     this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
@@ -308,13 +306,10 @@ export class FullProverTest {
     const publicAmount = 10000n;
 
     this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
-    await asset.methods
-      .mint_to_public(accounts[0], privateAmount + publicAmount)
-      .send({ from: accounts[0] })
-      .wait();
+    await asset.methods.mint_to_public(accounts[0], privateAmount + publicAmount).send({ from: accounts[0] });
 
     this.logger.verbose(`Transferring ${privateAmount} to private...`);
-    await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] }).wait();
+    await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] });
 
     this.logger.info(`Minting complete`);
 

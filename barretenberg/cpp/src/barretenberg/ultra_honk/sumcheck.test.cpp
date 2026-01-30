@@ -152,7 +152,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
-    auto prover_transcript = Transcript::prover_init_empty();
+    auto prover_transcript = Transcript::test_prover_init_empty();
     auto circuit_size = prover_inst->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
     const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
@@ -176,7 +176,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     auto prover_output = sumcheck_prover.prove();
 
-    auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = Transcript::test_verifier_init_empty(prover_transcript);
 
     FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
     SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, virtual_log_n);

@@ -1,4 +1,4 @@
-use dep::protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 #[oracle(privateNotifyEnqueuedPublicFunctionCall)]
 unconstrained fn notify_enqueued_public_function_call_oracle(
@@ -28,7 +28,8 @@ pub fn notify_enqueued_public_function_call(
     side_effect_counter: u32,
     is_static_call: bool,
 ) {
-    // Safety: Notifies the simulator that a public call has been enqueued, allowing it to prepare hints for the AVM to process this call.
+    // Safety: Notifies the simulator that a public call has been enqueued, allowing it to prepare hints for the AVM to
+    // process this call.
     unsafe {
         notify_enqueued_public_function_call_wrapper(
             contract_address,
@@ -67,7 +68,8 @@ pub fn notify_set_public_teardown_function_call(
     side_effect_counter: u32,
     is_static_call: bool,
 ) {
-    // Safety: Notifies the simulator that a teardown call has been set, allowing it to prepare hints for the AVM to process this call.
+    // Safety: Notifies the simulator that a teardown call has been set, allowing it to prepare hints for the AVM to
+    // process this call.
     unsafe {
         notify_set_public_teardown_function_call_wrapper(
             contract_address,
@@ -79,8 +81,8 @@ pub fn notify_set_public_teardown_function_call(
 }
 
 pub fn notify_set_min_revertible_side_effect_counter(counter: u32) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    // call.
     unsafe { notify_set_min_revertible_side_effect_counter_oracle_wrapper(counter) };
 }
 

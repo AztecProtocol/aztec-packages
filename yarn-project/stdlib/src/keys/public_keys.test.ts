@@ -28,7 +28,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad"`,
+      `"0x029d92319623fe2e5804a64b35d13e1c4881045371c41f36329b44dfc237d232"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -44,7 +44,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x1d3bf1fb93ae0e9cda83b203dd91c3bfb492a9aecf30ec90e1057eced0f0e62d"`,
+      `"0x1d631c5b105baebd0f480f04e79aef2a800d6cc5e3814b92cec83034cf9b959e"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

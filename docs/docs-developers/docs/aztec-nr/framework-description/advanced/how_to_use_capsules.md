@@ -42,7 +42,7 @@ All capsule operations are `unconstrained`. Data loaded from capsules should be 
 
 ```rust
 use aztec::capsules::CapsuleArray;
-use protocol_types::hash::sha256_to_field;
+use protocol::hash::sha256_to_field;
 
 // Use a hash for base_slot to avoid collisions with other storage
 global BASE_SLOT: Field = sha256_to_field("MY_CONTRACT::MY_ARRAY".as_bytes());

@@ -36,7 +36,7 @@ export type SlotTag = 'now' | 'next' | SlotNumber;
 
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
-  getEpochAndSlotNow(): EpochAndSlot;
+  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint };
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
@@ -134,9 +134,10 @@ export class EpochCache implements EpochCacheInterface {
     return this.l1constants;
   }
 
-  public getEpochAndSlotNow(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
-    return { ...this.getEpochAndSlotAtTimestamp(now), now };
+  public getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
+    const nowMs = BigInt(this.dateProvider.now());
+    const nowSeconds = nowMs / 1000n;
+    return { ...this.getEpochAndSlotAtTimestamp(nowSeconds), nowMs };
   }
 
   public nowInSeconds(): bigint {

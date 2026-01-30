@@ -79,6 +79,6 @@ describe('AVM simulator apps tests: TokenContract', () => {
       /*isStaticCall=*/ true,
     );
     expect(balResult.reverted).toBe(false);
-    expect(balResult.output).toEqual([new Fr(expectedBalance)]);
+    expect(balResult.output.readAll()).toEqual([new Fr(expectedBalance)]);
   };
 });

@@ -13,7 +13,7 @@ pub contract AuthRegistry {
             assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
         },
         macros::{functions::{external, only_self, view}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Map, PublicMutable},
     };
 

@@ -1,24 +1,24 @@
 use std::hash::poseidon2_permutation;
 use std::option::Option;
 
-use dep::protocol_types::point::Point;
+use crate::protocol::point::Point;
 
 global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 
 /// Poseidon2 Encryption.
 ///
-/// ~160 constraints to encrypt 8 fields. Use this hash if you favour proving speed over long-term privacy for your users.
+/// ~160 constraints to encrypt 8 fields. Use this hash if you favour proving speed over long-term privacy for your
+/// users.
 ///
-/// WARNING: Poseidon2 as an _encryption scheme_ isn't considered as secure as more battle-tested encryption schemes, e.g. AES128.
-/// This is because:
+/// WARNING: Poseidon2 as an _encryption scheme_ isn't considered as secure as more battle-tested encryption schemes,
+/// e.g. AES128. This is because:
 /// - it's relatively new;
 /// - it isn't used much in the wild, so there's less incentive for hackers or bounty hunters to try to break it;
 /// - it doesn't provide post-quantum privacy.
 ///
-/// If you want to protect your users' privacy decades into the future, it might be prudent to choose
-/// a more 'traditional' encryption scheme.
-/// If your app is "lower stakes", and your users will only care about their privacy in the near future or immediate future, then
-/// this encryption scheme might be for you!
+/// If you want to protect your users' privacy decades into the future, it might be prudent to choose a more
+/// 'traditional' encryption scheme. If your app is "lower stakes", and your users will only care about their privacy
+/// in the near future or immediate future, then this encryption scheme might be for you!
 ///
 /// See the paper: https://drive.google.com/file/d/1EVrP3DzoGbmzkRmYnyEDcIQcXVU7GlOd/view
 ///
@@ -31,17 +31,16 @@ pub fn poseidon2_encrypt<let L: u32>(
     encryption_nonce: Field,
 ) -> [Field; ((L + 2) / 3) * 3 + 1] {
     // TODO: assert(encryption_nonce < 2^128), assert(L < 2^120);
-    let mut s =
-        [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
+    let mut s = [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
-    // We wish to compute NUM_MISSING_ELEMENTS, which is how many elements we must add as padding so
-    // that the message length becomes a multiple of 3.
+    // We wish to compute NUM_MISSING_ELEMENTS, which is how many elements we must add as padding so that the message
+    // length becomes a multiple of 3.
     let CEIL = (L + 3 - 1) / 3; // ceil(L / 3)
     let L_UPPER_BOUND = CEIL * 3;
     let NUM_MISSING_ELEMENTS = L_UPPER_BOUND - L;
 
-    // The Noir compiler doesn't like using the above-defined constants as array lengths,
-    // so these declarations are pretty verbose:
+    // The Noir compiler doesn't like using the above-defined constants as array lengths, so these declarations are
+    // pretty verbose:
     let mut m = [0 as Field; ((L + 3 - 1) / 3) * 3]; // [Field; L_UPPER_BOUND]
     let mut c = [0 as Field; ((L + 3 - 1) / 3) * 3 + 1]; // [Field; L_UPPER_BOUND + 1]
 
@@ -82,8 +81,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     shared_secret: Point,
     encryption_nonce: Field,
 ) -> Option<[Field; L]> {
-    let mut s =
-        [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
+    let mut s = [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
     let CEIL = (L + 3 - 1) / 3; // ceil(L / 3)
     let L_UPPER_BOUND = CEIL * 3;
@@ -97,10 +95,8 @@ pub fn poseidon2_decrypt<let L: u32>(
 
         // Release 3 elements of message:
         let j = 3 * i;
-        // QUESTION: the paper says to do what's commented-out, but actually, the thing that works is the uncommented code:
-        // m[j] = s[1] + c[j];
-        // m[j + 1] = s[2] + c[j + 1];
-        // m[j + 2] = s[3] + c[j + 2];
+        // QUESTION: the paper says to do what's commented-out, but actually, the thing that works is the uncommented
+        // code: m[j] = s[1] + c[j]; m[j + 1] = s[2] + c[j + 1]; m[j + 2] = s[3] + c[j + 2];
         m[j] = c[j] - s[1];
         m[j + 1] = c[j + 1] - s[2];
         m[j + 2] = c[j + 2] - s[3];
@@ -121,9 +117,9 @@ pub fn poseidon2_decrypt<let L: u32>(
 
     let mut decryption_failed: bool = false;
     for i in 0..NUM_EXTRA_ELEMENTS {
-        // If decryption is successful, and if the original plaintext was not a multiple of 3,
-        // then there will be some lingering values (up to the next multiple of 3 of L) that
-        // should be 0. If they are not 0, decryption has failed.
+        // If decryption is successful, and if the original plaintext was not a multiple of 3, then there will be some
+        // lingering values (up to the next multiple of 3 of L) that should be 0. If they are not 0, decryption has
+        // failed.
         if m[L + i] != 0 {
             decryption_failed = true;
         }
@@ -131,8 +127,7 @@ pub fn poseidon2_decrypt<let L: u32>(
 
     // Release the last ciphertext element:
     if c[L_UPPER_BOUND] != s[1] {
-        // Decryption has failed if the message authentication code (the final
-        // element of c) doesn't match s[1].
+        // Decryption has failed if the message authentication code (the final element of c) doesn't match s[1].
         decryption_failed = true;
     }
 
@@ -209,8 +204,7 @@ mod test {
 
         // Bob sees: [Epk, ciphertext, encryption_nonce]:
 
-        let mut shared_secret =
-            multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
+        let mut shared_secret = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
         // Let's intentionally corrupt the shared secret, so that decryption should fail
         shared_secret.x += 1;
 
@@ -238,8 +232,8 @@ mod test {
 
     #[test]
     fn test_ciphertext_lengths() {
-        // Hard-coded expectations are computed by taking the input array
-        // length, computing the next multiple of 3, then adding 1.
+        // Hard-coded expectations are computed by taking the input array length, computing the next multiple of 3,
+        // then adding 1.
         assert(encrypt_and_return_ct_length([1]) == 4);
         assert(encrypt_and_return_ct_length([1, 2]) == 4);
         assert(encrypt_and_return_ct_length([1, 2, 3]) == 4);

@@ -1,5 +1,5 @@
 use crate::oracle::{execution::get_utility_context, storage::storage_read};
-use protocol_types::{abis::block_header::BlockHeader, address::AztecAddress, traits::Packable};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::Packable};
 
 // If you'll modify this struct don't forget to update utility_context.ts as well.
 pub struct UtilityContext {
@@ -44,10 +44,7 @@ impl UtilityContext {
         self.block_header.global_variables.chain_id
     }
 
-    pub unconstrained fn raw_storage_read<let N: u32>(
-        self: Self,
-        storage_slot: Field,
-    ) -> [Field; N] {
+    pub unconstrained fn raw_storage_read<let N: u32>(self: Self, storage_slot: Field) -> [Field; N] {
         storage_read(self.block_header, self.this_address(), storage_slot)
     }
 

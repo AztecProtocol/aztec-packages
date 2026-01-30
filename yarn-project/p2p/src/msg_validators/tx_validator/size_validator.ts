@@ -1,9 +1,13 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class SizeTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_size');
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('p2p:tx_validator:tx_size', bindings);
+  }
 
   validateTx(tx: Tx): Promise<TxValidationResult> {
     const txSize = tx.getSize();

@@ -32,11 +32,17 @@ Bootstrap modes:
   ninja <test>
   NOTE: DO NOT add the -j flag, default is optimal.
   where test is based on what you're working on:
-  - `./bin/ultra_honk_tests` - Ultra Honk circuit tests
-  - `./bin/chonk_tests` - Chonk tests
-  - `./bin/api_tests` - API/CLI tests
-  - `./bin/stdlib_*_tests` - Standard library tests
-  - `./bin/crypto_*_tests` - Cryptographic primitive tests
+  - `ultra_honk_tests` - Ultra Honk circuit tests
+  - `chonk_tests` - Chonk tests
+  - `dsl_tests` - ACIR/DSL tests (acir_format/, mock_verifier_inputs)
+  - `hypernova_tests` - HyperNova folding tests
+  - `eccvm_tests` - ECCVM circuit tests
+  - `translator_vm_tests` - Translator circuit tests
+  - `goblin_tests` - Goblin tests
+  - `stdlib_*_tests` - Standard library tests
+  - `crypto_*_tests` - Cryptographic primitive tests
+
+  To find test targets: `ninja -t targets | grep "_tests:" | grep -v cmake`
 
 ### Barretenberg module components:
 
@@ -124,3 +130,58 @@ The remote benchmark script:
 - Automatically builds the target if needed
 - Returns performance metrics and timing data
 - Should be used instead of local benchmarks for performance validation
+
+## Verification Keys
+
+**IMPORTANT**: When making barretenberg changes that could affect verification keys, you must verify that VKs haven't changed unexpectedly, or
+update them if the changes are intentional.
+
+### Checking if VKs have changed
+
+Prerequisites: Build barretenberg native code first.
+
+```bash
+cd barretenberg/cpp
+./bootstrap.sh build_native
+```
+
+Run the VK check script from barretenberg/cpp/scripts:
+
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh
+```
+
+Expected result: Script exits successfully if VKs are unchanged, or shows that VKs have changed.
+
+### Updating VKs (when changes are intentional)
+
+**IMPORTANT**: Never update the VKs without asking permission first. When asking for permission, explain why you think the VK update is to be expected.
+
+If VKs have changed and this is expected due to your modifications, update the stored VKs:
+
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh --update_inputs
+```
+
+### Verifying VK validity (proving the updated inputs)
+
+**IMPORTANT**: There is no need to verify the validity of the inputs after having updated them. The flag `update_inputs` verifies the new inputs.
+
+To verify the validity of the inputs pinned by the script `./test_chonk_standalone_vks_havent_changed.sh`, run:
+
+```bash
+cd barretenberg/cpp/scripts
+./test_chonk_standalone_vks_havent_changed.sh --prove_and_verify
+```
+
+Note: If a proof test fails for a specific flow, the inputs are saved to:
+`yarn-project/end-to-end/example-app-ivc-inputs-out/<flow_name>`
+
+Typical workflow
+
+1. Make barretenberg changes
+2. Build native code: `cd barretenberg/cpp && ./bootstrap.sh build_native`
+3. Check VKs: `cd scripts && ./test_chonk_standalone_vks_havent_changed.sh`
+4. If VKs changed intentionally: `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`

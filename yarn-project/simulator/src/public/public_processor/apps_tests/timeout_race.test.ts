@@ -282,6 +282,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
         simulator,
         dateProvider,
         getTelemetryClient(),
+        createLogger('simulator:public-processor'),
       );
 
       // Get initial state for trees we need to check

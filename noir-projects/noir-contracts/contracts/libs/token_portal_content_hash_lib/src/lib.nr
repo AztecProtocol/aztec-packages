@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
+use dep::aztec::protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // Computes a content hash of a deposit/mint_to_public message.
 // Refer TokenPortal.sol for reference on L1.

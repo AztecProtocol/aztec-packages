@@ -7,11 +7,20 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <iomanip>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
+
+// nlohmann/json has sign-conversion warnings that fail with -Werror in WASM builds
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#endif
+#include <nlohmann/json.hpp>
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 namespace bb {
 

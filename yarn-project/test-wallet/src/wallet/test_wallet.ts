@@ -18,7 +18,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
-import type { TxSimulationResult } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 
@@ -245,7 +245,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    * @param opts - The options to configure the interaction
    * @returns - A proven tx ready to be sent to the network
    */
-  async proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<ProvenTx> {
+  async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
     const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest);
@@ -255,6 +255,16 @@ export abstract class BaseTestWallet extends BaseWallet {
       txProvingResult.getOffchainEffects(),
       txProvingResult.stats,
     );
+  }
+
+  /**
+   * Retrieves the transaction receipt for a given transaction hash.
+   * This is a passthrough to the underlying node, provided for convenience in testing.
+   * @param txHash - The hash of the transaction.
+   * @returns The transaction receipt.
+   */
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    return this.aztecNode.getTxReceipt(txHash);
   }
 
   /**
@@ -270,6 +280,19 @@ export abstract class BaseTestWallet extends BaseWallet {
    */
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     return this.pxe.debug.getNotes(filter);
+  }
+
+  /** Returns the block header up to which the wallet has synced. */
+  getSyncedBlockHeader(): Promise<BlockHeader> {
+    return this.pxe.debug.getSyncedBlockHeader();
+  }
+
+  /**
+   * Triggers a sync of the wallet with the node to update the latest block header.
+   * Blocks until the sync is complete.
+   */
+  sync(): Promise<void> {
+    return this.pxe.debug.sync();
   }
 
   /**

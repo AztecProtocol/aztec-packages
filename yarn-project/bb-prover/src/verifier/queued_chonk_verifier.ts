@@ -10,6 +10,7 @@ import {
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
   getTelemetryClient,
 } from '@aztec/telemetry-client';
 
@@ -39,7 +40,7 @@ class IVCVerifierMetrics {
 
     this.ivcTotalVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TOTAL_TIME);
 
-    this.ivcFailureCount = meter.createUpDownCounter(Metrics.IVC_VERIFIER_FAILURE_COUNT);
+    this.ivcFailureCount = createUpDownCounterWithDefault(meter, Metrics.IVC_VERIFIER_FAILURE_COUNT);
 
     this.aggDurationMetrics = {
       avg: meter.createObservableGauge(Metrics.IVC_VERIFIER_AGG_DURATION_AVG),
