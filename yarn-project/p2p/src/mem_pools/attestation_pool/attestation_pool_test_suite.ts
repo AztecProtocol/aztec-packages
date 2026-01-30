@@ -67,11 +67,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       expect(retrievedAttestations.length).toBe(attestations.length);
       compareCheckpointAttestations(retrievedAttestations, attestations);
 
-      // Check hasCheckpointAttestation for added attestations
-      for (const attestation of attestations) {
-        expect(await ap.hasCheckpointAttestation(attestation)).toBe(true);
-      }
-
       const retrievedAttestationsForSlot = await ap.getCheckpointAttestationsForSlot(SlotNumber(slotNumber));
       expect(retrievedAttestationsForSlot.length).toBe(attestations.length);
       compareCheckpointAttestations(retrievedAttestationsForSlot, attestations);
@@ -85,7 +80,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       );
       expect(retrievedAttestationsAfterAdd.length).toBe(attestations.length + 1);
       compareCheckpointAttestations(retrievedAttestationsAfterAdd, [...attestations, newAttestation]);
-      expect(await ap.hasCheckpointAttestation(newAttestation)).toBe(true);
       const retrievedAttestationsForSlotAfterAdd = await ap.getCheckpointAttestationsForSlot(SlotNumber(slotNumber));
       expect(retrievedAttestationsForSlotAfterAdd.length).toBe(attestations.length + 1);
       compareCheckpointAttestations(retrievedAttestationsForSlotAfterAdd, [...attestations, newAttestation]);
@@ -98,11 +92,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         archive.toString(),
       );
       expect(retreivedAttestationsAfterDelete.length).toBe(0);
-      // Check hasCheckpointAttestation after deletion
-      for (const attestation of attestations) {
-        expect(await ap.hasCheckpointAttestation(attestation)).toBe(false);
-      }
-      expect(await ap.hasCheckpointAttestation(newAttestation)).toBe(false);
     });
 
     it('should handle duplicate proposals in a slot', async () => {

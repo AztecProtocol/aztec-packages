@@ -4,7 +4,7 @@ import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } fro
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
-import type { AttestationPool, TryAddProposalResult } from './attestation_pool.js';
+import type { AttestationPool, TryAddResult } from './attestation_pool.js';
 import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_POSITION, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
@@ -52,7 +52,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve(this.checkpointAttestations.size === 0 && this.proposals.size === 0);
   }
 
-  public tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+  public tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
     const proposalId = blockProposal.archive.toString();
     const slot = blockProposal.slotNumber;
     const index = blockProposal.indexWithinCheckpoint;
@@ -113,7 +113,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   // Checkpoint attestation methods
 
-  public tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddProposalResult> {
+  public tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
     const proposalId = proposal.archive.toString();
 
     // 1. Check if already exists
@@ -245,51 +245,43 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public hasReachedCheckpointAttestationCap(
-    slot: SlotNumber,
-    proposalId: string,
-    committeeSize: number,
-  ): Promise<boolean> {
-    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
-    const count = this.checkpointAttestations.get(slot)?.get(proposalId)?.size ?? 0;
-    return Promise.resolve(limit <= 0 || count >= limit);
-  }
-
-  public async canAddCheckpointAttestation(
-    attestation: CheckpointAttestation,
-    committeeSize: number,
-  ): Promise<boolean> {
-    const sender = attestation.getSender();
-    const slot = attestation.payload.header.slotNumber;
-    const pid = attestation.archive.toString();
-    return (
-      !!sender &&
-      ((this.checkpointAttestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
-        !(await this.hasReachedCheckpointAttestationCap(slot, pid, committeeSize)))
-    );
-  }
-
-  public hasCheckpointAttestation(attestation: CheckpointAttestation): Promise<boolean> {
+  public tryAddCheckpointAttestation(attestation: CheckpointAttestation, committeeSize: number): Promise<TryAddResult> {
     const slotNumber = attestation.payload.header.slotNumber;
     const proposalId = attestation.archive.toString();
     const sender = attestation.getSender();
 
-    // Attestations with invalid signatures are never in the pool
     if (!sender) {
-      return Promise.resolve(false);
+      return Promise.resolve({ added: false, alreadyExists: false, totalForPosition: 0 });
     }
 
-    const slotAttestationMap = this.checkpointAttestations.get(slotNumber);
-    if (!slotAttestationMap) {
-      return Promise.resolve(false);
+    const address = sender.toString();
+    const slotAttestationMap = getCheckpointSlotOrDefault(this.checkpointAttestations, slotNumber);
+    const proposalAttestationMap = getCheckpointProposalOrDefault(slotAttestationMap, proposalId);
+
+    // Check if already exists
+    const alreadyExists = proposalAttestationMap.has(address);
+    if (alreadyExists) {
+      return Promise.resolve({ added: false, alreadyExists: true, totalForPosition: proposalAttestationMap.size });
     }
 
-    const proposalAttestationMap = slotAttestationMap.get(proposalId);
-    if (!proposalAttestationMap) {
-      return Promise.resolve(false);
+    // Check cap
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const currentCount = proposalAttestationMap.size;
+    if (currentCount >= limit) {
+      return Promise.resolve({ added: false, alreadyExists: false, totalForPosition: currentCount });
     }
 
-    return Promise.resolve(proposalAttestationMap.has(sender.toString()));
+    // Add the attestation
+    proposalAttestationMap.set(address, attestation);
+
+    this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${address}`, {
+      signature: attestation.signature.toString(),
+      slotNumber,
+      address,
+      proposalId,
+    });
+
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: currentCount + 1 });
   }
 }
 

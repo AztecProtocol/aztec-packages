@@ -945,47 +945,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     msgId: string,
     source: PeerId,
   ): Promise<void> {
-    const validationFunc: () => Promise<ReceivedMessageValidationResult<CheckpointAttestation>> = async () => {
-      const attestation = CheckpointAttestation.fromBuffer(payloadData);
-      const pool = this.mempools.attestationPool;
-      const validationResult = await this.validateCheckpointAttestation(source, attestation);
-      const isValid = validationResult.result === 'accept';
-      const exists = isValid && (await pool.hasCheckpointAttestation(attestation));
-
-      let canAdd = true;
-      if (isValid && !exists) {
-        const slot = attestation.payload.header.slotNumber;
-        const { committee } = await this.epochCache.getCommittee(slot);
-        const committeeSize = committee?.length ?? 0;
-        canAdd = await pool.canAddCheckpointAttestation(attestation, committeeSize);
-      }
-
-      this.logger.trace(`Validate propagated checkpoint attestation`, {
-        isValid,
-        exists,
-        canAdd,
-        [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
-        [Attributes.P2P_ID]: source.toString(),
-      });
-
-      if (validationResult.result === 'reject') {
-        return { result: TopicValidatorResult.Reject };
-      } else if (validationResult.result === 'ignore' || exists) {
-        return { result: TopicValidatorResult.Ignore, obj: attestation };
-      } else if (!canAdd) {
-        this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
-          slot: attestation.payload.header.slotNumber.toString(),
-          archive: attestation.archive.toString(),
-          source: source.toString(),
-        });
-        return { result: TopicValidatorResult.Ignore, obj: attestation };
-      } else {
-        return { result: TopicValidatorResult.Accept, obj: attestation };
-      }
-    };
-
     const { result, obj: attestation } = await this.validateReceivedMessage<CheckpointAttestation>(
-      validationFunc,
+      () => this.validateAndStoreCheckpointAttestation(source, CheckpointAttestation.fromBuffer(payloadData)),
       msgId,
       source,
       TopicType.checkpoint_attestation,
@@ -1004,8 +965,63 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         source: source.toString(),
       },
     );
+  }
 
-    await this.mempools.attestationPool.addCheckpointAttestations([attestation]);
+  /** Validates a checkpoint attestation and adds it to the pool. Penalizes the peer if validation fails. */
+  @trackSpan('Libp2pService.validateAndStoreCheckpointAttestation', (_peerId, attestation) => ({
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
+  }))
+  protected async validateAndStoreCheckpointAttestation(
+    peerId: PeerId,
+    attestation: CheckpointAttestation,
+  ): Promise<ReceivedMessageValidationResult<CheckpointAttestation>> {
+    const validationResult = await this.checkpointAttestationValidator.validate(attestation);
+
+    if (validationResult.result === 'reject') {
+      this.logger.warn(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
+      this.peerManager.penalizePeer(peerId, validationResult.severity);
+      return { result: TopicValidatorResult.Reject };
+    }
+
+    if (validationResult.result === 'ignore') {
+      return { result: TopicValidatorResult.Ignore, obj: attestation };
+    }
+
+    // Get committee size for the attestation's slot
+    const slot = attestation.payload.header.slotNumber;
+    const { committee } = await this.epochCache.getCommittee(slot);
+    const committeeSize = committee?.length ?? 0;
+
+    // Try to add the attestation: this handles existence check, cap check, and adding in one call
+    const { added, alreadyExists } = await this.mempools.attestationPool.tryAddCheckpointAttestation(
+      attestation,
+      committeeSize,
+    );
+
+    this.logger.trace(`Validate propagated checkpoint attestation`, {
+      added,
+      alreadyExists,
+      [Attributes.SLOT_NUMBER]: slot.toString(),
+      [Attributes.P2P_ID]: peerId.toString(),
+    });
+
+    // Duplicate attestation received, no need to re-broadcast
+    if (alreadyExists) {
+      return { result: TopicValidatorResult.Ignore, obj: attestation };
+    }
+
+    // Could not add (cap reached), no need to re-broadcast
+    if (!added) {
+      this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
+        slot: slot.toString(),
+        archive: attestation.archive.toString(),
+        source: peerId.toString(),
+      });
+      return { result: TopicValidatorResult.Ignore, obj: attestation };
+    }
+
+    // Attestation was added successfully
+    return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
   protected async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
