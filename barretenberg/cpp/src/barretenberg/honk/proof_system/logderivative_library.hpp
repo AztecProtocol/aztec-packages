@@ -157,17 +157,14 @@ void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelatio
             Relation::template get_lookup_term_predicate<Accumulator, i>(in) * denominator_accumulator[i];
     });
 
-    if constexpr (IsPermutation) {
-        bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-            const auto p = Relation::template get_table_term_predicate<Accumulator, i>(in);
-            std::get<1>(accumulator) -= p * (denominator_accumulator[i + NUM_LOOKUP_TERMS]);
-        });
-    } else {
-        bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-            const auto p = Relation::template get_table_term_predicate<Accumulator, i>(in);
-            const auto lookup_read_count = Relation::template lookup_read_counts<Accumulator, i>(in);
-            std::get<1>(accumulator) -= p * (denominator_accumulator[i + NUM_LOOKUP_TERMS] * lookup_read_count);
-        });
-    }
+    bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
+        const auto to_subtract = Relation::template get_table_term_predicate<Accumulator, i>(in) *
+                                 denominator_accumulator[i + NUM_LOOKUP_TERMS];
+        if constexpr (!IsPermutation) {
+            // If not a permutation, multiply by the read count
+            to_subtract *= Relation::template lookup_read_counts<Accumulator, i>(in);
+        }
+        std::get<1>(accumulator) -= to_subtract;
+    });
 }
 } // namespace bb

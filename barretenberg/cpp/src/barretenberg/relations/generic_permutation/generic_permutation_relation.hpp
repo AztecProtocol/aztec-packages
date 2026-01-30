@@ -20,7 +20,7 @@ namespace bb {
  * argument
  *
  * @details This class works exactly as LookupPolynomialStructure, but with fixed parameters for the permutation
- * argument: NUM_LOOKUP_TERMS = NUM_TABLE_TERMS = 1 and all terms are of type BASIC
+ * argument: NUM_LOOKUP_TERMS = NUM_TABLE_TERMS = 1 and all terms are of type BASIC (and therefore they have degree 1)
  */
 template <typename Settings> class PermutationPolynomialStructure {
   private:

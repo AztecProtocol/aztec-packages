@@ -166,7 +166,7 @@ concept GenericLookupSettings = requires {
 
     requires std::is_same_v<decltype(S::LOOKUP_TUPLE_SIZE), const size_t>; // Number of columns to batch for basic lookups
 
-    // Degree of the polynomial expression indicating whether the inverse polynomial exist at a given row
+    // Degree of the polynomial expression indicating whether the inverse polynomial exists at a given row
     requires std::is_same_v<decltype(S::INVERSE_EXISTS_POLYNOMIAL_DEGREE), const size_t>;
 
     // Settings also require the following methods, but some of them are templated, so we can't check them here.
@@ -227,15 +227,13 @@ concept GenericLookupSettings = requires {
  * entries the prover is allowed to use at any given row.
  *
  * The degrees of the above relations are:
- *  1. The degree of relation 1) is \f$\max(1 + \max(\deg(\text{lookup_entries})) +
- *     \max(\deg(\text{table_entries})), \deg(\text{inverse_exists}))\f$
- *  2. The degree of relation 2) is \f$2 + \text{NUM_LOOKUP_TERMS} + \text{NUM_TABLE_TERMS}\f$.
- *     This is because we compute the inverses as:
+ *  1. The degree of relation 1) is \f$\max(1 + \sum \deg(\text{lookup_entries}) + \sum \deg(\text{table_entries}), \deg(\text{inverse_exists}))\f$
+ *  2. The degree of relation 2) is is \f$2 + M\f$, where \f$M = \max(\sum \deg(\text{lookup_entries}) + \sum \deg(\text{table_entries} - \deg(\text{term}_i))\f$
+ *     for \f$\text{term}_i\f$ iterating over all terms. This is because we compute the inverses as:
  *     \f[
- *         \frac{1}{\text{table_entry}(x)} = I(x) \cdot \prod_{j \neq i} \text{table_entry}_j(x) \cdot
- *         \prod_{i} \text{lookup_entry}_i(x)
+ *         \frac{1}{\text{table_entry}_i(x)} = I(x) \cdot \prod_{j \neq i} \text{table_entry}_j(x) \cdot
+ *         \prod_{j} \text{lookup_entry}_j(x)
  *     \f]
- *     whose degree is \f$1 + \text{NUM_LOOKUP_TERMS} + \text{NUM_TABLE_TERMS} - 1\f$.
  *
  * @note The predicates involved in relation 2) are assumed to have been constrained to be boolean outside this relation.
  *
@@ -308,6 +306,53 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         return accumulated_degree;
     }
 
+    /**
+     * @brief Compute the degree of the second subrelation
+     *
+     * @details Iterate over all terms and compute the maximum of the sum of the degree of all terms minus the degree of
+     * the term we are currently looking at. The degree of the subrelation is the maximum plus 2 to account for the
+     * inverse polynomial and the read count.
+     *
+     */
+    static constexpr size_t compute_second_subrelation_degree()
+    {
+        size_t total_term_product_degree = compute_lookup_term_product_degree() + compute_table_term_product_degree();
+
+        size_t max_degree = 0;
+        for (size_t i = 0; i < NUM_LOOKUP_TERMS; i++) {
+            size_t current_degree = 0;
+            switch (Settings::LOOKUP_TYPES[i]) {
+            case BASIC_LOOKUP:
+                current_degree = 1;
+                break;
+            case CUSTOMIZED_LOOKUP:
+                current_degree = Settings::LOOKUP_TERM_DEGREES[i];
+                break;
+            default:
+                bb::assert_failure("Invalid lookup type");
+            }
+            size_t adjusted_degree = total_term_product_degree - current_degree;
+            max_degree = std::max(max_degree, adjusted_degree);
+        }
+        for (size_t i = 0; i < NUM_TABLE_TERMS; i++) {
+            size_t current_degree = 0;
+            switch (Settings::TABLE_TYPES[i]) {
+            case BASIC_TABLE:
+                current_degree = 1;
+                break;
+            case CUSTOMIZED_TABLE:
+                current_degree = Settings::TABLE_TERM_DEGREES[i];
+                break;
+            default:
+                bb::assert_failure("Invalid table type");
+                break;
+            }
+            size_t adjusted_degree = total_term_product_degree - current_degree;
+            max_degree = std::max(max_degree, adjusted_degree);
+        }
+        return max_degree + 2;
+    }
+
     // (Sub)relation lengths: equal to 1 + relation degree
     static constexpr size_t LOOKUP_TERM_ACCUMULATED_DEGREE = compute_lookup_term_product_degree();
     static constexpr size_t TABLE_TERM_ACCUMULATED_DEGREE = compute_table_term_product_degree();
@@ -319,7 +364,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
         1; // inverse polynomial correctness sub-relation
     static constexpr size_t SECOND_RELATION_PARTIAL_LENGTH =
-        NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // log-derived terms sub-relation
+        compute_second_subrelation_degree() + 1; // log-derived terms sub-relation
     static constexpr size_t LENGTH = std::max(FIRST_RELATION_PARTIAL_LENGTH, SECOND_RELATION_PARTIAL_LENGTH);
 
     // We use the max of the subrelation lengths because the inverses of lookup/table terms must be used in both
