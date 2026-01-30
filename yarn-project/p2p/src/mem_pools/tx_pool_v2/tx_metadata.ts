@@ -72,14 +72,6 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
 }
 
 /**
- * Creates a priority string from TxMetaData for sorting.
- * Higher values = higher priority.
- */
-export function getMetadataPriority(meta: TxMetaData): string {
-  return meta.priorityFee.toString(16).padStart(32, '0');
-}
-
-/**
  * Compares two TxMetaData by priority fee.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */

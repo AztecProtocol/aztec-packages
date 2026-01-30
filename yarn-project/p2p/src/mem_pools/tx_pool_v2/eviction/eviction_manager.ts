@@ -51,17 +51,27 @@ export class EvictionManager {
     const allTxHashesToEvict: string[] = [];
 
     for (const rule of this.preAddRules) {
-      const result = await rule.check(incomingMeta, poolAccess);
+      try {
+        const result = await rule.check(incomingMeta, poolAccess);
 
-      if (result.shouldIgnore) {
-        return result;
-      }
-
-      // Collect txs to evict from all rules
-      for (const txHash of result.txHashesToEvict) {
-        if (!allTxHashesToEvict.includes(txHash)) {
-          allTxHashesToEvict.push(txHash);
+        if (result.shouldIgnore) {
+          return result;
         }
+
+        // Collect txs to evict from all rules
+        for (const txHash of result.txHashesToEvict) {
+          if (!allTxHashesToEvict.includes(txHash)) {
+            allTxHashesToEvict.push(txHash);
+          }
+        }
+      } catch (err) {
+        this.log.error(`Error running pre-add rule ${rule.name}`, { err, txHash: incomingMeta.txHash });
+        // On error, ignore the transaction to be safe
+        return {
+          shouldIgnore: true,
+          txHashesToEvict: [],
+          reason: `pre-add rule ${rule.name} error: ${err}`,
+        };
       }
     }
 

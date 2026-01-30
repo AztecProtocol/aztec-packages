@@ -300,6 +300,41 @@ describe('EvictionManager', () => {
       expect(mockRule1.evict).toHaveBeenCalledTimes(1);
       expect(mockRule2.evict).toHaveBeenCalledTimes(1);
     });
+
+    it('returns ignore result if a pre-add rule throws an error', async () => {
+      const preAddRule1 = mock<PreAddRule>({ name: 'failingRule' });
+      const preAddRule2 = mock<PreAddRule>({ name: 'secondRule' });
+      const poolAccess = mock<PreAddPoolAccess>();
+
+      const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
+        txHash,
+        anchorBlockHeaderHash: '0x1234',
+        priorityFee,
+        feePayer: '0xfeepayer',
+        claimAmount: 0n,
+        feeLimit: 100n,
+        nullifiers: [`0x${txHash.slice(2)}null1`],
+        includeByTimestamp: 0n,
+      });
+
+      preAddRule1.check.mockRejectedValue(new Error('Rule failed'));
+      preAddRule2.check.mockResolvedValue({
+        shouldIgnore: false,
+        txHashesToEvict: ['0x2222'],
+      });
+
+      evictionManager.registerPreAddRule(preAddRule1);
+      evictionManager.registerPreAddRule(preAddRule2);
+
+      const incomingMeta = createMeta('0x1111', 100n);
+      const result = await evictionManager.runPreAddRules(incomingMeta, poolAccess);
+
+      expect(result.shouldIgnore).toBe(true);
+      expect(result.reason).toContain('failingRule');
+      expect(result.txHashesToEvict).toHaveLength(0);
+      // Second rule should not be called since first rule threw
+      expect(preAddRule2.check).not.toHaveBeenCalled();
+    });
   });
 
   describe('rule execution order', () => {

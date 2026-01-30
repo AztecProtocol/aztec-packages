@@ -73,7 +73,6 @@ export interface PoolReadAccess {
 }
 
 /**
- * Interface for the new Transaction Pool with explicit state management.
  *
  * The pool manages transactions through a state machine:
  * - Pending: Transaction is awaiting inclusion in a block
@@ -170,9 +169,6 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * @param block - Header of the finalized block
    */
   handleFinalizedBlock(block: BlockHeader): Promise<void>;
-
-  // === Queries ===
-  // All queries go through the queue to ensure consistency with pending writes.
 
   /** Gets a transaction by its hash */
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;

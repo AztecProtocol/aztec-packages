@@ -46,7 +46,6 @@ export interface EvictionResult {
 
 /**
  * Read-only access to pool state for pre-add checks.
- * All methods work with metadata and strings for efficiency.
  */
 export interface PreAddPoolAccess {
   /** Get metadata for a pending tx by its hash string */

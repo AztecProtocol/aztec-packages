@@ -7,5 +7,5 @@ export {
   type PoolReadAccess,
   DEFAULT_TX_POOL_V2_CONFIG,
 } from './interfaces.js';
-export { type TxMetaData, type TxState, buildTxMetaData, getMetadataPriority, comparePriority } from './tx_metadata.js';
+export { type TxMetaData, type TxState, buildTxMetaData, comparePriority } from './tx_metadata.js';
 export { TxArchive } from './archive/index.js';

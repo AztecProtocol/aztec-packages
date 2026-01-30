@@ -33,7 +33,6 @@ import { type TxMetaData, type TxState, buildTxMetaData } from './tx_metadata.js
 
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
- * This allows the impl to be queue-unaware while still supporting events and metrics.
  */
 export interface TxPoolV2Callbacks {
   onTxsAdded: (txs: Tx[], opts: { source?: string }) => void;
@@ -43,8 +42,7 @@ export interface TxPoolV2Callbacks {
 /**
  * Implementation of TxPoolV2 logic.
  *
- * This class contains all the actual transaction pool logic but is queue-unaware.
- * It is designed to be called from within a serial queue managed by the outer class.
+ * This class contains all the actual transaction pool logic.
  */
 export class TxPoolV2Impl {
   // === Persistence ===
@@ -120,8 +118,6 @@ export class TxPoolV2Impl {
   // ============================================================================
   // PUBLIC IMPLEMENTATION METHODS
   // ============================================================================
-  // These methods are called by the outer class from within the serial queue.
-  // They can safely call any other method in this class without deadlock risk.
 
   /**
    * Hydrates the in-memory state from the database on startup.
@@ -1176,10 +1172,24 @@ export class TxPoolV2Impl {
   // HELPER FUNCTIONS - Adapters
   // ============================================================================
 
+  /** Gets all pending transactions for a given fee payer. */
+  #getFeePayerPendingTxs(feePayer: string): TxMetaData[] {
+    const txHashes = this.#feePayerToTxHashes.get(feePayer);
+    if (!txHashes) {
+      return [];
+    }
+    const result: TxMetaData[] = [];
+    for (const txHashStr of txHashes) {
+      const meta = this.#metadata.get(txHashStr);
+      if (meta && this.#getTxState(meta) === 'pending') {
+        result.push(meta);
+      }
+    }
+    return result;
+  }
+
   /**
    * Creates a PoolOperations adapter for use with the eviction manager.
-   * This adapter accesses internal state directly, which is safe because
-   * all eviction rules run from within the serial queue.
    */
   #createPoolOperations(): PoolOperations {
     return {
@@ -1199,18 +1209,7 @@ export class TxPoolV2Impl {
         return Array.from(this.#feePayerToTxHashes.keys());
       },
       getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
-        const txHashes = this.#feePayerToTxHashes.get(feePayer);
-        if (!txHashes) {
-          return [];
-        }
-        const result: TxMetaData[] = [];
-        for (const txHashStr of txHashes) {
-          const meta = this.#metadata.get(txHashStr);
-          if (meta && this.#getTxState(meta) === 'pending') {
-            result.push(meta);
-          }
-        }
-        return result;
+        return this.#getFeePayerPendingTxs(feePayer);
       },
       getPendingTxCount: (): number => {
         return this.getPendingTxCount();
@@ -1255,18 +1254,7 @@ export class TxPoolV2Impl {
         return balance.toBigInt();
       },
       getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
-        const txHashes = this.#feePayerToTxHashes.get(feePayer);
-        if (!txHashes) {
-          return [];
-        }
-        const result: TxMetaData[] = [];
-        for (const txHashStr of txHashes) {
-          const meta = this.#metadata.get(txHashStr);
-          if (meta && this.#getTxState(meta) === 'pending') {
-            result.push(meta);
-          }
-        }
-        return result;
+        return this.#getFeePayerPendingTxs(feePayer);
       },
       getPendingTxCount: (): number => {
         return this.getPendingTxCount();

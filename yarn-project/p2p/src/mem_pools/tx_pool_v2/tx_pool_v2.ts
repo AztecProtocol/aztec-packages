@@ -18,10 +18,7 @@ import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
  * Implementation of TxPoolV2 with explicit state management.
  *
  * This class is a thin wrapper that manages the serial queue and delegates
- * all operations to TxPoolV2Impl. This PIMPL pattern makes it structurally
- * impossible to cause deadlocks by accidentally calling queued methods from
- * within queue tasks - the impl class has no queue and can safely call any
- * of its own methods.
+ * all operations to TxPoolV2Impl.
  */
 export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) implements TxPoolV2 {
   #queue: SerialQueue;

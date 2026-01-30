@@ -1,6 +1,6 @@
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { type TxMetaData, buildTxMetaData, comparePriority, getMetadataPriority } from './tx_metadata.js';
+import { type TxMetaData, buildTxMetaData, comparePriority } from './tx_metadata.js';
 
 describe('TxMetaData', () => {
   describe('buildTxMetaData', () => {
@@ -24,51 +24,6 @@ describe('TxMetaData', () => {
         expect(typeof nullifier).toBe('string');
         expect(nullifier).toMatch(/^0x[0-9a-f]+$/i);
       }
-    });
-  });
-
-  describe('getMetadataPriority', () => {
-    it('returns a padded hex string', () => {
-      const meta: TxMetaData = {
-        txHash: '0x1234',
-        anchorBlockHeaderHash: '0x5678',
-        priorityFee: 255n,
-        feePayer: '0xabcd',
-        claimAmount: 0n,
-        feeLimit: 1000n,
-        nullifiers: [],
-        includeByTimestamp: 0n,
-      };
-
-      const priority = getMetadataPriority(meta);
-      expect(priority).toHaveLength(32);
-      expect(priority).toMatch(/^[0-9a-f]+$/);
-    });
-
-    it('maintains sorting order (higher fee = higher priority string)', () => {
-      const lowFee: TxMetaData = {
-        txHash: '0x1',
-        anchorBlockHeaderHash: '0x1',
-        priorityFee: 100n,
-        feePayer: '0x1',
-        claimAmount: 0n,
-        feeLimit: 1000n,
-        nullifiers: [],
-        includeByTimestamp: 0n,
-      };
-
-      const highFee: TxMetaData = {
-        txHash: '0x2',
-        anchorBlockHeaderHash: '0x2',
-        priorityFee: 1000n,
-        feePayer: '0x2',
-        claimAmount: 0n,
-        feeLimit: 1000n,
-        nullifiers: [],
-        includeByTimestamp: 0n,
-      };
-
-      expect(getMetadataPriority(highFee) > getMetadataPriority(lowFee)).toBe(true);
     });
   });
 

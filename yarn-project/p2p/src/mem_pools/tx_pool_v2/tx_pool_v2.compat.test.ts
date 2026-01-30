@@ -517,12 +517,10 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
     // Add tx1 first, then the others - tx2 and tx3 should replace tx1 via challenge
     // but since they have the same fee, only one will be accepted
-    await pool.addPendingTxs([tx1]);
-    await pool.addPendingTxs([tx4]);
+    await pool.addPendingTxs([tx1, tx2, tx3, tx4]);
     // tx2 and tx3 can't replace tx1 since they have same fee (challenge fails)
 
-    // Protect tx1 and mine it
-    await pool.addProtectedTxs([tx1], block1Header);
+    // Mine tx1
     await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
 
     // tx4 should be the only pending tx
@@ -551,8 +549,6 @@ describe('TxPoolV2 Compatibility Tests', () => {
     });
 
     await pool.addPendingTxs([tx1, tx2, tx3, tx4]);
-    // Protect tx4 before mining (in V2, we need to protect before mining)
-    await pool.addProtectedTxs([tx4], block1Header);
     await pool.handleMinedBlock([tx4.getTxHash()], block1Header);
 
     const pendingTxHashes = await pool.getPendingTxHashes();
@@ -637,7 +633,6 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
       await pool.addPendingTxs([tx3, tx1, tx4, tx2]);
 
-      // V2 doesn't have markTxsAsNonEvictable, so we test without that
       const res1 = await pool.getLowestPriorityEvictable(1);
       expect(res1).toEqual([tx1.getTxHash()]);
 
