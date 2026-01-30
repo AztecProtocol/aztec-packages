@@ -73,7 +73,6 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { AddressStore } from '../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -102,7 +101,6 @@ export class ContractFunctionSimulator {
     private keyStore: KeyStore,
     private addressStore: AddressStore,
     private aztecNode: AztecNode,
-    private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -183,7 +181,6 @@ export class ContractFunctionSimulator {
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
@@ -279,7 +276,6 @@ export class ContractFunctionSimulator {
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,

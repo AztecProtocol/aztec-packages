@@ -21,6 +21,28 @@ Use your staked tokens to vote on governance proposals that shape the future of 
 
 ---
 
+#if(testnet)
+## Getting Testnet Tokens
+
+To participate in the Aztec testnet, you'll need testnet tokens. Visit the **[Aztec Testnet Faucet](https://testnet.aztec.network/)** to get started.
+
+The faucet provides:
+- Testnet TST tokens for staking and governance participation
+- Instructions for connecting your wallet
+
+You'll also need Sepolia ETH for L1 transaction fees. See the [Sepolia Faucets](#sepolia-eth-faucets) section below.
+
+### Sepolia ETH Faucets
+
+For L1 operations (staking, governance transactions), you need Sepolia ETH:
+
+- [Sepolia Faucet](https://sepoliafaucet.com/)
+- [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
+- [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+#endif
+
+---
+
 ## Before You Start
 
 Understanding these concepts will help you make informed decisions:

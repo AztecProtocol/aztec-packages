@@ -31,8 +31,8 @@
 ) -> [T; DstLen]</code></pre>
 
 <div class="comments">
-<p>Returns <code>DstLen</code> elements from a source array, starting at <code>offset</code>. <code>DstLen</code> must not be larger than the number
-of elements past <code>offset</code>.</p>
+<p>Returns <code>DstLen</code> elements from a source array, starting at <code>offset</code>. <code>DstLen</code> must not be larger than the number of
+elements past <code>offset</code>.</p>
 <p>Examples:</p>
 <pre><code><span class="kw">let</span> foo: [Field; <span class="number">2</span>] = subarray([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>], <span class="number">2</span>);
 <span class="kw">assert_eq</span>(foo, [<span class="number">3</span>, <span class="number">4</span>]);

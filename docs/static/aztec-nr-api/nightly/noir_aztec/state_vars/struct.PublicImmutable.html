@@ -20,8 +20,9 @@
 <h2><a href="#struct">Struct PublicImmutable</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#compute_initialization_nullifier">compute_initialization_nullifier</a></li>
+<li><a href="#compute_initialization_inner_nullifier">compute_initialization_inner_nullifier</a></li>
 <li><a href="#initialize">initialize</a></li>
+<li><a href="#is_initialized">is_initialized</a></li>
 <li><a href="#is_initialized">is_initialized</a></li>
 <li><a href="#read">read</a></li>
 <li><a href="#read">read</a></li>
@@ -33,15 +34,10 @@
 <li><a href="#impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>">StateVariable&lt;M+1, Context&gt;</a></li>
 </ul>
 <h2>In module state_vars</h2>
-<h3>Modules</h3><ul class="item-list">
-<li><a href="map/index.html">map</a></div></li>
-<li><a href="owned/index.html">owned</a></div></li>
-<li><a href="owned_state_variable/index.html">owned_state_variable</a></div></li>
-<li><a href="state_variable/index.html">state_variable</a></div></li>
-<li><a href="storage/index.html">storage</a></div></li>
-</ul>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
 <li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
 <li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
 <li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
@@ -50,6 +46,11 @@
 <li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
 <li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
 <li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
 </ul>
 </nav>
 <main>
@@ -59,49 +60,59 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<h2>PublicImmutable</h2>
-<p>PublicImmutable is a public state variable type for values that are set once
-during initialization and remain permanently unchanged.</p>
-<p>You can declare a state variable of type PublicImmutable within your contract's
-<a href="../../noir_aztec/macros/storage/fn.storage.html">storage</a> struct:</p>
-<p>E.g.:
-<code>your_variable: PublicImmutable&lt;T, Context&gt;</code></p>
-<p>PublicImmutable stores an immutable value in public state which can be <em>read</em>
-from public, utility and even <em>private</em> execution contexts.</p>
-<p>The methods of PublicImmutable are:</p>
-<ul>
-<li><code>initialize</code></li>
-<li><code>read</code>
-(see the methods' own doc comments for more info).</li>
-</ul>
-<h2>Generic Parameters:</h2>
-<ul>
-<li><code>T</code> - The type of value stored (must implement Packable).</li>
-<li><code>Context</code> - The execution context (PublicContext, PrivateContext, or UtilityContext).</li>
-</ul>
-<h2>Advanced</h2>
-<p>PublicImmutable leverages <code>WithHash&lt;T&gt;</code> to enable efficient private reads of
-public storage. The <code>WithHash</code> wrapper optimizes reads by hashing values that would
-be larger than a single field into a single field, then proving inclusion of only
-the hash in public storage.</p>
-<p>This optimization is particularly valuable when T packs to multiple fields,
-as it maintains &quot;almost constant&quot; verification overhead regardless of the
-original data size.</p>
-<h2>Optimizing private reads in your contract</h2>
-<p>Since reading T from public immutable storage in private contexts has &quot;almost
-constant&quot; constraint costs regardless of T's size, it's recommended to group
-multiple values into a single struct when they are to be read together. This is
-typically useful for configuration data set during contract initialization. E.g.:</p>
-<pre><code><span class="kw">use</span> <span class="kw">dep</span>::aztec::protocol_types::{address::AztecAddress, traits::Packable};
-<span class="kw">use</span> std::meta::derive;
+<p>Immutable public values.</p>
+<p>This is one of the most basic public state variables. It is similar to an <code>immutable</code> or <code>constant</code> Solidity state
+variable.</p>
+<p>It represents a public value of type <code>T</code> that can be initialized <strong>just once</strong> during the lifetime of the contract,
+allowing this single value to be read.</p>
+<p>Unlike Solidity's <code>immutable</code> or <code>constant</code>, a <code>PublicImmutable</code>'s initialization does not need to occur during
+contract initialization - it can happen at any point in time (but only once). This also makes it possible to have a
+<a href="../../noir_aztec/state_vars/struct.Map.html"><code>Map</code></a> of <code>PublicImmutable</code>s.</p>
+<h2>Access Patterns</h2>
+<p>A value stored in a <code>PublicImmutable</code> can be read and initialized from public contract functions.</p>
+<p>Unlike <a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a> it is <strong>also</strong> possible to read a <code>PublicImmutable</code> from
+a
+private contract function, though it is not possible to initialize one. A common pattern is to have these functions
+<a href="../../noir_aztec/struct.ContractSelf.html#structfield.enqueue_self">enqueue a public self calls</a> in which the initialization
+operation is performed.</p>
+<p>For a mutable (with restrictions) variant which also can be read from private functions see
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>DelayedPublicMutable</code></a>.</p>
+<h2>Privacy</h2>
+<p><code>PublicImmutable</code> provides zero privacy in terms of the value stored and any public accesses: the entire network
+can see these and the data involved.</p>
+<p>Reading a <code>PublicImmutable</code> from a private contract function however is completely private, and leaks zero
+information about the fact that the value was read.</p>
+<h2>Use Cases</h2>
+<p>This is suitable for any kind of fixed global configuration that needs to be accessible by private contract
+functions, such as token decimals, related contracts in a multi-contract configuration, etc.</p>
+<p>It is also useful for fixed per-user configuration by combining it with a <a href="../../noir_aztec/state_vars/struct.Map.html"><code>Map</code></a>, e.g. a
+registry of their account types.</p>
+<p><code>PublicImmutable</code>'s main limitation is the immutability, which in many cases leads to
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>DelayedPublicMutable</code></a> being used instead. But in those cases where
+fixed
+values are not a problem, this is a fine choice for storage.</p>
+<h2>Examples</h2>
+<p>Declaring a <code>PublicImmutable</code> in the the contract's <a href="../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> struct requires
+specifying the type <code>T</code> that is stored in the variable:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    decimals: PublicImmutable&lt;u8, Context&gt;,
 
-#[derive(Eq, Packable)]
-<span class="kw">pub</span> <span class="kw">struct</span> Config \{
-    <span class="kw">pub</span> address_1: AztecAddress,
-    <span class="kw">pub</span> value_1: u128,
-    <span class="kw">pub</span> value_2: u64,
-    ...
-}</code></pre></div>
+    account_types: Map&lt;AztecAddress, PublicImmutable&lt;AccountType, Context&gt;, Context&gt;,
+}</code></pre>
+<h2>Requirements</h2>
+<p>The type <code>T</code> stored in the <code>PublicImmutable</code> must implement the <code>Packable</code> trait.</p>
+<h2>Implementation Details</h2>
+<p>Values are packed and stored directly in the public storage tree, along with the hash of the packed representation.
+A <code>PublicImmutable</code> therefore takes up as many storage slots as the packing length of the stored type <code>T</code>, plus
+one. This hash allows for efficient private reads, such that only a single public storage value is read. For more
+details, see <a href="../../noir_aztec/utils/struct.WithHash.html"><code>WithHash</code></a>.</p>
+<p>An initialization nullifier prevents re-initialization of the <code>PublicImmutable</code>. This allows reading an initialized
+<code>PublicImmutable</code> from a private contract function, since the value is guaranteed to not change.</p>
+<p>Private contract functions however <strong>cannot</strong> determine that a <code>PublicImmutable</code> has not been initialized, as they
+do not have access to the current network state, only the <em>past</em> state at the anchor block. They <em>can</em> perform
+historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
+that it has not been emitted since then.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
@@ -111,32 +122,40 @@ typically useful for configuration data set during contract initialization. E.g.
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable from the anchor
-block.</p>
-<p>Private functions execute asynchronously and offchain. When a user begins
-private execution, their view of the chain 'branches off' from the current
-public state, since public state continues to advance while they execute
-privately. Therefore, private functions read from a historical snapshot of
-public state rather than the current state.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable at the historical
-block referenced by the private context.</li>
-</ul>
-<h4>Advanced</h4>
-<p>This function performs a historical read using the block header from the private
-context. The <code>WithHash</code> optimization is particularly valuable here because it
-reduces the number of required inclusion proofs by proving membership of
-only the hash instead of the full packed value.</p>
-<p>The historical read mechanism:</p>
-<ul>
-<li>Uses an oracle to obtain the value from the anchor block</li>
-<li>Proves inclusion of the value's hash in the public data tree</li>
-<li>Proves that the root of this public data tree is correct, relative to the
-anchor block header.</li>
-<li>Verifies that the oracle-provided value matches the stored hash</li>
-</ul>
-</div>
+<p>Reads the permanent value.</p>
+<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    self.storage.decimals.read()
+}</code></pre>
+<h4>Cost</h4>
+<p>A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
+Additionally, a historical public storage read at the anchor block is performed for a single storage slot,
+<strong>regardless of <code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html#initialize"><code>PublicImmutable::initialize</code></a> stores not just the
+value
+but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash from
+public storage.</p>
+<p>Because of this reason it is convenient to group together all of a contract's public immutable values that are
+read privately in a single type <code>T</code>:</p>
+<pre><code><span class="comment">// Bad: reading both `decimals` and `symbol` will require two historical public storage reads</span>
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    decimals: PublicImmutable&lt;u8, Context&gt;,
+    symbol: PubicImmutable&lt;FieldCompressedString, Context&gt;,
+}
+
+<span class="comment">// Good: both `decimals` and `symbol` are retrieved in a single historical public storage read</span>
+#[derive(Packable)]
+<span class="kw">struct</span> Config {
+    decimals: u8,
+    symbol: FieldCompressedString,
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    config: PublicImmutable&lt;Config, Context&gt;,
+}</code></pre></div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
@@ -145,19 +164,26 @@ anchor block header.</li>
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
-<p>Notice that this function is executable only within a UtilityContext, which
-is an unconstrained environment on the user's local device.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
-</ul>
+<p>Reads the permanent value.</p>
+<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    self.storage.decimals.read()
+}</code></pre></div>
+</div><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns true if the <code>PublicImmutable</code> has been initialized.</p>
 </div>
 </div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="compute_initialization_nullifier" class="code-header">pub fn <a href="#compute_initialization_nullifier"><span class="fn">compute_initialization_nullifier</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code id="compute_initialization_inner_nullifier" class="code-header">pub fn <a href="#compute_initialization_inner_nullifier"><span class="fn">compute_initialization_inner_nullifier</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<div class="padded-description"><div class="comments">
+<p>Returns the inner nullifier emitted during initialization.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, value: T)
 <div class="where-clause">where
@@ -165,74 +191,78 @@ is an unconstrained environment on the user's local device.</p>
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Initializes a PublicImmutable state variable instance with a permanent value.</p>
-<p>This function sets the immutable value for this state variable. It can only
-be called once per PublicImmutable. Subsequent calls will fail because the
-initialization nullifier will already exist.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>value</code> - The permanent value to store in this PublicImmutable.</li>
-</ul>
-<h4>Panics</h4>
-<p>Panics if the value is already initialized.</p>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Creates and emits an initialization nullifier to mark this storage slot
-as initialized. This prevents double-initialization.</li>
-<li>Wraps the value in <code>WithHash&lt;T&gt;</code> for efficient private reads.</li>
-<li>Stores the wrapped value in Aztec's public data tree.</li>
-</ul>
-<p>docs:start:public_immutable_struct_write</p>
-</div>
+<p>Stores a permanent value.</p>
+<p>This function can only be called once on a given <code>PublicImmutable</code>: subsequent calls will fail with a duplicate
+nullifier.</p>
+<h4>Examples</h4>
+<p>Contract initialization:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+#[initializer]
+<span class="kw">fn</span> initialize(decimals: u8) {
+    self.storage.decimals.iniitalize(decimals);
+}</code></pre>
+<p>Non-initializer initialization:</p>
+<pre><code><span class="comment">// Can only be called once per account</span>
+#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> set_account_type(account_type: AccountType) {
+    self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SSTORE</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length plus one, and the
+<code>EMITNULLIFIER</code> AVM opcode is invoked once.</p></div>
 </div><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads the permanent value stored in this PublicImmutable state variable.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The permanent value stored in this PublicImmutable.</li>
-</ul>
-<h4>Panics</h4>
-<p>Panics if the value is not initialized.</p>
-<h4>Advanced</h4>
-<p>This function performs the following operations:</p>
-<ul>
-<li>Checks that the state variable has been initialized by verifying the
-initialization nullifier exists</li>
-<li>Reads the <code>WithHash&lt;T&gt;</code> wrapper from public storage</li>
-<li>Extracts and returns the original value T</li>
-</ul>
-<p>The function will panic if called on an uninitialized PublicImmutable.</p>
-<p>docs:start:public_immutable_struct_read</p>
-</div>
+<p>Reads the permanent value.</p>
+<p>This function reverts the transaction if the <code>PublicImmutable</code> is not initialized.</p>
+<h4>Examples</h4>
+<p>A public getter that returns the permanent value:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    self.storage.decimals.read()
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length, and the <code>NULLIFIEREXISTS</code> AVM
+opcode is invoked once.</p></div>
 </div><code id="read_unsafe" class="code-header">pub fn <a href="#read_unsafe"><span class="fn">read_unsafe</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads the value stored in this PublicImmutable without checking if the value
-is initialized.</p>
-<p>This function bypasses the initialization check and directly reads from
-storage.
-If the PublicImmutable has not been initialized, this will return a
-zeroed value.
-However, if the variable is <em>known</em> to be initialized, this is cheaper
-to call than <code>read</code>.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The value stored in this PublicImmutable, or empty/default values if
-uninitialized.</li>
-</ul>
-</div>
+<p>Reads the permanent value, skipping the initialization check.</p>
+<p>This is cheaper than <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html#read"><code>PublicImmutable::read</code></a>, but it should only be used if the <code>PublicImmutable</code> is known to
+be initialized.</p>
+<p>If the <code>PublicImmutable</code> is not initialized, this returns the default empty public storage value, which is all
+zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<h4>Examples</h4>
+<p>A public getter that returns the permanent value:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    <span class="comment">// This call is safe because `decimals` is initialized in the contract's initializer function</span>
+    self.storage.decimals.read_unsafe()
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
 </div><code id="is_initialized" class="code-header">pub fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div><h2>Trait implementations</h2>
-<h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
+<div class="padded-description"><div class="comments">
+<p>Returns true if the <code>PublicImmutable</code> has been initialized.</p>
+<h4>Examples:</h4>
+<p>Conditional initialization:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> set_account_type_if_not_set(account_type: AccountType) {
+    <span class="kw">if</span> !self.storage.account_types.at(self.msg_sender()).is_initialized() {
+        self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+    }
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>NULLIFIEREXISTS</code> AVM opcode is invoked once.</p></div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
 
