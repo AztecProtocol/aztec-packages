@@ -29,8 +29,8 @@ Circuit-specific verification keys:
 
 ### Optimized Verifier (src/honk/optimised/)
 
-- `blake-opt.sol` - Hand-optimized assembly verifier for Blake circuit
-- `blake-opt.sol.template` - Template used to generate blake-opt.sol
+- `honk-optimized.sol` - Hand-optimized assembly verifier (uses Blake circuit for testing)
+- `honk-optimized.sol.template` - Template used to generate honk-optimized.sol
 - `generate_offsets.py` - Helper for memory layout
 
 ### C++ Contract Templates (cpp/src/barretenberg/dsl/acir_proofs/)
@@ -48,10 +48,10 @@ These hpp files contain embedded Solidity code used by bb CLI to generate verifi
 # Regenerate honk_contract.hpp and honk_zk_contract.hpp from Solidity sources
 ./scripts/copy_to_cpp.sh -f
 
-# Sync VK values from BlakeHonkVerificationKey.sol to blake-opt.sol
+# Sync VK values from BlakeHonkVerificationKey.sol to honk-optimized.sol
 ./scripts/sync_blake_opt_vk.sh
 
-# Copy blake-opt.sol to honk_optimized_contract.hpp
+# Copy honk-optimized.sol to honk_optimized_contract.hpp
 ./scripts/copy_optimized_to_cpp.sh -f
 
 # Regenerate all VKs (requires rebuilt bb)
@@ -138,7 +138,7 @@ When making changes to core Solidity files:
 4. Run tests: `forge test`
 
 For optimized verifier changes:
-1. Edit `blake-opt.sol.template`
+1. Edit `honk-optimized.sol.template`
 2. Run `./scripts/sync_blake_opt_vk.sh` to apply VK values
 3. Run `./scripts/copy_optimized_to_cpp.sh -f`
 
