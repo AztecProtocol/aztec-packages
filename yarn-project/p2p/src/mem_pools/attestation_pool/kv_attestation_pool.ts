@@ -374,3 +374,10 @@ export class KvAttestationPool implements AttestationPool {
     return count;
   }
 }
+
+/** Creates a KvAttestationPool backed by a temporary store for testing. */
+export async function createTestAttestationPool(telemetry?: TelemetryClient): Promise<KvAttestationPool> {
+  const { openTmpStore } = await import('@aztec/kv-store/lmdb-v2');
+  const store = await openTmpStore('test-attestation-pool');
+  return new KvAttestationPool(store, telemetry);
+}
