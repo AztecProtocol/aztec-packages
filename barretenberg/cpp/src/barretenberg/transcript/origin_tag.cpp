@@ -7,6 +7,7 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstring>
 
 namespace bb {
 using namespace numeric;
@@ -31,6 +32,16 @@ inline int highest_set_bit_128(uint128_t value)
     auto low = static_cast<uint64_t>(value);
     return 63 - __builtin_clzll(low);
 }
+
+/**
+ * @brief Safely extract uint128_t from uint256_t data array using memcpy to avoid strict aliasing issues
+ */
+inline uint128_t extract_uint128(const uint64_t* data)
+{
+    uint128_t result = 0;
+    std::memcpy(&result, data, sizeof(uint128_t));
+    return result;
+}
 } // namespace
 
 /**
@@ -50,10 +61,12 @@ inline int highest_set_bit_128(uint128_t value)
  */
 void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    const auto challenges_a = *reinterpret_cast<const uint128_t*>(&provenance_a.data[2]);
-    const auto challenges_b = *reinterpret_cast<const uint128_t*>(&provenance_b.data[2]);
-    const auto submitted_a = *reinterpret_cast<const uint128_t*>(&provenance_a.data[0]);
-    const auto submitted_b = *reinterpret_cast<const uint128_t*>(&provenance_b.data[0]);
+    // Extract uint128_t values safely using memcpy to avoid strict aliasing violations
+    // Lower 128 bits (data[0..1]) = submitted rounds, Upper 128 bits (data[2..3]) = challenge rounds
+    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
+    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
+    const auto submitted_a = extract_uint128(&provenance_a.data[0]);
+    const auto submitted_b = extract_uint128(&provenance_b.data[0]);
 
     // If either has no submitted data, nothing to check
     if (submitted_a == 0 || submitted_b == 0) {
