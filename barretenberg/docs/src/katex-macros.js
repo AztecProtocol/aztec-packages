@@ -1,7 +1,7 @@
 module.exports = {
   "\\sk": "{\\color{red}{sk}}",
   "\\seed": "{\\color{red}\\text{{seed}}}",
-  "\\nskm": "{\\color{red}{nsk_m}}",
+  "\\nhkm": "{\\color{red}{nhk_m}}",
   "\\tskm": "{\\color{red}{tsk_m}}",
   "\\ivskm": "{\\color{red}{ivsk_m}}",
   "\\ovskm": "{\\color{red}{ovsk_m}}",
@@ -16,7 +16,7 @@ module.exports = {
   "\\constructorhash": "{\\color{green}{constructor_hash}}",
   "\\classid": "{\\color{green}{classid}}",
 
-  "\\nskapp": "{\\color{red}{nsk_{app}}}",
+  "\\nhkapp": "{\\color{red}{nhk_{app}}}",
   "\\tskapp": "{\\color{red}{tsk_{app}}}",
   "\\ivsk": "{\\color{red}{ivsk}}",
   "\\ovskapp": "{\\color{red}{ovsk_{app}}}",

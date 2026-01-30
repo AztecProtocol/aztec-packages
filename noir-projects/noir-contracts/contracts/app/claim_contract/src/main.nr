@@ -53,7 +53,7 @@ pub contract Claim {
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
-        // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
+        // Note: Only the owner of the npk_m will be able to produce the nhk_app and compute this nullifier.
         // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
