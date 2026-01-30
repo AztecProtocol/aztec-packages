@@ -12,7 +12,7 @@ import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
 
-import type { AttestationPool, TryAddProposalResult } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPool, TryAddResult } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 
@@ -150,7 +150,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
 export class InMemoryAttestationPool implements AttestationPool {
   private proposals = new Map<string, BlockProposal>();
 
-  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddProposalResult> {
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
     const id = blockProposal.archive.toString();
     const alreadyExists = this.proposals.has(id);
     if (alreadyExists) {
@@ -164,7 +164,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddProposalResult> {
+  tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddResult> {
     return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
   }
 
@@ -187,16 +187,8 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  hasReachedCheckpointAttestationCap(_slot: SlotNumber, _proposalId: string, _committeeSize: number): Promise<boolean> {
-    return Promise.resolve(false);
+  tryAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<TryAddResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
   }
 
   isEmpty(): Promise<boolean> {
