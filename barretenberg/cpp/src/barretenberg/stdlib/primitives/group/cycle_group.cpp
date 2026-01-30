@@ -284,8 +284,13 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
+    // Set coordinates to (0, 0) if point is at infinity for canonical representation
     this->_x = field_t::conditional_assign(this->_is_infinity, 0, this->_x);
     this->_y = field_t::conditional_assign(this->_is_infinity, 0, this->_y);
+    // Mark witnesses as used to prevent boomerang detection false positives when
+    // this is the final operation (e.g., final batch_mul output)
+    mark_witness_as_used(this->_x);
+    mark_witness_as_used(this->_y);
 }
 
 /**
