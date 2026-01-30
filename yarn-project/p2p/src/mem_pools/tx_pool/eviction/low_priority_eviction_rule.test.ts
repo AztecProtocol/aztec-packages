@@ -15,7 +15,7 @@ describe('LowPriorityEvictionRule', () => {
     txPool = mock();
     txPool.getPendingTxInfos.mockResolvedValue([]);
     txPool.getPendingTxCount.mockResolvedValue(0);
-    txPool.getLowestPriorityPending.mockResolvedValue([]);
+    txPool.getLowestPriorityEvictable.mockResolvedValue([]);
 
     config = {
       maxPoolSize: 100,
@@ -126,7 +126,7 @@ describe('LowPriorityEvictionRule', () => {
         const tx2 = TxHash.random();
 
         txPool.getPendingTxCount.mockResolvedValue(3);
-        txPool.getLowestPriorityPending.mockResolvedValue([tx1, tx2]);
+        txPool.getLowestPriorityEvictable.mockResolvedValue([tx1, tx2]);
 
         const result = await rule.evict(context, txPool);
 
@@ -145,7 +145,7 @@ describe('LowPriorityEvictionRule', () => {
         (context as any).newTxs = [newTx1, newTx2];
 
         txPool.getPendingTxCount.mockResolvedValue(3);
-        txPool.getLowestPriorityPending.mockResolvedValue([oldTx, newTx1]);
+        txPool.getLowestPriorityEvictable.mockResolvedValue([oldTx, newTx1]);
 
         const result = await rule.evict(context, txPool);
 
@@ -156,7 +156,7 @@ describe('LowPriorityEvictionRule', () => {
 
       it('handles all transactions being non-evictable', async () => {
         txPool.getPendingTxCount.mockResolvedValue(config.maxPoolSize + 1);
-        txPool.getLowestPriorityPending.mockResolvedValue([]);
+        txPool.getLowestPriorityEvictable.mockResolvedValue([]);
 
         const result = await rule.evict(context, txPool);
 
@@ -166,7 +166,7 @@ describe('LowPriorityEvictionRule', () => {
           txsEvicted: [],
         });
         expect(txPool.deleteTxs).not.toHaveBeenCalled();
-        expect(txPool.getLowestPriorityPending).toHaveBeenCalledWith(1);
+        expect(txPool.getLowestPriorityEvictable).toHaveBeenCalledWith(1);
       });
 
       it('handles error from txPool operations', async () => {
@@ -187,7 +187,7 @@ describe('LowPriorityEvictionRule', () => {
         const t1 = TxHash.random();
         const t2 = TxHash.random();
         txPool.getPendingTxCount.mockResolvedValue(2);
-        txPool.getLowestPriorityPending.mockResolvedValue([t1, t2]);
+        txPool.getLowestPriorityEvictable.mockResolvedValue([t1, t2]);
         txPool.deleteTxs.mockRejectedValue(new Error('Test error'));
 
         const result = await rule.evict(context, txPool);

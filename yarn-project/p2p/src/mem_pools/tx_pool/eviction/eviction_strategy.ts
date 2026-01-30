@@ -74,10 +74,10 @@ export interface TxPoolOperations {
   /** Cheap count of current pending transactions. */
   getPendingTxCount(): Promise<number>;
   /**
-   * Returns up to `limit` lowest-priority pending tx hashes.
+   * Returns up to `limit` lowest-priority evictable pending tx hashes.
    * Ordering should be from lowest priority upwards.
    */
-  getLowestPriorityPending(limit: number): Promise<TxHash[]>;
+  getLowestPriorityEvictable(limit: number): Promise<TxHash[]>;
   deleteTxs(txHashes: TxHash[], opts?: { permanently?: boolean }): Promise<void>;
 }
 
