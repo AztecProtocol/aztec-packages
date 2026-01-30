@@ -6,7 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
