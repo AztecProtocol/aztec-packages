@@ -105,11 +105,11 @@ describe('p2p client integration batch txs', () => {
     await sleep(1000);
   };
 
-  const createBlockProposal = (blockNumber: number, blockHash: Fr, txHashes: TxHash[]) => {
+  const createBlockProposal = (blockNumber: number, archiveRoot: Fr, txHashes: TxHash[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
       blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(blockNumber) }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes,
     });
   };
@@ -173,8 +173,8 @@ describe('p2p client integration batch txs', () => {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     const blockNumber = 5;
-    const blockHash = Fr.random();
-    const blockProposal = await createBlockProposal(blockNumber, blockHash, txHashes);
+    const archiveRoot = Fr.random();
+    const blockProposal = await createBlockProposal(blockNumber, archiveRoot, txHashes);
 
     // Distribute transactions across peers (simulating partial knowledge)
     // Peer 0 has no txs (client requesting)
