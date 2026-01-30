@@ -52,7 +52,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
-                let $param_name: $param_type = reader.read_struct(aztec::protocol::traits::Deserialize::deserialize);
+                let $param_name: $param_type = aztec::protocol::traits::Deserialize::stream_deserialize(&mut reader);
             };
             *parameter_index += 1;
             quote { $read }

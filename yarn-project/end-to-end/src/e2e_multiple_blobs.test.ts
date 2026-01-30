@@ -7,6 +7,7 @@ import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
+import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
@@ -55,14 +56,15 @@ describe('e2e_multiple_blobs', () => {
     const utilityFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.UTILITY);
 
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    const TX_COUNT = 5;
+    const TX_COUNT = 6;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
     const provenTxs = [
-      // 1 contract deployment tx.
+      // 2 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
+      await publishContractClass(wallet, AvmGadgetsTestContract.artifact),
       // 2 private function broadcast txs. We pick [2] because it has large bytecode (~1,807 fields),
-      // which combined with the contract class publication exceeds FIELDS_PER_BLOB (4,096).
+      // which combined with the contract class publications exceeds FIELDS_PER_BLOB (4,096).
       await broadcastFunction(privateFunctions[0]),
       await broadcastFunction(privateFunctions[2]),
       // 1 utility function broadcast tx.

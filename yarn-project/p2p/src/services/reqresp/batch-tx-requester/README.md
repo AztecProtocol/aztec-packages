@@ -71,7 +71,7 @@ The requester classifies peers into three categories to optimize fetching:
 ### Blind Phase → Smart Phase Transition
 
 Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxsResponse` containing:
-1. A matching `blockHash`
+1. A matching `archiveRoot`
 2. A non-empty `txIndices` BitVector indicating which transactions they have
 3. At least one transaction we're still missing
 
@@ -81,10 +81,10 @@ Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxs
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
 │  │  Initial State: All peers are "dumb" (except pinned peer)              │  │
 │  │                                                                        │  │
-│  │  Request: [blockHash, txHashes (full list), txIndices (BitVector)]     │  │
+│  │  Request: [archiveRoot, txHashes (full list), txIndices (BitVector)]   │  │
 │  │           └─ Include full hashes because peer may not have proposal    │  │
 │  │                                                                        │  │
-│  │  Response: [blockHash, txs[], txIndices (what peer has)]               │  │
+│  │  Response: [archiveRoot, txs[], txIndices (what peer has)]             │  │
 │  │            └─ Tells us exactly which txs this peer can provide         │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -97,10 +97,10 @@ Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxs
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
 │  │  Peer promoted to "smart" - we know exactly what they have             │  │
 │  │                                                                        │  │
-│  │  Request: [blockHash, txIndices (BitVector only)]                      │  │
+│  │  Request: [archiveRoot, txIndices (BitVector only)]                    │  │
 │  │           └─ No need for full hashes, peer has the proposal            │  │
 │  │                                                                        │  │
-│  │  Response: [blockHash, txs[], txIndices (updated availability)]        │  │
+│  │  Response: [archiveRoot, txs[], txIndices (updated availability)]      │  │
 │  │            └─ May have received more txs since last response           │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -152,7 +152,7 @@ The `BatchTxRequester` runs three types of workers concurrently:
 
 ```typescript
 class BlockTxsRequest {
-  blockHash: Fr;           // 32-byte hash of the proposed block header
+  archiveRoot: Fr;         // Archive root after the proposed block is applied
   txHashes: TxHashArray;   // Full tx hashes (for dumb peers without proposal)
   txIndices: BitVector;    // Which txs from proposal we're requesting (1 = want)
 }
@@ -162,7 +162,7 @@ class BlockTxsRequest {
 
 ```typescript
 class BlockTxsResponse {
-  blockHash: Fr;           // Echo back the block hash
+  archiveRoot: Fr;         // Echo back the proposal archive root
   txs: TxArray;            // Actual transaction data
   txIndices: BitVector;    // Which txs the peer has available (1 = have)
 }

@@ -57,14 +57,14 @@ export class CapsuleStore implements StagedStore {
    */
   async #getFromStage(jobId: string, dbSlotKey: string): Promise<Buffer | null | undefined> {
     const jobStagedCapsules = this.#getJobStagedCapsules(jobId);
-    let staged: Buffer | null | undefined = jobStagedCapsules.get(dbSlotKey);
-    // Note that if staged === null, we marked it for deletion, so we don't want to
-    // re-read it from DB
-    if (staged === undefined) {
-      // If we don't have a staged version of this dbSlotKey, first we check if there's one in DB
-      staged = await this.#loadCapsuleFromDb(dbSlotKey);
-    }
-    return staged;
+    const staged: Buffer | null | undefined = jobStagedCapsules.get(dbSlotKey);
+
+    // Always issue DB read to keep IndexedDB transaction alive, even if the value is in the job staged data. This
+    // keeps IndexedDB transactions alive (they auto-commit when a new micro-task starts and there are no pending read
+    // requests). The staged value still takes precedence if it exists (including null for deletions).
+    const dbValue = await this.#loadCapsuleFromDb(dbSlotKey);
+
+    return staged !== undefined ? staged : dbValue;
   }
 
   /**

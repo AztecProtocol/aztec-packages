@@ -8,7 +8,7 @@ import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { P2P_STORE_NAME } from '@aztec/p2p';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
 import {
   type SnapshotMetadata,

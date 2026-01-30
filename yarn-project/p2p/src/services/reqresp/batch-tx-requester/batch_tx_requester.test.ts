@@ -63,11 +63,11 @@ describe('BatchTxRequester', () => {
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
-    const blockHash = Fr.random();
+    const archiveRoot = Fr.random();
     blockProposal = await makeBlockProposal({
       signer,
       blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes: [],
     });
   });

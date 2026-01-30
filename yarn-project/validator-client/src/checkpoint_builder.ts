@@ -3,7 +3,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
+import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
@@ -24,6 +24,7 @@ import {
   type ICheckpointBlockBuilder,
   type ICheckpointsBuilder,
   type MerkleTreeWriteOperations,
+  NoValidTxsError,
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -35,11 +36,6 @@ import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_fac
 
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
-
-/** Result of building a block within a checkpoint. Extends the base interface with timer. */
-export interface BuildBlockInCheckpointResultWithTimer extends BuildBlockInCheckpointResult {
-  blockBuildingTimer: Timer;
-}
 
 /**
  * Builder for a single checkpoint. Handles building blocks within the checkpoint
@@ -75,8 +71,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     blockNumber: BlockNumber,
     timestamp: bigint,
     opts: PublicProcessorLimits & { expectedEndState?: StateReference } = {},
-  ): Promise<BuildBlockInCheckpointResultWithTimer> {
-    const blockBuildingTimer = new Timer();
+  ): Promise<BuildBlockInCheckpointResult> {
     const slot = this.checkpointBuilder.constants.slotNumber;
 
     this.log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, {
@@ -103,6 +98,12 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       processor.process(pendingTxs, opts, validator),
     );
 
+    // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
+    // (only the first block in a checkpoint can be empty)
+    if (processedTxs.length === 0 && this.checkpointBuilder.getBlockCount() > 0) {
+      throw new NoValidTxsError(failedTxs);
+    }
+
     // Add block to checkpoint
     const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
       expectedEndState: opts.expectedEndState,
@@ -111,18 +112,21 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     // How much public gas was processed
     const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
 
-    const res = {
+    this.log.debug('Built block within checkpoint', {
+      header: block.header.toInspect(),
+      processedTxs: processedTxs.map(tx => tx.hash.toString()),
+      failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
+    });
+
+    return {
       block,
       publicGas,
       publicProcessorDuration,
       numTxs: processedTxs.length,
       failedTxs,
-      blockBuildingTimer,
       usedTxs,
       usedTxBlobFields,
     };
-    this.log.debug('Built block within checkpoint', res.block.header);
-    return res;
   }
 
   /** Completes the checkpoint and returns it. */
