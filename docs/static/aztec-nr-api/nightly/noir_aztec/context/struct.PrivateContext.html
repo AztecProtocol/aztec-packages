@@ -132,145 +132,97 @@
 <div class="comments">
 <h2>PrivateContext</h2>
 <p>The <strong>main interface</strong> between an #[external(&quot;private&quot;)] function and the Aztec blockchain.</p>
-<p>An instance of the PrivateContext is initialized automatically at the outset
-of every private function, within the #[external(&quot;private&quot;)] macro, so you'll never
-need to consciously instantiate this yourself.</p>
-<p>The instance is always named <code>context</code>, and it is always be available within
-the body of every #[external(&quot;private&quot;)] function in your smart contract.</p>
+<p>An instance of the PrivateContext is initialized automatically at the outset of every private function, within the
+#[external(&quot;private&quot;)] macro, so you'll never need to consciously instantiate this yourself.</p>
+<p>The instance is always named <code>context</code>, and it is always be available within the body of every
+#[external(&quot;private&quot;)] function in your smart contract.</p>
 <blockquote>
-<p>For those used to &quot;vanilla&quot; Noir, it might be jarring to have access to
-<code>context</code> without seeing a declaration <code>let context = PrivateContext::new(...)</code>
-within the body of your function. This is just a consequence of using
-macros to tidy-up verbose boilerplate. You can use <code>nargo expand</code> to
-expand all macros, if you dare.</p>
+<p>For those used to &quot;vanilla&quot; Noir, it might be jarring to have access to &gt; <code>context</code> without seeing a declaration
+<code>let context = PrivateContext::new(...)</code> &gt; within the body of your function. This is just a consequence of using &gt;
+macros to tidy-up verbose boilerplate. You can use <code>nargo expand</code> to &gt; expand all macros, if you dare.</p>
 </blockquote>
-<p>Typical usage for a smart contract developer will be to call getter
-methods of the PrivateContext.</p>
-<p><em>Pushing</em> data and requests to the context is mostly handled within
-aztec-nr's own functions, so typically a smart contract developer won't
-need to call any setter methods directly.</p>
+<p>Typical usage for a smart contract developer will be to call getter methods of the PrivateContext.</p>
+<p><em>Pushing</em> data and requests to the context is mostly handled within aztec-nr's own functions, so typically a smart
+contract developer won't need to call any setter methods directly.</p>
 <blockquote>
-<p>Advanced users might occasionally wish to push data to the context
-directly for lower-level control. If you find yourself doing this, please
-open an issue on GitHub to describe your use case: it might be that
-new functionality should be added to aztec-nr.</p>
+<p>Advanced users might occasionally wish to push data to the context &gt; directly for lower-level control. If you
+find yourself doing this, please &gt; open an issue on GitHub to describe your use case: it might be that &gt; new
+functionality should be added to aztec-nr.</p>
 </blockquote>
 <h2>Responsibilities</h2>
 <ul>
-<li>Exposes contextual data to a private function:
-<ul>
-<li>Data relating to how this private function was called.
-<ul>
+<li>Exposes contextual data to a private function:</li>
+<li>Data relating to how this private function was called.</li>
 <li>msg_sender</li>
-<li>this_address - (the contract address of the private function being
-executed)</li>
+<li>this_address - (the contract address of the private function being executed)</li>
 <li>See <code>CallContext</code> for more data.</li>
-</ul>
-</li>
-<li>Data relating to the transaction in which this private function is
-being executed.
-<ul>
+<li>Data relating to the transaction in which this private function is being executed.</li>
 <li>chain_id</li>
 <li>version</li>
 <li>gas_settings</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>Provides state access:
+<li>Provides state access:</li>
+<li>Access to the &quot;Anchor block&quot; header. Recall, a private function cannot read from the &quot;current&quot; block header, but
+must read from some historical block header, because as soon as private function execution begins (asynchronously,
+on a user's device), the public state of the chain (the &quot;current state&quot;) will have progressed forward. We call this
+reference the &quot;Anchor block&quot;. See <code>BlockHeader</code>.
 <ul>
-<li>Access to the &quot;Anchor block&quot; header.
-Recall, a private function cannot read from the &quot;current&quot; block header,
-but must read from some historical block header, because as soon as
-private function execution begins (asynchronously, on a user's device),
-the public state of the chain (the &quot;current state&quot;) will have progressed
-forward. We call this reference the &quot;Anchor block&quot;.
-See <code>BlockHeader</code>.</li>
 <li>Enables consumption of L1-&gt;L2 messages.</li>
 </ul>
 </li>
-<li>Enables calls to functions of other smart contracts:
-<ul>
+<li>Enables calls to functions of other smart contracts:</li>
 <li>Private function calls</li>
-<li>Enqueueing of public function call requests
-(Since public functions are executed at a later time, by a block
+<li>Enqueueing of public function call requests (Since public functions are executed at a later time, by a block
 proposer, we say they are &quot;enqueued&quot;).</li>
-</ul>
-</li>
-<li>Writes data to the blockchain:
-<ul>
+<li>Writes data to the blockchain:</li>
 <li>New notes</li>
 <li>New nullifiers</li>
-<li>Private logs (for sending encrypted note contents or encrypted events)</li>
+<li>Private logs (for sending encrypted note contents or encrypted events)
+<ul>
 <li>New L2-&gt;L1 messages.</li>
 </ul>
 </li>
 <li>Provides args to the private function (handled by the #[external(&quot;private&quot;)] macro).</li>
 <li>Returns the return values of this private function (handled by the
 #[external(&quot;private&quot;)] macro).</li>
-<li>Makes Key Validation Requests.
-<ul>
-<li>Private functions are not allowed to see master secret keys, because we
-do not trust them. They are instead given &quot;app-siloed&quot; secret keys with
-a claim that they relate to a master public key. They can then request
-validation of this claim, by making a &quot;key validation request&quot; to the
-protocol's kernel circuits (which <em>are</em> allowed to see certain master
-secret keys).</li>
-</ul>
-</li>
+<li>Makes Key Validation Requests.</li>
+<li>Private functions are not allowed to see master secret keys, because we do not trust them. They are instead given
+&quot;app-siloed&quot; secret keys with a claim that they relate to a master public key. They can then request validation of
+this claim, by making a &quot;key validation request&quot; to the protocol's kernel circuits (which <em>are</em> allowed to see
+certain master secret keys).</li>
 </ul>
 <h2>Advanced Responsibilities</h2>
 <ul>
-<li>Ultimately, the PrivateContext is responsible for constructing the
-PrivateCircuitPublicInputs of the private function being executed.
-All private functions on Aztec must have public inputs which adhere
-to the rigid layout of the PrivateCircuitPublicInputs, in order to be
-compatible with the protocol's kernel circuits.
-A well-known misnomer:
-<ul>
-<li>&quot;public inputs&quot; contain both inputs and outputs of this function.
-<ul>
-<li>By &quot;outputs&quot; we mean a lot more side-effects than just the
-&quot;return values&quot; of the function.</li>
-</ul>
-</li>
-<li>Most of the so-called &quot;public inputs&quot; are kept <em>private</em>, and never leak
-to the outside world, because they are 'swallowed' by the protocol's
-kernel circuits before the tx is sent to the network. Only the
-following are exposed to the outside world:
-<ul>
+<li>Ultimately, the PrivateContext is responsible for constructing the PrivateCircuitPublicInputs of the private
+function being executed. All private functions on Aztec must have public inputs which adhere to the rigid layout of
+the PrivateCircuitPublicInputs, in order to be compatible with the protocol's kernel circuits. A well-known
+misnomer:</li>
+<li>&quot;public inputs&quot; contain both inputs and outputs of this function.</li>
+<li>By &quot;outputs&quot; we mean a lot more side-effects than just the &quot;return values&quot; of the function.</li>
+<li>Most of the so-called &quot;public inputs&quot; are kept <em>private</em>, and never leak to the outside world, because they are
+'swallowed' by the protocol's kernel circuits before the tx is sent to the network. Only the following are exposed
+to the outside world:</li>
 <li>New note_hashes</li>
 <li>New nullifiers</li>
-<li>New private logs</li>
+<li>New private logs
+<ul>
 <li>New L2-&gt;L1 messages</li>
-<li>New enqueued public function call requests
-All the above-listed arrays of side-effects can be padded by the
-user's wallet (through instructions to the kernel circuits, via the
-PXE) to obscure their true lengths.</li>
 </ul>
 </li>
-</ul>
-</li>
+<li>New enqueued public function call requests All the above-listed arrays of side-effects can be padded by the
+user's wallet (through instructions to the kernel circuits, via the PXE) to obscure their true lengths.</li>
 </ul>
 <h2>Syntax Justification</h2>
-<p>Both user-defined functions <em>and</em> most functions in aztec-nr need access to
-the PrivateContext instance to read/write data. This is why you'll see the
-arguably-ugly pervasiveness of the &quot;context&quot; throughout your smart contract
-and the aztec-nr library.
-For example, <code>&amp;mut context</code> is prevalent. In some languages, you can access
-and mutate a global variable (such as a PrivateContext instance) from a
-function without polluting the function's parameters. With Noir, a function
-must explicitly pass control of a mutable variable to another function, by
-reference. Since many functions in aztec-nr need to be able to push new data
-to the PrivateContext, they need to be handed a mutable reference <em>to</em> the
-context as a parameter.
-For example, <code>Context</code> is prevalent as a generic parameter, to give better
-type safety at compile time. Many <code>aztec-nr</code> functions don't make sense if
-they're called in a particular runtime (private, public or utility), and so
-are intentionally only implemented over certain
-[Private|Public|Utility]Context structs. This gives smart contract
-developers a much faster feedback loop if they're making a mistake, as an
-error will be thrown by the LSP or when they compile their contract.</p>
+<p>Both user-defined functions <em>and</em> most functions in aztec-nr need access to the PrivateContext instance to
+read/write data. This is why you'll see the arguably-ugly pervasiveness of the &quot;context&quot; throughout your smart
+contract and the aztec-nr library. For example, <code>&amp;mut context</code> is prevalent. In some languages, you can access and
+mutate a global variable (such as a PrivateContext instance) from a function without polluting the function's
+parameters. With Noir, a function must explicitly pass control of a mutable variable to another function, by
+reference. Since many functions in aztec-nr need to be able to push new data to the PrivateContext, they need to be
+handed a mutable reference <em>to</em> the context as a parameter. For example, <code>Context</code> is prevalent as a generic
+parameter, to give better type safety at compile time. Many <code>aztec-nr</code> functions don't make sense if they're called
+in a particular runtime (private, public or utility), and so are intentionally only implemented over certain
+[Private|Public|Utility]Context structs. This gives smart contract developers a much faster feedback loop if
+they're making a mistake, as an error will be thrown by the LSP or when they compile their contract.</p>
 </div>
 <h2>Fields</h2>
 <div id="structfield.inputs" class="struct-field"><code class="code-header">inputs: <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a></code></div>
@@ -309,31 +261,28 @@ to the user's account contract, so this quirk will most often be handled by acco
 <ul>
 <li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract
 or a user's account contract). Returns <code>Option&lt;AztecAddress&gt;::none</code> for the first function call of the tx. No
-other <em>private</em> function calls in the tx will have a <code>none</code> msg_sender, but <em>public</em> function calls might
-(see the PublicContext).</li>
+other <em>private</em> function calls in the tx will have a <code>none</code> msg_sender, but <em>public</em> function calls might (see
+the PublicContext).</li>
 </ul>
 </div>
 </div><code id="this_address" class="code-header">pub fn <a href="#this_address"><span class="fn">this_address</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the contract address of the current function being executed.</p>
-<p>This is equivalent to <code>address(this)</code> in Solidity (hence the name).
-Use this to identify the current contract's address, commonly needed for
-access control or when interacting with other contracts.</p>
+<p>This is equivalent to <code>address(this)</code> in Solidity (hence the name). Use this to identify the current contract's
+address, commonly needed for access control or when interacting with other contracts.</p>
 <h4>Returns</h4>
 <ul>
-<li><code>AztecAddress</code> - The contract address of the current function being
-executed.</li>
+<li><code>AztecAddress</code> - The contract address of the current function being executed.</li>
 </ul>
 </div>
 </div><code id="chain_id" class="code-header">pub fn <a href="#chain_id"><span class="fn">chain_id</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the chain ID of the current network.</p>
-<p>This is similar to <code>block.chainid</code> in Solidity. Returns the unique
-identifier for the blockchain network this transaction is executing on.</p>
-<p>Helps prevent cross-chain replay attacks. Useful if implementing
-multi-chain contract logic.</p>
+<p>This is similar to <code>block.chainid</code> in Solidity. Returns the unique identifier for the blockchain network this
+transaction is executing on.</p>
+<p>Helps prevent cross-chain replay attacks. Useful if implementing multi-chain contract logic.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>Field</code> - The chain ID as a field element</li>
@@ -342,9 +291,8 @@ multi-chain contract logic.</p>
 </div><code id="version" class="code-header">pub fn <a href="#version"><span class="fn">version</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the Aztec protocol version that this transaction is executing
-under. Different versions may have different rules, opcodes, or
-cryptographic primitives.</p>
+<p>Returns the Aztec protocol version that this transaction is executing under. Different versions may have
+different rules, opcodes, or cryptographic primitives.</p>
 <p>This is similar to how Ethereum has different EVM versions.</p>
 <p>Useful for forward/backward compatibility checks</p>
 <p>Not to be confused with contract versions; this is the protocol version.</p>
@@ -357,10 +305,9 @@ cryptographic primitives.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the gas settings for the current transaction.</p>
-<p>This provides information about gas limits and pricing for the
-transaction, similar to <code>tx.gasprice</code> and gas limits in Ethereum.
-However, Aztec has a more sophisticated gas model with separate
-accounting for L2 computation and data availability (DA) costs.</p>
+<p>This provides information about gas limits and pricing for the transaction, similar to <code>tx.gasprice</code> and gas
+limits in Ethereum. However, Aztec has a more sophisticated gas model with separate accounting for L2
+computation and data availability (DA) costs.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>GasSettings</code> - Struct containing gas limits and fee information</li>
@@ -370,30 +317,25 @@ accounting for L2 computation and data availability (DA) costs.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the function selector of the currently executing function.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need
-to access this.</p>
-<p>This is similar to <code>msg.sig</code> in Solidity, which returns the first 4
-bytes of the function signature. In Aztec, the selector uniquely
-identifies which function within the contract is being called.</p>
+<p>Low-level function: Ordinarily, smart contract developers will not need to access this.</p>
+<p>This is similar to <code>msg.sig</code> in Solidity, which returns the first 4 bytes of the function signature. In Aztec,
+the selector uniquely identifies which function within the contract is being called.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>FunctionSelector</code> - The 4-byte function identifier</li>
 </ul>
 <h4>Advanced</h4>
-<p>Only #[external(&quot;private&quot;)] functions have a function selector as a protocol-
-enshrined concept. The function selectors of private functions are
-baked into the preimage of the contract address, and are used by the
-protocol's kernel circuits to identify each private function and ensure
-the correct one is being executed.</p>
+<p>Only #[external(&quot;private&quot;)] functions have a function selector as a protocol- enshrined concept. The function
+selectors of private functions are baked into the preimage of the contract address, and are used by the
+protocol's kernel circuits to identify each private function and ensure the correct one is being executed.</p>
 <p>Used internally for function dispatch and call verification.</p>
 </div>
 </div><code id="get_args_hash" class="code-header">pub fn <a href="#get_args_hash"><span class="fn">get_args_hash</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the hash of the arguments passed to the current function.</p>
-<p>Very low-level function: You shouldn't need to call this. The #[external(&quot;private&quot;)]
-macro calls this, and it makes the arguments neatly available to the
-body of your private function.</p>
+<p>Very low-level function: You shouldn't need to call this. The #[external(&quot;private&quot;)] macro calls this, and it
+makes the arguments neatly available to the body of your private function.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>Field</code> - Hash of the function arguments</li>
@@ -408,78 +350,61 @@ body of your private function.</p>
 </div><code id="push_note_hash" class="code-header">pub fn <a href="#push_note_hash"><span class="fn">push_note_hash</span></a>(&mut self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Pushes a new note_hash to the Aztec blockchain's global Note Hash Tree
-(a state tree).</p>
+<p>Pushes a new note_hash to the Aztec blockchain's global Note Hash Tree (a state tree).</p>
 <p>A note_hash is a commitment to a piece of private state.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need
-to manually call this. Aztec-nr's state variables (see <code>../state_vars/</code>)
-are designed to understand when to create and push new note hashes.</p>
+<p>Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
+variables (see <code>../state_vars/</code>) are designed to understand when to create and push new note hashes.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>note_hash</code> - The new note_hash.</li>
 </ul>
 <h4>Advanced</h4>
-<p>From here, the protocol's kernel circuits will take over and insert the
-note_hash into the protocol's &quot;note hash tree&quot; (in the Base Rollup
-circuit).
-Before insertion, the protocol will:</p>
+<p>From here, the protocol's kernel circuits will take over and insert the note_hash into the protocol's &quot;note
+hash tree&quot; (in the Base Rollup circuit). Before insertion, the protocol will:</p>
 <ul>
-<li>&quot;Silo&quot; the <code>note_hash</code> with the contract address of this function,
-to yield a <code>siloed_note_hash</code>. This prevents state collisions
-between different smart contracts.</li>
-<li>Ensure uniqueness of the <code>siloed_note_hash</code>, to prevent Faerie-Gold
-attacks, by hashing the <code>siloed_note_hash</code> with a unique value, to
-yield a <code>unique_siloed_note_hash</code> (see the protocol spec for more).</li>
+<li>&quot;Silo&quot; the <code>note_hash</code> with the contract address of this function, to yield a <code>siloed_note_hash</code>. This
+prevents state collisions between different smart contracts.</li>
+<li>Ensure uniqueness of the <code>siloed_note_hash</code>, to prevent Faerie-Gold attacks, by hashing the
+<code>siloed_note_hash</code> with a unique value, to yield a <code>unique_siloed_note_hash</code> (see the protocol spec for more).</li>
 </ul>
-<p>In addition to calling this function, aztec-nr provides the contents
-of the newly-created note to the PXE, via the <code>notify_created_note</code>
-oracle.</p>
+<p>In addition to calling this function, aztec-nr provides the contents of the newly-created note to the PXE, via
+the <code>notify_created_note</code> oracle.</p>
 <blockquote>
-<p>Advanced users might occasionally wish to push data to the context
-directly for lower-level control. If you find yourself doing this,
-please open an issue on GitHub to describe your use case: it might be
-that new functionality should be added to aztec-nr.</p>
+<p>Advanced users might occasionally wish to push data to the context &gt; directly for lower-level control. If you
+find yourself doing this, &gt; please open an issue on GitHub to describe your use case: it might be &gt; that new
+functionality should be added to aztec-nr.</p>
 </blockquote>
 </div>
 </div><code id="push_nullifier" class="code-header">pub fn <a href="#push_nullifier"><span class="fn">push_nullifier</span></a>(&mut self, nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree
-(a state tree).</p>
+<p>Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree (a state tree).</p>
 <p>See also: <code>push_nullifier_for_note_hash</code>.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need
-to manually call this. Aztec-nr's state variables (see <code>../state_vars/</code>)
-are designed to understand when to create and push new nullifiers.</p>
-<p>A nullifier can only be emitted once. Duplicate nullifier insertions are
-rejected by the protocol.</p>
-<p>Generally, a nullifier is emitted to prevent an action from happening
-more than once, in such a way that the action cannot be linked (by an
-observer of the blockchain) to any earlier transactions.</p>
-<p>I.e. a nullifier is a random-looking, but deterministic record of a
-private, one-time action, which does not leak what action has been
-taken, and which preserves the property of &quot;tx unlinkability&quot;.</p>
-<p>Usually, a nullifier will be emitted to &quot;spend&quot; a note (a piece of
-private state), without revealing which specific note is being spent.</p>
+<p>Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
+variables (see <code>../state_vars/</code>) are designed to understand when to create and push new nullifiers.</p>
+<p>A nullifier can only be emitted once. Duplicate nullifier insertions are rejected by the protocol.</p>
+<p>Generally, a nullifier is emitted to prevent an action from happening more than once, in such a way that the
+action cannot be linked (by an observer of the blockchain) to any earlier transactions.</p>
+<p>I.e. a nullifier is a random-looking, but deterministic record of a private, one-time action, which does not
+leak what action has been taken, and which preserves the property of &quot;tx unlinkability&quot;.</p>
+<p>Usually, a nullifier will be emitted to &quot;spend&quot; a note (a piece of private state), without revealing which
+specific note is being spent.</p>
 <p>(Important: in such cases, use the below <code>push_nullifier_for_note_hash</code>).</p>
-<p>Sometimes, a nullifier might be emitted completely unrelated to any
-notes. Examples include initialization of a new contract; initialization
-of a PrivateMutable, or signalling in Semaphore-like applications.
-This <code>push_nullifier</code> function serves such use cases.</p>
+<p>Sometimes, a nullifier might be emitted completely unrelated to any notes. Examples include initialization of a
+new contract; initialization of a PrivateMutable, or signalling in Semaphore-like applications. This
+<code>push_nullifier</code> function serves such use cases.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>nullifier</code></li>
 </ul>
 <h4>Advanced</h4>
-<p>From here, the protocol's kernel circuits will take over and insert the
-nullifier into the protocol's &quot;nullifier tree&quot; (in the Base Rollup
-circuit).
-Before insertion, the protocol will:</p>
+<p>From here, the protocol's kernel circuits will take over and insert the nullifier into the protocol's
+&quot;nullifier tree&quot; (in the Base Rollup circuit). Before insertion, the protocol will:</p>
 <ul>
-<li>&quot;Silo&quot; the <code>nullifier</code> with the contract address of this function,
-to yield a <code>siloed_nullifier</code>. This prevents state collisions
-between different smart contracts.</li>
-<li>Ensure the <code>siloed_nullifier</code> is unique (the nullifier tree is an
-indexed merkle tree which supports efficient non-membership proofs).</li>
+<li>&quot;Silo&quot; the <code>nullifier</code> with the contract address of this function, to yield a <code>siloed_nullifier</code>. This
+prevents state collisions between different smart contracts.</li>
+<li>Ensure the <code>siloed_nullifier</code> is unique (the nullifier tree is an indexed merkle tree which supports
+efficient non-membership proofs).</li>
 </ul>
 </div>
 </div><code id="push_nullifier_for_note_hash" class="code-header">pub fn <a href="#push_nullifier_for_note_hash"><span class="fn">push_nullifier_for_note_hash</span></a>(
@@ -490,38 +415,31 @@ indexed merkle tree which supports efficient non-membership proofs).</li>
 
 <div class="padded-description"><div class="comments">
 <p>Pushes a nullifier that corresponds to a specific note hash.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need
-to manually call this. Aztec-nr's state variables (see <code>../state_vars/</code>)
-are designed to understand when to create and push new nullifiers.</p>
-<p>This is a specialized version of <code>push_nullifier</code> that links a nullifier
-to the specific note hash it's nullifying. This is the most common
-usage pattern for nullifiers.
-See <code>push_nullifier</code> for more explanation on nullifiers.</p>
+<p>Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
+variables (see <code>../state_vars/</code>) are designed to understand when to create and push new nullifiers.</p>
+<p>This is a specialized version of <code>push_nullifier</code> that links a nullifier to the specific note hash it's
+nullifying. This is the most common usage pattern for nullifiers. See <code>push_nullifier</code> for more explanation on
+nullifiers.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>nullifier</code></li>
 <li><code>nullified_note_hash</code> - The note hash of the note being nullified</li>
 </ul>
 <h4>Advanced</h4>
-<p>Important: usage of this function doesn't mean that the world will <em>see</em>
-that this nullifier relates to the given nullified_note_hash (as that
-would violate &quot;tx unlinkability&quot;); it simply informs the user's PXE
-about the relationship (via <code>notify_nullified_note</code>). The PXE can then
-use this information to feed hints to the kernel circuits for
-&quot;squashing&quot; purposes: If a note is nullified during the same tx which
-created it, we can &quot;squash&quot; (delete) the note and nullifier (and any
-private logs associated with the note), to save on data emission costs.</p>
+<p>Important: usage of this function doesn't mean that the world will <em>see</em> that this nullifier relates to the
+given nullified_note_hash (as that would violate &quot;tx unlinkability&quot;); it simply informs the user's PXE about
+the relationship (via <code>notify_nullified_note</code>). The PXE can then use this information to feed hints to the
+kernel circuits for &quot;squashing&quot; purposes: If a note is nullified during the same tx which created it, we can
+&quot;squash&quot; (delete) the note and nullifier (and any private logs associated with the note), to save on data
+emission costs.</p>
 </div>
 </div><code id="get_anchor_block_header" class="code-header">pub fn <a href="#get_anchor_block_header"><span class="fn">get_anchor_block_header</span></a>(self) -> <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the anchor block header - the historical block header that this
-private function is reading from.</p>
-<p>A private function CANNOT read from the &quot;current&quot; block header,
-but must read from some older block header, because as soon as
-private function execution begins (asynchronously, on a user's device),
-the public state of the chain (the &quot;current state&quot;) will have progressed
-forward.</p>
+<p>Returns the anchor block header - the historical block header that this private function is reading from.</p>
+<p>A private function CANNOT read from the &quot;current&quot; block header, but must read from some older block header,
+because as soon as private function execution begins (asynchronously, on a user's device), the public state of
+the chain (the &quot;current state&quot;) will have progressed forward.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>BlockHeader</code> - The anchor block header.</li>
@@ -529,54 +447,39 @@ forward.</p>
 <h4>Advanced</h4>
 <ul>
 <li>All private functions of a tx read from the same anchor block header.</li>
-<li>The protocol asserts that the <code>include_by_timestamp</code> of every tx
-is at most 24 hours beyond the timestamp of the tx's chosen anchor
-block header. This enables the network's nodes to safely prune old txs
-from the mempool. Therefore, the chosen block header <em>must</em> be one
-from within the last 24 hours.</li>
+<li>The protocol asserts that the <code>include_by_timestamp</code> of every tx is at most 24 hours beyond the timestamp of
+the tx's chosen anchor block header. This enables the network's nodes to safely prune old txs from the mempool.
+Therefore, the chosen block header <em>must</em> be one from within the last 24 hours.</li>
 </ul>
 </div>
 </div><code id="get_block_header_at" class="code-header">pub fn <a href="#get_block_header_at"><span class="fn">get_block_header_at</span></a>(self, block_number: <a href="../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the header of any historical block at or before the anchor
-block.</p>
-<p>This enables private contracts to access information from even older
-blocks than the anchor block header.</p>
-<p>Useful for time-based contract logic that needs to compare against
-multiple historical points.</p>
+<p>Returns the header of any historical block at or before the anchor block.</p>
+<p>This enables private contracts to access information from even older blocks than the anchor block header.</p>
+<p>Useful for time-based contract logic that needs to compare against multiple historical points.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>block_number</code> - The block number to retrieve (must be &lt;= anchor
-block number)</li>
+<li><code>block_number</code> - The block number to retrieve (must be &lt;= anchor block number)</li>
 </ul>
 <h4>Returns</h4>
 <ul>
 <li><code>BlockHeader</code> - The header of the requested historical block</li>
 </ul>
 <h4>Advanced</h4>
-<p>This function uses an oracle to fetch block header data from the user's
-PXE. Depending on how much blockchain data the user's PXE has been set
-up to store, this might require a query from the PXE to another Aztec
-node to get the data.</p>
-<blockquote>
-<p>This is generally true of all oracle getters (see <code>../oracle</code>).</p>
-</blockquote>
-<p>Each block header gets hashed and stored as a leaf in the protocol's
-Archive Tree. In fact, the i-th block header gets stored at the i-th
-leaf index of the Archive Tree. Behind the scenes, this
-<code>get_block_header_at</code> function will add Archive Tree merkle-membership
-constraints (~3k) to your smart contract function's circuit, to prove
-existence of the block header in the Archive Tree.</p>
-<p>Note: we don't do any caching, so avoid making duplicate calls for the
-same block header, because each call will add duplicate constraints.</p>
-<p>Calling this function is more expensive (constraint-wise) than getting
-the anchor block header (via <code>get_block_header</code>). This is because the
-anchor block's merkle membership proof is handled by Aztec's protocol
-circuits, and is only performed once for the entire tx because all
-private functions of a tx share a common anchor block header. Therefore,
-the cost (constraint-wise) of calling <code>get_block_header</code> is effectively
-free.</p>
+<p>This function uses an oracle to fetch block header data from the user's PXE. Depending on how much blockchain
+data the user's PXE has been set up to store, this might require a query from the PXE to another Aztec node to
+get the data. &gt; This is generally true of all oracle getters (see <code>../oracle</code>).</p>
+<p>Each block header gets hashed and stored as a leaf in the protocol's Archive Tree. In fact, the i-th block
+header gets stored at the i-th leaf index of the Archive Tree. Behind the scenes, this <code>get_block_header_at</code>
+function will add Archive Tree merkle-membership constraints (~3k) to your smart contract function's circuit,
+to prove existence of the block header in the Archive Tree.</p>
+<p>Note: we don't do any caching, so avoid making duplicate calls for the same block header, because each call
+will add duplicate constraints.</p>
+<p>Calling this function is more expensive (constraint-wise) than getting the anchor block header (via
+<code>get_block_header</code>). This is because the anchor block's merkle membership proof is handled by Aztec's protocol
+circuits, and is only performed once for the entire tx because all private functions of a tx share a common
+anchor block header. Therefore, the cost (constraint-wise) of calling <code>get_block_header</code> is effectively free.</p>
 </div>
 </div><code id="set_return_hash" class="code-header">pub fn <a href="#set_return_hash"><span class="fn">set_return_hash</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, serialized_return_values: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N])</code>
 
@@ -591,24 +494,19 @@ free.</p>
 </div><code id="finish" class="code-header">pub fn <a href="#finish"><span class="fn">finish</span></a>(self) -> <a href="../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Builds the PrivateCircuitPublicInputs for this private function, to
-ensure compatibility with the protocol's kernel circuits.</p>
-<p>Very low-level function: This function is automatically called by the
-#[external(&quot;private&quot;)] macro.</p>
+<p>Builds the PrivateCircuitPublicInputs for this private function, to ensure compatibility with the protocol's
+kernel circuits.</p>
+<p>Very low-level function: This function is automatically called by the #[external(&quot;private&quot;)] macro.</p>
 </div>
 </div><code id="set_as_fee_payer" class="code-header">pub fn <a href="#set_as_fee_payer"><span class="fn">set_as_fee_payer</span></a>(&mut self)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Designates this contract as the fee payer for the transaction.</p>
-<p>Unlike Ethereum, where the transaction sender always pays fees, Aztec
-allows any contract to voluntarily pay transaction fees. This enables
-patterns like sponsored transactions or fee abstraction where users
-don't need to hold fee-juice themselves. (Fee juice is a fee-paying
-asset for Aztec).</p>
-<p>Only one contract per transaction can declare itself as the fee payer,
-and it must have sufficient fee-juice balance (&gt;= the gas limits
-specified in the TxContext) by the time we reach the public setup phase
-of the tx.</p>
+<p>Unlike Ethereum, where the transaction sender always pays fees, Aztec allows any contract to voluntarily pay
+transaction fees. This enables patterns like sponsored transactions or fee abstraction where users don't need
+to hold fee-juice themselves. (Fee juice is a fee-paying asset for Aztec).</p>
+<p>Only one contract per transaction can declare itself as the fee payer, and it must have sufficient fee-juice
+balance (&gt;= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.</p>
 </div>
 </div><code id="in_revertible_phase" class="code-header">pub fn <a href="#in_revertible_phase"><span class="fn">in_revertible_phase</span></a>(&mut self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
@@ -617,69 +515,55 @@ of the tx.</p>
 <div class="padded-description"><div class="comments">
 <p>Declares the end of the &quot;setup phase&quot; of this tx.</p>
 <p>Only one function per tx can declare the end of the setup phase.</p>
-<p>Niche function: Only wallet developers and paymaster contract developers
-(aka Fee-payment contracts) will need to make use of this function.</p>
-<p>Aztec supports a three-phase execution model: setup, app logic, teardown.
-The phases exist to enable a fee payer to take on the risk of paying
-a transaction fee, safe in the knowledge that their payment (in whatever
-token or method the user chooses) will succeed, regardless of whether
-the app logic will succeed. The &quot;setup&quot; phase enables such a payment to
-be made, because the setup phase <em>cannot revert</em>: a reverting function
-within the setup phase would result in an invalid block which cannot
-be proven. Any side-effects generated during that phase are guaranteed
-to be inserted into Aztec's state trees (except for squashed notes &amp;
-nullifiers, of course).</p>
-<p>Even though the end of the setup phase is declared within a private
-function, you might have noticed that <em>public</em> functions can also
-execute within the setup phase. This is because any public function
-calls which were enqueued <em>within the setup phase</em> by a private
-function are considered part of the setup phase.</p>
+<p>Niche function: Only wallet developers and paymaster contract developers (aka Fee-payment contracts) will need
+to make use of this function.</p>
+<p>Aztec supports a three-phase execution model: setup, app logic, teardown. The phases exist to enable a fee
+payer to take on the risk of paying a transaction fee, safe in the knowledge that their payment (in whatever
+token or method the user chooses) will succeed, regardless of whether the app logic will succeed. The &quot;setup&quot;
+phase enables such a payment to be made, because the setup phase <em>cannot revert</em>: a reverting function within
+the setup phase would result in an invalid block which cannot be proven. Any side-effects generated during that
+phase are guaranteed to be inserted into Aztec's state trees (except for squashed notes &amp; nullifiers, of
+course).</p>
+<p>Even though the end of the setup phase is declared within a private function, you might have noticed that
+<em>public</em> functions can also execute within the setup phase. This is because any public function calls which
+were enqueued <em>within the setup phase</em> by a private function are considered part of the setup phase.</p>
 <h4>Advanced</h4>
 <ul>
-<li>Sets the minimum revertible side effect counter of this tx to be the
-PrivateContext's <em>current</em> side effect counter.</li>
+<li>Sets the minimum revertible side effect counter of this tx to be the PrivateContext's <em>current</em> side effect
+counter.</li>
 </ul>
 </div>
 </div><code id="set_include_by_timestamp" class="code-header">pub fn <a href="#set_include_by_timestamp"><span class="fn">set_include_by_timestamp</span></a>(&mut self, include_by_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Sets a deadline (an &quot;include-by timestamp&quot;) for when this transaction
-must be included in a block.</p>
-<p>Other functions in this tx might call this setter with differing
-values for the include-by timestamp. To ensure that all functions'
-deadlines are met, the <em>minimum</em> of all these include-by timestamps will
-be exposed when this tx is submitted to the network.</p>
-<p>If the transaction is not included in a block by its include-by
-timestamp, it becomes invalid and it will never be included.</p>
-<p>This expiry timestamp is publicly visible. See the &quot;Advanced&quot; section
-for privacy concerns.</p>
+<p>Sets a deadline (an &quot;include-by timestamp&quot;) for when this transaction must be included in a block.</p>
+<p>Other functions in this tx might call this setter with differing values for the include-by timestamp. To ensure
+that all functions' deadlines are met, the <em>minimum</em> of all these include-by timestamps will be exposed when
+this tx is submitted to the network.</p>
+<p>If the transaction is not included in a block by its include-by timestamp, it becomes invalid and it will never
+be included.</p>
+<p>This expiry timestamp is publicly visible. See the &quot;Advanced&quot; section for privacy concerns.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>include_by_timestamp</code> - Unix timestamp (seconds) deadline for inclusion.
-The include-by timestamp of this tx will be
-<em>at most</em> the timestamp specified.</li>
+<li><code>include_by_timestamp</code> - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
+will be <em>at most</em> the timestamp specified.</li>
 </ul>
 <h4>Advanced</h4>
 <ul>
-<li>If multiple functions set differing <code>include_by_timestamp</code>s, the
-kernel circuits will set it to be the <em>minimum</em> of the two. This
-ensures the tx expiry requirements of all functions in the tx are met.</li>
+<li>If multiple functions set differing <code>include_by_timestamp</code>s, the kernel circuits will set it to be the
+<em>minimum</em> of the two. This ensures the tx expiry requirements of all functions in the tx are met.</li>
 <li>Rollup circuits will reject expired txs.</li>
-<li>The protocol enforces that all transactions must be included within
-24 hours of their chosen anchor block's timestamp, to enable safe
-mempool pruning.</li>
-<li>The DelayedPublicMutable design makes heavy use of this functionality,
-to enable private functions to read public state.</li>
-<li>A sophisticated Wallet should cleverly set an include-by timestamp
-to improve the privacy of the user and the network as a whole.
-For example, if a contract interaction sets include-by to some
-publicly-known value (e.g. the time when a contract upgrades), then
-the wallet might wish to set an even lower one to avoid revealing that
-this tx is interacting with said contract.
-Ideally, all wallets should standardize on an approach in order to
+<li>The protocol enforces that all transactions must be included within 24 hours of their chosen anchor block's
+timestamp, to enable safe mempool pruning.</li>
+<li>The DelayedPublicMutable design makes heavy use of this functionality, to enable private functions to read
+public state.</li>
+<li>A sophisticated Wallet should cleverly set an include-by timestamp to improve the privacy of the user and the
+network as a whole. For example, if a contract interaction sets include-by to some publicly-known value (e.g.
+the time when a contract upgrades), then the wallet might wish to set an even lower one to avoid revealing that
+this tx is interacting with said contract. Ideally, all wallets should standardize on an approach in order to
 provide users with a large anonymity set -- although the exact approach
-will need to be discussed. Wallets that deviate from a standard might
-accidentally reveal which wallet each transaction originates from.</li>
+will need to be discussed. Wallets that deviate from a standard might accidentally reveal which wallet each
+transaction originates from.</li>
 </ul>
 </div>
 </div><code id="assert_note_exists" class="code-header">pub fn <a href="#assert_note_exists"><span class="fn">assert_note_exists</span></a>(&mut self, note_existence_request: <a href="../../noir_aztec/context/struct.NoteExistenceRequest.html" class="struct">NoteExistenceRequest</a>)</code>
@@ -693,9 +577,8 @@ mechanism for performing this check, and the only one that works for pending not
 be considered by this function. Pending notes must have been created <strong>before</strong> this call is made for the check
 to pass.</p>
 <h4>Historical Notes</h4>
-<p>If you need to assert that a note existed <em>at some specific time in the past</em>, instead of simply proving that it
-exists in the current anchor block, use
-<a href="../../noir_aztec/history/note_inclusion/trait.ProveNoteInclusion.html#prove_note_inclusion">crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion</a> instead.</p>
+<p>If you need to assert that a note existed <em>by some specific block in the past</em>, instead of simply proving that
+it exists by the current anchor block, use <a href="../../noir_aztec/history/note/fn.assert_note_existed_by.html"><code>crate::history::note::assert_note_existed_by</code></a> instead.</p>
 <h4>Cost</h4>
 <p>This uses up one of the call's kernel note hash read requests, which are limited. Like all kernel requests,
 proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
@@ -711,12 +594,12 @@ an additional invocation of the kernel reset circuit.</p></div>
 mechanism for performing this check, and the only one that works for pending nullifiers.</p>
 <h4>Pending Nullifiers</h4>
 <p>Both settled nullifiers (emitted in prior transactions) and pending nullifiers (emitted in the current
-transaction) will be considered by this function. Pending nullifiers must have been emitted <strong>before</strong> this call
-is made for the check to pass.</p>
+transaction) will be considered by this function. Pending nullifiers must have been emitted <strong>before</strong> this
+call is made for the check to pass.</p>
 <h4>Historical Nullifiers</h4>
-<p>If you need to assert that a nullifier existed <em>at some specific time in the past</em>, instead of simply proving
-that it exists in the current anchor block, use
-<a href="../../noir_aztec/history/nullifier_inclusion/trait.ProveNullifierInclusion.html#prove_nullifier_inclusion">crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion</a> instead.</p>
+<p>If you need to assert that a nullifier existed <em>by some specific block in the past</em>, instead of simply proving
+that it exists by the current anchor block, use <a href="../../noir_aztec/history/nullifier/fn.assert_nullifier_existed_by.html"><code>crate::history::nullifier::assert_nullifier_existed_by</code></a>
+instead.</p>
 <h4>Public vs Private</h4>
 <p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
 possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
@@ -724,7 +607,7 @@ block. Private functions instead prove existence via this function and 'prove' n
 nullifer, which would cause the transaction to fail if the nullifier existed.</p>
 <p>This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
 prove whether a nullifier exists or not via
-<a href="../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe">crate::context::public_context::PublicContext::nullifier_exists_unsafe</a>.</p>
+<a href="../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe"><code>crate::context::public_context::PublicContext::nullifier_exists_unsafe</code></a>.</p>
 <h4>Cost</h4>
 <p>This uses up one of the call's kernel nullifier read requests, which are limited. Like all kernel requests,
 proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
@@ -732,58 +615,44 @@ an additional invocation of the kernel reset circuit.</p></div>
 </div><code id="request_nsk_app" class="code-header">pub fn <a href="#request_nsk_app"><span class="fn">request_nsk_app</span></a>(&mut self, npk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests the app-siloed nullifier secret key (nsk_app) for the given
-(hashed) master nullifier public key (npk_m), from the user's PXE.</p>
-<p>Advanced function: Only needed if you're designing your own notes and/or
-nullifiers.</p>
-<p>Contracts are not allowed to compute nullifiers for other contracts, as
-that would let them read parts of their private state. Because of this,
-a contract is only given an &quot;app-siloed secret key&quot;, which is
-constructed by hashing the user's master nullifier secret key with the
-contract's address.
-However, because contracts cannot be trusted with a user's master
-nullifier secret key (because we don't know which contracts are honest
-or malicious), the PXE refuses to provide any master secret keys to
-any app smart contract function. This means app functions are unable to
-prove that the derivation of an app-siloed nullifier secret key has been
-computed correctly. Instead, an app function can request to the kernel
-(via <code>request_nsk_app</code>) that it validates the siloed derivation, since
-the kernel has been vetted to not leak any master secret keys.</p>
-<p>A common nullification scheme is to inject a nullifier secret key into
-the preimage of a nullifier, to make the nullifier deterministic but
-random-looking. This function enables that flow.</p>
+<p>Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
+(npk_m), from the user's PXE.</p>
+<p>Advanced function: Only needed if you're designing your own notes and/or nullifiers.</p>
+<p>Contracts are not allowed to compute nullifiers for other contracts, as that would let them read parts of their
+private state. Because of this, a contract is only given an &quot;app-siloed secret key&quot;, which is constructed by
+hashing the user's master nullifier secret key with the contract's address. However, because contracts cannot
+be trusted with a user's master nullifier secret key (because we don't know which contracts are honest or
+malicious), the PXE refuses to provide any master secret keys to any app smart contract function. This means
+app functions are unable to prove that the derivation of an app-siloed nullifier secret key has been computed
+correctly. Instead, an app function can request to the kernel (via <code>request_nsk_app</code>) that it validates the
+siloed derivation, since the kernel has been vetted to not leak any master secret keys.</p>
+<p>A common nullification scheme is to inject a nullifier secret key into the preimage of a nullifier, to make the
+nullifier deterministic but random-looking. This function enables that flow.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>npk_m_hash</code> - A hash of the master nullifier public key of the user
-whose PXE is executing this function.</li>
+<li><code>npk_m_hash</code> - A hash of the master nullifier public key of the user whose PXE is executing this function.</li>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li>The app-siloed nullifier secret key that corresponds to the given
-<code>npk_m_hash</code>.</li>
+<li>The app-siloed nullifier secret key that corresponds to the given <code>npk_m_hash</code>.</li>
 </ul>
 </div>
 </div><code id="request_ovsk_app" class="code-header">pub fn <a href="#request_ovsk_app"><span class="fn">request_ovsk_app</span></a>(&mut self, ovpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests the app-siloed nullifier secret key (nsk_app) for the given
-(hashed) master nullifier public key (npk_m), from the user's PXE.</p>
+<p>Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
+(npk_m), from the user's PXE.</p>
 <p>See <code>request_nsk_app</code> and <code>request_sk_app</code> for more info.</p>
-<p>The intention of the &quot;outgoing&quot; keypair is to provide a second secret
-key for all of a user's outgoing activity (i.e. for notes that a user
-creates, as opposed to notes that a user receives from others). The
-separation of incoming and outgoing data was a distinction made by
-zcash, with the intention of enabling a user to optionally share with a
-3rd party a controlled view of only incoming or outgoing notes.
-Similar functionality of sharing select data can be achieved with
-offchain zero-knowledge proofs. It is up to an app developer whether
-they choose to make use of a user's outgoing keypair within their
-application logic, or instead simply use the same keypair (the address
-keypair (which is effectively the same as the &quot;incoming&quot; keypair)) for
-all incoming &amp; outgoing messages to a user.</p>
-<p>Currently, all of the exposed encryption functions in aztec-nr ignore
-the outgoing viewing keys, and instead encrypt all note logs and event
-logs to a user's address public key.</p>
+<p>The intention of the &quot;outgoing&quot; keypair is to provide a second secret key for all of a user's outgoing activity
+(i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
+incoming and outgoing data was a distinction made by zcash, with the intention of enabling a user to optionally
+share with a 3rd party a controlled view of only incoming or outgoing notes. Similar functionality of sharing
+select data can be achieved with offchain zero-knowledge proofs. It is up to an app developer whether they
+choose to make use of a user's outgoing keypair within their application logic, or instead simply use the same
+keypair (the address keypair (which is effectively the same as the &quot;incoming&quot; keypair)) for all incoming &amp;
+outgoing messages to a user.</p>
+<p>Currently, all of the exposed encryption functions in aztec-nr ignore the outgoing viewing keys, and instead
+encrypt all note logs and event logs to a user's address public key.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>ovpk_m_hash</code> - Hash of the outgoing viewing public key master</li>
@@ -796,29 +665,22 @@ logs to a user's address public key.</p>
 </div><code id="message_portal" class="code-header">pub fn <a href="#message_portal"><span class="fn">message_portal</span></a>(&mut self, recipient: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>, content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Sends an &quot;L2 -&gt; L1 message&quot; from this function (Aztec, L2) to a smart
-contract on Ethereum (L1). L1 contracts which are designed to
-send/receive messages to/from Aztec are called &quot;Portal Contracts&quot;.</p>
-<p>Common use cases include withdrawals, cross-chain asset transfers, and
-triggering L1 actions based on L2 state changes.</p>
-<p>The message will be inserted into an Aztec &quot;Outbox&quot; contract on L1,
-when this transaction's block is proposed to L1.
-Sending the message will not result in any immediate state changes in
-the target portal contract. The message will need to be manually
-consumed from the Outbox through a separate Ethereum transaction: a user
-will need to call a function of the portal contract -- a function
-specifically designed to make a call to the Outbox to consume the
-message.
-The message will only be available for consumption once the <em>epoch</em>
-proof has been submitted. Given that there are multiple Aztec blocks
-within an epoch, it might take some time for this epoch proof to be
-submitted -- especially if the block was near the start of an epoch.</p>
+<p>Sends an &quot;L2 -&gt; L1 message&quot; from this function (Aztec, L2) to a smart contract on Ethereum (L1). L1 contracts
+which are designed to send/receive messages to/from Aztec are called &quot;Portal Contracts&quot;.</p>
+<p>Common use cases include withdrawals, cross-chain asset transfers, and triggering L1 actions based on L2 state
+changes.</p>
+<p>The message will be inserted into an Aztec &quot;Outbox&quot; contract on L1, when this transaction's block is proposed
+to L1. Sending the message will not result in any immediate state changes in the target portal contract. The
+message will need to be manually consumed from the Outbox through a separate Ethereum transaction: a user will
+need to call a function of the portal contract -- a function specifically designed to make a call to the Outbox
+to consume the message. The message will only be available for consumption once the <em>epoch</em> proof has been
+submitted. Given that there are multiple Aztec blocks within an epoch, it might take some time for this epoch
+proof to be submitted -- especially if the block was near the start of an epoch.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>recipient</code> - Ethereum address that will receive the message</li>
-<li><code>content</code> - Message content (32 bytes as a Field element).
-This content has a very specific layout.
-docs:start:context_message_portal</li>
+<li><code>content</code> - Message content (32 bytes as a Field element). This content has a very
+specific layout. docs:start:context_message_portal</li>
 </ul>
 </div>
 </div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>(
@@ -831,23 +693,16 @@ docs:start:context_message_portal</li>
 
 <div class="padded-description"><div class="comments">
 <p>Consumes a message sent from Ethereum (L1) to Aztec (L2).</p>
-<p>Common use cases include token bridging, cross-chain governance, and
-triggering L2 actions based on L1 events.</p>
-<p>Use this function if you only want the message to ever be &quot;referred to&quot;
-once. Once consumed using this method, the message cannot be consumed
-again, because a nullifier is emitted.
-If your use case wants for the message to be read unlimited times, then
-you can always read any historic message from the L1-to-L2 messages tree;
+<p>Common use cases include token bridging, cross-chain governance, and triggering L2 actions based on L1 events.</p>
+<p>Use this function if you only want the message to ever be &quot;referred to&quot; once. Once consumed using this method,
+the message cannot be consumed again, because a nullifier is emitted. If your use case wants for the message to
+be read unlimited times, then you can always read any historic message from the L1-to-L2 messages tree;
 messages never technically get deleted from that tree.</p>
-<p>The message will first be inserted into an Aztec &quot;Inbox&quot; smart contract
-on L1.
-Sending the message will not result in any immediate state changes in
-the target L2 contract. The message will need to be manually
-consumed by the target contract through a separate Aztec transaction.
-The message will not be available for consumption immediately. Messages
-get copied over from the L1 Inbox to L2 by the next Proposer in batches.
-So you will need to wait until the messages are copied before you can
-consume them.</p>
+<p>The message will first be inserted into an Aztec &quot;Inbox&quot; smart contract on L1. Sending the message will not
+result in any immediate state changes in the target L2 contract. The message will need to be manually consumed
+by the target contract through a separate Aztec transaction. The message will not be available for consumption
+immediately. Messages get copied over from the L1 Inbox to L2 by the next Proposer in batches. So you will need
+to wait until the messages are copied before you can consume them.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>content</code> - The message content that was sent from L1</li>
@@ -856,68 +711,49 @@ consume them.</p>
 <li><code>leaf_index</code> - Index of the message in the L1-to-L2 message tree</li>
 </ul>
 <h4>Advanced</h4>
-<p>Validates message existence in the L1-to-L2 message tree and nullifies
-the message to prevent double-consumption.</p>
+<p>Validates message existence in the L1-to-L2 message tree and nullifies the message to prevent
+double-consumption.</p>
 </div>
 </div><code id="emit_private_log" class="code-header">pub fn <a href="#emit_private_log"><span class="fn">emit_private_log</span></a>(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Emits a private log (an array of Fields) that will be published to an
-Ethereum blob.</p>
-<p>Private logs are intended for the broadcasting of ciphertexts: that is,
-encrypted events or encrypted note contents.
-Since the data in the logs is meant to be <em>encrypted</em>, private_logs are
-broadcast to publicly-visible Ethereum blobs.
-The intended recipients of such encrypted messages can then discover and
-decrypt these encrypted logs using their viewing secret key.
-(See <code>../messages/discovery</code> for more details).</p>
-<p>Important note: This function DOES NOT <em>do</em> any encryption of the input
-<code>log</code> fields. This function blindly publishes whatever input <code>log</code> data
-is fed into it, so the caller of this function should have already
-performed the encryption, and the <code>log</code> should be the result of that
-encryption.</p>
-<p>The protocol does not dictate what encryption scheme should be used:
-a smart contract developer can choose whatever encryption scheme they
-like.
-Aztec-nr includes some off-the-shelf encryption libraries that
-developers might wish to use, for convenience. These libraries not only
-encrypt a plaintext (to produce a ciphertext); they also prepend the
-ciphertext with a <code>tag</code> and <code>ephemeral public key</code> for easier message
-discovery. This is a very dense topic, and we will be writing more
-libraries and docs soon.</p>
+<p>Emits a private log (an array of Fields) that will be published to an Ethereum blob.</p>
+<p>Private logs are intended for the broadcasting of ciphertexts: that is, encrypted events or encrypted note
+contents. Since the data in the logs is meant to be <em>encrypted</em>, private_logs are broadcast to publicly-visible
+Ethereum blobs. The intended recipients of such encrypted messages can then discover and decrypt these
+encrypted logs using their viewing secret key. (See <code>../messages/discovery</code> for more details).</p>
+<p>Important note: This function DOES NOT <em>do</em> any encryption of the input <code>log</code> fields. This function blindly
+publishes whatever input <code>log</code> data is fed into it, so the caller of this function should have already
+performed the encryption, and the <code>log</code> should be the result of that encryption.</p>
+<p>The protocol does not dictate what encryption scheme should be used: a smart contract developer can choose
+whatever encryption scheme they like. Aztec-nr includes some off-the-shelf encryption libraries that developers
+might wish to use, for convenience. These libraries not only encrypt a plaintext (to produce a ciphertext);
+they also prepend the ciphertext with a <code>tag</code> and <code>ephemeral public key</code> for easier message discovery. This is
+a very dense topic, and we will be writing more libraries and docs soon.</p>
 <blockquote>
-<p>Currently, AES128 CBC encryption is the main scheme included in
-aztec.nr.
-We are currently making significant changes to the interfaces of the
-encryption library.</p>
+<p>Currently, AES128 CBC encryption is the main scheme included in &gt; aztec.nr. &gt; We are currently making
+significant changes to the interfaces of the &gt; encryption library.</p>
 </blockquote>
-<p>In some niche use cases, an app might be tempted to publish
-<em>un-encrypted</em> data via a private log, because <em>public logs</em> are not
-available to private functions. Be warned that emitting public data via
-private logs is strongly discouraged, and is considered a &quot;privacy
-anti-pattern&quot;, because it reveals identifiable information about <em>which</em>
-function has been executed. A tx which leaks such information does not
-contribute to the privacy set of the network.</p>
+<p>In some niche use cases, an app might be tempted to publish <em>un-encrypted</em> data via a private log, because
+<em>public logs</em> are not available to private functions. Be warned that emitting public data via private logs is
+strongly discouraged, and is considered a &quot;privacy anti-pattern&quot;, because it reveals identifiable information
+about <em>which</em> function has been executed. A tx which leaks such information does not contribute to the privacy
+set of the network.</p>
 <ul>
 <li>Unlike <code>emit_raw_note_log</code>, this log is not tied to any specific note</li>
 </ul>
 <h4>Arguments</h4>
 <ul>
-<li><code>log</code> - The log data that will be publicly broadcast (so make sure
-it's already been encrypted before you call this function).
-Private logs are bounded in size (PRIVATE_LOG_SIZE_IN_FIELDS), to
-encourage all logs from all smart contracts look identical.</li>
-<li><code>length</code> - The actual length of the <code>log</code> (measured in number of
-Fields). Although the input log has a max size of
-PRIVATE_LOG_SIZE_IN_FIELDS, the latter values of the array might all
-be 0's for small logs. This <code>length</code> should reflect the trimmed length
-of the array. The protocol's kernel circuits can then append random
-fields as &quot;padding&quot; after the <code>length</code>, so that the logs of this
-smart contract look indistinguishable from (the same length as) the
-logs of all other applications. It's up to wallets how much padding
-to apply, so ideally all wallets should agree on standards for this.</li>
+<li><code>log</code> - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
+call this function). Private logs are bounded in size (PRIVATE_LOG_SIZE_IN_FIELDS), to encourage all logs from
+all smart contracts look identical.</li>
+<li><code>length</code> - The actual length of the <code>log</code> (measured in number of Fields). Although the input log has a max
+size of PRIVATE_LOG_SIZE_IN_FIELDS, the latter values of the array might all be 0's for small logs. This
+<code>length</code> should reflect the trimmed length of the array. The protocol's kernel circuits can then append random
+fields as &quot;padding&quot; after the <code>length</code>, so that the logs of this smart contract look indistinguishable from
+(the same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
+ideally all wallets should agree on standards for this.</li>
 </ul>
-<h4>Advanced</h4>
 </div>
 </div><code id="emit_raw_note_log" class="code-header">pub fn <a href="#emit_raw_note_log"><span class="fn">emit_raw_note_log</span></a>(
     &mut self,
@@ -927,22 +763,20 @@ to apply, so ideally all wallets should agree on standards for this.</li>
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Emits a private log that is explicitly tied to a newly-emitted note_hash,
-to convey to the kernel: &quot;this log relates to this note&quot;.</p>
-<p>This linkage is important in case the note gets squashed (due to being
-read later in this same tx), since we can then squash the log as well.</p>
+<p>Emits a private log that is explicitly tied to a newly-emitted note_hash, to convey to the kernel: &quot;this log
+relates to this note&quot;.</p>
+<p>This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
+can then squash the log as well.</p>
 <p>See <code>emit_private_log</code> for more info about private log emission.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>log</code> - The log data as an array of Field elements</li>
-<li><code>length</code> - The actual length of the <code>log</code> (measured in number of
-Fields).</li>
-<li><code>note_hash_counter</code> - The side-effect counter that was assigned to the
-new note_hash when it was pushed to this</li>
+<li><code>length</code> - The actual length of the <code>log</code> (measured in number of Fields).</li>
+<li><code>note_hash_counter</code> - The side-effect counter that was assigned to the new note_hash when it was pushed to
+this <code>PrivateContext</code>.</li>
 </ul>
-<p>Important: If your application logic requires the log to always be
-emitted regardless of note squashing, consider using <code>emit_private_log</code>
-instead, or emitting additional events.</p>
+<p>Important: If your application logic requires the log to always be emitted regardless of note squashing,
+consider using <code>emit_private_log</code> instead, or emitting additional events.</p>
 </div>
 </div><code id="emit_contract_class_log" class="code-header">pub fn <a href="#emit_contract_class_log"><span class="fn">emit_contract_class_log</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N])</code>
 
@@ -964,57 +798,41 @@ instead, or emitting additional events.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>ReturnsHash</code> - Hash of the called function's return values. Use
-<code>.get_preimage()</code> to extract the actual return values.</li>
+<li><code>ReturnsHash</code> - Hash of the called function's return values. Use <code>.get_preimage()</code> to extract the actual
+return values.</li>
 </ul>
-<p>This enables contracts to interact with each other while maintaining
-privacy. This &quot;composability&quot; of private contract functions is a key
-feature of the Aztec network.</p>
-<p>If a user's transaction includes multiple private function calls, then
-by the design of Aztec, the following information will remain private[1]:</p>
+<p>This enables contracts to interact with each other while maintaining privacy. This &quot;composability&quot; of private
+contract functions is a key feature of the Aztec network.</p>
+<p>If a user's transaction includes multiple private function calls, then by the design of Aztec, the following
+information will remain private[1]:</p>
 <ul>
-<li>The function selectors and contract addresses of all private function
-calls will remain private, so an observer of the public mempool will
-not be able to look at a tx and deduce which private functions have
-been executed.</li>
-<li>The arguments and return values of all private function calls will
-remain private.</li>
+<li>The function selectors and contract addresses of all private function calls will remain private, so an
+observer of the public mempool will not be able to look at a tx and deduce which private functions have been
+executed.</li>
+<li>The arguments and return values of all private function calls will remain private.</li>
 <li>The person who initiated the tx will remain private.</li>
-<li>The notes and nullifiers and private logs that are emitted by all
-private function calls will (if designed well) not leak any user
-secrets, nor leak which functions have been executed.</li>
+<li>The notes and nullifiers and private logs that are emitted by all private function calls will (if designed
+well) not leak any user secrets, nor leak which functions have been executed.</li>
 </ul>
-<p>[1] Caveats: Some of these privacy guarantees depend on how app
-developers design their smart contracts. Some actions <em>can</em> leak
-information, such as:</p>
+<p>[1] Caveats: Some of these privacy guarantees depend on how app developers design their smart contracts. Some
+actions <em>can</em> leak information, such as:</p>
 <ul>
 <li>Calling an internal public function.</li>
-<li>Calling a public function and not setting msg_sender to Option::none
-(feature not built yet - see github).</li>
-<li>Calling any public function will always leak details about the nature
-of the transaction, so devs should be careful in their contract
-designs. If it can be done in a private function, then that will give
-the best privacy.</li>
-<li>Not padding the side-effects of a tx to some standardized, uniform
-size. The kernel circuits can take hints to pad side-effects, so a
-wallet should be able to request for a particular amount of padding.
-Wallets should ideally agree on some standard.
-<ul>
-<li>Padding should include:
-<ul>
+<li>Calling a public function and not setting msg_sender to Option::none (feature not built yet - see github).</li>
+<li>Calling any public function will always leak details about the nature of the transaction, so devs should be
+careful in their contract designs. If it can be done in a private function, then that will give the best
+privacy.</li>
+<li>Not padding the side-effects of a tx to some standardized, uniform size. The kernel circuits can take hints
+to pad side-effects, so a wallet should be able to request for a particular amount of padding. Wallets should
+ideally agree on some standard.</li>
+<li>Padding should include:</li>
 <li>Padding the lengths of note &amp; nullifier arrays</li>
-<li>Padding private logs with random fields, up to some standardized
-size.
-See also: <a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li>Padding private logs with random fields, up to some standardized size. See also:
+<a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></li>
 </ul>
 <h4>Advanced</h4>
 <ul>
-<li>The call is added to the private call stack and executed by kernel
-circuits after this function completes</li>
+<li>The call is added to the private call stack and executed by kernel circuits after this function completes</li>
 <li>The called function can modify its own contract's private state</li>
 <li>Side effects from the called function are included in this transaction</li>
 <li>The call inherits the current transaction's context and gas limits</li>
@@ -1029,11 +847,9 @@ circuits after this function completes</li>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a read-only call to a private function on another contract.</p>
-<p>This is similar to Solidity's <code>staticcall</code>. The called function
-cannot modify state, emit L2-&gt;L2 messages, nor emit events. Any nested
-calls are constrained to also be staticcalls.</p>
-<p>See <code>call_private_function</code> for more general info on private function
-calls.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function cannot modify state, emit L2-&gt;L2 messages, nor
+emit events. Any nested calls are constrained to also be staticcalls.</p>
+<p>See <code>call_private_function</code> for more general info on private function calls.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract to call</li>
@@ -1042,8 +858,8 @@ calls.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>ReturnsHash</code> - Hash of the called function's return values. Use
-<code>.get_preimage()</code> to extract the actual return values.</li>
+<li><code>ReturnsHash</code> - Hash of the called function's return values. Use <code>.get_preimage()</code> to extract the actual
+return values.</li>
 </ul>
 </div>
 </div><code id="call_private_function_no_args" class="code-header">pub fn <a href="#call_private_function_no_args"><span class="fn">call_private_function_no_args</span></a>(
@@ -1054,9 +870,8 @@ calls.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Calls a private function that takes no arguments.</p>
-<p>This is a convenience function for calling private functions that don't
-require any input parameters. It's equivalent to <code>call_private_function</code>
-but slightly more efficient to use when no arguments are needed.</p>
+<p>This is a convenience function for calling private functions that don't require any input parameters. It's
+equivalent to <code>call_private_function</code> but slightly more efficient to use when no arguments are needed.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
@@ -1064,8 +879,8 @@ but slightly more efficient to use when no arguments are needed.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>ReturnsHash</code> - Hash of the called function's return values. Use
-<code>.get_preimage()</code> to extract the actual return values.</li>
+<li><code>ReturnsHash</code> - Hash of the called function's return values. Use <code>.get_preimage()</code> to extract the actual
+return values.</li>
 </ul>
 </div>
 </div><code id="static_call_private_function_no_args" class="code-header">pub fn <a href="#static_call_private_function_no_args"><span class="fn">static_call_private_function_no_args</span></a>(
@@ -1076,8 +891,8 @@ but slightly more efficient to use when no arguments are needed.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a read-only call to a private function which takes no arguments.</p>
-<p>This combines the optimisation of <code>call_private_function_no_args</code> with
-the safety of <code>static_call_private_function</code>.</p>
+<p>This combines the optimisation of <code>call_private_function_no_args</code> with the safety of
+<code>static_call_private_function</code>.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
@@ -1085,8 +900,8 @@ the safety of <code>static_call_private_function</code>.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>ReturnsHash</code> - Hash of the called function's return values. Use
-<code>.get_preimage()</code> to extract the actual return values.</li>
+<li><code>ReturnsHash</code> - Hash of the called function's return values. Use <code>.get_preimage()</code> to extract the actual
+return values.</li>
 </ul>
 </div>
 </div><code id="call_private_function_with_args_hash" class="code-header">pub fn <a href="#call_private_function_with_args_hash"><span class="fn">call_private_function_with_args_hash</span></a>(
@@ -1099,9 +914,8 @@ the safety of <code>static_call_private_function</code>.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Low-level private function call.</p>
-<p>This is the underlying implementation used by all other private function
-call methods. Instead of taking raw arguments, it accepts a
-hash of the arguments.</p>
+<p>This is the underlying implementation used by all other private function call methods. Instead of taking raw
+arguments, it accepts a hash of the arguments.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
@@ -1124,32 +938,20 @@ hash of the arguments.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to a public function to be executed later.</p>
-<p>Unlike private functions which execute immediately on the user's device,
-public function calls are &quot;enqueued&quot; and executed some time later by a
-block proposer.</p>
-<p>This means a public function cannot return any values back to a private
-function, because by the time the public function is being executed,
-the private function which called it has already completed execution.
-(In fact, the private function has been executed and proven, along with
-all other private function calls of the user's tx. A single proof of the
-tx has been submitted to the Aztec network, and some time later a
-proposer has picked the tx up from the mempool and begun executing all
-of the enqueued public functions).</p>
-<h4>Privacy warning</h4>
-<p>Enqueueing a public function call is an inherently leaky action.
-Many interesting applications will require some interaction with public
-state, but smart contract developers should try to use public function
-calls sparingly, and carefully.
-<em>Internal</em> public function calls are especially leaky, because they
-completely leak which private contract made the call.
-See also: <a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></p>
+<p>Unlike private functions which execute immediately on the user's device, public function calls are &quot;enqueued&quot;
+and executed some time later by a block proposer.</p>
+<p>This means a public function cannot return any values back to a private function, because by the time the
+public function is being executed, the private function which called it has already completed execution. (In
+fact, the private function has been executed and proven, along with all other private function calls of the
+user's tx. A single proof of the tx has been submitted to the Aztec network, and some time later a proposer has
+picked the tx up from the mempool and begun executing all of the enqueued public functions).</p>
+<h4>Privacy warning Enqueueing a public function call is an inherently leaky action. Many interesting applications will require some interaction with public state, but smart contract developers should try to use public function calls sparingly, and carefully. <em>Internal</em> public function calls are especially leaky, because they completely leak which private contract made the call. See also: <a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></h4>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
 <li><code>function_selector</code> - 4-byte identifier of the function to call</li>
 <li><code>args</code> - Array of arguments to pass to the public function</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="static_call_public_function" class="code-header">pub fn <a href="#static_call_public_function"><span class="fn">static_call_public_function</span></a>&lt;let ArgsCount: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
@@ -1162,18 +964,15 @@ See also: <a href="https://docs.aztec.network/developers/resources/consideration
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a read-only call to a public function.</p>
-<p>This is similar to Solidity's <code>staticcall</code>. The called function
-cannot modify state or emit events. Any nested calls are constrained to
-also be staticcalls.</p>
-<p>See also <code>call_public_function</code> for more important information about
-making private -&gt; public function calls.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function cannot modify state or emit events. Any nested
+calls are constrained to also be staticcalls.</p>
+<p>See also <code>call_public_function</code> for more important information about making private -&gt; public function calls.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
 <li><code>function_selector</code> - 4-byte identifier of the function to call</li>
 <li><code>args</code> - Array of arguments to pass to the public function</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="call_public_function_no_args" class="code-header">pub fn <a href="#call_public_function_no_args"><span class="fn">call_public_function_no_args</span></a>(
@@ -1185,15 +984,13 @@ making private -&gt; public function calls.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to a public function that takes no arguments.</p>
-<p>This is an optimisation for calling public functions that don't
-take any input parameters. It's otherwise equivalent to
-<code>call_public_function</code>.</p>
+<p>This is an optimisation for calling public functions that don't take any input parameters. It's otherwise
+equivalent to <code>call_public_function</code>.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
 <li><code>function_selector</code> - 4-byte identifier of the function to call</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="static_call_public_function_no_args" class="code-header">pub fn <a href="#static_call_public_function_no_args"><span class="fn">static_call_public_function_no_args</span></a>(
@@ -1205,14 +1002,13 @@ take any input parameters. It's otherwise equivalent to
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a read-only call to a public function with no arguments.</p>
-<p>This combines the optimisation of <code>call_public_function_no_args</code> with
-the safety of <code>static_call_public_function</code>.</p>
+<p>This combines the optimisation of <code>call_public_function_no_args</code> with the safety of
+<code>static_call_public_function</code>.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
 <li><code>function_selector</code> - 4-byte identifier of the function to call</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="call_public_function_with_calldata_hash" class="code-header">pub fn <a href="#call_public_function_with_calldata_hash"><span class="fn">call_public_function_with_calldata_hash</span></a>(
@@ -1225,19 +1021,16 @@ the safety of <code>static_call_public_function</code>.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Low-level public function call.</p>
-<p>This is the underlying implementation used by all other public function
-call methods. Instead of taking raw arguments, it accepts a
-hash of the arguments.</p>
-<p>Advanced function: Most developers should use <code>call_public_function</code>
-or <code>static_call_public_function</code> instead. This function is exposed for
-performance optimization and advanced use cases.</p>
+<p>This is the underlying implementation used by all other public function call methods. Instead of taking raw
+arguments, it accepts a hash of the arguments.</p>
+<p>Advanced function: Most developers should use <code>call_public_function</code> or <code>static_call_public_function</code> instead.
+This function is exposed for performance optimization and advanced use cases.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>contract_address</code> - Address of the contract containing the function</li>
 <li><code>calldata_hash</code> - Hash of the function calldata</li>
 <li><code>is_static_call</code> - Whether this should be a read-only call</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="set_public_teardown_function" class="code-header">pub fn <a href="#set_public_teardown_function"><span class="fn">set_public_teardown_function</span></a>&lt;let ArgsCount: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
@@ -1249,34 +1042,26 @@ performance optimization and advanced use cases.</p>
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Enqueues a public function call, and designates it to be the teardown
-function for this tx. Only one teardown function call can be made by a
-tx.</p>
-<p>Niche function: Only wallet developers and paymaster contract developers
-(aka Fee-payment contracts) will need to make use of this function.</p>
-<p>Aztec supports a three-phase execution model: setup, app logic, teardown.
-The phases exist to enable a fee payer to take on the risk of paying
-a transaction fee, safe in the knowledge that their payment (in whatever
-token or method the user chooses) will succeed, regardless of whether
-the app logic will succeed. The &quot;setup&quot; phase ensures the fee payer
-has sufficient balance to pay the proposer their fees.
-The teardown phase is primarily intended to: calculate exactly
-how much the user owes, based on gas consumption, and refund the user
+<p>Enqueues a public function call, and designates it to be the teardown function for this tx. Only one teardown
+function call can be made by a tx.</p>
+<p>Niche function: Only wallet developers and paymaster contract developers (aka Fee-payment contracts) will need
+to make use of this function.</p>
+<p>Aztec supports a three-phase execution model: setup, app logic, teardown. The phases exist to enable a fee
+payer to take on the risk of paying a transaction fee, safe in the knowledge that their payment (in whatever
+token or method the user chooses) will succeed, regardless of whether the app logic will succeed. The &quot;setup&quot;
+phase ensures the fee payer has sufficient balance to pay the proposer their fees. The teardown phase is
+primarily intended to: calculate exactly how much the user owes, based on gas consumption, and refund the user
 any change.</p>
-<p>Note: in some cases, the cost of refunding the user (i.e. DA costs of
-tx side-effects) might exceed the refund amount. For app logic with
-fairly stable and predictable gas consumption, a material refund amount
-is unlikely. For app logic with unpredictable gas consumption, a
-refund might be important to the user (e.g. if a hefty function reverts
-very early). Wallet/FPC/Paymaster developers should be mindful of this.</p>
+<p>Note: in some cases, the cost of refunding the user (i.e. DA costs of tx side-effects) might exceed the refund
+amount. For app logic with fairly stable and predictable gas consumption, a material refund amount is unlikely.
+For app logic with unpredictable gas consumption, a refund might be important to the user (e.g. if a hefty
+function reverts very early). Wallet/FPC/Paymaster developers should be mindful of this.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>contract_address</code> - Address of the contract containing the teardown
-function</li>
+<li><code>contract_address</code> - Address of the contract containing the teardown function</li>
 <li><code>function_selector</code> - 4-byte identifier of the function to call</li>
 <li><code>args</code> - An array of fields to pass to the function.</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div><code id="set_public_teardown_function_with_calldata_hash" class="code-header">pub fn <a href="#set_public_teardown_function_with_calldata_hash"><span class="fn">set_public_teardown_function_with_calldata_hash</span></a>(
@@ -1289,19 +1074,15 @@ function</li>
 
 <div class="padded-description"><div class="comments">
 <p>Low-level function to set the public teardown function.</p>
-<p>This is the underlying implementation for setting the teardown function
-call that will execute at the end of the transaction. Instead of taking
-raw arguments, it accepts a hash of the arguments.</p>
-<p>Advanced function: Most developers should use
-<code>set_public_teardown_function</code> instead.</p>
+<p>This is the underlying implementation for setting the teardown function call that will execute at the end of
+the transaction. Instead of taking raw arguments, it accepts a hash of the arguments.</p>
+<p>Advanced function: Most developers should use <code>set_public_teardown_function</code> instead.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>contract_address</code> - Address of the contract containing the teardown
-function</li>
+<li><code>contract_address</code> - Address of the contract containing the teardown function</li>
 <li><code>calldata_hash</code> - Hash of the function calldata</li>
 <li><code>is_static_call</code> - Whether this should be a read-only call</li>
-<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for
-<code>msg_sender</code> if set to <code>true</code></li>
+<li><code>hide_msg_sender</code> - the called function will see a &quot;null&quot; value for <code>msg_sender</code> if set to <code>true</code></li>
 </ul>
 </div>
 </div></div><h2>Trait implementations</h2>

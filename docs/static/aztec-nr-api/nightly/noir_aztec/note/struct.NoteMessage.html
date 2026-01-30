@@ -53,7 +53,7 @@
 <div class="comments">
 <p>A message with information about a note that was created in the current contract call. This message <strong>MUST</strong> be
 delivered to a recipient in order to not lose the private note information.</p>
-<p>Use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver">NoteMessage::deliver</a> to select a delivery mechanism. The same message can be delivered to multiple
+<p>Use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver"><code>NoteMessage::deliver</code></a> to select a delivery mechanism. The same message can be delivered to multiple
 recipients.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;</code></h3>
@@ -71,10 +71,10 @@ recipients.</p></div>
 <div class="padded-description"><div class="comments">
 <p>Delivers the note message to its owner, providing them access to the private note information.</p>
 <p>The message is first encrypted to the owner's public key, ensuring no other actor can read it.</p>
-<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">crate::messages::message_delivery::MessageDeliveryEnum</a>, and will inform
+<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>crate::messages::message_delivery::MessageDeliveryEnum</code></a>, and will inform
 costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
 constant.</p>
-<p>To deliver the message to a recipient that is not the note's owner, use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to">deliver_to</a>
+<p>To deliver the message to a recipient that is not the note's owner, use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to"><code>deliver_to</code></a>
 instead.</p>
 <h4>Invalid Recipients</h4>
 <p>If the note's owner is an invalid address, then a random public key is selected and message delivery continues
@@ -87,16 +87,17 @@ fingerprint, e.g. one lacking the private logs that would correspond to message 
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver">deliver</a>, except the message gets delivered to an arbitrary <code>recipient</code> instead
+<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver"><code>deliver</code></a>, except the message gets delivered to an arbitrary <code>recipient</code>
+instead
 of the note owner.</p>
 <p>Note that <code>recipient</code> getting the message does not let them <strong>use</strong> the note, it only means that thy will know
 about it, including the transaction in which it was created, and prove it exists. They will also not be able to
 know when or if the note is used (i.e. nullified), assuming the standard note nullifier function.</p>
 <h4>Use Cases</h4>
-<p>This feature enables many design patterns that diverge in how notes are traditionally handled. For example,
-an institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
-low value application like a game might deliver all notes offchain to a centralized server that then serves them
-via the app, bypassing the need for contract sync and improving UX.</p></div>
+<p>This feature enables many design patterns that diverge in how notes are traditionally handled. For example, an
+institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
+low value application like a game might deliver all notes offchain to a centralized server that then serves
+them via the app, bypassing the need for contract sync and improving UX.</p></div>
 </div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -111,9 +112,9 @@ via the app, bypassing the need for contract sync and improving UX.</p></div>
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html">NewNote</a> container in the message.</p>
+<p>Returns the <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html"><code>NewNote</code></a> container in the message.</p>
 <p>This is an advanced function, typically needed only when creating new kinds of state variables that need to
-create <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html">MaybeNoteMessage</a> values.</p></div>
+create <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html"><code>MaybeNoteMessage</code></a> values.</p></div>
 </div></div></main>
 </span>
 </body>
