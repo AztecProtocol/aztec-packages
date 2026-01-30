@@ -190,7 +190,8 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 //   |P3| > 8 + 25 = 33
 //
 // We set P3 max = -34 per topic (slightly more than P1+P2) to ensure pruning.
-// With 3 topics having P3 enabled, total P3b after pruning = -102.
+// In MBPS mode, 3 topics have P3 enabled (block_proposal, checkpoint_proposal, checkpoint_attestation),
+// so total P3b after pruning = -102. In single-block mode, block_proposal is disabled, so total is -68.
 //
 // This leaves headroom before gossipThreshold (-500):
 //   -102 (P3b) + 20 request timeouts (-400 gossipsub) = -502
@@ -202,11 +203,14 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 /** Maximum P3 penalty per topic (must exceed P1 + P2 to cause pruning) */
 export const MAX_P3_PENALTY_PER_TOPIC = -(MAX_P1_SCORE + MAX_P2_SCORE + 1); // -34
 
-/** Number of topics with P3 enabled */
-export const NUM_P3_ENABLED_TOPICS = 3;
+/** Number of topics with P3 enabled in MBPS mode (single-block mode uses 2 topics). */
+export const NUM_P3_ENABLED_TOPICS_MBPS = 3;
 
-/** Total maximum P3b penalty across all topics after pruning */
-export const TOTAL_MAX_P3B_PENALTY = MAX_P3_PENALTY_PER_TOPIC * NUM_P3_ENABLED_TOPICS; // -102
+/** Total maximum P3b penalty across all topics after pruning in MBPS mode. */
+export const TOTAL_MAX_P3B_PENALTY_MBPS = MAX_P3_PENALTY_PER_TOPIC * NUM_P3_ENABLED_TOPICS_MBPS; // -102
+
+/** Total maximum P3b penalty across all topics after pruning in single-block mode. */
+export const TOTAL_MAX_P3B_PENALTY_SINGLE_BLOCK = MAX_P3_PENALTY_PER_TOPIC * 2; // -68
 
 /**
  * Factory class for creating gossipsub topic scoring parameters.

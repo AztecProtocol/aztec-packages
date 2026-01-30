@@ -111,6 +111,8 @@ This parameter determines how long after validating a message other peers can st
 - Accounts for network propagation delays
 - Reduces false penalties from timing variance
 
+**Spec note:** The gossipsub spec recommends a small window (milliseconds) to avoid peers gaining credit by replaying messages. We intentionally use a longer window for propagation tolerance, and it should be tuned carefully if false positives or under-delivery penalties are observed.
+
 ## meshMessageDeliveriesActivation
 
 This is the grace period before P3 penalties can be applied to a peer. During this time, the message delivery counter accumulates without any penalty.
@@ -168,7 +170,7 @@ firstMessageDeliveriesWeight = MAX_P2_SCORE / cap    // Normalized so max P2 = 2
 **Key properties:**
 - Fast decay (2 slots): rewards recent behavior, not historical
 - Caps at convergence: prevents score inflation from bursts
-- Resets quickly after mesh leave: decays to 0 in seconds
+- Decays quickly after mesh leave: decays to ~1% over 2 slots (minutes, not seconds)
 
 ## P3 Weight Formula
 
@@ -352,17 +354,17 @@ The key insight: **P3 max (-34) exceeds P1 + P2 max (+33)**, so even a peer that
 When a peer is pruned from the mesh:
 
 1. **P1 resets to 0**: The timeInMesh counter is cleared
-2. **P2 decays to 0**: Fast decay (50% per heartbeat) makes it negligible in seconds
+2. **P2 decays to 0**: Fast decay (2-slot window) makes it negligible over minutes, not seconds
 3. **P3b captures the penalty**: The P3 deficit at prune time becomes P3b, which decays slowly
 
 After pruning, the peer's score consists mainly of P3b:
-- **Total P3b across 3 topics: -102** (max)
+- **Total P3b across topics**: -102 in MBPS mode (3 topics), -68 in single-block mode (2 topics)
 - **Recovery time**: P3b decays to ~1% over one decay window (2-5 slots = 2-6 minutes)
 - **Grafting eligibility**: Peer can be grafted when score ≥ 0, but asymptotic decay means recovery is slow
 
 ### Why Non-Contributors Aren't Disconnected
 
-With P3b capped at -102 total after pruning:
+With P3b capped at -102 total after pruning (MBPS mode):
 
 | Threshold | Value | P3b Score | Triggered? |
 |-----------|-------|-----------|------------|
@@ -491,8 +493,13 @@ Total: -1042 → Cannot publish (publishThreshold = -1000)
 App score: -100 (banned)
   → Gossipsub contribution: -1000
 Topic P3: -3
-Topic P4: -2000 (10 invalid messages: 10² × -20)
+Topic P4: -200 (10 invalid messages: 10 × -20)
 ─────────────────────────────────
+Total: -1203 → Cannot publish (publishThreshold = -1000)
+
+If the attacker sends 100 invalid messages quickly:
+
+Topic P4: -2000 (100 invalid messages: 100 × -20)
 Total: -3003 → Graylisted (graylistThreshold = -2000)
                → All RPCs ignored
 ```
@@ -521,20 +528,22 @@ What happens when a peer experiences a network outage and stops delivering messa
 
 While the peer is disconnected:
 
-1. **P3 penalty accumulates**: The message delivery counter decays toward 0, causing increasing P3 penalty
-2. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic (-102 total)
-3. **Mesh pruning**: Topic score goes negative → peer is pruned from mesh
-4. **P3b captures penalty**: The P3 deficit at prune time becomes P3b (sticky penalty)
+1. **Activation grace period**: P3 penalties do not apply until `meshMessageDeliveriesActivation` elapses (10-25 slots depending on topic)
+2. **P3 penalty accumulates**: After activation, the message delivery counter decays toward 0, causing increasing P3 penalty
+3. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic
+4. **Mesh pruning**: Topic score goes negative → peer is pruned from mesh
+5. **P3b captures penalty**: The P3 deficit at prune time becomes P3b (sticky penalty)
 
 ### Outage Timeline
 
 | Time | Event | Score Impact |
 |------|-------|--------------|
 | 0s | Outage begins | P3 = 0 |
-| ~30s | Counter decays below threshold | P3 starts decreasing |
-| ~90s | Counter approaches 0 | P3 = -34 per topic |
-| ~90s | Peer pruned from mesh | P3b = -34 per topic |
-| ~120s+ | P3b decays slowly | Recovery begins |
+| 10-25 slots | Activation period ends | P3 can start decreasing |
+| +1-5 slots | Counter decays below threshold | P3 starts decreasing |
+| +2-5 slots | Counter approaches 0 | P3 = -34 per topic |
+| +2-5 slots | Peer pruned from mesh | P3b = -34 per topic |
+| +2-5 slots | P3b decays slowly | Recovery begins |
 
 ### Key Insight: No Application Penalties
 
@@ -547,7 +556,7 @@ This is the crucial difference from malicious behavior:
 
 | Scenario | App Score | Topic Score | Total | Threshold Hit |
 |----------|-----------|-------------|-------|---------------|
-| Network outage | 0 | -102 | -102 | None |
+| Network outage | 0 | -68 to -102 | -68 to -102 | None |
 | Validation failure | -50 | -20 | -520 | gossipThreshold |
 | Malicious peer | -100 | -2000+ | -2100+ | graylistThreshold |
 
