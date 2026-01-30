@@ -19,11 +19,9 @@ TYPED_TEST_SUITE(PairingPointsTests, Curves);
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     using Builder = typename TypeParam::Builder;
-    // Ultra uses bigfield which requires range constraints for self_reduce() when setting public inputs.
-    // This looks expensive (1853 gates) but gets amortized in real circuits since most range tables
-    // already exist from other bigfield operations.
-    // Mega uses goblin_field (2 limbs) which is much cheaper (8 gates).
-    static constexpr size_t NUM_GATES_ADDED = IsMegaBuilder<Builder> ? 8 : 1853;
+    // Both builders now use the optimized path: 8 fix_witness gates for the 8 combined limbs.
+    // This bypasses bigfield's expensive self_reduce() for Ultra.
+    static constexpr size_t NUM_GATES_ADDED = 8;
 
     Builder builder;
 

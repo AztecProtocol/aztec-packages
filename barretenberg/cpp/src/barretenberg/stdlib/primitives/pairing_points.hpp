@@ -16,16 +16,36 @@
 
 namespace bb::stdlib::recursion {
 
+// Combined limbs for default pairing points: lo = limb0 + limb1 * 2^68, hi = limb2 + limb3 * 2^68
+// These are the source of truth, used in set_default_to_public() to avoid expensive bigfield operations.
+static constexpr bb::fr DEFAULT_PP_P0_X_LO =
+    bb::fr("0x000000000000000000000000000000b75c020998797da7842ab5d6d1986846cf");
+static constexpr bb::fr DEFAULT_PP_P0_X_HI =
+    bb::fr("0x0000000000000000000000000000000000031e97a575e9d05a107acb64952eca");
+static constexpr bb::fr DEFAULT_PP_P0_Y_LO =
+    bb::fr("0x000000000000000000000000000000c410db10a01750aebb5666547acf8bd5a4");
+static constexpr bb::fr DEFAULT_PP_P0_Y_HI =
+    bb::fr("0x0000000000000000000000000000000000178cbf4206471d722669117f9758a4");
+static constexpr bb::fr DEFAULT_PP_P1_X_LO =
+    bb::fr("0x0000000000000000000000000000007fd51009034b3357f0e91b8a11e7842c38");
+static constexpr bb::fr DEFAULT_PP_P1_X_HI =
+    bb::fr("0x00000000000000000000000000000000000f94656a2ca489889939f81e9c7402");
+static constexpr bb::fr DEFAULT_PP_P1_Y_LO =
+    bb::fr("0x00000000000000000000000000000093fe27776f50224bd6fb128b46c1ddb67f");
+static constexpr bb::fr DEFAULT_PP_P1_Y_HI =
+    bb::fr("0x00000000000000000000000000000000001b52c2020d7464a0c80c0da527a081");
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
 // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+// Derived from the combined limbs above: fq = lo + hi * 2^136
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_X =
-    bb::fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+    bb::fq(uint256_t(DEFAULT_PP_P0_X_LO) + (uint256_t(DEFAULT_PP_P0_X_HI) << 136));
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_Y =
-    bb::fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+    bb::fq(uint256_t(DEFAULT_PP_P0_Y_LO) + (uint256_t(DEFAULT_PP_P0_Y_HI) << 136));
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_X =
-    bb::fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+    bb::fq(uint256_t(DEFAULT_PP_P1_X_LO) + (uint256_t(DEFAULT_PP_P1_X_HI) << 136));
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_Y =
-    bb::fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+    bb::fq(uint256_t(DEFAULT_PP_P1_Y_LO) + (uint256_t(DEFAULT_PP_P1_Y_HI) << 136));
 
 /**
  * @brief An object storing two EC points that represent the inputs to a pairing check.
@@ -81,11 +101,21 @@ template <typename Curve> struct PairingPoints {
     {}
 
     // Array-like accessors for Codec compatibility
-    Group& operator[](size_t idx) { return idx == 0 ? P0 : P1; }
+    // Non-const version sets has_data since it's called during assignment (e.g., by Codec deserialization)
+    Group& operator[](size_t idx)
+    {
+        has_data = true;
+        return idx == 0 ? P0 : P1;
+    }
     const Group& operator[](size_t idx) const { return idx == 0 ? P0 : P1; }
 
     // Iterator support for range-based for (required by Codec)
-    Group* begin() { return &P0; }
+    // Non-const begin() sets has_data since it's called during Codec deserialization
+    Group* begin()
+    {
+        has_data = true;
+        return &P0;
+    }
     Group* end() { return &P1 + 1; }
     const Group* begin() const { return &P0; }
     const Group* end() const { return &P1 + 1; }
@@ -244,16 +274,34 @@ template <typename Curve> struct PairingPoints {
 
     /**
      * @brief Set the witness indices for the default limbs of the pairing points to public.
-     * @details Creates default pairing points as witnesses, then sets them public.
+     * @details Optimized version that directly sets precomputed Fr limb values as public inputs,
+     *          avoiding expensive bigfield operations. The default pairing points satisfy the
+     *          pairing equation, which is verified at compile time via static assertion.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        PairingPoints pp = construct_default();
-        pp.P0.convert_constant_to_fixed_witness(builder);
-        pp.P1.convert_constant_to_fixed_witness(builder);
-        return pp.set_public();
+        // Directly add precomputed combined limbs as public inputs, bypassing bigfield's self_reduce.
+        // These values encode the default pairing points in the format used by bigfield::set_public().
+        // Order: P0.x (lo, hi), P0.y (lo, hi), P1.x (lo, hi), P1.y (lo, hi)
+        // Each fix_witness call adds 1 gate to constrain the value at the VK level.
+        auto add_fixed_public = [&](const bb::fr& value) {
+            uint32_t idx = builder->add_public_variable(value);
+            builder->fix_witness(idx, value);
+            return idx;
+        };
+
+        uint32_t start_idx = add_fixed_public(DEFAULT_PP_P0_X_LO);
+        add_fixed_public(DEFAULT_PP_P0_X_HI);
+        add_fixed_public(DEFAULT_PP_P0_Y_LO);
+        add_fixed_public(DEFAULT_PP_P0_Y_HI);
+        add_fixed_public(DEFAULT_PP_P1_X_LO);
+        add_fixed_public(DEFAULT_PP_P1_X_HI);
+        add_fixed_public(DEFAULT_PP_P1_Y_LO);
+        add_fixed_public(DEFAULT_PP_P1_Y_HI);
+
+        return start_idx;
     }
 
     /**
