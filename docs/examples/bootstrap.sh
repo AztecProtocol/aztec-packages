@@ -9,6 +9,28 @@ export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
 export TRANSPILER=${TRANSPILER:-"$REPO_ROOT/avm-transpiler/target/release/avm-transpiler"}
 export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-"$REPO_ROOT/noir-projects/noir-contracts/scripts/strip_aztec_nr_prefix.sh"}
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
+export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
+
+function compile-circuits {
+  echo_header "Compiling vanilla Noir circuits"
+  local CIRCUITS_DIR="$REPO_ROOT/docs/examples/circuits"
+
+  if [ ! -d "$CIRCUITS_DIR" ]; then
+    echo_stderr "No circuits directory found at $CIRCUITS_DIR"
+    return 0
+  fi
+
+  if [ ! -f "$CIRCUITS_DIR/Nargo.toml" ]; then
+    echo_stderr "No workspace Nargo.toml found in $CIRCUITS_DIR"
+    return 0
+  fi
+
+  # Compile all circuits in the workspace
+  echo_stderr "Compiling circuits workspace..."
+  (cd "$CIRCUITS_DIR" && $NARGO compile --workspace)
+
+  echo_stderr "Vanilla circuits compiled"
+}
 
 function compile {
   echo_header "Compiling example contracts"
@@ -121,8 +143,11 @@ function run_step {
   local step_func=$2
   local output exit_code
 
+  # Disable errexit for command substitution to properly capture exit code
+  set +e
   output=$($step_func 2>&1)
   exit_code=$?
+  set -e
   echo "$output"
 
   if [[ $exit_code -ne 0 ]]; then
@@ -154,6 +179,7 @@ function post_failure_comment_for_steps {
 
 case "$cmd" in
   "")
+    run_step "Compile (Noir circuits)" compile-circuits
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
@@ -166,6 +192,9 @@ case "$cmd" in
         delete_failure_comment "$pr_number"
       fi
     fi
+    ;;
+  compile-circuits)
+    compile-circuits
     ;;
   compile-solidity)
     compile-solidity
