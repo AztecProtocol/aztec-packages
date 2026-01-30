@@ -173,15 +173,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-
-        // OriginTag: Libra commitments received after sumcheck are PCS-bound. Set their tags to the
-        // sumcheck challenge tag to indicate they're determined by the protocol, not freely chosen.
-        if constexpr (IsRecursive) {
-            const auto challenge_tag = sumcheck_output.challenge.back().get_origin_tag();
-            for (auto& commitment : libra_commitments) {
-                commitment.set_origin_tag(challenge_tag);
-            }
-        }
     }
 
     ClaimBatcher claim_batcher{

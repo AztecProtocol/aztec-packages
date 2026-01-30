@@ -242,6 +242,8 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
     FF v_cubed = v_squared * v;
     FF v_fourth = v_cubed * v;
 
+    // OriginTag false positive: translation_masking_term_eval is bound by the masking term
+    // commitments (fixed before batching_challenge_v) and batching_challenge_v itself.
     if constexpr (IsRecursive) {
         translation_masking_term_eval.set_origin_tag(batching_challenge_v.get_origin_tag());
     }
