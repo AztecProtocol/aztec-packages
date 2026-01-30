@@ -125,6 +125,10 @@ jobs:
   # Runs two test sets in parallel.
   ci-network-scenario:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_set: ["1", "2"]
     # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
     # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
     needs: ci
@@ -166,7 +170,7 @@ jobs:
             docker_image=""
           fi
           set -x # print next line
-          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image"
+          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
         # Clean up if this is a CI label or nightly.
@@ -180,8 +184,7 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: |
-          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-1" || true
-          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-2" || true
+          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-${{ matrix.test_set }}" || true
 
       #############
       # Benchmarks
