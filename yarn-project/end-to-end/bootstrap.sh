@@ -45,6 +45,7 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
+    src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do
