@@ -290,7 +290,9 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
                     update_max_witness_index_from_expression(arg.predicate.value(), af);
                 }
             },
-            [&](const Acir::Opcode::Call&) { bb::assert_failure("Call opcode is not supported."); },
+            [&](const Acir::Opcode::Call&) {
+                bb::assert_failure("acir_format::update_max_witness_index_from_opcode: Call opcode is not supported.");
+            },
         },
         opcode.value);
 }
@@ -363,13 +365,15 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                 [&](const Acir::Opcode::MemoryOp& arg) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
-                        bb::assert_failure("acir_format::circuit_serder_to_acir_format: unitialized MemoryOp.");
+                        bb::assert_failure("acir_format::circuit_serde_to_acir_format: unitialized MemoryOp.");
                     }
                     add_memory_op_to_block_constraint(arg, block->second.first);
                     block->second.second.push_back(i);
                 },
                 [&](const Acir::Opcode::BrilligCall&) {},
-                [&](const Acir::Opcode::Call&) { bb::assert_failure("Call opcode is not supported."); },
+                [&](const Acir::Opcode::Call&) {
+                    bb::assert_failure("acir_format::circuit_serde_to_acir_format: Call opcode is not supported.");
+                },
             },
             gate.value);
     }
