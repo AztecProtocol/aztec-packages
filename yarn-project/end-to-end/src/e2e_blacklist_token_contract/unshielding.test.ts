@@ -29,7 +29,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const amount = balancePriv / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.unshield(adminAddress, adminAddress, amount, 0).send({ from: adminAddress }).wait();
+    await asset.methods.unshield(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
 
     tokenSim.transferToPublic(adminAddress, adminAddress, amount);
   });
@@ -47,14 +47,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // But doing it in two actions to show the flow.
     const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
 
-    await action.send({ from: otherAddress, authWitnesses: [witness] }).wait();
+    await action.send({ from: otherAddress, authWitnesses: [witness] });
     tokenSim.transferToPublic(adminAddress, otherAddress, amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset.methods
       .unshield(adminAddress, otherAddress, amount, authwitNonce)
       .send({ from: otherAddress, authWitnesses: [witness] });
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(txReplay).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
   });
 

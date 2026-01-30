@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../../styles.css">
+<script defer src="../../../../../nargo_doc.js"></script>
+<title>Struct PrivateToAvmAccumulatedDataArrayLengths documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateToAvmAccumulatedDataArrayLengths</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateToAvmAccumulatedDataArrayLengths</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
+<li><a href="#structfield.note_hashes">note_hashes</a></li>
+<li><a href="#structfield.nullifiers">nullifiers</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PrivateToAvmAccumulatedDataArrayLengths">Deserialize</a></li>
+<li><a href="#impl-Empty-for-PrivateToAvmAccumulatedDataArrayLengths">Empty</a></li>
+<li><a href="#impl-Eq-for-PrivateToAvmAccumulatedDataArrayLengths">Eq</a></li>
+<li><a href="#impl-Serialize-for-PrivateToAvmAccumulatedDataArrayLengths">Serialize</a></li>
+</ul>
+<h2>In module private_to_avm_accumulated_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateToAvmAccumulatedData.html">PrivateToAvmAccumulatedData</a></div></li>
+<li><a href="struct.PrivateToAvmAccumulatedDataArrayLengths.html">PrivateToAvmAccumulatedDataArrayLengths</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../../index.html">aztec-nr</a> - <a href="../../../../index.html">noir_aztec</a>::<a href="../../../index.html">protocol</a>::<a href="../../index.html">abis</a>::<a href="../index.html">accumulated_data</a>::<a href="index.html">private_to_avm_accumulated_data</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateToAvmAccumulatedDataArrayLengths</span></h1>
+<pre><code>pub struct PrivateToAvmAccumulatedDataArrayLengths {
+    pub note_hashes: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub nullifiers: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub l2_to_l1_msgs: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(data: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a>) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+
+</div></main>
+</span>
+</body>
+</html>

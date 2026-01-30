@@ -92,7 +92,7 @@ aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
 #if(testnet)
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
 #else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
 #endif
@@ -264,7 +264,7 @@ aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
 #if(testnet)
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
 #else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
 #endif
@@ -354,7 +354,7 @@ aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
 #if(testnet)
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
 #else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
 #endif
@@ -375,7 +375,7 @@ aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
 #if(testnet)
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac \
 #else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
 #endif

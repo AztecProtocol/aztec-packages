@@ -8,16 +8,18 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::owned_state_variable::OwnedStateVariable,
+    state_vars::OwnedStateVariable,
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::DOM_SEP__INITIALIZATION_NULLIFIER,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Packable},
 };
 
+/// Per-account immutable private state.
+///
 /// PrivateImmutable is an owned state variable type that represents a private value that is set once and remains
 /// unchanged forever. Because it is "owned," you must wrap a PrivateImmutable inside an Owned state variable when
 /// storing it:
@@ -29,7 +31,7 @@ use protocol_types::{
 /// }
 /// ```
 ///
-/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what "owned" means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// The value of a PrivateImmutable is stored in the Aztec's private state and hence is represented as a note.
 ///
@@ -38,16 +40,15 @@ use protocol_types::{
 /// ## Example
 ///
 /// A user's permanent configuration can be represented as a PrivateImmutable. For example, in a vesting contract, each
-/// user's vesting parameters (start date, total amount, etc.) could be stored as a PrivateImmutable owned by that user.
-/// Once initialized during registration, these parameters remain constant for that specific user, while different users
-/// can have their own distinct parameters.
+/// user's vesting parameters (start date, total amount, etc.) could be stored as a PrivateImmutable owned by that
+/// user. Once initialized during registration, these parameters remain constant for that specific user, while
+/// different users can have their own distinct parameters.
 ///
 /// Note: For contract-wide configuration (one value for the entire contract), use SinglePrivateImmutable instead.
 ///
 /// # Generic Parameters:
 ///
-/// * `Note` - A single note of this type will represent the PrivateImmutable's
-///            value at the given storage_slot.
+/// * `Note` - A single note of this type will represent the PrivateImmutable's value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
 pub struct PrivateImmutable<Note, Context> {
@@ -75,8 +76,8 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
     ///
-    /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts that
-    /// need to check if a PrivateImmutable has been initialized.
+    /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts
+    /// that need to check if a PrivateImmutable has been initialized.
     ///
     fn get_initialization_nullifier(self) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
@@ -86,7 +87,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     }
 
     /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a
-    /// [crate::note::note_message::NoteMessage] that allows you to decide what method of note message delivery to use.
+    /// [`crate::note::note_message::NoteMessage`] that allows you to decide what method of note message delivery to
+    /// use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
@@ -97,8 +99,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + Packable,
     {
-        // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
-        // the value from being initialized again as a nullifier can be included only once.
+        // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents the value
+        // from being initialized again as a nullifier can be included only once.
         let nullifier = self.get_initialization_nullifier();
         self.context.push_nullifier(nullifier);
 
@@ -107,8 +109,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
     /// Reads the permanent note of a PrivateImmutable state variable instance.
     ///
-    /// If this PrivateImmutable state variable has not yet been initialized, no note will exist: the call will fail and
-    /// the transaction will not be provable.
+    /// If this PrivateImmutable state variable has not yet been initialized, no note will exist: the call will fail
+    /// and the transaction will not be provable.
     ///
     /// Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
     /// after initialization.
@@ -121,8 +123,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         let confirmed_note = get_note(self.context, Option::some(self.owner), storage_slot);
 
         // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
-        // has already constrained the note (by pushing a read request to the context), we can return just the note
-        // and skip the additional data in HintedNote.
+        // has already constrained the note (by pushing a read request to the context), we can return just the note and
+        // skip the additional data in HintedNote.
         confirmed_note.note
     }
 }

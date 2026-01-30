@@ -1,4 +1,4 @@
-import { createColors, isColorSupported } from 'colorette';
+import { type Color, createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
 import type { Writable } from 'stream';
@@ -12,9 +12,51 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
 import type { LogData, LogFn } from './log_fn.js';
 
-export function createLogger(module: string): Logger {
-  module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
-  const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
+/** Optional bindings to pass to createLogger for additional context. */
+export type LoggerBindings = {
+  /** Actor label shown in logs (e.g., 'MAIN', 'prover-node'). */
+  actor?: string;
+  /** Instance identifier for distinguishing multiple instances of the same component. */
+  instanceId?: string;
+};
+
+// Allow global hooks for providing default bindings.
+// Used by withLoggerBindings in pino-logger-server to propagate bindings via AsyncLocalStorage.
+type LogBindingsHandler = () => LoggerBindings | undefined;
+const logBindingsHandlers: LogBindingsHandler[] = [];
+
+export function addLogBindingsHandler(handler: LogBindingsHandler): void {
+  logBindingsHandlers.push(handler);
+}
+
+export function removeLogBindingsHandler(handler: LogBindingsHandler) {
+  const index = logBindingsHandlers.indexOf(handler);
+  if (index !== -1) {
+    logBindingsHandlers.splice(index, 1);
+  }
+}
+
+function getBindingsFromHandlers(): LoggerBindings | undefined {
+  for (const handler of logBindingsHandlers) {
+    const bindings = handler();
+    if (bindings) {
+      return bindings;
+    }
+  }
+  return undefined;
+}
+
+export function createLogger(module: string, bindings?: LoggerBindings): Logger {
+  module = module.replace(/^aztec:/, '');
+
+  const resolvedBindings = { ...getBindingsFromHandlers(), ...bindings };
+  const actor = resolvedBindings?.actor;
+  const instanceId = resolvedBindings?.instanceId;
+
+  const pinoLogger = logger.child(
+    { module, ...(actor && { actor }), ...(instanceId && { instanceId }) },
+    { level: getLogLevelFromFilters(logFilters, module) },
+  );
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
@@ -44,9 +86,22 @@ export function createLogger(module: string): Logger {
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
     /** Module name for the logger. */
     module,
-    /** Creates another logger by extending this logger module name. */
-    createChild: (childModule: string) => createLogger(`${module}:${childModule}`),
+    /** Creates another logger by extending this logger module name and preserving bindings. */
+    createChild: (childModule: string) => createLogger(`${module}:${childModule}`, { actor, instanceId }),
+    /** Returns the bindings (actor, instanceId) for this logger. */
+    getBindings: () => ({ actor, instanceId }),
   };
+}
+
+/**
+ * Returns a logger for the given module. If loggerOrBindings is already a Logger, returns it directly.
+ * Otherwise, creates a new logger with the given module name and bindings.
+ */
+export function resolveLogger(module: string, loggerOrBindings?: Logger | LoggerBindings): Logger {
+  if (loggerOrBindings && 'info' in loggerOrBindings) {
+    return loggerOrBindings as Logger;
+  }
+  return createLogger(module, loggerOrBindings);
 }
 
 // Allow global hooks for processing log data.
@@ -60,31 +115,6 @@ export function addLogDataHandler(handler: LogDataHandler): void {
 
 function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
-}
-
-// Allow global hooks for tweaking module names.
-// Used in tests to add a uid to modules, so we can differentiate multiple nodes in the same process.
-type LogNameHandler = (module: string) => string;
-const logNameHandlers: LogNameHandler[] = [];
-
-export function addLogNameHandler(handler: LogNameHandler): void {
-  logNameHandlers.push(handler);
-}
-
-export function removeLogNameHandler(handler: LogNameHandler) {
-  const index = logNameHandlers.indexOf(handler);
-  if (index !== -1) {
-    logNameHandlers.splice(index, 1);
-  }
-}
-
-/** Creates all loggers within the given callback with the suffix appended to the module name. */
-export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
-  const logNameHandler = (module: string) => `${module}:${suffix}`;
-  addLogNameHandler(logNameHandler);
-  const result = await callback();
-  removeLogNameHandler(logNameHandler);
-  return result;
 }
 
 // Patch isLevelEnabled missing from pino/browser.
@@ -146,22 +176,90 @@ export const levels = {
 // Transport options for pretty logging to stderr via pino-pretty.
 const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
 const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
-const { bold, reset } = createColors({ useColor });
-export const pinoPrettyOpts = {
+const { bold, reset, cyan, magenta, yellow, blue, green, magentaBright, yellowBright, blueBright, greenBright } =
+  createColors({ useColor });
+
+// Per-actor coloring: each unique actor gets a different color for easier visual distinction.
+// Disabled when LOG_NO_COLOR_PER_ACTOR is set to a truthy value.
+const useColorPerActor = useColor && !parseBooleanEnv(process.env['LOG_NO_COLOR_PER_ACTOR' satisfies EnvVar]);
+const actorColors: Color[] = [yellow, magenta, blue, green, magentaBright, yellowBright, blueBright, greenBright];
+const actorColorMap = new Map<string, Color>();
+let nextColorIndex = 0;
+
+/** Returns the color function assigned to a given actor, assigning a new one if needed. */
+export function getActorColor(actor: string): Color {
+  let color = actorColorMap.get(actor);
+  if (!color) {
+    color = actorColors[nextColorIndex % actorColors.length];
+    actorColorMap.set(actor, color);
+    nextColorIndex++;
+  }
+  return color;
+}
+
+/** Resets the actor-to-color mapping. Useful for testing. */
+export function resetActorColors(): void {
+  actorColorMap.clear();
+  nextColorIndex = 0;
+}
+
+// String template for messageFormat (used in worker threads and when per-actor coloring is disabled).
+const messageFormatString = `${bold('{module}')}{if actor} ${cyan('{actor}')}{end}{if instanceId} ${reset(cyan('{instanceId}'))}{end} ${reset('{msg}')}`;
+
+// Function for messageFormat when per-actor coloring is enabled (can only be used in-process, not worker threads).
+type LogObject = { actor?: string; module?: string; instanceId?: string; msg?: string };
+
+/** Formats a log message with per-actor coloring. Actor, module, and instanceId share the same color. */
+export function formatLogMessage(log: LogObject, messageKey: string): string {
+  const actor = log.actor;
+  const module = log.module ?? '';
+  const instanceId = log.instanceId;
+  const msg = log[messageKey as keyof LogObject] ?? '';
+
+  // Use actor color for actor, module, and instanceId when actor is present
+  const color = actor ? getActorColor(actor) : cyan;
+
+  let result = bold(color(module));
+  if (actor) {
+    result += ' ' + color(actor);
+  }
+  if (instanceId) {
+    result += ' ' + reset(color(instanceId));
+  }
+  result += ' ' + reset(String(msg));
+  return result;
+}
+
+// Base options for pino-pretty (shared between transport and direct use).
+const pinoPrettyBaseOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
-  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity',
-  messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
+  ignore: 'module,actor,instanceId,pid,hostname,trace_id,span_id,trace_flags,severity',
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
   singleLine: !parseBooleanEnv(process.env['LOG_MULTILINE' satisfies EnvVar]),
 };
 
+/**
+ * Pino-pretty options for direct use (e.g., jest/setup.mjs).
+ * Includes function-based messageFormat for per-actor coloring when enabled.
+ */
+export const pinoPrettyOpts = {
+  ...pinoPrettyBaseOpts,
+  messageFormat: useColorPerActor ? formatLogMessage : messageFormatString,
+};
+
+// Transport options use string template only (functions can't be serialized to worker threads).
+const prettyTransportOpts = {
+  ...pinoPrettyBaseOpts,
+  messageFormat: messageFormatString,
+};
+
 const prettyTransport: pino.TransportTargetOptions = {
   target: 'pino-pretty',
-  options: pinoPrettyOpts,
+  options: prettyTransportOpts,
   level: 'trace',
 };
 
@@ -262,6 +360,8 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
   isLevelEnabled: (level: LogLevel) => boolean;
   module: string;
   createChild: (childModule: string) => Logger;
+  /** Returns the bindings (actor, instanceId) for this logger. */
+  getBindings: () => LoggerBindings;
 };
 
 /**

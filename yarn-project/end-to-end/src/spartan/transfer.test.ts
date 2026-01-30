@@ -6,7 +6,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
@@ -14,7 +13,7 @@ import {
   createWalletAndAztecNodeClient,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { ChainHealth, setupEnvironment, startPortForwardForRPC } from './utils.js';
+import { ChainHealth, type ServiceEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -27,7 +26,7 @@ describe('token transfer test', () => {
   const ROUNDS = 1n;
 
   let testAccounts: TestAccounts;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let wallet: TestWallet;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
@@ -36,14 +35,14 @@ describe('token transfer test', () => {
   afterAll(async () => {
     await health.teardown();
     await cleanup?.();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
     await health.setup();
-    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(process);
-    const rpcUrl = `http://127.0.0.1:${port}`;
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const rpcUrl = rpcEndpoint.url;
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
     testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
@@ -89,7 +88,7 @@ describe('token transfer test', () => {
 
       const provenTxs = await Promise.all(txs);
 
-      await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
+      await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
     }
 
     for (const a of testAccounts.accounts) {

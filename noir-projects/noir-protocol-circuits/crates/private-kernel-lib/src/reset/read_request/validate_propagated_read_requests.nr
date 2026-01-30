@@ -7,7 +7,10 @@ pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingRea
     hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>,
 ) {
     let mut num_propagated = 0;
+    let mut within_length = true;
     for i in 0..ReadRequestLen {
+        within_length &= i != read_requests.length;
+
         let read_request = read_requests.array[i];
         let status = hints.read_request_actions[i];
         if status.action == ReadRequestActions.READ_AS_PENDING {
@@ -27,7 +30,7 @@ pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingRea
                 "Hinted settled read request does not match status",
             );
         } else {
-            // This read request is being propagated.
+            // This read request is being propagated (action = SKIP).
 
             // No need to check that there are no pending or settled hints pointing to this read request.
             // If the action is incorrectly set, we may propagate a read request that's already been validated.
@@ -40,7 +43,7 @@ pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingRea
                 "Mismatch propagated read request",
             );
 
-            if i < read_requests.length {
+            if within_length {
                 // Only count the propagated read request if it's within the claimed length.
                 // Without this check, we'd be counting all un-validated read requests, even empty ones, and incorrectly
                 // include them in the final claimed length.

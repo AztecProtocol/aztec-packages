@@ -68,6 +68,7 @@
 </ul>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.NoteExistenceRequest.html">NoteExistenceRequest</a></div></li>
+<li><a href="struct.NullifierExistenceRequest.html">NullifierExistenceRequest</a></div></li>
 <li><a href="struct.PrivateContext.html">PrivateContext</a></div></li>
 <li><a href="struct.PublicContext.html">PublicContext</a></div></li>
 <li><a href="struct.ReturnsHash.html">ReturnsHash</a></div></li>
@@ -85,71 +86,53 @@
 <div class="comments">
 <h2>PublicContext</h2>
 <p>The <strong>main interface</strong> between an #[external(&quot;public&quot;)] function and the Aztec blockchain.</p>
-<p>An instance of the PublicContext is initialized automatically at the outset
-of every public function, within the #[external(&quot;public&quot;)] macro, so you'll never
-need to consciously instantiate this yourself.</p>
-<p>The instance is always named <code>context</code>, and it will always be available
-within the body of every #[external(&quot;public&quot;)] function in your smart contract.</p>
-<p>Typical usage for a smart contract developer will be to call getter
-methods of the PublicContext.</p>
-<p><em>Pushing</em> data and requests to the context is mostly handled within
-aztec-nr's own functions, so typically a smart contract developer won't
-need to call any setter methods directly.</p>
+<p>An instance of the PublicContext is initialized automatically at the outset of every public function, within the
+#[external(&quot;public&quot;)] macro, so you'll never need to consciously instantiate this yourself.</p>
+<p>The instance is always named <code>context</code>, and it will always be available within the body of every
+#[external(&quot;public&quot;)] function in your smart contract.</p>
+<p>Typical usage for a smart contract developer will be to call getter methods of the PublicContext.</p>
+<p><em>Pushing</em> data and requests to the context is mostly handled within aztec-nr's own functions, so typically a smart
+contract developer won't need to call any setter methods directly.</p>
 <h2>Responsibilities</h2>
 <ul>
-<li>Exposes contextual data to a public function:
-<ul>
-<li>Data relating to how this public function was called:
-<ul>
+<li>Exposes contextual data to a public function:</li>
+<li>Data relating to how this public function was called:</li>
 <li>msg_sender, this_address</li>
-</ul>
-</li>
-<li>Data relating to the current blockchain state:
-<ul>
+<li>Data relating to the current blockchain state:</li>
 <li>timestamp, block_number, chain_id, version</li>
-</ul>
-</li>
 <li>Gas and fee information</li>
-</ul>
-</li>
-<li>Provides state access:
-<ul>
+<li>Provides state access:</li>
 <li>Read/write public storage (key-value mapping)</li>
-<li>Check existence of notes and nullifiers
-(Some patterns use notes &amp; nullifiers to store public (not private)
-information)</li>
+<li>Check existence of notes and nullifiers (Some patterns use notes &amp; nullifiers to store public (not private)
+information)
+<ul>
 <li>Enables consumption of L1-&gt;L2 messages.</li>
 </ul>
 </li>
 <li>Enables calls to other public smart contract functions:</li>
-<li>Writes data to the blockchain:
-<ul>
+<li>Writes data to the blockchain:</li>
 <li>Updates to public state variables</li>
-<li>New public logs (for events)</li>
+<li>New public logs (for events)
+<ul>
 <li>New L2-&gt;L1 messages</li>
-<li>New notes &amp; nullifiers
-(E.g. pushing public info to notes/nullifiers, or for completing
-&quot;partial notes&quot;)</li>
 </ul>
 </li>
+<li>New notes &amp; nullifiers (E.g. pushing public info to notes/nullifiers, or for completing &quot;partial notes&quot;)</li>
 </ul>
 <h2>Key Differences from Private Execution</h2>
-<p>Unlike private functions -- which are executed on the user's device and which
-can only reference historic state -- public functions are executed by a block
-proposer and are executed &quot;live&quot; on the <em>current</em> tip of the chain.
-This means public functions can:</p>
+<p>Unlike private functions -- which are executed on the user's device and which can only reference historic state --
+public functions are executed by a block proposer and are executed &quot;live&quot; on the <em>current</em> tip of the chain. This
+means public functions can:</p>
 <ul>
 <li>Read and write <em>current</em> public state</li>
 <li>Immediately see the effects of earlier transactions in the same block</li>
 </ul>
-<p>Also, public functions are executed within a zkVM (the &quot;AVM&quot;), so that they
-can <em>revert</em> whilst still ensuring payment to the proposer and prover.
-(Private functions cannot revert: they either succeed, or they cannot be
+<p>Also, public functions are executed within a zkVM (the &quot;AVM&quot;), so that they can <em>revert</em> whilst still ensuring
+payment to the proposer and prover. (Private functions cannot revert: they either succeed, or they cannot be
 included).</p>
 <h2>Optimising Public Functions</h2>
-<p>Using the AVM to execute public functions means they compile down to &quot;AVM
-bytecode&quot; instead of the ACIR that private functions (standalone circuits)
-compile to. Therefore the approach to optimising a public function is
+<p>Using the AVM to execute public functions means they compile down to &quot;AVM bytecode&quot; instead of the ACIR that
+private functions (standalone circuits) compile to. Therefore the approach to optimising a public function is
 fundamentally different from optimising a public function.</p>
 </div>
 <h2>Fields</h2>
@@ -162,9 +145,8 @@ fundamentally different from optimising a public function.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new PublicContext instance.</p>
-<p>Low-level function: This is called automatically by the #[external(&quot;public&quot;)]
-macro, so you shouldn't need to be called directly by smart contract
-developers.</p>
+<p>Low-level function: This is called automatically by the #[external(&quot;public&quot;)] macro, so you shouldn't need to
+be called directly by smart contract developers.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>compute_args_hash</code> - Function to compute the args_hash</li>
@@ -188,8 +170,7 @@ developers.</p>
 </div><code id="note_hash_exists" class="code-header">pub fn <a href="#note_hash_exists"><span class="fn">note_hash_exists</span></a>(_self: Self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, leaf_index: <a href="../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Checks if a given note hash exists in the note hash tree at a particular
-leaf_index.</p>
+<p>Checks if a given note hash exists in the note hash tree at a particular leaf_index.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>note_hash</code> - The note hash to check for existence</li>
@@ -203,12 +184,9 @@ leaf_index.</p>
 </div><code id="l1_to_l2_msg_exists" class="code-header">pub fn <a href="#l1_to_l2_msg_exists"><span class="fn">l1_to_l2_msg_exists</span></a>(_self: Self, msg_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, msg_leaf_index: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Checks if a specific L1-to-L2 message exists in the L1-to-L2 message
-tree at a particular leaf index.</p>
-<p>Common use cases include token bridging, cross-chain governance, and
-triggering L2 actions based on L1 events.</p>
-<p>This function should be called before attempting to consume an L1-to-L2
-message.</p>
+<p>Checks if a specific L1-to-L2 message exists in the L1-to-L2 message tree at a particular leaf index.</p>
+<p>Common use cases include token bridging, cross-chain governance, and triggering L2 actions based on L1 events.</p>
+<p>This function should be called before attempting to consume an L1-to-L2 message.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>msg_hash</code> - Hash of the L1-to-L2 message to check</li>
@@ -233,7 +211,7 @@ message.</p>
 <div class="padded-description"><div class="comments">
 <p>Returns <code>true</code> if an <code>unsiloed_nullifier</code> has been emitted by <code>contract_address</code>.</p>
 <p>Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
-<a href="../../protocol_types/hash/fn.compute_siloed_nullifier.html">crate::hash::compute_siloed_nullifier</a> with the emitting contract's address.</p>
+<a href="../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::hash::compute_siloed_nullifier</code></a> with the emitting contract's address.</p>
 <h4>Use Cases</h4>
 <p>Nullifiers are typically used as a <em>privacy-preserving</em> record of a one-time action, but they can also be used
 to efficiently record <em>public</em> one-time actions as well. This is cheaper than using public storage, and has the
@@ -244,8 +222,9 @@ which has a <em>public</em> preimage.</p>
 <p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
 possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
 block. Private functions instead prove existence via
-<a href="../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists">crate::context::PrivateContext::assert_nullifier_exists</a> and 'prove' non-existence by
-<em>emitting</em> the nullifer, which would cause the transaction to fail if the nullifier existed.</p>
+<a href="../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>crate::context::PrivateContext::assert_nullifier_exists</code></a>
+and 'prove' non-existence by <em>emitting</em> the nullifer, which would cause the transaction to fail if the
+nullifier existed.</p>
 <p>This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
 prove whether a nullifier exists or not.</p>
 <h4>Safety</h4>
@@ -254,8 +233,8 @@ prove whether a nullifier exists or not.</p>
 existence of a nullifier emitted from a private function implies that all other side-effects of said private
 execution have been completed, more concretely that any enqueued public calls have been executed.</p>
 <p>This is because all private transaction effects are committed <em>before</em> enqueued public functions are run (in
-order to not reveal detailed timing information about the transaction), so it is possible to observe a nullifier
-that was emitted alongside the enqueuing of a public call <strong>before</strong> said call has been completed.</p>
+order to not reveal detailed timing information about the transaction), so it is possible to observe a
+nullifier that was emitted alongside the enqueuing of a public call <strong>before</strong> said call has been completed.</p>
 <h4>Cost</h4>
 <p>This emits the <code>CHECKNULLIFIEREXISTS</code> opcode, which conceptually performs a merkle inclusion proof on the
 nullifier tree (both when the nullifier exists and when it doesn't).</p></div>
@@ -268,20 +247,14 @@ nullifier tree (both when the nullifier exists and when it doesn't).</p></div>
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Consumes a message sent from Ethereum (L1) to Aztec (L2) -- effectively
-marking it as &quot;read&quot;.</p>
-<p>Use this function if you only want the message to ever be &quot;referred to&quot;
-once. Once consumed using this method, the message cannot be consumed
-again, because a nullifier is emitted.
-If your use case wants for the message to be read unlimited times, then
-you can always read any historic message from the L1-to-L2 messages tree,
-using the <code>l1_to_l2_msg_exists</code> method. Messages never technically get
-deleted from that tree.</p>
-<p>The message will first be inserted into an Aztec &quot;Inbox&quot; smart contract
-on L1. It will not be available for consumption immediately. Messages
-get copied-over from the L1 Inbox to L2 by the next Proposer in batches.
-So you will need to wait until the messages are copied before you can
-consume them.</p>
+<p>Consumes a message sent from Ethereum (L1) to Aztec (L2) -- effectively marking it as &quot;read&quot;.</p>
+<p>Use this function if you only want the message to ever be &quot;referred to&quot; once. Once consumed using this method,
+the message cannot be consumed again, because a nullifier is emitted. If your use case wants for the message to
+be read unlimited times, then you can always read any historic message from the L1-to-L2 messages tree, using
+the <code>l1_to_l2_msg_exists</code> method. Messages never technically get deleted from that tree.</p>
+<p>The message will first be inserted into an Aztec &quot;Inbox&quot; smart contract on L1. It will not be available for
+consumption immediately. Messages get copied-over from the L1 Inbox to L2 by the next Proposer in batches. So
+you will need to wait until the messages are copied before you can consume them.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>content</code> - The message content that was sent from L1</li>
@@ -300,23 +273,17 @@ consume them.</p>
 </div><code id="message_portal" class="code-header">pub fn <a href="#message_portal"><span class="fn">message_portal</span></a>(_self: Self, recipient: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>, content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Sends an &quot;L2 -&gt; L1 message&quot; from this function (Aztec, L2) to a smart
-contract on Ethereum (L1). L1 contracts which are designed to
-send/receive messages to/from Aztec are called &quot;Portal Contracts&quot;.</p>
-<p>Common use cases include withdrawals, cross-chain asset transfers, and
-triggering L1 actions based on L2 state changes.</p>
-<p>The message will be inserted into an Aztec &quot;Outbox&quot; contract on L1,
-when this transaction's block is proposed to L1.
-Sending the message will not result in any immediate state changes in
-the target portal contract. The message will need to be manually
-consumed from the Outbox through a separate Ethereum transaction: a user
-will need to call a function of the portal contract -- a function
-specifically designed to make a call to the Outbox to consume the
-message.
-The message will only be available for consumption once the <em>epoch</em>
-proof has been submitted. Given that there are multiple Aztec blocks
-within an epoch, it might take some time for this epoch proof to be
-submitted -- especially if the block was near the start of an epoch.</p>
+<p>Sends an &quot;L2 -&gt; L1 message&quot; from this function (Aztec, L2) to a smart contract on Ethereum (L1). L1 contracts
+which are designed to send/receive messages to/from Aztec are called &quot;Portal Contracts&quot;.</p>
+<p>Common use cases include withdrawals, cross-chain asset transfers, and triggering L1 actions based on L2 state
+changes.</p>
+<p>The message will be inserted into an Aztec &quot;Outbox&quot; contract on L1, when this transaction's block is proposed
+to L1. Sending the message will not result in any immediate state changes in the target portal contract. The
+message will need to be manually consumed from the Outbox through a separate Ethereum transaction: a user will
+need to call a function of the portal contract -- a function specifically designed to make a call to the Outbox
+to consume the message. The message will only be available for consumption once the <em>epoch</em> proof has been
+submitted. Given that there are multiple Aztec blocks within an epoch, it might take some time for this epoch
+proof to be submitted -- especially if the block was near the start of an epoch.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>recipient</code> - Ethereum address that will receive the message</li>
@@ -356,9 +323,8 @@ submitted -- especially if the block was near the start of an epoch.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a read-only call to a public function on another contract.</p>
-<p>This is similar to Solidity's <code>staticcall</code>. The called function
-cannot modify state or emit events. Any nested calls are constrained to
-also be staticcalls.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function cannot modify state or emit events. Any nested
+calls are constrained to also be staticcalls.</p>
 <p>Useful for querying data from other contracts safely.</p>
 <p>Will revert if the called function reverts or runs out of gas.</p>
 <h4>Arguments</h4>
@@ -377,18 +343,14 @@ also be staticcalls.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Adds a new note hash to the Aztec blockchain's global Note Hash Tree.</p>
-<p>Notes are ordinarily constructed and emitted by <em>private</em> functions, to
-ensure that both the content of the note, and the contract that emitted
-the note, stay private.</p>
-<p>There are however some useful patterns whereby a note needs to contain
-<em>public</em> data. The ability to push a new note_hash from a <em>public</em>
-function means that notes can be injected with public data immediately
--- as soon as the public value is known. The slower alternative would
-be to submit a follow-up transaction so that a private function can
-inject the data. Both are possible on Aztec.</p>
-<p>Search &quot;Partial Note&quot; for a very common pattern which enables a note
-to be &quot;partially&quot; populated with some data in a <em>private</em> function, and
-then later &quot;completed&quot; with some data in a public function.</p>
+<p>Notes are ordinarily constructed and emitted by <em>private</em> functions, to ensure that both the content of the
+note, and the contract that emitted the note, stay private.</p>
+<p>There are however some useful patterns whereby a note needs to contain <em>public</em> data. The ability to push a new
+note_hash from a <em>public</em> function means that notes can be injected with public data immediately -- as soon as
+the public value is known. The slower alternative would be to submit a follow-up transaction so that a private
+function can inject the data. Both are possible on Aztec.</p>
+<p>Search &quot;Partial Note&quot; for a very common pattern which enables a note to be &quot;partially&quot; populated with some data
+in a <em>private</em> function, and then later &quot;completed&quot; with some data in a public function.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>note_hash</code> - The hash of the note to add to the tree</li>
@@ -402,22 +364,18 @@ then later &quot;completed&quot; with some data in a public function.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Adds a new nullifier to the Aztec blockchain's global Nullifier Tree.</p>
-<p>Whilst nullifiers are primarily intended as a <em>privacy-preserving</em>
-record of a one-time action, they can also be used to efficiently
-record <em>public</em> one-time actions too. Hence why you're seeing this
-function within the PublicContext.
-An example is to check whether a contract has been published: we emit
-a nullifier that is deterministic, but whose preimage is <em>not</em> private.</p>
+<p>Whilst nullifiers are primarily intended as a <em>privacy-preserving</em> record of a one-time action, they can also
+be used to efficiently record <em>public</em> one-time actions too. Hence why you're seeing this function within the
+PublicContext. An example is to check whether a contract has been published: we emit a nullifier that is
+deterministic, but whose preimage is <em>not</em> private.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>nullifier</code> - A unique field element that represents the consumed
-state</li>
+<li><code>nullifier</code> - A unique field element that represents the consumed state</li>
 </ul>
 <h4>Advanced</h4>
 <ul>
 <li>Nullifier is immediately added to the global nullifier tree</li>
-<li>Emitted nullifiers are immediately visible to all
-subsequent transactions in the same block</li>
+<li>Emitted nullifiers are immediately visible to all subsequent transactions in the same block</li>
 <li>Automatically siloed with the contract address by the protocol</li>
 <li>Used for preventing double-spending and ensuring one-time actions</li>
 </ul>
@@ -426,13 +384,11 @@ subsequent transactions in the same block</li>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the address of the current contract being executed.</p>
-<p>This is equivalent to <code>address(this)</code> in Solidity (hence the name).
-Use this to identify the current contract's address, commonly needed for
-access control or when interacting with other contracts.</p>
+<p>This is equivalent to <code>address(this)</code> in Solidity (hence the name). Use this to identify the current contract's
+address, commonly needed for access control or when interacting with other contracts.</p>
 <h4>Returns</h4>
 <ul>
-<li><code>AztecAddress</code> - The contract address of the current function being
-executed.</li>
+<li><code>AztecAddress</code> - The contract address of the current function being executed.</li>
 </ul>
 </div>
 </div><code id="maybe_msg_sender" class="code-header">pub fn <a href="#maybe_msg_sender"><span class="fn">maybe_msg_sender</span></a>(_self: Self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
@@ -442,8 +398,8 @@ executed.</li>
 <p>This is similar to <code>msg.sender</code> in Solidity (hence the name).</p>
 <p>Important Note: If the calling function is a <em>private</em> function, then it had the option of hiding its address
 when enqueuing this public function call. In such cases, this method will return <code>Option&lt;AztecAddress&gt;::none</code>.
-If the calling function is a <em>public</em> function, it will always return an <code>Option&lt;AztecAddress&gt;::some</code> (i.e.
-a non-null value).</p>
+If the calling function is a <em>public</em> function, it will always return an <code>Option&lt;AztecAddress&gt;::some</code> (i.e. a
+non-null value).</p>
 <h4>Returns</h4>
 <ul>
 <li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract
@@ -459,8 +415,7 @@ or a user's account contract).</li>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the function selector of the currently-executing function.</p>
-<p>This is similar to <code>msg.sig</code> in Solidity, returning the first 4
-bytes of the function signature.</p>
+<p>This is similar to <code>msg.sig</code> in Solidity, returning the first 4 bytes of the function signature.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>FunctionSelector</code> - The 4-byte function identifier</li>
@@ -475,9 +430,8 @@ bytes of the function signature.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the hash of the arguments passed to the current function.</p>
-<p>Very low-level function: The #[external(&quot;public&quot;)] macro uses this internally.
-Smart contract developers typically won't need to access this
-directly as arguments are automatically made available.</p>
+<p>Very low-level function: The #[external(&quot;public&quot;)] macro uses this internally. Smart contract developers
+typically won't need to access this directly as arguments are automatically made available.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>Field</code> - Hash of the function arguments</li>
@@ -486,35 +440,28 @@ directly as arguments are automatically made available.</p>
 </div><code id="transaction_fee" class="code-header">pub fn <a href="#transaction_fee"><span class="fn">transaction_fee</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the &quot;transaction fee&quot; for the current transaction.
-This is the final tx fee that will be deducted from the fee_payer's
-&quot;fee-juice&quot; balance (in the protocol's Base Rollup circuit).</p>
+<p>Returns the &quot;transaction fee&quot; for the current transaction. This is the final tx fee that will be deducted from
+the fee_payer's &quot;fee-juice&quot; balance (in the protocol's Base Rollup circuit).</p>
 <h4>Returns</h4>
 <ul>
-<li><code>Field</code> - The actual, final cost of the transaction, taking into account:
-the actual gas used during the setup and app-logic phases,
-and the fixed amount of gas that's been allocated by the user
-for the teardown phase.
-I.e. effectiveL2FeePerGas * l2GasUsed + effectiveDAFeePerGas * daGasUsed</li>
+<li><code>Field</code> - The actual, final cost of the transaction, taking into account: the actual gas used during the
+setup and app-logic phases, and the fixed amount of gas that's been allocated by the user for the teardown
+phase. I.e. effectiveL2FeePerGas * l2GasUsed + effectiveDAFeePerGas * daGasUsed</li>
 </ul>
-<p>This will return <code>0</code> during the &quot;setup&quot; and &quot;app-logic&quot; phases of
-tx execution (because the final tx fee is not known at that time).
-This will only return a nonzero value during the &quot;teardown&quot; phase of
-execution, where the final tx fee can actually be computed.</p>
-<p>Regardless of <em>when</em> this function is called during the teardown phase,
-it will always return the same final tx fee value. The teardown phase
-does not consume a variable amount of gas: it always consumes a
-pre-allocated amount of gas, as specified by the user when they generate
-their tx.</p>
+<p>This will return <code>0</code> during the &quot;setup&quot; and &quot;app-logic&quot; phases of tx execution (because the final tx fee is not
+known at that time). This will only return a nonzero value during the &quot;teardown&quot; phase of execution, where the
+final tx fee can actually be computed.</p>
+<p>Regardless of <em>when</em> this function is called during the teardown phase, it will always return the same final tx
+fee value. The teardown phase does not consume a variable amount of gas: it always consumes a pre-allocated
+amount of gas, as specified by the user when they generate their tx.</p>
 </div>
 </div><code id="chain_id" class="code-header">pub fn <a href="#chain_id"><span class="fn">chain_id</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the chain ID of the current network.</p>
-<p>This is similar to <code>block.chainid</code> in Solidity. Returns the unique
-identifier for the blockchain network this transaction is executing on.</p>
-<p>Helps prevent cross-chain replay attacks. Useful if implementing
-multi-chain contract logic.</p>
+<p>This is similar to <code>block.chainid</code> in Solidity. Returns the unique identifier for the blockchain network this
+transaction is executing on.</p>
+<p>Helps prevent cross-chain replay attacks. Useful if implementing multi-chain contract logic.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>Field</code> - The chain ID as a field element</li>
@@ -523,9 +470,8 @@ multi-chain contract logic.</p>
 </div><code id="version" class="code-header">pub fn <a href="#version"><span class="fn">version</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the Aztec protocol version that this transaction is executing
-under. Different versions may have different rules, opcodes, or
-cryptographic primitives.</p>
+<p>Returns the Aztec protocol version that this transaction is executing under. Different versions may have
+different rules, opcodes, or cryptographic primitives.</p>
 <p>This is similar to how Ethereum has different EVM versions.</p>
 <p>Useful for forward/backward compatibility checks</p>
 <p>Not to be confused with contract versions; this is the protocol version.</p>
@@ -539,18 +485,13 @@ cryptographic primitives.</p>
 <div class="padded-description"><div class="comments">
 <p>Returns the current block number.</p>
 <p>This is similar to <code>block.number</code> in Solidity.</p>
-<p>Note: the current block number is only available within a public function
-(as opposed to a private function).</p>
-<p>Note: the time intervals between blocks should not be relied upon as
-being consistent:</p>
+<p>Note: the current block number is only available within a public function (as opposed to a private function).</p>
+<p>Note: the time intervals between blocks should not be relied upon as being consistent:</p>
 <ul>
-<li>Timestamps of blocks fall within a range, rather than at exact regular
-intervals.</li>
+<li>Timestamps of blocks fall within a range, rather than at exact regular intervals.</li>
 <li>Slots can be missed.</li>
-<li>Protocol upgrades can completely change the intervals between blocks
-(and indeed the current roadmap plans to reduce the time between
-blocks, eventually).
-Use <code>context.timestamp()</code> for more-reliable time-based logic.</li>
+<li>Protocol upgrades can completely change the intervals between blocks (and indeed the current roadmap plans to
+reduce the time between blocks, eventually). Use <code>context.timestamp()</code> for more-reliable time-based logic.</li>
 </ul>
 <h4>Returns</h4>
 <ul>
@@ -562,17 +503,13 @@ Use <code>context.timestamp()</code> for more-reliable time-based logic.</li>
 <div class="padded-description"><div class="comments">
 <p>Returns the timestamp of the current block.</p>
 <p>This is similar to <code>block.timestamp</code> in Solidity.</p>
-<p>All functions of all transactions in a block share the exact same
-timestamp (even though technically each transaction is executed
-one-after-the-other).</p>
-<p>Important note: Timestamps of Aztec blocks are not at reliably-fixed
-intervals. The proposer of the block has some flexibility to choose a
-timestamp which is in a valid <em>range</em>: Obviously the timestamp of this
-block must be strictly greater than that of the previous block, and must
-must be less than the timestamp of whichever ethereum block the aztec
-block is proposed to. Furthermore, if the timestamp is not deemed close
-enough to the actual current time, the committee of validators will not
-attest to the block.</p>
+<p>All functions of all transactions in a block share the exact same timestamp (even though technically each
+transaction is executed one-after-the-other).</p>
+<p>Important note: Timestamps of Aztec blocks are not at reliably-fixed intervals. The proposer of the block has
+some flexibility to choose a timestamp which is in a valid <em>range</em>: Obviously the timestamp of this block must
+be strictly greater than that of the previous block, and must must be less than the timestamp of whichever
+ethereum block the aztec block is proposed to. Furthermore, if the timestamp is not deemed close enough to the
+actual current time, the committee of validators will not attest to the block.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>u64</code> - Unix timestamp in seconds</li>
@@ -581,35 +518,28 @@ attest to the block.</p>
 </div><code id="min_fee_per_l2_gas" class="code-header">pub fn <a href="#min_fee_per_l2_gas"><span class="fn">min_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the fee per unit of L2 gas for this transaction (aka the &quot;L2 gas
-price&quot;), as chosen by the user.</p>
-<p>L2 gas covers the cost of executing public functions and handling
-side-effects within the AVM.</p>
+<p>Returns the fee per unit of L2 gas for this transaction (aka the &quot;L2 gas price&quot;), as chosen by the user.</p>
+<p>L2 gas covers the cost of executing public functions and handling side-effects within the AVM.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>u128</code> - Fee per unit of L2 gas</li>
 </ul>
-<p>Wallet developers should be mindful that the choice of gas price (which
-is publicly visible) can leak information about the user, e.g.:</p>
+<p>Wallet developers should be mindful that the choice of gas price (which is publicly visible) can leak
+information about the user, e.g.:</p>
 <ul>
 <li>which wallet software the user is using;</li>
-<li>the amount of time which has elapsed from the time the user's wallet
-chose a gas price (at the going rate), to the time of tx submission.
-This can give clues about the proving time, and hence the nature of
-the tx.</li>
-<li>the urgency of the transaction (which is kind of unavoidable, if the
-tx is indeed urgent).</li>
+<li>the amount of time which has elapsed from the time the user's wallet chose a gas price (at the going rate),
+to the time of tx submission. This can give clues about the proving time, and hence the nature of the tx.</li>
+<li>the urgency of the transaction (which is kind of unavoidable, if the tx is indeed urgent).</li>
 <li>the wealth of the user.</li>
-<li>the exact user (if the gas price is explicitly chosen by the user to
-be some unique number like 0.123456789, or their favorite number).
-Wallet devs might wish to consider fuzzing the choice of gas price.</li>
+<li>the exact user (if the gas price is explicitly chosen by the user to be some unique number like 0.123456789,
+or their favorite number). Wallet devs might wish to consider fuzzing the choice of gas price.</li>
 </ul>
 </div>
 </div><code id="min_fee_per_da_gas" class="code-header">pub fn <a href="#min_fee_per_da_gas"><span class="fn">min_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the fee per unit of DA (Data Availability) gas (aka the &quot;DA gas
-price&quot;).</p>
+<p>Returns the fee per unit of DA (Data Availability) gas (aka the &quot;DA gas price&quot;).</p>
 <p>DA gas covers the cost of making transaction data available on L1.</p>
 <p>See the warning in <code>min_fee_per_l2_gas</code> for how gas prices can be leaky.</p>
 <h4>Returns</h4>
@@ -630,12 +560,10 @@ price&quot;).</p>
 </div><code id="da_gas_left" class="code-header">pub fn <a href="#da_gas_left"><span class="fn">da_gas_left</span></a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the remaining DA (Data Availability) gas available for this
-transaction.</p>
-<p>DA gas is consumed when emitting data that needs to be made available
-on L1, such as public logs or state updates.
-All of the side-effects from the private part of the tx also consume
-DA gas before execution of any public functions even begins.</p>
+<p>Returns the remaining DA (Data Availability) gas available for this transaction.</p>
+<p>DA gas is consumed when emitting data that needs to be made available on L1, such as public logs or state
+updates. All of the side-effects from the private part of the tx also consume DA gas before execution of any
+public functions even begins.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>u32</code> - Remaining DA gas units</li>
@@ -644,9 +572,8 @@ DA gas before execution of any public functions even begins.</p>
 </div><code id="is_static_call" class="code-header">pub fn <a href="#is_static_call"><span class="fn">is_static_call</span></a>(_self: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Checks if the current execution is within a staticcall context, where
-no state changes or logs are allowed to be emitted (by this function
-or any nested function calls).</p>
+<p>Checks if the current execution is within a staticcall context, where no state changes or logs are allowed to
+be emitted (by this function or any nested function calls).</p>
 <h4>Returns</h4>
 <ul>
 <li><code>bool</code> - True if in staticcall context, false otherwise</li>
@@ -655,10 +582,9 @@ or any nested function calls).</p>
 </div><code id="raw_storage_read" class="code-header">pub fn <a href="#raw_storage_read"><span class="fn">raw_storage_read</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
 
 <div class="padded-description"><div class="comments">
-<p>Reads raw field values from public storage.
-Reads N consecutive storage slots starting from the given slot.</p>
-<p>Very low-level function. Users should typically use the public state
-variable abstractions to perform reads: PublicMutable &amp; PublicImmutable.</p>
+<p>Reads raw field values from public storage. Reads N consecutive storage slots starting from the given slot.</p>
+<p>Very low-level function. Users should typically use the public state variable abstractions to perform reads:
+PublicMutable &amp; PublicImmutable.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>storage_slot</code> - The starting storage slot to read from</li>
@@ -669,8 +595,7 @@ variable abstractions to perform reads: PublicMutable &amp; PublicImmutable.</p>
 </ul>
 <h4>Generic Parameters</h4>
 <ul>
-<li><code>N</code> - the number of consecutive slots to return, starting from the
-<code>storage_slot</code>.</li>
+<li><code>N</code> - the number of consecutive slots to return, starting from the <code>storage_slot</code>.</li>
 </ul>
 </div>
 </div><code id="storage_read" class="code-header">pub fn <a href="#storage_read"><span class="fn">storage_read</span></a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> T
@@ -679,8 +604,8 @@ variable abstractions to perform reads: PublicMutable &amp; PublicImmutable.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Reads a typed value from public storage.</p>
-<p>Low-level function. Users should typically use the public state
-variable abstractions to perform reads: PublicMutable &amp; PublicImmutable.</p>
+<p>Low-level function. Users should typically use the public state variable abstractions to perform reads:
+PublicMutable &amp; PublicImmutable.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>storage_slot</code> - The storage slot to read from</li>
@@ -701,10 +626,9 @@ variable abstractions to perform reads: PublicMutable &amp; PublicImmutable.</p>
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Writes raw field values to public storage.
-Writes to N consecutive storage slots starting from the given slot.</p>
-<p>Very low-level function. Users should typically use the public state
-variable abstractions to perform writes: PublicMutable &amp; PublicImmutable.</p>
+<p>Writes raw field values to public storage. Writes to N consecutive storage slots starting from the given slot.</p>
+<p>Very low-level function. Users should typically use the public state variable abstractions to perform writes:
+PublicMutable &amp; PublicImmutable.</p>
 <p>Public storage writes take effect immediately.</p>
 <h4>Arguments</h4>
 <ul>
@@ -718,8 +642,8 @@ variable abstractions to perform writes: PublicMutable &amp; PublicImmutable.</p
 
 <div class="padded-description"><div class="comments">
 <p>Writes a typed value to public storage.</p>
-<p>Low-level function. Users should typically use the public state
-variable abstractions to perform writes: PublicMutable &amp; PublicImmutable.</p>
+<p>Low-level function. Users should typically use the public state variable abstractions to perform writes:
+PublicMutable &amp; PublicImmutable.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>storage_slot</code> - The storage slot to write to</li>

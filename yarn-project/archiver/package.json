@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./test": "./dest/test/index.js",
+    "./test/noop-l1": "./dest/test/noop_l1_archiver.js",
     "./config": "./dest/config.js"
   },
   "typedocOptions": {

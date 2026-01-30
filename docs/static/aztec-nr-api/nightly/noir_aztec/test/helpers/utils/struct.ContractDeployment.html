@@ -61,8 +61,8 @@
     T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> by calling a private initializer function
-from the <code>from</code> account.</p>
+<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> by calling a private initializer
+function from the <code>from</code> account.</p>
 <p>The <code>initializer_call</code> is created by calling the intended private initializer function inside the contract's
 <code>interface()</code> with its arguments:</p>
 <pre><code><span class="kw">contract</span> MyContract {
@@ -91,13 +91,10 @@ from the <code>from</code> account.</p>
 <p>The <code>initializer_call</code> is created by calling the intended public initializer function inside the contract's
 <code>interface()</code> with its arguments:</p>
 <pre><code><span class="kw">contract</span> MyContract {
-  #[external(<span class="string">"public"</span>)]
-  #[initializer]
-  <span class="kw">fn</span> init_fn(owner: AztecAddress) { ... }
+  #[external(<span class="string">"public"</span>)] #[initializer] <span class="kw">fn</span> init_fn(owner: AztecAddress) { ... }
 }
 
-#[test]
-<span class="kw">unconstrained</span> <span class="kw">fn</span> test_deployment() {
+#[test] <span class="kw">unconstrained</span> <span class="kw">fn</span> test_deployment() {
   <span class="kw">let</span> contract_address = TestEnvironment::new().deploy(<span class="string">"MyContract"</span>).with_public_initializer(
     MyContract::interface().init_fn(owner)
   );
@@ -105,7 +102,8 @@ from the <code>from</code> account.</p>
 </div><code id="without_initializer" class="code-header">pub unconstrained fn <a href="#without_initializer"><span class="fn">without_initializer</span></a>(self) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> without calling any initializer function.</p>
+<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> without calling any initializer
+function.</p>
 <p>Note that initializers cannot be manually called once this function returns, since the contract address itself
 contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only
 be invoked by using the <code>with_private_initializer</code> or <code>with_public_initializer</code> functions.</p>

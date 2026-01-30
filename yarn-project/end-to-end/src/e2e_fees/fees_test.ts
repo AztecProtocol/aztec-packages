@@ -152,10 +152,7 @@ export class FeesTest {
   async mintAndBridgeFeeJuice(minter: AztecAddress, recipient: AztecAddress) {
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(recipient);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await this.feeJuiceContract.methods
-      .claim(recipient, claim.claimAmount, secret, index)
-      .send({ from: minter })
-      .wait();
+    await this.feeJuiceContract.methods.claim(recipient, claim.claimAmount, secret, index).send({ from: minter });
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -235,9 +232,9 @@ export class FeesTest {
   async applyDeployBananaToken() {
     this.logger.info('Applying deploy banana token setup');
 
-    const bananaCoin = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n)
-      .send({ from: this.aliceAddress })
-      .deployed();
+    const bananaCoin = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
+      from: this.aliceAddress,
+    });
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
     this.bananaCoin = bananaCoin;
@@ -262,9 +259,9 @@ export class FeesTest {
     expect((await this.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
-    const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin)
-      .send({ from: this.aliceAddress })
-      .deployed();
+    const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
+      from: this.aliceAddress,
+    });
 
     this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
@@ -331,8 +328,7 @@ export class FeesTest {
     await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
     await this.bananaCoin.methods
       .mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS)
-      .send({ from: this.aliceAddress })
-      .wait();
+      .send({ from: this.aliceAddress });
   }
 
   public async applyFundAliceWithPrivateBananas() {

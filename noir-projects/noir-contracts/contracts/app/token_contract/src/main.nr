@@ -25,7 +25,7 @@ pub contract Token {
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
 

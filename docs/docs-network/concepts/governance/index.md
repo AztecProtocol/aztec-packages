@@ -10,6 +10,18 @@ import Image from "@theme/IdealImage";
 
 The Aztec network is governed by its community through an onchain governance system. This system allows the network to upgrade rollup contracts, adjust parameters, and evolve over time while maintaining security and decentralization.
 
+## Quick Summary for Token Holders
+
+If you're a token holder looking to participate in governance, here's what you need to know:
+
+| Your Situation | How to Participate | What Happens |
+|----------------|-------------------|--------------|
+| **I have staked tokens** (as sequencer or delegator) | Nothing required - you're already participating | Your voting power is automatically delegated to the rollup, which votes "yea" on proposals that passed sequencer signaling |
+| **I want to vote differently than the default** | Delegate your voting power to yourself | You can cast your own votes on proposals |
+| **I have tokens but haven't staked** | Lock tokens in the Governance contract | You gain voting power without staking rewards or slashing risk |
+
+For step-by-step instructions, see [Voting on Proposals](../../users/voting.md).
+
 ## Design Goals
 
 The governance system is designed around two core requirements:

@@ -43,12 +43,10 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>Convenience struct for capturing a string of type <code>str&lt;M&gt;</code>, and converting it
-into other basic Noir types. Notably: converts to <code>[Field; N]</code> or <code>[u8; M]</code>.
-This particular conversion process tightly-packs the M bytes of the input <code>str</code>
-into 31-byte chunks, with each chunk being put into a field.
-Each field can store 31 characters, so N should be M/31 rounded up.
-Can be used for longer strings that don't fit into a single field.</p>
+<p>Convenience struct for capturing a string of type <code>str&lt;M&gt;</code>, and converting it into other basic Noir types. Notably:
+converts to <code>[Field; N]</code> or <code>[u8; M]</code>. This particular conversion process tightly-packs the M bytes of the input
+<code>str</code> into 31-byte chunks, with each chunk being put into a field. Each field can store 31 characters, so N should
+be M/31 rounded up. Can be used for longer strings that don't fit into a single field.</p>
 </div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let M: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../compressed_string/struct.CompressedString.html" class="struct">CompressedString</a>&lt;N, M&gt;</code></h3>

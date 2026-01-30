@@ -30,6 +30,7 @@
 <li><a href="../block_header/index.html">block_header</a></div></li>
 <li><a href="../call_private_function/index.html">call_private_function</a></div></li>
 <li><a href="../capsules/index.html">capsules</a></div></li>
+<li><a href="../debug_log/index.html">debug_log</a></div></li>
 <li><a href="../enqueue_public_function_call/index.html">enqueue_public_function_call</a></div></li>
 <li><a href="../execution/index.html">execution</a></div></li>
 <li><a href="../execution_cache/index.html">execution_cache</a></div></li>
@@ -43,6 +44,7 @@
 <li><a href="../logs/index.html">logs</a></div></li>
 <li><a href="../message_processing/index.html">message_processing</a></div></li>
 <li><a href="../notes/index.html">notes</a></div></li>
+<li><a href="../nullifiers/index.html">nullifiers</a></div></li>
 <li><a href="../offchain_effect/index.html">offchain_effect</a></div></li>
 <li><a href="../random/index.html">random</a></div></li>
 <li><a href="../shared_secret/index.html">shared_secret</a></div></li>
@@ -54,16 +56,11 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::notes</div>
 <h1>Module <span id="mod" class="module">notes</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.check_nullifier_exists.html" class="fn">check_nullifier_exists</a></div><div class="item-description">Returns true if the nullifier exists. Note that a <code>true</code> value can be constrained by proving existence of the
-nullifier, but a <code>false</code> value should not be relied upon since other transactions may emit this nullifier before the
-current transaction is included in a block. While this might seem of little use at first, certain design patterns
-benefit from this abstraction (see e.g. <code>PrivateMutable</code>).</div></li>
 <li><div class="item-name"><a href="fn.get_next_app_tag_as_sender.html" class="fn">get_next_app_tag_as_sender</a></div><div class="item-description">Returns the next app tag for a given sender and recipient pair.</div></li>
 <li><div class="item-name"><a href="fn.get_notes.html" class="fn">get_notes</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.get_sender_for_tags.html" class="fn">get_sender_for_tags</a></div><div class="item-description">Gets the sender for tags.</div></li>
 <li><div class="item-name"><a href="fn.notify_created_note.html" class="fn">notify_created_note</a></div><div class="item-description">Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 transaction. This note should only be added to the non-volatile database if found in an actual block.</div></li>
-<li><div class="item-name"><a href="fn.notify_created_nullifier.html" class="fn">notify_created_nullifier</a></div><div class="item-description">Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.</div></li>
 <li><div class="item-name"><a href="fn.notify_nullified_note.html" class="fn">notify_nullified_note</a></div><div class="item-description">Notifies the simulator that a note has been nullified, so that it is no longer returned in future read requests in
 the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 actual block.</div></li>

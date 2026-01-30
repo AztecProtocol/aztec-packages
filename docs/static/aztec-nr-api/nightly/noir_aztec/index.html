@@ -19,7 +19,6 @@
 <div id="crate-version">0.0.0</div>
 <h3>Crate items</h3>
 <ul class="sidebar-list">
-<li><a href="#re-exports">Re-exports</a></li>
 <li><a href="#modules">Modules</a></li>
 <li><a href="#structs">Structs</a></li>
 </ul>
@@ -38,7 +37,7 @@
 <h1>Crate <span class="crate">noir_aztec</span></h1>
 <div class="comments">
 <p>The aztec-nr framework for writing Aztec smart contracts.</p>
-<p>This is the detailed API reference for aztec-nr. It assumes that the reader is a developer familiar with Aztec
+<p>This is the detailed API reference for aztec-nr. It  assumes that the reader is a developer familiar with Aztec
 contracts.</p>
 <h2>Beginners</h2>
 <p>If you don't know what Aztec is, head to the <a href="https://docs.aztec.network">Aztec documentation</a>.</p>
@@ -46,22 +45,25 @@ contracts.</p>
 <a href="https://docs.aztec.network/developers/docs/aztec-nr">aztec-nr documentation</a>.</p>
 <h2>How to Use This Documentation</h2>
 <p>aztec-nr is split into multiple <a href="index.html#modules">modules</a>, each of which deals with some high-level concept. If
-you already know which module you're interested in, just navigate to it directly.</p>
-<p>Here are some frequently used modules:</p>
+you already know which module you're interested in, just navigate to it directly. Here are some frequently used
+modules:</p>
 <ul>
-<li><a href="../noir_aztec/macros/index.html"><code>macros</code></a>: the attributes applied to contract functions, such as
-<a href="../noir_aztec/macros/functions/fn.external.html"><code>[#external]</code></a> and <a href="../noir_aztec/macros/functions/fn.initializer.html"><code>[#initializer]</code></a>,
-as well as definition of contract types such as <a href="../noir_aztec/macros/storage/fn.storage.html"><code>[#storage]</code></a> and
-<a href=""><code>[#event]</code></a>.</li>
-<li><a href="../noir_aztec/state_vars/index.html"><code>state_vars</code></a>: types for on-chain storage of contract state, such as
+<li>
+<p><a href="../noir_aztec/macros/index.html"><code>macros</code></a>: the attributes applied to contract functions, such as
+<a href="../noir_aztec/macros/functions/fn.external.html"><code>[#external]</code></a> and
+<a href="../noir_aztec/macros/functions/fn.initializer.html"><code>[#initializer]</code></a>, as well as definition of contract types such as
+<a href="../noir_aztec/macros/storage/fn.storage.html"><code>[#storage]</code></a> and <a href="../noir_aztec/macros/events/fn.event.html"><code>[#event]</code></a>.</p>
+</li>
+<li>
+<p><a href="../noir_aztec/state_vars/index.html"><code>state_vars</code></a>: types for onchain storage of contract state, such as
 <a href="../noir_aztec/state_vars/struct.PrivateMutable.html"><code>PrivateMutable</code></a>,
-<a href="../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a> and <a href="../noir_aztec/state_vars/map/struct.Map.html"><code>Map</code></a>.</li>
-<li><a href="../noir_aztec/test/index.html"><code>test</code></a>: for writing Aztec tests in Noir using
-<a href="../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a> and <a href="../noir_aztec/test/mocks/index.html">mocks</a>.</li>
+<a href="../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a> and <a href="../noir_aztec/state_vars/struct.Map.html"><code>Map</code></a>.</p>
+</li>
+<li>
+<p><a href="../noir_aztec/test/index.html"><code>test</code></a>: for writing Aztec tests in Noir using
+<a href="../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a> and <a href="../noir_aztec/test/mocks/index.html">mocks</a>.</p>
+</li>
 </ul></div>
-<h2 id="re-exports">Re-exports</h2><ul class="item-list">
-<li><div class="item-name"><code>pub use <a href="../protocol_types/index.html" class="module">protocol_types</a>;</code></div></li>
-</ul>
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="authwit/index.html" class="module">authwit</a></div><div class="item-description">Authorization.</div></li>
 <li><div class="item-name"><a href="context/index.html" class="module">context</a></div><div class="item-description">Private, public and utility execution contexts.</div></li>
@@ -71,8 +73,10 @@ as well as definition of contract types such as <a href="../noir_aztec/macros/st
 <li><div class="item-name"><a href="keys/index.html" class="module">keys</a></div><div class="item-description">Privacy keys (npk, ivsk, etc.).</div></li>
 <li><div class="item-name"><a href="macros/index.html" class="module">macros</a></div><div class="item-description">Definition of Aztec contract functions, storage, notes and events.</div></li>
 <li><div class="item-name"><a href="messages/index.html" class="module">messages</a></div><div class="item-description">Message encoding, encryption, delivery and processing.</div></li>
-<li><div class="item-name"><a href="note/index.html" class="module">note</a></div><div class="item-description">Note traits and utilities.</div></li>
+<li><div class="item-name"><a href="note/index.html" class="module">note</a></div><div class="item-description">Note traits and utilities</div></li>
+<li><div class="item-name"><a href="nullifier/index.html" class="module">nullifier</a></div><div class="item-description">Nullifier-related utilities.</div></li>
 <li><div class="item-name"><a href="oracle/index.html" class="module">oracle</a></div><div class="item-description">Standard PXE oracles.</div></li>
+<li><div class="item-name"><a href="protocol/index.html" class="module">protocol</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="publish_contract_instance/index.html" class="module">publish_contract_instance</a></div><div class="item-description">Public contract deployment.</div></li>
 <li><div class="item-name"><a href="state_vars/index.html" class="module">state_vars</a></div><div class="item-description">Storage for contract state.</div></li>
 <li><div class="item-name"><a href="test/index.html" class="module">test</a></div><div class="item-description">The <a href="../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a> utility and mock types.</div></li>

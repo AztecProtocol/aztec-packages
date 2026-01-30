@@ -1,7 +1,7 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type {
   ProvingJobId,
   ProvingJobInputs,
@@ -21,6 +21,7 @@ export class ProvingJobController {
   private promise?: Promise<void>;
   private abortController = new AbortController();
   private result?: ProvingJobResultsMap[ProvingRequestType] | Error;
+  private log: Logger;
 
   constructor(
     private jobId: ProvingJobId,
@@ -29,8 +30,13 @@ export class ProvingJobController {
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: () => void,
-    private log = createLogger('prover-client:proving-agent:job-controller-' + randomBytes(4).toString('hex')),
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('prover-client:proving-agent:job-controller', {
+      instanceId: randomBytes(4).toString('hex'),
+      ...bindings,
+    });
+  }
 
   public start(): void {
     if (this.status !== ProvingJobControllerStatus.IDLE) {

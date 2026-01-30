@@ -278,7 +278,7 @@ TEST_F(ECCVMTests, ProofLengthCheck)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     auto [proof, opening_claim] = prover.construct_proof();
-    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
 }
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)

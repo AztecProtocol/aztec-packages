@@ -8,6 +8,7 @@ import {
   type ObservableResult,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export type MonitorCallback = (proofType: ProvingRequestType) => number;
@@ -31,17 +32,20 @@ export class ProvingBrokerInstrumentation {
 
     this.activeJobs = meter.createObservableGauge(Metrics.PROVING_QUEUE_ACTIVE_JOBS);
 
-    this.resolvedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_RESOLVED_JOBS);
+    const provingJobTypes = Object.values(ProvingRequestType).filter(v => typeof v === 'string');
+    const provingJobAttrs = { [Attributes.PROVING_JOB_TYPE]: provingJobTypes };
 
-    this.rejectedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_REJECTED_JOBS);
+    this.resolvedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RESOLVED_JOBS, provingJobAttrs);
 
-    this.retriedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_RETRIED_JOBS);
+    this.rejectedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_REJECTED_JOBS, provingJobAttrs);
 
-    this.timedOutJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_TIMED_OUT_JOBS);
+    this.retriedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RETRIED_JOBS, provingJobAttrs);
 
-    this.cachedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_CACHED_JOBS);
+    this.timedOutJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_TIMED_OUT_JOBS, provingJobAttrs);
 
-    this.totalJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_TOTAL_JOBS);
+    this.cachedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_CACHED_JOBS, provingJobAttrs);
+
+    this.totalJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_TOTAL_JOBS, provingJobAttrs);
 
     this.jobWait = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_WAIT);
 

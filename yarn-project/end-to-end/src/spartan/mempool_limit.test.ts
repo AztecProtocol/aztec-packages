@@ -28,7 +28,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
@@ -37,14 +36,21 @@ import {
   deploySponsoredTestAccounts,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { ChainHealth, getExternalIP, getSequencersConfig, setupEnvironment, updateSequencersConfig } from './utils.js';
+import {
+  ChainHealth,
+  type ServiceEndpoint,
+  getRPCEndpoint,
+  getSequencersConfig,
+  setupEnvironment,
+  updateSequencersConfig,
+} from './utils.js';
 
 const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:mempool_limiter');
 
-const TX_FLOOD_SIZE = 30;
-const TX_MEMPOOL_LIMIT = 25;
+const TX_FLOOD_SIZE = 15;
+const TX_MEMPOOL_LIMIT = 10;
 const CONCURRENCY = 5;
 
 describe('mempool limiter test', () => {
@@ -62,13 +68,14 @@ describe('mempool limiter test', () => {
     from: AztecAddress;
   }[] = [];
 
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
   beforeAll(async () => {
     await health.setup();
-    const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
-    rpcUrl = `http://${rpcIP}:8080`;
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    rpcUrl = rpcEndpoint.url;
+    endpoints.push(rpcEndpoint);
     node = createAztecNodeClient(rpcUrl);
     const initialBlock = await node.getBlockNumber().catch(() => 0n);
     debugLogger.info(`Connected to RPC at ${rpcUrl}; initial L2 block: ${initialBlock}`);
@@ -134,8 +141,7 @@ describe('mempool limiter test', () => {
 
         await testAccounts.tokenContract.methods
           .mint_to_public(from, mintAmountPerWallet)
-          .send({ from: testAccounts.tokenAdminAddress, fee: { paymentMethod: sponsor } })
-          .wait({ timeout: 600 });
+          .send({ from: testAccounts.tokenAdminAddress, fee: { paymentMethod: sponsor }, wait: { timeout: 600 } });
 
         walletPool.push({ wallet: extraWallet, from });
       }
@@ -188,7 +194,7 @@ describe('mempool limiter test', () => {
     for (const cleanup of cleanups) {
       await cleanup();
     }
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('evicts txs to keep mempool under specified limit', async () => {
@@ -197,12 +203,12 @@ describe('mempool limiter test', () => {
         const tx = Tx.fromBuffer(sampleTx.toBuffer());
         // this only works on unproven networks, otherwise this will fail verification
         tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-        tx.getTxHash();
+        tx.txHash;
         return tx;
       });
 
       await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
-      const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.getTxHash()));
+      const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.txHash));
       const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
       expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
       return;
@@ -252,7 +258,7 @@ describe('mempool limiter test', () => {
     );
 
     await asyncPool(CONCURRENCY, provenTxs, tx => node.sendTx(tx));
-    const txHashes = provenTxs.map(tx => tx.getTxHash());
+    const txHashes = provenTxs.map(tx => tx.txHash);
 
     // Eviction can be async relative to the RPC send, so poll until the pool is under the cap
     await retryUntil(

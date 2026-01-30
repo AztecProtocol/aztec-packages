@@ -21,28 +21,28 @@ describe('e2e_static_calls', () => {
       accounts: [owner],
     } = await setup());
     sender = owner;
-    parentContract = await StaticParentContract.deploy(wallet).send({ from: owner }).deployed();
-    childContract = await StaticChildContract.deploy(wallet).send({ from: owner }).deployed();
+    parentContract = await StaticParentContract.deploy(wallet).send({ from: owner });
+    childContract = await StaticChildContract.deploy(wallet).send({ from: owner });
 
     // We create a note in the set, such that later reads doesn't fail due to get_notes returning 0 notes
-    await childContract.methods.private_set_value(42n, owner, sender).send({ from: owner }).wait();
+    await childContract.methods.private_set_value(42n, owner, sender).send({ from: owner });
   });
 
   afterAll(() => teardown());
 
   describe('direct view calls to child', () => {
     it('performs legal private static calls', async () => {
-      await childContract.methods.private_get_value(42n, owner).send({ from: owner }).wait();
+      await childContract.methods.private_get_value(42n, owner).send({ from: owner });
     });
 
     it('fails when performing non-static calls to poorly written static private functions', async () => {
-      await expect(
-        childContract.methods.private_illegal_set_value(42n, owner).send({ from: owner }).wait(),
-      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
+      await expect(childContract.methods.private_illegal_set_value(42n, owner).send({ from: owner })).rejects.toThrow(
+        STATIC_CALL_STATE_MODIFICATION_ERROR,
+      );
     });
 
     it('performs legal public static calls', async () => {
-      await childContract.methods.pub_get_value(42n).send({ from: owner }).wait();
+      await childContract.methods.pub_get_value(42n).send({ from: owner });
     });
 
     it('fails when performing non-static calls to poorly written static public functions', async () => {
@@ -60,14 +60,12 @@ describe('e2e_static_calls', () => {
           42n,
           owner,
         ])
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
 
       // Using the contract interface
       await parentContract.methods
         .private_get_value_from_child(childContract.address, 42n, owner)
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
     });
 
     it('performs legal (nested) private to private static calls', async () => {
@@ -76,26 +74,23 @@ describe('e2e_static_calls', () => {
           42n,
           owner,
         ])
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
     });
 
     it('performs legal public to public static calls', async () => {
       // Using low level calls
       await parentContract.methods
         .public_static_call(childContract.address, await childContract.methods.pub_get_value.selector(), [42n])
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
 
       // Using contract interface
-      await parentContract.methods.public_get_value_from_child(childContract.address, 42n).send({ from: owner }).wait();
+      await parentContract.methods.public_get_value_from_child(childContract.address, 42n).send({ from: owner });
     });
 
     it('performs legal (nested) public to public static calls', async () => {
       await parentContract.methods
         .public_nested_static_call(childContract.address, await childContract.methods.pub_get_value.selector(), [42n])
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
     });
 
     it('performs legal enqueued public static calls', async () => {
@@ -106,14 +101,10 @@ describe('e2e_static_calls', () => {
           await childContract.methods.pub_get_value.selector(),
           [42n],
         )
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
 
       // Using contract interface
-      await parentContract.methods
-        .enqueue_public_get_value_from_child(childContract.address, 42)
-        .send({ from: owner })
-        .wait();
+      await parentContract.methods.enqueue_public_get_value_from_child(childContract.address, 42).send({ from: owner });
     });
 
     it('performs legal (nested) enqueued public static calls', async () => {
@@ -123,8 +114,7 @@ describe('e2e_static_calls', () => {
           await childContract.methods.pub_get_value.selector(),
           [42n],
         )
-        .send({ from: owner })
-        .wait();
+        .send({ from: owner });
     });
 
     it('fails when performing illegal private to private static calls', async () => {
@@ -135,8 +125,7 @@ describe('e2e_static_calls', () => {
             owner,
             sender,
           ])
-          .send({ from: owner })
-          .wait(),
+          .send({ from: owner }),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
@@ -147,8 +136,7 @@ describe('e2e_static_calls', () => {
             42n,
             owner,
           ])
-          .send({ from: owner })
-          .wait(),
+          .send({ from: owner }),
       ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
     });
 
@@ -160,8 +148,7 @@ describe('e2e_static_calls', () => {
             await childContract.methods.private_set_value.selector(),
             [42n, owner, sender],
           )
-          .send({ from: owner })
-          .wait(),
+          .send({ from: owner }),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 

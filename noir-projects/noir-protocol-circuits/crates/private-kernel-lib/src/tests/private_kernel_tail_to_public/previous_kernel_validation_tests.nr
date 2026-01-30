@@ -1,11 +1,12 @@
 use super::TestBuilder;
 use dep::types::{
-    address::AztecAddress,
+    address::{AztecAddress, eth_address::EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     point::Point,
+    traits::Deserialize,
 };
 
 // --- min_revertible_side_effect_counter ---
@@ -135,6 +136,17 @@ fn nullifiers_for_note_hashes_not_found() {
     // Assign a random note hash for the nullifier.
     builder.previous_kernel.add_siloed_nullifier_for_note_hash(3, 123);
 
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn invalid_l2_to_l1_msg_recipient() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.append_l2_to_l1_msgs(1);
+    let mut l2_to_l1_msg = builder.previous_kernel.l2_to_l1_msgs.pop();
+    // More than 160 bits.
+    l2_to_l1_msg.inner.inner.recipient = EthAddress::deserialize([-1]);
+    builder.previous_kernel.l2_to_l1_msgs.push(l2_to_l1_msg);
     let _ = builder.execute();
 }
 

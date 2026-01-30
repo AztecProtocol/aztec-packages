@@ -56,6 +56,7 @@ void NullifierTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::nullifier_check_sel, 1 },
+                      { C::nullifier_check_const_three, 3 },
                       { C::nullifier_check_write, event.write },
                       { C::nullifier_check_nullifier, nullifier },
                       { C::nullifier_check_root, event.prev_snapshot.root },
@@ -73,7 +74,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
                       { C::nullifier_check_low_leaf_index, event.low_leaf_index },
                       { C::nullifier_check_siloed_nullifier, siloed_nullifier },
-                      { C::nullifier_check_siloing_separator, DOM_SEP__OUTER_NULLIFIER },
+                      { C::nullifier_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                       { C::nullifier_check_should_insert, append },
                       { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
                       { C::nullifier_check_intermediate_root, intermediate_root },

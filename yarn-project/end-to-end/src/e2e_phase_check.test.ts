@@ -35,7 +35,7 @@ describe('Phase check', () => {
       accounts: [defaultAccountAddress],
     } = await setup(1, { genesisPublicData: [genesisBalanceEntry] }));
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
     sponsoredFPC = await SponsoredFPCNoEndSetupContract.deploy(wallet).register({
       contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
     });

@@ -1,7 +1,11 @@
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
@@ -37,7 +41,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot =
+        poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
 
     TreeStates tree_states = {};
@@ -164,17 +169,18 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     instance.original_contract_class_id = param.original_class_id;
 
     AztecAddress derived_address = compute_contract_address(instance);
-    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot =
+        poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     FF delayed_public_mutable_leaf_slot = poseidon2::hash(
-        { DOM_SEP__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
+        { DOM_SEP__PUBLIC_LEAF_SLOT, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
 
     FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + param.update_timestamp_of_change;
     std::vector<FF> update_preimage = { update_metadata, param.update_pre_class, param.update_post_class };
     std::vector<FF> update_preimage_slots;
 
     for (size_t i = 0; i < update_preimage.size(); ++i) {
-        FF leaf_slot = poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX,
+        FF leaf_slot = poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT,
                                          CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
                                          delayed_public_mutable_slot + i });
         update_preimage_slots.push_back(leaf_slot);
@@ -266,10 +272,11 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot =
+        poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     FF delayed_public_mutable_leaf_slot = poseidon2::hash(
-        { DOM_SEP__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
+        { DOM_SEP__PUBLIC_LEAF_SLOT, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees = {};
 

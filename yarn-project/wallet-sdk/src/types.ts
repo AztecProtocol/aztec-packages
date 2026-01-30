@@ -11,14 +11,17 @@ export enum WalletMessageType {
   DISCOVERY = 'aztec-wallet-discovery',
   /** Discovery response from a wallet */
   DISCOVERY_RESPONSE = 'aztec-wallet-discovery-response',
-  /** Session disconnected notification (unencrypted control message) */
-  SESSION_DISCONNECTED = 'aztec-wallet-session-disconnected',
-  /** Explicit disconnect request from dApp */
+  /** Disconnect message (unencrypted control message, bidirectional) */
   DISCONNECT = 'aztec-wallet-disconnect',
+  /** Key exchange request sent over MessageChannel */
+  KEY_EXCHANGE_REQUEST = 'aztec-wallet-key-exchange-request',
+  /** Key exchange response sent over MessageChannel */
+  KEY_EXCHANGE_RESPONSE = 'aztec-wallet-key-exchange-response',
 }
 
 /**
- * Information about an installed Aztec wallet
+ * Information about an installed Aztec wallet.
+ * Used during discovery phase before key exchange.
  */
 export interface WalletInfo {
   /** Unique identifier for the wallet */
@@ -29,10 +32,17 @@ export interface WalletInfo {
   icon?: string;
   /** Wallet version */
   version: string;
+}
+
+/**
+ * Full information about a connected Aztec wallet including crypto material.
+ * Available after key exchange completes.
+ */
+export interface ConnectedWalletInfo extends WalletInfo {
   /** Wallet's ECDH public key for secure channel establishment */
   publicKey: ExportedPublicKey;
   /**
-   * Hash of the shared secret for anti-MITM verification.
+   * Verification hash for verification.
    * Both dApp and wallet independently compute this from the ECDH shared secret.
    * Use {@link hashToEmoji} to convert to a visual representation for user verification.
    */
@@ -72,27 +82,51 @@ export interface WalletResponse {
 }
 
 /**
- * Discovery message for finding installed wallets (public, unencrypted)
+ * Discovery message for finding installed wallets (public, unencrypted).
  */
 export interface DiscoveryRequest {
   /** Message type for discovery */
   type: WalletMessageType.DISCOVERY;
   /** Request ID */
   requestId: string;
+  /** Application ID making the request */
+  appId: string;
   /** Chain information to check if wallet supports this network */
   chainInfo: ChainInfo;
-  /** dApp's ECDH public key for deriving shared secret */
-  publicKey: ExportedPublicKey;
 }
 
 /**
- * Discovery response from a wallet (public, unencrypted)
+ * Discovery response from a wallet (public, unencrypted).
  */
 export interface DiscoveryResponse {
   /** Message type for discovery response */
   type: WalletMessageType.DISCOVERY_RESPONSE;
   /** Request ID matching the discovery request */
   requestId: string;
-  /** Wallet information */
+  /** Basic wallet information */
   walletInfo: WalletInfo;
+}
+
+/**
+ * Key exchange request sent over MessageChannel after discovery approval.
+ */
+export interface KeyExchangeRequest {
+  /** Message type */
+  type: WalletMessageType.KEY_EXCHANGE_REQUEST;
+  /** Request ID matching the discovery request */
+  requestId: string;
+  /** dApp's ECDH public key for deriving shared secret */
+  publicKey: ExportedPublicKey;
+}
+
+/**
+ * Key exchange response sent over MessageChannel.
+ */
+export interface KeyExchangeResponse {
+  /** Message type */
+  type: WalletMessageType.KEY_EXCHANGE_RESPONSE;
+  /** Request ID matching the discovery request */
+  requestId: string;
+  /** Wallet's ECDH public key for deriving shared secret */
+  publicKey: ExportedPublicKey;
 }

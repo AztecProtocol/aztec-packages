@@ -170,6 +170,27 @@ Error: Unable to get blob sidecar, Gateway Time-out (504)
    - Running your own provides better reliability and eliminates timeouts
    - See the [prerequisites guide](./prerequisites.md) for L1 infrastructure setup
 
+## L1 Node Requirements
+
+### Do I Need an L1 Archive Node?
+
+No. You do not need an L1 archive node to run an Aztec node. Snapshot sync is the recommended approach and works with standard L1 full nodes.
+
+To use snapshot sync, set `SYNC_MODE=snapshot` in your configuration.
+
+#if(testnet)
+### Consensus RPC and Blob Availability (Testnet)
+
+On testnet, your L1 consensus (beacon) RPC endpoint must be able to serve **all blob data**. Standard beacon nodes only retain blobs for approximately 18 days (4096 epochs), which may not be sufficient.
+
+To meet this requirement, you need a consensus node configured as either a:
+
+- **Supernode**: Stores all 128/128 data columns regardless of validator staking weight. This provides full blob availability.
+- **Semi-supernode**: Stores enough data columns (typically 64/128) to reconstruct blobs. This is sufficient for testnet participation.
+
+This requirement is specific to testnet. On mainnet, standard beacon nodes with default blob retention are expected to be sufficient.
+#endif
+
 ## Funding and Resources
 
 ### Insufficient L1 Funds
@@ -191,6 +212,8 @@ Error: insufficient funds for gas * price + value
    - [Sepolia Faucet](https://sepoliafaucet.com/)
    - [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
    - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+
+   For Aztec testnet tokens (TST), use the **[Aztec Testnet Faucet](https://testnet.aztec.network/)**.
 
 2. **Maintain sufficient balance**:
 #else

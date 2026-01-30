@@ -3,20 +3,19 @@ import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 export class EventService {
   constructor(
-    private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly anchorBlockHeader: BlockHeader,
     private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
     private readonly jobId: string,
   ) {}
 
-  public async storeEvent(
+  public async validateAndStoreEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
     randomness: Fr,
@@ -29,13 +28,12 @@ export class EventService {
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const [anchorBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
-      this.anchorBlockStore.getBlockHeader(),
+    const [siloedEventCommitment, txEffect] = await Promise.all([
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
 
-    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
 
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);

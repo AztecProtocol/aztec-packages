@@ -31,7 +31,7 @@ function computePrivateFunctionLeaves(fns: PrivateFunction[]): Promise<Buffer[]>
 
 /** Returns the leaf for a given private function. */
 export async function computePrivateFunctionLeaf(fn: PrivateFunction): Promise<Buffer> {
-  return (await poseidon2HashWithSeparator([fn.selector, fn.vkHash], GeneratorIndex.FUNCTION_LEAF)).toBuffer();
+  return (await poseidon2HashWithSeparator([fn.selector, fn.vkHash], GeneratorIndex.PRIVATE_FUNCTION_LEAF)).toBuffer();
 }
 
 async function getPrivateFunctionTreeCalculator(): Promise<MerkleTreeCalculator> {

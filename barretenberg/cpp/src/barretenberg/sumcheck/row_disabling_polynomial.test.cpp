@@ -33,7 +33,7 @@ template <typename Flavor> class RowDisablingPolynomialTest : public ::testing::
      */
     static SumcheckSetup create_sumcheck_setup(size_t multivariate_d)
     {
-        auto transcript = Flavor::Transcript::prover_init_empty();
+        auto transcript = Flavor::Transcript::test_prover_init_empty();
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> gate_challenges(multivariate_d);
@@ -157,7 +157,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     RelationParameters<FF> relation_parameters{};
 
     // Prover: Run ZK Sumcheck with RowDisablingPolynomial
-    auto prover_transcript = Flavor::Transcript::prover_init_empty();
+    auto prover_transcript = Flavor::Transcript::test_prover_init_empty();
     FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     std::vector<FF> prover_gate_challenges(virtual_log_n);
@@ -179,7 +179,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     SumcheckOutput<Flavor> prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
     // Verifier: Verify with padding_indicator_array
-    auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);
 
     // Extract challenges from verifier transcript (must match prover)
     FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -402,7 +402,7 @@ TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
     // Set relation parameters (SumcheckTestFlavor doesn't need beta/gamma)
     RelationParameters<FF> relation_parameters{};
 
-    auto prover_transcript = Flavor::Transcript::prover_init_empty();
+    auto prover_transcript = Flavor::Transcript::test_prover_init_empty();
     FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     std::vector<FF> prover_gate_challenges(virtual_log_n);
@@ -422,7 +422,7 @@ TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
     // Non-ZK Sumcheck (no RowDisablingPolynomial)
     SumcheckOutput<Flavor> prover_output = sumcheck_prover.prove();
 
-    auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);
 
     // Extract challenges from verifier transcript (must match prover)
     FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");

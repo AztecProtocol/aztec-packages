@@ -19,6 +19,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmSimulator } from '../avm_simulator.js';
+import { CallDataArray } from '../calldata.js';
 import { DEFAULT_TIMESTAMP } from './utils.js';
 
 /**
@@ -70,7 +71,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
-    overrides?.calldata ?? [],
+    overrides?.calldata ?? new CallDataArray([]),
     overrides?.config ?? PublicSimulatorConfig.empty(),
   );
 }

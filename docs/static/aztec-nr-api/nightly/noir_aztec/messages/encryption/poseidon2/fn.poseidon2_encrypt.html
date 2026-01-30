@@ -34,18 +34,18 @@
 
 <div class="comments">
 <p>Poseidon2 Encryption.</p>
-<p>~160 constraints to encrypt 8 fields. Use this hash if you favour proving speed over long-term privacy for your users.</p>
-<p>WARNING: Poseidon2 as an <em>encryption scheme</em> isn't considered as secure as more battle-tested encryption schemes, e.g. AES128.
-This is because:</p>
+<p>~160 constraints to encrypt 8 fields. Use this hash if you favour proving speed over long-term privacy for your
+users.</p>
+<p>WARNING: Poseidon2 as an <em>encryption scheme</em> isn't considered as secure as more battle-tested encryption schemes,
+e.g. AES128. This is because:</p>
 <ul>
 <li>it's relatively new;</li>
 <li>it isn't used much in the wild, so there's less incentive for hackers or bounty hunters to try to break it;</li>
 <li>it doesn't provide post-quantum privacy.</li>
 </ul>
-<p>If you want to protect your users' privacy decades into the future, it might be prudent to choose
-a more 'traditional' encryption scheme.
-If your app is &quot;lower stakes&quot;, and your users will only care about their privacy in the near future or immediate future, then
-this encryption scheme might be for you!</p>
+<p>If you want to protect your users' privacy decades into the future, it might be prudent to choose a more
+'traditional' encryption scheme. If your app is &quot;lower stakes&quot;, and your users will only care about their privacy
+in the near future or immediate future, then this encryption scheme might be for you!</p>
 <p>See the paper: <a href="https://drive.google.com/file/d/1EVrP3DzoGbmzkRmYnyEDcIQcXVU7GlOd/view">https://drive.google.com/file/d/1EVrP3DzoGbmzkRmYnyEDcIQcXVU7GlOd/view</a></p>
 <p>Note: The return length is: L padded to the next multiple of 3, plus 1 for a message auth code of s[1].</p>
 <p>@param encryption_nonce is only needed if your use case needs to protect against replay attacks.</p>

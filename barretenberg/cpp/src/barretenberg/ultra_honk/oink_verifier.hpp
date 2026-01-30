@@ -38,12 +38,18 @@ template <typename Flavor> class OinkVerifier {
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
 
+    // Number of public inputs - provided by caller, not derived from VK.
+    // This avoids .get_value() in recursive contexts and makes the dependency explicit.
+    size_t num_public_inputs;
+
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
                  const std::shared_ptr<Transcript>& transcript,
+                 size_t num_public_inputs,
                  std::string domain_separator = "")
         : transcript(transcript)
         , verifier_instance(verifier_instance)
         , domain_separator(std::move(domain_separator))
+        , num_public_inputs(num_public_inputs)
     {}
 
     void verify();
@@ -59,20 +65,5 @@ template <typename Flavor> class OinkVerifier {
     void execute_grand_product_computation_round();
 
     SubrelationSeparator generate_alpha_round();
-
-  private:
-    /**
-     * @brief Helper to get number of public inputs, abstracting differences between native and recursive flavors
-     * @return Number of public inputs as size_t
-     */
-    size_t get_num_public_inputs() const
-    {
-        auto vk = verifier_instance->get_vk();
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            return static_cast<size_t>(static_cast<uint32_t>(vk->num_public_inputs.get_value()));
-        } else {
-            return static_cast<size_t>(vk->num_public_inputs);
-        }
-    }
 };
 } // namespace bb

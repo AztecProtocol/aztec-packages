@@ -99,7 +99,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 
     const blockHash = await tx.data.constants.anchorBlockHeader.hash();
     const anchorBlockArchiveSiblingPath = (
-      await getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT, db)
+      await getMembershipWitnessFor(blockHash.toFr(), MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT, db)
     ).siblingPath;
 
     const contractClassLogsFields = makeTuple(

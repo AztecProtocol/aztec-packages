@@ -4,7 +4,7 @@ import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
@@ -52,7 +52,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly log: Logger = createLogger('world-state:database'),
+    protected readonly log: Logger,
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -62,9 +62,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     wsTreeMapSizes: WorldStateTreeMapSizes,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    log = createLogger('world-state:database'),
+    bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
@@ -72,7 +73,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       rollupAddress,
       dataDirectory: worldStateDirectory,
       onOpen: (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
+        return Promise.resolve(
+          new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation, bindings),
+        );
       },
     });
 
@@ -93,8 +96,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     cleanupTmpDir = true,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    const log = createLogger('world-state:database');
+    const log = createLogger('world-state:database', bindings);
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
     const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
@@ -116,7 +120,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(
+      rollupAddress,
+      dataDir,
+      worldStateTreeMapSizes,
+      prefilledPublicData,
+      instrumentation,
+      bindings,
+      cleanup,
+    );
   }
 
   protected async init() {
@@ -135,7 +147,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [(await this.initialHeader.hash()).toFr()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }

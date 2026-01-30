@@ -14,7 +14,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
@@ -31,9 +30,9 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { ensureContractSynced } from '../../contract_sync/index.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -47,7 +46,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { ensureContractSynced, executePrivateFunction } from './private_execution.js';
+import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -89,7 +88,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     keyStore: KeyStore,
     addressStore: AddressStore,
     aztecNode: AztecNode,
-    anchorBlockStore: AnchorBlockStore,
     private readonly senderTaggingStore: SenderTaggingStore,
     recipientTaggingStore: RecipientTaggingStore,
     senderAddressBookStore: SenderAddressBookStore,
@@ -113,7 +111,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
@@ -266,13 +263,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      const anchorBlockHash = L2BlockHash.fromField(await this.anchorBlockHeader.hash());
       await syncSenderTaggingIndexes(
         secret,
         this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
-        anchorBlockHash,
+        await this.anchorBlockHeader.hash(),
         this.jobId,
       );
 
@@ -365,7 +361,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -575,7 +571,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,

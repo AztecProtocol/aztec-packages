@@ -888,23 +888,20 @@ TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
 TEST_F(ExecutionSimulationTest, NullifierExists)
 {
     MemoryAddress nullifier_offset = 10;
-    MemoryAddress address_offset = 11;
     MemoryAddress exists_offset = 12;
 
     auto nullifier = MemoryValue::from<FF>(42);
-    auto address = MemoryValue::from<FF>(7);
 
     EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_offset)).WillOnce(ReturnRef(nullifier));
-    EXPECT_CALL(memory, get(address_offset)).WillOnce(ReturnRef(address));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(merkle_db, nullifier_exists(address.as_ff(), nullifier.as_ff())).WillOnce(Return(true));
+    EXPECT_CALL(merkle_db, siloed_nullifier_exists(nullifier.as_ff())).WillOnce(Return(true));
 
     EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
 
-    execution.nullifier_exists(context, nullifier_offset, address_offset, exists_offset);
+    execution.nullifier_exists(context, nullifier_offset, exists_offset);
 }
 
 TEST_F(ExecutionSimulationTest, EmitNullifier)
@@ -1150,6 +1147,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
+
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
     EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
@@ -1157,6 +1156,29 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
         .WillOnce(Return());
 
     execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgTooLargeRecipient)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(FF(MAX_ETH_ADDRESS_VALUE) + 1);
+    auto content = MemoryValue::from<FF>(27);
+
+    TrackedSideEffects side_effects_states;
+
+    EXPECT_CALL(context, get_memory());
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(true));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Recipient address is too large");
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
@@ -1175,6 +1197,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
@@ -1204,6 +1228,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 

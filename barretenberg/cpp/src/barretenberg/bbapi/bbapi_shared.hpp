@@ -8,6 +8,7 @@
  */
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
@@ -15,6 +16,21 @@
 #include <vector>
 
 namespace bb::bbapi {
+
+/**
+ * @brief Validate verification key size before deserialization
+ * @tparam VK The verification key type
+ * @param vk_bytes The serialized verification key bytes
+ * @throws If the size doesn't match the expected size for the VK type
+ */
+template <typename VK> inline void validate_vk_size(const std::vector<uint8_t>& vk_bytes)
+{
+    const size_t expected_size = VK::calc_num_data_types() * sizeof(bb::fr);
+    if (vk_bytes.size() != expected_size) {
+        throw_or_abort("verification key has wrong size: expected " + std::to_string(expected_size) + ", got " +
+                       std::to_string(vk_bytes.size()));
+    }
+}
 
 /**
  * @enum VkPolicy

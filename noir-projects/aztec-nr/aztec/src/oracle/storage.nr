@@ -1,8 +1,4 @@
-use protocol_types::{
-    abis::block_header::BlockHeader,
-    address::AztecAddress,
-    traits::{Hash, Packable, ToField},
-};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::{Hash, Packable, ToField}};
 
 #[oracle(utilityStorageRead)]
 unconstrained fn storage_read_oracle<let N: u32>(
@@ -20,11 +16,7 @@ pub unconstrained fn raw_storage_read<let N: u32>(
     storage_read_oracle(block_hash_to_read_from, address.to_field(), storage_slot, N)
 }
 
-pub unconstrained fn storage_read<T>(
-    header_to_read_from: BlockHeader,
-    address: AztecAddress,
-    storage_slot: Field,
-) -> T
+pub unconstrained fn storage_read<T>(header_to_read_from: BlockHeader, address: AztecAddress, storage_slot: Field) -> T
 where
     T: Packable,
 {

@@ -424,8 +424,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this,
       this.setState.bind(this),
-      this.log,
       this.tracer,
+      this.log.getBindings(),
     );
   }
 

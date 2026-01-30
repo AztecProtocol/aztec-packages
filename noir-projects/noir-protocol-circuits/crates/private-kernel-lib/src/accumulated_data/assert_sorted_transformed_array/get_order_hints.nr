@@ -16,7 +16,7 @@ impl<let N: u32> Eq for OrderHints<N> {
 /// Generates hints for more efficient validation in `assert_sorted_transformed_array`.
 ///
 /// ### Inputs
-/// - `original_array`: The array whose items are to be sorted.
+/// - `original_array`: The array whose items are to be sorted by their counter.
 ///
 /// ### Outputs
 /// `OrderHints`: Metadata describing how items should be mapped and ordered. It contains:

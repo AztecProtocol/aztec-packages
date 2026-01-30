@@ -35,7 +35,7 @@ export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.ROOT_ROLLUP]: 93_000,
   [ProvingRequestType.TX_MERGE_ROLLUP]: 10_000,
   [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: 44_500,
-  [ProvingRequestType.PUBLIC_VM]: 10_000,
+  [ProvingRequestType.PUBLIC_VM]: 180_000,
 
   // TBD
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: 15_000,

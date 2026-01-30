@@ -76,34 +76,34 @@ The mode is set at compile-time.
 
 ### Phase and Round Tracking
 
-The transcript maintains state for correct tag assignment:
+The transcript maintains state for correct tag assignment and manifest tracking:
 
 ```cpp
-size_t round_index = 0;       // Current protocol round (for origin tags)
-bool reception_phase = true;  // Currently receiving data (true) or generating challenges (false)
+size_t round_index = 0;                  // Current protocol round (for both tags and manifest)
+bool challenge_generation_phase = false; // Currently generating challenges (true) vs proof processing (false)
 ```
 
 #### Phase Transitions
 
-**When adding/receiving data** (`send_to_verifier`, `receive_from_prover`, `add_to_hash_buffer`):
+**When processing proof data** (`send_to_verifier`, `receive_from_prover`, `add_to_hash_buffer`):
 ```cpp
-if (!reception_phase) {
-    reception_phase = true;  // Switch back to reception
-    round_index++;           // Move to next round
+if (challenge_generation_phase) {
+    challenge_generation_phase = false;  // Switch to proof processing phase
+    round_index++;                        // Move to next round
 }
 // Tag assigned: OriginTag(transcript_index, round_index, is_submitted=true)
 ```
 
 **When generating challenges** (`get_challenge`, `get_challenges`):
 ```cpp
-if (reception_phase) {
-    reception_phase = false;  // Switch to challenge generation
+if (!challenge_generation_phase) {
+    challenge_generation_phase = true;  // Switch to challenge generation phase
     // round_index stays the same - challenges belong to the current round
 }
 // Tag assigned: OriginTag(transcript_index, round_index, is_submitted=false)
 ```
 
-**Key insight**: `round_index` increments when returning FROM challenge generation TO data reception, not when generating challenges. This ensures challenges and the round's data share the same round number.
+**Key insight**: `round_index` increments when entering a new round of proof processing (transitioning FROM challenge generation TO proof processing), not when generating challenges. This ensures challenges and the round's submitted data share the same round number, keeping manifest and tag information in sync.
 
 ---
 
@@ -217,7 +217,7 @@ auto alpha = transcript->get_challenge<FF>("alpha");
 **Behavior**:
 - Hashes `previous_challenge || current_round_data`
 - Clears `current_round_data`
-- Increments `round_number`
+- Sets `challenge_generation_phase = true` (no round increment)
 - Assigns origin tag with `is_submitted=false`
 
 #### `get_challenges<ChallengeType>(std::span<const std::string> labels) -> std::vector<ChallengeType>`
@@ -510,7 +510,7 @@ The following diagram illustrates the complete flow of the Poseidon2 in-circuit 
 │                    transcript_id = 42 (from global atomic counter)          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
+ROUND 0 - PREAMBLE (challenge_generation_phase=false, round_index=0)
 ═══════════════════════════════════════════════════════
 ** VK hash MUST be the first element added to transcript **
 
@@ -542,14 +542,14 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
 │ receive_from_prover("w_o")       │──┘
 └──────────────────────────────────┘
                                            │
-                                           │ Phase: reception → challenge generation
+                                           │ Phase: proof processing → challenge generation
                                            ▼
 ┌──────────────────────────────────┐
-│ get_challenges("eta", "eta_two", │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
-│                "eta_three")      │    2. Hash: c₀ = Poseidon2(current_round_data)
-└──────────────────────────────────┘    3. Split to [127-bit, 127-bit] x3
+│ get_challenge("eta")             │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
+└──────────────────────────────────┘    2. Hash: c₀ = Poseidon2(current_round_data)
+         │                               3. Split to [127-bit, 127-bit]
          │                               4. Clear current_round_data
-         │                               5. Set reception_phase = false
+         │                               5. Set challenge_generation_phase = true
          ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
     eta, eta_two, eta_three                round_provenance = 0x0001...0000 (bit 0 upper)
     tag = OriginTag(42, 0, false)
@@ -557,12 +557,12 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
     ** All subsequent challenges depend on: H(vk_hash || pub_inputs || wire_comms) **
 
 
-ROUND 1 - SORTED LIST ACCUMULATOR (reception_phase=false → true, round_index=0 → 1)
-════════════════════════════════════════════════════════════════════════════════
+ROUND 1 - SORTED LIST ACCUMULATOR (challenge_generation_phase=true → false, round_index=0 → 1)
+══════════════════════════════════════════════════════════════════════════════════════════
 
 ┌──────────────────────────────────────────┐
 │ receive_from_prover("lookup_read_counts")│──► Phase transition detected!
-└──────────────────────────────────────────┘    reception_phase = true
+└──────────────────────────────────────────┘    challenge_generation_phase = false
 ┌──────────────────────────────────────────┐    round_index++ = 1
 │ receive_from_prover("lookup_read_tags")  │──┐
 └──────────────────────────────────────────┘  │
@@ -570,7 +570,7 @@ ROUND 1 - SORTED LIST ACCUMULATOR (reception_phase=false → true, round_index=0
 │ receive_from_prover("w_4")               │──┘    Origin tag: OriginTag(42, 1, is_submitted=true)
 └──────────────────────────────────────────┘       round_provenance = 0x0000...0002 (bit 1 lower)
          │
-         │ Phase: reception → challenge generation
+         │ Phase: proof processing → challenge generation
          ▼
 ┌──────────────────────────────────┐
 │ get_challenges("beta", "gamma")  │──► Generate challenges for log-derivative
@@ -580,7 +580,7 @@ ROUND 1 - SORTED LIST ACCUMULATOR (reception_phase=false → true, round_index=0
     beta, gamma
 
 
-ROUND 2 - LOG DERIVATIVE INVERSE (reception_phase=false → true, round_index=1 → 2)
+ROUND 2 - LOG DERIVATIVE INVERSE (challenge_generation_phase=true → false, round_index=1 → 2)
 ═══════════════════════════════════════════════════════════════════════════════
 
 ┌──────────────────────────────────────────┐
@@ -696,9 +696,9 @@ VK HASHING WITH ORIGIN TAG ASSIGNMENT
 TRANSCRIPT STATE TRACKING
 ══════════════════════════
 
-    transcript_index: 42           // Unique ID for this transcript (PRIVATE)
-    round_index:      0 → 1        // Increments when reception_phase: false → true (PRIVATE)
-    reception_phase:  true/false   // Receiving data vs generating challenges (PRIVATE)
+    transcript_index:           42           // Unique ID for this transcript (PRIVATE)
+    round_index:                0 → 1        // Increments when challenge_generation_phase: true → false (PRIVATE)
+    challenge_generation_phase: false/true   // Generating challenges (true) vs proof processing (false) (PRIVATE)
 
     current_round_data:            // Main Fiat-Shamir buffer (cleared on challenge)
     previous_challenge:            // For duplex sponge c_next = H(c_prev || data)

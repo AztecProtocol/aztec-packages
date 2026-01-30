@@ -12,45 +12,47 @@
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
 
 /**
- * @brief Compute log_n and padding indicator array based on flavor configuration
- * @details Handles all combinations of native/recursive, ZK/non-ZK, and padding/no-padding
- * @return PaddingData containing log_n and padding_indicator_array
+ * @brief Compute log_n based on flavor.
+ * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
+ *          Called early in verification to derive num_public_inputs from proof size.
+ */
+template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_log_n() const
+{
+    if constexpr (Flavor::USE_PADDING) {
+        return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
+    } else {
+        // Non-padded: use actual circuit size from VK (native only)
+        return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+    }
+}
+
+/**
+ * @brief Compute padding indicator array based on flavor configuration.
+ * @details Must be called AFTER OinkVerifier::verify() so that VK fields are properly
+ *          tagged through the transcript (for recursive ZK flavors).
+ * @param log_n The log circuit size (from compute_log_n)
+ * @return std::vector<FF> padding indicator array
  */
 template <typename Flavor, class IO>
-typename UltraVerifier_<Flavor, IO>::PaddingData UltraVerifier_<Flavor, IO>::process_padding() const
+std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
 {
-    using FF = typename Flavor::FF;
-    using Curve = typename Flavor::Curve;
-
-    auto vk_ptr = verifier_instance->get_vk();
-
-    // Determine log_n based on whether padding is employed
-    const size_t log_n = [&]() {
-        if constexpr (Flavor::USE_PADDING) {
-            return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
-        } else if constexpr (!IsRecursive) {
-            return static_cast<size_t>(vk_ptr->log_circuit_size);
-        }
-    }();
-
-    // Construct the padding indicator array
     // - Non-ZK flavors: all 1s (no masking needed)
     // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
     // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
     std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
     if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
+        auto vk_ptr = verifier_instance->get_vk();
         if constexpr (IsRecursive) {
             // Recursive: use in-circuit computation via Lagrange polynomials
+            // Note: Must be called after OinkVerifier so log_circuit_size is properly tagged
             padding_indicator_array =
                 stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
         } else {
@@ -62,7 +64,7 @@ typename UltraVerifier_<Flavor, IO>::PaddingData UltraVerifier_<Flavor, IO>::pro
         }
     }
 
-    return PaddingData{ log_n, std::move(padding_indicator_array) };
+    return padding_indicator_array;
 }
 
 /**
@@ -74,24 +76,11 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     IO>::split_rollup_proof(const Proof& combined_proof) const
     requires(HasIPAAccumulator<Flavor>)
 {
-    // Use VK's num_public_inputs which includes both IO and any additional circuit public inputs
-    auto vk_ptr = verifier_instance->get_vk();
-    const size_t num_public_inputs = [&]() {
-        if constexpr (IsRecursive) {
-            return static_cast<size_t>(uint32_t(vk_ptr->num_public_inputs.get_value()));
-        } else {
-            return static_cast<size_t>(vk_ptr->num_public_inputs);
-        }
-    }();
+    // IPA proof is appended at the end
+    const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
 
-    // Calculate split point
-    const size_t HONK_PROOF_LENGTH = UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
-    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-
-    // Extract proofs
-    Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_with_pub_inputs_length);
-    Proof ipa_proof(combined_proof.begin() + honk_proof_with_pub_inputs_length, combined_proof.end());
+    Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_length);
+    Proof ipa_proof(combined_proof.begin() + honk_proof_length, combined_proof.end());
 
     return std::make_pair(honk_proof, ipa_proof);
 }
@@ -124,20 +113,23 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    using FF = typename Flavor::FF;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
     transcript->load_proof(proof);
-    OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };
+
+    // Compute log_n first (needed for proof layout calculation)
+    const size_t log_n = compute_log_n();
+
+    // Derive num_public_inputs from proof size using centralized proof layout
+    const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
+
+    OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding data (log_n and padding_indicator_array)
-    auto [log_n, padding_indicator_array] = process_padding();
+    // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
+    auto padding_indicator_array = compute_padding_indicator_array(log_n);
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 

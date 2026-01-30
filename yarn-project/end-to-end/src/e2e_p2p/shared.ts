@@ -1,10 +1,10 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type SentTx, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { Tx, TxStatus } from '@aztec/aztec.js/tx';
+import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type {
   EmpireSlashingProposerContract,
@@ -22,7 +22,7 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
+import { type ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
@@ -34,24 +34,15 @@ export const submitComplexTxsTo = async (
   numTxs: number,
   opts: { callPublic?: boolean } = {},
 ) => {
-  const txs: SentTx[] = [];
+  const txs: TxHash[] = [];
 
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send({ from });
-    const txHash = await tx.getTxHash();
-
+    const method = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic);
+    const txHash = await method.send({ from, wait: NO_WAIT });
     logger.info(`Tx sent with hash ${txHash.toString()}`);
-    const receipt = await tx.getReceipt();
-    expect(receipt).toEqual(
-      expect.objectContaining({
-        status: TxStatus.PENDING,
-        error: '',
-      }),
-    );
-    logger.info(`Receipt received for ${txHash.toString()}`);
-    txs.push(tx);
+    txs.push(txHash);
   }
   return txs;
 };
@@ -62,10 +53,14 @@ export const submitTransactions = async (
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<SentTx[]> => {
+): Promise<TxHash[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
   return submitTxsTo(wallet, fundedAccountManager.address, numTxs, logger);
 };
@@ -75,11 +70,15 @@ export async function prepareTransactions(
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<Tx[]> {
+): Promise<ProvenTx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
@@ -92,8 +91,7 @@ export async function prepareTransactions(
     const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {
       from: fundedAccountManager.address,
     });
-    const txHash = tx.getTxHash();
-    logger.info(`Tx prepared with hash ${txHash}`);
+    logger.info(`Tx prepared with hash ${tx.getTxHash()}`);
     return tx;
   });
 }

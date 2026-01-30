@@ -4,6 +4,7 @@ import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 
 import {
   type Abi,
+  type AbiItem,
   BaseError,
   type ContractEventName,
   ContractFunctionRevertedError,
@@ -14,6 +15,7 @@ import {
   decodeErrorResult,
   decodeEventLog,
 } from 'viem';
+import { formatAbiItem, formatAbiParams } from 'viem/utils';
 
 export interface L2Claim {
   claimSecret: Fr;
@@ -91,6 +93,57 @@ export function prettyLogViemErrorMsg(err: any) {
     }
   }
   return err?.message ?? err;
+}
+
+export function mergeAbis(abis: Abi[]): Abi {
+  let merged: Abi = [];
+  const seen = new Set<string>();
+
+  for (const abi of abis) {
+    for (const item of abi) {
+      const key = getAbiItemKey(item);
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged = [...merged, item];
+      }
+    }
+  }
+
+  return merged;
+}
+
+function getAbiItemKey(item: AbiItem): string {
+  if (item.type === 'function') {
+    const signature = formatAbiItem(item);
+    const outputs = formatAbiParams(item.outputs);
+    const stateMutability = typeof item.stateMutability === 'string' ? item.stateMutability : '';
+    return `function:${signature}:${outputs}:${stateMutability}`;
+  }
+
+  if (item.type === 'event') {
+    const signature = formatAbiItem(item);
+    const indexed = (item.inputs ?? []).map(input => ((input as { indexed?: boolean }).indexed ? '1' : '0')).join('');
+    const anonymous = item.anonymous ? 'anonymous' : 'not-anonymous';
+    return `event:${signature}:${indexed}:${anonymous}`;
+  }
+
+  if (item.type === 'error') {
+    const signature = formatAbiItem(item);
+    return `error:${signature}`;
+  }
+
+  if (item.type === 'constructor') {
+    const inputs = formatAbiParams(item.inputs);
+    const stateMutability = typeof item.stateMutability === 'string' ? item.stateMutability : '';
+    return `constructor::${inputs}:${stateMutability}`;
+  }
+
+  if (item.type === 'fallback' || item.type === 'receive') {
+    const stateMutability = typeof item.stateMutability === 'string' ? item.stateMutability : '';
+    return `${item.type}:::${stateMutability}`;
+  }
+
+  return 'unknown';
 }
 
 function getNestedErrorData(error: unknown): string | undefined {

@@ -16,7 +16,7 @@ pub contract PrivateVoting {
         storage::storage,
     };
     use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
-    use dep::aztec::protocol_types::{address::AztecAddress, hash::poseidon2_hash, traits::{Hash, ToField}};
+    use dep::aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Hash, ToField}};
 
     #[storage]
     struct Storage<Context> {
