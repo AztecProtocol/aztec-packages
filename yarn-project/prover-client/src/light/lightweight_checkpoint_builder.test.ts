@@ -5,7 +5,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
@@ -20,7 +19,9 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 
-describe('CheckpointBuilder', () => {
+import { LightweightCheckpointBuilder } from './lightweight_checkpoint_builder.js';
+
+describe('LightweightCheckpointBuilder', () => {
   let worldState: NativeWorldStateService;
   let feePayer: AztecAddress;
   let feePayerBalance: Fr;
