@@ -51,6 +51,14 @@ impl<let N: u32> Reader<N> {
         result
     }
 
+    pub fn peek_offset(&mut self, offset: u32) -> Field {
+        self.data[self.offset + offset]
+    }
+
+    pub fn advance_offset(&mut self, offset: u32) {
+        self.offset += offset;
+    }
+
     pub fn finish(self) {
         assert_eq(self.offset, self.data.len(), "Reader did not read all data");
     }
