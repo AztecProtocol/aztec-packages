@@ -6,7 +6,7 @@
 
 The optimized verifier is a **circuit-agnostic** template. Blake is used only as the test circuit for Solidity test coverage.
 
-1. **honk-optimized.sol.template** (source of truth)
+1. **honk-optimized.sol.template**
    - Generic Honk verifier logic (sumcheck, shplemini, KZG)
    - Contains Blake VK values as placeholders for testing
    - Contract name: `BlakeOptHonkVerifier` (for Solidity tests)
@@ -17,7 +17,7 @@ The optimized verifier is a **circuit-agnostic** template. Blake is used only as
    - Used by Solidity tests (`blakeOpt.t.sol`)
    - Has concrete Blake circuit VK values
 
-4. **copy_optimized_to_cpp.sh** templatizes VK values
+4. **copy_optimized_to_cpp.sh** replaces VK values
    - Replaces hardcoded VK values with `{{ TEMPLATE }}` placeholders
    - Renames contract to `HonkVerifier`
 
@@ -36,7 +36,7 @@ Gas-optimized Solidity assembly verifier for Honk proofs. Uses EVM precompiles:
 
 ## C++ Reference
 
-Must match: `UltraVerifier_<UltraKeccakFlavor, DefaultIO>` in `ultra_honk/ultra_verifier.cpp`
+Must match: `UltraVerifier_<UltraKeccakFlavor, DefaultIO>` in `ultra_honk/ultra_verifier.*`
 
 ## Verification Steps (Solidity ↔ C++)
 
@@ -48,13 +48,6 @@ Must match: `UltraVerifier_<UltraKeccakFlavor, DefaultIO>` in `ultra_honk/ultra_
 | Shplemini | `computeBatchOpeningClaim()` | `ShpleminiVerifier::compute_batch_opening_claim()` |
 | KZG | `batchAccumulate()` + pairing | `KZG::reduce_verify_batch_opening_claim()` |
 
-## Security Focus Areas
-
-- Field arithmetic overflow (all ops must be mod P)
-- EC point validation (must be on BN254 curve)
-- Memory bounds in assembly
-- Precompile return value checks
-- Fiat-Shamir challenge derivation
 
 ## Upcoming Change: Public Input Encoding
 
