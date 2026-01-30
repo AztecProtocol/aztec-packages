@@ -5,7 +5,6 @@ import { TxHash } from '@aztec/aztec.js/tx';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -64,7 +63,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
+        aztecSlotDuration: 36,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
@@ -145,8 +144,8 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    t.logger.info('Waiting for nodes to connect');
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
