@@ -3,6 +3,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { times, timesAsync } from '@aztec/foundation/collection';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
@@ -340,29 +341,27 @@ describe('sustained N TPS test', () => {
       highValueWallets: highValueWallets.length,
     });
 
-    const backgroundTxPriorityFee = new GasFees(0, 1);
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: TestWallet) => {
       lowValueTxs++;
-      logger.info('Sending low value tx ' + lowValueTxs);
+      const feeAmount = Number(randomBigInt(10n)) + 1;
+      const fee = new GasFees(0, feeAmount);
+      logger.info('Sending low value tx ' + lowValueTxs + ' with fee ' + feeAmount);
 
-      const tx = await (config.REAL_VERIFIER
-        ? submitProven(wallet, backgroundTxPriorityFee)
-        : submitUnproven(wallet, backgroundTxPriorityFee));
+      const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
 
       const txHash = await tx.send({ wait: NO_WAIT });
       return txHash.toString();
     };
 
     let highValueTxs = 0;
-    const highValueTxPriorityFee = new GasFees(0, 10);
     const highValueSendTx = async (wallet: TestWallet) => {
       highValueTxs++;
-      logger.info('Sending high value tx ' + highValueTxs);
+      const feeAmount = Number(randomBigInt(10n)) + 11;
+      const fee = new GasFees(0, feeAmount);
+      logger.info('Sending high value tx ' + highValueTxs + ' with fee ' + feeAmount);
 
-      const tx = await (config.REAL_VERIFIER
-        ? submitProven(wallet, highValueTxPriorityFee)
-        : submitUnproven(wallet, highValueTxPriorityFee));
+      const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
 
       metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
 

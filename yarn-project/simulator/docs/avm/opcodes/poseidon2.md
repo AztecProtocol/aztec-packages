@@ -1,6 +1,6 @@
 [&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)
 
-# POSEIDON2
+# POSEIDON2PERM
 
 Poseidon2 permutation
 
@@ -34,11 +34,11 @@ Computes the Poseidon2 permutation on a state of 4 field elements. Input and out
 ## Wire Formats
 See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
-**POSEIDON2** (Opcode 0x3F):
+**POSEIDON2PERM** (Opcode 0x3F):
 
 ```mermaid
 ---
-title: "POSEIDON2"
+title: "POSEIDON2PERM"
 config:
   packet:
     bitsPerRow: 48
@@ -66,10 +66,10 @@ config:
     bitsPerRow: 8
 ---
 packet-beta
-  0: "inputStateOffset is indirect"
-  1: "inputStateOffset is relative"
-  2: "outputStateOffset is indirect"
-  3: "outputStateOffset is relative"
+  0: "inOffset is indirect"
+  1: "inOffset is relative"
+  2: "outOffset is indirect"
+  3: "outOffset is relative"
   4: "Unused"
   5: "Unused"
   6: "Unused"
@@ -87,7 +87,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Input state elements are not FIELD
-- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Read or write memory slice defined by the offset operand exceeds addressable memory
 
 ---
 

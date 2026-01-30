@@ -274,7 +274,11 @@ describe('e2e_p2p_add_rollup', () => {
     ) => {
       // Bridge assets into the rollup, and consume the message.
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
-      const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+      const wallet = await TestWallet.create(
+        node,
+        { ...getPXEConfig(), proverEnabled: false },
+        { loggerActorLabel: 'pxe-bridge' },
+      );
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
       await aliceDeploymethod.send({

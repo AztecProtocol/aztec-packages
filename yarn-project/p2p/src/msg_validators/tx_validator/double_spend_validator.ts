@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import {
   type AnyTx,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
@@ -13,11 +13,12 @@ export interface NullifierSource {
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('p2p:tx_validator:tx_double_spend');
+  #log: Logger;
   #nullifierSource: NullifierSource;
 
-  constructor(nullifierSource: NullifierSource) {
+  constructor(nullifierSource: NullifierSource, bindings?: LoggerBindings) {
     this.#nullifierSource = nullifierSource;
+    this.#log = createLogger('p2p:tx_validator:tx_double_spend', bindings);
   }
 
   async validateTx(tx: T): Promise<TxValidationResult> {

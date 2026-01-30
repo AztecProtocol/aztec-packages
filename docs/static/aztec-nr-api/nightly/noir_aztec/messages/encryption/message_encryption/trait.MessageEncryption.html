@@ -58,7 +58,7 @@ logs) or offchain, as well as decrypting those messages back into their original
 <li><code>MESSAGE_PLAINTEXT_LEN</code>: Maximum size of decrypted plaintext (defined globally)</li>
 </ul>
 <h2>Note on privacy sets</h2>
-<p>To preserve privacy, <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">MessageEncryption::encrypt</a> returns a fixed-length array ensuring all log types are
+<p>To preserve privacy, <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt"><code>MessageEncryption::encrypt</code></a> returns a fixed-length array ensuring all log types are
 indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 standardized length.</p></div>
 <h2>Required methods</h2>
@@ -69,7 +69,7 @@ standardized length.</p></div>
 
 <div class="padded-description"><div class="comments">
 <p>Encrypts a plaintext message to <code>recipient</code>.</p>
-<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt">decrypt</a> in order to obtain the
+<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt"><code>decrypt</code></a> in order to obtain the
 original <code>plaintext</code>.</p>
 <h3>Privacy</h3>
 <p>Knowledge of the returned ciphertext provides no information to third parties - <code>recipient</code>'s encryption keys
@@ -85,11 +85,12 @@ encryption function is itself secure).</p></div>
 
 <div class="padded-description"><div class="comments">
 <p>Decrypts a message ciphertext into its original plaintext.</p>
-<p>Typically invoked with ciphertext obtained from calling <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">encrypt</a> with <code>recipient</code>.</p>
+<p>Typically invoked with ciphertext obtained from calling <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt"><code>encrypt</code></a> with
+<code>recipient</code>.</p>
 <p>Note that this function is unconstrained: decryption typically happens when processing messages in utility
 functions.</p>
 <p>Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
-to a point on the curve. In all such cases, <a href="../../../../std/option/struct.Option.html#none">Option::none</a> is returned instead.</p></div>
+to a point on the curve. In all such cases, <a href="../../../../std/option/struct.Option.html#none"><code>Option::none</code></a> is returned instead.</p></div>
 </div></div><h2>Implementors</h2>
 <h3 id="impl-MessageEncryption-for-AES128"><code class="code-header">impl <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html" class="trait">MessageEncryption</a> for <a href="../../../../noir_aztec/messages/encryption/aes128/struct.AES128.html" class="struct">AES128</a></code></h3>
 

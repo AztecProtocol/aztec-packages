@@ -9,7 +9,7 @@ pub contract Counter {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::debug_log::debug_log_format,
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::Owned,
     };
     use balance_set::BalanceSet;
@@ -86,7 +86,7 @@ pub contract Counter {
     mod test {
         use crate::Counter;
         use aztec::{
-            protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+            protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
         };
 
         pub unconstrained fn setup(

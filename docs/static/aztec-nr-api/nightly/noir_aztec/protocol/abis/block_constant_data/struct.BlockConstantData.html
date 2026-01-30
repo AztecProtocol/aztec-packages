@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct BlockConstantData documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">BlockConstantData</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BlockConstantData</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.global_variables">global_variables</a></li>
+<li><a href="#structfield.l1_to_l2_tree_snapshot">l1_to_l2_tree_snapshot</a></li>
+<li><a href="#structfield.last_archive">last_archive</a></li>
+<li><a href="#structfield.protocol_contracts_hash">protocol_contracts_hash</a></li>
+<li><a href="#structfield.prover_id">prover_id</a></li>
+<li><a href="#structfield.vk_tree_root">vk_tree_root</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-BlockConstantData">Deserialize</a></li>
+<li><a href="#impl-Empty-for-BlockConstantData">Empty</a></li>
+<li><a href="#impl-Eq-for-BlockConstantData">Eq</a></li>
+<li><a href="#impl-Serialize-for-BlockConstantData">Serialize</a></li>
+</ul>
+<h2>In module block_constant_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BlockConstantData.html">BlockConstantData</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">abis</a>::<a href="index.html">block_constant_data</a></div>
+<h1>Struct <span id="struct" class="struct">BlockConstantData</span></h1>
+<pre><code>pub struct BlockConstantData {
+    pub last_archive: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub l1_to_l2_tree_snapshot: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub vk_tree_root: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub protocol_contracts_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub prover_id: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub global_variables: <a href="../../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.last_archive" class="struct-field"><code class="code-header">last_archive: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="structfield.l1_to_l2_tree_snapshot" class="struct-field"><code class="code-header">l1_to_l2_tree_snapshot: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="structfield.vk_tree_root" class="struct-field"><code class="code-header">vk_tree_root: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.protocol_contracts_hash" class="struct-field"><code class="code-header">protocol_contracts_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.prover_id" class="struct-field"><code class="code-header">prover_id: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.global_variables" class="struct-field"><code class="code-header">global_variables: <a href="../../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-BlockConstantData"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 16]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-BlockConstantData"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-BlockConstantData"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-BlockConstantData"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 16]</code>
+
+</div></main>
+</span>
+</body>
+</html>

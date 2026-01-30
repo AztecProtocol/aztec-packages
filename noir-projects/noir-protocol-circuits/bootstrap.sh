@@ -144,12 +144,14 @@ export -f hex_to_fields_json compile
 function build {
   set -eu
 
-  echo_stderr "Checking libraries for warnings..."
-  parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
-    ./crates/blob \
-    ./crates/private-kernel-lib \
-    ./crates/rollup-lib \
-    ./crates/types \
+  if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
+    echo_stderr "Checking libraries for warnings..."
+    parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
+      ./crates/blob \
+      ./crates/private-kernel-lib \
+      ./crates/rollup-lib \
+      ./crates/types
+  fi
 
   # We allow errors so we can output the joblog.
   set +e

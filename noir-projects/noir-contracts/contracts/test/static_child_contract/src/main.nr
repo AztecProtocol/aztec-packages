@@ -7,7 +7,7 @@ pub contract StaticChild {
         macros::{functions::{external, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };

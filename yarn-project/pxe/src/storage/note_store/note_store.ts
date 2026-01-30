@@ -18,8 +18,6 @@ import { StoredNote } from './stored_note.js';
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
 
-  #store: AztecAsyncKVStore;
-
   // Note that we use the siloedNullifier as the note id in the store as it's guaranteed to be unique.
 
   // Main storage for notes. Avoid performing full scans on it as it contains all notes PXE knows, use
@@ -48,7 +46,6 @@ export class NoteStore implements StagedStore {
   #jobLocks: Map<string, Semaphore>;
 
   constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByNullificationBlockNumber = store.openMultiMap('note_block_number_to_nullifier');
@@ -182,43 +179,41 @@ export class NoteStore implements StagedStore {
    * @throws Error if any nullifier is not found in this notes store
    */
   applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
-    return this.#withJobLock(jobId, () =>
-      this.#store.transactionAsync(async () => {
-        if (nullifiers.length === 0) {
-          return [];
-        }
+    return this.#withJobLock(jobId, async () => {
+      if (nullifiers.length === 0) {
+        return [];
+      }
 
-        const notesToNullify = await Promise.all(
-          nullifiers.map(async nullifierInBlock => {
-            const nullifier = nullifierInBlock.data.toString();
+      const notesToNullify = await Promise.all(
+        nullifiers.map(async nullifierInBlock => {
+          const nullifier = nullifierInBlock.data.toString();
 
-            const storedNote = await this.#readNote(nullifier, jobId);
-            if (!storedNote) {
-              throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB`);
-            }
-
-            return { storedNote: await this.#readNote(nullifier, jobId), blockNumber: nullifierInBlock.l2BlockNumber };
-          }),
-        );
-
-        const notesNullifiedInThisCall: Map<string, NoteDao> = new Map();
-        for (const noteToNullify of notesToNullify) {
-          // Safe to coerce (!) because we throw if we find any undefined above
-          const note = noteToNullify.storedNote!;
-
-          // Skip already nullified notes
-          if (note.isNullified()) {
-            continue;
+          const storedNote = await this.#readNote(nullifier, jobId);
+          if (!storedNote) {
+            throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB`);
           }
 
-          note.markAsNullified(noteToNullify.blockNumber);
-          this.#writeNote(note, jobId);
-          notesNullifiedInThisCall.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
+          return { storedNote: await this.#readNote(nullifier, jobId), blockNumber: nullifierInBlock.l2BlockNumber };
+        }),
+      );
+
+      const notesNullifiedInThisCall: Map<string, NoteDao> = new Map();
+      for (const noteToNullify of notesToNullify) {
+        // Safe to coerce (!) because we throw if we find any undefined above
+        const note = noteToNullify.storedNote!;
+
+        // Skip already nullified notes
+        if (note.isNullified()) {
+          continue;
         }
 
-        return [...notesNullifiedInThisCall.values()];
-      }),
-    );
+        note.markAsNullified(noteToNullify.blockNumber);
+        this.#writeNote(note, jobId);
+        notesNullifiedInThisCall.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
+      }
+
+      return [...notesNullifiedInThisCall.values()];
+    });
   }
 
   /**

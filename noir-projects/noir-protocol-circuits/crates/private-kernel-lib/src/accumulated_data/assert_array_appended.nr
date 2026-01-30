@@ -685,7 +685,7 @@ mod tests {
 
     #[test]
     fn assert_array_appended_with_items_beyond_source_length_succeeds() {
-        // This test exibits the counter-intuitive optimisation where items beyond the source length will still get copied,
+        // This test exhibits the counter-intuitive optimization where items beyond the source length will still get copied,
         // but the dest length will ignore them.
         let source: ClaimedLengthArray<Field, 3> =
             ClaimedLengthArray { array: [30, 40, 50], length: 2 };

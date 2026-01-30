@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { L2BlockHash } from '../block/block_hash.js';
+import { BlockHash } from '../block/block_hash.js';
 import { TxHash } from './tx_hash.js';
 import { TxExecutionResult, TxReceipt, TxStatus } from './tx_receipt.js';
 
@@ -13,7 +13,7 @@ describe('TxReceipt', () => {
       TxExecutionResult.SUCCESS,
       'error',
       1n,
-      L2BlockHash.random(),
+      BlockHash.random(),
       BlockNumber(1),
     );
 

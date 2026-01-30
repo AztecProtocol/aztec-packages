@@ -1,6 +1,6 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxEffect, PublicTxResult } from '@aztec/stdlib/avm';
@@ -19,6 +19,7 @@ import {
 import { strict as assert } from 'assert';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { CallDataArray } from '../avm/calldata.js';
 import { AvmSimulator } from '../avm/index.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
@@ -80,6 +81,7 @@ type ProcessedPhase = {
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
   protected readonly config: PublicSimulatorConfig;
+  protected readonly bindings?: LoggerBindings;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
@@ -87,9 +89,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     protected globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
     protected protocolContracts: ProtocolContracts = ProtocolContractsList,
+    bindings?: LoggerBindings,
   ) {
     this.config = PublicSimulatorConfig.from(config ?? {});
-    this.log = createLogger(`simulator:public_tx_simulator`);
+    this.bindings = bindings;
+    this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
   /**
@@ -118,6 +122,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       this.globalVariables,
       this.protocolContracts,
       this.config.proverId,
+      this.bindings,
     );
 
     // This will throw if there is a nullifier collision.
@@ -267,7 +272,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
       const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest);
 
-      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output));
+      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output.bestEffortReadAll()));
 
       if (enqueuedCallResult.reverted) {
         reverted = true;
@@ -297,7 +302,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const contractAddress = callRequest.request.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.contractsDB, contractAddress, callRequest.calldata);
+    const fnName = await getPublicFunctionDebugName(
+      this.contractsDB,
+      contractAddress,
+      new CallDataArray(callRequest.calldata),
+    );
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
@@ -357,7 +366,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       transactionFee,
       this.globalVariables,
       request.isStaticCall,
-      calldata,
+      new CallDataArray(calldata),
       allocatedGas,
       this.config,
     );

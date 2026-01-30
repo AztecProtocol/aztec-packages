@@ -9,7 +9,7 @@ pub contract Counter {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::debug_log::debug_log_format,
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::Owned,
     };
     use balance_set::BalanceSet;

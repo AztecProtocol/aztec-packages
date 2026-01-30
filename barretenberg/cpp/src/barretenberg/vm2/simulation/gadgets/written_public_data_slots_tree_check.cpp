@@ -8,7 +8,7 @@ namespace bb::avm2::simulation {
 
 FF WrittenPublicDataSlotsTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 }
 
 void WrittenPublicDataSlotsTreeCheck::validate_low_leaf_jumps_over_slot(

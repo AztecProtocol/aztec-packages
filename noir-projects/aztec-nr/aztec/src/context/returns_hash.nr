@@ -1,5 +1,5 @@
 use crate::{hash::hash_args, oracle::execution_cache};
-use dep::protocol_types::traits::Deserialize;
+use crate::protocol::traits::Deserialize;
 
 /// A hash that represents a private contract function call's return value. Call `get_preimage` to get the underlying
 /// value.
@@ -24,8 +24,8 @@ impl ReturnsHash {
     {
         // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it. If `T`
         // is `()`, then `preimage` must be an array of length 0 (since that is `()`'s deserialization length).
-        // `hash_args` handles empty arrays following the protocol rules (i.e. an empty args array is signaled
-        // with a zero hash), correctly constraining `self.hash`.
+        // `hash_args` handles empty arrays following the protocol rules (i.e. an empty args array is signaled with a
+        // zero hash), correctly constraining `self.hash`.
         let preimage = unsafe { execution_cache::load(self.hash) };
         assert_eq(self.hash, hash_args(preimage), "Preimage mismatch");
 
@@ -39,8 +39,8 @@ mod test {
         oracle::execution_cache,
         test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
     };
+    use crate::protocol::traits::Serialize;
     use super::ReturnsHash;
-    use protocol_types::traits::Serialize;
     use std::test::OracleMock;
 
     #[test]
@@ -85,15 +85,13 @@ mod test {
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     }
 
-    // This test passes due to a Noir bug.
-    // #[test(should_fail_with="Preimage mismatch")]
-    // unconstrained fn rejects_bad_empty_preimage() {
-    //     let value = ();
-    //     let serialized = [];
+    // This test passes due to a Noir bug. #[test(should_fail_with="Preimage mismatch")] unconstrained fn
+    // rejects_bad_empty_preimage() {
+    //     let value = (); let serialized = [];
 
     //     let hash = hash_args(serialized);
 
     //     let _ = OracleMock::mock("privateLoadFromExecutionCache").returns([1]);
-    //     assert_eq(ReturnsHash::new(hash).get_preimage(), value);
+    // assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     // }
 }

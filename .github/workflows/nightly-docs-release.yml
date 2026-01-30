@@ -127,6 +127,64 @@ jobs:
           ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ env.NIGHTLY_TAG }}
           echo "Generated Aztec.nr API docs for: ${{ env.NIGHTLY_TAG }}"
 
+      - name: Download bb from GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/bb-bin
+          gh release download ${{ env.NIGHTLY_TAG }} \
+            --pattern "barretenberg-amd64-linux.tar.gz" \
+            --dir /tmp/bb-bin
+          tar -xzf /tmp/bb-bin/barretenberg-amd64-linux.tar.gz -C /tmp/bb-bin
+          chmod +x /tmp/bb-bin/bb
+          echo "BB_PATH=/tmp/bb-bin" >> $GITHUB_ENV
+
+      - name: Build noir packages
+        run: |
+          # Initialize noir submodule (required for yarn-project portal dependencies)
+          git submodule update --init --recursive noir/noir-repo
+          # Build noir JS packages (creates noir/packages/ directory needed by yarn-project)
+          cd noir
+          ./bootstrap.sh install_deps
+          ./bootstrap.sh build_packages
+
+      - name: Build aztec CLI
+        working-directory: ./yarn-project
+        run: |
+          ./bootstrap.sh
+          echo "AZTEC_CLI_PATH=$(pwd)/aztec/dest/bin" >> $GITHUB_ENV
+
+      - name: Generate CLI documentation
+        working-directory: ./docs
+        continue-on-error: true
+        run: |
+          # Add bb from release to PATH
+          export PATH="${BB_PATH}:${PATH}"
+
+          # Create wrapper for aztec CLI that runs the local build
+          mkdir -p /tmp/cli-bin
+          cat > /tmp/cli-bin/aztec << 'EOF'
+          #!/bin/bash
+          node "$AZTEC_CLI_PATH/index.js" "$@"
+          EOF
+          chmod +x /tmp/cli-bin/aztec
+          export PATH="/tmp/cli-bin:${PATH}"
+
+          # Generate Aztec CLI docs using binaries (continue-on-error handles failures)
+          ./scripts/cli_reference_generation/generate_all_cli_docs.sh --force current
+          echo "Aztec CLI documentation generation attempted for: ${{ env.NIGHTLY_TAG }}"
+
+      - name: Generate BB CLI documentation
+        working-directory: ./barretenberg/docs
+        continue-on-error: true
+        run: |
+          # Add bb from release to PATH
+          export PATH="${BB_PATH}:${PATH}"
+
+          # Generate BB CLI docs
+          ./scripts/generate_bb_cli_docs.sh --force current
+          echo "BB CLI documentation generation attempted for: ${{ env.NIGHTLY_TAG }}"
+
       - name: Create Aztec nightly docs version (Developer docs only)
         working-directory: ./docs
         run: |
@@ -180,6 +238,9 @@ jobs:
 
       - name: Commit new Aztec and Barretenberg Docs version
         run: |
+          # Reset non-versioned CLI docs (only versioned copies should be committed)
+          git checkout -- docs/docs-developers/docs/cli/*_cli_reference.md || true
+
           # Stash the docs changes
           git add .
           git stash push --staged -m "nightly docs for ${{ env.NIGHTLY_TAG }}"

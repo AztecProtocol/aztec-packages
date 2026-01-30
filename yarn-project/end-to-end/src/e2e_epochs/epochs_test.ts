@@ -14,13 +14,15 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
+import type { PXEConfig } from '@aztec/pxe/config';
 import {
   type SequencerClient,
   type SequencerEvents,
@@ -49,7 +51,11 @@ export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
 
-export type EpochsTestOpts = Partial<SetupOptions> & { numberOfAccounts?: number };
+export type EpochsTestOpts = Partial<SetupOptions> & {
+  numberOfAccounts?: number;
+  pxeOpts?: Partial<PXEConfig>;
+  aztecSlotDurationInL1Slots?: number;
+};
 
 export type TrackedSequencerEvent = {
   [K in keyof SequencerEvents]: Parameters<SequencerEvents[K]>[0] & {
@@ -94,7 +100,7 @@ export class EpochsTestContext {
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
-    const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
+    const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     const l1PublishingTime = opts.l1PublishingTime ?? 1;
@@ -147,8 +153,9 @@ export class EpochsTestContext {
         l1PublishingTime,
         ...opts,
       },
-      // Use checkpointed chain tip for PXE to avoid issues with blocks being dropped due to pruned anchor blocks.
-      { syncChainTip: 'checkpointed' },
+      // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
+      // Can be overridden via opts.pxeOpts.
+      { syncChainTip: 'checkpointed', ...opts.pxeOpts },
     );
 
     this.context = context;
@@ -204,14 +211,14 @@ export class EpochsTestContext {
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
-    const suffix = (this.proverNodes.length + 1).toString();
-    const proverNode = await withLogNameSuffix(suffix, () =>
+    const proverIndex = this.proverNodes.length + 1;
+    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
         { ...this.context.config },
         {
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+          proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
@@ -240,12 +247,13 @@ export class EpochsTestContext {
   private async createNode(
     opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
   ) {
-    const suffix = (this.nodes.length + 1).toString();
+    const nodeIndex = this.nodes.length + 1;
+    const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLogNameSuffix(suffix, () =>
+    const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
       AztecNodeService.createAndSync(
         {
           ...resolvedConfig,
@@ -373,6 +381,19 @@ export class EpochsTestContext {
     });
     await wallet.registerContract(instance, SpamContract.artifact);
     return SpamContract.at(instance.address, wallet);
+  }
+
+  /** Registers the TestContract on the given wallet. */
+  public async registerTestContract(wallet: Wallet, salt = Fr.ZERO) {
+    const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
+      constructorArgs: [],
+      constructorArtifact: undefined,
+      salt,
+      publicKeys: undefined,
+      deployer: undefined,
+    });
+    await wallet.registerContract(instance, TestContract.artifact);
+    return TestContract.at(instance.address, wallet);
   }
 
   /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */

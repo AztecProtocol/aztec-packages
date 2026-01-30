@@ -15,11 +15,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  BlockHash,
   CheckpointedL2Block,
   CommitteeAttestation,
   EthAddress,
   L2Block,
-  L2BlockHash,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
@@ -45,6 +45,7 @@ import {
   BlockArchiveNotConsistentError,
   BlockIndexNotSequentialError,
   BlockNumberNotSequentialError,
+  CannotOverwriteCheckpointedBlockError,
   CheckpointNumberNotConsistentError,
   CheckpointNumberNotSequentialError,
   InitialBlockNumberNotSequentialError,
@@ -288,26 +289,26 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  describe('unwindcheckpoints', () => {
-    it('unwinding checkpoints will remove checkpoints from the chain', async () => {
+  describe('removeCheckpointsAfter', () => {
+    it('removing checkpoints will remove checkpoints from the chain', async () => {
       await store.addCheckpoints(publishedCheckpoints);
       const checkpointNumber = await store.getSynchedCheckpointNumber();
       const lastCheckpoint = publishedCheckpoints.at(-1)!;
       const lastBlockNumber = lastCheckpoint.checkpoint.blocks[0].number;
 
-      // Verify block exists before unwinding
+      // Verify block exists before removing
       const retrievedBlock = await store.getCheckpointedBlock(BlockNumber(BlockNumber(lastBlockNumber)));
       expect(retrievedBlock).toBeDefined();
       expect(retrievedBlock!.block.header.equals(lastCheckpoint.checkpoint.blocks[0].header)).toBe(true);
       expect(retrievedBlock!.checkpointNumber).toEqual(checkpointNumber);
 
-      await store.unwindCheckpoints(checkpointNumber, 1);
+      await store.removeCheckpointsAfter(CheckpointNumber(checkpointNumber - 1));
 
       expect(await store.getSynchedCheckpointNumber()).toBe(checkpointNumber - 1);
       await expect(store.getCheckpointedBlock(BlockNumber(BlockNumber(lastBlockNumber)))).resolves.toBeUndefined();
     });
 
-    it('can unwind multiple empty blocks', async () => {
+    it('can remove multiple checkpoints', async () => {
       // Create checkpoints sequentially to chain archive roots
       const emptyCheckpoints: PublishedCheckpoint[] = [];
       for (let i = 0; i < 10; i++) {
@@ -323,28 +324,21 @@ describe('KVArchiverDataStore', () => {
       await store.addCheckpoints(emptyCheckpoints);
       expect(await store.getSynchedCheckpointNumber()).toBe(10);
 
-      await store.unwindCheckpoints(CheckpointNumber(10), 3);
+      await store.removeCheckpointsAfter(CheckpointNumber(7));
       expect(await store.getSynchedCheckpointNumber()).toBe(7);
       expect((await store.getRangeOfCheckpoints(CheckpointNumber(1), 10)).map(b => b.checkpointNumber)).toEqual([
         1, 2, 3, 4, 5, 6, 7,
       ]);
     });
 
-    it('refuses to unwind checkpoints if the tip is not the last checkpoint', async () => {
-      await store.addCheckpoints(publishedCheckpoints);
-      await expect(store.unwindCheckpoints(CheckpointNumber(5), 1)).rejects.toThrow(
-        /can only unwind checkpoints from the tip/i,
-      );
-    });
-
-    it('unwound blocks and headers cannot be retrieved by hash or archive', async () => {
+    it('removed blocks and headers cannot be retrieved by hash or archive', async () => {
       await store.addCheckpoints(publishedCheckpoints);
       const lastCheckpoint = publishedCheckpoints[publishedCheckpoints.length - 1];
       const lastBlock = lastCheckpoint.checkpoint.blocks[0];
       const blockHash = await lastBlock.header.hash();
       const archive = lastBlock.archive.root;
 
-      // Verify block and header exist before unwinding
+      // Verify block and header exist before removing
       const retrievedByHash = await store.getCheckpointedBlockByHash(blockHash);
       expect(retrievedByHash).toBeDefined();
       expect(retrievedByHash!.block.header.equals(lastBlock.header)).toBe(true);
@@ -361,14 +355,96 @@ describe('KVArchiverDataStore', () => {
       expect(headerByArchive).toBeDefined();
       expect(headerByArchive!.equals(lastBlock.header)).toBe(true);
 
-      // Unwind the checkpoint
-      await store.unwindCheckpoints(lastCheckpoint.checkpoint.number, 1);
+      // Remove the checkpoint
+      await store.removeCheckpointsAfter(CheckpointNumber(lastCheckpoint.checkpoint.number - 1));
 
-      // Verify neither block nor header can be retrieved after unwinding
+      // Verify neither block nor header can be retrieved after removal
       expect(await store.getCheckpointedBlockByHash(blockHash)).toBeUndefined();
       expect(await store.getCheckpointedBlockByArchive(archive)).toBeUndefined();
       expect(await store.getBlockHeaderByHash(blockHash)).toBeUndefined();
       expect(await store.getBlockHeaderByArchive(archive)).toBeUndefined();
+    });
+
+    it('orphaned blocks are removed when removing checkpoints', async () => {
+      // This test covers the scenario where:
+      // 1. Checkpoint 1 is added (with block 1)
+      // 2. Block 2 is added locally for upcoming checkpoint 2 (but checkpoint 2 doesn't exist yet)
+      // 3. Checkpoint 1 is removed due to L1 reorg
+      // 4. Block 2 should also be removed, even though it's not associated with any checkpoint entry
+
+      // Add checkpoint 1 with block 1
+      const checkpoint1Cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 });
+      const checkpoint1 = makePublishedCheckpoint(checkpoint1Cp, 10);
+      await store.addCheckpoints([checkpoint1]);
+
+      expect(await store.getSynchedCheckpointNumber()).toBe(1);
+      expect(await store.getLatestBlockNumber()).toBe(1);
+      expect(await store.getCheckpointedL2BlockNumber()).toBe(1);
+
+      // Add block 2 locally for upcoming checkpoint 2 (no checkpoint entry yet)
+      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: lastBlockArchive,
+      });
+      await store.addProposedBlocks([block2]);
+
+      // Verify state: checkpoint 1 exists, block 2 exists but is orphaned (no checkpoint 2)
+      expect(await store.getSynchedCheckpointNumber()).toBe(1);
+      expect(await store.getLatestBlockNumber()).toBe(2);
+      expect(await store.getCheckpointedL2BlockNumber()).toBe(1);
+      expect(await store.getBlock(BlockNumber(2))).toBeDefined();
+
+      // Remove checkpoint 1 (simulating L1 reorg)
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
+
+      // Verify that BOTH block 1 (from checkpoint) AND block 2 (orphaned) are removed
+      expect(await store.getSynchedCheckpointNumber()).toBe(0);
+      expect(await store.getLatestBlockNumber()).toBe(0);
+      expect(await store.getCheckpointedL2BlockNumber()).toBe(0);
+      expect(await store.getBlock(BlockNumber(1))).toBeUndefined();
+      expect(await store.getBlock(BlockNumber(2))).toBeUndefined();
+    });
+
+    it('multiple orphaned blocks are removed when removing checkpoints', async () => {
+      // Similar to above but with multiple orphaned blocks
+      // Add checkpoint 1 with block 1
+      const checkpoint1Cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 });
+      const checkpoint1 = makePublishedCheckpoint(checkpoint1Cp, 10);
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add blocks 2, 3, 4 locally for upcoming checkpoint 2
+      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: lastBlockArchive,
+      });
+      const block3 = await L2Block.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        lastArchive: block2.archive,
+      });
+      const block4 = await L2Block.random(BlockNumber(4), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
+        lastArchive: block3.archive,
+      });
+      await store.addProposedBlocks([block2, block3, block4]);
+
+      expect(await store.getSynchedCheckpointNumber()).toBe(1);
+      expect(await store.getLatestBlockNumber()).toBe(4);
+
+      // Remove checkpoint 1
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
+
+      // All blocks should be removed
+      expect(await store.getSynchedCheckpointNumber()).toBe(0);
+      expect(await store.getLatestBlockNumber()).toBe(0);
+      for (let i = 1; i <= 4; i++) {
+        expect(await store.getBlock(BlockNumber(i))).toBeUndefined();
+      }
     });
   });
 
@@ -430,20 +506,20 @@ describe('KVArchiverDataStore', () => {
       expect(await store.getSynchedCheckpointNumber()).toBe(3);
       expect(await store.getLatestBlockNumber()).toBe(7);
 
-      // Unwind the last checkpoint (which has 2 blocks)
-      await store.unwindCheckpoints(CheckpointNumber(3), 1);
+      // Remove the last checkpoint (which has 2 blocks)
+      await store.removeCheckpointsAfter(CheckpointNumber(2));
 
       expect(await store.getSynchedCheckpointNumber()).toBe(2);
       expect(await store.getLatestBlockNumber()).toBe(5);
 
-      // Unwind another checkpoint (which has 3 blocks)
-      await store.unwindCheckpoints(CheckpointNumber(2), 1);
+      // Remove another checkpoint (which has 3 blocks)
+      await store.removeCheckpointsAfter(CheckpointNumber(1));
 
       expect(await store.getSynchedCheckpointNumber()).toBe(1);
       expect(await store.getLatestBlockNumber()).toBe(2);
     });
 
-    it('unwinding multiple checkpoints with multiple blocks in one go', async () => {
+    it('removing multiple checkpoints with multiple blocks in one go', async () => {
       // Create 4 checkpoints with varying block counts, chaining archive roots
       // Checkpoint 1: blocks 1-2 (2 blocks)
       // Checkpoint 2: blocks 3-5 (3 blocks)
@@ -482,8 +558,8 @@ describe('KVArchiverDataStore', () => {
       expect(await store.getSynchedCheckpointNumber()).toBe(4);
       expect(await store.getLatestBlockNumber()).toBe(10);
 
-      // Unwind 2 checkpoints at once (checkpoints 3 and 4, which together have 5 blocks)
-      await store.unwindCheckpoints(CheckpointNumber(4), 2);
+      // Remove checkpoints 3 and 4 (which together have 5 blocks)
+      await store.removeCheckpointsAfter(CheckpointNumber(2));
 
       expect(await store.getSynchedCheckpointNumber()).toBe(2);
       expect(await store.getLatestBlockNumber()).toBe(5);
@@ -498,8 +574,8 @@ describe('KVArchiverDataStore', () => {
         expect(await store.getCheckpointedBlock(BlockNumber(BlockNumber(blockNumber)))).toBeUndefined();
       }
 
-      // Unwind remaining 2 checkpoints at once (checkpoints 1 and 2, which together have 5 blocks)
-      await store.unwindCheckpoints(CheckpointNumber(2), 2);
+      // Remove remaining checkpoints 1 and 2 (which together have 5 blocks)
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
 
       expect(await store.getSynchedCheckpointNumber()).toBe(0);
       expect(await store.getLatestBlockNumber()).toBe(0);
@@ -594,7 +670,7 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('unwinding a multi-block checkpoint removes all its blocks', async () => {
+    it('removing a multi-block checkpoint removes all its blocks', async () => {
       const checkpoint = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
         10,
@@ -607,8 +683,8 @@ describe('KVArchiverDataStore', () => {
         expect(await store.getCheckpointedBlock(BlockNumber(blockNumber))).toBeDefined();
       }
 
-      // Unwind the checkpoint
-      await store.unwindCheckpoints(CheckpointNumber(1), 1);
+      // Remove the checkpoint
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
 
       // Verify all 3 blocks are removed
       for (let blockNumber = 1; blockNumber <= 3; blockNumber++) {
@@ -651,7 +727,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block5.archive,
       });
 
-      await store.addBlocks([block4, block5, block6]);
+      await store.addProposedBlocks([block4, block5, block6]);
 
       // Checkpoint number should still be 1 (no new checkpoint added)
       expect(await store.getSynchedCheckpointNumber()).toBe(1);
@@ -679,7 +755,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
-      await store.addBlocks([block3, block4]);
+      await store.addProposedBlocks([block3, block4]);
 
       // getBlock should work for both checkpointed and uncheckpointed blocks
       expect((await store.getBlock(BlockNumber(1)))?.number).toBe(1);
@@ -693,7 +769,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block4.archive,
       });
-      await store.addBlocks([block5]);
+      await store.addProposedBlocks([block5]);
 
       // Verify the uncheckpointed blocks have correct data
       const retrieved3 = await store.getBlock(BlockNumber(3));
@@ -718,7 +794,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
-      await store.addBlocks([block1, block2]);
+      await store.addProposedBlocks([block1, block2]);
 
       // getBlockByHash should work for uncheckpointed blocks
       const hash1 = await block1.header.hash();
@@ -742,7 +818,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
-      await store.addBlocks([block1, block2]);
+      await store.addProposedBlocks([block1, block2]);
 
       // getBlockByArchive should work for uncheckpointed blocks
       const archive1 = block1.archive.root;
@@ -775,7 +851,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
-      await store.addBlocks([block3, block4]);
+      await store.addProposedBlocks([block3, block4]);
 
       // getCheckpointedBlock should work for checkpointed blocks
       expect((await store.getCheckpointedBlock(BlockNumber(1)))?.block.number).toBe(1);
@@ -796,7 +872,7 @@ describe('KVArchiverDataStore', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
-      await store.addBlocks([block1]);
+      await store.addProposedBlocks([block1]);
 
       const hash = await block1.header.hash();
 
@@ -813,7 +889,7 @@ describe('KVArchiverDataStore', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
-      await store.addBlocks([block1]);
+      await store.addProposedBlocks([block1]);
 
       const archive = block1.archive.root;
 
@@ -840,7 +916,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
       });
-      await store.addBlocks([block1, block2, block3]);
+      await store.addProposedBlocks([block1, block2, block3]);
 
       expect(await store.getSynchedCheckpointNumber()).toBe(0);
       expect(await store.getLatestBlockNumber()).toBe(3);
@@ -900,7 +976,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block4.archive,
       });
-      await store.addBlocks([block3, block4, block5]);
+      await store.addProposedBlocks([block3, block4, block5]);
 
       expect(await store.getSynchedCheckpointNumber()).toBe(1);
       expect(await store.getLatestBlockNumber()).toBe(5);
@@ -959,7 +1035,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
-      await store.addBlocks([block3, block4]);
+      await store.addProposedBlocks([block3, block4]);
 
       // getBlocks should retrieve all blocks
       const allBlocks = await store.getBlocks(BlockNumber(1), 10);
@@ -968,7 +1044,7 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  describe('addBlocks validation', () => {
+  describe('addProposedBlocks validation', () => {
     it('throws if blocks have different checkpoint numbers', async () => {
       // First, establish checkpoint 1 with blocks 1-2
       const checkpoint1 = makePublishedCheckpoint(
@@ -991,7 +1067,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block3.archive,
       });
 
-      await expect(store.addBlocks([block3, block4])).rejects.toThrow(CheckpointNumberNotConsistentError);
+      await expect(store.addProposedBlocks([block3, block4])).rejects.toThrow(CheckpointNumberNotConsistentError);
     });
 
     it('throws if checkpoint number is not the current checkpoint', async () => {
@@ -1012,7 +1088,9 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
       });
 
-      await expect(store.addBlocks([block3, block4])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlocks([block3, block4])).rejects.toThrow(
+        InitialCheckpointNumberNotSequentialError,
+      );
     });
 
     it('allows blocks with the same checkpoint number for the current checkpoint', async () => {
@@ -1036,7 +1114,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block3.archive,
       });
 
-      await expect(store.addBlocks([block3, block4])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3, block4])).resolves.toBe(true);
 
       // Verify blocks were added
       expect((await store.getBlock(BlockNumber(3)))?.equals(block3)).toBe(true);
@@ -1055,7 +1133,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block1.archive,
       });
 
-      await expect(store.addBlocks([block1, block2])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block1, block2])).resolves.toBe(true);
 
       // Verify blocks were added
       expect((await store.getBlock(BlockNumber(1)))?.equals(block1)).toBe(true);
@@ -1074,8 +1152,8 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
-      await expect(store.addBlocks([block1])).resolves.toBe(true);
-      await expect(store.addBlocks([block2])).rejects.toThrow(InitialBlockNumberNotSequentialError);
+      await expect(store.addProposedBlocks([block1])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block2])).rejects.toThrow(InitialBlockNumberNotSequentialError);
     });
 
     it('throws if first block has wrong checkpoint number when store is empty', async () => {
@@ -1089,7 +1167,9 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
       });
 
-      await expect(store.addBlocks([block1, block2])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlocks([block1, block2])).rejects.toThrow(
+        InitialCheckpointNumberNotSequentialError,
+      );
     });
 
     it('allows adding more blocks to the same checkpoint in separate calls', async () => {
@@ -1107,7 +1187,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
-      await expect(store.addBlocks([block3])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3])).resolves.toBe(true);
 
       // Add block 4 for the same checkpoint 2 in a separate call
       const block4 = await L2Block.random(BlockNumber(4), {
@@ -1115,7 +1195,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
-      await expect(store.addBlocks([block4])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block4])).resolves.toBe(true);
 
       expect(await store.getLatestBlockNumber()).toBe(4);
     });
@@ -1135,7 +1215,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
-      await expect(store.addBlocks([block3])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3])).resolves.toBe(true);
 
       // Add block 4 for the same checkpoint 2 in a separate call but with a missing index
       const block4 = await L2Block.random(BlockNumber(4), {
@@ -1143,7 +1223,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block3.archive,
       });
-      await expect(store.addBlocks([block4])).rejects.toThrow(BlockIndexNotSequentialError);
+      await expect(store.addProposedBlocks([block4])).rejects.toThrow(BlockIndexNotSequentialError);
 
       expect(await store.getLatestBlockNumber()).toBe(3);
     });
@@ -1163,7 +1243,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
-      await store.addBlocks([block3]);
+      await store.addProposedBlocks([block3]);
 
       // Try to add block 4 for checkpoint 3 (should fail because current checkpoint is still 2)
       const block4 = await L2Block.random(BlockNumber(4), {
@@ -1171,7 +1251,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: block3.archive,
       });
-      await expect(store.addBlocks([block4])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlocks([block4])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
     });
 
     it('force option bypasses checkpoint number validation', async () => {
@@ -1195,7 +1275,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block3.archive,
       });
 
-      await expect(store.addBlocks([block3, block4], { force: true })).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3, block4], { force: true })).resolves.toBe(true);
     });
 
     it('force option bypasses blockindex number validation', async () => {
@@ -1219,7 +1299,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block3.archive,
       });
 
-      await expect(store.addBlocks([block3, block4], { force: true })).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3, block4], { force: true })).resolves.toBe(true);
     });
 
     it('throws if adding blocks with non-consecutive archives', async () => {
@@ -1235,7 +1315,7 @@ describe('KVArchiverDataStore', () => {
         checkpointNumber: CheckpointNumber(2),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
-      await expect(store.addBlocks([block3])).rejects.toThrow(BlockArchiveNotConsistentError);
+      await expect(store.addProposedBlocks([block3])).rejects.toThrow(BlockArchiveNotConsistentError);
 
       expect(await store.getLatestBlockNumber()).toBe(2);
     });
@@ -1255,7 +1335,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
-      await expect(store.addBlocks([block3])).resolves.toBe(true);
+      await expect(store.addProposedBlocks([block3])).resolves.toBe(true);
 
       // Add block 4 with incorrect archive (should fail)
       const block4 = await L2Block.random(BlockNumber(4), {
@@ -1263,9 +1343,34 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: AppendOnlyTreeSnapshot.random(),
       });
-      await expect(store.addBlocks([block4])).rejects.toThrow(BlockArchiveNotConsistentError);
+      await expect(store.addProposedBlocks([block4])).rejects.toThrow(BlockArchiveNotConsistentError);
 
       expect(await store.getLatestBlockNumber()).toBe(3);
+    });
+
+    it('throws if adding blocks that would overwrite checkpointed blocks', async () => {
+      // First, establish checkpoint 1 with blocks 1-2
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      expect(await store.getCheckpointedL2BlockNumber()).toBe(2);
+
+      // Try to add a block that would overwrite checkpointed block 2
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+      });
+      await expect(store.addProposedBlocks([block2])).rejects.toThrow(CannotOverwriteCheckpointedBlockError);
+
+      // Try to add a block that would overwrite checkpointed block 1
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      await expect(store.addProposedBlocks([block1])).rejects.toThrow(CannotOverwriteCheckpointedBlockError);
     });
   });
 
@@ -1521,8 +1626,8 @@ describe('KVArchiverDataStore', () => {
 
       await store.addCheckpoints([checkpoint1, checkpoint2, checkpoint3]);
 
-      // Unwind checkpoint 3
-      await store.unwindCheckpoints(CheckpointNumber(3), 1);
+      // Remove checkpoint 3
+      await store.removeCheckpointsAfter(CheckpointNumber(2));
 
       const checkpoints = await store.getRangeOfCheckpoints(CheckpointNumber(1), 10);
       expect(checkpoints.length).toBe(2);
@@ -1569,7 +1674,7 @@ describe('KVArchiverDataStore', () => {
     });
 
     it('returns undefined for non-existent block hash', async () => {
-      const nonExistentHash = Fr.random();
+      const nonExistentHash = BlockHash.random();
       await expect(store.getCheckpointedBlockByHash(nonExistentHash)).resolves.toBeUndefined();
     });
   });
@@ -1610,7 +1715,7 @@ describe('KVArchiverDataStore', () => {
     });
 
     it('returns undefined for non-existent block hash', async () => {
-      const nonExistentHash = Fr.random();
+      const nonExistentHash = BlockHash.random();
       await expect(store.getBlockHeaderByHash(nonExistentHash)).resolves.toBeUndefined();
     });
   });
@@ -1696,7 +1801,7 @@ describe('KVArchiverDataStore', () => {
 
   it('deleteLogs', async () => {
     const block = publishedCheckpoints[0].checkpoint.blocks[0];
-    await store.addBlocks([block]);
+    await store.addProposedBlocks([block]);
     await expect(store.addLogs([block])).resolves.toEqual(true);
 
     expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
@@ -1728,7 +1833,7 @@ describe('KVArchiverDataStore', () => {
       const expectedTx: IndexedTxEffect = {
         data,
         l2BlockNumber: block.number,
-        l2BlockHash: L2BlockHash.fromField(await block.header.hash()),
+        l2BlockHash: await block.header.hash(),
         txIndexInBlock,
       };
       const actualTx = await store.getTxEffect(data.txHash);
@@ -1746,7 +1851,7 @@ describe('KVArchiverDataStore', () => {
       () => getBlock(5).body.txEffects[2],
       () => getBlock(1).body.txEffects[0],
     ])('tries to retrieves a previously stored transaction after deleted', async getTxEffect => {
-      await store.unwindCheckpoints(CheckpointNumber(publishedCheckpoints.length), publishedCheckpoints.length);
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
 
       const txEffect = getTxEffect();
       const actualTx = await store.getTxEffect(txEffect.txHash);
@@ -1757,7 +1862,7 @@ describe('KVArchiverDataStore', () => {
       await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
     });
 
-    it('does not fail if the block is unwound while requesting a tx', async () => {
+    it('does not fail if the block is removed while requesting a tx', async () => {
       const txEffect = getBlock(1).body.txEffects[0];
       let done = false;
       void (async () => {
@@ -1766,7 +1871,7 @@ describe('KVArchiverDataStore', () => {
           await sleep(1);
         }
       })();
-      await store.unwindCheckpoints(CheckpointNumber(publishedCheckpoints.length), publishedCheckpoints.length);
+      await store.removeCheckpointsAfter(CheckpointNumber(0));
       done = true;
       expect(await store.getTxEffect(txEffect.txHash)).toEqual(undefined);
     });
@@ -2592,7 +2697,7 @@ describe('KVArchiverDataStore', () => {
       const targetTxHash = targetBlock.body.txEffects[targetTxIndex].txHash;
 
       await Promise.all([
-        store.unwindCheckpoints(CheckpointNumber(numBlocksForPublicLogs), numBlocksForPublicLogs),
+        store.removeCheckpointsAfter(CheckpointNumber(0)),
         store.deleteLogs(publishedCheckpoints.slice(0, numBlocksForPublicLogs).flatMap(b => b.checkpoint.blocks)),
       ]);
 
@@ -2627,7 +2732,7 @@ describe('KVArchiverDataStore', () => {
 
     it('returns block hash on public log ids', async () => {
       const targetBlock = publishedCheckpoints[0].checkpoint.blocks[0];
-      const expectedBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const expectedBlockHash = await targetBlock.header.hash();
 
       const logs = (await store.getPublicLogs({ fromBlock: targetBlock.number, toBlock: targetBlock.number + 1 })).logs;
 
@@ -2685,7 +2790,7 @@ describe('KVArchiverDataStore', () => {
       const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
       const numLogsInTx = targetBlock.body.txEffects[targetTxIndex].publicLogs.length;
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
-      const targetBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const targetBlockHash = await targetBlock.header.hash();
 
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
@@ -2714,7 +2819,7 @@ describe('KVArchiverDataStore', () => {
     it('"txHash" filter param is ignored when "afterLog" is set', async () => {
       // Get random txHash
       const txHash = TxHash.random();
-      const afterLog = new LogId(BlockNumber(1), L2BlockHash.random(), 0, 0);
+      const afterLog = new LogId(BlockNumber(1), BlockHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
       expect(response.logs.length).toBeGreaterThan(1);
@@ -2746,7 +2851,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(4), L2BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(4), BlockHash.random(), 0, 0),
         })
       ).logs;
       blockNumbers = new Set(logs.map(log => log.id.blockNumber));
@@ -2755,7 +2860,7 @@ describe('KVArchiverDataStore', () => {
       logs = (
         await store.getPublicLogs({
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(5), L2BlockHash.random(), 1, 0),
+          afterLog: new LogId(BlockNumber(5), BlockHash.random(), 1, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
@@ -2764,7 +2869,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(100), L2BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(100), BlockHash.random(), 0, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
@@ -2777,7 +2882,7 @@ describe('KVArchiverDataStore', () => {
       const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
       const numLogsInTx = targetBlock.body.txEffects[targetTxIndex].publicLogs.length;
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
-      const targetBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const targetBlockHash = await targetBlock.header.hash();
 
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
@@ -2830,7 +2935,7 @@ describe('KVArchiverDataStore', () => {
       expect(result.logs).toHaveLength(1);
 
       const [{ id, log }] = result.logs;
-      const expectedBlockHash = L2BlockHash.fromField(await targetBlock.header.hash());
+      const expectedBlockHash = await targetBlock.header.hash();
 
       expect(id.blockHash.equals(expectedBlockHash)).toBe(true);
       expect(id.blockNumber).toEqual(targetBlock.number);
@@ -2930,7 +3035,7 @@ describe('KVArchiverDataStore', () => {
   });
 
   describe('idempotency', () => {
-    it('handles adding blocks via addBlocks then same blocks via addCheckpoints', async () => {
+    it('handles adding blocks via addProposedBlocks then same blocks via addCheckpoints', async () => {
       // First add checkpoint 1 to establish a base
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -2938,13 +3043,13 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
-      // Add provisional block 2 via addBlocks
+      // Add provisional block 2 via addProposedBlocks
       const provisionalBlock = await L2Block.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(2),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: checkpoint1.checkpoint.blocks[0].archive,
       });
-      await store.addBlocks([provisionalBlock]);
+      await store.addProposedBlocks([provisionalBlock]);
 
       // Now add checkpoint 2 containing the same block via addCheckpoints
       const checkpoint2 = new Checkpoint(
@@ -3050,7 +3155,7 @@ describe('KVArchiverDataStore', () => {
         slotNumber: SlotNumber(101), // Different slot number
       });
 
-      await store.addBlocks([block1, block2, block3]);
+      await store.addProposedBlocks([block1, block2, block3]);
 
       const blocksForSlot100 = await store.getBlocksForSlot(SlotNumber(100));
       expect(blocksForSlot100.length).toBe(2);
@@ -3070,7 +3175,7 @@ describe('KVArchiverDataStore', () => {
         slotNumber: SlotNumber(100),
       });
 
-      await store.addBlocks([block1]);
+      await store.addProposedBlocks([block1]);
 
       const blocksForSlot999 = await store.getBlocksForSlot(SlotNumber(999));
       expect(blocksForSlot999).toEqual([]);
@@ -3101,7 +3206,7 @@ describe('KVArchiverDataStore', () => {
         slotNumber: SlotNumber(50),
       });
 
-      await store.addBlocks([block1, block2, block3]);
+      await store.addProposedBlocks([block1, block2, block3]);
 
       const blocksForSlot = await store.getBlocksForSlot(SlotNumber(50));
       expect(blocksForSlot.length).toBe(3);
@@ -3134,7 +3239,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block3.archive,
       });
 
-      await store.addBlocks([block1, block2, block3, block4]);
+      await store.addProposedBlocks([block1, block2, block3, block4]);
       expect(await store.getLatestBlockNumber()).toBe(4);
 
       // Remove blocks after block 2
@@ -3163,7 +3268,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block2.archive,
       });
 
-      await store.addBlocks([block1, block2, block3]);
+      await store.addProposedBlocks([block1, block2, block3]);
 
       // Remove blocks after block 1
       const removedBlocks = await store.removeBlocksAfter(BlockNumber(1));
@@ -3184,7 +3289,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block1.archive,
       });
 
-      await store.addBlocks([block1, block2]);
+      await store.addProposedBlocks([block1, block2]);
 
       // Remove blocks after block 2 (none to remove)
       const removedBlocks = await store.removeBlocksAfter(BlockNumber(2));
@@ -3212,7 +3317,7 @@ describe('KVArchiverDataStore', () => {
         txsPerBlock: 2,
       });
 
-      await store.addBlocks([block1, block2]);
+      await store.addProposedBlocks([block1, block2]);
 
       // Verify block2 is retrievable by hash and archive before removal
       const block2Hash = await block2.header.hash();
@@ -3264,7 +3369,7 @@ describe('KVArchiverDataStore', () => {
         lastArchive: block1.archive,
       });
 
-      await store.addBlocks([block1, block2]);
+      await store.addProposedBlocks([block1, block2]);
 
       const removedBlocks = await store.removeBlocksAfter(BlockNumber(0));
 

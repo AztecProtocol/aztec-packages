@@ -5,7 +5,7 @@ use dep::aztec::{
     messages::logs::partial_note::compute_partial_note_private_content_log,
     note::note_interface::{NoteHash, NoteType},
     oracle::random::random,
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::{
             DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
@@ -242,7 +242,7 @@ mod test {
     use super::{compute_partial_commitment, NFTNote, PartialNFTNote};
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::FromField},
+        protocol::{address::AztecAddress, traits::FromField},
     };
 
     global token_id: Field = 17;

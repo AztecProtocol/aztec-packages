@@ -6,7 +6,7 @@ import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/ab
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 import type {
   Aliased,
   BatchResults,
@@ -221,6 +222,34 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(AuthWitness);
   });
 
+  it('requestCapabilities', async () => {
+    const manifest: AppCapabilities = {
+      version: '1.0',
+      metadata: {
+        name: 'TestApp',
+        version: '1.0.0',
+        description: 'Test application',
+      },
+      capabilities: [
+        {
+          type: 'accounts',
+          canGet: true,
+          canCreateAuthWit: true,
+        },
+      ],
+    };
+    const result = await context.client.requestCapabilities(manifest);
+    expect(result).toEqual({
+      version: '1.0',
+      granted: expect.any(Array),
+      wallet: {
+        name: expect.any(String),
+        version: expect.any(String),
+      },
+      expiresAt: undefined,
+    });
+  });
+
   it('batch', async () => {
     const address1 = await AztecAddress.random();
     const address2 = await AztecAddress.random();
@@ -346,7 +375,7 @@ class MockWallet implements Wallet {
         },
         metadata: {
           l2BlockNumber: BlockNumber(1),
-          l2BlockHash: L2BlockHash.random(),
+          l2BlockHash: BlockHash.random(),
           txHash: TxHash.random(),
         },
       },
@@ -419,6 +448,18 @@ class MockWallet implements Wallet {
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {
     return Promise.resolve(AuthWitness.random());
+  }
+
+  requestCapabilities(_manifest: AppCapabilities): Promise<WalletCapabilities> {
+    return Promise.resolve({
+      version: '1.0' as const,
+      granted: [],
+      wallet: {
+        name: 'MockWallet',
+        version: '1.0.0',
+      },
+      expiresAt: undefined,
+    });
   }
 
   async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {

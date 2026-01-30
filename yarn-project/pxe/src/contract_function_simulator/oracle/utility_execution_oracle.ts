@@ -8,7 +8,7 @@ import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -25,7 +25,6 @@ import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -61,7 +60,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly keyStore: KeyStore,
     protected readonly addressStore: AddressStore,
     protected readonly aztecNode: AztecNode,
-    protected readonly anchorBlockStore: AnchorBlockStore,
     protected readonly recipientTaggingStore: RecipientTaggingStore,
     protected readonly senderAddressBookStore: SenderAddressBookStore,
     protected readonly capsuleStore: CapsuleStore,
@@ -102,7 +100,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetNoteHashMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     leafValue: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     return this.aztecNode.getNoteHashMembershipWitness(blockHash, leafValue);
@@ -115,7 +113,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetArchiveMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     leafValue: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
     return this.aztecNode.getArchiveMembershipWitness(blockHash, leafValue);
@@ -128,7 +126,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The nullifier membership witness (if found).
    */
   public utilityGetNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier);
@@ -144,7 +142,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * we are trying to prove non-inclusion for.
    */
   public utilityGetLowNullifierMembershipWitness(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier);
@@ -156,7 +154,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public utilityGetPublicDataWitness(blockHash: L2BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  public utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
   }
 
@@ -166,7 +164,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
@@ -262,7 +260,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
@@ -318,7 +316,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public async utilityStorageRead(
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,
@@ -349,16 +347,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockStore,
+      this.anchorBlockHeader,
       this.keyStore,
       this.capsuleStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
 
     // It is acceptable to run the following operations in parallel for several reasons:
     // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
@@ -400,7 +399,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
       noteService.validateAndStoreNote(
         request.contractAddress,
@@ -416,7 +415,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ),
     );
 
-    const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore, this.jobId);
+    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
     const eventStorePromises = eventValidationRequests.map(request =>
       eventService.validateAndStoreEvent(
         request.contractAddress,
@@ -454,13 +453,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockStore,
+      this.anchorBlockHeader,
       this.keyStore,
       this.capsuleStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log.getBindings(),
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);

@@ -1,10 +1,13 @@
 import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { type ChildProcess, exec, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
+
+import { AlertTriggeredError, GrafanaClient } from '../../quality_of_service/grafana_client.js';
 
 const execAsync = promisify(exec);
 
@@ -368,6 +371,155 @@ export async function waitForResourcesByName({
       }
     }),
   );
+}
+
+/**
+ * Waits for all StatefulSets matching a label to have all their replicas ready.
+ *
+ * @param namespace - Kubernetes namespace
+ * @param label - Label selector for StatefulSets (e.g., "app.kubernetes.io/component=sequencer-node")
+ * @param timeoutSeconds - Maximum time to wait in seconds
+ * @param pollIntervalSeconds - How often to check status
+ */
+export async function waitForStatefulSetsReady({
+  namespace,
+  label,
+  timeoutSeconds = 600,
+  pollIntervalSeconds = 5,
+}: {
+  namespace: string;
+  label: string;
+  timeoutSeconds?: number;
+  pollIntervalSeconds?: number;
+}): Promise<void> {
+  logger.info(`Waiting for StatefulSets with label ${label} to have all replicas ready (timeout: ${timeoutSeconds}s)`);
+
+  await retryUntil(
+    async () => {
+      // Get all StatefulSets matching the label
+      const getCmd = `kubectl get statefulset -l ${label} -n ${namespace} -o json`;
+      const { stdout } = await execAsync(getCmd);
+      const result = JSON.parse(stdout);
+
+      if (!result.items || result.items.length === 0) {
+        logger.verbose(`No StatefulSets found with label ${label}`);
+        return false;
+      }
+
+      // Check each StatefulSet
+      for (const sts of result.items) {
+        const name = sts.metadata.name;
+        const desired = sts.spec.replicas ?? 0;
+        const ready = sts.status.readyReplicas ?? 0;
+        const updated = sts.status.updatedReplicas ?? 0;
+
+        if (ready < desired || updated < desired) {
+          logger.verbose(`StatefulSet ${name}: ${ready}/${desired} ready, ${updated}/${desired} updated`);
+          return false;
+        }
+      }
+
+      logger.info(`All StatefulSets with label ${label} are ready`);
+      return true;
+    },
+    `StatefulSets with label ${label} to be ready`,
+    timeoutSeconds,
+    pollIntervalSeconds,
+  );
+}
+
+/**
+ * Creates a Prometheus connection that can re-establish port-forward on failure.
+ * Returns functions to connect and run alert checks that automatically reconnect if needed.
+ *
+ * @param namespace - K8s namespace to fall back to if metrics namespace doesn't have Prometheus
+ * @param endpoints - Array to track created endpoints for cleanup
+ * @param log - Logger instance
+ */
+export function createResilientPrometheusConnection(
+  namespace: string,
+  endpoints: ServiceEndpoint[],
+  log: Logger,
+): {
+  connect: () => Promise<GrafanaClient>;
+  runAlertCheck: (alerts: Parameters<GrafanaClient['runAlertCheck']>[0]) => Promise<void>;
+} {
+  let alertChecker: GrafanaClient | undefined;
+  let currentEndpoint: ServiceEndpoint | undefined;
+
+  const connect = async (): Promise<GrafanaClient> => {
+    // Kill existing connection if any
+    if (currentEndpoint?.process) {
+      currentEndpoint.process.kill();
+    }
+
+    // Try metrics namespace first, then network namespace
+    let promPort = 0;
+    let promUrl = '';
+    let promProc: ChildProcess | undefined;
+
+    try {
+      const metricsResult = await startPortForward({
+        resource: `svc/metrics-prometheus-server`,
+        namespace: 'metrics',
+        containerPort: 80,
+      });
+      promProc = metricsResult.process;
+      promPort = metricsResult.port;
+      promUrl = `http://127.0.0.1:${promPort}/api/v1`;
+    } catch {
+      // Metrics namespace might not have Prometheus, try network namespace
+      log.verbose('Metrics namespace Prometheus not available, trying network namespace');
+    }
+
+    if (promPort === 0) {
+      const nsResult = await startPortForward({
+        resource: `svc/prometheus-server`,
+        namespace,
+        containerPort: 80,
+      });
+      promProc = nsResult.process;
+      promPort = nsResult.port;
+      promUrl = `http://127.0.0.1:${promPort}/api/v1`;
+    }
+
+    if (!promProc || promPort === 0) {
+      throw new Error('Unable to port-forward to Prometheus');
+    }
+
+    currentEndpoint = { url: promUrl, process: promProc };
+    endpoints.push(currentEndpoint);
+    alertChecker = new GrafanaClient(log, { grafanaEndpoint: promUrl, grafanaCredentials: '' });
+    log.info(`Established Prometheus connection at ${promUrl}`);
+    return alertChecker;
+  };
+
+  const runAlertCheck = async (alerts: Parameters<GrafanaClient['runAlertCheck']>[0]): Promise<void> => {
+    if (!alertChecker) {
+      alertChecker = await connect();
+    }
+
+    try {
+      await alertChecker.runAlertCheck(alerts);
+    } catch (err) {
+      // If it's an AlertTriggeredError (expected behavior)
+      if (err instanceof AlertTriggeredError) {
+        throw err;
+      }
+
+      // Check if it's a connection error (port-forward died)
+      const errorStr = String(err);
+      if (errorStr.includes('fetch failed') || errorStr.includes('ECONNREFUSED') || errorStr.includes('ECONNRESET')) {
+        log.warn(`Prometheus connection lost, re-establishing port-forward...`);
+        alertChecker = await connect();
+        await alertChecker.runAlertCheck(alerts);
+      } else {
+        throw err;
+      }
+    }
+  };
+
+  return { connect, runAlertCheck };
 }
 
 export function getChartDir(spartanDir: string, chartName: string) {

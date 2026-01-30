@@ -317,7 +317,8 @@ describe('full_prover', () => {
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
       const data = provenTx.data;
-      const txPromises = Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
+
+      const txTasks = Array.from({ length: NUM_INVALID_TXS }, (_, i) => async () => {
         // Use a random ChonkProof and alter the public tx data to generate a unique invalid tx hash
         const invalidProvenTx = new ProvenTx(
           aztecNode,
@@ -337,7 +338,9 @@ describe('full_prover', () => {
           [],
         );
         return invalidProvenTx.send({ wait: NO_WAIT });
-      }).concat([provenTx.send({ wait: NO_WAIT })]); // Add the valid tx at the end
+      }).concat([() => provenTx.send({ wait: NO_WAIT })]); // Add the valid tx at the end
+
+      const txPromises = Promise.allSettled(txTasks.map(task => task()));
 
       // Flag the valid transfer on the token simulator
       tokenSim.transferPrivate(sender, recipient, sendAmount);
@@ -347,7 +350,7 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const results = await Promise.allSettled(txPromises);
+      const results = await txPromises;
 
       const validTxHash = provenTx.getTxHash();
       await waitForTx(aztecNode, validTxHash, { timeout: 300, interval: 10 });

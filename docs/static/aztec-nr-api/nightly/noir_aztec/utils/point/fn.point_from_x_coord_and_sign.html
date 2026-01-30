@@ -31,11 +31,11 @@
 
 <div class="comments">
 <p>Returns a <code>Point</code> in the Grumpkin curve given its x coordinate and sign for the y coordinate.</p>
-<p>Because not all values in the field are valid x coordinates of points in the curve (i.e. there
-is no corresponding y value in the field that satisfies the curve equation), it may not be
-possible to reconstruct a <code>Point</code>. <code>Option::none()</code> is returned in such cases.</p>
-<p>@param x - The x coordinate of the point
-@param sign - The &quot;sign&quot; of the y coordinate - determines whether y &lt;= (Fr.MODULUS - 1) / 2</p>
+<p>Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
+y value in the field that satisfies the curve equation), it may not be possible to reconstruct a <code>Point</code>.
+<code>Option::none()</code> is returned in such cases.</p>
+<p>@param x - The x coordinate of the point @param sign - The &quot;sign&quot; of the y coordinate - determines whether y &lt;=
+(Fr.MODULUS - 1) / 2</p>
 </div>
 </main>
 </span>

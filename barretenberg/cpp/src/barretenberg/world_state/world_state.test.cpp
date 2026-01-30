@@ -45,7 +45,7 @@ class WorldStateTest : public testing::Test {
         { MerkleTreeId::NULLIFIER_TREE, 128 },
         { MerkleTreeId::PUBLIC_DATA_TREE, 128 },
     };
-    uint32_t initial_header_generator_point = 28;
+    uint32_t initial_header_generator_point = DOM_SEP__BLOCK_HEADER_HASH;
 };
 
 std::string WorldStateTest::data_dir;

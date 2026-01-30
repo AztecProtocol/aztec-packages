@@ -23,7 +23,8 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 void UpdateCheck::check_current_class_id(const AztecAddress& address, const ContractInstance& instance)
 {
     // Compute the public data tree slots
-    FF delayed_public_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
+    FF delayed_public_mutable_slot =
+        poseidon2.hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     // Read the hash from the tree. We do a trick with delayed public mutables (updates are delayed public mutables)
     // where we store in one public data tree slot the hash of the whole structure. This is nice because in circuits you

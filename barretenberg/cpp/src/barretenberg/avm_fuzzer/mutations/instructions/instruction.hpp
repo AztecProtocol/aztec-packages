@@ -50,6 +50,7 @@ class InstructionMutator {
     std::vector<FuzzInstruction> generate_returndatasize_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_returndatacopy_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_calldatacopy_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_sendl2tol1msg_instruction(std::mt19937_64& rng);
 
     void mutate_variable_ref(VariableRef& variable, std::mt19937_64& rng, std::optional<MemoryTag> default_tag);
     void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, uint32_t max_operand_value);

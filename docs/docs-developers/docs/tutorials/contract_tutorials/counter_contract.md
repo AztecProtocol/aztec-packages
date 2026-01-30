@@ -79,7 +79,7 @@ pub contract Counter {
 - `oracle::debug_log::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
-- `protocol_types::{address::AztecAddress, traits::ToField}`
+- `protocol::{address::AztecAddress, traits::ToField}`
   Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to field elements, necessary for serialization and formatting inside Aztec.
 
 - `state_vars::Owned`

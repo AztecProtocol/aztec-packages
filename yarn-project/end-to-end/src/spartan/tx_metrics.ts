@@ -6,6 +6,132 @@ import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { createHistogram } from 'perf_hooks';
 
+/** Metrics class for proving-related benchmarks. */
+export class ProvingMetrics {
+  private successfulTxs: number | undefined;
+  private proofDuration: number | undefined;
+  private activeAgents: number | undefined;
+  private avgQueueTime: number | undefined;
+  private jobRetries: number | undefined;
+  private jobDuration: number | undefined;
+  private timedOutJobs: number | undefined;
+  private resolvedJobs: number | undefined;
+  private rejectedJobs: number | undefined;
+  private epochProvingDuration: number | undefined;
+  private provenTransactions: number | undefined;
+  private provenBlocks: number | undefined;
+
+  constructor(private prefix: string) {}
+
+  recordSuccessfulTxs(count: number): void {
+    this.successfulTxs = count;
+  }
+
+  recordProofDuration(seconds: number): void {
+    this.proofDuration = seconds;
+  }
+
+  recordActiveAgents(count: number): void {
+    this.activeAgents = count;
+  }
+
+  recordAvgQueueTime(ms: number): void {
+    this.avgQueueTime = ms;
+  }
+
+  recordJobRetries(count: number): void {
+    this.jobRetries = count;
+  }
+
+  recordJobDuration(ms: number): void {
+    this.jobDuration = ms;
+  }
+
+  recordTimedOutJobs(count: number): void {
+    this.timedOutJobs = count;
+  }
+
+  recordResolvedJobs(count: number): void {
+    this.resolvedJobs = count;
+  }
+
+  recordRejectedJobs(count: number): void {
+    this.rejectedJobs = count;
+  }
+
+  recordEpochProvingDuration(seconds: number): void {
+    this.epochProvingDuration = seconds;
+  }
+
+  recordProvenTransactions(count: number): void {
+    this.provenTransactions = count;
+  }
+
+  recordProvenBlocks(count: number): void {
+    this.provenBlocks = count;
+  }
+
+  toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number }> {
+    const data: Array<{ name: string; unit: string; value: number }> = [];
+
+    if (this.successfulTxs !== undefined) {
+      data.push({ name: `${this.prefix}/successful_txs`, unit: 'count', value: this.successfulTxs });
+    }
+
+    if (this.proofDuration !== undefined) {
+      data.push({ name: `${this.prefix}/proof_duration`, unit: 's', value: this.proofDuration });
+    }
+
+    if (this.activeAgents !== undefined) {
+      data.push({ name: `${this.prefix}/active_agents`, unit: 'count', value: this.activeAgents });
+    }
+
+    if (this.avgQueueTime !== undefined) {
+      data.push({ name: `${this.prefix}/avg_queue_time`, unit: 'ms', value: this.avgQueueTime });
+    }
+
+    if (this.jobRetries !== undefined) {
+      data.push({ name: `${this.prefix}/job_retries`, unit: 'count', value: this.jobRetries });
+    }
+
+    if (this.jobDuration !== undefined) {
+      data.push({ name: `${this.prefix}/job_duration`, unit: 'ms', value: this.jobDuration });
+    }
+
+    if (this.timedOutJobs !== undefined) {
+      data.push({ name: `${this.prefix}/timed_out_jobs`, unit: 'count', value: this.timedOutJobs });
+    }
+
+    if (this.resolvedJobs !== undefined) {
+      data.push({ name: `${this.prefix}/resolved_jobs`, unit: 'count', value: this.resolvedJobs });
+    }
+
+    if (this.rejectedJobs !== undefined) {
+      data.push({ name: `${this.prefix}/rejected_jobs`, unit: 'count', value: this.rejectedJobs });
+    }
+
+    if (this.epochProvingDuration !== undefined) {
+      data.push({ name: `${this.prefix}/epoch_proving_duration`, unit: 's', value: this.epochProvingDuration });
+    }
+
+    if (this.provenTransactions !== undefined) {
+      data.push({ name: `${this.prefix}/proven_transactions`, unit: 'count', value: this.provenTransactions });
+    }
+
+    if (this.provenBlocks !== undefined) {
+      data.push({ name: `${this.prefix}/proven_blocks`, unit: 'count', value: this.provenBlocks });
+    }
+
+    const scenario = process.env.BENCH_SCENARIO?.trim();
+    if (!scenario) {
+      return data;
+    }
+
+    const scenarioPrefix = `scenario/${scenario}/`;
+    return data.map(entry => ({ ...entry, name: `${scenarioPrefix}${entry.name}` }));
+  }
+}
+
 export type TxInclusionData = {
   txHash: string;
   sentAt: number;

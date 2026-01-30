@@ -35,7 +35,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsNotExists)
 
     FF slot = 42;
     AztecAddress contract_address = AztecAddress(27);
-    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
 
@@ -52,7 +52,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsNotExists)
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
         poseidon2, merkle_check, field_gt, initial_state, event_emitter);
 
-    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot }))
+    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot }))
         .WillRepeatedly(Return(FF(leaf_slot)));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
@@ -85,7 +85,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsExists)
 
     FF slot = 42;
     AztecAddress contract_address = AztecAddress(27);
-    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 
     uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
     initial_state.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
@@ -98,7 +98,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsExists)
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
         poseidon2, merkle_check, field_gt, initial_state, event_emitter);
 
-    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot }))
+    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot }))
         .WillRepeatedly(Return(FF(leaf_slot)));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
@@ -133,7 +133,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ReadNotExistsLowPointsToAnotherLea
 
     FF slot = 42;
     AztecAddress contract_address = AztecAddress(27);
-    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 
     auto low_leaf = initial_state.get_leaf_preimage(0);
 
@@ -145,7 +145,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ReadNotExistsLowPointsToAnotherLea
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
         poseidon2, merkle_check, field_gt, initial_state, event_emitter);
 
-    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot }))
+    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot }))
         .WillRepeatedly(Return(FF(leaf_slot)));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
@@ -178,7 +178,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertExists)
 
     FF slot = 42;
     AztecAddress contract_address = AztecAddress(27);
-    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
     uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
@@ -192,7 +192,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertExists)
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
         poseidon2, merkle_check, field_gt, initial_state, event_emitter);
 
-    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot }))
+    EXPECT_CALL(poseidon2, hash(std::vector<FF>{ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot }))
         .WillRepeatedly(Return(FF(leaf_slot)));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
@@ -226,7 +226,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertAppend)
 
     FF slot = 100;
     AztecAddress contract_address = AztecAddress(27);
-    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    FF leaf_slot = RawPoseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
     // Prefill will point to our new leaf

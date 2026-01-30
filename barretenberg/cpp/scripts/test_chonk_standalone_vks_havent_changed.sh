@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-export bb=$(./find-bb)
+export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
@@ -13,11 +13,10 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="275ed862"
+pinned_short_hash="dbe74310"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-echo "$script_path"
 
 function update_pinned_hash_in_script {
     local new_hash=$1
@@ -50,70 +49,18 @@ function compress_and_upload {
     echo "Script updated with new pinned_short_hash: $short_hash"
 }
 
-function run_proof_test_on_inputs {
-    local inputs_path=$1
-    echo "Running proof test on inputs at: $inputs_path"
-    prove_exit_code=0
-    $bb prove --scheme chonk --ivc_inputs_path "$inputs_path" > /dev/null 2>&1 || prove_exit_code=$?
-
-    if [[ $prove_exit_code -ne 0 ]]; then
-      echo "Proof test failed. Please re-run the script with flag --update_inputs."
-      exit 1
-    fi
-}
-
-# For easily rerunning the inputs generation
-if [[ "${1:-}" == "--update_inputs" ]]; then
-    set -eu
-    trap 'rm -f bb-chonk-inputs.tar.gz' EXIT SIGINT
-    echo "Updating pinned IVC inputs..."
-
-    # Generate new inputs
-    echo "Running bootstrap to generate new IVC inputs..."
-
-    BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
-
-    compress_and_upload ../../yarn-project/end-to-end/example-app-ivc-inputs-out
-
-    exit 0
-fi
-
-export inputs_tmp_dir=$(mktemp -d)
-trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
-
-echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
-if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
-    echo_stderr "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
-    echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the file may not exist in S3."
-    exit 1
-fi
-
-echo "Extracting IVC inputs..."
-if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_tmp_dir"; then
-    echo_stderr "Error: Failed to extract IVC inputs archive"
-    exit 1
-fi
-
 function check_circuit_vks {
   set -eu
-  local flow_folder="$inputs_tmp_dir/$1"
+  local flow_folder="$inputs_dir/$1"
   local output
   local exit_code=0
 
-  if [[ "${2:-}" == "--update_inputs" ]]; then
-    output=$($bb check --vk_policy=rewrite --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
-  else
-    output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
-  fi
+  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack") || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
     # Check if this is actually a VK change
     if echo "$output" | grep -q "VK mismatch detected\|Expected precomputed vk"; then
       echo_stderr "Error: VK change detected in $flow_folder!"
-      if [[ "${2:-}" == "--update_inputs" ]]; then
-        echo_stderr "Updating inputs with new VK."
-      fi
       echo_stderr "$output"
       exit 1
     else
@@ -130,44 +77,139 @@ function check_circuit_vks {
 
 export -f check_circuit_vks
 
-# Run on one public and one private input.
-ls "$inputs_tmp_dir"
+function prove_and_verify_inputs {
+  set -eu
+  local flow_folder="$inputs_dir/$1"
+  local proof_exit_code=0
 
-if [[ "${1:-}" == "--update_fast" ]]; then
-  exit_code=0
-  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+  echo "Running proof test for $1..."
+  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || prove_exit_code=$?
 
-  if [[ $exit_code -eq 0 ]]; then
-    echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
-  elif [[ $exit_code -eq 1 ]]; then
-    # All flows that changed returned the same exit code (1)
-    # Test the new inputs before uploading
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
-    compress_and_upload $inputs_tmp_dir
-  else
-    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
-    # Test the new inputs before uploading
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
-    # Optimistically upload - real errors will persist on next run
-    echo "Mixed results detected (exit code: $exit_code). Uploading updated inputs..."
-    compress_and_upload $inputs_tmp_dir
-  fi
-else
-  exit_code=0
-  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+  if [[ $proof_exit_code -ne 0 ]]; then
+    echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
 
-  if [[ $exit_code -eq 0 ]]; then
-    run_proof_test_on_inputs "$inputs_tmp_dir/deploy_schnorr+sponsored_fpc/ivc-inputs.msgpack"
-    echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
-  elif [[ $exit_code -eq 1 ]]; then
-    # All flows had VK changes
-    echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+    cp "$flow_folder/ivc-inputs.msgpack" "$root/yarn-project/end-to-end/example-app-ivc-inputs-out/$1/ivc-inputs.msgpack"
+    echo "Inputs copied in yarn-project for debugging"
     exit 1
+  fi
+}
+
+export -f prove_and_verify_inputs
+
+# Extract exit code from job logs of parallel execution
+function extract_exit_code {
+  local log_file="$1"
+  local exit_code=0
+
+  awk 'NR>1 { codes[$7]=1 } END {
+    has_other = 0;
+    has_one = 0;
+    for (code in codes) {
+      if (code != 0 && code != 1) has_other = 1;
+      if (code == 1) has_one = 1;
+    }
+    if (has_other) exit 2;
+    if (has_one) exit 1;
+    exit 0;
+  }' "$log_file" || exit_code=$?
+
+  if [[ $exit_code -eq 0 ]]; then
+    return 0
+  elif [[ $exit_code -eq 1 ]]; then
+    return 1
   else
-    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
-    echo_stderr "Error: Mixed results or errors detected (exit code: $exit_code)."
-    echo_stderr "Some flows may have VK changes while others had errors."
-    echo_stderr "Please re-run with --update_inputs to update inputs, or investigate errors above."
-    exit $exit_code
+    return 2
+  fi
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  cat << EOF
+  Usage: $(basename "$0") [OPTIONS]
+
+  Options:
+      none                       Test that Chonk standalone VKs haven't changed
+      --update_inputs            Generate new IVC inputs and upload to S3
+      --prove_and_verify         Prove and verify current pinned inputs
+      -h, --help                 Show this help message
+
+  Description:
+      Tests that Chonk standalone VKs haven't changed by comparing
+      generated VKs with pinned reference inputs.
+EOF
+  exit 0
+elif [[ "${1:-}" == "--update_inputs" ]]; then
+    export inputs_dir="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
+
+    # For easily rerunning the inputs generation
+    set -eu
+    trap 'rm -f bb-chonk-inputs.tar.gz' EXIT SIGINT
+    echo "Updating pinned IVC inputs..."
+
+    # Generate new inputs
+    echo "Running bootstrap to generate new IVC inputs..."
+
+    BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
+
+    compress_and_upload "$inputs_dir"
+
+    prove_exit_code=0
+    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_dir") || prove_exit_code=$?
+
+    if [[ $prove_exit_code -eq 1 ]]; then
+      echo "One or more flows failed the proof test after updating inputs. Please investigate."
+      exit 1
+    fi
+
+    echo "Inputs successfully updated."
+    exit 0
+else
+  export inputs_dir=$(mktemp -d)
+  trap 'rm -rf "$inputs_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
+
+  echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
+  if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
+      echo_stderr "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
+      echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the file may not exist in S3."
+      exit 1
+  fi
+
+  echo "Extracting IVC inputs..."
+  if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_dir"; then
+      echo_stderr "Error: Failed to extract IVC inputs archive"
+      exit 1
+  fi
+
+  ls "$inputs_dir"
+
+  if [[ "${1:-}" == "--prove_and_verify" ]]; then
+    # Prove and verify the current pinned inputs
+    prove_exit_code=0
+    parallel -v --line-buffer --tag prove_and_verify_inputs {} ::: $(ls "$inputs_dir") || prove_exit_code=$?
+
+    if [[ $prove_exit_code -ne 0 ]]; then
+      echo "One or more flows failed the proof test after updating inputs. Please investigate."
+      exit 1
+    else
+      echo "All inputs were successfully proven and verified."
+    fi
+    exit 0
+  else
+    exit_code=0
+    parallel --joblog "$inputs_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_dir") || true
+
+    extract_exit_code "$inputs_dir/joblog.log" || exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+      echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
+    elif [[ $exit_code -eq 1 ]]; then
+      # All flows had VK changes
+      echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+      exit 1
+    else
+      # At least one real error
+      echo "Real error detected, please investigate."
+      exit $exit_code
+    fi
   fi
 fi

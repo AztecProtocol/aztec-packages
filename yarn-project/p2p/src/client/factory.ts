@@ -62,15 +62,11 @@ export async function createP2PClient<T extends P2PClientType>(
     );
   }
 
-  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
-  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
-  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));
-  const attestationStore = await createStore(
-    P2P_ATTESTATION_STORE_NAME,
-    1,
-    config,
-    createLogger('p2p-attestation:lmdb-v2'),
-  );
+  const bindings = logger.getBindings();
+  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
+  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
+  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
+  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
   const mempools: MemPools = {
@@ -110,7 +106,7 @@ export async function createP2PClient<T extends P2PClientType>(
   }
 
   const txCollection = new TxCollection(
-    p2pService,
+    p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,

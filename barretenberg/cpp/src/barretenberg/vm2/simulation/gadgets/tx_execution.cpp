@@ -589,7 +589,8 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
     }
 
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
-    const FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
+    const FF fee_juice_balance_slot =
+        poseidon2.hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, FEE_JUICE_BALANCES_SLOT, fee_payer });
     FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {

@@ -47,10 +47,10 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   # Extract fields from JSON output (already hex-encoded with 0x prefix)
-  local vk_fields=$(jq -c '.fields' "$outdir/vk.json")
-  local vk_hash_field=$(jq -c '.vk_hash' "$outdir/vk.json")
-  local public_inputs_fields=$(jq -c '.fields' "$outdir/public_inputs.json")
-  local proof_fields=$(jq -c '.fields' "$outdir/proof.json")
+  local vk_fields=$(jq -c '.vk' "$outdir/vk.json")
+  local vk_hash_field=$(jq -c '.hash' "$outdir/vk.json")
+  local public_inputs_fields=$(jq -c '.public_inputs' "$outdir/public_inputs.json")
+  local proof_fields=$(jq -c '.proof' "$outdir/proof.json")
 
   generate_toml "$program" "$vk_fields" "$vk_hash_field" "$proof_fields" "$public_inputs_fields"
 }
@@ -113,6 +113,12 @@ function build {
     rm -rf acir_tests/{regression_5045,regression_7744}
     # The following test fails because it uses CallData/ReturnData with UltraBuilder, which is not supported
     rm -rf acir_tests/{regression_7612,regression_7143,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
+    # Mark tests that are expected to fail with a failing_ prefix.
+    # bb_prove.sh will expect these to fail and error if they suddenly pass.
+    for t in ecdsa_secp256k1_invalid_inputs; do
+      mv acir_tests/$t acir_tests/failing_$t
+      sed -i "s/^name = \"$t\"/name = \"failing_$t\"/" acir_tests/failing_$t/Nargo.toml
+    done
     # Merge the internal test programs with the acir tests.
     cp -R ./internal_test_programs/* acir_tests
 

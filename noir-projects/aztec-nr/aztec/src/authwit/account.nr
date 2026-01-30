@@ -1,8 +1,6 @@
 use crate::context::PrivateContext;
 
-use dep::protocol_types::{
-    constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash,
-};
+use crate::protocol::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash};
 
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;
@@ -19,6 +17,8 @@ impl<Context> AccountActions<Context> {
 }
 
 // See AccountFeePaymentMethodOptions enum in Aztec.js for docs:
+//
+//
 // https://github.com/AztecProtocol/aztec-packages/blob/next/yarn-project/entrypoints/src/account_entrypoint.ts
 pub struct AccountFeePaymentMethodOptionsEnum {
     pub EXTERNAL: u8,
@@ -26,17 +26,12 @@ pub struct AccountFeePaymentMethodOptionsEnum {
     pub FEE_JUICE_WITH_CLAIM: u8,
 }
 
-pub global AccountFeePaymentMethodOptions: AccountFeePaymentMethodOptionsEnum = AccountFeePaymentMethodOptionsEnum {
-    EXTERNAL: 0,
-    PREEXISTING_FEE_JUICE: 1,
-    FEE_JUICE_WITH_CLAIM: 2,
-};
+pub global AccountFeePaymentMethodOptions: AccountFeePaymentMethodOptionsEnum =
+    AccountFeePaymentMethodOptionsEnum { EXTERNAL: 0, PREEXISTING_FEE_JUICE: 1, FEE_JUICE_WITH_CLAIM: 2 };
 
-/**
- * An implementation of the Account Action struct for the private context.
- *
- * Implements logic to verify authorization and execute payloads.
- */
+/// An implementation of the Account Action struct for the private context.
+///
+/// Implements logic to verify authorization and execute payloads.
 impl AccountActions<&mut PrivateContext> {
 
     /// Verifies that the `app_hash` is authorized and executes the `app_payload`.
@@ -44,15 +39,14 @@ impl AccountActions<&mut PrivateContext> {
     /// @param app_payload The payload that contains the calls to be executed in the app phase.
     ///
     /// @param fee_payment_method The mechanism via which the account contract will pay for the transaction:
-    ///   - EXTERNAL (0): Signals that some other contract is in charge of paying the fee, nothing needs to be done.
-    ///   - PREEXISTING_FEE_JUICE (1): Makes the account contract publicly pay for the transaction with its own FeeJuice
-    ///                                 balance, which it must already have prior to this transaction. The contract will
-    ///                                 set itself as the fee payer and end the setup phase.
-    ///   - FEE_JUICE_WITH_CLAIM (2): Makes the account contract publicly pay for the transaction with its own FeeJuice
-    ///                                balance which is being claimed in the same transaction. The contract will set
-    ///                                itself as the fee payer but not end setup phase - this is done by the FeeJuice
-    ///                                contract after enqueuing a public call, which unlike most public calls is
-    ///                                whitelisted to be executable during setup.
+    /// - EXTERNAL (0): Signals that some other contract is in charge of paying the fee, nothing needs to be done.
+    /// - PREEXISTING_FEE_JUICE (1): Makes the account contract publicly pay for the transaction with its own FeeJuice
+    /// balance, which it must already have prior to this transaction. The contract will set itself as the fee payer
+    /// and end the setup phase.
+    /// - FEE_JUICE_WITH_CLAIM (2): Makes the account contract publicly pay for the transaction with its own FeeJuice
+    /// balance which is being claimed in the same transaction. The contract will set itself as the fee payer but not
+    /// end setup phase - this is done by the FeeJuice contract after enqueuing a public call, which unlike most public
+    /// calls is whitelisted to be executable during setup.
     ///
     /// @param cancellable Controls whether to emit app_payload.tx_nonce as a nullifier, allowing a subsequent
     /// transaction to be sent with a higher priority fee. This can be used to cancel the first transaction sent,
@@ -74,24 +68,22 @@ impl AccountActions<&mut PrivateContext> {
         app_payload.execute_calls(self.context);
 
         if cancellable {
-            let tx_nullifier =
-                poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
+            let tx_nullifier = poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
             self.context.push_nullifier(tx_nullifier);
         }
     }
 
     /// Verifies that the `msg_sender` is authorized to consume `inner_hash` by the account.
     ///
-    /// Computes the `message_hash` using the `msg_sender`, `chain_id`, `version` and `inner_hash`.
-    /// Then executes the `is_valid_impl` function to verify that the message is authorized.
+    /// Computes the `message_hash` using the `msg_sender`, `chain_id`, `version` and `inner_hash`. Then executes the
+    /// `is_valid_impl` function to verify that the message is authorized.
     ///
     /// Will revert if the message is not authorized.
     ///
     /// @param inner_hash The hash of the message that the `msg_sender` is trying to consume.
     pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
-        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can
-        // consume the message.
-        // This ensures that contracts cannot consume messages that are not intended for them.
+        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can consume the message. This
+        // ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_authwit_message_hash(
             self.context.maybe_msg_sender().unwrap(),
             self.context.chain_id(),

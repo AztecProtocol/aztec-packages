@@ -1,5 +1,5 @@
 import { sum } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { RevertCode } from '@aztec/stdlib/avm';
 import type { GasUsed } from '@aztec/stdlib/gas';
@@ -88,8 +88,8 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
   private currentTxLabel: string | undefined;
   private txTimer: Timer | undefined;
 
-  constructor() {
-    this.logger = createLogger(`simulator:test_executor_metrics`);
+  constructor(bindings?: LoggerBindings) {
+    this.logger = createLogger(`simulator:test_executor_metrics`, bindings);
   }
 
   startRecordingTxSimulation(txLabel: string) {

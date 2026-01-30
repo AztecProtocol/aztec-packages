@@ -1,6 +1,6 @@
 use crate::note::{HintedNote, note_interface::NoteType};
 
-use dep::protocol_types::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
@@ -13,8 +13,8 @@ pub fn notify_created_note<let N: u32>(
     note_hash: Field,
     counter: u32,
 ) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    // call.
     unsafe {
         notify_created_note_oracle_wrapper(
             owner,
@@ -68,11 +68,7 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _counter: u32,
 ) {}
 
-unconstrained fn notify_nullified_note_oracle_wrapper(
-    nullifier: Field,
-    note_hash: Field,
-    counter: u32,
-) {
+unconstrained fn notify_nullified_note_oracle_wrapper(nullifier: Field, note_hash: Field, counter: u32) {
     notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
@@ -154,8 +150,8 @@ where
     }
 
     // At last we convert the bounded vector to an array of options. We do this because that is what the filter
-    // function needs to have on the output and we've decided to have the same type on the input and output of
-    // the filter and preprocessor functions.
+    // function needs to have on the output and we've decided to have the same type on the input and output of the
+    // filter and preprocessor functions.
     //
     // We have decided to have the same type on the input and output of the filter and preprocessor functions because
     // it allows us to chain multiple filters and preprocessors together.
@@ -184,32 +180,26 @@ where
 
 /// Returns the next app tag for a given sender and recipient pair.
 ///
-/// This also notifies the simulator that a tag has been used in a note, and to therefore increment the
-/// associated index so that future notes get a different tag and can be discovered by the recipient.
-/// This change should only be persisted in a non-volatile database if the tagged log is found in an actual block -
-/// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
-/// that are not found by the recipient.
-pub unconstrained fn get_next_app_tag_as_sender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> Field {
+/// This also notifies the simulator that a tag has been used in a note, and to therefore increment the associated
+/// index so that future notes get a different tag and can be discovered by the recipient. This change should only be
+/// persisted in a non-volatile database if the tagged log is found in an actual block - otherwise e.g. a reverting
+/// transaction can cause the sender to accidentally skip indices and later produce notes that are not found by the
+/// recipient.
+pub unconstrained fn get_next_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
     get_next_app_tag_as_sender_oracle(sender, recipient)
 }
 
 #[oracle(privateGetNextAppTagAsSender)]
-unconstrained fn get_next_app_tag_as_sender_oracle(
-    _sender: AztecAddress,
-    _recipient: AztecAddress,
-) -> Field {}
+unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
 
 /// Gets the sender for tags.
 ///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret
-/// for a tag in order to emit a log. Constrained tagging should not use this as there is no
-/// guarantee that the recipient knows about the sender, and hence about the shared secret.
+/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+/// sender, and hence about the shared secret.
 ///
-/// The value persists through nested calls, meaning all calls down the stack will use the same
-/// 'senderForTags' value (unless it is replaced).
+/// The value persists through nested calls, meaning all calls down the stack will use the same 'senderForTags' value
+/// (unless it is replaced).
 pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
@@ -219,13 +209,13 @@ unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
 
 /// Sets the sender for tags.
 ///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret
-/// for a tag in order to emit a log. Constrained tagging should not use this as there is no
-/// guarantee that the recipient knows about the sender, and hence about the shared secret.
+/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+/// sender, and hence about the shared secret.
 ///
-/// Account contracts typically set this value before calling other contracts. The value persists
-/// through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-/// value (unless it is replaced by another call to this setter).
+/// Account contracts typically set this value before calling other contracts. The value persists through nested calls,
+/// meaning all calls down the stack will use the same 'senderForTags' value (unless it is replaced by another call to
+/// this setter).
 pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
     set_sender_for_tags_oracle(sender_for_tags);
 }

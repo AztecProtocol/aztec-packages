@@ -39,8 +39,8 @@
 in which the notes would've been created (typically the same transaction in which the log was emitted), along with
 the list of unique note hashes in said transaction and the <code>compute_note_hash_and_nullifier</code> function. Once
 discovered, the notes are enqueued for validation.</p>
-<p>Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
-search for the note's completion public log.</p>
+<p>Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved
+to search for the note's completion public log.</p>
 <p>Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 enqueueing the event data and commitment for validation.</p>
 </div>

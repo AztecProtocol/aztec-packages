@@ -400,20 +400,40 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
 {
     // This test will write
-    // 1. slot 42 with value 27
-    // 2. (dummy write to check ordering) slot 50 with value 0
-    // 3. slot 42 with value 28
-    // If squashing is correct, we should get (42, 28), (50, 0)
-    FF slot = 42;
-    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    // 1. slot with value 27
+    // 2. (dummy write to check ordering) dummy_slot with value 0
+    // 3. slot with value 28
+    // If squashing is correct, we should get (slot, 28), (dummy_slot, 0)
+
+    // Compute hashes for two candidate slot values
+    FF slot_a = 42;
+    FF slot_b = 51;
+    FF leaf_slot_a = unconstrained_compute_leaf_slot(contract_address, slot_a);
+    FF leaf_slot_b = unconstrained_compute_leaf_slot(contract_address, slot_b);
+
+    // We need leaf_slot < dummy_leaf_slot for the tree ordering.
+    // Since hash outputs are pseudo-random, we pick the smaller hash as leaf_slot.
+    FF slot;
+    FF dummy_slot;
+    FF leaf_slot;
+    FF dummy_leaf_slot;
+    if (static_cast<uint256_t>(leaf_slot_a) < static_cast<uint256_t>(leaf_slot_b)) {
+        slot = slot_a;
+        dummy_slot = slot_b;
+        leaf_slot = leaf_slot_a;
+        dummy_leaf_slot = leaf_slot_b;
+    } else {
+        slot = slot_b;
+        dummy_slot = slot_a;
+        leaf_slot = leaf_slot_b;
+        dummy_leaf_slot = leaf_slot_a;
+    }
+
     FF new_value = 27; // Will get squashed
     FF updated_value = 28;
-
-    FF dummy_slot = 50;
-    FF dummy_leaf_slot = unconstrained_compute_leaf_slot(contract_address, dummy_slot);
     FF dummy_leaf_value = 0;
 
-    // The expected tree order is low_leaf_slot := 40 < leaf_slot < second_low_leaf_slot < dummy_leaf_slot
+    // The expected tree order is low_leaf_slot := (leaf_slot - 2) < leaf_slot < second_low_leaf_slot < dummy_leaf_slot
     // We set second_low_leaf_slot == leaf_slot + 1. (We do not need to know the preimage for second_low_leaf_slot)
     ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 

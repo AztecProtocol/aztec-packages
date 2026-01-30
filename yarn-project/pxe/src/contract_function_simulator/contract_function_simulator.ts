@@ -7,6 +7,7 @@ import {
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
+  GeneratorIndex,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
   L2_GAS_PER_PRIVATE_LOG,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -17,7 +18,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -72,7 +73,6 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { AddressStore } from '../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -101,7 +101,6 @@ export class ContractFunctionSimulator {
     private keyStore: KeyStore,
     private addressStore: AddressStore,
     private aztecNode: AztecNode,
-    private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -182,7 +181,6 @@ export class ContractFunctionSimulator {
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
@@ -278,7 +276,6 @@ export class ContractFunctionSimulator {
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
@@ -401,7 +398,10 @@ export async function generateSimulatedProvingResult(
 
     const privateLogsFromExecution = await Promise.all(
       execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
-        metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
+        metadata.log.fields[0] = await poseidon2HashWithSeparator(
+          [contractAddress, metadata.log.fields[0]],
+          GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+        );
         return new OrderedSideEffect(metadata.log, metadata.counter);
       }),
     );

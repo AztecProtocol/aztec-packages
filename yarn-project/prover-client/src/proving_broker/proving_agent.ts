@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { ProvingError } from '@aztec/stdlib/errors';
@@ -23,6 +23,7 @@ import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_
 export class ProvingAgent {
   private currentJobController?: ProvingJobController;
   private runningPromise: RunningPromise;
+  private log: Logger;
 
   constructor(
     /** The source of proving jobs */
@@ -35,8 +36,9 @@ export class ProvingAgent {
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    private log = createLogger('prover-client:proving-agent'),
+    bindings?: LoggerBindings,
   ) {
+    this.log = createLogger('prover-client:proving-agent', bindings);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollIntervalMs);
   }
 
@@ -159,6 +161,7 @@ export class ProvingAgent {
         // no need to await this here. The controller will stay alive (in DONE state) until the result is send to the broker
         void this.runningPromise.trigger();
       },
+      this.log.getBindings(),
     );
 
     if (abortedProofJobId) {

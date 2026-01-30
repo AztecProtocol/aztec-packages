@@ -5,10 +5,11 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { GeneratorIndex } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -437,7 +438,10 @@ describe('e2e_block_building', () => {
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await poseidon2Hash([testContract.address, valuesAsArray[0]]);
+      const expectedFirstField = await poseidon2HashWithSeparator(
+        [testContract.address, valuesAsArray[0]],
+        GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+      );
       expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
         expectedFirstField.toBigInt(),
         ...valuesAsArray.slice(1),

@@ -137,7 +137,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
@@ -391,7 +390,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
 TEST_F(ECCVMTranscriptTests, ChallengeGenerationTest)
 {
     // initialized with random value sent to verifier
-    auto transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::test_prover_init_empty();
     // test a bunch of challenges
     std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
     auto challenges = transcript->template get_challenges<FF>(challenge_labels);

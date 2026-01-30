@@ -24,24 +24,24 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
         if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
-          this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
+          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
         }
-        this.logger.debug(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
+        this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
         return { result: 'ignore' };
       }
 
       // Signature validity
       const proposer = proposal.getSender();
       if (!proposer) {
-        this.logger.debug(`Penalizing peer for proposal with invalid signature`);
+        this.logger.warn(`Penalizing peer for proposal with invalid signature`);
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Transactions permitted check
       const embeddedTxCount = proposal.txs?.length ?? 0;
       if (!this.txsPermitted && (proposal.txHashes.length > 0 || embeddedTxCount > 0)) {
-        this.logger.debug(
+        this.logger.warn(
           `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when transactions are not permitted`,
         );
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
@@ -65,7 +65,7 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       // Proposer check
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
+        this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           expectedProposer,
           proposer: proposer.toString(),
         });

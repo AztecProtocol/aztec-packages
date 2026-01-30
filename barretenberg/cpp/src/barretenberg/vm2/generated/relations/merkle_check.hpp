@@ -14,8 +14,8 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 4, 3, 3, 3, 3, 4, 3,
-                                                                            4, 3, 3, 3, 4, 4, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 4, 3, 3, 3, 3, 4, 3,
+                                                                            4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -49,10 +49,10 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_READ_RIGHT_NODE = 14;
     static constexpr size_t SR_WRITE_LEFT_NODE = 15;
     static constexpr size_t SR_WRITE_RIGHT_NODE = 16;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 17;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 18;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 19;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 20;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 18;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 19;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 20;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 21;
 
     static std::string get_subrelation_label(size_t index)
     {

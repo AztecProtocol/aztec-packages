@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 pub contract Auth {
     use dep::aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, PublicImmutable},
     };
 
