@@ -5,7 +5,7 @@
 // =====================
 
 // Generic log-derivative utilities for lookups and permutations.
-// For the mathematical background, see relations/LOGUP_README.md
+// For the mathematical background, see relations/GENERIC_LOGUP_README.md
 
 #pragma once
 
@@ -113,7 +113,7 @@ void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelatio
     std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;
     std::array<Accumulator, NUM_TOTAL_TERMS> denominator_accumulator;
 
-    // The inverse polynomial gives us the produce of all the inverses, i.e.
+    // The inverse polynomial gives us the product of all the inverses, i.e.
     // lookup_inverse = \prod_j (1 / lookup_term[j]) * \prod_k (1 / table_term[k])
     // To obtain the inverses 1 / lookup_term[i], 1 / table_term[i], we multiply lookup_inverse by the product of all
     // terms except the one we want to invert. We perform this calculation via the following algorithm:
@@ -148,6 +148,7 @@ void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelatio
         // Multiply the inverse accumulator by the current term to remove it from the product of the inverses
         inverse_accumulator = inverse_accumulator * lookup_terms[i];
     }
+    // Inverse accumulator is now equal to the inverse of the first lookup term
     denominator_accumulator[0] = inverse_accumulator;
 
     // Second subrelation
