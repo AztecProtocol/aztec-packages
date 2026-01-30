@@ -397,14 +397,39 @@ def get_breakdown(runtime, flow_name, sha):
 @auth.login_required
 def trigger_grind():
     """Trigger a grind job for a flaky test."""
+    import hashlib
     full_cmd = request.args.get('cmd')
     commit = request.args.get('commit', 'HEAD')
+    confirmed = request.args.get('confirmed')
 
     if not full_cmd:
         return "Missing cmd parameter", 400
 
+    # Check if this grind was already requested in the last 24 hours
+    cache_key = f"grind:{hashlib.sha256(f'{full_cmd}:{commit}'.encode()).hexdigest()[:16]}"
+    existing_run_id = r.get(cache_key)
+    if existing_run_id:
+        existing_run_id = existing_run_id.decode() if isinstance(existing_run_id, bytes) else existing_run_id
+        return redirect(f'/{existing_run_id}')
+
+    # Show confirmation page first
+    if not confirmed:
+        from urllib.parse import urlencode as url_encode
+        confirm_url = f"/grind?{url_encode({'cmd': full_cmd, 'commit': commit, 'confirmed': '1'})}"
+        confirm_page = (
+            f"{BOLD}Grind Test{RESET}\n\n"
+            f"This will start a grind run for 10 minutes.\n\n"
+            f"Command:\n{YELLOW}{full_cmd}{RESET}\n\n"
+            f"Commit: {commit}\n\n"
+            f"{GREEN}{hyperlink(confirm_url, 'Click here to proceed.')}{RESET}\n"
+        )
+        return render_template_string(TEMPLATE, value=ansi_to_html(confirm_page), filter_str='grind', follow='top')
+
     # Generate unique run ID (16 hex chars)
     run_id = uuid.uuid4().hex[:16]
+
+    # Cache this grind request for 24 hours
+    r.setex(cache_key, 86400, run_id)
 
     # Start grind job in background
     # Dashboard server needs local repo checkout at REPO_PATH
