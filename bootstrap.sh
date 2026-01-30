@@ -281,10 +281,11 @@ function build_and_test {
   # Start the test engine.
   rm -f $test_cmds_file
   touch $test_cmds_file
-  # put it in it's own process group via background subshell, we can terminate on cleanup.
-  (color_prefix "test-engine" "denoise test_engine_start") &
+  # put it in it's own process group, we can terminate on cleanup.
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
 
   # Start the build.
   if [ -z "$target" ]; then

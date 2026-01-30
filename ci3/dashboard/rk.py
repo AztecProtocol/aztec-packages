@@ -445,7 +445,7 @@ def trigger_grind():
             start_new_session=True
         )
 
-    # Redirect to log view (will show "Key not found" until job starts writing)
+    # Redirect to log view.
     return redirect(f'/{run_id}')
 
 @app.route('/<key>')

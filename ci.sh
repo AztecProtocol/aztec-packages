@@ -109,8 +109,8 @@ case "$cmd" in
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache-makefile' \
+      'run x4-full amd64 ci-full-no-test-cache-makefile' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   bisect-flake)
