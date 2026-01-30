@@ -5,34 +5,34 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 
+import { ATTESTATION_CAP_BUFFER, AttestationPool } from './attestation_pool.js';
 import { describeAttestationPool } from './attestation_pool_test_suite.js';
-import { ATTESTATION_CAP_BUFFER, KvAttestationPool } from './kv_attestation_pool.js';
 import { mockCheckpointAttestation } from './mocks.js';
 
-describe('KV Attestation Pool', () => {
-  let kvAttestationPool: KvAttestationPool;
+describe('Attestation Pool', () => {
+  let attestationPool: AttestationPool;
   let store: AztecAsyncKVStore;
 
   beforeEach(async () => {
     store = await openTmpStore('test');
-    kvAttestationPool = new KvAttestationPool(store);
+    attestationPool = new AttestationPool(store);
   });
 
   afterEach(() => store.close());
 
-  describeAttestationPool(() => kvAttestationPool);
+  describeAttestationPool(() => attestationPool);
 
   describe('BlockProposal behavior', () => {
     it('should allow adding block proposals up to position cap', async () => {
       const slotNumber = 100;
       const header = makeBlockHeader(1, { slotNumber: SlotNumber(slotNumber) });
 
-      // Add 1 proposal and re-add it (duplicate) → should return alreadyExists
+      // Add 1 proposal and re-add it (duplicate) -> should return alreadyExists
       const p0 = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
-      const result0 = await kvAttestationPool.tryAddBlockProposal(p0);
+      const result0 = await attestationPool.tryAddBlockProposal(p0);
       expect(result0.added).toBe(true);
 
-      const result0Dup = await kvAttestationPool.tryAddBlockProposal(p0);
+      const result0Dup = await attestationPool.tryAddBlockProposal(p0);
       expect(result0Dup.added).toBe(false);
       expect(result0Dup.alreadyExists).toBe(true);
     });
@@ -54,20 +54,20 @@ describe('KV Attestation Pool', () => {
 
       // Add each attestation using tryAddCheckpointAttestation
       for (let i = 0; i < attestations.length; i++) {
-        const result = await kvAttestationPool.tryAddCheckpointAttestation(attestations[i], committeeSize);
+        const result = await attestationPool.tryAddCheckpointAttestation(attestations[i], committeeSize);
         expect(result.added).toBe(true);
         expect(result.totalForPosition).toBe(i + 1);
       }
 
       // A new attestation from a new signer should not be added (cap reached)
       const extra = mockCheckpointAttestation(Secp256k1Signer.random(), slotNumber, archive);
-      const extraResult = await kvAttestationPool.tryAddCheckpointAttestation(extra, committeeSize);
+      const extraResult = await attestationPool.tryAddCheckpointAttestation(extra, committeeSize);
       expect(extraResult.added).toBe(false);
       expect(extraResult.alreadyExists).toBe(false);
       expect(extraResult.totalForPosition).toBe(limit);
 
       // Re-adding an existing attestation should return alreadyExists
-      const existingResult = await kvAttestationPool.tryAddCheckpointAttestation(attestations[0], committeeSize);
+      const existingResult = await attestationPool.tryAddCheckpointAttestation(attestations[0], committeeSize);
       expect(existingResult.added).toBe(false);
       expect(existingResult.alreadyExists).toBe(true);
     });

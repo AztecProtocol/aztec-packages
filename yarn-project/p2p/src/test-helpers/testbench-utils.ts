@@ -12,7 +12,7 @@ import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
 
-import type { AttestationPool, TryAddResult } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { TryAddResult } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 
@@ -145,9 +145,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
 }
 
 /**
- * In-memory AttestationPool implementation for testing.
+ * In-memory AttestationPool mock for testing/benchmarking.
+ * Provides minimal implementation without persistence.
  */
-export class InMemoryAttestationPool implements AttestationPool {
+export class InMemoryAttestationPool {
   private proposals = new Map<string, BlockProposal>();
 
   tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
