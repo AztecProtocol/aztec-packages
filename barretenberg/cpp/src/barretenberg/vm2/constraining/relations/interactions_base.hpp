@@ -11,6 +11,12 @@ namespace bb::avm2 {
 
 /////////////////// LOOKUPS ///////////////////
 
+/**
+ * @brief Settings to be passed ot GenericLookupRelationImpl
+ *
+ * @note For every template parameter Setting_, lookup_settings<Setting_> must satify the concept GenericLookupSettings
+ * defined in generic_lookup_relation.hpp
+ */
 template <typename Settings_> struct lookup_settings : public Settings_ {
     static constexpr size_t NUM_LOOKUP_TERMS = 1;
     static constexpr size_t NUM_TABLE_TERMS = 1;

@@ -141,6 +141,12 @@ template <typename Settings_> class LookupPolynomialStructure {
 };
 
 // clang-format off
+/**
+ * @brief Concept defining the requirements for the Settings struct used to configure the GenericLookupRelationImpl
+ *
+ * @details This is the concept that should be satisfied by lookup settings. As the AVM instantiates many lookup relations
+ * (+200), enforcing this concept hurts compilation times. Thus, we only use this concept for documentation purposes.
+ */
 template <typename S>
 concept GenericLookupSettings = requires {
     // We allow looking up multiple items per row from a variable number of table columns. These values are not
@@ -235,7 +241,7 @@ concept GenericLookupSettings = requires {
  *
 */
 // clang-format on
-template <GenericLookupSettings Settings, typename FF_> class GenericLookupRelationImpl {
+template <typename Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
     using PolynomialStructure = LookupPolynomialStructure<Settings>;
