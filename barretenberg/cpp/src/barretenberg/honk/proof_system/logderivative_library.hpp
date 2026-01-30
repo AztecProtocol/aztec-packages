@@ -158,8 +158,8 @@ void _accumulate_logderivative_subrelation_contributions(ContainerOverSubrelatio
     });
 
     bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-        const auto to_subtract = Relation::template get_table_term_predicate<Accumulator, i>(in) *
-                                 denominator_accumulator[i + NUM_LOOKUP_TERMS];
+        auto to_subtract = Relation::template get_table_term_predicate<Accumulator, i>(in) *
+                           denominator_accumulator[i + NUM_LOOKUP_TERMS];
         if constexpr (!IsPermutation) {
             // If not a permutation, multiply by the read count
             to_subtract *= Relation::template lookup_read_counts<Accumulator, i>(in);
