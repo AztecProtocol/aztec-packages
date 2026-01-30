@@ -621,8 +621,8 @@ export class TxPoolV2Impl {
       // Sort hashes in same direction within fee level for deterministic ordering
       const sortedHashes =
         order === 'desc'
-          ? [...hashesAtFee].sort((a, b) => b.localeCompare(a))
-          : [...hashesAtFee].sort((a, b) => a.localeCompare(b));
+          ? [...hashesAtFee].sort((a, b) => (b < a ? -1 : b > a ? 1 : 0))
+          : [...hashesAtFee].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
       for (const hash of sortedHashes) {
         yield hash;
       }

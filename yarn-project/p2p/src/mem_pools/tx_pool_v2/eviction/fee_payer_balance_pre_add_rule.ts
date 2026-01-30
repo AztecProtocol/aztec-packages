@@ -55,7 +55,8 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
       if (a.priority !== b.priority) {
         return a.priority > b.priority ? -1 : 1;
       }
-      return a.txHash >= b.txHash ? -1 : 1;
+      // Descending by hash for deterministic ordering
+      return b.txHash < a.txHash ? -1 : b.txHash > a.txHash ? 1 : 0;
     });
 
     // Walk through in priority order, tracking balance

@@ -101,10 +101,11 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
     // Sort by priority descending (highest first), with hash as tiebreaker
     txs.sort((a, b) => {
-      if (a.priorityFee === b.priorityFee) {
-        return a.txHash >= b.txHash ? -1 : 1;
+      if (a.priorityFee !== b.priorityFee) {
+        return a.priorityFee > b.priorityFee ? -1 : 1;
       }
-      return a.priorityFee > b.priorityFee ? -1 : 1;
+      // Descending by hash for deterministic ordering
+      return b.txHash < a.txHash ? -1 : b.txHash > a.txHash ? 1 : 0;
     });
 
     for (const tx of txs) {
