@@ -14,15 +14,13 @@ import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
-import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
-import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
+import type { AttestationPool, TxPool } from '../../mem_pools/index.js';
+import { BlockTxsRequest, BlockTxsResponse, ReqRespSubProtocol } from '../../services/index.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
-import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
+import { makeAndStartTestP2PClients } from '../../test-helpers/index.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
+import type { P2PClient } from '../p2p_client.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -133,7 +131,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[], includeFullTxHashes = false) => {
     const [client1, client2] = clients as any;
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
     if (!request) {
       return undefined;
     }
