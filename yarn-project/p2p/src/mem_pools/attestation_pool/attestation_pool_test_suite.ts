@@ -10,8 +10,7 @@ import {
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
 
-import type { AttestationPool } from './attestation_pool.js';
-import { MAX_PROPOSALS_PER_POSITION, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
+import { type AttestationPool, MAX_PROPOSALS_PER_POSITION, MAX_PROPOSALS_PER_SLOT } from './attestation_pool.js';
 import { mockCheckpointAttestation } from './mocks.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
