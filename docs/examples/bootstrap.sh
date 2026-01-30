@@ -166,6 +166,11 @@ case "$cmd" in
         delete_failure_comment "$pr_number"
       fi
     fi
+
+    if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
+      echo "ERROR: ${#FAILED_STEPS[@]} step(s) failed: ${FAILED_STEPS[*]}" >&2
+      exit 1
+    fi
     ;;
   compile-solidity)
     compile-solidity
