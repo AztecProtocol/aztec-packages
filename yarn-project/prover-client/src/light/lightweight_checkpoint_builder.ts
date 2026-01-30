@@ -143,6 +143,11 @@ export class LightweightCheckpointBuilder {
     return builder;
   }
 
+  /** Returns how many blocks have been added to this checkpoint so far */
+  public getBlockCount() {
+    return this.blocks.length;
+  }
+
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.

@@ -9,7 +9,7 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/sec
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from '@aztec/foundation/string';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
@@ -45,7 +45,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import type {
-  BuildBlockInCheckpointResultWithTimer,
+  BuildBlockInCheckpointResult,
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
@@ -280,7 +280,7 @@ describe('ValidatorClient', () => {
     let proposal: BlockProposal;
     let blockNumber: BlockNumber;
     let sender: PeerId;
-    let blockBuildResult: BuildBlockInCheckpointResultWithTimer;
+    let blockBuildResult: BuildBlockInCheckpointResult;
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
@@ -352,7 +352,6 @@ describe('ValidatorClient', () => {
       blockBuildResult = {
         publicProcessorDuration: 0,
         numTxs: proposal.txHashes.length,
-        blockBuildingTimer: new Timer(),
         failedTxs: [],
         publicGas: Gas.empty(),
         usedTxs: [],

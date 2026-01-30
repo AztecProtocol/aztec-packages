@@ -62,8 +62,16 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'fakeThrowAfterProcessingTxCount',
 ] as const;
 
+/** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
+export class NoValidTxsError extends Error {
+  constructor(public readonly failedTxs: FailedTx[]) {
+    super('No valid transactions to include in block');
+    this.name = 'NoValidTxsError';
+  }
+}
+
 /** Result of building a block within a checkpoint. */
-export interface BuildBlockInCheckpointResult {
+export type BuildBlockInCheckpointResult = {
   block: L2Block;
   publicGas: Gas;
   publicProcessorDuration: number;
@@ -71,7 +79,7 @@ export interface BuildBlockInCheckpointResult {
   failedTxs: FailedTx[];
   usedTxs: Tx[];
   usedTxBlobFields: number;
-}
+};
 
 /** Interface for building blocks within a checkpoint context. */
 export interface ICheckpointBlockBuilder {
