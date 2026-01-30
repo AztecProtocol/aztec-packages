@@ -536,6 +536,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Receive a_zero from the prover
         const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
+        if constexpr (Curve::is_stdlib_type) {
+            const auto last_round_tag = round_challenges.back().get_origin_tag();
+            G_zero.set_origin_tag(last_round_tag);
+            const_cast<Fr&>(a_zero).set_origin_tag(last_round_tag);
+        }
+
         // Step 7.
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
         // If everything is correct, then R == -C, as C':= C + f(\beta) ⋅ U
