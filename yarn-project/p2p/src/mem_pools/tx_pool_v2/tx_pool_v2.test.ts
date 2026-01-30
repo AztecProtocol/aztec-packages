@@ -1685,6 +1685,166 @@ describe('TxPoolV2', () => {
     });
   });
 
+  describe('fee payer balance eviction rule (post-event)', () => {
+    // Helper to set fee payer balance in the mock
+    const setFeePayerBalance = (balance: bigint) => {
+      db.getLeafPreimage.mockImplementation((tree, index) => {
+        if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+          return Promise.resolve(
+            new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(balance)), Fr.ONE, 1n),
+          );
+        }
+        return Promise.resolve(undefined);
+      });
+    };
+
+    it('evicts low-priority txs after BLOCK_MINED when balance is insufficient', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Initial balance covers all 3 txs
+      setFeePayerBalance(BigInt(6e8));
+
+      // Add three txs from same fee payer
+      const txLow = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txMed = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txHigh = await mockTx(3, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(15, 15),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+      await pool.addPendingTxs([txLow, txMed, txHigh]);
+      expect(await pool.getPendingTxCount()).toBe(3);
+
+      // Simulate block mined that reduced fee payer's balance
+      // After mining txHigh, balance only covers one more tx
+      setFeePayerBalance(BigInt(2e8));
+
+      // Mine the highest priority tx - this triggers balance check for sharedFeePayer
+      // The fee payer balance rule will check remaining pending txs from this fee payer
+      await pool.handleMinedBlock([txHigh.getTxHash()], slot1Header);
+
+      // txHigh is now mined
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('mined');
+      // txMed (higher priority) should remain pending
+      expect(await pool.getTxStatus(txMed.getTxHash())).toBe('pending');
+      // txLow (lower priority) should be evicted due to insufficient balance
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+    });
+
+    it('evicts low-priority txs after CHAIN_PRUNED when balance is insufficient', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Initial balance covers both txs
+      setFeePayerBalance(BigInt(4e8));
+
+      db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
+
+      // Add two txs from same fee payer
+      const txLow = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txHigh = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+      await pool.addPendingTxs([txLow, txHigh]);
+      await pool.handleMinedBlock([txLow.getTxHash(), txHigh.getTxHash()], slot1Header);
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('mined');
+
+      // Simulate reorg - balance reduced (e.g., another tx was restored)
+      setFeePayerBalance(BigInt(2e8)); // Only enough for one tx
+
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Low priority tx should be evicted, high priority should be pending
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+    });
+
+    it('priority ordering is correct - highest priority funded first', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Balance covers only 2 out of 3 txs
+      setFeePayerBalance(BigInt(4e8));
+
+      db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
+
+      // Create 3 txs with distinct priorities
+      const txPriority1 = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(1, 1), // Lowest
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txPriority5 = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5), // Middle
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txPriority10 = await mockTx(3, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10), // Highest
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+      // Add and mine all
+      await pool.addPendingTxs([txPriority1, txPriority5, txPriority10]);
+      await pool.handleMinedBlock(
+        [txPriority1.getTxHash(), txPriority5.getTxHash(), txPriority10.getTxHash()],
+        slot1Header,
+      );
+
+      // Reorg - triggers balance eviction
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Highest (priority 10) and middle (priority 5) should remain
+      // Lowest (priority 1) should be evicted
+      expect(await pool.getTxStatus(txPriority10.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txPriority5.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txPriority1.getTxHash())).toBeUndefined();
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+
+    it('does not evict when balance is sufficient', async () => {
+      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      // Balance covers all txs
+      setFeePayerBalance(BigInt(1e18));
+
+      db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
+
+      const txLow = await mockTx(1, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(5, 5),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+      const txHigh = await mockTx(2, {
+        feePayer: sharedFeePayer,
+        maxPriorityFeesPerGas: new GasFees(10, 10),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+      await pool.addPendingTxs([txLow, txHigh]);
+      await pool.handleMinedBlock([txLow.getTxHash(), txHigh.getTxHash()], slot1Header);
+
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Both should be pending - balance is sufficient
+      expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('pending');
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+  });
+
   describe('anchor block validation (reorg)', () => {
     it('evicts txs with pruned anchor blocks after reorg', async () => {
       const tx = await mockTx(1);

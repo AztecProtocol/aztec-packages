@@ -51,7 +51,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     ];
 
     // Sort by priority descending (highest first), with hash as tiebreaker
-    allTxs.sort((a, b) => -comparePriority(a, b));
+    allTxs.sort((a, b) => comparePriority(b, a));
 
     // Walk through in priority order, tracking balance
     let balance = initialBalance;

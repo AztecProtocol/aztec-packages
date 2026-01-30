@@ -100,7 +100,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
     let balance = initialBalance;
 
     // Sort by priority descending (highest first), with hash as tiebreaker
-    txs.sort((a, b) => -comparePriority(a, b));
+    txs.sort((a, b) => comparePriority(b, a));
 
     for (const tx of txs) {
       const available = balance + tx.claimAmount;
