@@ -162,6 +162,11 @@
       "id": "operation/operator_faq"
     },
     {
+      "type": "doc",
+      "id": "operation/attestations_rewards_faq",
+      "label": "Attestations & Rewards FAQ"
+    },
+    {
       "type": "html",
       "value": "<span class=\"sidebar-divider\" />"
     },
