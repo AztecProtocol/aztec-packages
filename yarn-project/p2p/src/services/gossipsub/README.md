@@ -168,7 +168,7 @@ firstMessageDeliveriesWeight = MAX_P2_SCORE / cap    // Normalized so max P2 = 2
 **Key properties:**
 - Fast decay (2 slots): rewards recent behavior, not historical
 - Caps at convergence: prevents score inflation from bursts
-- Resets quickly after mesh leave: decays to 0 in seconds
+- Resets quickly after mesh leave: decays to near-zero over ~2 slots (e.g., ~144s with 72s slots)
 
 ## P3 Weight Formula
 
@@ -228,6 +228,13 @@ The scoring parameters depend on:
 | `heartbeatInterval` | P2PConfig.gossipsubInterval | 700ms |
 | `blockDurationMs` | P2PConfig.blockDurationMs | undefined (single block) |
 
+All time-based gossipsub params in this module are expressed in **milliseconds** and passed through as-is.
+If the libp2p-gossipsub API ever switches to seconds, these values must be converted.
+
+Block proposal expectations use the default timetable constants from `@aztec/stdlib/timetable`.
+If sequencer overrides (e.g., `l1PublishingTime`, shorter test-chain timings) differ from defaults,
+expected block_proposal rates may diverge slightly from actual production timing.
+
 ## Invalid Message Handling (P4)
 
 P4 penalizes peers who deliver invalid messages. All topics have this enabled with:
@@ -286,7 +293,7 @@ The thresholds are designed to align with Aztec's application-level peer scoring
 Total Gossipsub Score = TopicScore + (AppScore × AppSpecificWeight)
 ```
 
-With `appSpecificWeight = 10`:
+With `appSpecificWeight = 10` (topic score assumed ~0):
 
 | App Score State | App Score | Gossipsub Contribution | Threshold Triggered |
 |-----------------|-----------|------------------------|---------------------|
@@ -294,10 +301,14 @@ With `appSpecificWeight = 10`:
 | Disconnect | -50 | -500 | gossipThreshold |
 | Ban | -100 | -1000 | publishThreshold |
 
-This means:
-- When a peer reaches **Disconnect** state, they also stop receiving gossip
-- When a peer reaches **Ban** state, their messages are not relayed
+This means (best-effort alignment):
+- When a peer reaches **Disconnect** state, they generally stop receiving gossip
+- When a peer reaches **Ban** state, their messages are generally not relayed
 - **Graylist** requires ban-level score PLUS significant topic penalties (attacks)
+
+**Important:** Positive topic scores (P1/P2) can temporarily offset app penalties, so alignment is not strict.
+Conversely, if topic scores are low, a peer slightly above the disconnect threshold may still dip below
+`gossipThreshold`. This is acceptable and tends to recover quickly as topic scores accumulate.
 
 ### Topic Score Contribution
 
@@ -305,7 +316,7 @@ Topic scores provide **burst response** to attacks, while app score provides **s
 
 - P1 (time in mesh): Max +8 per topic (+24 across 3 topics)
 - P2 (first deliveries): Max +25 per topic (+75 across 3 topics, but decays fast)
-- P3 (under-delivery): Max -34 per topic (-102 across 3 topics)
+- P3 (under-delivery): Max -34 per topic (-102 across 3 topics in MBPS; -68 in single-block mode)
 - P4 (invalid messages): -20 per invalid message, can spike to -2000+ during attacks
 
 Example attack scenario:
@@ -347,30 +358,34 @@ For a peer to be pruned from the mesh, their **topic score** must be negative. W
 
 The key insight: **P3 max (-34) exceeds P1 + P2 max (+33)**, so even a peer that has been in the mesh for 1 hour will still be pruned if they stop delivering messages.
 
+**Mesh pruning note:** This assumes the gossipsub implementation prunes peers whose **topic score** goes negative.
+If the implementation uses `gossipThreshold` (−500) as the mesh eligibility threshold, P3 alone will not
+prune a non-contributor. In that case, either raise P3 weights or move `gossipThreshold` closer to 0.
+
 ### What Happens After Pruning
 
 When a peer is pruned from the mesh:
 
 1. **P1 resets to 0**: The timeInMesh counter is cleared
-2. **P2 decays to 0**: Fast decay (50% per heartbeat) makes it negligible in seconds
+2. **P2 decays to 0**: Fast decay (2-slot window) makes it negligible over a couple of minutes
 3. **P3b captures the penalty**: The P3 deficit at prune time becomes P3b, which decays slowly
 
 After pruning, the peer's score consists mainly of P3b:
-- **Total P3b across 3 topics: -102** (max)
+- **Total P3b across 3 topics: -102** (max, MBPS mode). In single-block mode (no block_proposal scoring), max is **-68**.
 - **Recovery time**: P3b decays to ~1% over one decay window (2-5 slots = 2-6 minutes)
 - **Grafting eligibility**: Peer can be grafted when score ≥ 0, but asymptotic decay means recovery is slow
 
 ### Why Non-Contributors Aren't Disconnected
 
-With P3b capped at -102 total after pruning:
+With P3b capped at -102 total after pruning (MBPS mode). In single-block mode, the cap is -68:
 
 | Threshold | Value | P3b Score | Triggered? |
 |-----------|-------|-----------|------------|
-| gossipThreshold | -500 | -102 | No |
-| publishThreshold | -1000 | -102 | No |
-| graylistThreshold | -2000 | -102 | No |
+| gossipThreshold | -500 | -102 (MBPS) / -68 (single) | No |
+| publishThreshold | -1000 | -102 (MBPS) / -68 (single) | No |
+| graylistThreshold | -2000 | -102 (MBPS) / -68 (single) | No |
 
-**A score of -102 is well above -500**, so non-contributing peers:
+**A score of -102 (MBPS) or -68 (single-block) is well above -500**, so non-contributing peers:
 - Are pruned from mesh (good - stops them slowing propagation)
 - Still receive gossip (can recover by reconnecting/restarting)
 - Are NOT disconnected unless they also have application-level penalties
@@ -387,6 +402,8 @@ The system distinguishes between:
 | **Malicious** | -1000 to -1999 | Cannot publish (app: Banned) |
 | **Attacking** | ≤ -2000 | Graylisted, all RPCs ignored |
 
+Note: These ranges are approximate; positive topic scores can shift a peer upward temporarily.
+
 This is similar to Ethereum's approach: non-contributing peers are removed from the mesh (preventing them from slowing propagation) but not disconnected, as they might be starting up or experiencing temporary connectivity issues.
 
 ### When Non-Contributors ARE Penalized
@@ -394,7 +411,7 @@ This is similar to Ethereum's approach: non-contributing peers are removed from 
 Non-contributors will trigger thresholds if they also:
 1. **Send invalid messages**: P4 penalty of -20 per invalid message accumulates quickly
 2. **Fail protocol validation**: Application penalties for deserialization errors, manipulation attempts
-3. **Violate rate limits**: Repeated violations accumulate application penalties
+3. **Violate rate limits**: Repeated per-peer limit hits accumulate application penalties
 
 ## Application-Level Penalties
 
@@ -522,7 +539,7 @@ What happens when a peer experiences a network outage and stops delivering messa
 While the peer is disconnected:
 
 1. **P3 penalty accumulates**: The message delivery counter decays toward 0, causing increasing P3 penalty
-2. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic (-102 total)
+2. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic (-102 total in MBPS; -68 single-block)
 3. **Mesh pruning**: Topic score goes negative → peer is pruned from mesh
 4. **P3b captures penalty**: The P3 deficit at prune time becomes P3b (sticky penalty)
 
@@ -531,23 +548,26 @@ While the peer is disconnected:
 | Time | Event | Score Impact |
 |------|-------|--------------|
 | 0s | Outage begins | P3 = 0 |
-| ~30s | Counter decays below threshold | P3 starts decreasing |
-| ~90s | Counter approaches 0 | P3 = -34 per topic |
-| ~90s | Peer pruned from mesh | P3b = -34 per topic |
-| ~120s+ | P3b decays slowly | Recovery begins |
+| ~1 decay window (2-5 slots) | Counter decays below threshold | P3 starts decreasing |
+| ~1-2 decay windows | Counter approaches 0 | P3 ≈ -34 per topic |
+| ~1-2 decay windows | Peer pruned from mesh | P3b ≈ -34 per topic |
+| Thereafter | P3b decays slowly | Recovery begins |
+
+Note: If the peer just joined the mesh, P3 penalties only start after
+`meshMessageDeliveriesActivation` (10-25 slots depending on topic frequency).
 
 ### Key Insight: No Application Penalties
 
 During a network outage, the peer:
 - **Does NOT send invalid messages** → No P4 penalty
 - **Does NOT violate protocols** → No application-level penalty
-- **Only accumulates topic-level penalties** → Max -102 (P3b)
+- **Only accumulates topic-level penalties** → Max -102 (P3b, MBPS) or -68 (single-block)
 
 This is the crucial difference from malicious behavior:
 
 | Scenario | App Score | Topic Score | Total | Threshold Hit |
 |----------|-----------|-------------|-------|---------------|
-| Network outage | 0 | -102 | -102 | None |
+| Network outage | 0 | -102 (MBPS) / -68 (single) | -102 / -68 | None |
 | Validation failure | -50 | -20 | -520 | gossipThreshold |
 | Malicious peer | -100 | -2000+ | -2100+ | graylistThreshold |
 
@@ -586,8 +606,8 @@ This matches Ethereum's approach: **honest peers with temporary issues are incon
 ### Rate Limiting During Outages
 
 Note: Simply not sending messages does NOT trigger rate limit penalties. Rate limits apply to:
-- **Excessive message sending** → HighToleranceError (2 points)
-- **Request flooding** → MidToleranceError (10 points)
+- **Per-peer rate limit exceeded** → HighToleranceError (2 points)
+- **Other protocol violations** → MidToleranceError or LowToleranceError depending on severity
 
 A peer that sends nothing receives no rate limit penalties. The only penalty for not delivering messages is P3, which is explicitly designed to be recoverable.
 

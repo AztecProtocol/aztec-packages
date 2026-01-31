@@ -7,7 +7,7 @@ import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
  * Network parameters needed to compute topic-specific gossipsub scoring parameters.
  */
 export type TopicScoringNetworkParams = {
-  /** L2 slot duration in milliseconds */
+  /** L2 slot duration in milliseconds (all gossipsub time params are in ms) */
   slotDurationMs: number;
   /** Gossipsub heartbeat interval in milliseconds */
   heartbeatIntervalMs: number;
@@ -134,7 +134,7 @@ const INVALID_DECAY_WINDOW_SLOTS = 4;
 /** Weight for invalid message deliveries penalty */
 const INVALID_MESSAGE_WEIGHT = -20;
 
-/** Mesh message deliveries window in milliseconds (5 seconds) */
+/** Mesh message deliveries window in milliseconds (5 seconds). */
 const MESH_DELIVERIES_WINDOW_MS = 5000;
 
 /**
@@ -192,8 +192,9 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 // We set P3 max = -34 per topic (slightly more than P1+P2) to ensure pruning.
 // With 3 topics having P3 enabled, total P3b after pruning = -102.
 //
-// This leaves headroom before gossipThreshold (-500):
-//   -102 (P3b) + 20 request timeouts (-400 gossipsub) = -502
+// With appSpecificWeight=10, ~20 HighTolerance errors (-40 app score) plus max P3b (-102)
+// would cross gossipThreshold (-500). This keeps non-contributors from being disconnected
+// unless they also accrue app-level penalties.
 //
 // The weight formula ensures max penalty equals MAX_P3_PENALTY_PER_TOPIC:
 //   weight = MAX_P3_PENALTY_PER_TOPIC / threshold²
@@ -202,10 +203,10 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 /** Maximum P3 penalty per topic (must exceed P1 + P2 to cause pruning) */
 export const MAX_P3_PENALTY_PER_TOPIC = -(MAX_P1_SCORE + MAX_P2_SCORE + 1); // -34
 
-/** Number of topics with P3 enabled */
+/** Number of topics with P3 enabled in MBPS mode (block_proposal + checkpoint_proposal + checkpoint_attestation) */
 export const NUM_P3_ENABLED_TOPICS = 3;
 
-/** Total maximum P3b penalty across all topics after pruning */
+/** Total maximum P3b penalty across all topics after pruning in MBPS mode */
 export const TOTAL_MAX_P3B_PENALTY = MAX_P3_PENALTY_PER_TOPIC * NUM_P3_ENABLED_TOPICS; // -102
 
 /**

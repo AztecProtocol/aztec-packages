@@ -1,14 +1,22 @@
 import type { PeerScoreThresholds } from '@chainsafe/libp2p-gossipsub/score';
 
 /**
+ * Weight applied to application-level peer scores before contributing to gossipsub score.
+ *
+ * Note: positive topic scores can partially offset app penalties, so alignment with
+ * app-level thresholds is best-effort rather than strict.
+ */
+export const APP_SPECIFIC_WEIGHT = 10;
+
+/**
  * Gossipsub peer score thresholds aligned with application-level scoring.
  *
  * These thresholds work with appSpecificWeight=10 to align gossipsub behavior
  * with application-level peer states (Healthy → Disconnect → Banned).
  *
  * Alignment:
- * - gossipThreshold (-500): Matches Disconnect state (app score -50 × weight 10)
- * - publishThreshold (-1000): Matches Ban state (app score -100 × weight 10)
+ * - gossipThreshold (-500): Matches Disconnect state (app score -50 × weight 10 = -500)
+ * - publishThreshold (-1000): Matches Ban state (app score -100 × weight 10 = -1000)
  * - graylistThreshold (-2000): For severe attacks (ban + topic penalties)
  *
  * The 1:2:4 ratio follows Lodestar's approach and gossipsub spec recommendations.

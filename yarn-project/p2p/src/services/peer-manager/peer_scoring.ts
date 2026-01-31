@@ -26,8 +26,8 @@ import type { P2PConfig } from '../../config.js';
  *
  * Examples of each severity:
  * - LowToleranceError: Invalid messages, deserialization errors, manipulation attempts
- * - MidToleranceError: Rate limit exceeded, hash mismatches, protocol violations
- * - HighToleranceError: Rate limit warnings, failed responses, transient errors
+ * - MidToleranceError: Hash mismatches, protocol violations
+ * - HighToleranceError: Rate limit exceeded, failed responses, transient errors
  */
 const DefaultPeerPenalties = {
   [PeerErrorSeverity.LowToleranceError]: 50,

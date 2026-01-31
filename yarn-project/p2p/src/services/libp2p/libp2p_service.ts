@@ -81,7 +81,7 @@ import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
 import { DiscV5Service } from '../discv5/discV5_service.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { gossipScoreThresholds } from '../gossipsub/scoring.js';
+import { APP_SPECIFIC_WEIGHT, gossipScoreThresholds } from '../gossipsub/scoring.js';
 import { createAllTopicScoreParams } from '../gossipsub/topic_score_params.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
@@ -427,6 +427,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           asyncValidation: true,
           scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
+            decayInterval: config.gossipsubInterval,
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
             topics: topicScoreParams,
@@ -459,8 +460,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // The weight scales app score to align with gossipsub thresholds:
     // - Disconnect (-50) × 10 = -500 = gossipThreshold (stops receiving gossip)
     // - Ban (-100) × 10 = -1000 = publishThreshold (cannot publish)
-    // This ensures gossipsub and application-level scoring work together.
-    node.services.pubsub.score.params.appSpecificWeight = 10;
+    // Note: positive topic scores can offset penalties, so alignment is best-effort.
+    node.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
     node.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
       peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
