@@ -68,7 +68,7 @@ owned state variables need to be wrapped in <code>Owned</code> state variable wh
 <p>Owned state variables are only used when working with private data because, in the public context, write
 permissions are solely defined by the contract logic, and anyone can read data. In private, however, modifying
 state (nullifying private notes) requires both knowledge of the note (the note commitment preimage) and possession
-of the corresponding nullifier secret key.</p>
+of the corresponding nullifier hiding key.</p>
 <h2>So what is an Owner?</h2>
 <p>An <strong>owner</strong> is generally the entity that:</p>
 <ol>

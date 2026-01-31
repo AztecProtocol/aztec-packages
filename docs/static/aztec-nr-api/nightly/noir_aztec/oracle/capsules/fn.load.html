@@ -30,7 +30,7 @@
 <h1>Function <span class="fn">load</span></h1>
 <pre><code>pub unconstrained fn load&lt;T&gt;(contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></pre>
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></pre>
 
 <div class="comments">
 <p>Returns data previously stored via <code>storeCapsule</code> in the per-contract non-volatile database. Returns Option::none()
