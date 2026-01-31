@@ -3,4 +3,5 @@ name = "aztec_sublib"
 type = "lib"
 
 [dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
 protocol_types = { path = "../../../../noir-protocol-circuits/crates/types" }

@@ -641,26 +641,34 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetNoteHashMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const leafValue = fromSingle(foreignLeafValue);
+  async utilityGetNoteHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignNoteHash: ForeignCallSingle,
+  ) {
+    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const noteHash = fromSingle(foreignNoteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, noteHash);
 
     if (!witness) {
-      throw new Error(`Note hash ${leafValue} not found in the note hash tree at block ${blockHash.toString()}.`);
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  async utilityGetArchiveMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
+  async utilityGetBlockHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
     const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(blockHash, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
     if (!witness) {
-      throw new Error(`Block hash ${leafValue} not found in the archive tree at block ${blockHash.toString()}.`);
+      throw new Error(
+        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
+      );
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }

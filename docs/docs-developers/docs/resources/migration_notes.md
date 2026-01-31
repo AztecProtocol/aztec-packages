@@ -24,7 +24,7 @@ These methods were not used by PXE and returned a subset of the information alre
 |----------------|-------------|
 | `getNullifierSiblingPath` | `getNullifierMembershipWitness` |
 | `getNoteHashSiblingPath` | `getNoteHashMembershipWitness` |
-| `getArchiveSiblingPath` | `getArchiveMembershipWitness` |
+| `getArchiveSiblingPath` | `getBlockHashMembershipWitness` |
 | `getPublicDataSiblingPath` | `getPublicDataWitness` |
 
 The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
@@ -55,6 +55,29 @@ The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hid
 ```
 
 The `GeneratorIndex.NSK_M` enum member is now `GeneratorIndex.NHK_M`.
+
+### [AztecNode/Aztec.nr] `getArchiveMembershipWitness` renamed to `getBlockHashMembershipWitness`
+
+The `getArchiveMembershipWitness` method has been renamed to `getBlockHashMembershipWitness` to better reflect its purpose. Block hashes are the leaves of the archive tree - each time a new block is added to the chain, its block hash is appended as a new leaf. This rename clarifies that the method finds a membership witness for a block hash in the archive tree.
+
+**TypeScript (AztecNode interface):**
+
+```diff
+- const witness = await aztecNode.getArchiveMembershipWitness(blockNumber, archiveLeaf);
++ const witness = await aztecNode.getBlockHashMembershipWitness(blockNumber, blockHash);
+```
+
+The second parameter type has also changed from `Fr` to `BlockHash`.
+
+**Noir (aztec-nr):**
+
+```diff
+- use dep::aztec::oracle::get_membership_witness::get_archive_membership_witness;
++ use dep::aztec::oracle::get_membership_witness::get_block_hash_membership_witness;
+
+- let witness = get_archive_membership_witness(block_header, leaf_value);
++ let witness = get_block_hash_membership_witness(anchor_block_header, block_hash);
+```
 
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 
