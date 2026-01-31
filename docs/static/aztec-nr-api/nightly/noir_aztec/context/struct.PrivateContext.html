@@ -68,7 +68,7 @@
 <li><a href="#push_note_hash">push_note_hash</a></li>
 <li><a href="#push_nullifier">push_nullifier</a></li>
 <li><a href="#push_nullifier_for_note_hash">push_nullifier_for_note_hash</a></li>
-<li><a href="#request_nsk_app">request_nsk_app</a></li>
+<li><a href="#request_nhk_app">request_nhk_app</a></li>
 <li><a href="#request_ovsk_app">request_ovsk_app</a></li>
 <li><a href="#selector">selector</a></li>
 <li><a href="#set_as_fee_payer">set_as_fee_payer</a></li>
@@ -612,21 +612,21 @@ prove whether a nullifier exists or not via
 <p>This uses up one of the call's kernel nullifier read requests, which are limited. Like all kernel requests,
 proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
 an additional invocation of the kernel reset circuit.</p></div>
-</div><code id="request_nsk_app" class="code-header">pub fn <a href="#request_nsk_app"><span class="fn">request_nsk_app</span></a>(&mut self, npk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="request_nhk_app" class="code-header">pub fn <a href="#request_nhk_app"><span class="fn">request_nhk_app</span></a>(&mut self, npk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
+<p>Requests the app-siloed nullifier hiding key (nhk_app) for the given (hashed) master nullifier public key
 (npk_m), from the user's PXE.</p>
 <p>Advanced function: Only needed if you're designing your own notes and/or nullifiers.</p>
 <p>Contracts are not allowed to compute nullifiers for other contracts, as that would let them read parts of their
-private state. Because of this, a contract is only given an &quot;app-siloed secret key&quot;, which is constructed by
-hashing the user's master nullifier secret key with the contract's address. However, because contracts cannot
-be trusted with a user's master nullifier secret key (because we don't know which contracts are honest or
+private state. Because of this, a contract is only given an &quot;app-siloed key&quot;, which is constructed by
+hashing the user's master nullifier hiding key with the contract's address. However, because contracts cannot
+be trusted with a user's master nullifier hiding key (because we don't know which contracts are honest or
 malicious), the PXE refuses to provide any master secret keys to any app smart contract function. This means
-app functions are unable to prove that the derivation of an app-siloed nullifier secret key has been computed
-correctly. Instead, an app function can request to the kernel (via <code>request_nsk_app</code>) that it validates the
+app functions are unable to prove that the derivation of an app-siloed nullifier hiding key has been computed
+correctly. Instead, an app function can request to the kernel (via <code>request_nhk_app</code>) that it validates the
 siloed derivation, since the kernel has been vetted to not leak any master secret keys.</p>
-<p>A common nullification scheme is to inject a nullifier secret key into the preimage of a nullifier, to make the
+<p>A common nullification scheme is to inject a nullifier hiding key into the preimage of a nullifier, to make the
 nullifier deterministic but random-looking. This function enables that flow.</p>
 <h4>Arguments</h4>
 <ul>
@@ -634,7 +634,7 @@ nullifier deterministic but random-looking. This function enables that flow.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li>The app-siloed nullifier secret key that corresponds to the given <code>npk_m_hash</code>.</li>
+<li>The app-siloed nullifier hiding key that corresponds to the given <code>npk_m_hash</code>.</li>
 </ul>
 </div>
 </div><code id="request_ovsk_app" class="code-header">pub fn <a href="#request_ovsk_app"><span class="fn">request_ovsk_app</span></a>(&mut self, ovpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>

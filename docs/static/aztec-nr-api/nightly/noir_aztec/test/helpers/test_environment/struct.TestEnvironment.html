@@ -311,7 +311,7 @@ path relative to the current workspace:</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a private contract function call, including the processing of any nested private calls and enqueued
@@ -332,7 +332,7 @@ calls that operate on the result of prior calls.</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>call_private</code> for private <code>#[view]</code> functions.</p>
@@ -344,7 +344,7 @@ executable in a static context, and these produce no side effects).</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a utility contract function call and returns the result of the called function.</p>
@@ -358,7 +358,7 @@ executable in a static context, and these produce no side effects).</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a public contract function call, including the processing of any nested public calls. Returns the
@@ -379,7 +379,7 @@ calls that operate on the result of prior calls.</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a public contract function call, including the processing of any nested public calls. Returns the
@@ -391,7 +391,7 @@ result of the called function. Variant of <code>call_public</code>, but the <cod
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>call_public</code> for public <code>#[view]</code> functions.</p>
@@ -403,7 +403,7 @@ executable in a static context, and these produce no side effects).</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>view_public</code>, but the <code>from</code> address (<code>msg_sender</code>) is set to &quot;null&quot;</p>
