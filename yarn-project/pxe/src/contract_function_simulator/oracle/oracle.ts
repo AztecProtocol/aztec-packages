@@ -138,29 +138,39 @@ export class Oracle {
   }
 
   async utilityGetNoteHashMembershipWitness(
-    [blockHash]: ACVMField[],
-    [leafValue]: ACVMField[],
+    [anchorBlockHash]: ACVMField[],
+    [noteHash]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedLeafValue = Fr.fromString(leafValue);
+    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
+    const parsedNoteHash = Fr.fromString(noteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(parsedBlockHash, parsedLeafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(
+      parsedAnchorBlockHash,
+      parsedNoteHash,
+    );
     if (!witness) {
-      throw new Error(`Leaf ${leafValue} not found in the note hash tree at block hash ${parsedBlockHash.toString()}.`);
+      throw new Error(
+        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${parsedAnchorBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetArchiveMembershipWitness(
+  async utilityGetBlockHashMembershipWitness(
+    [anchorBlockHash]: ACVMField[],
     [blockHash]: ACVMField[],
-    [leafValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
+    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
     const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedLeafValue = Fr.fromString(leafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(parsedBlockHash, parsedLeafValue);
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(
+      parsedAnchorBlockHash,
+      parsedBlockHash,
+    );
     if (!witness) {
-      throw new Error(`Leaf ${leafValue} not found in the archive tree at block hash ${parsedBlockHash.toString()}.`);
+      throw new Error(
+        `Block hash ${parsedBlockHash.toString()} not found in the archive tree at anchor block ${parsedAnchorBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
