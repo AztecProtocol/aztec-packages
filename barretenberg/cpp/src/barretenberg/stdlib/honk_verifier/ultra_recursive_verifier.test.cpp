@@ -262,13 +262,9 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // inner_proof already contains combined honk + IPA for rollup flavors
         bool native_result = native_verifier.verify_proof(inner_proof).result;
 
-        NativeVerifierCommitmentKey pcs_vkey{};
-        bool result = pcs_vkey.pairing_check(output.points_accumulator.P0().get_value(),
-                                             output.points_accumulator.P1().get_value());
+        bool result = output.points_accumulator.check();
         info("input pairing points result: ", result);
-        auto recursive_result = pcs_vkey.pairing_check(output.points_accumulator.P0().get_value(),
-                                                       output.points_accumulator.P1().get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        EXPECT_EQ(result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
@@ -340,10 +336,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0().get_value(),
-                                                     output.points_accumulator.P1().get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
@@ -388,10 +381,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
                 // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
                 // failure.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0().get_value(),
-                                                     output.points_accumulator.P1().get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
@@ -438,8 +428,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
         // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
         // constrained within the circuit itself, rather than relying solely on them being public outputs.
-        pairing_points.P0().fix_witness();
-        pairing_points.P1().fix_witness();
+        pairing_points.fix_witness();
 
         // For RollupIO: Fix the IPA claim's bigfield elements (challenge and evaluation).
         // When reconstructed from public inputs, bigfield::construct_from_limbs creates a prime_basis_limb

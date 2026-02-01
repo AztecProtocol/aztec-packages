@@ -110,8 +110,7 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
     // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
     // rather than relying solely on them being public outputs.
-    output.points_accumulator.P0().fix_witness();
-    output.points_accumulator.P1().fix_witness();
+    output.points_accumulator.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

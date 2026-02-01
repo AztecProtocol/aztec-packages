@@ -275,10 +275,39 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
+     * @brief Fix the witness values for both pairing points
+     * @details Adds constraints on P0 and P1 coordinates to ensure they are properly constrained in the circuit.
+     * This is useful when pairing points are set as public outputs but need additional constraints.
+     * @note For default pairing points, set_default_to_public() uses a similar but optimized approach that
+     * directly fixes precomputed Fr limbs, avoiding expensive bigfield operations.
+     */
+    void fix_witness()
+    {
+        BB_ASSERT(this->has_data, "Calling fix_witness on empty pairing points.");
+        P0().fix_witness();
+        P1().fix_witness();
+    }
+
+    /**
+     * @brief Perform native pairing check on the witness values
+     * @details Extracts native values from P0 and P1 and performs the pairing verification.
+     * Useful for debugging and validating pairing points outside the circuit.
+     * @return true if the pairing check passes: e(P0, [1]_2) * e(P1, [x]_2) == 1
+     */
+    bool check() const
+    {
+        BB_ASSERT(this->has_data, "Calling check on empty pairing points.");
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+        return native_pp.check();
+    }
+
+    /**
      * @brief Set the witness indices for the default limbs of the pairing points to public.
      * @details Optimized version that directly sets precomputed Fr limb values as public inputs,
      *          avoiding expensive bigfield operations. The default pairing points satisfy the
      *          pairing equation, which is verified at compile time via static assertion.
+     * @note For non-default pairing points, use set_public() followed by fix_witness() to achieve
+     *       similar constraints on the coordinate limbs.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */

@@ -135,10 +135,7 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
-    NativeVerifierCommitmentKey pcs_vkey{};
-    bool agg_output_valid = pcs_vkey.pairing_check(verifier_output.points_accumulator.P0().get_value(),
-                                                   verifier_output.points_accumulator.P1().get_value());
-    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
+    ASSERT_TRUE(verifier_output.points_accumulator.check()) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     vinfo("Recursive verifier",
