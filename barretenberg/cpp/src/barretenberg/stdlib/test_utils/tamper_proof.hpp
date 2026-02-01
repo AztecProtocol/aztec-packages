@@ -105,7 +105,7 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         if (inner_proof.size() >= NUM_FRS) {
             auto pp_span = std::span{ inner_proof }.subspan(0, NUM_FRS);
             PP pairing_points = Codec::template deserialize_from_fields<PP>(pp_span);
-            pairing_points.P0 = pairing_points.P0 + Commitment::one();
+            pairing_points.P0() = pairing_points.P0() + Commitment::one();
             auto serialized = Codec::serialize_to_fields(pairing_points);
             std::copy(serialized.begin(), serialized.end(), inner_proof.begin());
         }

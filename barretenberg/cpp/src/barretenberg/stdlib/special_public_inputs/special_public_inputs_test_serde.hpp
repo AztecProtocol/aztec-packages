@@ -51,8 +51,8 @@ class KernelIOSerde {
             return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         result.app_return_data = deserialize_point();
         for (auto& commitment : result.ecc_op_tables) {
@@ -87,8 +87,8 @@ class KernelIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         serialize_point(app_return_data);
         for (const auto& commitment : ecc_op_tables) {
@@ -135,8 +135,8 @@ class HidingKernelIOSerde {
             return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         for (auto& commitment : result.ecc_op_tables) {
             commitment = deserialize_point();
@@ -167,8 +167,8 @@ class HidingKernelIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         for (const auto& commitment : ecc_op_tables) {
             serialize_point(commitment);
@@ -214,8 +214,8 @@ class AppIOSerde {
             return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
 
         return result;
     }
@@ -243,8 +243,8 @@ class AppIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
     }
 };
 

@@ -202,8 +202,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
         bool native_verified = native_result.pairing_points.check() && native_result.reduction_succeeded;
 
         NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
-                                                         recursive_result.pairing_points.P1.get_value());
+        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0().get_value(),
+                                                         recursive_result.pairing_points.P1().get_value());
         EXPECT_EQ(recursive_verified, native_verified);
 
         // Verify VK commitments consistency between recursive and native verifiers

@@ -69,29 +69,33 @@ template <typename Curve> struct PairingPoints {
     using value_type = Group;
     static constexpr size_t SIZE = 2;
 
-    // Points stored contiguously for iterator support
-    Group P0;
-    Group P1;
+    // Storage as contiguous array for proper Codec/iterator support
+    std::array<Group, 2> _points;
 
-    // Metadata (after points to keep P0/P1 contiguous)
+    // Metadata
     bool has_data = false;
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
+
+    // Named accessors for readability
+    Group& P0() { return _points[0]; }
+    Group& P1() { return _points[1]; }
+    const Group& P0() const { return _points[0]; }
+    const Group& P1() const { return _points[1]; }
 
     PairingPoints() = default;
 
     PairingPoints(const Group& p0, const Group& p1)
-        : P0(p0)
-        , P1(p1)
+        : _points{ p0, p1 }
         , has_data(true)
     {
         // Get the builder from the group elements and assign a new tag
-        Builder* builder = P0.get_context();
+        Builder* builder = P0().get_context();
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
 
 #ifndef NDEBUG
-        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
         info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
@@ -100,28 +104,26 @@ template <typename Curve> struct PairingPoints {
         : PairingPoints(points[0], points[1])
     {}
 
-    // Array-like accessors for Codec compatibility
-    // Non-const version sets has_data since it's called during assignment (e.g., by Codec deserialization)
-    Group& operator[](size_t idx)
-    {
-        has_data = true;
-        return idx == 0 ? P0 : P1;
-    }
-    const Group& operator[](size_t idx) const { return idx == 0 ? P0 : P1; }
+    // Array access (delegates to _points)
+    auto& operator[](size_t idx) { return _points[idx]; }
+    const auto& operator[](size_t idx) const { return _points[idx]; }
 
-    // Iterator support for range-based for (required by Codec)
-    // Non-const begin() sets has_data since it's called during Codec deserialization
-    Group* begin()
+    // Iterator support for range-based for (required by Codec deserialization)
+    // Non-const begin() sets has_data since Codec uses `for (auto& x : val)` pattern
+    auto begin()
     {
         has_data = true;
-        return &P0;
+        return _points.begin();
     }
-    Group* end() { return &P1 + 1; }
-    const Group* begin() const { return &P0; }
-    const Group* end() const { return &P1 + 1; }
+    auto end() { return _points.end(); }
+    auto begin() const { return _points.begin(); }
+    auto end() const { return _points.end(); }
     static constexpr size_t size() { return SIZE; }
 
-    typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
+    typename Curve::bool_ct operator==(PairingPoints const& other) const
+    {
+        return P0() == other.P0() && P1() == other.P1();
+    }
 
     /**
      * @brief Aggregate multiple PairingPoints using random linear combination
@@ -150,8 +152,8 @@ template <typename Curve> struct PairingPoints {
         std::vector<Group> second_components;
         second_components.reserve(num_points);
         for (const auto& points : pairing_points) {
-            first_components.emplace_back(points.P0);
-            second_components.emplace_back(points.P1);
+            first_components.emplace_back(points.P0());
+            second_components.emplace_back(points.P1());
         }
 
         // Fiat-Shamir: hash all points for binding, but only need n-1 challenges
@@ -229,33 +231,33 @@ template <typename Curve> struct PairingPoints {
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-        transcript.add_to_hash_buffer("Accumulator_P0", P0);
-        transcript.add_to_hash_buffer("Accumulator_P1", P1);
-        transcript.add_to_hash_buffer("Aggregated_P0", other.P0);
-        transcript.add_to_hash_buffer("Aggregated_P1", other.P1);
+        transcript.add_to_hash_buffer("Accumulator_P0", P0());
+        transcript.add_to_hash_buffer("Accumulator_P1", P1());
+        transcript.add_to_hash_buffer("Aggregated_P0", other.P0());
+        transcript.add_to_hash_buffer("Aggregated_P1", other.P1());
         auto recursion_separator =
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1385): Can we improve efficiency here?
-            P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
-            P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
+            P0() = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
+            P1() = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
         } else {
             // Save gates using short scalars.
-            Group point_to_aggregate = other.P0.scalar_mul(recursion_separator, 128);
-            P0 += point_to_aggregate;
-            point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
-            P1 += point_to_aggregate;
+            Group point_to_aggregate = other.P0().scalar_mul(recursion_separator, 128);
+            P0() += point_to_aggregate;
+            point_to_aggregate = other.P1().scalar_mul(recursion_separator, 128);
+            P1() += point_to_aggregate;
         }
 
         // Merge the tags in the builder
-        Builder* builder = P0.get_context();
+        Builder* builder = P0().get_context();
         if (builder != nullptr) {
             builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
 
 #ifndef NDEBUG
-        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
         info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
@@ -267,8 +269,8 @@ template <typename Curve> struct PairingPoints {
     uint32_t set_public()
     {
         BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
-        uint32_t start_idx = P0.set_public();
-        P1.set_public();
+        uint32_t start_idx = P0().set_public();
+        P1().set_public();
         return start_idx;
     }
 
@@ -324,8 +326,8 @@ template <typename Curve> struct PairingPoints {
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
-    return os << "P0: " << as.P0 << "\n"
-              << "P1: " << as.P1 << "\n"
+    return os << "P0: " << as.P0() << "\n"
+              << "P1: " << as.P1() << "\n"
               << "has_data: " << as.has_data << "\n"
               << "tag_index: " << as.tag_index << "\n";
 }

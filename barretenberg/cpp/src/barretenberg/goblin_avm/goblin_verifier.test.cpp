@@ -224,8 +224,8 @@ TEST_F(GoblinAvmRecursiveVerifierTests, TranslatorFailure)
 
         // Check that the pairing fails natively
         bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
-            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
+            goblin_rec_verifier_output.translator_pairing_points.P0().get_value(),
+            goblin_rec_verifier_output.translator_pairing_points.P1().get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }

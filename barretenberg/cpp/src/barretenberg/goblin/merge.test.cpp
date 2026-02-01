@@ -199,8 +199,8 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         // Perform pairing check and verify
         VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
-                                                                   to_native(result.pairing_points.P1));
+        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0()),
+                                                                   to_native(result.pairing_points.P1()));
         bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 

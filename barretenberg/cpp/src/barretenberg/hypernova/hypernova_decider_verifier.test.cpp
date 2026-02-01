@@ -289,8 +289,8 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             recursive_decider_verifier.verify_proof(folded_verifier_accumulator, stdlib_proof);
 
         // Natively verify pairing points
-        auto P0 = recursive_pairing_points.P0.get_value();
-        auto P1 = recursive_pairing_points.P1.get_value();
+        auto P0 = recursive_pairing_points.P0().get_value();
+        auto P1 = recursive_pairing_points.P1().get_value();
         NativeHypernovaDeciderVerifier::PairingPoints pp(P0, P1);
         auto recursive_verified = pp.check();
 

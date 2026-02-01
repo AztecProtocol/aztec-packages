@@ -9,9 +9,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
 namespace bb {
 
@@ -37,30 +34,33 @@ template <typename Curve_> class PairingPoints {
     using value_type = Point;
     static constexpr size_t SIZE = 2;
 
-    // Storage - public for direct access as P0/P1
-    Point P0 = Point::infinity();
-    Point P1 = Point::infinity();
+    // Storage as contiguous array for Codec compatibility
+    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
+
+    // Named accessors for readability (P0 = _points[0], P1 = _points[1])
+    Point& P0() { return _points[0]; }
+    Point& P1() { return _points[1]; }
+    const Point& P0() const { return _points[0]; }
+    const Point& P1() const { return _points[1]; }
 
     PairingPoints() = default;
     PairingPoints(const Point& p0, const Point& p1)
-        : P0(p0)
-        , P1(p1)
+        : _points{ p0, p1 }
     {}
 
     PairingPoints(std::array<Point, 2> const& pts)
-        : P0(pts[0])
-        , P1(pts[1])
+        : _points(pts)
     {}
 
-    // Array-like accessors for Codec compatibility
-    Point& operator[](size_t idx) { return idx == 0 ? P0 : P1; }
-    const Point& operator[](size_t idx) const { return idx == 0 ? P0 : P1; }
+    // Array access (delegates to _points)
+    auto& operator[](size_t idx) { return _points[idx]; }
+    const auto& operator[](size_t idx) const { return _points[idx]; }
 
     // Iterator support for range-based for (required by Codec)
-    Point* begin() { return &P0; }
-    Point* end() { return &P1 + 1; }
-    const Point* begin() const { return &P0; }
-    const Point* end() const { return &P1 + 1; }
+    auto begin() { return _points.begin(); }
+    auto end() { return _points.end(); }
+    auto begin() const { return _points.begin(); }
+    auto end() const { return _points.end(); }
     static constexpr size_t size() { return SIZE; }
 
     /**
@@ -68,14 +68,14 @@ template <typename Curve_> class PairingPoints {
      */
     void aggregate(const PairingPoints<Curve>& other)
     {
-        if (P0 == Point::infinity() || P1 == Point::infinity() || other.P0 == Point::infinity() ||
-            other.P1 == Point::infinity()) {
+        if (P0() == Point::infinity() || P1() == Point::infinity() || other.P0() == Point::infinity() ||
+            other.P1() == Point::infinity()) {
             throw_or_abort("WARNING: Shouldn't be aggregating with Point at infinity! The pairing points are probably "
                            "uninitialized.");
         }
         Fr aggregation_separator = Fr::random_element();
-        P0 = P0 + other.P0 * aggregation_separator;
-        P1 = P1 + other.P1 * aggregation_separator;
+        P0() = P0() + other.P0() * aggregation_separator;
+        P1() = P1() + other.P1() * aggregation_separator;
     }
 
     /**
@@ -86,7 +86,7 @@ template <typename Curve_> class PairingPoints {
         VerifierCK pcs_vkey{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
         // something. Issue exists in many places besides just here.
-        return pcs_vkey.pairing_check(P0, P1);
+        return pcs_vkey.pairing_check(P0(), P1());
     }
 
     bool operator==(const PairingPoints<Curve>& other) const = default;
