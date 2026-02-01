@@ -174,7 +174,36 @@ Large green bars with tiny or zero blue bars are **normal**.
 
 ---
 
-## 10. Key takeaways
+## 10. Can I have successful block proposals without any successful validations in the same epoch?
+
+**No — by design, this cannot happen under normal operation.**
+
+### Why this is impossible
+
+Block proposer selection in Aztec works as follows:
+1. A **committee** of validators is sampled once per epoch
+2. All committee members receive **attestation duties** for every checkpoint in that epoch
+3. The **proposer** for each slot is selected **from the committee**
+
+Since the proposer must be a committee member, and all committee members have attestation duties, you cannot be selected to propose without also having attestation assignments.
+
+### The only edge case
+
+The only way to see "1 proposal, 0 attestations" would be if your sequencer:
+- Was in the committee (required to be a proposer)
+- Was assigned attestation duties (automatic for committee members)
+- **Failed all attestation duties** (e.g., intermittent connectivity)
+- But happened to be online and responsive during its proposer slot
+
+This would indicate an **unhealthy sequencer** with serious reliability issues — not normal operation.
+
+### What is normal
+
+If your sequencer successfully proposes a block, you should also see successful attestations in that epoch. If you don't, investigate your sequencer's uptime and network connectivity.
+
+---
+
+## 11. Key takeaways
 
 - Attestation counts vary naturally
 - Attestation success matters more than volume
