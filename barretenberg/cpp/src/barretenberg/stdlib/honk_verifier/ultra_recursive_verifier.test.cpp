@@ -370,7 +370,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
+            tamper_with_proof<InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
 
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
