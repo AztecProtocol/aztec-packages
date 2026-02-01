@@ -1002,6 +1002,19 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 #ifndef FUZZING_DISABLE_WARNINGS
                 info("Warning: Performing batch mul with constant point at infinity!");
 #endif
+                // Constant infinity * witness scalar contributes nothing to the result, however, we must still apply
+                // the range constraints that the cycle_scalar constructor defers to this method.
+                auto* ctx = scalar.get_context();
+                ctx->create_limbed_range_constraint(scalar.lo().get_witness_index(),
+                                                    cycle_scalar::LO_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: lo range constraint for scalar with constant "
+                                                    "infinity");
+                ctx->create_limbed_range_constraint(scalar.hi().get_witness_index(),
+                                                    cycle_scalar::HI_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: hi range constraint for scalar with constant "
+                                                    "infinity");
                 continue;
             }
             if (plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
