@@ -151,7 +151,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
     static std::tuple<OuterBuilder, std::shared_ptr<OuterFlavor::VerificationKey>> create_recursive_verifier_circuit(
         size_t circuit_size_parameter = 500)
     {
-        using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
 
         // Create fake ECCVM proof
         auto prover_transcript = std::make_shared<Transcript>();

@@ -1,6 +1,6 @@
 // Constants for UltraHonk recursive verifier inputs
 pub global PROOF_TYPE_HONK: u32 = 0; // identifier for UltraHonk verfier
-pub global RECURSIVE_PROOF_LENGTH: u32 = 457;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 449;
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115;
 
 pub type UltraHonkProof = [Field; RECURSIVE_PROOF_LENGTH];
