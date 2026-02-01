@@ -30,16 +30,28 @@ The effective rule is:
 
 ---
 
-## 2. What is the maximum number of attestations a sequencer can have?
+## 2. What is the maximum number of attestations a sequencer can have per epoch?
 
-There is **no global fixed maximum**.
+**Maximum = number of slots in the epoch** (currently **32** with standard configuration).
 
-The apparent “max” (often ~30–32) is an artifact of:
-- Current committee sizing
-- Active sequencer count
-- Epoch structure
+### How this works
 
-Seeing a stable number like `31` repeatedly is a sign of *network stability*, not a protocol guarantee.
+Each epoch contains a fixed number of slots (32 by default). For each slot:
+- One checkpoint is proposed
+- All committee members have one attestation duty per checkpoint
+
+If your sequencer is in the committee for an epoch, you will be assigned **one attestation duty per slot**, giving a maximum of **32 attestations per epoch**.
+
+### Why you might see fewer
+
+You may observe counts like 26, 30, or 31 instead of 32 due to:
+- **Partial epochs** — dashboard windows that don't align with epoch boundaries
+- **Missed checkpoints** — slots where no checkpoint was proposed (e.g., proposer offline)
+- **Network conditions** — brief connectivity gaps
+
+### Key point
+
+Seeing a stable number like `31` or `32` repeatedly is a sign of *network stability*. The theoretical maximum is determined by epoch structure, not committee size.
 
 ---
 
