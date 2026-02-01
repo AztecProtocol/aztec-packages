@@ -392,14 +392,14 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
-        context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
+        context->create_ecc_add_gate(bb::ecc_add_gate_{
             .x1 = _x.get_witness_index(),
             .y1 = _y.get_witness_index(),
             .x2 = other._x.get_witness_index(),
             .y2 = other._y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
-            .sign_coefficient = is_addition ? 1 : -1,
+            .is_addition = is_addition,
         });
     }
 
