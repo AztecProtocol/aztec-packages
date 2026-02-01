@@ -185,12 +185,3 @@ Large green bars with tiny or zero blue bars are **normal**.
 
 ---
 
-## Suggested UI Clarifications (Optional)
-
-To reduce confusion, dashboards may benefit from:
-- Labeling attestations as **“Non-rewarded participation”**
-- Tooltips explaining `0 / 0` proposer rates
-- Separating *assignment counts* from *performance metrics*
-
----
-
