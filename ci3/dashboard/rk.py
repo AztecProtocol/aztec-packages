@@ -529,6 +529,12 @@ def get_billing_files_in_range(date_from, date_to):
         current += timedelta(days=1)
     return results
 
+def _merge_ns_billing(target, ns_data):
+    """Merge a single day's namespace billing into an aggregation target."""
+    target['total'] += ns_data.get('total', 0)
+    for cat, val in ns_data.get('breakdown', {}).items():
+        target['breakdown'][cat] = target['breakdown'].get(cat, 0) + val
+
 def aggregate_billing_weekly(daily_data):
     """Aggregate daily billing data into weekly buckets."""
     if not daily_data:
@@ -536,21 +542,14 @@ def aggregate_billing_weekly(daily_data):
     weeks = {}
     for entry in daily_data:
         d = datetime.strptime(entry['date'], '%Y-%m-%d')
-        # Week starts on Monday
         week_start = d - timedelta(days=d.weekday())
         week_key = week_start.strftime('%Y-%m-%d')
         if week_key not in weeks:
             weeks[week_key] = {'date': week_key, 'namespaces': {}}
         for ns, ns_data in entry.get('namespaces', {}).items():
             if ns not in weeks[week_key]['namespaces']:
-                weeks[week_key]['namespaces'][ns] = {
-                    'total': 0,
-                    'breakdown': {'compute': 0, 'storage': 0, 'network': 0, 'other': 0}
-                }
-            target = weeks[week_key]['namespaces'][ns]
-            target['total'] += ns_data.get('total', 0)
-            for cat in ['compute', 'storage', 'network', 'other']:
-                target['breakdown'][cat] += ns_data.get('breakdown', {}).get(cat, 0)
+                weeks[week_key]['namespaces'][ns] = {'total': 0, 'breakdown': {}}
+            _merge_ns_billing(weeks[week_key]['namespaces'][ns], ns_data)
     return sorted(weeks.values(), key=lambda x: x['date'])
 
 def aggregate_billing_monthly(daily_data):
@@ -564,14 +563,8 @@ def aggregate_billing_monthly(daily_data):
             months[month_key] = {'date': month_key, 'namespaces': {}}
         for ns, ns_data in entry.get('namespaces', {}).items():
             if ns not in months[month_key]['namespaces']:
-                months[month_key]['namespaces'][ns] = {
-                    'total': 0,
-                    'breakdown': {'compute': 0, 'storage': 0, 'network': 0, 'other': 0}
-                }
-            target = months[month_key]['namespaces'][ns]
-            target['total'] += ns_data.get('total', 0)
-            for cat in ['compute', 'storage', 'network', 'other']:
-                target['breakdown'][cat] += ns_data.get('breakdown', {}).get(cat, 0)
+                months[month_key]['namespaces'][ns] = {'total': 0, 'breakdown': {}}
+            _merge_ns_billing(months[month_key]['namespaces'][ns], ns_data)
     return sorted(months.values(), key=lambda x: x['date'])
 
 @app.route('/namespace-billing')

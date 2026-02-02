@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Generate sample billing data for testing the namespace billing dashboard.
 
+Produces JSON files in the same format as fetch-billing.py so the dashboard
+can be tested without a BigQuery connection.
+
 Usage:
     python generate-sample-data.py [output_dir] [days]
 
@@ -13,47 +16,36 @@ import random
 import sys
 from datetime import datetime, timedelta
 
-NAMESPACES = [
-    'aztec-proving',
-    'aztec-sequencer',
-    'aztec-prover-node',
-    'aztec-pxe',
-    'aztec-faucet',
-    'aztec-bot',
-    'aztec-ethereum',
-    'monitoring',
-]
-
-# Base daily cost per namespace (USD) and category weights
+# Namespace cost profiles: base daily cost (USD) and category weights.
+# Categories match what fetch-billing.py produces from GKE metering:
+#   cpu, memory, egress, storage
 NS_PROFILES = {
-    'aztec-proving':      {'base': 120.0, 'compute': 0.70, 'storage': 0.10, 'network': 0.10, 'other': 0.10},
-    'aztec-sequencer':    {'base': 85.0,  'compute': 0.55, 'storage': 0.15, 'network': 0.20, 'other': 0.10},
-    'aztec-prover-node':  {'base': 95.0,  'compute': 0.65, 'storage': 0.15, 'network': 0.10, 'other': 0.10},
-    'aztec-pxe':          {'base': 40.0,  'compute': 0.45, 'storage': 0.20, 'network': 0.25, 'other': 0.10},
-    'aztec-faucet':       {'base': 15.0,  'compute': 0.30, 'storage': 0.10, 'network': 0.50, 'other': 0.10},
-    'aztec-bot':          {'base': 25.0,  'compute': 0.50, 'storage': 0.10, 'network': 0.30, 'other': 0.10},
-    'aztec-ethereum':     {'base': 55.0,  'compute': 0.40, 'storage': 0.30, 'network': 0.20, 'other': 0.10},
-    'monitoring':         {'base': 20.0,  'compute': 0.25, 'storage': 0.40, 'network': 0.15, 'other': 0.20},
+    'devnet':           {'base': 180.0, 'cpu': 0.55, 'memory': 0.30, 'egress': 0.05, 'storage': 0.10},
+    'staging':          {'base': 140.0, 'cpu': 0.50, 'memory': 0.30, 'egress': 0.08, 'storage': 0.12},
+    'production':       {'base': 320.0, 'cpu': 0.50, 'memory': 0.30, 'egress': 0.10, 'storage': 0.10},
+    'proving':          {'base': 260.0, 'cpu': 0.70, 'memory': 0.20, 'egress': 0.02, 'storage': 0.08},
+    'ci-runners':       {'base': 95.0,  'cpu': 0.60, 'memory': 0.25, 'egress': 0.05, 'storage': 0.10},
+    'monitoring':       {'base': 45.0,  'cpu': 0.25, 'memory': 0.35, 'egress': 0.10, 'storage': 0.30},
+    'kube-system':      {'base': 30.0,  'cpu': 0.40, 'memory': 0.40, 'egress': 0.05, 'storage': 0.15},
+    'default':          {'base': 10.0,  'cpu': 0.45, 'memory': 0.35, 'egress': 0.05, 'storage': 0.15},
 }
+
+CATEGORIES = ['cpu', 'memory', 'egress', 'storage']
 
 
 def generate_day(date: datetime) -> dict:
-    """Generate billing data for a single day."""
     namespaces = {}
     day_of_week = date.weekday()
-    # Slightly lower costs on weekends
     weekend_factor = 0.6 if day_of_week >= 5 else 1.0
 
-    for ns in NAMESPACES:
-        profile = NS_PROFILES[ns]
-        # Add some random variation (+/- 20%) and a slow upward trend
+    for ns, profile in NS_PROFILES.items():
         days_ago = (datetime.now() - date).days
-        trend = 1.0 + (60 - min(days_ago, 60)) * 0.003  # gradual increase toward present
+        trend = 1.0 + (60 - min(days_ago, 60)) * 0.003
         noise = random.uniform(0.8, 1.2)
         daily_total = profile['base'] * weekend_factor * trend * noise
 
         breakdown = {}
-        for cat in ['compute', 'storage', 'network', 'other']:
+        for cat in CATEGORIES:
             cat_noise = random.uniform(0.85, 1.15)
             breakdown[cat] = round(daily_total * profile[cat] * cat_noise, 4)
 
