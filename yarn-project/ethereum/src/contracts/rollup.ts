@@ -5,6 +5,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 
@@ -107,7 +108,7 @@ export enum AttesterStatus {
 export type FeeHeader = {
   excessMana: bigint;
   manaUsed: bigint;
-  feeAssetPriceNumerator: bigint;
+  ethPerFeeAsset: bigint;
   congestionCost: bigint;
   proverCost: bigint;
 };
@@ -205,6 +206,10 @@ export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
   private static cachedStfStorageSlot: Hex | undefined;
+  private cachedEscapeHatch?: {
+    address: EthAddress;
+    contract: GetContractReturnType<typeof EscapeHatchAbi, ViemClient>;
+  };
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -408,6 +413,58 @@ export class RollupContract {
   }
 
   /**
+   * Returns the configured escape hatch contract address, or zero if disabled.
+   */
+  async getEscapeHatchAddress(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.getEscapeHatch());
+  }
+
+  private async getEscapeHatchContract(): Promise<
+    GetContractReturnType<typeof EscapeHatchAbi, ViemClient> | undefined
+  > {
+    const escapeHatchAddress = await this.getEscapeHatchAddress();
+    if (escapeHatchAddress.isZero()) {
+      return undefined;
+    }
+
+    // Cache the viem contract wrapper since it will be used frequently.
+    if (!this.cachedEscapeHatch || !this.cachedEscapeHatch.address.equals(escapeHatchAddress)) {
+      this.cachedEscapeHatch = {
+        address: escapeHatchAddress,
+        contract: getContract({
+          address: escapeHatchAddress.toString(),
+          abi: EscapeHatchAbi,
+          client: this.client,
+        }),
+      };
+    }
+
+    return this.cachedEscapeHatch.contract;
+  }
+
+  /**
+   * Returns whether the escape hatch is open for the given epoch.
+   * If escape hatch is not configured, returns false.
+   *
+   * This function is intentionally defensive: any failure to query the escape hatch
+   * (RPC issues, transient errors, etc.) is treated as "closed" to avoid callers
+   * needing to sprinkle try/catch everywhere.
+   */
+  async isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean> {
+    try {
+      const escapeHatch = await this.getEscapeHatchContract();
+      if (!escapeHatch) {
+        return false;
+      }
+
+      const [isOpen] = await escapeHatch.read.isHatchOpen([BigInt(epoch)]);
+      return isOpen;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Returns a SlasherContract instance for interacting with the slasher contract.
    */
   async getSlasherContract(): Promise<SlasherContract | undefined> {
@@ -458,8 +515,8 @@ export class RollupContract {
     };
   }
 
-  getFeeAssetPerEth(): Promise<bigint> {
-    return this.rollup.read.getFeeAssetPerEth();
+  getEthPerFeeAsset(): Promise<bigint> {
+    return this.rollup.read.getEthPerFeeAsset();
   }
 
   async getCommitteeAt(timestamp: bigint): Promise<EthAddress[] | undefined> {
@@ -544,7 +601,7 @@ export class RollupContract {
       feeHeader: {
         excessMana: result.feeHeader.excessMana,
         manaUsed: result.feeHeader.manaUsed,
-        feeAssetPriceNumerator: result.feeHeader.feeAssetPriceNumerator,
+        ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
         congestionCost: result.feeHeader.congestionCost,
         proverCost: result.feeHeader.proverCost,
       },
@@ -748,6 +805,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateBadAttestation',
@@ -769,6 +827,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateInsufficientAttestations',
@@ -902,6 +961,7 @@ export class RollupContract {
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'setupEpoch',
@@ -913,6 +973,7 @@ export class RollupContract {
   vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'vote',

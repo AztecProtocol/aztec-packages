@@ -1,5 +1,8 @@
 pub(crate) mod event_validation_request;
-pub mod message_context;
+
+mod message_context;
+pub use message_context::MessageContext;
+
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
@@ -7,20 +10,19 @@ pub(crate) mod pending_tagged_log;
 
 use crate::{
     capsules::CapsuleArray,
-    event::event_selector::EventSelector,
+    event::EventSelector,
     messages::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
-            log_retrieval_request::LogRetrievalRequest,
-            log_retrieval_response::LogRetrievalResponse,
+            log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
             note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
         },
     },
     oracle,
 };
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
 use event_validation_request::EventValidationRequest;
-use protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
 global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
@@ -44,9 +46,7 @@ global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
-pub(crate) unconstrained fn get_private_logs(
-    contract_address: AztecAddress,
-) -> CapsuleArray<PendingTaggedLog> {
+pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> CapsuleArray<PendingTaggedLog> {
     // We will eventually perform log discovery via tagging here, but for now we simply call the `fetchTaggedLogs`
     // oracle. This makes PXE synchronize tags, download logs and store the pending tagged logs in a capsule array.
     oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
@@ -58,23 +58,23 @@ pub(crate) unconstrained fn get_private_logs(
 /// via `get_notes` oracle. The note will be scoped to `contract_address`, meaning other contracts will not be able to
 /// access it unless authorized.
 ///
-/// In order for the note validation and insertion to occur, `validate_enqueued_notes_and_events` must be later called.
-/// For optimal performance, accumulate as many note validation requests as possible and then validate them all at the
-/// end (which results in PXE minimizing the number of network round-trips).
+/// In order for the note validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
+/// later called. For optimal performance, accumulate as many note validation requests as possible and then validate
+/// them all at the end (which results in PXE minimizing the number of network round-trips).
 ///
-/// The `packed_note` is what `getNotes` will later return. PXE indexes notes by `storage_slot`, so this value
-/// is typically used to filter notes that correspond to different state variables. `note_hash` and `nullifier` are
-/// the inner hashes, i.e. the raw hashes returned by `NoteHash::compute_note_hash` and
-/// `NoteHash::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
-/// at `tx_hash`, and will store the nullifier to later check for nullification.
+/// The `packed_note` is what `getNotes` will later return. PXE indexes notes by `storage_slot`, so this value is
+/// typically used to filter notes that correspond to different state variables. `note_hash` and `nullifier` are the
+/// inner hashes, i.e. the raw hashes returned by `NoteHash::compute_note_hash` and `NoteHash::compute_nullifier`. PXE
+/// will verify that the siloed unique note hash was inserted into the tree at `tx_hash`, and will store the nullifier
+/// to later check for nullification.
 ///
-/// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their
-/// nullifier secret key.
+/// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their nullifier
+/// secret key.
 ///
 /// `recipient` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
 /// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
-/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In most
-/// cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
+/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
+/// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
 pub(crate) unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
@@ -108,9 +108,9 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
 /// Enqueues an event for validation by PXE, so that it can be efficiently validated and then inserted into the event
 /// store.
 ///
-/// In order for the event validation and insertion to occur, `validate_enqueued_notes_and_events` must be later
-/// called. For optimal performance, accumulate as many event validation requests as possible and then validate them
-/// all at the end (which results in PXE minimizing the number of network round-trips).
+/// In order for the event validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
+/// later called. For optimal performance, accumulate as many event validation requests as possible and then validate
+/// them all at the end (which results in PXE minimizing the number of network round-trips).
 pub(crate) unconstrained fn enqueue_event_for_validation(
     contract_address: AztecAddress,
     event_type_id: EventSelector,
@@ -140,8 +140,8 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
 /// queryable via `get_notes` oracle and our TS API (PXE::getPrivateEvents).
 ///
 /// This automatically clears both validation request queues, so no further work needs to be done by the caller.
-pub(crate) unconstrained fn validate_enqueued_notes_and_events(contract_address: AztecAddress) {
-    oracle::message_processing::validate_enqueued_notes_and_events(
+pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
+    oracle::message_processing::validate_and_store_enqueued_notes_and_events(
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
@@ -149,18 +149,17 @@ pub(crate) unconstrained fn validate_enqueued_notes_and_events(contract_address:
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options for
-/// the responses that correspond to the pending partial notes at the same index.
+/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options
+/// for the responses that correspond to the pending partial notes at the same index.
 ///
 /// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
-/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents
-/// `[some(p1_log), none(), some(p3_log)]`.
+/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents `[some(p1_log), none(),
+/// some(p3_log)]`.
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
 ) -> CapsuleArray<Option<LogRetrievalResponse>> {
-    let log_retrieval_requests =
-        CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
+    let log_retrieval_requests = CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
     // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
@@ -171,10 +170,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     while i < pending_partial_notes_count {
         let pending_partial_note = pending_partial_notes.get(i);
         log_retrieval_requests.push(
-            LogRetrievalRequest {
-                contract_address,
-                unsiloed_tag: pending_partial_note.note_completion_log_tag,
-            },
+            LogRetrievalRequest { contract_address, unsiloed_tag: pending_partial_note.note_completion_log_tag },
         );
         i += 1;
     }

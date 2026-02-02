@@ -3,8 +3,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
+import { BlockHeader } from '../tx/block_header.js';
 import { L2Block } from './l2_block.js';
-import { L2BlockHeader } from './l2_block_header.js';
 
 describe('L2Block', () => {
   it('can serialize an L2 block with logs to a buffer and back', async () => {
@@ -21,9 +21,10 @@ describe('L2Block', () => {
     const parsed = L2Block.schema.parse(JSON.parse(jsonStringify(block)));
     expect(parsed).toEqual(block);
   });
+
   it('can create an initial block', async () => {
     // Values taken from world_state.test.cpp WorldStateTest.GetInitialTreeInfoForAllTrees
-    const emptyBlockHeader = L2BlockHeader.empty();
+    const emptyBlockHeader = BlockHeader.empty();
     emptyBlockHeader.state.l1ToL2MessageTree.root = Fr.fromString(
       '0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5',
     );

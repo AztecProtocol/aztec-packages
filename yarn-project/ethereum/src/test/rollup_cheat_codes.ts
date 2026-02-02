@@ -56,6 +56,15 @@ export class RollupCheatCodes {
     return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([ts]));
   }
 
+  /** Returns the number of seconds until the start of the given slot based on L1 block timestamp. */
+  public async getSecondsUntilSlot(slot: SlotNumber): Promise<number> {
+    const [currentTimestamp, targetTimestamp] = await Promise.all([
+      this.client.getBlock().then(b => BigInt(b.timestamp)),
+      this.rollup.read.getTimestampForSlot([BigInt(slot)]),
+    ]);
+    return Math.max(0, Number(targetTimestamp - currentTimestamp));
+  }
+
   /** Returns the current epoch */
   public async getEpoch(): Promise<EpochNumber> {
     const slotNumber = await this.getSlot();
@@ -124,7 +133,7 @@ export class RollupCheatCodes {
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const slotNumber = SlotNumber(epoch * Number(slotsInEpoch));
+    const slotNumber = SlotNumber(Number(epoch) * Number(slotsInEpoch));
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
@@ -176,7 +185,7 @@ export class RollupCheatCodes {
    * Marks the specified checkpoint (or latest if none) as proven
    * @param maybeCheckpointNumber - The checkpoint number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeCheckpointNumber?: number | bigint) {
+  public markAsProven(maybeCheckpointNumber?: CheckpointNumber) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;

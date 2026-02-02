@@ -24,7 +24,7 @@ The lifecycle of transactions in the pool is summarised in the following table:
 
 **Note on why Soft Delete:**
 Mined transactions are soft-deleted rather than permanently removed to support:
-1. Reorg handling — If a chain reorganization occurs, soft-deleted transactions are still available in the mempool 
+1. Reorg handling — If a chain reorganization occurs, soft-deleted transactions are still available in the mempool
 2. Slash condition detection — The epoch prune watcher needs access to transactions from pruned epochs to correctly identify data withholding slash conditions. Without soft-delete, transactions invalidated by reorgs (e.g., built on removed blocks) would be lost, causing false positives for data withholding violations.
 
 Mined transactions are permanently deleted via `cleanupDeletedMinedTxs()` once their original block is finalized on L1, ensuring theyremain available during the uncertainty window.
@@ -34,7 +34,7 @@ Alternatively, mined transactions can be permanently deleted immediately by pass
 
 | Method | Description |
 |--------|-------------|
-| `addTxs(txs, opts?)` | Adds transactions to the pool. Duplicates are ignored. Returns count of newly added txs. |
+| `addTxs(txs, opts?)` | Adds transactions to the pool. Duplicates and nullifier conflicts are handled. Returns count of newly added txs. |
 | `deleteTxs(txHashes, opts?)` | Removes transactions from the pool. Supports soft-delete for mined txs. |
 | `markAsMined(txHashes, blockHeader)` | Marks transactions as included in a block. |
 | `markMinedAsPending(txHashes, blockNumber)` | Reverts mined transactions to pending (used during reorgs). |
@@ -91,6 +91,7 @@ The pool maintains several KV maps and indexes:
 | `#txHashToHistoricalBlockHeaderHash` | Anchor block reference for each tx |
 | `#historicalHeaderToTxHash` | Index from historical block → tx hashes |
 | `#feePayerToTxHash` | Index from fee payer address → tx hashes |
+| `#pendingNullifierToTxHash` | Index from nullifier → tx hash |
 | `#archivedTxs` | Archived transactions for historical lookup |
 
 #### In-Memory Caches
@@ -117,15 +118,17 @@ The priority is stored as a hex string derived from a 32-byte buffer representat
 When `addTxs()` is called:
 
 1. Check for duplicates (skip if tx already exists)
-2. Store the serialized tx in `#txs`
-3. Index the tx by its anchor block hash
-4. If not already mined, add to pending indexes:
+2. Check for nullifier conflicts (see Nullifier Deduplication below)
+3. Store the serialized tx in `#txs`
+4. Index the tx by its anchor block hash
+5. If not already mined, add to pending indexes:
    - Priority-to-hash index (for ordering)
    - Historical header index (for reorg handling)
    - Fee payer index (for balance validation)
-5. Record metrics
-6. Trigger eviction rules for `TXS_ADDED` event
-7. Emit `txs-added` event
+   - Nullifier-to-tx-hash index (for conflict detection)
+6. Record metrics
+7. Trigger eviction rules for `TXS_ADDED` event
+8. Emit `txs-added` event
 
 ### 2. Marking as Mined
 
@@ -151,6 +154,16 @@ The `deleteTxs()` method handles two cases:
 - **Mined transactions**: Soft-deleted by default (moved to `#deletedMinedTxHashes`), with option for permanent deletion
 
 Soft-deleted mined transactions are retained for potential future reference and can be permanently cleaned up later via `cleanupDeletedMinedTxs()`.
+
+### Nullifier Deduplication
+
+The pool prevents nullifier spam attacks by ensuring only one pending transaction can reference each unique nullifier. When an incoming transaction shares nullifiers with existing pending transactions:
+
+- **Higher fee wins**: If the incoming tx has a higher priority fee than ALL conflicting txs, those conflicting txs are replaced
+- **Existing tx wins on tie**: If any conflicting tx has an equal or higher fee, the incoming tx is rejected
+- **Partial overlap counts**: Even a single shared nullifier triggers conflict resolution
+
+This is enforced at entry time via the `#pendingNullifierToTxHash` index, which maps each nullifier to the tx hash that references it. The index is maintained atomically with tx additions and removals.
 
 ## Eviction System
 

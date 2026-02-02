@@ -17,49 +17,10 @@
 namespace bb {
 
 /**
- * @brief Log-derivative lookup argument relation for establishing lookup reads from tables with 3 or fewer columns
- * @details
- * lookup argument seeks to prove lookups from a column by establishing the following sum:
+ * @brief Log-derivative lookup relation (LogUp) for tables with up to 3 columns.
+ * @details See LOGDERIV_LOOKUP_RELATION_README.md for full documentation.
  *
- * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
- *
- * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
- * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
- * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift (read note for
- explanation).
- * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
- * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details).
- *
- * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
- * (indirectly) the rational functions in the above expression: I_i =  1/[(read_term_i) * (write_term_i)]. This leads to
- * two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the primary
- * lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
- * subrelations can be expressed as follows:
- *
- *  (1) I_i * (read_term_i) * (write_term_i) - 1 = 0
- *
- *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
- *
- * To not compute the inverse terms packed in I_i for indices not included in the sum we introduce a
- * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
- * have a read gate. This is represented by setting inverse_exists = 1- (1- read_tag)*(1- is_read_gate). Since
- * is_read_gate is only dependent on selector values, we can assume that the verifier can check that it is boolean.
- * However, if read_tag (which is a derived witness), is not constrained to be boolean, one can set the inverse_exists
- * to 0, even when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
- * subrelation, that ensures that read_tag is a boolean value.
- * (3) read_tag * read_tag - read_tag = 0
- * Further constraining of read_tags and read_counts is not required, since by tampering read_tags a malicious prover
- can only skip a write_term. This is disadvantagous for the cheating prover as it reduces the size of the lookup table.
- Hence, a malicious prover can not abuse this to prove an incorrect lookup.
- * Note: Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
- * across all rows of the exectution trace is zero, rather than that some expression holds independently at each row.
- * Accordingly, this subrelation is not multiplied by a scaling factor at each accumulation step.
- * @note The "real" table entries must be 'derived' from wire values since instead of storing actual values in wires we
- * store successive accumulators, the differences of which are equal to entries in a table. This is an efficiency
- * trick for the case where entires of the "real" table correspond to limbs of a value too large to be supported by the
- * lookup table. This way we avoid using additional gates to reconstruct full size values from the limbs contained in
- * tables. See the documentation in method bb::plookup::get_lookup_accumulators()).
- *
+ * IMPORTANT: γ and β must be independent challenges for soundness.
  */
 
 template <typename FF_> class LogDerivLookupRelationImpl {
@@ -134,7 +95,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
-    // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
+    // Compute table_1 + gamma + table_2 * β + table_3 * β² + table_4 * β³
     // table_1,2,3 correspond to the (maximum) three columns of the lookup table and table_4 is the unique identifier
     // of the lookup table table_index
     template <typename Accumulator, typename AllEntities, typename Parameters>
@@ -144,9 +105,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        const auto eta = ParameterCoefficientAccumulator(params.eta);
-        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
-        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
+        const auto beta = ParameterCoefficientAccumulator(params.beta);
+        const auto beta_sqr = ParameterCoefficientAccumulator(params.beta_sqr);
+        const auto beta_cube = ParameterCoefficientAccumulator(params.beta_cube);
 
         auto table_1 = CoefficientAccumulator(in.table_1);
         auto table_2 = CoefficientAccumulator(in.table_2);
@@ -154,7 +115,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto table_4 = CoefficientAccumulator(in.table_4);
 
         // degree          1     0           1         0          1         0        =   1
-        auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
+        auto result = (table_2 * beta) + (table_3 * beta_sqr) + (table_4 * beta_cube);
         result += table_1;
         result += gamma;
         return Accumulator(result);
@@ -167,9 +128,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        const auto eta = ParameterCoefficientAccumulator(params.eta);
-        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
-        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
+        const auto beta = ParameterCoefficientAccumulator(params.beta);
+        const auto beta_sqr = ParameterCoefficientAccumulator(params.beta_sqr);
+        const auto beta_cube = ParameterCoefficientAccumulator(params.beta_cube);
 
         auto w_1 = CoefficientAccumulator(in.w_l);
         auto w_2 = CoefficientAccumulator(in.w_r);
@@ -194,12 +155,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // degree                                         1              1          1 = 2
         auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
         //                              1           0    = 1
-        auto table_index_entry = table_index * eta_three;
+        auto table_index_entry = table_index * beta_cube;
 
-        // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
+        // (w_1 + γ + q_2*w_1_shift) + β(w_2 + q_m*w_2_shift) + β²(w_3 + q_c*w_3_shift) + β³*q_index.
         // deg 2 or 3
         // degree                            2              0                      2                    0   =   2
-        auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
+        auto result = Accumulator(derived_table_entry_2) * beta + Accumulator(derived_table_entry_3) * beta_sqr;
         result += Accumulator(derived_table_entry_1 + table_index_entry);
         return result;
     }
@@ -221,13 +182,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
-        size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
+        size_t num_threads = bb::calculate_num_threads(circuit_size, min_iterations_per_thread);
 
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            size_t start = thread_idx * iterations_per_thread;
-            size_t end = (thread_idx + 1) * iterations_per_thread;
-            for (size_t i = start; i < end; ++i) {
+        parallel_for(num_threads, [&](ThreadChunk chunk) {
+            for (size_t i : chunk.range(circuit_size)) {
                 // We only compute the inverse if this row contains a lookup gate or data that has been looked up
                 if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.

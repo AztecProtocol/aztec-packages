@@ -19,12 +19,10 @@
 <div id="crate-version">0.0.0</div>
 <h2>In module notes</h2>
 <h3>Functions</h3><ul class="item-list">
-<li><a href="fn.check_nullifier_exists.html">check_nullifier_exists</a></div></li>
 <li><a href="fn.get_next_app_tag_as_sender.html">get_next_app_tag_as_sender</a></div></li>
 <li><a href="fn.get_notes.html">get_notes</a></div></li>
 <li><a href="fn.get_sender_for_tags.html">get_sender_for_tags</a></div></li>
 <li><a href="fn.notify_created_note.html">notify_created_note</a></div></li>
-<li><a href="fn.notify_created_nullifier.html">notify_created_nullifier</a></div></li>
 <li><a href="fn.notify_nullified_note.html">notify_nullified_note</a></div></li>
 <li><a href="fn.set_sender_for_tags.html">set_sender_for_tags</a></div></li>
 </ul>
@@ -36,12 +34,12 @@
 
 <div class="comments">
 <p>Sets the sender for tags.</p>
-<p>This unconstrained value is used as the sender when computing an unconstrained shared secret
-for a tag in order to emit a log. Constrained tagging should not use this as there is no
-guarantee that the recipient knows about the sender, and hence about the shared secret.</p>
-<p>Account contracts typically set this value before calling other contracts. The value persists
-through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-value (unless it is replaced by another call to this setter).</p>
+<p>This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+sender, and hence about the shared secret.</p>
+<p>Account contracts typically set this value before calling other contracts. The value persists through nested calls,
+meaning all calls down the stack will use the same 'senderForTags' value (unless it is replaced by another call to
+this setter).</p>
 </div>
 </main>
 </span>

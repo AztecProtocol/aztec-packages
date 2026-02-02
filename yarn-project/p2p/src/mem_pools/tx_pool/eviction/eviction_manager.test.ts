@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -150,12 +151,12 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterChainPrune(1);
+      await evictionManager.evictAfterChainPrune(BlockNumber(1));
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         },
         txPool,
       );
@@ -259,7 +260,7 @@ describe('EvictionManager', () => {
     });
 
     it('handles evictAfterChainPrune with no rules gracefully', async () => {
-      await expect(evictionManager.evictAfterChainPrune(1)).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterChainPrune(BlockNumber(1))).resolves.not.toThrow();
     });
   });
 });

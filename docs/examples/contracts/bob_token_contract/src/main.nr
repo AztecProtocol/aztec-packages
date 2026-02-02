@@ -8,9 +8,8 @@ pub contract BobToken {
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
-        state_vars::{Map, Owned},
-        state_vars::public_mutable::PublicMutable,
+        protocol::address::AztecAddress,
+        state_vars::{Map, Owned, PublicMutable},
     };
     // docs:end:imports
 
@@ -70,7 +69,11 @@ pub contract BobToken {
     // docs:start:transfer_ownership
     #[external("public")]
     fn transfer_ownership(new_owner: AztecAddress) {
-        assert_eq(self.msg_sender(), self.storage.owner.read(), "Only current admin can transfer ownership");
+        assert_eq(
+            self.msg_sender(),
+            self.storage.owner.read(),
+            "Only current admin can transfer ownership",
+        );
         self.storage.owner.write(new_owner);
     }
     // docs:end:transfer_ownership
@@ -97,7 +100,6 @@ pub contract BobToken {
         self.storage.public_balances.at(owner).write(balance - amount);
     }
     // docs:end:_deduct_public_balance
-
 
     // docs:start:transfer_private
     #[external("private")]
@@ -146,7 +148,6 @@ pub contract BobToken {
         );
     }
     // docs:end:mint_private
-
 
     // docs:start:private_to_public
     #[external("private")]

@@ -20,11 +20,11 @@ enum class AccumulatedDataMutationOptions : uint8_t {
 using AccumulatedDataMutationConfig = WeightedSelectionConfig<AccumulatedDataMutationOptions, 6>;
 
 constexpr AccumulatedDataMutationConfig ACCUMULATED_DATA_MUTATION_CONFIGURATION = AccumulatedDataMutationConfig({
-    { AccumulatedDataMutationOptions::NoteHashes, 20 },
+    { AccumulatedDataMutationOptions::NoteHashes, 10 },
     { AccumulatedDataMutationOptions::NoteHashesLimit, 1 },
-    { AccumulatedDataMutationOptions::Nullifiers, 20 },
+    { AccumulatedDataMutationOptions::Nullifiers, 10 },
     { AccumulatedDataMutationOptions::NullifiersLimit, 1 },
-    { AccumulatedDataMutationOptions::L2ToL1Messages, 20 },
+    { AccumulatedDataMutationOptions::L2ToL1Messages, 10 },
     { AccumulatedDataMutationOptions::L2ToL1MessagesLimit, 1 },
 });
 

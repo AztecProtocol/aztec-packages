@@ -47,11 +47,11 @@ pub contract AppSubscription {
         macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use router::utils::privately_check_block_number;
+    use public_checks::utils::privately_check_block_number;
     use token::Token;
 
     #[storage]
@@ -103,7 +103,7 @@ pub contract AppSubscription {
 
         self.context.end_setup();
 
-        // We check that the note is not expired. We do that via the router contract to conceal which contract
+        // We check that the note is not expired. We do that via the public checks contract to conceal which contract
         // is performing the check.
         privately_check_block_number(Comparator.LT, *user_expiry_block_number, self.context);
 
@@ -149,7 +149,7 @@ pub contract AppSubscription {
         ));
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
-        // --> We do that via the router contract to conceal which contract is performing the check.
+        // --> We do that via the public checks contract to conceal which contract is performing the check.
         privately_check_block_number(
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,

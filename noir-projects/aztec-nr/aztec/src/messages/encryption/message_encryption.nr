@@ -1,5 +1,5 @@
 use crate::messages::encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN};
-use protocol_types::address::AztecAddress;
+use crate::protocol::address::AztecAddress;
 
 /// Trait for encrypting and decrypting messages in the Aztec protocol.
 ///
@@ -12,19 +12,22 @@ use protocol_types::address::AztecAddress;
 /// - `MESSAGE_PLAINTEXT_LEN`: Maximum size of decrypted plaintext (defined globally)
 ///
 /// # Note on privacy sets
-/// To preserve privacy, [MessageEncryption::encrypt] returns a fixed-length array ensuring all log types are
+///
+/// To preserve privacy, [`MessageEncryption::encrypt`] returns a fixed-length array ensuring all log types are
 /// indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 /// standardized length.
 pub trait MessageEncryption {
-    /// Encrypts a plaintext message (a field array) such that only `recipient` can decrypt it.
+    /// Encrypts a plaintext message to `recipient`.
     ///
-    /// The returned message ciphertext can be passed to [MessageEncryption::decrypt] in order to obtain the original
-    /// `plaintext`.
+    /// The returned message ciphertext can be passed to [`decrypt`](MessageEncryption::decrypt) in order to obtain the
+    /// original `plaintext`.
     ///
-    /// # Privacy
-    /// Knowledge of the returned ciphertext provides no information to third parties - `recipients` encryption keys
-    /// (specifically their ivsk and pre-address) are required in order to decrypt. Additionally, [encrypt] adds random
-    /// padding in order to always produce equal length message ciphertexts regardless of the input, hiding its length.
+    /// ## Privacy
+    ///
+    /// Knowledge of the returned ciphertext provides no information to third parties - `recipient`'s encryption keys
+    /// (specifically their ivsk and pre-address) are required in order to decrypt. Additionally, this function adds
+    /// random padding in order to always produce equal length message ciphertexts regardless of the input, hiding its
+    /// length.
     ///
     /// These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
     /// encryption function is itself secure).
@@ -33,14 +36,16 @@ pub trait MessageEncryption {
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN];
 
-    /// Decrypts a message ciphertext obtained via [MessageEncryption::encrypt] to `recipient` back into its original
-    /// plaintext.
+    /// Decrypts a message ciphertext into its original plaintext.
+    ///
+    /// Typically invoked with ciphertext obtained from calling [`encrypt`](MessageEncryption::encrypt) with
+    /// `recipient`.
     ///
     /// Note that this function is unconstrained: decryption typically happens when processing messages in utility
     /// functions.
     ///
     /// Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
-    /// to a point on the curve. In all such cases, [Option::none] is returned instead.
+    /// to a point on the curve. In all such cases, [`Option::none`] is returned instead.
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,

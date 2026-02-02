@@ -8,7 +8,7 @@ use super::{
 use dep::types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     address::AztecAddress,
-    hash::compute_app_secret_key,
+    hash::compute_app_siloed_secret_key,
     scalar::Scalar,
     side_effect::Scoped,
     traits::{Empty, FromField},
@@ -21,7 +21,7 @@ global TEST_HINT_LEN: u32 = 2;
 
 struct TestBuilder {
     key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
-    propagated_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
+    propagated_key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
     hints: BoundedVec<KeyValidationHint, TEST_HINT_LEN>,
 }
 
@@ -29,7 +29,7 @@ impl TestBuilder {
     pub fn empty() -> Self {
         Self {
             key_validation_requests: ClaimedLengthArray::empty(),
-            propagated_requests: ClaimedLengthArray::empty(),
+            propagated_key_validation_requests: ClaimedLengthArray::empty(),
             hints: BoundedVec::new(),
         }
     }
@@ -39,7 +39,8 @@ impl TestBuilder {
 
         builder.add_request_and_hint(11);
         builder.add_request_and_hint(22);
-        builder.propagated_requests = builder.get_propagated_key_validation_requests();
+        builder.propagated_key_validation_requests =
+            builder.get_propagated_key_validation_requests();
 
         builder
     }
@@ -51,7 +52,8 @@ impl TestBuilder {
         builder.add_request_and_hint(22);
         builder.add_request(33);
         builder.add_request(44);
-        builder.propagated_requests = builder.get_propagated_key_validation_requests();
+        builder.propagated_key_validation_requests =
+            builder.get_propagated_key_validation_requests();
 
         builder
     }
@@ -61,7 +63,7 @@ impl TestBuilder {
 
         builder.add_request_and_hint(11);
         builder.add_request_and_hint(22);
-        builder.propagated_requests = builder.key_validation_requests;
+        builder.propagated_key_validation_requests = builder.key_validation_requests;
 
         builder
     }
@@ -73,7 +75,7 @@ impl TestBuilder {
         let pk_m = derive_public_key(sk_m);
 
         let sk_app_generator = 123321;
-        let sk_app = compute_app_secret_key(sk_m, contract_address, sk_app_generator);
+        let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
 
         let request = KeyValidationRequestAndGenerator {
             request: KeyValidationRequest { pk_m, sk_app },
@@ -114,7 +116,7 @@ impl TestBuilder {
         KeyValidationRequestsValidator {
             key_validation_requests: self.key_validation_requests,
             hints: self.hints.storage(),
-            propagated_requests: self.propagated_requests,
+            propagated_key_validation_requests: self.propagated_key_validation_requests,
         }
             .validate::<KeyValidationAmount>();
     }

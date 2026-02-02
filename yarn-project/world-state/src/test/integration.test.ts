@@ -50,7 +50,6 @@ describe('world-state integration', () => {
       dataStoreMapSizeKb: 1024 * 1024,
       l1Contracts: { rollupAddress },
       worldStateBlockCheckIntervalMS: 20,
-      worldStateProvenBlocksOnly: false,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateBlockHistory: 0,
@@ -95,7 +94,7 @@ describe('world-state integration', () => {
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
-    const archiverBlockHash = await archiver.getBlockHeader(number).then(h => h?.hash());
+    const archiverBlockHash = await (await archiver.getBlockHeader(number))?.hash();
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };
 
@@ -162,22 +161,9 @@ describe('world-state integration', () => {
       await awaitSync(12);
       await expectSynchedToBlock(12);
 
-      expect(getBlocksSpy).toHaveBeenCalledWith(1, 5, false);
-      expect(getBlocksSpy).toHaveBeenCalledWith(6, 3, false);
-      expect(getBlocksSpy).toHaveBeenCalledWith(9, 4, false);
-    });
-
-    it('syncs only proven blocks when instructed', async () => {
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, { ...config, worldStateProvenBlocksOnly: true });
-
-      await archiver.createBlocks(5);
-      archiver.setProvenBlockNumber(3);
-      await synchronizer.start();
-      await expectSynchedToBlock(3);
-
-      archiver.setProvenBlockNumber(4);
-      await awaitSync(4);
-      await expectSynchedToBlock(4);
+      expect(getBlocksSpy).toHaveBeenCalledWith(1, 5);
+      expect(getBlocksSpy).toHaveBeenCalledWith(6, 3);
+      expect(getBlocksSpy).toHaveBeenCalledWith(9, 4);
     });
   });
 

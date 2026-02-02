@@ -3,7 +3,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -13,7 +13,7 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { TxPool } from '../../mem_pools/index.js';
 import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
-import type { ReqRespInterface } from '../reqresp/interface.js';
+import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import { SlowTxCollection } from './slow_tx_collection.js';
@@ -25,7 +25,7 @@ export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-res
 export type MissingTxInfo = { blockNumber: BlockNumber; deadline: Date; readyForReqResp: boolean };
 
 export type FastCollectionRequestInput =
-  | { type: 'block'; block: L2BlockNew }
+  | { type: 'block'; block: L2Block }
   | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: BlockNumber };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
@@ -67,7 +67,7 @@ export class TxCollection {
   protected readonly handleTxsFound: TxPoolEvents['txs-added'];
 
   constructor(
-    private readonly reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
+    private readonly p2pService: BatchTxRequesterLibP2PService,
     private readonly nodes: TxSource[],
     private readonly constants: L1RollupConstants,
     private readonly txPool: TxPool,
@@ -79,7 +79,7 @@ export class TxCollection {
     this.txCollectionSink = new TxCollectionSink(this.txPool, telemetryClient, this.log);
 
     this.fastCollection = new FastTxCollection(
-      this.reqResp,
+      this.p2pService,
       this.nodes,
       this.txCollectionSink,
       this.config,
@@ -88,7 +88,7 @@ export class TxCollection {
     );
 
     this.slowCollection = new SlowTxCollection(
-      this.reqResp,
+      this.p2pService.reqResp,
       this.nodes,
       this.txCollectionSink,
       this.fastCollection,
@@ -146,7 +146,7 @@ export class TxCollection {
   }
 
   /** Starts collecting the given tx hashes for the given L2Block in the slow loop */
-  public startCollecting(block: L2BlockNew, txHashes: TxHash[]) {
+  public startCollecting(block: L2Block, txHashes: TxHash[]) {
     return this.slowCollection.startCollecting(block, txHashes);
   }
 
@@ -162,7 +162,7 @@ export class TxCollection {
 
   /** Collects the set of txs for the given mined block as fast as possible */
   public collectFastForBlock(
-    block: L2BlockNew,
+    block: L2Block,
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {

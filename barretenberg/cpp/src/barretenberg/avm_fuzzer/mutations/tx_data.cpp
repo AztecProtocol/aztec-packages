@@ -127,18 +127,18 @@ void mutate_fuzzer_data_vec(const FuzzerContext& context,
                             std::mt19937_64& rng,
                             size_t max_size)
 {
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 1)(rng);
+    auto choice = ENQUEUED_CALL_MUTATION_CONFIGURATION.select(rng);
+
     switch (choice) {
-    case 0: {
+    case EnqueuedCallMutation::Add:
         fuzz_info("Adding a new enqueued call");
         // Add a new enqueued call
         if (enqueued_calls.size() < max_size) {
-            FuzzerData new_enqueued_call = generate_fuzzer_data(rng, context);
-            enqueued_calls.push_back(new_enqueued_call);
+            enqueued_calls.push_back(generate_fuzzer_data(rng, context));
         }
         break;
-    }
-    case 1: {
+
+    case EnqueuedCallMutation::Mutate: {
         // Mutate an existing enqueued call
         fuzz_info("Mutating an existing enqueued call");
         if (!enqueued_calls.empty()) {
@@ -149,15 +149,14 @@ void mutate_fuzzer_data_vec(const FuzzerContext& context,
         }
         break;
     }
-        // case 2: {
-        //     // Remove an existing enqueued call
-        //     vinfo("Removing an existing enqueued call");
-        //     if (!enqueued_calls.empty()) {
-        //         size_t idx = std::uniform_int_distribution<size_t>(0, enqueued_calls.size() - 1)(rng);
-        //         enqueued_calls.erase(enqueued_calls.begin() + static_cast<std::ptrdiff_t>(idx));
-        //     }
-        //     break;
-        // }
+    case EnqueuedCallMutation::Remove:
+        // Remove an existing enqueued call
+        fuzz_info("Removing an existing enqueued call");
+        if (!enqueued_calls.empty()) {
+            size_t idx = std::uniform_int_distribution<size_t>(0, enqueued_calls.size() - 1)(rng);
+            enqueued_calls.erase(enqueued_calls.begin() + static_cast<std::ptrdiff_t>(idx));
+        }
+        break;
     }
 }
 

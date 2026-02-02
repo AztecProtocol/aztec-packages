@@ -1,10 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea}
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+#include "barretenberg/stdlib/hash/hash_utils.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
@@ -29,38 +30,6 @@ constexpr uint8_t MSG_SCHEDULE_BLAKE2[10][16] = {
     { 12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11 }, { 13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10 },
     { 6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5 }, { 10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 },
 };
-
-/**
- * Addition with normalisation (to ensure the addition is in the scalar field.)
- * Given two field_t elements a and b, this function computes ((a + b) % 2^{32}).
- * Additionally, it checks if the overflow of the addition is a maximum of 3 bits.
- * This is to ascertain that the additions of two 32-bit scalars in blake2s and blake3s do not exceed 35 bits.
- */
-template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder>& a, const field_t<Builder>& b)
-{
-    typedef field_t<Builder> field_pt;
-    typedef witness_t<Builder> witness_pt;
-
-    Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
-
-    uint256_t sum = a.get_value() + b.get_value();
-
-    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]);
-
-    if (a.is_constant() && b.is_constant()) {
-        return field_pt(ctx, normalized_sum);
-    }
-
-    field_pt overflow = witness_pt(ctx, fr((sum - normalized_sum) >> 32));
-
-    // The overflow here could be of 2 bits because we allow that much overflow in the Blake rounds.
-    overflow.create_range_constraint(3);
-
-    // a + b - (overflow * 2^{32})
-    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr((uint64_t)(1ULL << 32ULL))));
-
-    return result;
-}
 
 /**
  *
@@ -159,7 +128,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[b] = lookup_output;
 
     // a = a + b + y
-    state[a] = add_normalize(state[a], state[b] + y);
+    state[a] = hash_utils::add_normalize_unsafe(state[a], state[b] + y, /*overflow_bits=*/3);
 
     // d = (d ^ a).ror(8)
     // Get the lookup accumulator where `lookup_3[ColumnIdx::C3][0]` contains the
@@ -171,7 +140,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[d] = lookup_3[ColumnIdx::C3][0] * scaling_factor_3;
 
     // c = c + d
-    state[c] = add_normalize(state[c], state[d]);
+    state[c] = hash_utils::add_normalize_unsafe(state[c], state[d], /*overflow_bits=*/3);
 
     // b = (b ^ c).ror(7)
     // Get the lookup accumulator where `lookup_4[ColumnIdx::C3][0]` contains the

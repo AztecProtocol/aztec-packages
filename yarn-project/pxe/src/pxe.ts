@@ -1,6 +1,7 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -25,7 +26,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -53,13 +53,13 @@ import { inspect } from 'util';
 
 import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
+import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
-import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
+import { ensureContractSynced, readCurrentClassId } from './contract_sync/index.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -128,6 +128,10 @@ export class PXE {
     config: PXEConfig,
     loggerOrSuffix?: string | Logger,
   ) {
+    // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
+    const bindings: LoggerBindings | undefined =
+      loggerOrSuffix && typeof loggerOrSuffix !== 'string' ? loggerOrSuffix.getBindings() : undefined;
+
     const log =
       !loggerOrSuffix || typeof loggerOrSuffix === 'string'
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
@@ -137,7 +141,7 @@ export class PXE {
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
-    const noteStore = await NoteStore.create(store);
+    const noteStore = new NoteStore(store);
     const anchorBlockStore = new AnchorBlockStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -153,13 +157,19 @@ export class PXE {
       privateEventStore,
       tipsStore,
       config,
-      loggerOrSuffix,
+      bindings,
     );
 
-    const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
+    const jobCoordinator = new JobCoordinator(store, bindings);
+    jobCoordinator.registerStores([
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+    ]);
 
-    const debugUtils = new PXEDebugUtils(contractStore, noteStore);
+    const debugUtils = new PXEDebugUtils(contractStore, noteStore, synchronizer, anchorBlockStore);
 
     const jobQueue = new SerialQueue();
 
@@ -186,7 +196,7 @@ export class PXE {
       debugUtils,
     );
 
-    debugUtils.setPXE(pxe);
+    debugUtils.setPXE(pxe, pxe.#putInJobQueue.bind(pxe));
 
     pxe.jobQueue.start();
 
@@ -206,8 +216,7 @@ export class PXE {
       this.noteStore,
       this.keyStore,
       this.addressStore,
-      ProxiedNodeFactory.create(this.node),
-      this.anchorBlockStore,
+      BenchmarkedNodeFactory.create(this.node),
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
@@ -287,6 +296,15 @@ export class PXE {
 
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+
+      await ensureContractSynced(
+        contractAddress,
+        functionSelector,
+        privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        this.node,
+        this.contractStore,
+        anchorBlockHeader,
+      );
 
       const result = await contractFunctionSimulator.run(
         txRequest,
@@ -382,9 +400,15 @@ export class PXE {
     privateExecutionResult: PrivateExecutionResult,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const simulationAnchorBlock = privateExecutionResult.getSimulationAnchorBlockNumber();
-    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, simulationAnchorBlock);
-    const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockHash = await anchorBlockHeader.hash();
+    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
+    const kernelTraceProver = new PrivateKernelExecutionProver(
+      kernelOracle,
+      proofCreator,
+      !this.proverEnabled,
+      this.log.getBindings(),
+    );
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
@@ -426,7 +450,6 @@ export class PXE {
     }
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
-    await this.noteStore.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 
@@ -574,13 +597,7 @@ export class PXE {
 
       const header = await this.anchorBlockStore.getBlockHeader();
 
-      const currentClassId = await readCurrentClassId(
-        contractAddress,
-        currentInstance,
-        this.node,
-        header.globalVariables.blockNumber,
-        header.globalVariables.timestamp,
-      );
+      const currentClassId = await readCurrentClassId(contractAddress, currentInstance, this.node, header);
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
       }
@@ -840,14 +857,8 @@ export class PXE {
         let executionSteps: PrivateExecutionStep[] = [];
 
         if (skipKernels) {
-          // According to the protocol rules, the nonce generator for the note hashes
-          // can either be the first nullifier in the tx or the protocol nullifier if there are none.
-          const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
-            ? await computeProtocolNullifier(await txRequest.toTxRequest().hash())
-            : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
-            nonceGenerator,
             this.contractStore,
           ));
         } else {
@@ -958,8 +969,14 @@ export class PXE {
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
-        await this.contractStore.syncPrivateState(call.to, call.selector, privateSyncCall =>
-          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        await ensureContractSynced(
+          call.to,
+          call.selector,
+          privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+          this.node,
+          this.contractStore,
+          anchorBlockHeader,
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1009,26 +1026,39 @@ export class PXE {
    *    Defaults to the latest known block to PXE + 1.
    * @returns - The packed events with block and tx metadata.
    */
-  public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
-    return this.#putInJobQueue(async jobId => {
+  public async getPrivateEvents(
+    eventSelector: EventSelector,
+    filter: PrivateEventFilter,
+  ): Promise<PackedPrivateEvent[]> {
+    let anchorBlockNumber: BlockNumber;
+
+    await this.#putInJobQueue(async jobId => {
       await this.blockStateSynchronizer.sync();
+
+      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+      anchorBlockNumber = anchorBlockHeader.getBlockNumber();
+
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
-      await this.contractStore.syncPrivateState(
+      await ensureContractSynced(
         filter.contractAddress,
         null,
         async privateSyncCall =>
           await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        this.node,
+        this.contractStore,
+        anchorBlockHeader,
       );
-
-      const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);
-
-      this.log.debug(
-        `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-      );
-
-      return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
     });
+
+    // anchorBlockNumber is set during the job and fixed to whatever it is after a block sync
+    const sanitizedFilter = new PrivateEventFilterValidator(anchorBlockNumber!).validate(filter);
+
+    this.log.debug(
+      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
+    );
+
+    return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
   }
 
   /**

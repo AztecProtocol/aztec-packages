@@ -83,6 +83,10 @@ function build_all {
   parallel --tag --line-buffer ./bootstrap.sh {} ::: ec2-amd64 ec2-arm64
 }
 
+function update_amis {
+  parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
+}
+
 case "$cmd" in
   "")
     build_images
@@ -108,10 +112,9 @@ case "$cmd" in
     docker_login
     build_all
     update_manifests
-    parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
+    update_amis
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
     ;;
 esac

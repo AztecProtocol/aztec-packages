@@ -20,17 +20,14 @@ const token = await TokenContract.deploy(
   alice.address,
   "TokenName",
   "TKN",
-  18
-)
-  .send({ from: alice.address })
-  .deployed();
+  18,
+).send({ from: alice.address });
 // docs:end:deploy
 
 // docs:start:mint
 await token.methods
   .mint_to_private(alice.address, 100)
-  .send({ from: alice.address })
-  .wait();
+  .send({ from: alice.address });
 // docs:end:mint
 
 // docs:start:check_balances
@@ -45,10 +42,7 @@ console.log(`Bob's balance: ${bobBalance}`);
 // docs:end:check_balances
 
 // docs:start:transfer
-await token.methods
-  .transfer(bob.address, 10)
-  .send({ from: alice.address })
-  .wait();
+await token.methods.transfer(bob.address, 10).send({ from: alice.address });
 bobBalance = await token.methods
   .balance_of_private(bob.address)
   .simulate({ from: bob.address });
@@ -56,17 +50,13 @@ console.log(`Bob's balance: ${bobBalance}`);
 // docs:end:transfer
 
 // docs:start:set_minter
-await token.methods
-  .set_minter(bob.address, true)
-  .send({ from: alice.address })
-  .wait();
+await token.methods.set_minter(bob.address, true).send({ from: alice.address });
 // docs:end:set_minter
 
 // docs:start:bob_mints
 await token.methods
   .mint_to_private(bob.address, 100)
-  .send({ from: bob.address })
-  .wait();
+  .send({ from: bob.address });
 bobBalance = await token.methods
   .balance_of_private(bob.address)
   .simulate({ from: bob.address });

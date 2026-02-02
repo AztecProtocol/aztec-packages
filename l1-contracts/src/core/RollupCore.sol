@@ -311,7 +311,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
-    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
+    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana, _config.initialEthPerFeeAsset);
   }
 
   /**

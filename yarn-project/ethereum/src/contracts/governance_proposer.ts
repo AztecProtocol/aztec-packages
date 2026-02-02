@@ -83,6 +83,7 @@ export class GovernanceProposerContract implements IEmpireBase {
   public createSignalRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),
+      abi: GovernanceProposerAbi,
       data: encodeSignal(payload),
     };
   }
@@ -104,6 +105,7 @@ export class GovernanceProposerContract implements IEmpireBase {
     );
     return {
       to: this.address.toString(),
+      abi: GovernanceProposerAbi,
       data: encodeSignalWithSignature(payload, signature),
     };
   }
@@ -117,8 +119,9 @@ export class GovernanceProposerContract implements IEmpireBase {
   }> {
     const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
+      abi: GovernanceProposerAbi,
       data: encodeFunctionData({
-        abi: this.proposer.abi,
+        abi: GovernanceProposerAbi,
         functionName: 'submitRoundWinner',
         args: [round],
       }),

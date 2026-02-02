@@ -322,9 +322,10 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(1);
     const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
+    const tx1HeaderHashFr = tx1HeaderHash;
     db.findLeafIndices.mockImplementation((tree, leaves) => {
       if (tree === MerkleTreeId.ARCHIVE) {
-        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHash) ? undefined : 1n)));
+        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHashFr) ? undefined : 1n)));
       }
       return Promise.resolve([]);
     });
@@ -425,6 +426,109 @@ describe('KV TX pool', () => {
 
       await txPool.markTxsAsNonEvictable([tx1.getTxHash()]);
       expect(await txPool.getLowestPriorityEvictable(1)).toEqual([]);
+    });
+  });
+
+  /**
+   * Nullifier Index Consistency Tests
+   *
+   * These integration tests verify that the nullifier index is maintained
+   * correctly across all pool operations (add, delete, mine, reorg).
+   */
+  describe('Nullifier index consistency', () => {
+    // Tx type alias for cleaner type annotations
+    type MockTx = Awaited<ReturnType<typeof mockTx>>;
+
+    // Helper to create a public tx (forPublic path) with a specific fee
+    const mockPublicTx = (seed: number, fee: number) =>
+      mockTx(seed, {
+        maxPriorityFeesPerGas: new GasFees(fee, fee),
+        numberOfNonRevertiblePublicCallRequests: 1,
+      });
+
+    // Helper to set a specific nullifier on a transaction
+    const setNullifier = (tx: MockTx, index: number, value: Fr) => {
+      if (tx.data.forPublic) {
+        tx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[index] = value;
+      } else if (tx.data.forRollup) {
+        tx.data.forRollup.end.nullifiers[index] = value;
+      }
+    };
+
+    const getNullifier = (tx: MockTx, index: number): Fr => {
+      if (tx.data.forPublic) {
+        return tx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[index];
+      } else if (tx.data.forRollup) {
+        return tx.data.forRollup.end.nullifiers[index];
+      }
+      throw new Error('Transaction has no nullifiers');
+    };
+
+    it('removes nullifier entries when tx is deleted', async () => {
+      const tx1 = await mockPublicTx(1, 5);
+      await txPool.addTxs([tx1]);
+      await txPool.deleteTxs([tx1.getTxHash()]);
+
+      // Add a new tx with the same nullifier - should succeed
+      const tx2 = await mockPublicTx(2, 1);
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+
+      await txPool.addTxs([tx2]);
+      const pending = await txPool.getPendingTxHashes();
+      expect(pending).toContainEqual(tx2.getTxHash());
+    });
+
+    it('removes nullifier entries when tx is mined', async () => {
+      const tx1 = await mockPublicTx(1, 5);
+      await txPool.addTxs([tx1]);
+      await txPool.markAsMined([tx1.getTxHash()], block1Header);
+
+      // Add a new tx with the same nullifier, it should succeed
+      // (In practice this would fail world state nullifier check,
+      // but we're testing pool index consistency)
+      const tx2 = await mockPublicTx(2, 1);
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+
+      await txPool.addTxs([tx2]);
+      const pending = await txPool.getPendingTxHashes();
+      expect(pending).toContainEqual(tx2.getTxHash());
+    });
+
+    it('restores nullifier entries on reorg (markMinedAsPending)', async () => {
+      const tx1 = await mockPublicTx(1, 10);
+      await txPool.addTxs([tx1]);
+      await txPool.markAsMined([tx1.getTxHash()], block1Header);
+      await txPool.markMinedAsPending([tx1.getTxHash()], BlockNumber(0));
+
+      // Now tx1 is pending again - nullifier should be claimed
+      const tx2 = await mockPublicTx(2, 1);
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+
+      await txPool.addTxs([tx2]);
+      const pending = await txPool.getPendingTxHashes();
+      expect(pending).toContainEqual(tx1.getTxHash());
+      expect(pending).not.toContainEqual(tx2.getTxHash()); // tx2 has lower fee, should be rejected
+    });
+
+    it('cleans up nullifier index when replacement happens', async () => {
+      const tx1 = await mockPublicTx(1, 5);
+      const tx2 = await mockPublicTx(2, 10);
+
+      setNullifier(tx2, 0, getNullifier(tx1, 0));
+
+      await txPool.addTxs([tx1]);
+      await txPool.addTxs([tx2]); // Replaces tx1
+
+      // Now add tx3 with the same nullifier as tx2 but lower fee
+      // It should be rejected because tx2 owns that nullifier now
+      const tx3 = await mockPublicTx(3, 3);
+      setNullifier(tx3, 0, getNullifier(tx2, 0));
+
+      await txPool.addTxs([tx3]);
+      const pending = await txPool.getPendingTxHashes();
+      expect(pending).toContainEqual(tx2.getTxHash());
+      expect(pending).not.toContainEqual(tx3.getTxHash());
+      expect(pending.length).toBe(1);
     });
   });
 });

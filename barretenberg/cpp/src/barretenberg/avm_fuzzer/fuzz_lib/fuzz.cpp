@@ -40,16 +40,30 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data, FuzzerContext
     FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
     ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
 
+    auto globals = create_default_globals();
+
     try {
         ws_mgr->checkpoint();
-        cpp_result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, /*public_data_writes=*/{});
+        cpp_result = cpp_simulator.simulate(*ws_mgr,
+                                            contract_db,
+                                            tx,
+                                            globals,
+                                            /*public_data_writes=*/{},
+                                            /*note_hashes=*/{},
+                                            /*protocol_contracts=*/{});
         ws_mgr->revert();
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("CppSimulator threw an exception: ") + e.what());
     }
 
     ws_mgr->checkpoint();
-    auto js_result = js_simulator->simulate(*ws_mgr, contract_db, tx, /*public_data_writes=*/{});
+    auto js_result = js_simulator->simulate(*ws_mgr,
+                                            contract_db,
+                                            tx,
+                                            globals,
+                                            /*public_data_writes=*/{},
+                                            /*note_hashes=*/{},
+                                            /*protocol_contracts=*/{});
 
     context.reset();
 

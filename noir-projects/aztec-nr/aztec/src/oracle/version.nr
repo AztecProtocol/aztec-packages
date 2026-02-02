@@ -2,9 +2,9 @@
 /// to version the oracle interface to ensure that developers get a reasonable error message if they use incompatible
 /// versions of Aztec.nr and PXE. The TypeScript counterpart is in `oracle_version.ts`.
 ///
-/// @dev Whenever a contract function or Noir test is run, the `utilityAssertCompatibleOracleVersion` oracle is called and
-/// if the oracle version is incompatible an error is thrown.
-pub global ORACLE_VERSION: Field = 5;
+/// @dev Whenever a contract function or Noir test is run, the `utilityAssertCompatibleOracleVersion` oracle is called
+/// and if the oracle version is incompatible an error is thrown.
+pub global ORACLE_VERSION: Field = 10;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {

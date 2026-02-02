@@ -79,12 +79,16 @@
     "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@aztec/validator-ha-signer": "workspace:^",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
+    "@aztec/world-state": "workspace:^",
+    "@electric-sql/pglite": "^0.3.14",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

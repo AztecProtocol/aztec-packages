@@ -68,7 +68,7 @@ use crate::{
     },
     hash::{
         compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_private_log_field, compute_unique_siloed_note_hash,
+        compute_siloed_private_log_first_field, compute_unique_siloed_note_hash,
         create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
@@ -946,6 +946,14 @@ impl FixtureBuilder {
         self.add_nullifier_read_request(value)
     }
 
+    pub fn add_read_request_for_settled_nullifier(&mut self, siloed_nullifier: Field) -> u32 {
+        let read_request_index = self.nullifier_read_requests.len();
+        let read_request =
+            Counted::new(siloed_nullifier, self.next_counter()).scope(AztecAddress::zero());
+        self.nullifier_read_requests.push(read_request);
+        read_request_index
+    }
+
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.nullifier_read_requests.len();
         for i in 0..self.nullifier_read_requests.max_len() {
@@ -1041,7 +1049,8 @@ impl FixtureBuilder {
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
                 let mut fields = self.mock_private_log_fields(index_offset + i);
-                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+                fields[0] =
+                    compute_siloed_private_log_first_field(self.contract_address, fields[0]);
                 self.add_siloed_private_log(fields, fields.len(), note_hash_counter);
             }
         }
@@ -1059,7 +1068,7 @@ impl FixtureBuilder {
         for i in 0..lengths.len() {
             let length = lengths[i];
             let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
-            fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+            fields[0] = compute_siloed_private_log_first_field(self.contract_address, fields[0]);
             self.add_siloed_private_log(fields, length, 0);
         }
     }
@@ -1077,7 +1086,8 @@ impl FixtureBuilder {
                 let mut fields = self.mock_private_log_fields(index_offset + i);
                 // Silo and clear the contract address here because the padded private logs are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
-                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+                fields[0] =
+                    compute_siloed_private_log_first_field(self.contract_address, fields[0]);
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,

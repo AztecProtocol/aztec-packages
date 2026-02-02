@@ -1,7 +1,7 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "./mock_transcript.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 using namespace bb;
@@ -67,49 +67,6 @@ class IPATest : public CommitmentTest<Curve> {
 
 #define IPA_TEST
 #include "ipa.hpp"
-
-// Commit Tests: below are several tests to make sure commitment is correct.
-//
-// Commit to a polynomial that is non-zero but has many zero coefficients
-TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
-{
-    constexpr size_t n = 16;
-    Polynomial p(n);
-    for (size_t i = 0; i < n - 1; i++) {
-        p.at(i) = Fr::zero();
-    }
-    p.at(3) = this->random_element();
-    GroupElement commitment = ck.commit(p);
-    auto srs_elements = ck.srs->get_monomial_points();
-    GroupElement expected = srs_elements[0] * p[0];
-    for (size_t i = 1; i < n; i += 1) {
-        expected += srs_elements[i] * p[i];
-    }
-    EXPECT_EQ(expected.normalize(), commitment.normalize());
-}
-// Commit to zero poly
-TEST_F(IPATest, CommitToZeroPoly)
-{
-    Polynomial poly(n);
-    Commitment commitment = ck.commit(poly);
-    EXPECT_TRUE(commitment.is_point_at_infinity());
-
-    auto x = this->random_element();
-    auto eval = poly.evaluate(x);
-    EXPECT_EQ(eval, Fr::zero());
-}
-// Commit to a random poly
-TEST_F(IPATest, Commit)
-{
-    auto poly = Polynomial::random(n);
-    const GroupElement commitment = ck.commit(poly);
-    auto srs_elements = ck.srs->get_monomial_points();
-    GroupElement expected = srs_elements[0] * poly[0];
-    for (size_t i = 1; i < n; ++i) {
-        expected += srs_elements[i] * poly[i];
-    }
-    EXPECT_EQ(expected.normalize(), commitment.normalize());
-}
 
 // Opening tests, i.e., check completeness for prove-and-verify.
 //
@@ -281,7 +238,7 @@ TEST_F(IPATest, ShpleminiIPAWithoutShift)
                                    mle_opening_point,
                                    ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
     // Compute:
@@ -293,7 +250,7 @@ TEST_F(IPATest, ShpleminiIPAWithoutShift)
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
@@ -320,7 +277,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
                                    /*num_to_be_shifted*/ 1,
                                    mle_opening_point,
                                    ck);
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -332,7 +289,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
@@ -361,7 +318,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
                                    mle_opening_point,
                                    ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -387,7 +344,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // since commitments to poly2, poly3 and their shifts are the same group elements, we simply combine the scalar
     // multipliers of commitment2 and commitment3 in one place and remove the entries of the commitments and scalars
     // vectors corresponding to the "shifted" commitment
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });

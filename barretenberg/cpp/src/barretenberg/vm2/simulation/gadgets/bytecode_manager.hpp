@@ -16,7 +16,6 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
-#include "barretenberg/vm2/simulation/gadgets/siloing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
@@ -48,10 +47,10 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
 
     BytecodeId get_bytecode(const AztecAddress& address) override;
     std::shared_ptr<std::vector<uint8_t>> get_bytecode_data(const BytecodeId& bytecode_id) override;
-    Instruction read_instruction(const BytecodeId& bytecode_id, uint32_t pc) override;
+    Instruction read_instruction(const BytecodeId& bytecode_id, PC pc) override;
     Instruction read_instruction(const BytecodeId& bytecode_id,
                                  std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                 uint32_t pc) override;
+                                 PC pc) override;
 
   private:
     ContractDBInterface& contract_db;
@@ -76,7 +75,7 @@ class BytecodeManager : public BytecodeManagerInterface {
         , tx_bytecode_manager(tx_bytecode_manager)
     {}
 
-    Instruction read_instruction(uint32_t pc) override
+    Instruction read_instruction(PC pc) override
     {
         // We only assert in debug mode because this is in the hot path of the execution.
         BB_ASSERT_DEBUG(bytecode_id.has_value(), "Bytecode not retrieved before call to read_instruction");

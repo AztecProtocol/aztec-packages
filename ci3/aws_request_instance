@@ -5,6 +5,7 @@ set -eu
 name=$1
 cpus=$2
 arch=$3
+state_dir=$4
 
 cd $(dirname $0)
 
@@ -58,7 +59,7 @@ for cpu in "${cpu_list[@]}"; do
   suffix=${cpu_map[$cpu]}
   for inst in "${instances[@]}"; do
     instance_type="$inst.$suffix"
-    aws_request_instance_type $name $instance_type $price $ami
+    aws_request_instance_type $name $instance_type $price $ami $state_dir
     code=$?
     [[ "$code" -eq 0 || "$code" -eq 143 || "$code" -eq 130 ]] && exit $code
   done

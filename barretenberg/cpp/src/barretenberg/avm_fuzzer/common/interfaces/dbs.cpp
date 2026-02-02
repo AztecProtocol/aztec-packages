@@ -196,7 +196,7 @@ void FuzzerWorldStateManager::initialize_world_state()
         { simulation::MerkleTreeId::NULLIFIER_TREE, 128 },
         { simulation::MerkleTreeId::PUBLIC_DATA_TREE, 128 },
     };
-    uint32_t initial_header_generator_point = 28; // GeneratorIndex.BLOCK_HASH
+    uint32_t initial_header_generator_point = 2064783670; // GeneratorIndex.BLOCK_HEADER_HASH
     ws = std::make_unique<world_state::WorldState>(
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 
@@ -236,8 +236,9 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
     if (fee_payer == 0) {
         return;
     }
-    FF fee_juice_balance_slot = Poseidon2::hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-    FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
+    FF fee_juice_balance_slot =
+        Poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, FEE_JUICE_BALANCES_SLOT, fee_payer });
+    FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
 
     // Write to public data tree using current fork
     auto fork_id = fork_ids.top();
@@ -248,6 +249,16 @@ void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::P
 {
     auto fork_id = fork_ids.top();
     ws->update_public_data(public_data, fork_id);
+}
+
+void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
+{
+    auto fork_id = fork_ids.top();
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, note_hashes, fork_id);
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)), fork_id);
 }
 
 } // namespace bb::avm2::fuzzer

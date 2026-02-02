@@ -1,17 +1,27 @@
+//! Private, public and utility execution contexts.
+
 pub mod globals;
 pub mod inputs;
 
-pub mod returns_hash;
-pub mod private_context;
-pub mod public_context;
-pub mod utility_context;
+mod returns_hash;
+pub use returns_hash::ReturnsHash;
+
+mod private_context;
+pub use private_context::PrivateContext;
+
+mod public_context;
+pub use public_context::PublicContext;
+
+mod utility_context;
+pub use utility_context::UtilityContext;
 
 pub mod calls;
-pub mod gas;
-pub mod note_hash_read;
-
 pub use calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall, UtilityCall};
-pub use private_context::PrivateContext;
-pub use public_context::PublicContext;
-pub use returns_hash::ReturnsHash;
-pub use utility_context::UtilityContext;
+
+pub mod gas;
+
+mod note_existence_request;
+pub use note_existence_request::NoteExistenceRequest;
+
+mod nullifier_existence_request;
+pub use nullifier_existence_request::NullifierExistenceRequest;

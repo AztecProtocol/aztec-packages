@@ -1,6 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { type Account, SignerlessAccount } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fq, Fr } from '@aztec/aztec.js/fields';
@@ -58,15 +59,26 @@ export class TestWallet extends BaseTestWallet {
     return this.createAccount(accountData);
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
     });

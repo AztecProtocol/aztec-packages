@@ -15,11 +15,12 @@ pub contract Test {
         // Note related imports
         note::{
             constants::MAX_NOTES_PER_PAGE,
-            lifecycle::{create_note, destroy_note_unsafe},
+            lifecycle::{create_note, destroy_note},
             note_getter::{get_notes, view_notes},
             note_getter_options::{NoteGetterOptions, NoteStatus},
             note_viewer_options::NoteViewerOptions,
-            retrieved_note::RetrievedNote,
+            ConfirmedNote,
+            HintedNote,
         },
         // State variable types
         state_vars::{
@@ -27,18 +28,16 @@ pub contract Test {
             PublicImmutable,
         },
         // Protocol types and constants
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+            constants::PRIVATE_LOG_SIZE_IN_FIELDS,
             traits::{Hash, Packable, Serialize},
         },
         // Event related
         messages::message_delivery::MessageDelivery,
-        // Hashing
-        hash::pedersen_hash,
         // History and inclusion proofs
-        history::note_inclusion::ProveNoteInclusion,
+        history::note::assert_note_existed_by,
         // Key management
         keys::getters::get_public_keys,
         // Macros
@@ -50,14 +49,14 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
+    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
-    use address_note::address_note::AddressNote;
-    use aztec::context::note_hash_read::NoteHashRead;
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use address_note::AddressNote;
+    use uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -178,10 +177,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        retrieved_notes.get(0).note.value
+        confirmed_notes.get(0).note.value
     }
 
     #[external("private")]
@@ -195,10 +194,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
+        [confirmed_notes.get(0).note.value, confirmed_notes.get(1).note.value]
     }
 
     #[external("utility")]
@@ -236,25 +235,33 @@ pub contract Test {
     #[external("private")]
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
         let options = NoteGetterOptions::new().set_owner(owner);
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        let retrieved_note = retrieved_notes.get(0);
-        let note_hash = note_hashes.get(0);
-
-        destroy_note_unsafe(self.context, retrieved_note, note_hash);
+        destroy_note(self.context, confirmed_notes.get(0));
     }
 
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
         let options = NoteGetterOptions::new().set_owner(owner).set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+        // We unfortunately do not currently have a convenient API that returned `HintedNote`, so for this invocation we
+        // instead manually construct the value from a `ConfirmedNote` (which doesn't make sense, since `get_note`
+        // already proves note inclusion).
+        // TODO(F-255).
+        let confirmed_note: ConfirmedNote<UintNote> =
+            get_notes(self.context, storage_slot, options).get(0);
+        let hinted_note = HintedNote {
+            note: confirmed_note.note,
+            contract_address: confirmed_note.contract_address,
+            owner: confirmed_note.owner,
+            randomness: confirmed_note.randomness,
+            storage_slot: confirmed_note.storage_slot,
+            metadata: confirmed_note.metadata,
+        };
 
         let header = self.context.get_anchor_block_header();
-
-        header.prove_note_inclusion(retrieved_notes.get(0));
+        let _ = assert_note_existed_by(header, hinted_note);
     }
 
     #[external("private")]
@@ -419,7 +426,7 @@ pub contract Test {
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash], 0)
+            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
         }
     }
 

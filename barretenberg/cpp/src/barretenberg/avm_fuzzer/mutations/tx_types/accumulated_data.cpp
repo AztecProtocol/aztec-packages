@@ -1,6 +1,7 @@
 #include "barretenberg/avm_fuzzer/mutations/tx_types/accumulated_data.hpp"
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/eth_address.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
@@ -22,22 +23,31 @@ void mutate_note_hash(FF& note_hash, std::mt19937_64& rng)
     mutate_field(note_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
 }
 
-// Generate a random nullifier
+// Generate a random nullifier. Can't be zero.
 FF generate_nullifier(std::mt19937_64& rng)
 {
-    return generate_random_field(rng);
+    FF nullifier = 0;
+    while (nullifier == 0) {
+        nullifier = generate_random_field(rng);
+    }
+    return nullifier;
 }
 
+// Mutate a nullifier. Can't be zero.
 void mutate_nullifier(FF& nullifier, std::mt19937_64& rng)
 {
     mutate_field(nullifier, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+    while (nullifier == 0) {
+        mutate_field(nullifier, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+    }
 }
 
 // Generate a random L2 to L1 message
 ScopedL2ToL1Message generate_l2_to_l1_message(std::mt19937_64& rng)
 {
     return ScopedL2ToL1Message{
-        .message = L2ToL1Message{ .recipient = generate_random_field(rng), .content = generate_random_field(rng) },
+        .message =
+            L2ToL1Message{ .recipient = generate_random_eth_address(rng), .content = generate_random_field(rng) },
         .contract_address = generate_random_field(rng),
     };
 }
@@ -49,7 +59,7 @@ void mutate_l2_to_l1_msg(ScopedL2ToL1Message& msg, std::mt19937_64& rng)
     switch (choice) {
     case 0:
         // Mutate recipient
-        msg.message.recipient = generate_random_field(rng);
+        msg.message.recipient = generate_random_eth_address(rng);
         break;
     case 1:
         // Mutate content

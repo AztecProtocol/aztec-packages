@@ -85,6 +85,7 @@ export class EmbeddedWallet extends BaseWallet {
     const walletDBStore = await createStore(
       `wallet-${rollupAddress}`,
       { dataDirectory: 'wallet', dataStoreMapSizeKb: 2e10 },
+      undefined,
       walletLogger,
     );
     const db = WalletDB.init(walletDBStore, walletLogger.info);
@@ -94,8 +95,7 @@ export class EmbeddedWallet extends BaseWallet {
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
       const parsedType = convertFromUTF8BufferAsString(type) as AccountType;
@@ -211,15 +211,26 @@ export class EmbeddedWallet extends BaseWallet {
     return storedSenders;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
@@ -248,9 +259,11 @@ export class EmbeddedWallet extends BaseWallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+    const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions,
     );
     const contractOverrides = {

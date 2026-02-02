@@ -25,12 +25,12 @@ FF unconstrained_root_from_path(const FF& leaf_value, const uint64_t leaf_index,
 
 FF unconstrained_compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 }
 
 FF unconstrained_silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
 {
-    return Poseidon2::hash({ DOM_SEP__OUTER_NULLIFIER, contract_address, nullifier });
+    return Poseidon2::hash({ DOM_SEP__SILOED_NULLIFIER, contract_address, nullifier });
 }
 
 FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)

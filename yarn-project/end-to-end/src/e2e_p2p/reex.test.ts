@@ -1,16 +1,16 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { Tx } from '@aztec/aztec.js/tx';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { Tx, TxHash } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
 import type { LibP2PService, P2PClient } from '@aztec/p2p';
-import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { CppPublicTxSimulator, PublicTxResult } from '@aztec/simulator/server';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorKeyStore } from '@aztec/validator-client';
+import { DutyType } from '@aztec/validator-ha-signer/types';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -30,7 +30,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 describe('e2e_p2p_reex', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let txs: SentTx[];
+  let txs: TxHash[];
 
   beforeAll(async () => {
     nodes = [];
@@ -148,7 +148,13 @@ describe('e2e_p2p_reex', () => {
           proposal.archiveRoot,
           proposal.txHashes,
           undefined,
-          payload => signer.signMessageWithAddress(proposerAddress!, payload),
+          payload =>
+            signer.signMessageWithAddress(proposerAddress!, payload, {
+              slot: proposal.blockHeader.globalVariables.slotNumber,
+              blockNumber: proposal.blockHeader.globalVariables.blockNumber,
+              blockIndexWithinCheckpoint: proposal.indexWithinCheckpoint,
+              dutyType: DutyType.BLOCK_PROPOSAL,
+            }),
         );
 
         const p2pService = (p2pClient as any).p2pService as LibP2PService;
@@ -163,30 +169,28 @@ describe('e2e_p2p_reex', () => {
       node: AztecNodeService,
       stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+      const blockBuilder: any = (node as any).sequencer.sequencer.blockBuilder;
       const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
-      jest
-        .spyOn(blockBuilder, 'makeBlockBuilderDeps')
-        .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
-          const deps = await originalCreateDeps(...args);
-          t.logger.warn('Creating mocked processor factory');
-          const simulator: CppPublicTxSimulator = (deps.processor as any).publicTxSimulator;
-          const originalSimulate = simulator.simulate.bind(simulator);
-          // We only stub the simulate method if it's NOT the first time we see the tx
-          // so the proposer works fine, but we cause the failure in the validators.
-          jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
-            const txHash = tx.getTxHash().toString();
-            if (seenTxs.has(txHash)) {
-              t.logger.warn('Calling stubbed simulate for tx', { txHash });
-              return stub(tx, originalSimulate);
-            } else {
-              seenTxs.add(txHash);
-              t.logger.warn('Calling original simulate for tx', { txHash });
-              return originalSimulate(tx);
-            }
-          });
-          return deps;
+      jest.spyOn(blockBuilder, 'makeBlockBuilderDeps').mockImplementation(async (...args: any[]) => {
+        const deps = await originalCreateDeps(...args);
+        t.logger.warn('Creating mocked processor factory');
+        const simulator: CppPublicTxSimulator = (deps.processor as any).publicTxSimulator;
+        const originalSimulate = simulator.simulate.bind(simulator);
+        // We only stub the simulate method if it's NOT the first time we see the tx
+        // so the proposer works fine, but we cause the failure in the validators.
+        jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
+          const txHash = tx.getTxHash().toString();
+          if (seenTxs.has(txHash)) {
+            t.logger.warn('Calling stubbed simulate for tx', { txHash });
+            return stub(tx, originalSimulate);
+          } else {
+            seenTxs.add(txHash);
+            t.logger.warn('Calling original simulate for tx', { txHash });
+            return originalSimulate(tx);
+          }
         });
+        return deps;
+      });
     };
 
     // Have the public tx processor take an extra long time to process the tx, so the validator times out
@@ -239,9 +243,9 @@ describe('e2e_p2p_reex', () => {
 
         // We ensure that the transactions are NOT mined in the next slot
         const txResults = await Promise.allSettled(
-          txs.map(async (tx: SentTx, i: number) => {
-            t.logger.info(`Waiting for tx ${i}: ${(await tx.getTxHash()).toString()} to be mined`);
-            return await tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
+          txs.map(async (txHash: TxHash, i: number) => {
+            t.logger.info(`Waiting for tx ${i}: ${txHash.toString()} to be mined`);
+            return await waitForTx(nodes[0], txHash, { timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
           }),
         );
 

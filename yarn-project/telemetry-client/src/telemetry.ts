@@ -20,7 +20,7 @@ import type * as Attributes from './attributes.js';
 import type { MetricDefinition } from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-export { toMetricOptions } from './metric-utils.js';
+export { toMetricOptions, createUpDownCounterWithDefault } from './metric-utils.js';
 
 export { type Span, SpanStatusCode, ValueType, type Context } from '@opentelemetry/api';
 
@@ -56,8 +56,10 @@ type BannedMetricAttributeNames = (typeof Attributes)[
 /** Global registry of attributes */
 export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
 
+export type AllowedAttributeNames = Exclude<AttributeNames, BannedMetricAttributeNames>;
+
 /** Subset of attributes allowed to be added to metrics */
-export type MetricAttributesType = Partial<Record<Exclude<AttributeNames, BannedMetricAttributeNames>, AttributeValue>>;
+export type MetricAttributesType = Partial<Record<AllowedAttributeNames, AttributeValue>>;
 
 /** Re-export MetricDefinition for convenience */
 export type { MetricDefinition } from './metrics.js';

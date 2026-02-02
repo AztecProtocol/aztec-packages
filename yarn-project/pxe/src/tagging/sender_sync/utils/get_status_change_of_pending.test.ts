@@ -1,7 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { makeL2Tips } from '@aztec/stdlib/testing';
-import { TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -15,8 +14,6 @@ describe('getStatusChangeOfPending', () => {
   });
 
   it('handles mixed scenarios with multiple transaction hashes', async () => {
-    const finalizedBlockNumber = 10;
-
     const finalizedTxHash = TxHash.random();
     const droppedTxHash = TxHash.random();
     const pendingTxHash = TxHash.random();
@@ -26,37 +23,43 @@ describe('getStatusChangeOfPending', () => {
 
     aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
       if (hash.equals(finalizedTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.SUCCESS,
-          blockNumber: BlockNumber(finalizedBlockNumber - 1),
-        } as any);
+        // Finalized and successful
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.FINALIZED,
+            TxExecutionResult.SUCCESS,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(9),
+          ),
+        );
       } else if (hash.equals(droppedTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.DROPPED,
-        } as any);
+        return Promise.resolve(new TxReceipt(hash, TxStatus.DROPPED, undefined, 'Tx dropped'));
       } else if (hash.equals(pendingTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.SUCCESS,
-          blockNumber: BlockNumber(finalizedBlockNumber + 1),
-        } as any);
+        // Mined but not finalized yet
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(11),
+          ),
+        );
       } else if (hash.equals(appLogicRevertedTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.APP_LOGIC_REVERTED,
-        } as any);
+        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.APP_LOGIC_REVERTED, undefined));
       } else if (hash.equals(teardownRevertedTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.TEARDOWN_REVERTED,
-        } as any);
+        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.TEARDOWN_REVERTED, undefined));
       } else if (hash.equals(bothRevertedTxHash)) {
-        return Promise.resolve({
-          status: TxStatus.BOTH_REVERTED,
-        } as any);
+        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.BOTH_REVERTED, undefined));
       } else {
         throw new Error(`Unexpected tx hash: ${hash.toString()}`);
       }
     });
-
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
 
     const result = await getStatusChangeOfPending(
       [
@@ -79,20 +82,46 @@ describe('getStatusChangeOfPending', () => {
     ]);
   });
 
-  it('returns txHash in txHashesToFinalize when blockNumber equals finalized block number', async () => {
-    const finalizedBlockNumber = 10;
+  it('returns txHash in txHashesToFinalize when status is finalized and successful', async () => {
     const txHash = TxHash.random();
 
-    aztecNode.getTxReceipt.mockResolvedValue({
-      status: TxStatus.SUCCESS,
-      blockNumber: BlockNumber(finalizedBlockNumber),
-    } as any);
-
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        txHash,
+        TxStatus.FINALIZED,
+        TxExecutionResult.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(10),
+      ),
+    );
 
     const result = await getStatusChangeOfPending([txHash], aztecNode);
 
     expect(result.txHashesToFinalize).toEqual([txHash]);
+    expect(result.txHashesToDrop).toEqual([]);
+  });
+
+  it('does not finalize tx that is only proven', async () => {
+    const txHash = TxHash.random();
+
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        txHash,
+        TxStatus.PROVEN,
+        TxExecutionResult.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(10),
+      ),
+    );
+
+    const result = await getStatusChangeOfPending([txHash], aztecNode);
+
+    // Not finalized yet, so stays pending
+    expect(result.txHashesToFinalize).toEqual([]);
     expect(result.txHashesToDrop).toEqual([]);
   });
 });

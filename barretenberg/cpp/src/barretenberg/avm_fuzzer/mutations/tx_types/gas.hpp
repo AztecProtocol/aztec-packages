@@ -9,9 +9,8 @@
 namespace bb::avm2::fuzzer {
 
 // Fee bounds for mutation.
-// MIN_FEE must be >= 1 to prevent underflow in compute_effective_gas_fees, since
-// global_variables.gas_fees is hardcoded to {1, 1}. This can change once we enable
-// smart mutations of global variables that maintain the invariant max_fees_per_gas >= gas_fees.
+// MIN_FEE must be >= 1 to prevent underflow in compute_effective_gas_fees.
+// The invariant max_fees_per_gas >= gas_fees is enforced in fuzzer_lib.cpp after mutations.
 constexpr uint128_t MIN_FEE = 1;
 constexpr uint128_t MAX_FEE = 1000;
 //

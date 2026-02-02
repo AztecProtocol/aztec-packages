@@ -24,6 +24,11 @@ export function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
+/** Type guard for error classes */
+export function isErrorClass<T extends Error>(value: unknown, errorClass: new (...args: any[]) => T): value is T {
+  return value instanceof errorClass || (value instanceof Error && value.name === errorClass.name);
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -33,7 +38,7 @@ export type Prettify<T> = {
  * Type-safe Event Emitter type
  * @example
  * export type ArchiverEmitter = TypedEventEmitter<{
- *  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
+ *  [L2BlockSourceEvents.L2PruneUnproven]: (args: L2BlockSourceEvent) => void;
  *  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
  * }>;
  * class Archiver extends (EventEmitter as new () => ArchiverEmitter) {

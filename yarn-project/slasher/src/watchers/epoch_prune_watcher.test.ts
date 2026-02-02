@@ -2,11 +2,11 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type {
-  BuildBlockResult,
-  IFullNodeBlockBuilder,
+  ICheckpointBlockBuilder,
+  ICheckpointsBuilder,
   ITxProvider,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
@@ -28,7 +28,8 @@ describe('EpochPruneWatcher', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
   let txProvider: MockProxy<Pick<ITxProvider, 'getAvailableTxs'>>;
-  let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
+  let checkpointsBuilder: MockProxy<ICheckpointsBuilder>;
+  let checkpointBuilder: MockProxy<ICheckpointBlockBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
 
   let ts: bigint;
@@ -43,9 +44,11 @@ describe('EpochPruneWatcher', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     epochCache = mock<EpochCache>();
     txProvider = mock<Pick<ITxProvider, 'getAvailableTxs'>>();
-    blockBuilder = mock<IFullNodeBlockBuilder>();
+    checkpointsBuilder = mock<ICheckpointsBuilder>();
+    checkpointBuilder = mock<ICheckpointBlockBuilder>();
     fork = mock<MerkleTreeWriteOperations>();
-    blockBuilder.getFork.mockResolvedValue(fork);
+    checkpointsBuilder.getFork.mockResolvedValue(fork);
+    checkpointsBuilder.startCheckpoint.mockResolvedValue(checkpointBuilder);
 
     ts = BigInt(Math.ceil(Date.now() / 1000));
     l1Constants = {
@@ -59,7 +62,7 @@ describe('EpochPruneWatcher', () => {
 
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
-    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, blockBuilder, {
+    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, checkpointsBuilder, {
       slashPrunePenalty: validEpochPrunedPenalty,
       slashDataWithholdingPenalty: dataWithholdingPenalty,
     });
@@ -74,7 +77,7 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
 
-    const block = await L2BlockNew.random(
+    const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
@@ -91,12 +94,13 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: epochNumber,
+      isEscapeHatchOpen: false,
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [block],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises
@@ -121,7 +125,7 @@ describe('EpochPruneWatcher', () => {
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const block = await L2BlockNew.random(
+    const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
@@ -130,11 +134,11 @@ describe('EpochPruneWatcher', () => {
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
-    blockBuilder.buildBlock.mockResolvedValue({
+    checkpointBuilder.buildBlock.mockResolvedValue({
       block: block,
       failedTxs: [],
       numTxs: 1,
-    } as unknown as BuildBlockResult);
+    } as any);
 
     const committee: Hex[] = [
       '0x0000000000000000000000000000000000000abc',
@@ -144,12 +148,13 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [block],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises
@@ -170,13 +175,19 @@ describe('EpochPruneWatcher', () => {
       },
     ] satisfies WantToSlashArgs[]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], block.header.globalVariables, {}, fork);
+    expect(checkpointsBuilder.startCheckpoint).toHaveBeenCalled();
+    expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
+      [tx],
+      block.header.globalVariables.blockNumber,
+      block.header.globalVariables.timestamp,
+      {},
+    );
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const blockFromL1 = await L2BlockNew.random(
+    const blockFromL1 = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 1,
@@ -184,7 +195,7 @@ describe('EpochPruneWatcher', () => {
       },
     );
 
-    const blockFromBuilder = await L2BlockNew.random(
+    const blockFromBuilder = await L2Block.random(
       BlockNumber(13), // block number
       {
         txsPerBlock: 1,
@@ -193,11 +204,11 @@ describe('EpochPruneWatcher', () => {
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
-    blockBuilder.buildBlock.mockResolvedValue({
+    checkpointBuilder.buildBlock.mockResolvedValue({
       block: blockFromBuilder,
       failedTxs: [],
       numTxs: 1,
-    } as unknown as BuildBlockResult);
+    } as any);
 
     const committee: Hex[] = [
       '0x0000000000000000000000000000000000000abc',
@@ -207,12 +218,13 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [blockFromL1],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises
@@ -220,7 +232,13 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], blockFromL1.header.globalVariables, {}, fork);
+    expect(checkpointsBuilder.startCheckpoint).toHaveBeenCalled();
+    expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
+      [tx],
+      blockFromL1.header.globalVariables.blockNumber,
+      blockFromL1.header.globalVariables.timestamp,
+      {},
+    );
   });
 });
 

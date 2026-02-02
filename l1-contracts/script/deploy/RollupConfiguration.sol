@@ -9,7 +9,7 @@ import {CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EthValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -133,6 +133,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
       exitDelaySeconds: vm.envUint("AZTEC_EXIT_DELAY_SECONDS"),
       version: 0, // Computed below
       provingCostPerMana: EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA")),
+      initialEthPerFeeAsset: EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET")),
       rewardConfig: this.getRewardConfiguration(_rewardDistributor),
       rewardBoostConfig: this.getRewardBoostConfiguration(),
       stakingQueueConfig: this.getStakingQueueConfiguration(),

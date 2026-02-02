@@ -10,9 +10,10 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode, AztecNodeAdminConfig } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
+  type ServiceEndpoint,
   getL1DeploymentAddresses,
   getNodeClient,
   getPublicViemClient,
@@ -33,7 +34,7 @@ describe('invalidate blocks test', () => {
 
   const logger = createLogger(`e2e:invalidate-blocks`);
 
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
@@ -43,6 +44,7 @@ describe('invalidate blocks test', () => {
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
   let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
     const keys = Object.keys(expected) as (keyof AztecNodeAdminConfig)[];
@@ -55,19 +57,23 @@ describe('invalidate blocks test', () => {
   };
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
-    ({ client } = await getPublicViemClient(config, forwardProcesses));
+    const viemResult = await getPublicViemClient(config);
+    client = viemResult.client;
+    endpoints.push({ url: viemResult.url, process: viemResult.process });
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     const c = await rollup.getRollupConstants();
     constants = { ...c, ethereumSlotDuration: ETHEREUM_SLOT_DURATION } as L1RollupConstants;
 
-    const { node: nodeClient, process } = await getNodeClient(config);
+    const { node: nodeClient, process: nodeProcess, url: nodeUrl } = await getNodeClient(config);
     node = nodeClient;
-    forwardProcesses.push(process);
+    endpoints.push({ url: nodeUrl, process: nodeProcess });
   });
 
   afterAll(async () => {
+    await health.teardown();
     const restoreConfig: Partial<AztecNodeAdminConfig> = {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,
@@ -79,7 +85,7 @@ describe('invalidate blocks test', () => {
     await waitForSequencersToApplyConfig(restoreConfig, 'restore after invalidate-blocks');
     monitor.removeAllListeners();
     await monitor.stop();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   /** Waits for a CheckpointProposed event */

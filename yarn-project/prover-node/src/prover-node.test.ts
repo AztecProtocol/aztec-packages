@@ -148,7 +148,7 @@ describe('prover-node', () => {
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
-    l2BlockSource.getPublishedCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {

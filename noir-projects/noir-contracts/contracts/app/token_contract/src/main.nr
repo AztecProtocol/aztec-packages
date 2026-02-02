@@ -25,11 +25,11 @@ pub contract Token {
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
 
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use uint_note::{PartialUintNote, UintNote};
 
     use balance_set::BalanceSet;
 

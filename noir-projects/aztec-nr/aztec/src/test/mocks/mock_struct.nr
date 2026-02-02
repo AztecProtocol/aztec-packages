@@ -1,5 +1,8 @@
-use dep::protocol_types::traits::{Deserialize, Empty, Packable, Serialize};
+//! Struct mocking utilities.
 
+use crate::protocol::traits::{Deserialize, Empty, Packable, Serialize};
+
+#[derive(Deserialize, Serialize)]
 pub struct MockStruct {
     pub a: Field,
     pub b: Field,
@@ -20,22 +23,6 @@ impl Eq for MockStruct {
 impl Empty for MockStruct {
     fn empty() -> Self {
         Self { a: 0, b: 0 }
-    }
-}
-
-impl Serialize for MockStruct {
-    let N: u32 = 2;
-
-    fn serialize(self) -> [Field; Self::N] {
-        [self.a, self.b]
-    }
-}
-
-impl Deserialize for MockStruct {
-    let N: u32 = 2;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { a: fields[0], b: fields[1] }
     }
 }
 

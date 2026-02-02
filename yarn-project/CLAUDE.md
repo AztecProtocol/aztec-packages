@@ -15,49 +15,67 @@ An Aztec **node** syncs L2 state and serves RPC requests. A node may also act as
 - **Main branch**: `master`
 - **Development branch**: `next` (most changes go here first)
 
+## Native Tools Over Bash
+
+Prefer native tools over bash equivalents—they don't require permissions and provide better output:
+
+- **Glob** instead of `ls`, `find`, or `tree` for listing/finding files
+- **Read** instead of `cat`, `head`, `tail` for reading files
+- **Grep** instead of `grep`, `rg` for searching content
+- **Edit/Write** instead of `sed`, `awk`, `echo >` for modifying files
+
 ## Essential Workflow
 
 ### When to Run Bootstrap
 
-**ONLY** run `./bootstrap.sh` from the git root when:
+**ALWAYS** run `./bootstrap.sh` from the git root when:
 
 - Pulling new changes that have modifications outside `yarn-project`
 - Switching branches with changes from outside `yarn-project`
+- Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
 ```
 
-**DO NOT** run bootstrap in any other circumstance - it takes several minutes.
+Bootstrap takes several minutes to run. Be patient.
 
 ### Compile Before Testing
 
+Always run `yarn build` from the `yarn-project` root. Never run `tsgo` directly, never build specific packages—always build the full project:
+
 ```bash
-./scripts/tsc.sh                      # Full project (from yarn-project)
-cd <package-name> && yarn build       # Specific package
+yarn build
 ```
 
 ### Before Committing (Quality Checklist)
 
 Run from `yarn-project`:
 
-1. **Build**: Ensure entire project compiles (`tsgo -b --emitDeclarationOnly`)
-2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
-3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
-4. **Test**: Run unit tests for modified packages
-5. **Document**: Update changelog/release notes (see .claude/skills/update-changelog/SKILL.md)
+1. **Build**: Ensure entire project compiles (`yarn build`)
+2. **Format**: Run on entire project (`yarn format`)
+3. **Lint**: Run on entire project (`yarn lint`)
+4. **Test**: Run unit tests for modified files
+5. **Document**: Update changelog/release notes via the `/update-changelog` skill
 
 ## Testing
 
-**NEVER run `yarn test` from the project root** - always cd into a specific package first.
-
-### Standard Tests
+Use `yarn workspace` to run tests without changing directories:
 
 ```bash
-cd <package-name>
-yarn test src/subdir/file.test.ts                 # Run test file
-yarn test src/subdir/file.test.ts -t 'test name'  # Run specific test
+yarn workspace @aztec/<package-name> test src/file.test.ts                 # Run test file
+yarn workspace @aztec/<package-name> test src/file.test.ts -t 'test name'  # Run specific test
 ```
+
+### Capturing Test Output
+
+For long-running tests or verbose output, redirect to a temp file and use native tools to examine:
+
+```bash
+yarn workspace @aztec/<package-name> test src/file.test.ts > /tmp/test-output.log 2>&1
+```
+
+Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead.
 
 ### End-to-End Tests
 
@@ -66,8 +84,7 @@ yarn test src/subdir/file.test.ts -t 'test name'  # Run specific test
 - Tests log "Running test TEST NAME" to track progress
 
 ```bash
-cd end-to-end
-yarn test:e2e e2e_something.test.ts
+yarn workspace @aztec/end-to-end test:e2e e2e_something.test.ts
 ```
 
 ### Sequential Testing (Port Conflicts)
@@ -75,19 +92,18 @@ yarn test:e2e e2e_something.test.ts
 Some packages (e.g., `ethereum`) require sequential execution:
 
 ```bash
-cd <package-name>
-yarn test --runInBand
+yarn workspace @aztec/<package-name> test --runInBand
 ```
 
 ### Test Logging
 
 ```bash
-env LOG_LEVEL=verbose yarn test src/file.test.ts  # Recommended level
-env LOG_LEVEL=debug yarn test src/file.test.ts    # More detail
+LOG_LEVEL=verbose yarn workspace @aztec/<package-name> test src/file.test.ts  # Recommended
+LOG_LEVEL=debug yarn workspace @aztec/<package-name> test src/file.test.ts    # More detail
 # Available levels: trace, debug, verbose, info, warn
 
 # Module-specific logging
-env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
+LOG_LEVEL='info; debug:sequencer,archiver' yarn workspace @aztec/<package-name> test src/file.test.ts
 ```
 
 ## Format & Lint
@@ -97,22 +113,17 @@ env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
 ### Format
 
 ```bash
-./bootstrap.sh format                  # All packages
-./bootstrap.sh format <package-name>   # Single package (faster)
-./bootstrap.sh format <package-name> --check  # Check only, no changes
+yarn format                             # All packages
+yarn format <package>                   # Single package (faster)
+yarn format --check                     # Check only, no changes
 ```
 
 ### Lint
 
 ```bash
-yarn lint                              # Same command CI uses - run this before pushing
-```
+yarn lint                               # Run this before pushing
+yarn lint <pkg1>                        # Single package (faster)
 
-For faster iteration during development:
-
-```bash
-./bootstrap.sh lint <package-name>     # Single package (faster)
-./bootstrap.sh lint                    # All packages
 ```
 
 ## Dependency Management
@@ -233,7 +244,7 @@ This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
 
-1. Update `docs/docs/developers/migration_notes.md` (path from git root)
+1. Use the `/update-changelog` skill for documenting any breaking changes
 2. Document breaking changes in PR description
 
 ### PR Descriptions

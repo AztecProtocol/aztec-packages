@@ -22,7 +22,7 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   if (testAccounts) {
     log('setupL2Contracts: Deploying test accounts...');
     const initialAccountsData = await getInitialTestAccountsData();
-    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccountsData, waitOpts);
+    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, initialAccountsData, waitOpts);
   }
 
   if (json) {

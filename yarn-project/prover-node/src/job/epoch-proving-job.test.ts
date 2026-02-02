@@ -116,8 +116,10 @@ describe('epoch-proving-job', () => {
 
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(checkpoints.map(c => c.blocks.map(b => b.header)).flat());
-    l2BlockSource.getPublishedCheckpoints.mockResolvedValue([
+    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(
+      checkpoints.map(c => c.blocks.map(b => b.header)).flat(),
+    );
+    l2BlockSource.getCheckpoints.mockResolvedValue([
       { checkpoint: checkpoints.at(-1)!, attestations } as PublishedCheckpoint,
     ]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
@@ -130,7 +132,7 @@ describe('epoch-proving-job', () => {
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
-      return [processedTxs, [], txsArray, []];
+      return [processedTxs, [], txsArray, [], 0];
     });
   });
 
@@ -175,7 +177,7 @@ describe('epoch-proving-job', () => {
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const errors = txsArray.map(tx => ({ error: new Error('Failed to process tx'), tx }));
-      return [[], errors, [], []];
+      return [[], errors, [], [], 0];
     });
 
     const job = createJob();
@@ -186,7 +188,7 @@ describe('epoch-proving-job', () => {
   });
 
   it('fails if does not process all txs for a block', async () => {
-    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], [], []]));
+    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], [], [], 0]));
 
     const job = createJob();
     await job.run();
@@ -217,7 +219,7 @@ describe('epoch-proving-job', () => {
 
   it('halts if a new block for the epoch is found', async () => {
     const newHeaders = times(NUM_BLOCKS + 1, i => BlockHeader.random({ blockNumber: BlockNumber(i + 1) }));
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newHeaders);
+    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(newHeaders);
 
     const job = createJob();
     await job.run();

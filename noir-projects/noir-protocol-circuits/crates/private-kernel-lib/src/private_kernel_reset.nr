@@ -1,7 +1,7 @@
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
     components::{
-        reset_output_composer::{ResetOutputComposer, ResetOutputHints},
+        reset_output_composer::{ResetOutputComposer, SquashedOutputArrayHints},
         reset_output_validator::ResetOutputValidator,
     },
 };
@@ -16,6 +16,90 @@ use dep::types::{
 pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX];
 
+// # The Reset Circuit
+//
+// The "Reset Circuit" is so named because it processes large arrays of "requests" (see below);
+// thereby eventually resetting those arrays to empty.
+//
+// An app circuit can make several kinds of "request" to the kernel circuit, by appending data to
+// certain arrays in its PrivateCircuitPublicInputs. The arrays from each app circuit are
+// progressively appended to the kernel circuits' larger arrays of requests, until we can't
+// fit any more requests into those fixed-size arrays (or until we have processed all app circuits
+// of the tx).
+//
+// We must then execute a "Reset Circuit" to process and remove some items from those arrays, so
+// that we can make some room, so that we can resume iterating through Inner Kernel circuits to
+// process the rest of the app circuits of the tx -- each of which might append more
+// requests to the kernel's arrays of requests. By the end of the tx, all of these arrays of requests
+// must be empty.
+//
+// A tx might need to intersperse multiple Reset Kernel circuits between Init/Inner Kernel circuit
+// iterations, depending on the tx.
+//
+// The Reset circuit processes the following kinds of request (explained further down):
+//
+// - Note Hash Read Request
+// - Nullifier Read Request
+// - Key Validation Request
+//
+// Not only does it process these "requests", we have also given it responsibilities to process
+// other side-effects that are emitted by app circuits:
+//
+// - Siloing: Applies contract-specific siloing to note hashes, nullifiers, and logs for scoping and privacy
+// - Padding: Pads accumulated arrays to obscure their true sizes for privacy
+// - Transient data squashing: removing note_hash/nullifier pairs where a note is created and nullified within the
+//                             current transaction, along with its associated logs.
+//
+// ## Read Requests:
+//
+// ### Note Read Requests
+//
+// App circuits can outsource Merkle Membership checks to a Reset Kernel circuit, to avoid hard-coding
+// a rigid number of costly Merkle Membership constraints within the the App circuit itself.
+//
+// For example, a simple private token transfer circuit might sometimes only need to read 1 note to
+// amass sufficient funds for a transfer, whilst other times 8 notes might need to be read. If all
+// of the app's note existence constraints (Merkle membership constraints) were hard-coded in the
+// app circuit, then the proving time would always be burdened by those 8 lots of constraints even
+// if only 1 lot is needed.
+// By outsourcing existence checks to the Reset Kernel circuit, we can dynamically choose to execute
+// a variant of the Reset circuit which performs the smallest number of Merkle membership checks
+// that are needed to assert existence of all the input notes to a tx, based on the chosen-at-runtime
+// notes that a user happens to feed-into the app circuits of their transaction.
+//
+// So if a user has a single note containing $1m, but they only need to send $10, they could inject
+// 1 note to a token transfer app circuit. The app circuit can then append a so-called
+// "Note Read Request" to the `note_hash_read_requests` array of its PrivateCircuitPublicInputs,
+// which the kernel circuit(s) will eventually propagate to an instance of the Reset circuit.
+//
+// > A read request is a request from an app circuit to the kernel circuits to assert existence of a
+// > Note_Hash (or Nullifier) in the Note_Hash (or Nullifier) Merkle tree.
+//
+// If (for example's sake) this were the only "Note Read Request" of the entire tx, then we should
+// load a variant of the Reset circuit can process a very small number of read requests, so as to
+// save on proving time.
+//
+// If, alternatively, a user has ten notes, each containing $1, then to send $10 they would need to
+// inject ten notes into the token transfer app circuit (presuming the circuit has been designed to
+// enable so many notes to be injected). The app circuit can then append _ten_ "Note Hash Read Requests"
+// to the `note_hash_read_requests` array of its PrivateCircuitPublicInputs, which the kernel
+// circuit(s) will eventually propagate to an instance of the Reset circuit. We would then need to
+// load a variant of the Reset circuit which can process at least 10 "Note Hash Read Requests".
+//
+// It could be that two (or more) app circuits each make so many "Read Requests" that even the
+// largest variant of the Reset circuit can't process them all at once. In that case, an instance
+// of the Reset circuit would need to be
+//
+// ### Nullifier Read Requests
+//
+// In addition to reading the preimages of _notes_, some apps might want to read the preimages of
+// _nullifiers_. There are some Aztec smart contract design patterns where state can be stored in
+// nullifiers instead of notes. For example, we store "the fact that a contract has been published"
+// in a "contract instance nullifier", and so many app circuits need the ability to read the contents
+// of that nullifier to prove information about the contract.
+
+/// Another explanation, because why not:
+/// TODO: combine explanations
 /// The Private Kernel Reset circuit performs cleanup, validation, and siloing on accumulated transaction data.
 ///
 /// This circuit may be invoked multiple times during private execution to validate pending requests and reduce the size
@@ -63,8 +147,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
     unconstrained fn generate_output<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32, let KeyValidationAmount: u32>(
         self,
-    ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints) {
-        // Many hints are generated within this `new` call.
+    ) -> (PrivateKernelCircuitPublicInputs, SquashedOutputArrayHints) {
         let composer = ResetOutputComposer::new(
             self.previous_kernel.public_inputs,
             self.padded_side_effects,
@@ -75,7 +158,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         (
             composer
                 .finish::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>(),
-            composer.hints,
+            composer.squashed_output_array_hints,
         )
     }
 
@@ -86,13 +169,13 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // Validate inputs.
 
         if !dep::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(false /* is_last_kernel */);
+            self.previous_kernel.verify(false);
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.
-        let (output, output_hints) = unsafe {
+        let (output, squashed_output_array_hints) = unsafe {
             self
                 .generate_output::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>()
         };
@@ -104,7 +187,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                 previous_public_inputs,
                 self.padded_side_effects,
                 self.hints,
-                output_hints,
+                squashed_output_array_hints,
             )
                 .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount, TransientDataSquashingAmount, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>();
         }

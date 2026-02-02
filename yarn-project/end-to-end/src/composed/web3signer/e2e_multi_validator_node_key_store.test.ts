@@ -1,14 +1,15 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { waitForProven } from '@aztec/aztec.js/contracts';
+import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -327,6 +328,7 @@ describe('e2e_multi_validator_node', () => {
       contractAddressSalt,
       skipClassPublication: true,
       skipInstancePublication: true,
+      wait: NO_WAIT,
     });
   };
 
@@ -378,7 +380,15 @@ describe('e2e_multi_validator_node', () => {
         );
       }
 
-      return originalCreateProposal(blockHeader, indexWithinCheckpoint, inHash, archive, txs, proposerAddress, options);
+      return originalCreateProposal(
+        blockHeader,
+        IndexWithinCheckpoint(indexWithinCheckpoint),
+        inHash,
+        archive,
+        txs,
+        proposerAddress,
+        options,
+      );
     };
     validatorClient.createBlockProposal = jest.fn(createBlockProposal);
 
@@ -389,7 +399,9 @@ describe('e2e_multi_validator_node', () => {
       return sendTx(ownerAddress, contractAddressSalt);
     });
 
-    const settledTransactions = await Promise.all(sentTransactionPromises.map(tx => tx.wait()));
+    const settledTransactions = await Promise.all(
+      sentTransactionPromises.map(async sentTransactionPromise => waitForTx(aztecNode, await sentTransactionPromise)),
+    );
 
     await Promise.all(
       settledTransactions.map(tx => {

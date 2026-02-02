@@ -5,10 +5,10 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber, type CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
@@ -20,7 +20,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { NativeWorldStateService } from '../native/native_world_state.js';
 
-export async function updateBlockState(block: L2BlockNew, l1ToL2Messages: Fr[], fork: MerkleTreeWriteOperations) {
+export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], fork: MerkleTreeWriteOperations) {
   const insertData = async (
     treeId: IndexedTreeId,
     data: Buffer[][],
@@ -76,8 +76,8 @@ export async function mockBlock(
   numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   isFirstBlockInCheckpoint: boolean = true,
 ) {
-  const block = await L2BlockNew.random(blockNum, {
-    indexWithinCheckpoint: isFirstBlockInCheckpoint ? 0 : 1,
+  const block = await L2Block.random(blockNum, {
+    indexWithinCheckpoint: isFirstBlockInCheckpoint ? IndexWithinCheckpoint(0) : IndexWithinCheckpoint(1),
     txsPerBlock: size,
     txOptions: { maxEffects },
   });
@@ -92,7 +92,7 @@ export async function mockBlock(
 }
 
 export async function mockEmptyBlock(blockNum: BlockNumber, fork: MerkleTreeWriteOperations) {
-  const l2Block = L2BlockNew.empty();
+  const l2Block = L2Block.empty();
   const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
 
   l2Block.header.globalVariables.blockNumber = blockNum;

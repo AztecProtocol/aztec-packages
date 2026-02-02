@@ -24,7 +24,7 @@ This is the typical sumcheck proving algorithm.
 At each round the prover computes a round univariate $$S^i(X_i) = \sum_{\ell\in \{0,1\}^d}F(u_0,\dots,u_{i-1},X_i, \ell_{i+1},\dots,\ell_{d-1})$$
 
 The important observation is that since $P_i$'s are multilinear polynomials, we have the following equality for $\ell \in \{0,1\}^{d-k-1}$:
-\begin{align}P_i(u_0,\dots, u_{k-1}, u_k, \ell)=&\\  &u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) \\+ &(1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)\end{align}
+$$\begin{align}P_i(u_0,\dots, u_{k-1}, u_k, \ell)=&\\  &u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) \\+ &(1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)\end{align}$$
 
 Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations $P_j(u_0,\dots,u_{i-1},\ell)$ for $\ell$ on the hypercube. In the code these are referred to as `partially_evaluated_polynomials`. The next book-keeping table (for round $i+1$) which has half the size of the one from round $i$, is computed using the equation above.
 
@@ -59,14 +59,14 @@ Assuming a reverse lexicographic order on the points on the hypercube, we want a
 - $2^{d}-4 = (0,0,1,\dots,1)$, with the lagrange polynomial $L_{2^d-4} = (1-X_0)(1-X_1)X_2\dots X_{d-1}$
 
 Hence, the polynomial which is zero on these $4$ points and $1$ everywhere else on the hypercube is
-\begin{align}\textsf{RowDisablingPoly} =&1 - (L_{2^d-1} + L_{2^d-2}+ L_{2^d-3} +L_{2^d-4})\\
+$$\begin{align}\textsf{RowDisablingPoly} =&1 - (L_{2^d-1} + L_{2^d-2}+ L_{2^d-3} +L_{2^d-4})\\
 =& 1- X_2X_3\dots X_{d-1}
-\end{align}
+\end{align}$$
 
 Given the definition, the updated sumcheck relation, is:
-\begin{align}
+$$\begin{align}
 \sum_{X\in \{0,1\}^d } F(X)\textsf{RowDisablingPoly}(X) = 0
-\end{align}
+\end{align}$$
 This affects the sumcheck rounds in 2 ways:
 1. The contribution of $\textsf{RowDisablingPoly}$ to the round univariates should be added.
 2. The contribution of $\textsf{RowDisablingPoly}$ to the last round's multivariate eval should be added.
@@ -77,29 +77,29 @@ Bullet point 2 is quite easy to handle, as the evaluation of the sumcheck multiv
 Now let's tackle bullet point 1. Let us refer to the round univariate without taking into consideration the `RowDisablingPoly` as $S_{F,i}$ and the round univariate of the corrected poly $S'_{F,i}$.
 
 Recalling the definition of the round univariates of sumcheck we have that:
-\begin{align}
+$$\begin{align}
 S'_{F,i} &= \sum_{\gamma_i\in\{0,1\}} (F\times (1-L))(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
 &= S_F - \sum_{\gamma_i\in\{0,1\}} F\times L(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})
-\end{align}
+\end{align}$$
 For $i=0$, $\Pi$ is only non-zero when for all $i>1$ $\gamma_i =1$ this means:
-\begin{align}
+$$\begin{align}
 S'_{F,0}
 &= S_F - \sum_{\gamma_1\in\{0,1\}} F\times L(X,\gamma_{1},1,\dots,1) \\
 & = S_F - \sum_{\gamma_1\in\{0,1\}} F(X,\gamma_{1},1,\dots,1)
-\end{align}
+\end{align}$$
 for $i=1$,
-\begin{align}
+$$\begin{align}
 S'_{F,1}
 &= S_F - F\times L(u_0,X,,1,\dots,1)\\
 &= S_F - F(u_0,X,1,\dots,1)
-\end{align}
+\end{align}$$
 
 For $i>1$,
-\begin{align}
+$$\begin{align}
 S'_{F,i}
 &= S_F - F\times L(u_0,\dots,u_{i-1}X,1,\dots,1)\\
 &= S_F - \Pi_{j=2}^{i-1}u_j \times X\times F(u_0,\dots,u_{i-1}X,1,\dots,1)
-\end{align}
+\end{align}$$
 
 
 ### Computing round univariates:
@@ -125,9 +125,9 @@ The main idea is that for a sumcheck claim $\sum_{x\in\{0,1\}^d} F(x) = 0$ we pi
 In the code, we refer to $\rho$ as `libra_challenge` and $\sum_{x\in\{0,1\}^d} G(x)$ as `libra_total_sum`.
 
 The main contribution of Libra is that $G$ can have a very specific structure of form:
-\begin{align}
+$$\begin{align}
 G(X_0,\dots,X_{d-1}) =& a_0 + g_0(X_0) + g_1(X_1) + \dots+ g_{d-1}(X_{d-1})
-\end{align}
+\end{align}$$
 Where for all $i\in [d-1]$, $g_i$ is a univariate of degree $\ell$ with random coefficients. $\ell$ is computed as the maximum individual degree of each variable in $F$.
 
 So to summarize the extra steps of the protocol,
@@ -138,17 +138,17 @@ So to summarize the extra steps of the protocol,
 
 Now let us discuss the details of the prover algorithm to include the contributions from the Libra polynomial.
 Looking at the definition of the round univariate again, we have that the corrected round univariate (of polynomial $F + \rho G$), is:
-\begin{align}
+$$\begin{align}
 S'_{F,i} &= \sum_{\gamma_j\in\{0,1\}} F(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})  \\
 &+\rho\cdot \sum_{\gamma_j\in\{0,1\}} H(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
 &= S_{F,i} + \rho \cdot\sum_{\gamma_j\in\{0,1\}} (a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1})\\&+\rho\cdot\sum_{\gamma_i\in\{0,1\}} \left[g_i(X) + \sum_{i+1}^{d-1}g_j(\gamma_i))\right]
-\end{align}
+\end{align}$$
 Note that $a(0),g_0(u_0),\dots,g_{i-1}(u_{i-1}),g_i(X_i)$ appear $2^{d-i-1}$ times in the sum.
 for $j>i$ for $g_j(0)$ and $g_j(1)$ each appear $2^{d-i-1}/2$ times in the sum. Hence, the equation can be rewritten as:
-\begin{align}
+$$\begin{align}
 S_{F,i}' &= S_{F,i} + \rho \times 2^{d-i-1}[a_0+g_0(u_0) + \dots + g_{i-1}(u_{i-1}) \\
  &+ g_i(X_i) + (g_{i+1}(0) + g_{i+1}(1))/2 + \dots+(g_{d-1}(0) + g_{d-1}(1))/2]
-\end{align}
+\end{align}$$
 
 
 Now let us separate this poly into different chunks.
@@ -156,10 +156,10 @@ Now let us separate this poly into different chunks.
 - and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix\_sum}_i$
 
 Now let us see, how these values should be updated when a new challenge $u_{i+1}$ is received. We have the following two equalities:
-\begin{align}
+$$\begin{align}
 &\textsf{prefix\_sum}_{i+1} = (\textsf{prefix\_sum}_i)/2 + g_i(u_i)/2^{d-i-2}\\
 & \textsf{suffix\_sum}_{i+1} = \textsf{suffix\_sum}_i/2 - (g_{i+1}(0) + g_{i+1}(1))/2
-\end{align}
+\end{align}$$
 
 In the code, the sum of `prefix_sum` and `suffix_sum` are labeled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
 

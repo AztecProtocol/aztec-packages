@@ -72,20 +72,23 @@ class HonkRecursionConstraintTestingFunctions {
         }
 
         return true;
-    });
+    }());
 
     // Check that if IsRootRollup is true, then we set the parameters correctly
     static_assert([]() {
         if constexpr (IsRootRollup) {
-            return HasIPAAccumulator<RecursiveFlavor> && N == 1 && LayerSizes[0] == 2;
+            // Root rollup requires N == 1 && LayerSizes[0] == 2 for 2 recursive verifications
+            return N == 1 && LayerSizes[0] == 2;
         }
 
         return true;
-    });
+    }());
 
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
-    using InnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>,
+    // For rollup tests, we use RollupIO; otherwise we use DefaultIO
+    static constexpr bool UseRollupIO = IsRootRollup;
+    using InnerIO = std::conditional_t<UseRollupIO,
                                        bb::stdlib::recursion::honk::RollupIO,
                                        bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>>;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
@@ -95,7 +98,7 @@ class HonkRecursionConstraintTestingFunctions {
     // Determine the proof type of the "inner" circuits, i.e., the ones up to the level below the top. The proof type is
     // determined by the flavor with which we prove the circuits.
     static constexpr uint32_t InnerProofType = []() {
-        if constexpr (HasIPAAccumulator<InnerFlavor>) {
+        if constexpr (UseRollupIO) {
             return ROLLUP_HONK;
         } else if constexpr (InnerFlavor::HasZK) {
             return HONK_ZK;
@@ -171,23 +174,24 @@ class HonkRecursionConstraintTestingFunctions {
     {
         // Lambda to offset the recursion constraint by the current size of the witness vector
         auto offset_recursion_constraint = [](RecursionConstraint& honk_recursion_constraint, const size_t offset) {
-            auto shift_by_offset = [&offset](std::vector<uint32_t>& indices) {
-                for (auto& witness_idx : indices) {
-                    witness_idx += offset;
+            uint32_t uint32_offset = static_cast<uint32_t>(offset);
+            auto shift_by_offset = [&uint32_offset](std::vector<uint32_t>& indices) {
+                for (auto& index : indices) {
+                    index += uint32_offset;
                 }
             };
 
             shift_by_offset(honk_recursion_constraint.key);
             shift_by_offset(honk_recursion_constraint.proof);
             shift_by_offset(honk_recursion_constraint.public_inputs);
-            honk_recursion_constraint.key_hash += offset;
-            honk_recursion_constraint.predicate.index += offset;
+            honk_recursion_constraint.key_hash += uint32_offset;
+            honk_recursion_constraint.predicate.index += uint32_offset;
         };
 
         for (auto [constraint, witnesses] : zip_view(constraints, witness_vectors)) {
             offset_recursion_constraint(constraint, witness_values.size());
             // If this is the root rollup, we need to set the proof type to ROOT_ROLLUP_HONK
-            constraint.proof_type = IsRootRollup ? ROOT_ROLLUP_HONK : constraint.proof_type;
+            constraint.proof_type = IsRootRollup ? static_cast<uint32_t>(ROOT_ROLLUP_HONK) : constraint.proof_type;
             witness_values.insert(witness_values.end(), witnesses.begin(), witnesses.end());
         }
 
@@ -234,7 +238,8 @@ class HonkRecursionConstraintTestingFunctions {
      */
     static ProgramMetadata generate_metadata()
     {
-        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> && !IsRootRollup };
+        // The outer circuit has IPA claims if using rollup IO and not the root rollup (which finalizes IPA)
+        return ProgramMetadata{ .has_ipa_claim = UseRollupIO && !IsRootRollup };
     }
 
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
@@ -308,8 +313,7 @@ class HonkRecursionConstraintTestingFunctions {
                     RecursionConstraint recursion_constraint = constraints[idx];
                     WitnessVector witnesses = witness_vectors[idx];
 
-                    AcirFormat acir_format = constraint_to_acir_format(
-                        recursion_constraint, /*max_witness_index=*/static_cast<uint32_t>(witnesses.size()) - 1);
+                    AcirFormat acir_format = constraint_to_acir_format(recursion_constraint);
 
                     AcirProgram acir_program{ .constraints = acir_format, .witness = witnesses };
 
@@ -346,7 +350,6 @@ class HonkRecursionConstraintTestWithPredicate
 using HonkRecursionTypesWithPredicate =
     testing::Types<HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
-                   HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>>;
 
@@ -396,8 +399,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursio
         auto [updated_constraint, updated_witness_values] =
             TestFixture::update_witness_based_on_predicate(constraint, witness_values, predicate);
 
-        AcirFormat constraint_system = constraint_to_acir_format(
-            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirFormat constraint_system = constraint_to_acir_format(updated_constraint);
 
         AcirProgram program{ constraint_system, updated_witness_values };
         ProgramMetadata metadata = TestFixture::Base::generate_metadata();
@@ -437,20 +439,12 @@ class HonkRecursionConstraintTestWithoutPredicate
 };
 
 using HonkRecursionTypesWithoutPredicate = testing::Types<
-    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,       // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,     // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>, // Merge
-                                                                                                // circuit
-    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, true, 1, { 2 }>,  // Root circuit
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 1 }>,  // Double recursion on
-                                                                                                // one side
-    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 2 }>,  // Merge two circuits
-                                                                                                // that recursively
-                                                                                                // verify two circuits
-    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Random complex
-                                                                                                   // flow
+    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,      // Merge circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,    // Merge circuit
+    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, true, 1, { 2 }>,       // Root rollup circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 1 }>, // Double recursion
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 2 }>, // Merge two circuits
+    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Complex flow
 
 TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypesWithoutPredicate);
 
@@ -487,8 +481,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
     WitnessVector witness_values;
     TestFixture::Base::generate_constraints(constraint, witness_values);
 
-    AcirFormat constraint_system =
-        constraint_to_acir_format(constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
+    AcirFormat constraint_system = constraint_to_acir_format(constraint);
 
     AcirProgram program{ constraint_system, witness_values };
     ProgramMetadata metadata = TestFixture::Base::generate_metadata();

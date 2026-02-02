@@ -1,10 +1,9 @@
 
 #include "shplemini.hpp"
-#include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"
+#include "../pcs_test_utils.hpp"
 #include "../shplonk/shplonk.hpp"
-#include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
@@ -34,7 +33,7 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-    using IPA = IPA<typename Flavor::Curve, log_n>;
+    using IPA = bb::IPA<typename Flavor::Curve, log_n>;
 
     // Witness polynomials array: [0]=Concatenated(G), [1]=GrandSum(A), [2]=unused, [3]=Quotient(Q)
     enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 3 };
@@ -142,7 +141,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
         commitments, scalars, verifier_batched_evaluation, rho);
 
     // Final pairing check
-    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
+    GroupElement shplemini_result = GroupElement::batch_mul(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
               mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
@@ -256,7 +255,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                                                 expected_constant_term_accumulator);
 
     // Compute the group element using the output of Shplemini method
-    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
+    GroupElement shplemini_result = GroupElement::batch_mul(commitments, scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
 }
@@ -278,7 +277,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using CK = typename TypeParam::CommitmentKey;
 
     // Initialize transcript and commitment key
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -323,7 +322,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     }
 
     // Initialize verifier's transcript
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Start populating Verifier's array of Libra commitments
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -392,7 +391,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Generate Sumcheck challenge
     std::vector<Fr> challenge = this->random_evaluation_point(this->log_n);
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // Generate masking polynomials for Sumcheck Round Univariates
     ZKSumcheckData<TypeParam> zk_sumcheck_data(this->log_n, prover_transcript, ck);
@@ -431,7 +430,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     }
 
     // Initialize verifier's transcript
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =
@@ -518,7 +517,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     MockClaimGenerator<Curve> mock_claims(
         this->n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run Shplemini prover
     const auto opening_claim =
@@ -532,7 +531,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     }
 
     // Verifier side
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
@@ -585,7 +584,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     MockClaimGenerator<Curve> mock_claims(
         big_n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, ck);
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run Shplemini prover
     const auto opening_claim = ShpleminiProver::prove(big_n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
@@ -598,7 +597,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     }
 
     // Verifier side
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
@@ -637,7 +636,7 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
     using CK = typename TypeParam::CommitmentKey;
 
     // Initialize transcript and commitment key
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -685,7 +684,7 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
     }
 
     // Initialize verifier's transcript
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Start populating Verifier's array of Libra commitments
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -742,7 +741,7 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
     CK ck = create_commitment_key<CK>(std::max<size_t>(test->n, 1ULL << (log_subgroup_size + 1)));
@@ -777,7 +776,7 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
         KZG<Curve>::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
     }
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =

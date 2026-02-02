@@ -1,13 +1,12 @@
-import { DefaultAccountInterface } from '@aztec/accounts/defaults';
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-import { type Account, type AccountContract, getAccountContractAddress } from '@aztec/aztec.js/account';
-import { BaseAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, BaseAccount, getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
@@ -61,34 +60,34 @@ const itShouldBehaveLikeAnAccountContract = (
       if (await accountManager.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.send({ from: AztecAddress.ZERO }).wait();
+        await deployMethod.send({ from: AztecAddress.ZERO });
       }
 
-      child = await ChildContract.deploy(wallet).send({ from: address }).deployed();
+      child = await ChildContract.deploy(wallet).send({ from: address });
     });
 
     afterAll(() => teardown());
 
     it('calls a private function', async () => {
       logger.info('Calling private function...');
-      await child.methods.value(42).send({ from: completeAddress.address }).wait({ interval: 0.1 });
+      await child.methods.value(42).send({ from: completeAddress.address });
     });
 
     it('calls a public function', async () => {
       logger.info('Calling public function...');
-      await child.methods.pub_inc_value(42).send({ from: completeAddress.address }).wait({ interval: 0.1 });
+      await child.methods.pub_inc_value(42).send({ from: completeAddress.address });
       const storedValue = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     });
 
     it('fails to call a function using an invalid signature', async () => {
       const randomContract = getAccountContract(GrumpkinScalar.random());
-      const accountInterface = new DefaultAccountInterface(
-        randomContract.getAuthWitnessProvider(completeAddress),
+      const authWitnessProvider = randomContract.getAuthWitnessProvider(completeAddress);
+      const account = new BaseAccount(
+        new DefaultAccountEntrypoint(completeAddress.address, authWitnessProvider),
+        authWitnessProvider,
         completeAddress,
-        await wallet.getChainInfo(),
       );
-      const account = new BaseAccount(accountInterface);
       wallet.replaceAccountAt(account, completeAddress.address);
       await expect(child.methods.value(42).simulate({ from: completeAddress.address })).rejects.toThrow(
         'Cannot satisfy constraint',

@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -25,13 +24,6 @@
 #include <vector>
 
 namespace bb {
-// Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private,
-// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating
-// IPA_PROOF_LENGTH in other places.
-static constexpr size_t IPA_PROOF_LENGTH = /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N +
-                                           /* comm G_0 */ 2 +
-                                           /* eval a_0 */ 2;
-
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *
@@ -189,7 +181,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck.get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
         if (poly_length > srs_elements.size()) {
@@ -699,12 +691,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         const auto& scalars = batch_opening_claim.scalars;
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
-        GroupElement shplonk_output_commitment;
-        if constexpr (Curve::is_stdlib_type) {
-            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
-        } else {
-            shplonk_output_commitment = batch_mul_native<Curve>(commitments, scalars);
-        }
+        GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
         // Output an opening claim, which in practice will be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
     }

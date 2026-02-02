@@ -3,6 +3,7 @@
  */
 import { createLogger } from '@aztec/foundation/log';
 
+import { readdirSync } from 'fs';
 import { runner } from 'node-pg-migrate';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -30,17 +31,32 @@ export async function runMigrations(databaseUrl: string, options: RunMigrationsO
 
   const log = createLogger('validator-ha-signer:migrations');
 
+  const migrationsDir = join(__dirname, 'db', 'migrations');
+
   try {
     log.info(`Running migrations ${direction}...`);
 
+    // Filter out .d.ts and .d.ts.map files - node-pg-migrate only needs .js files
+    const migrationFiles = readdirSync(migrationsDir);
+    const jsMigrationFiles = migrationFiles.filter(
+      file => file.endsWith('.js') && !file.endsWith('.d.ts') && !file.endsWith('.d.ts.map'),
+    );
+
+    if (jsMigrationFiles.length === 0) {
+      log.info('No migration files found');
+      return [];
+    }
+
     const appliedMigrations = await runner({
       databaseUrl,
-      dir: join(__dirname, 'db', 'migrations'),
+      dir: migrationsDir,
       direction,
       migrationsTable: 'pgmigrations',
       count: direction === 'down' ? 1 : Infinity,
       verbose,
       log: msg => (verbose ? log.info(msg) : log.debug(msg)),
+      // Ignore TypeScript declaration files - node-pg-migrate will try to import them otherwise
+      ignorePattern: '.*\\.d\\.(ts|js)$|.*\\.d\\.ts\\.map$',
     });
 
     if (appliedMigrations.length === 0) {

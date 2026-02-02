@@ -1,8 +1,13 @@
+import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import type { QueryResult } from 'pg';
 
 import { Pool } from '../test/pglite_pool.js';
 import { PostgresSlashingProtectionDatabase } from './postgres.js';
@@ -26,20 +31,24 @@ describe('PostgreSQL Queries', () => {
   const VALIDATOR_ADDRESS = EthAddress.random().toString();
   const SLOT = 100n;
   const BLOCK_NUMBER = 50n;
+  const BLOCK_INDEX_WITHIN_CHECKPOINT = 0;
   const DUTY_TYPE = DutyType.BLOCK_PROPOSAL;
   const MESSAGE_HASH = Buffer32.random().toString();
   const NODE_ID = 'node-1';
   const LOCK_TOKEN = 'test-lock-token-12345';
   const SIGNATURE = '0xsignature';
+  let tmpDir: string;
 
   beforeEach(async () => {
-    db = new PGlite();
+    tmpDir = await mkdtemp(join(tmpdir(), 'pglite-'));
+    db = await PGlite.create(tmpDir);
 
     await setupTestSchema(db);
   });
 
   afterEach(async () => {
     await db.close();
+    await rm(tmpDir, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 });
   });
 
   describe('INSERT_OR_GET_DUTY', () => {
@@ -48,6 +57,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -70,6 +80,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -81,6 +92,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         'node-2', // Different node trying to acquire
@@ -99,6 +111,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -112,6 +125,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         'competing-node',
@@ -127,6 +141,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DutyType.BLOCK_PROPOSAL,
         MESSAGE_HASH,
         NODE_ID,
@@ -138,6 +153,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        -1,
         DutyType.ATTESTATION,
         MESSAGE_HASH,
         NODE_ID,
@@ -153,6 +169,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         '100',
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -163,6 +180,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         '101',
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -181,6 +199,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -193,6 +212,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -201,8 +221,8 @@ describe('PostgreSQL Queries', () => {
       // Verify the update
       const selectResult = await db.query<DutyRow>(
         `SELECT status, signature, completed_at FROM validator_duties
-         WHERE validator_address = $1 AND slot = $2 AND duty_type = $3`,
-        [VALIDATOR_ADDRESS.toString(), SLOT.toString(), DUTY_TYPE],
+         WHERE validator_address = $1 AND slot = $2 AND duty_type = $3 AND block_index_within_checkpoint = $4`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString(), DUTY_TYPE, BLOCK_INDEX_WITHIN_CHECKPOINT],
       );
 
       const row = selectResult.rows[0];
@@ -216,6 +236,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -228,6 +249,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         'wrong-token',
       ]);
 
@@ -247,6 +269,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -257,6 +280,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -266,6 +290,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -286,6 +311,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -296,6 +322,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -314,6 +341,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -324,6 +352,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         'wrong-token',
       ]);
 
@@ -342,6 +371,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -352,6 +382,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -360,6 +391,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         DUTY_TYPE,
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         LOCK_TOKEN,
       ]);
 
@@ -375,11 +407,12 @@ describe('PostgreSQL Queries', () => {
   });
 
   describe('constraints', () => {
-    it('should enforce primary key constraint (validator_address, slot, duty_type)', async () => {
+    it('should enforce primary key constraint (validator_address, slot, duty_type, block_index_within_checkpoint)', async () => {
       await db.query(INSERT_OR_GET_DUTY, [
         VALIDATOR_ADDRESS.toString(),
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
         NODE_ID,
@@ -389,12 +422,13 @@ describe('PostgreSQL Queries', () => {
       // Direct insert should fail due to primary key constraint
       await expect(
         db.query(
-          `INSERT INTO validator_duties (validator_address, slot, block_number, duty_type, status, message_hash, node_id, lock_token)
-           VALUES ($1, $2, $3, $4, 'signing', $5, $6, $7)`,
+          `INSERT INTO validator_duties (validator_address, slot, block_number, block_index_within_checkpoint, duty_type, status, message_hash, node_id, lock_token)
+           VALUES ($1, $2, $3, $4, $5, 'signing', $6, $7, $8)`,
           [
             VALIDATOR_ADDRESS.toString(),
             SLOT.toString(),
             BLOCK_NUMBER.toString(),
+            BLOCK_INDEX_WITHIN_CHECKPOINT,
             DUTY_TYPE,
             MESSAGE_HASH,
             'node-2',
@@ -407,9 +441,17 @@ describe('PostgreSQL Queries', () => {
     it('should enforce duty_type check constraint', async () => {
       await expect(
         db.query(
-          `INSERT INTO validator_duties (validator_address, slot, block_number, duty_type, status, message_hash, node_id, lock_token)
-           VALUES ($1, $2, $3, 'INVALID_TYPE', 'signing', $4, $5, $6)`,
-          [VALIDATOR_ADDRESS.toString(), SLOT.toString(), BLOCK_NUMBER.toString(), MESSAGE_HASH, NODE_ID, LOCK_TOKEN],
+          `INSERT INTO validator_duties (validator_address, slot, block_number, block_index_within_checkpoint, duty_type, status, message_hash, node_id, lock_token)
+           VALUES ($1, $2, $3, $4, 'INVALID_TYPE', 'signing', $5, $6, $7)`,
+          [
+            VALIDATOR_ADDRESS.toString(),
+            SLOT.toString(),
+            BLOCK_NUMBER.toString(),
+            BLOCK_INDEX_WITHIN_CHECKPOINT,
+            MESSAGE_HASH,
+            NODE_ID,
+            LOCK_TOKEN,
+          ],
         ),
       ).rejects.toThrow();
     });
@@ -417,12 +459,13 @@ describe('PostgreSQL Queries', () => {
     it('should enforce status check constraint', async () => {
       await expect(
         db.query(
-          `INSERT INTO validator_duties (validator_address, slot, block_number, duty_type, status, message_hash, node_id, lock_token)
-           VALUES ($1, $2, $3, $4, 'invalid_status', $5, $6, $7)`,
+          `INSERT INTO validator_duties (validator_address, slot, block_number, block_index_within_checkpoint, duty_type, status, message_hash, node_id, lock_token)
+           VALUES ($1, $2, $3, $4, $5, 'invalid_status', $6, $7, $8)`,
           [
             VALIDATOR_ADDRESS.toString(),
             SLOT.toString(),
             BLOCK_NUMBER.toString(),
+            BLOCK_INDEX_WITHIN_CHECKPOINT,
             DUTY_TYPE,
             MESSAGE_HASH,
             NODE_ID,
@@ -455,16 +498,16 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
-      await expect(db.initialize()).resolves.not.toThrow();
+      await expect(spDb.initialize()).resolves.not.toThrow();
     });
 
     it('should throw when schema_version table does not exist', async () => {
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
-      await expect(db.initialize()).rejects.toThrow(
-        'Database schema not initialized. Please run migrations first: aztec migrate up --database-url <url>',
+      await expect(spDb.initialize()).rejects.toThrow(
+        'Database schema not initialized. Please run migrations first: aztec migrate-ha-db up --database-url <url>',
       );
     });
 
@@ -477,10 +520,10 @@ describe('PostgresSlashingProtectionDatabase', () => {
         )
       `);
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
-      await expect(db.initialize()).rejects.toThrow(
-        'Database schema not initialized. Please run migrations first: aztec migrate up --database-url <url>',
+      await expect(spDb.initialize()).rejects.toThrow(
+        'Database schema not initialized. Please run migrations first: aztec migrate-ha-db up --database-url <url>',
       );
     });
 
@@ -491,10 +534,10 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION - 1]);
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
-      await expect(db.initialize()).rejects.toThrow(
-        `Database schema version ${SCHEMA_VERSION - 1} is outdated (expected ${SCHEMA_VERSION}). Please run migrations: aztec migrate up --database-url <url>`,
+      await expect(spDb.initialize()).rejects.toThrow(
+        `Database schema version ${SCHEMA_VERSION - 1} is outdated (expected ${SCHEMA_VERSION}). Please run migrations: aztec migrate-ha-db up --database-url <url>`,
       );
     });
 
@@ -505,26 +548,166 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION + 1]);
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
-      await expect(db.initialize()).rejects.toThrow(
+      await expect(spDb.initialize()).rejects.toThrow(
         `Database schema version ${SCHEMA_VERSION + 1} is newer than expected (${SCHEMA_VERSION}). Please update your application.`,
       );
     });
 
     it('should allow closing the database connection', async () => {
-      const db = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
 
       const endSpy = jest.spyOn(pool, 'end');
-      await db.close();
+      await spDb.close();
       expect(endSpy).toHaveBeenCalled();
     });
   });
 
-  describe('bigint handling', () => {
+  describe('tryInsertOrGetExisting retry logic', () => {
     const VALIDATOR_ADDRESS = EthAddress.random();
-    const SLOT = 100n;
-    const BLOCK_NUMBER = 50n;
+    const SLOT = SlotNumber(100);
+    const BLOCK_NUMBER = BlockNumber(50);
+    const MESSAGE_HASH = Buffer32.random().toString();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    it.each([1, 2, 3])('should retry %i time(s) and eventually succeed', async numRetries => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      let callCount = 0;
+
+      // Mock pool.query to return no rows on first numRetries calls, then rows on subsequent call
+      const originalQuery = pool.query.bind(pool);
+      jest.spyOn(pool, 'query').mockImplementation(async (text: string, values?: any[]) => {
+        callCount++;
+        if (callCount <= numRetries) {
+          // First numRetries calls: simulate race condition - no rows returned
+          return { rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] } as QueryResult;
+        }
+        // Subsequent call: return actual result
+        return await originalQuery(text, values);
+      });
+
+      const result = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      // Should have retried numRetries times (initial attempt + numRetries retries)
+      expect(callCount).toBe(numRetries + 1);
+      // Should eventually succeed
+      expect(result.isNew).toBe(true);
+      expect(result.record.validatorAddress).toEqual(VALIDATOR_ADDRESS);
+      expect(result.record.slot).toBe(SLOT);
+
+      // Restore original query
+      jest.restoreAllMocks();
+    });
+
+    it('should throw error after all 3 retries are exhausted', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Mock pool.query to always return no rows
+      jest
+        .spyOn(pool, 'query')
+        .mockResolvedValue({ rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] } as QueryResult);
+
+      await expect(
+        spDb.tryInsertOrGetExisting({
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SLOT,
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          dutyType: DutyType.BLOCK_PROPOSAL,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        }),
+      ).rejects.toThrow('INSERT_OR_GET_DUTY returned no rows');
+
+      // Restore original query
+      jest.restoreAllMocks();
+    });
+
+    it('should throw error if query returns more than one row (database constraint violation)', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Mock pool.query to return multiple rows (simulating a database constraint violation)
+      // These use snake_case to match database column names
+      /* eslint-disable camelcase */
+      const mockRow1 = {
+        validator_address: VALIDATOR_ADDRESS.toString(),
+        slot: SLOT.toString(),
+        block_number: BLOCK_NUMBER.toString(),
+        block_index_within_checkpoint: 0,
+        duty_type: DutyType.BLOCK_PROPOSAL,
+        status: DutyStatus.SIGNING,
+        message_hash: MESSAGE_HASH,
+        signature: null,
+        node_id: NODE_ID,
+        lock_token: 'token-1',
+        started_at: new Date(),
+        completed_at: null,
+        error_message: null,
+        is_new: true,
+      } as InsertOrGetRow;
+      const mockRow2 = {
+        validator_address: VALIDATOR_ADDRESS.toString(),
+        slot: SLOT.toString(),
+        block_number: BLOCK_NUMBER.toString(),
+        block_index_within_checkpoint: 0,
+        duty_type: DutyType.BLOCK_PROPOSAL,
+        status: DutyStatus.SIGNING,
+        message_hash: MESSAGE_HASH,
+        signature: null,
+        node_id: 'node-2',
+        lock_token: 'token-2',
+        started_at: new Date(),
+        completed_at: null,
+        error_message: null,
+        is_new: false,
+      } as InsertOrGetRow;
+      /* eslint-enable camelcase */
+
+      jest.spyOn(pool, 'query').mockResolvedValue({
+        rows: [mockRow1, mockRow2],
+        command: 'SELECT',
+        rowCount: 2,
+        oid: 0,
+        fields: [],
+      } as QueryResult);
+
+      await expect(
+        spDb.tryInsertOrGetExisting({
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SLOT,
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          dutyType: DutyType.BLOCK_PROPOSAL,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        }),
+      ).rejects.toThrow('INSERT_OR_GET_DUTY returned 2 rows (expected exactly 1).');
+
+      // Restore original query
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('large numbers handling', () => {
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const SLOT = SlotNumber(100);
+    const BLOCK_NUMBER = BlockNumber(50);
     const MESSAGE_HASH = Buffer32.random().toString();
     const NODE_ID = 'node-1';
 
@@ -536,13 +719,14 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should handle large slot numbers correctly', async () => {
-      const largeSlot = 9007199254740991n; // Max safe integer
+      const largeSlot = SlotNumber(Number.MAX_SAFE_INTEGER); // Max safe integer
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
-      const result = await db.tryInsertOrGetExisting({
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const result = await spDb.tryInsertOrGetExisting({
         validatorAddress: VALIDATOR_ADDRESS,
         slot: largeSlot,
         blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
         nodeId: NODE_ID,
@@ -553,13 +737,14 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should handle large block numbers correctly', async () => {
-      const largeBlockNumber = 9007199254740991n;
+      const largeBlockNumber = BlockNumber(Number.MAX_SAFE_INTEGER);
 
-      const db = new PostgresSlashingProtectionDatabase(pool);
-      const result = await db.tryInsertOrGetExisting({
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const result = await spDb.tryInsertOrGetExisting({
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: largeBlockNumber,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
         nodeId: NODE_ID,
@@ -567,6 +752,333 @@ describe('PostgresSlashingProtectionDatabase', () => {
 
       expect(result.isNew).toBe(true);
       expect(result.record.blockNumber).toBe(largeBlockNumber);
+    });
+  });
+
+  describe('updateDutySigned', () => {
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const SLOT = SlotNumber(100);
+    const BLOCK_NUMBER = BlockNumber(50);
+    const MESSAGE_HASH = Buffer32.random().toString();
+    const NODE_ID = 'node-1';
+    const SIGNATURE = '0xsignature123';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    it('should return true and update duty to signed status with correct token', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert a duty first
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      expect(insertResult.isNew).toBe(true);
+      const lockToken = insertResult.record.lockToken;
+
+      // Update to signed
+      const success = await spDb.updateDutySigned(
+        VALIDATOR_ADDRESS,
+        SLOT,
+        DutyType.BLOCK_PROPOSAL,
+        SIGNATURE,
+        lockToken,
+        0,
+      );
+
+      expect(success).toBe(true);
+
+      // Verify the update
+      const selectResult = await pglite.query<DutyRow>(
+        `SELECT status, signature, completed_at FROM validator_duties
+         WHERE validator_address = $1 AND slot = $2 AND duty_type = $3 AND block_index_within_checkpoint = $4`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString(), DutyType.BLOCK_PROPOSAL, 0],
+      );
+
+      const row = selectResult.rows[0];
+      expect(row.status).toBe(DutyStatus.SIGNED);
+      expect(row.signature).toBe(SIGNATURE);
+      expect(row.completed_at).toBeTruthy();
+    });
+
+    it('should return false with wrong token', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert a duty first
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      expect(insertResult.isNew).toBe(true);
+
+      // Try to update with wrong token
+      const success = await spDb.updateDutySigned(
+        VALIDATOR_ADDRESS,
+        SLOT,
+        DutyType.BLOCK_PROPOSAL,
+        SIGNATURE,
+        'wrong-token',
+        0,
+      );
+
+      expect(success).toBe(false);
+
+      // Verify still in signing state
+      const selectResult = await pglite.query<DutyRow>(
+        `SELECT status FROM validator_duties WHERE validator_address = $1 AND slot = $2`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString()],
+      );
+      expect(selectResult.rows[0].status).toBe(DutyStatus.SIGNING);
+    });
+
+    it('should return false if duty not found', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      const success = await spDb.updateDutySigned(
+        VALIDATOR_ADDRESS,
+        SLOT,
+        DutyType.BLOCK_PROPOSAL,
+        SIGNATURE,
+        'some-token',
+        0,
+      );
+
+      expect(success).toBe(false);
+    });
+
+    it('should return false if status is not signing', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert and mark as signed
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      const lockToken = insertResult.record.lockToken;
+      await spDb.updateDutySigned(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, SIGNATURE, lockToken, 0);
+
+      // Try to update again with correct token
+      const success = await spDb.updateDutySigned(
+        VALIDATOR_ADDRESS,
+        SLOT,
+        DutyType.BLOCK_PROPOSAL,
+        'new-signature',
+        lockToken,
+        0,
+      );
+
+      expect(success).toBe(false);
+
+      // Verify signature unchanged
+      const selectResult = await pglite.query<DutyRow>(
+        `SELECT signature FROM validator_duties WHERE validator_address = $1 AND slot = $2`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString()],
+      );
+      expect(selectResult.rows[0].signature).toBe(SIGNATURE);
+    });
+
+    it('should handle non-block-proposal duties (uses -1 for block index)', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert an ATTESTATION duty (non-block-proposal, so no blockIndexWithinCheckpoint)
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        dutyType: DutyType.ATTESTATION,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      expect(insertResult.isNew).toBe(true);
+      const lockToken = insertResult.record.lockToken;
+
+      // Update to signed with -1 for block index (non-block-proposal duty)
+      const success = await spDb.updateDutySigned(
+        VALIDATOR_ADDRESS,
+        SLOT,
+        DutyType.ATTESTATION,
+        SIGNATURE,
+        lockToken,
+        -1,
+      );
+
+      expect(success).toBe(true);
+
+      // Verify the update (block_index_within_checkpoint should be -1)
+      const selectResult = await pglite.query<DutyRow>(
+        `SELECT status, signature, completed_at, block_index_within_checkpoint FROM validator_duties
+         WHERE validator_address = $1 AND slot = $2 AND duty_type = $3`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString(), DutyType.ATTESTATION],
+      );
+
+      const row = selectResult.rows[0];
+      expect(row.status).toBe(DutyStatus.SIGNED);
+      expect(row.signature).toBe(SIGNATURE);
+      expect(row.completed_at).toBeTruthy();
+      expect(row.block_index_within_checkpoint).toBe(-1);
+    });
+  });
+
+  describe('deleteDuty', () => {
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const SLOT = SlotNumber(100);
+    const BLOCK_NUMBER = BlockNumber(50);
+    const MESSAGE_HASH = Buffer32.random().toString();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    it('should return true and delete a signing duty with correct token', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert a duty first
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      expect(insertResult.isNew).toBe(true);
+      const lockToken = insertResult.record.lockToken;
+
+      // Delete the duty
+      const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, lockToken, 0);
+
+      expect(success).toBe(true);
+
+      // Verify deleted
+      const selectResult = await pglite.query(
+        `SELECT * FROM validator_duties WHERE validator_address = $1 AND slot = $2`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString()],
+      );
+      expect(selectResult.rows.length).toBe(0);
+    });
+
+    it('should return false with wrong token', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert a duty first
+      await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      // Try to delete with wrong token
+      const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, 'wrong-token', 0);
+
+      expect(success).toBe(false);
+
+      // Verify still exists
+      const selectResult = await pglite.query(
+        `SELECT * FROM validator_duties WHERE validator_address = $1 AND slot = $2`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString()],
+      );
+      expect(selectResult.rows.length).toBe(1);
+    });
+
+    it('should return false if duty not found', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, 'some-token', 0);
+
+      expect(success).toBe(false);
+    });
+
+    it('should return false if duty is already signed', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert and mark as signed
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      const lockToken = insertResult.record.lockToken;
+      await spDb.updateDutySigned(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, '0xsignature', lockToken, 0);
+
+      // Try to delete with correct token (should fail because duty is signed)
+      const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, lockToken, 0);
+
+      expect(success).toBe(false);
+
+      // Verify still exists
+      const selectResult = await pglite.query(
+        `SELECT * FROM validator_duties WHERE validator_address = $1 AND slot = $2`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString()],
+      );
+      expect(selectResult.rows.length).toBe(1);
+    });
+
+    it('should handle non-block-proposal duties (uses -1 for block index)', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Insert an ATTESTATION duty (non-block-proposal, so no blockIndexWithinCheckpoint)
+      const insertResult = await spDb.tryInsertOrGetExisting({
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        dutyType: DutyType.ATTESTATION,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      });
+
+      expect(insertResult.isNew).toBe(true);
+      const lockToken = insertResult.record.lockToken;
+
+      // Delete with -1 for block index (non-block-proposal duty)
+      const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.ATTESTATION, lockToken, -1);
+
+      expect(success).toBe(true);
+
+      // Verify deleted
+      const selectResult = await pglite.query(
+        `SELECT * FROM validator_duties WHERE validator_address = $1 AND slot = $2 AND duty_type = $3`,
+        [VALIDATOR_ADDRESS.toString(), SLOT.toString(), DutyType.ATTESTATION],
+      );
+      expect(selectResult.rows.length).toBe(0);
     });
   });
 });

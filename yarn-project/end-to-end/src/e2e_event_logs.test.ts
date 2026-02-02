@@ -42,7 +42,7 @@ describe('Logs', () => {
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     log.warn(`Deploying test contract`);
-    testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address }).deployed();
+    testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address });
   });
 
   afterAll(() => teardown());
@@ -53,10 +53,7 @@ describe('Logs', () => {
 
       const txs = await Promise.all(
         preimages.map(preimage =>
-          testLogContract.methods
-            .emit_encrypted_events(account2Address, preimage)
-            .send({ from: account1Address })
-            .wait(),
+          testLogContract.methods.emit_encrypted_events(account2Address, preimage).send({ from: account1Address }),
         ),
       );
 
@@ -124,15 +121,13 @@ describe('Logs', () => {
       let i = 0;
       const firstTx = await testLogContract.methods
         .emit_unencrypted_events(preimage[i])
-        .send({ from: account1Address })
-        .wait();
+        .send({ from: account1Address });
       await timesParallel(3, () =>
-        testLogContract.methods.emit_unencrypted_events(preimage[++i]).send({ from: account1Address }).wait(),
+        testLogContract.methods.emit_unencrypted_events(preimage[++i]).send({ from: account1Address }),
       );
       const lastTx = await testLogContract.methods
         .emit_unencrypted_events(preimage[++i])
-        .send({ from: account1Address })
-        .wait();
+        .send({ from: account1Address });
 
       // docs:start:get_public_events
       const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
@@ -185,14 +180,10 @@ describe('Logs', () => {
         // Call the private function that emits two encrypted logs per call and recursively nests 4 times
         const tx = await testLogContract.methods
           .emit_encrypted_events_nested(account2Address, 4)
-          .send({ from: account1Address })
-          .wait();
+          .send({ from: account1Address });
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const logs = (await aztecNode.getBlock(tx.blockNumber!))!
-          .toL2Block()
-          .getPrivateLogs()
-          .filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(tx.blockNumber!))!.getPrivateLogs().filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx1NumLogs);
 
@@ -208,16 +199,12 @@ describe('Logs', () => {
         // Call the private function that emits two encrypted logs per call and recursively nests 2 times
         const tx = await testLogContract.methods
           .emit_encrypted_events_nested(account2Address, 2)
-          .send({ from: account1Address })
-          .wait();
+          .send({ from: account1Address });
 
         const blockNumber = tx.blockNumber!;
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const logs = (await aztecNode.getBlock(blockNumber))!
-          .toL2Block()
-          .getPrivateLogs()
-          .filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs().filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx2NumLogs);
 

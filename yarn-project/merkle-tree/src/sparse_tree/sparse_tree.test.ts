@@ -9,7 +9,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { INITIAL_LEAF, newTree } from '../index.js';
 import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
-import { Pedersen } from '../pedersen.js';
+import { Poseidon } from '../poseidon.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
 import { SparseTree } from './sparse_tree.js';
@@ -46,16 +46,16 @@ treeTestSuite('SparseTree', createDb, createFromName);
 standardBasedTreeTestSuite('SparseTree', createDb);
 
 describe('SparseTreeSpecific', () => {
-  let pedersen: Pedersen;
+  let poseidon: Poseidon;
 
   beforeEach(() => {
-    pedersen = new Pedersen();
+    poseidon = new Poseidon();
   });
 
   it('throws when index is bigger than (2^DEPTH - 1) ', async () => {
     const db = openTmpStore();
     const depth = 32;
-    const tree = await createDb(db, pedersen, 'test', depth);
+    const tree = await createDb(db, poseidon, 'test', depth);
 
     const index = 2n ** BigInt(depth);
     expect(() => tree.updateLeaf(Buffer.alloc(32), index)).toThrow();
@@ -66,7 +66,7 @@ describe('SparseTreeSpecific', () => {
     const maxIndex = 2 ** depth - 1;
 
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', depth);
+    const tree = await createDb(db, poseidon, 'test', depth);
 
     const randomIndex = randomBigInt(BigInt(maxIndex));
     expect(tree.getNumLeaves(false)).toEqual(0n);
@@ -85,7 +85,7 @@ describe('SparseTreeSpecific', () => {
     const maxIndex = 2 ** depth - 1;
 
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', depth);
+    const tree = await createDb(db, poseidon, 'test', depth);
 
     const randomIndex = randomBigInt(BigInt(maxIndex));
     expect(tree.getNumLeaves(false)).toEqual(0n);
@@ -101,13 +101,13 @@ describe('SparseTreeSpecific', () => {
 
   it('should have correct root and sibling path after in a "non-append-only" way', async () => {
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', 3);
+    const tree = await createDb(db, poseidon, 'test', 3);
 
-    const level2ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
-    const level1ZeroHash = pedersen.hash(level2ZeroHash, level2ZeroHash);
+    const level2ZeroHash = poseidon.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level1ZeroHash = poseidon.hash(level2ZeroHash, level2ZeroHash);
 
     expect(tree.getNumLeaves(false)).toEqual(0n);
-    expect(tree.getRoot(false)).toEqual(pedersen.hash(level1ZeroHash, level1ZeroHash));
+    expect(tree.getRoot(false)).toEqual(poseidon.hash(level1ZeroHash, level1ZeroHash));
 
     // Insert leaf at index 3
     let level1LeftHash: Buffer;
@@ -115,9 +115,9 @@ describe('SparseTreeSpecific', () => {
     {
       await tree.updateLeaf(leafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(1n);
-      const level2Hash = pedersen.hash(INITIAL_LEAF, leafAtIndex3);
-      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
-      const root = pedersen.hash(level1LeftHash, level1ZeroHash);
+      const level2Hash = poseidon.hash(INITIAL_LEAF, leafAtIndex3);
+      level1LeftHash = poseidon.hash(level2ZeroHash, level2Hash);
+      const root = poseidon.hash(level1LeftHash, level1ZeroHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(3n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level2ZeroHash, level1ZeroHash]),
@@ -130,9 +130,9 @@ describe('SparseTreeSpecific', () => {
       const leafAtIndex6 = Fr.random().toBuffer();
       await tree.updateLeaf(leafAtIndex6, 6n);
       expect(tree.getNumLeaves(true)).toEqual(2n);
-      const level2Hash = pedersen.hash(leafAtIndex6, INITIAL_LEAF);
-      level1RightHash = pedersen.hash(level2ZeroHash, level2Hash);
-      const root = pedersen.hash(level1LeftHash, level1RightHash);
+      const level2Hash = poseidon.hash(leafAtIndex6, INITIAL_LEAF);
+      level1RightHash = poseidon.hash(level2ZeroHash, level2Hash);
+      const root = poseidon.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(6n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level2ZeroHash, level1LeftHash]),
@@ -144,9 +144,9 @@ describe('SparseTreeSpecific', () => {
     {
       await tree.updateLeaf(leafAtIndex2, 2n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
-      const level2Hash = pedersen.hash(leafAtIndex2, leafAtIndex3);
-      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
-      const root = pedersen.hash(level1LeftHash, level1RightHash);
+      const level2Hash = poseidon.hash(leafAtIndex2, leafAtIndex3);
+      level1LeftHash = poseidon.hash(level2ZeroHash, level2Hash);
+      const root = poseidon.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(2n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [leafAtIndex3, level2ZeroHash, level1RightHash]),
@@ -158,9 +158,9 @@ describe('SparseTreeSpecific', () => {
       const updatedLeafAtIndex3 = Fr.random().toBuffer();
       await tree.updateLeaf(updatedLeafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
-      const level2Hash = pedersen.hash(leafAtIndex2, updatedLeafAtIndex3);
-      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
-      const root = pedersen.hash(level1LeftHash, level1RightHash);
+      const level2Hash = poseidon.hash(leafAtIndex2, updatedLeafAtIndex3);
+      level1LeftHash = poseidon.hash(level2ZeroHash, level2Hash);
+      const root = poseidon.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(3n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [leafAtIndex2, level2ZeroHash, level1RightHash]),
@@ -174,7 +174,7 @@ describe('SparseTreeSpecific', () => {
     const maxIndex = 2 ** depth - 1;
 
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', depth);
+    const tree = await createDb(db, poseidon, 'test', depth);
 
     const leaves = Array.from({ length: 1000 }).map(() => Fr.random().toBuffer());
     const indices = Array.from({ length: 1000 }).map(() => randomBigInt(BigInt(maxIndex)));

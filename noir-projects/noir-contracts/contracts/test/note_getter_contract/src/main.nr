@@ -10,11 +10,11 @@ pub contract NoteGetter {
         // Macros
         macros::{functions::external, storage::storage},
         note::note_viewer_options::NoteViewerOptions,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet},
     };
 
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

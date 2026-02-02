@@ -1,6 +1,4 @@
-use dep::protocol_types::{
-    address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField,
-};
+use crate::protocol::{address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField};
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
@@ -8,10 +6,7 @@ use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 /// The input secret is known only to one party. The output shared secret can be derived given knowledge of
 /// `public_key`'s key-pair and the public ephemeral secret, using this same function (with reversed inputs).
 ///
-/// E.g.:
-/// Epk = esk * G // ephemeral key-pair
-/// Pk = sk * G // recipient key-pair
-/// Shared secret S = esk * Pk = sk * Epk
+/// E.g.: Epk = esk * G // ephemeral key-pair Pk = sk * G // recipient key-pair Shared secret S = esk * Pk = sk * Epk
 ///
 /// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
 pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
@@ -32,8 +27,9 @@ unconstrained fn test_consistency_with_typescript() {
 
     let shared_secret = derive_ecdh_shared_secret(secret, point);
 
-    // This is just pasted from a test run.
-    // The original typescript code from which this could be generated seems to have been deleted by someone, and soon the typescript code for encryption and decryption won't be needed, so this will have to do.
+    // This is just pasted from a test run. The original typescript code from which this could be generated seems to
+    // have been deleted by someone, and soon the typescript code for encryption and decryption won't be needed, so
+    // this will have to do.
     let hard_coded_shared_secret = Point {
         x: 0x15d55a5b3b2caa6a6207f313f05c5113deba5da9927d6421bcaa164822b911bc,
         y: 0x0974c3d0825031ae933243d653ebb1a0b08b90ee7f228f94c5c74739ea3c871e,
@@ -66,11 +62,9 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
 
     let address_b = AztecAddress::from_field(pk_b.x);
 
-    // We were lazy in deriving the secret keys, and didn't check the resulting y-coordinates
-    // of the pk_a or pk_b to be less than half the field modulus.
-    // If needed, we negate the pk's so that they yield valid address points.
-    // (We could also have negated the secrets, but there's no negate method for
-    // EmbeddedCurvesScalar).
+    // We were lazy in deriving the secret keys, and didn't check the resulting y-coordinates of the pk_a or pk_b to be
+    // less than half the field modulus. If needed, we negate the pk's so that they yield valid address points. (We
+    // could also have negated the secrets, but there's no negate method for EmbeddedCurvesScalar).
     pk_a = if (AztecAddress::from_field(pk_a.x).to_address_point().unwrap().inner == pk_a) {
         pk_a
     } else {
@@ -82,8 +76,7 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
         pk_b.neg()
     };
 
-    let shared_secret =
-        derive_ecdh_shared_secret(secret_a, address_b.to_address_point().unwrap().inner);
+    let shared_secret = derive_ecdh_shared_secret(secret_a, address_b.to_address_point().unwrap().inner);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
 
     assert_eq(shared_secret, shared_secret_alt);

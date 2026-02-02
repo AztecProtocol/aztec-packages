@@ -74,10 +74,9 @@ library TranscriptLib {
         uint256 publicInputsSize,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
-        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
+        (rp.eta, previousChallenge) = generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
 
-        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
+        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaGammaChallenges(previousChallenge, proof);
     }
 
     function generateEtaChallenge(
@@ -85,7 +84,7 @@ library TranscriptLib {
         bytes32[] calldata publicInputs,
         uint256 vkHash,
         uint256 publicInputsSize
-    ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
+    ) internal pure returns (Fr eta, Fr previousChallenge) {
         bytes32[] memory round0 = new bytes32[](1 + publicInputsSize + 6);
         round0[0] = bytes32(vkHash);
 
@@ -106,14 +105,10 @@ library TranscriptLib {
         round0[1 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        (eta, etaTwo) = splitChallenge(previousChallenge);
-
-        previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-        Fr unused;
-        (etaThree, unused) = splitChallenge(previousChallenge);
+        (eta,) = splitChallenge(previousChallenge);
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
+    function generateBetaGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
         pure
         returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)

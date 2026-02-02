@@ -4,7 +4,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt, randomInt } from '@aztec/foundation/crypto/random';
@@ -12,7 +12,7 @@ import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer'
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -46,24 +46,40 @@ export function makeInboxMessage(
 }
 
 export function makeInboxMessages(
-  count: number,
+  totalCount: number,
   opts: {
     initialHash?: Buffer16;
     initialCheckpointNumber?: CheckpointNumber;
+    messagesPerCheckpoint?: number;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
   } = {},
 ): InboxMessage[] {
-  const { initialHash = Buffer16.ZERO, overrideFn = msg => msg, initialCheckpointNumber = 1 } = opts;
+  const {
+    initialHash = Buffer16.ZERO,
+    overrideFn = msg => msg,
+    initialCheckpointNumber = CheckpointNumber(1),
+    messagesPerCheckpoint = 1,
+  } = opts;
+
   const messages: InboxMessage[] = [];
   let rollingHash = initialHash;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < totalCount; i++) {
+    const msgIndex = i % messagesPerCheckpoint;
+    const checkpointNumber = CheckpointNumber.fromBigInt(
+      BigInt(initialCheckpointNumber) + BigInt(i) / BigInt(messagesPerCheckpoint),
+    );
     const leaf = Fr.random();
-    const checkpointNumber = CheckpointNumber(i + initialCheckpointNumber);
-    const message = overrideFn(makeInboxMessage(rollingHash, { leaf, checkpointNumber }), i);
+    const message = overrideFn(
+      makeInboxMessage(rollingHash, {
+        leaf,
+        checkpointNumber,
+        index: InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(msgIndex),
+      }),
+      i,
+    );
     rollingHash = message.rollingHash;
     messages.push(message);
   }
-
   return messages;
 }
 
@@ -268,9 +284,9 @@ export async function makeCheckpointWithLogs(
 ): Promise<PublishedCheckpoint> {
   const { previousArchive, numTxsPerBlock = 4, privateLogs, publicLogs } = options;
 
-  const block = await L2BlockNew.random(BlockNumber(blockNumber), {
-    checkpointNumber: CheckpointNumber(blockNumber),
-    indexWithinCheckpoint: 0,
+  const block = await L2Block.random(BlockNumber(blockNumber), {
+    checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
+    indexWithinCheckpoint: IndexWithinCheckpoint(0),
     state: makeStateForBlock(blockNumber, numTxsPerBlock),
     ...(previousArchive ? { lastArchive: previousArchive } : {}),
   });
@@ -289,7 +305,7 @@ export async function makeCheckpointWithLogs(
     AppendOnlyTreeSnapshot.random(),
     CheckpointHeader.random(),
     [block],
-    CheckpointNumber(blockNumber),
+    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
   );
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }

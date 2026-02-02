@@ -69,9 +69,9 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <typename T> friend OriginTag bb::extract_transcript_tag(const T& transcript);
 
     // Fiat-Shamir Round Tracking
-    size_t transcript_index = 0; // Unique transcript ID (PRIVATE - access via extract_transcript_tag)
-    size_t round_index = 0;      // Current FS round (PRIVATE - access via extract_transcript_tag)
-    bool reception_phase = true; // Whether receiving from prover or generating challenges
+    size_t transcript_index = 0;             // Unique transcript ID (PRIVATE - access via extract_transcript_tag)
+    size_t round_index = 0;                  // Current FS round (PRIVATE - access via extract_transcript_tag)
+    bool challenge_generation_phase = false; // Whether currently generating challenges (vs sending/receiving data)
 
     // Challenge generatopm state==
     bool is_first_challenge = true;           // Indicates if this is the first challenge this transcript is generating
@@ -82,7 +82,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // Number of frs written to proof_data by the prover
     size_t num_frs_read = 0;    // Number of frs read from proof_data by the verifier
-    size_t round_number = 0;    // Current round number for manifest
 
     // Manifest (debugging tool)
     bool use_manifest = false;   // Indicates whether the manifest is turned on (only for manifest tests)
@@ -141,7 +140,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
-            manifest.add_entry(round_number, label, element_frs.size());
+            manifest.add_entry(round_index, label, element_frs.size());
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
@@ -232,7 +231,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         if (use_manifest) {
             // Add challenge labels for current round to the manifest
             for (const auto& label : labels) {
-                manifest.add_challenge(round_number, label);
+                manifest.add_challenge(round_index, label);
             }
         }
 
@@ -258,17 +257,13 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
             challenges[num_challenges - 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // We are in challenge generation mode
-        if (reception_phase) {
-            reception_phase = false;
+        // Track Fiat-Shamir round transitions: entering challenge generation mode
+        if (!challenge_generation_phase) {
+            challenge_generation_phase = true;
         }
 
         // Assign origin tags to the challenges
         bb::assign_origin_tag<in_circuit>(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
-
-        // Prepare for next round.
-        ++round_number;
 
         return challenges;
     }
@@ -320,11 +315,10 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <class T> void add_to_hash_buffer(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-        // then we need to increment the round index
-        if (!reception_phase) {
-            reception_phase = true;
+        // Track Fiat-Shamir round transitions: if we were generating challenges,
+        // now we're adding data, which means a new round has started
+        if (challenge_generation_phase) {
+            challenge_generation_phase = false;
             round_index++;
         }
 
@@ -350,6 +344,13 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
+        // Track Fiat-Shamir round transitions: if we were generating challenges,
+        // now we're sending data, which means a new round has started
+        if (challenge_generation_phase) {
+            challenge_generation_phase = false;
+            round_index++;
+        }
+
         auto element_frs = Codec::template serialize_to_fields<T>(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
@@ -370,11 +371,10 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-        // then we need to increment the round index
-        if (!reception_phase) {
-            reception_phase = true;
+        // Track Fiat-Shamir round transitions: if we were generating challenges,
+        // now we're receiving data, which means a new round has started
+        if (challenge_generation_phase) {
+            challenge_generation_phase = false;
             round_index++;
         }
         // Assign an origin tag to the elements going into the hash buffer
@@ -429,33 +429,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     {
         return Codec::template deserialize_from_fields<T>(frs);
     }
-    /**
-     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
-     * after initialization. Only intended to be used by Prover.
-     *
-     * @return BaseTranscript
-     */
-    static std::shared_ptr<BaseTranscript> prover_init_empty()
-    {
-        auto transcript = std::make_shared<BaseTranscript>();
-        constexpr uint32_t init{ 42 }; // arbitrary
-        transcript->send_to_verifier("Init", init);
-        return transcript;
-    };
 
-    /**
-     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
-     * BaseTranscript::prover_init_empty(). Only intended to be used by Verifier.
-     *
-     * @param transcript
-     * @return BaseTranscript
-     */
-    static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
-    {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
-        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
-        return verifier_transcript;
-    };
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print()
@@ -467,6 +441,34 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     }
 
     // Test-specific utils
+
+    /**
+     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
+     * after initialization. Only intended to be used by Prover.
+     *
+     * @return BaseTranscript
+     */
+    static std::shared_ptr<BaseTranscript> test_prover_init_empty()
+    {
+        auto transcript = std::make_shared<BaseTranscript>();
+        constexpr uint32_t init{ 42 }; // arbitrary
+        transcript->send_to_verifier("Init", init);
+        return transcript;
+    };
+
+    /**
+     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
+     * BaseTranscript::test_prover_init_empty(). Only intended to be used by Verifier.
+     *
+     * @param transcript
+     * @return BaseTranscript
+     */
+    static std::shared_ptr<BaseTranscript> test_verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
+    {
+        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
+        return verifier_transcript;
+    };
 
     /**
      * @brief Test utility: Set proof parsing state for export after deserialization

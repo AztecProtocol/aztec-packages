@@ -276,10 +276,155 @@ export const DEFAULT_VALUE = 42;
 EOF
 
   # Test from pkg-a (--noEmit doesn't work with project references from root)
-  if (cd "$test_root/pkg-a" && ../scripts/tsc.sh --noEmit) 2>&1; then
+  if (cd "$test_root/pkg-a" && CLAUDECODE=1 ../scripts/tsc.sh --noEmit) 2>&1; then
     fail "Should have detected type error"
   else
     pass "Type error detected correctly"
+  fi
+
+  # Restore valid code
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+}
+
+test_quiet_success_output() {
+  log "\nTest 7: Quiet success output"
+  clean_build_artifacts
+
+  local output
+  output=$(cd "$test_root" && ./scripts/tsc.sh 2>&1)
+
+  if [[ "$output" == "Typescript build succeeded" ]]; then
+    pass "Success output is single line 'Typescript build succeeded'"
+  else
+    fail "Success output should be 'Typescript build succeeded', got: $output"
+  fi
+}
+
+test_watch_mode_emits_js() {
+  log "\nTest 8: Watch mode emits JS on file change"
+  clean_build_artifacts
+
+  # Start watch mode in background
+  (cd "$test_root/pkg-a" && ../scripts/tsc.sh -w) &
+  watch_pid=$!
+
+  # Wait for initial build
+  local timeout=10
+  while [[ ! -f "$test_root/pkg-a/dest/index.js" && $timeout -gt 0 ]]; do
+    sleep 0.5
+    ((timeout--))
+  done
+
+  check_file "$test_root/pkg-a/dest/index.js" "Initial JS file generated in watch mode"
+
+  if [[ -f "$test_root/pkg-a/dest/index.js" ]]; then
+    # Record original content
+    local original_content
+    original_content=$(cat "$test_root/pkg-a/dest/index.js")
+
+    # Wait a bit for swc to be ready for changes
+    sleep 1
+
+    # Modify the source file
+    cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+
+// New function added in watch mode
+export function newFunction(): string {
+  return "watch mode works";
+}
+EOF
+
+    # Wait for rebuild
+    sleep 3
+
+    # Check if JS was updated with new function
+    if grep -q "newFunction" "$test_root/pkg-a/dest/index.js" 2>/dev/null; then
+      pass "Watch mode rebuilt JS with changes"
+    else
+      fail "Watch mode did not rebuild JS (swc --watch missing?)"
+    fi
+  fi
+
+  # Cleanup: kill watch process
+  kill $watch_pid 2>/dev/null || true
+  wait $watch_pid 2>/dev/null || true
+
+  # Restore original source
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+}
+
+test_quiet_error_output() {
+  log "\nTest 9: Quiet error output (only failed command output shown)"
+  clean_build_artifacts
+
+  # Introduce a type error
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value: "not a number" };  // Type error!
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+
+  local output
+  output=$(cd "$test_root" && CLAUDECODE=1 ./scripts/tsc.sh 2>&1) || true
+
+  # Check that output contains error line
+  if echo "$output" | grep -q ": error TS"; then
+    pass "Error output contains TypeScript error"
+  else
+    fail "Error output should contain TypeScript error"
+  fi
+
+  # Check that output does NOT contain swc success messages
+  if echo "$output" | grep -q "Successfully compiled"; then
+    fail "Error output should not contain swc success messages"
+  else
+    pass "Error output does not contain swc noise"
+  fi
+
+  # Check that output does NOT contain "Typescript build succeeded"
+  if echo "$output" | grep -q "Typescript build succeeded"; then
+    fail "Error output should not contain 'Typescript build succeeded'"
+  else
+    pass "Error output does not contain success message"
   fi
 
   # Restore valid code
@@ -308,6 +453,9 @@ main() {
   test_root_full_build
   test_no_emit
   test_type_error_detection
+  test_quiet_success_output
+  test_watch_mode_emits_js
+  test_quiet_error_output
 
   log "\n=== Results ==="
   echo -e "\033[32mPassed: $passed\033[0m"

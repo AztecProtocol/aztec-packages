@@ -1,10 +1,10 @@
 use crate::{Orderbook, test::utils::setup};
 use aztec::{
-    protocol_types::{address::AztecAddress, traits::FromField},
+    protocol::{address::AztecAddress, traits::FromField},
     test::helpers::authwit::add_private_authwit_from_call,
 };
 use token::Token;
-use uint_note::uint_note::PartialUintNote;
+use uint_note::PartialUintNote;
 
 global BID_AMOUNT: u128 = 1000;
 global ASK_AMOUNT: u128 = 2000;

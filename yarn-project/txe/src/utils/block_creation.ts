@@ -4,12 +4,12 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Body, L2Block, L2BlockHeader } from '@aztec/stdlib/block';
+import { Body, L2Block } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
 
 /**
  * Returns a transaction request hash that is valid for transactions that are the only ones in a block.
@@ -46,22 +46,18 @@ export async function insertTxEffectIntoWorldTrees(
 export async function makeTXEBlockHeader(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
-): Promise<L2BlockHeader> {
+): Promise<BlockHeader> {
   const stateReference = await worldTrees.getStateReference();
   const archiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-  return new L2BlockHeader(
-    new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-    Fr.ZERO,
-    Fr.ZERO,
-    Fr.ZERO,
-    stateReference,
+  return BlockHeader.from({
+    lastArchive: new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+    spongeBlobHash: Fr.ZERO,
+    state: stateReference,
     globalVariables,
-    Fr.ZERO,
-    Fr.ZERO,
-    Fr.ZERO,
-    Fr.ZERO,
-  );
+    totalFees: Fr.ZERO,
+    totalManaUsed: Fr.ZERO,
+  });
 }
 
 /**
@@ -85,11 +81,15 @@ export async function makeTXEBlock(
   const header = await makeTXEBlockHeader(worldTrees, globalVariables);
 
   // Update the archive tree with this block's header hash
-  await worldTrees.updateArchive(header.toBlockHeader());
+  await worldTrees.updateArchive(header);
 
   // Get the new archive state after updating
   const newArchiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
   const newArchive = new AppendOnlyTreeSnapshot(new Fr(newArchiveInfo.root), Number(newArchiveInfo.size));
 
-  return new L2Block(newArchive, header, new Body(txEffects));
+  // L2Block requires checkpointNumber and indexWithinCheckpoint
+  const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
+  const indexWithinCheckpoint = IndexWithinCheckpoint(0);
+
+  return new L2Block(newArchive, header, new Body(txEffects), checkpointNumber, indexWithinCheckpoint);
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 #include "./gate_patterns.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -139,6 +145,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void remove_unnecessary_range_constrains_variables();
     void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
+    void remove_unnecessary_keccak_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_record_witness_variables();
 
     std::unordered_set<uint32_t> get_variables_in_one_gate();

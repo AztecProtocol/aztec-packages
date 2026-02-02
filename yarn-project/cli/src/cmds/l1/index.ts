@@ -1,3 +1,4 @@
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
@@ -497,14 +498,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
   program
     .command('set-proven-through', { hidden: true })
     .description(
-      'Instructs the L1 rollup contract to assume all blocks until the given number are automatically proven.',
+      'Instructs the L1 rollup contract to assume all blocks until the given checkpoint are automatically proven.',
     )
-    .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
+    .argument('[checkpoint]', 'The target checkpoint, defaults to the latest pending checkpoint.', parseBigint)
     .addOption(l1RpcUrlsOption)
     .addOption(nodeOption)
-    .action(async (blockNumber, options) => {
+    .action(async (checkpoint, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.nodeUrl, log);
+      await assumeProvenThrough(CheckpointNumber.fromBigInt(checkpoint), options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program

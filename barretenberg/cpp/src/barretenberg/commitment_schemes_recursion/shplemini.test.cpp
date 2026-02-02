@@ -1,7 +1,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -118,7 +118,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
         MockClaimGen mock_claims(N, num_polys, num_shifted, u_challenge, commitment_key);
-        auto prover_transcript = NativeTranscript::prover_init_empty();
+        auto prover_transcript = NativeTranscript::test_prover_init_empty();
         // Initialize polys outside of `if` as they are used inside RefVector ClaimBatcher members.
         Polynomial<NativeFr> squashed_unshifted(N);
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));

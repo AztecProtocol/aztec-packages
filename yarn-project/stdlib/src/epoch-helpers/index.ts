@@ -51,6 +51,15 @@ export function getSlotAtTimestamp(
     : SlotNumber.fromBigInt((ts - constants.l1GenesisTime) / BigInt(constants.slotDuration));
 }
 
+/** Returns the L2 slot number at the next L1 block based on the current timestamp. */
+export function getSlotAtNextL1Block(
+  currentL1Timestamp: bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+): SlotNumber {
+  const nextL1BlockTimestamp = currentL1Timestamp + BigInt(constants.ethereumSlotDuration);
+  return getSlotAtTimestamp(nextL1BlockTimestamp, constants);
+}
+
 /** Returns the epoch number for a given timestamp. */
 export function getEpochNumberAtTimestamp(
   ts: bigint,
@@ -69,7 +78,7 @@ export function getSlotRangeForEpoch(
   epochNumber: EpochNumber,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
 ): [SlotNumber, SlotNumber] {
-  const startSlot = SlotNumber(epochNumber * constants.epochDuration);
+  const startSlot = SlotNumber(Number(epochNumber) * constants.epochDuration);
   return [startSlot, SlotNumber(startSlot + constants.epochDuration - 1)];
 }
 

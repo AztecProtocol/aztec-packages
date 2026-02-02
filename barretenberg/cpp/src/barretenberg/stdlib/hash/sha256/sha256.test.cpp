@@ -87,7 +87,7 @@ TYPED_TEST(Sha256Test, BlockNistVectorOne)
         EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
     }
 
-    check_circuit_and_gate_count(builder, 6679);
+    check_circuit_and_gate_count(builder, 6702);
     EXPECT_EQ(builder.get_tables_size(), 35992);
 }
 
@@ -165,7 +165,7 @@ TYPED_TEST(Sha256Test, BlockNistVectorTwo)
         EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
     }
 
-    check_circuit_and_gate_count(builder, 10611);
+    check_circuit_and_gate_count(builder, 10646);
     EXPECT_EQ(builder.get_tables_size(), 35992);
 }
 

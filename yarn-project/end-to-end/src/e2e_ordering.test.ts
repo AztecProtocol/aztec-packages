@@ -56,8 +56,8 @@ describe('e2e_ordering', () => {
     let pubSetValueSelector: FunctionSelector;
 
     beforeEach(async () => {
-      parent = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
-      child = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+      parent = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress });
+      child = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress });
       pubSetValueSelector = await child.methods.pub_set_value.selector();
     }, TIMEOUT);
 
@@ -77,7 +77,7 @@ describe('e2e_ordering', () => {
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await proveInteraction(wallet, action, { from: defaultAccountAddress });
 
-          await tx.send().wait();
+          await tx.send();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.getPublicCallRequestsWithCalldata();
@@ -120,7 +120,7 @@ describe('e2e_ordering', () => {
       ] as const)('orders public state updates in %s (and ensures final state value is correct)', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send({ from: defaultAccountAddress }).wait();
+        await child.methods[method]().send({ from: defaultAccountAddress });
 
         const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
@@ -133,7 +133,7 @@ describe('e2e_ordering', () => {
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send({ from: defaultAccountAddress }).wait();
+        await child.methods[method]().send({ from: defaultAccountAddress });
 
         // Logs are emitted in the expected order
         await expectLogsFromLastBlockToBe(expectedOrder);

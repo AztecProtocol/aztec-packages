@@ -3,9 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
-import { setupEnvironment, startPortForwardForRPC } from './utils.js';
+import { ChainHealth, type ServiceEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 jest.setTimeout(2_400_000); // 40 minutes
 
@@ -15,16 +14,19 @@ const SLEEP_MS = 1000;
 
 describe('proving test', () => {
   let aztecNode: AztecNode;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
+  const health = new ChainHealth(config.NAMESPACE, logger);
+
   beforeAll(async () => {
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    aztecNode = createAztecNodeClient(rpcUrl);
+    await health.setup();
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    aztecNode = createAztecNodeClient(rpcEndpoint.url);
   });
 
-  afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+  afterAll(async () => {
+    await health.teardown();
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('advances the proven chain', async () => {

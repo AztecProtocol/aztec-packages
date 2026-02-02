@@ -1,0 +1,39 @@
+validator:
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "2"
+    pool: "spot"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  node:
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2Gi"
+      limits:
+        cpu: "1.5"
+        memory: "6Gi"
+
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi

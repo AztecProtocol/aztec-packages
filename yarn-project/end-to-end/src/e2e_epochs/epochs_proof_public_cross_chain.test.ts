@@ -2,7 +2,7 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -42,7 +42,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     // Deploy a contract that consumes L1 to L2 messages
     await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
     logger.warn(`Deploying test contract`);
-    const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] }).deployed();
+    const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
     logger.warn(`Test contract deployed at ${testContract.address}`);
 
     // Send an l1 to l2 message to be consumed from the contract
@@ -67,8 +67,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),
       )
-      .send({ from: context.accounts[0] })
-      .wait();
+      .send({ from: context.accounts[0] });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
 
     // Wait until a proof lands for the transaction
@@ -94,9 +93,8 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),
       )
-      .send({ from: context.accounts[0] })
-      .wait({ dontThrowOnRevert: true });
-    expect(failedReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+      .send({ from: context.accounts[0], wait: { dontThrowOnRevert: true } });
+    expect(failedReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     logger.info(`Test succeeded`);
   });

@@ -30,18 +30,14 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
     bool has_chonk_recursion_constraints = !chonk_recursion_data.first.empty();
 
     // Schema invariants: validate constraint type combinations for MegaBuilder
-    if (has_honk_recursion_constraints && has_hn_recursion_constraints) {
-        throw_or_abort(
-            "create_recursion_constraints: invalid circuit - both honk and HN recursion constraints present");
-    }
-    if (has_avm_recursion_constraints) {
-        throw_or_abort("create_recursion_constraints: invalid circuit - AVM recursion constraints not supported with "
-                       "MegaBuilder");
-    }
-    if (has_chonk_recursion_constraints) {
-        throw_or_abort("create_recursion_constraints: invalid circuit - Chonk recursion constraints not supported with "
-                       "MegaBuilder");
-    }
+    BB_ASSERT(!(has_honk_recursion_constraints && has_hn_recursion_constraints),
+              "create_recursion_constraints: invalid circuit - both honk and HN recursion constraints present");
+    BB_ASSERT(
+        !has_avm_recursion_constraints,
+        "create_recursion_constraints: invalid circuit - AVM recursion constraints not supported with MegaBuilder");
+    BB_ASSERT(!has_chonk_recursion_constraints,
+              "create_recursion_constraints: invalid circuit - Chonk recursion constraints not supported with "
+              "MegaBuilder");
 
     HonkRecursionConstraintsOutput<MegaCircuitBuilder> output;
 
@@ -50,10 +46,14 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
 
         if (constraint.proof_type == HONK_ZK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
+                                                                                                          constraint);
         } else if (constraint.proof_type == HONK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
+                                                                                                          constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
         } else {
@@ -88,14 +88,11 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     bool has_chonk_recursion_constraints = !chonk_recursion_data.first.empty();
 
     // Schema invariants: validate constraint type combinations for UltraBuilder
-    if (has_hn_recursion_constraints) {
-        throw_or_abort(
-            "create_recursion_constraints: invalid circuit - HN recursion constraints not supported with UltraBuilder");
-    }
-    if (has_chonk_recursion_constraints && has_honk_recursion_constraints) {
-        throw_or_abort(
-            "create_recursion_constraints: invalid circuit - both honk and chonk recursion constraints present");
-    }
+    BB_ASSERT(
+        !has_hn_recursion_constraints,
+        "create_recursion_constraints: invalid circuit - HN recursion constraints not supported with UltraBuilder");
+    BB_ASSERT(!(has_chonk_recursion_constraints && has_honk_recursion_constraints),
+              "create_recursion_constraints: invalid circuit - both honk and chonk recursion constraints present");
     if (has_chonk_recursion_constraints && has_avm_recursion_constraints) {
         vinfo("WARNING: both chonk and avm recursion constraints are present. While we support this combination, we "
               "expect to see it only in a mock circuit.");
@@ -108,14 +105,19 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
 
         if (constraint.proof_type == HONK_ZK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == HONK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
+            // Use UltraRecursiveFlavor with RollupIO for rollup proofs (IO determines IPA handling)
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(builder,
-                                                                                                    constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::RollupIO>(builder, constraint);
         } else {
             bb::assert_failure("Invalid Honk proof type");
         }
@@ -166,18 +168,17 @@ void process_hn_recursion_constraints(
     using StdlibFF = Chonk::RecursiveFlavor::FF;
 
     // Validate hn_recursion_data constraints/indices size match
-    if (hn_recursion_data.first.size() != hn_recursion_data.second.size()) {
-        throw_or_abort("process_hn_recursion_constraints: hn_recursion_data constraints/indices size mismatch");
-    }
+    BB_ASSERT_EQ(hn_recursion_data.first.size(),
+                 hn_recursion_data.second.size(),
+                 "process_hn_recursion_constraints: hn_recursion_data constraints/indices size mismatch");
 
     // Lambda template to handle both Chonk and Chonk with the same code
     auto process_with_ivc = [&]<typename IVCType>(const std::shared_ptr<IVCType>& ivc) {
         // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-        if (hn_recursion_data.first.size() != ivc->verification_queue.size()) {
-            throw_or_abort("process_hn_recursion_constraints: mismatch between ACIR constraints (" +
-                           std::to_string(hn_recursion_data.first.size()) + ") and IVC verification queue (" +
-                           std::to_string(ivc->verification_queue.size()) + ")");
-        }
+        BB_ASSERT_EQ(hn_recursion_data.first.size(),
+                     ivc->verification_queue.size(),
+                     "process_hn_recursion_constraints: mismatch in number of recursive verifications during kernel "
+                     "creation!");
 
         // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
@@ -204,47 +205,38 @@ void process_hn_recursion_constraints(
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
         // Verify stdlib queue size matches after instantiation (invariant check)
-        if (ivc->stdlib_verification_queue.size() != hn_recursion_data.first.size()) {
-            throw_or_abort("process_hn_recursion_constraints: stdlib_verification_queue size (" +
-                           std::to_string(ivc->stdlib_verification_queue.size()) + ") != ACIR constraints size (" +
-                           std::to_string(hn_recursion_data.first.size()) + ") after instantiation");
-        }
+        BB_ASSERT_EQ(ivc->stdlib_verification_queue.size(),
+                     hn_recursion_data.first.size(),
+                     "process_hn_recursion_constraints: stdlib_verification_queue size mismatch after instantiation");
 
         // Validate constraints against stdlib verification queue entries
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
             // Validate ACIR constraint proof_type matches IVC queue type
-            if (proof_type_to_chonk_queue_type(constraint.proof_type) != queue_entry.type) {
-                throw_or_abort("process_hn_recursion_constraints: ACIR constraint proof_type does not match IVC queue "
-                               "type");
-            }
+            BB_ASSERT(proof_type_to_chonk_queue_type(constraint.proof_type) == queue_entry.type,
+                      "process_hn_recursion_constraints: ACIR constraint proof_type does not match IVC queue type");
 
             // HN recursion constraints from Noir always have empty public_inputs - the public inputs are handled
             // entirely by the IVC (KernelIO/AppIO). If this changes in the future, we need to implement binding
             // between ACIR public inputs and proof public inputs.
-            if (!constraint.public_inputs.empty()) {
-                throw_or_abort(
-                    "process_hn_recursion_constraints: unexpected non-empty public_inputs in HN constraint - "
-                    "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
-            }
+            BB_ASSERT(constraint.public_inputs.empty(),
+                      "process_hn_recursion_constraints: unexpected non-empty public_inputs in HN constraint - "
+                      "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
             // Validate public input layout: IO region size must match VK's num_public_inputs
             size_t expected_io_size =
                 queue_entry.is_kernel ? IVCType::KernelIO::PUBLIC_INPUTS_SIZE : IVCType::AppIO::PUBLIC_INPUTS_SIZE;
             size_t vk_num_public_inputs =
                 static_cast<size_t>(uint64_t(queue_entry.honk_vk_and_hash->vk->num_public_inputs.get_value()));
-            if (expected_io_size != vk_num_public_inputs) {
-                throw_or_abort("process_hn_recursion_constraints: IO size mismatch - expected " +
-                               std::to_string(expected_io_size) + " but VK has num_public_inputs " +
-                               std::to_string(vk_num_public_inputs));
-            }
+            BB_ASSERT_EQ(expected_io_size,
+                         vk_num_public_inputs,
+                         "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");
 
             // Sanity check: proof vector should have at least num_public_inputs elements
             // (HN proofs store public inputs at the start of the proof vector)
-            if (queue_entry.proof.size() < vk_num_public_inputs) {
-                throw_or_abort("process_hn_recursion_constraints: proof vector size (" +
-                               std::to_string(queue_entry.proof.size()) + ") smaller than num_public_inputs (" +
-                               std::to_string(vk_num_public_inputs) + ") - malformed proof");
-            }
+            BB_ASSERT_GTE(queue_entry.proof.size(),
+                          vk_num_public_inputs,
+                          "process_hn_recursion_constraints: proof vector smaller than num_public_inputs - malformed "
+                          "proof");
         }
 
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.

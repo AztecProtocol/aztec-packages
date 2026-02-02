@@ -1,4 +1,11 @@
-import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
 
 export class NodeMetrics {
   private receiveTxCount: UpDownCounter;
@@ -9,14 +16,14 @@ export class NodeMetrics {
 
   constructor(client: TelemetryClient, name = 'AztecNode') {
     const meter = client.getMeter(name);
-    this.receiveTxCount = meter.createUpDownCounter(Metrics.NODE_RECEIVE_TX_COUNT);
+    this.receiveTxCount = createUpDownCounterWithDefault(meter, Metrics.NODE_RECEIVE_TX_COUNT, {
+      [Attributes.OK]: [true, false],
+    });
     this.receiveTxDuration = meter.createHistogram(Metrics.NODE_RECEIVE_TX_DURATION);
 
     this.snapshotDuration = meter.createHistogram(Metrics.NODE_SNAPSHOT_DURATION);
 
-    this.snapshotErrorCount = meter.createUpDownCounter(Metrics.NODE_SNAPSHOT_ERROR_COUNT);
-
-    this.snapshotErrorCount.add(0);
+    this.snapshotErrorCount = createUpDownCounterWithDefault(meter, Metrics.NODE_SNAPSHOT_ERROR_COUNT);
   }
 
   receivedTx(durationMs: number, isAccepted: boolean) {

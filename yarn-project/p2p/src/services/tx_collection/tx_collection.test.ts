@@ -4,7 +4,7 @@ import { getDefaultConfig } from '@aztec/foundation/config';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
@@ -15,8 +15,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { TxPool } from '../../mem_pools/index.js';
 import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
+import type { ConnectionSampler } from '../reqresp/connection-sampler/connection_sampler.js';
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
 import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
+import { ReqRespStatus } from '../reqresp/status.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import type { SlowTxCollection } from './slow_tx_collection.js';
@@ -26,7 +29,9 @@ import type { TxSource } from './tx_source.js';
 describe('TxCollection', () => {
   let txCollection: TestTxCollection;
 
-  let reqResp: MockProxy<Pick<ReqRespInterface, 'sendBatchRequest'>>;
+  let reqResp: MockProxy<Pick<ReqRespInterface, 'sendBatchRequest' | 'sendRequestToPeer'>>;
+  const connectionSampler = mock<ConnectionSampler>();
+  const mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
   let nodes: MockProxy<TxSource>[];
   let txPool: MockProxy<TxPool>;
   let constants: L1RollupConstants;
@@ -36,7 +41,7 @@ describe('TxCollection', () => {
   let deadline: Date;
   let txs: Tx[];
   let txHashes: TxHash[];
-  let block: L2BlockNew;
+  let block: L2Block;
 
   const makeNode = (name: string) => {
     const node = mock<TxSource>();
@@ -52,7 +57,7 @@ describe('TxCollection', () => {
   };
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
-    L2BlockNew.random(BlockNumber(blockNumber), {
+    L2Block.random(BlockNumber(blockNumber), {
       txsPerBlock: 4,
       txOptions: {
         numPublicCallsPerTx: 3,
@@ -103,8 +108,9 @@ describe('TxCollection', () => {
   const sortByHash = (txs: Tx[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
 
   beforeEach(async () => {
-    reqResp = mock<Pick<ReqRespInterface, 'sendBatchRequest'>>();
+    reqResp = mock<Pick<ReqRespInterface, 'sendBatchRequest' | 'sendRequestToPeer'>>();
     reqResp.sendBatchRequest.mockResolvedValue([]);
+    reqResp.sendRequestToPeer.mockResolvedValue({ status: ReqRespStatus.SUCCESS, data: Buffer.alloc(0) });
 
     nodes = [makeNode('node1'), makeNode('node2')];
 
@@ -132,7 +138,8 @@ describe('TxCollection', () => {
     block = await makeL2Block();
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
 
-    txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+    mockP2PService.reqResp = reqResp;
+    txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
   });
 
   afterEach(async () => {
@@ -222,7 +229,7 @@ describe('TxCollection', () => {
     });
 
     it('collects missing txs directly via reqresp if there are no nodes configured', async () => {
-      txCollection = new TestTxCollection(reqResp, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, dateProvider);
       txCollection.startCollecting(block, txHashes);
 
       setReqRespTxs([txs[0]]);
@@ -252,7 +259,7 @@ describe('TxCollection', () => {
 
     it('does not request missing txs being collected via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: false };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -272,7 +279,7 @@ describe('TxCollection', () => {
 
     it('pauses slow collection if fast collection is ongoing', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -293,7 +300,7 @@ describe('TxCollection', () => {
 
     it('stops collecting a tx when found via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
 
       setNodeTxs(nodes[0], txs);
       txCollection.startCollecting(block, txHashes);
@@ -412,7 +419,7 @@ describe('TxCollection', () => {
     });
 
     it('collects via reqresp if no nodes are configured', async () => {
-      txCollection = new TestTxCollection(reqResp, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, dateProvider);
       setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expectReqRespToHaveBeenCalledWith(txHashes);

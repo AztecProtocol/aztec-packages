@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -11,12 +12,12 @@ namespace bb::avm2::simulation {
 struct Poseidon2HashEvent {
     std::vector<FF> inputs; // This input is padded to a multiple of 3
     std::vector<std::array<FF, 4>> intermediate_states;
-    FF output;
+    FF output = 0;
 };
 
 struct Poseidon2PermutationEvent {
-    std::array<FF, 4> input;
-    std::array<FF, 4> output;
+    std::array<FF, 4> input = { 0, 0, 0, 0 };
+    std::array<FF, 4> output = { 0, 0, 0, 0 };
 };
 
 struct Poseidon2PermutationMemoryEvent {
@@ -25,8 +26,10 @@ struct Poseidon2PermutationMemoryEvent {
     MemoryAddress src_address = 0;
     MemoryAddress dst_address = 0;
     // Need to know the tag value for error handling
-    std::array<MemoryValue, 4> input;
-    std::array<FF, 4> output;
+    std::array<MemoryValue, 4> input = {
+        MemoryValue::from<FF>(0), MemoryValue::from<FF>(0), MemoryValue::from<FF>(0), MemoryValue::from<FF>(0)
+    };
+    std::array<FF, 4> output = { 0, 0, 0, 0 };
 };
 
 } // namespace bb::avm2::simulation

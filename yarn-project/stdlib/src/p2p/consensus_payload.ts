@@ -7,7 +7,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import type { L2Block } from '../block/l2_block.js';
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { CheckpointProposal, CheckpointProposalCore } from './checkpoint_proposal.js';
@@ -74,10 +73,6 @@ export class ConsensusPayload implements Signable {
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
     return new ConsensusPayload(fields.header, fields.archive);
-  }
-
-  static fromBlock(block: L2Block): ConsensusPayload {
-    return new ConsensusPayload(block.header.toCheckpointHeader(), block.archive.root);
   }
 
   static fromCheckpoint(checkpoint: Checkpoint): ConsensusPayload {

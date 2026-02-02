@@ -41,12 +41,12 @@ pub contract AMM {
     };
     use dep::aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
 
     use dep::token::Token;
-    use dep::uint_note::uint_note::PartialUintNote;
+    use dep::uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {

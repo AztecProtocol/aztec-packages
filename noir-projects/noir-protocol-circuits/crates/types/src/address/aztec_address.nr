@@ -7,7 +7,7 @@ use crate::{
     hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
-    utils::field::{pow, sqrt},
+    utils::field::sqrt,
 };
 
 // We do below because `use crate::point::Point;` does not work
@@ -53,34 +53,65 @@ impl AztecAddress {
     /// of the address. If the address is invalid (i.e. it is not a properly derived Aztec address), then this
     /// returns `Option::none()`, and no shared secrets can be created.
     pub fn to_address_point(self) -> Option<AddressPoint> {
-        // We compute the address point by taking our address, setting it to x, and then solving for y in the
-        // equation which defines our bn curve:
+        // We compute the address point by taking our address as x, and then solving for y in the
+        // equation which defines the grumpkin curve:
         // y^2 = x^3 - 17; x = address
         let x = self.inner;
-        let y_squared = pow(x, 3) - 17;
+        let y_squared = x * x * x - 17;
 
         // An invalid AztecAddress is one for which no y coordinate satisfies the curve equation, which we'll
         // identify by proving that the square root of y_squared does not exist.
-        let mut y_opt = sqrt(y_squared);
-        if y_opt.is_none() {
-            Option::none()
-        } else {
-            let mut y = y_opt.unwrap();
+        sqrt(y_squared).map(|y| {
+            // If we get a negative y coordinate (y > (r - 1) / 2), we swap it to the
+            // positive one (where y <= (r - 1) / 2) by negating it.
+            let final_y = if Self::is_positive(y) { y } else { -y };
 
-            // If we get a negative y coordinate (any y where y > MAX_FIELD_VALUE / 2), we pin it to the
-            // positive one (any value where y <= MAX_FIELD_VALUE / 2) by subtracting it from the Field modulus
-            // note: The field modulus is MAX_FIELD_VALUE + 1
-            if (!(y.lt(MAX_FIELD_VALUE / 2) | y.eq(MAX_FIELD_VALUE / 2))) {
-                y = (MAX_FIELD_VALUE + 1) - y;
-            }
+            AddressPoint { inner: Point { x: self.inner, y: final_y, is_infinite: false } }
+        })
+    }
 
-            Option::some(
-                AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } },
-            )
-        }
+    /// Determines whether a y-coordinate is in the lower (positive) or upper (negative) "half" of the field.
+    /// I.e.
+    /// y <= (r - 1)/2 => positive.
+    /// y > (r - 1)/2 => negative.
+    /// An AddressPoint always uses the "positive" y.
+    fn is_positive(y: Field) -> bool {
+        // Note: The field modulus r is MAX_FIELD_VALUE + 1.
+        let MID = MAX_FIELD_VALUE / 2; // (r - 1) / 2
+        let MID_PLUS_1 = MID + 1; // (r - 1)/2 + 1
+        // Note: y <= m implies y < m + 1.
+        y.lt(MID_PLUS_1)
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
+        //
+        //                          address = address_point.x
+        //                                          |
+        //                                    address_point = pre_address * G + Ivpk_m (always choose "positive" y-coord)
+        //                                                        |               ^
+        //                                                        |               |.....................
+        //                                                    pre_address                              .
+        //                                               /                   \                         .
+        //                                             /                       \                       .
+        //                               partial_address                        public_keys_hash       .
+        //                           /                    \                     /   /    \    \        .
+        //                         /                        \              Npk_m Ivpk_m Ovpk_m Tpk_m   .
+        //          contract_class_id                         \                     |...................
+        //             /   |    \                               \
+        // artifact_hash   |    public_bytecode_commitment       salted_initialization_hash
+        //                 |                                         /     /        \
+        //     private_function_tree_root              deployer_address  salt   initialization_hash
+        //             /       \                                                /              \
+        //          ...          ...                              constructor_fn_selector   constructor_args_hash
+        //         /                \
+        //     /     \            /      \
+        //   leaf   leaf        leaf    leaf
+        //           ^
+        //           |
+        //           |---h(function_selector, vk_hash)
+        //               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //               Each of these represents a private function of the contract.
+
         let public_keys_hash = public_keys.hash();
 
         let pre_address = poseidon2_hash_with_separator(
@@ -88,6 +119,7 @@ impl AztecAddress {
             DOM_SEP__CONTRACT_ADDRESS_V1,
         );
 
+        // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
         let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
             public_keys.ivpk_m.to_point(),
         );
@@ -122,6 +154,41 @@ impl AztecAddress {
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
+}
+
+#[test]
+fn check_max_field_value() {
+    // Check that it is indeed r-1.
+    assert_eq(MAX_FIELD_VALUE + 1, 0);
+}
+
+#[test]
+fn check_is_positive() {
+    assert(AztecAddress::is_positive(0));
+    assert(AztecAddress::is_positive(1));
+    assert(!AztecAddress::is_positive(-1));
+    assert(AztecAddress::is_positive(MAX_FIELD_VALUE / 2));
+    assert(!AztecAddress::is_positive((MAX_FIELD_VALUE / 2) + 1));
+}
+
+// Gives us confidence that we don't need to manually check that the input public keys need to be on the curve for `add`,
+// because the blackbox function does this check for us.
+#[test(should_fail_with = "is not on curve")]
+fn check_embedded_curve_point_add() {
+    // Choose a point not on the curve:
+    let p1 = Point { x: 1, y: 1, is_infinite: false };
+    let p2 = Point::generator();
+    let _ = p1 + p2;
+}
+
+// Gives us confidence that we don't need to manually check that the input public keys need to be on the curve for `add`,
+// because the blackbox function does this check for us.
+#[test(should_fail_with = "is not on curve")]
+fn check_embedded_curve_point_add_2() {
+    // Choose a point not on the curve in the 2nd position.
+    let p1 = Point::generator();
+    let p2 = Point { x: 1, y: 1, is_infinite: false };
+    let _ = p1 + p2;
 }
 
 #[test]
@@ -166,7 +233,7 @@ fn compute_address_from_partial_and_pub_keys() {
     // The following value was generated by `derivation.test.ts`.
     // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
     let expected_computed_address_from_partial_and_pubkeys =
-        0x24e4646f58b9fbe7d38e317db8d5636c423fbbdfbe119fc190fe9c64747e0c62;
+        0x105626366aab4a53d471701395a4e0e04af65ad1fad8483c74de338f397f226c;
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkeys);
 }
 
@@ -174,7 +241,7 @@ fn compute_address_from_partial_and_pub_keys() {
 fn compute_preaddress_from_partial_and_pub_keys() {
     let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V1);
     let expected_computed_preaddress_from_partial_and_pubkey =
-        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+        0x0b661dee14f3871040a5938dbc5c1a7977aede0b64cff6b7faa168d11a288d75;
     assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
 }
 
@@ -206,7 +273,7 @@ fn to_address_point_valid() {
     assert_eq(point.x, Field::from(8));
 
     // check that the curve equation holds: y^2 == x^3 - 17
-    assert_eq(pow(point.y, 2), pow(point.x, 3) - 17);
+    assert_eq(point.y * point.y, point.x * point.x * point.x - 17);
 }
 
 #[test]

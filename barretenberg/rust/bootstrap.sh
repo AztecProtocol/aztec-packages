@@ -34,8 +34,11 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
+  # Run PipeBackend tests (spawns bb binary)
   denoise "cargo test --release"
+
+  # Run FFI backend tests (requires libbb-external.a from cpp build)
+  RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
 case "$cmd" in

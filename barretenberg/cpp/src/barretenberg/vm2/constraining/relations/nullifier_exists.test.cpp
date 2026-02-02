@@ -36,6 +36,8 @@ using simulation::MockPoseidon2;
 using simulation::MockRangeCheck;
 using simulation::NullifierTreeCheck;
 using simulation::NullifierTreeCheckEvent;
+using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
+using NullifierTreeLeafPreimage = simulation::NullifierTreeLeafPreimage;
 
 using testing::NiceMock;
 
@@ -48,13 +50,11 @@ TEST(NullifierExistsConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({ { { C::execution_sel, 1 },
                                  { C::execution_sel_execute_nullifier_exists, 1 },
-                                 { C::execution_register_0_, /*nullifier=*/FF(0x123456) },
-                                 { C::execution_register_1_, /*address=*/FF(0xdeadbeef) },
-                                 { C::execution_register_2_, /*exists=*/1 },
+                                 { C::execution_register_0_, /*siloed_nullifier=*/FF(0x123456) },
+                                 { C::execution_register_1_, /*exists=*/1 },
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
+                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -64,13 +64,11 @@ TEST(NullifierExistsConstrainingTest, PositiveNullifierNotExists)
 {
     TestTraceContainer trace({ { { C::execution_sel, 1 },
                                  { C::execution_sel_execute_nullifier_exists, 1 },
-                                 { C::execution_register_0_, /*nullifier=*/FF(0x123456) },
-                                 { C::execution_register_1_, /*address=*/FF(0xdeadbeef) },
-                                 { C::execution_register_2_, /*exists=*/0 }, // nullifier does not exist!
+                                 { C::execution_register_0_, /*siloed_nullifier=*/FF(0x123456) },
+                                 { C::execution_register_1_, /*exists=*/0 }, // nullifier does not exist!
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
+                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -80,13 +78,11 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
 {
     TestTraceContainer trace({ { { C::execution_sel, 1 },
                                  { C::execution_sel_execute_nullifier_exists, 1 },
-                                 { C::execution_register_0_, /*nullifier=*/FF(0x123456) },
-                                 { C::execution_register_1_, /*address=*/FF(0xdeadbeef) },
-                                 { C::execution_register_2_, /*exists=*/0 }, // nullifier does not exist!
+                                 { C::execution_register_0_, /*siloed_nullifier=*/FF(0x123456) },
+                                 { C::execution_register_1_, /*exists=*/0 }, // nullifier does not exist!
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
-                                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
+                                 { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
@@ -117,24 +113,27 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_event_emitter);
 
-    FF nullifier = 42;
-    FF address = 43;
+    // Siloed nullifier (no siloing happens in the opcode now)
+    FF siloed_nullifier = 42;
+
+    // For exists=true, the low leaf's nullifier must match the searched nullifier
+    NullifierTreeLeafPreimage low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);
 
     AppendOnlyTreeSnapshot nullifier_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 42,
         .next_available_leaf_index = 128,
     };
 
-    nullifier_tree_check.assert_read(nullifier, address, true, {}, 0, {}, nullifier_tree_snapshot);
+    // should_silo=false (address unused when not siloing)
+    nullifier_tree_check.assert_read(
+        siloed_nullifier, /*contract_address=*/std::nullopt, /*exists=*/true, low_leaf, 0, {}, nullifier_tree_snapshot);
 
     TestTraceContainer trace({ {
         { C::execution_sel_execute_nullifier_exists, 1 },
-        { C::execution_register_0_, nullifier },
-        { C::execution_register_1_, address },
-        { C::execution_register_2_, /*exists=*/1 },
+        { C::execution_register_0_, siloed_nullifier },
+        { C::execution_register_1_, /*exists=*/1 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
-        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
         { C::execution_prev_nullifier_tree_root, nullifier_tree_snapshot.root },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS },

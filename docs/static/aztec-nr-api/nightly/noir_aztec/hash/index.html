@@ -20,14 +20,12 @@
 <h2><a href="#mod">Module hash</a></h2>
 <h3>Module items</h3>
 <ul class="sidebar-list">
-<li><a href="#re-exports">Re-exports</a></li>
 <li><a href="#functions">Functions</a></li>
 </ul>
 <h2>In crate hash</h2>
 <h3>Modules</h3><ul class="item-list">
 <li><a href="../authwit/index.html">authwit</a></div></li>
 <li><a href="../context/index.html">context</a></div></li>
-<li><a href="../contract_self/index.html">contract_self</a></div></li>
 <li><a href="../event/index.html">event</a></div></li>
 <li><a href="../hash/index.html">hash</a></div></li>
 <li><a href="../history/index.html">history</a></div></li>
@@ -35,30 +33,33 @@
 <li><a href="../macros/index.html">macros</a></div></li>
 <li><a href="../messages/index.html">messages</a></div></li>
 <li><a href="../note/index.html">note</a></div></li>
+<li><a href="../nullifier/index.html">nullifier</a></div></li>
 <li><a href="../oracle/index.html">oracle</a></div></li>
+<li><a href="../protocol/index.html">protocol</a></div></li>
 <li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
 <li><a href="../state_vars/index.html">state_vars</a></div></li>
 <li><a href="../test/index.html">test</a></div></li>
 <li><a href="../utils/index.html">utils</a></div></li>
 </ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="../struct.ContractSelf.html">ContractSelf</a></div></li>
+</ul>
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::hash</div>
 <h1>Module <span id="mod" class="module">hash</span></h1>
-<h2 id="re-exports">Re-exports</h2><ul class="item-list">
-<li><div class="item-name"><code>pub use protocol_types::hash::<a href="../../protocol_types/hash/fn.compute_siloed_nullifier.html" class="fn">compute_siloed_nullifier</a>;</code></div></li>
-<li><div class="item-name"><code>pub use protocol_types::hash::<a href="../../protocol_types/hash/fn.pedersen_hash.html" class="fn">pedersen_hash</a>;</code></div></li>
-</ul>
+<div class="comments">
+<p>Aztec hash functions.</p>
+</div>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.compute_l1_to_l2_message_hash.html" class="fn">compute_l1_to_l2_message_hash</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.compute_l1_to_l2_message_nullifier.html" class="fn">compute_l1_to_l2_message_nullifier</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.compute_public_bytecode_commitment.html" class="fn">compute_public_bytecode_commitment</a></div><div class="item-description">Computes the public bytecode commitment for a contract class.
-The commitment is <code>hash([separator, ...bytecode])</code> where bytecode omits the length prefix present
-in <code>packed_bytecode</code>.</div></li>
+<li><div class="item-name"><a href="fn.compute_public_bytecode_commitment.html" class="fn">compute_public_bytecode_commitment</a></div><div class="item-description">Computes the public bytecode commitment for a contract class. The commitment is <code>hash([separator, ...bytecode])</code>
+where bytecode omits the length prefix present in <code>packed_bytecode</code>.</div></li>
 <li><div class="item-name"><a href="fn.compute_secret_hash.html" class="fn">compute_secret_hash</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_siloed_nullifier.html" class="fn">compute_siloed_nullifier</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.hash_args.html" class="fn">hash_args</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.hash_calldata_array.html" class="fn">hash_calldata_array</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.pedersen_commitment.html" class="fn">pedersen_commitment</a></div><div class="item-description"></div></li>
 </ul>
 </main>
 </span>

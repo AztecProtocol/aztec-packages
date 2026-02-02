@@ -2,7 +2,13 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
-import { makeBlockProposal, makeCheckpointProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import {
+  makeBlockHeader,
+  makeBlockProposal,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 
 import type { AttestationPool } from './attestation_pool.js';
 import { MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
@@ -29,7 +35,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     slotNumber: number,
     archive: Fr = Fr.random(),
   ): Promise<BlockProposal> => {
-    const header = makeL2BlockHeader(1, 2, slotNumber);
+    const header = makeBlockHeader(1, { slotNumber: SlotNumber(slotNumber) });
     return makeBlockProposal({
       signer,
       blockHeader: header,
@@ -102,12 +108,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     it('should handle duplicate proposals in a slot', async () => {
       const slotNumber = 420;
       const archive = Fr.random();
+      const header = CheckpointHeader.random({ slotNumber: SlotNumber(slotNumber) });
 
-      // Use the same signer for all attestations
+      // Use the same signer and header for all attestations
       const attestations: CheckpointAttestation[] = [];
       const signer = signers[0];
       for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
-        attestations.push(mockCheckpointAttestation(signer, slotNumber, archive));
+        attestations.push(mockCheckpointAttestation(signer, slotNumber, archive, header));
       }
 
       // Add them to store and check we end up with only one
@@ -256,12 +263,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       slotNumber: number,
       archive: Fr = Fr.random(),
     ): Promise<CheckpointProposal> => {
-      const header = makeL2BlockHeader(1, 2, slotNumber);
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
+      const blockHeader = makeBlockHeader(1);
       return makeCheckpointProposal({
         signer,
-        checkpointHeader: header.toCheckpointHeader(),
+        checkpointHeader,
         archiveRoot: archive,
-        lastBlock: { blockHeader: header },
+        lastBlock: { blockHeader },
       });
     };
 
@@ -306,11 +314,11 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     it('should not store block proposal when checkpoint proposal has no lastBlock', async () => {
       const slotNumber = 420;
       const archive = Fr.random();
-      const header = makeL2BlockHeader(1, 2, slotNumber);
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
       // Create a checkpoint proposal WITHOUT lastBlock
       const proposal = await makeCheckpointProposal({
         signer: signers[0],
-        checkpointHeader: header.toCheckpointHeader(),
+        checkpointHeader,
         archiveRoot: archive,
         // No lastBlock
       });

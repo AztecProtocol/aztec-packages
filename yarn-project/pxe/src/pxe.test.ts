@@ -10,7 +10,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -157,7 +157,7 @@ describe('PXE', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
     let lastKnownBlockNumber: BlockNumber;
-    let l2BlockHash: L2BlockHash;
+    let l2BlockHash: BlockHash;
     let scope: AztecAddress;
     let privateEventStore: PrivateEventStore;
 
@@ -175,7 +175,10 @@ describe('PXE', () => {
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        checkpoint: {
+          number: CheckpointNumber.fromBlockNumber(lastKnownBlockNumber),
+          hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
+        },
       };
       node.getL2Tips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
@@ -203,7 +206,7 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      l2BlockHash = L2BlockHash.random();
+      l2BlockHash = BlockHash.random();
 
       scope = await AztecAddress.random();
 
@@ -238,6 +241,7 @@ describe('PXE', () => {
           txIndexInBlock: 0,
           eventIndexInTx: eventCounter++,
         },
+        'test',
       );
 
       return event;
@@ -247,6 +251,7 @@ describe('PXE', () => {
       // Store a couple of events to exercise `getPrivateEvents`
       const event1 = await storeEvent();
       const event2 = await storeEvent();
+      await privateEventStore.commit('test');
 
       const events = await pxe.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -287,6 +292,8 @@ describe('PXE', () => {
           storeEvent(lastKnownBlockNumber + 1),
           storeEvent(lastKnownBlockNumber + 1),
         ]);
+
+        await privateEventStore.commit('test');
       });
 
       it('filters by txHash', async () => {

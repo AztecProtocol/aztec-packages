@@ -46,6 +46,11 @@ class InstructionMutator {
     std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_notehashexists_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_returndatasize_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_returndatacopy_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_calldatacopy_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_sendl2tol1msg_instruction(std::mt19937_64& rng);
 
     void mutate_variable_ref(VariableRef& variable, std::mt19937_64& rng, std::optional<MemoryTag> default_tag);
     void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, uint32_t max_operand_value);
@@ -81,8 +86,8 @@ class InstructionMutator {
     void mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction& instruction, std::mt19937_64& rng);
     void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instruction, std::mt19937_64& rng);
     void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng);
-    void mutate_returndatasize_with_returndatacopy_instruction(
-        RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction, std::mt19937_64& rng);
+    void mutate_returndatasize_instruction(RETURNDATASIZE_Instruction& instruction, std::mt19937_64& rng);
+    void mutate_returndatacopy_instruction(RETURNDATACOPY_Instruction& instruction, std::mt19937_64& rng);
     void mutate_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction& instruction, std::mt19937_64& rng);
     void mutate_successcopy_instruction(SUCCESSCOPY_Instruction& instruction, std::mt19937_64& rng);
     void mutate_ecadd_instruction(ECADD_Instruction& instruction, std::mt19937_64& rng);

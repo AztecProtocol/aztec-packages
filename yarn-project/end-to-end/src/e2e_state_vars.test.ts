@@ -33,31 +33,30 @@ describe('e2e_state_vars', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1));
-    contract = await StateVarsContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await StateVarsContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(() => teardown());
 
   describe('PublicImmutable', () => {
-    it('private read of uninitialized PublicImmutable', async () => {
-      const s = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
-
-      // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      await contract.methods.match_public_immutable(s.account, s.value).send({ from: defaultAccountAddress }).wait();
+    it('private read of uninitialized PublicImmutable should fail', async () => {
+      await expect(
+        contract.methods.get_public_immutable_constrained_private().simulate({ from: defaultAccountAddress }),
+      ).rejects.toThrow('Trying to read from uninitialized PublicImmutable');
     });
 
     it('initialize and read PublicImmutable', async () => {
       // Initializes the public immutable and then reads the value using a utility  function
       // checking the return values:
 
-      await contract.methods.initialize_public_immutable(1).send({ from: defaultAccountAddress }).wait();
+      await contract.methods.initialize_public_immutable(1).send({ from: defaultAccountAddress });
 
       const read = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
 
       expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
 
-    it('private read of PublicImmutable', async () => {
+    it('private read of initialized PublicImmutable', async () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained private function that reads it directly
       // 2. A constrained private function that calls another private function that reads.
@@ -71,7 +70,7 @@ describe('e2e_state_vars', () => {
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });
-      await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress }).wait();
+      await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress });
     });
 
     it('public read of PublicImmutable', async () => {
@@ -89,7 +88,7 @@ describe('e2e_state_vars', () => {
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });
 
-      await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress }).wait();
+      await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress });
     });
 
     it('public multiread of PublicImmutable', async () => {
@@ -132,12 +131,11 @@ describe('e2e_state_vars', () => {
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(false);
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      const receipt = await contract.methods
+      const txReceipt = await contract.methods
         .initialize_private(RANDOMNESS, VALUE)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
-      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
@@ -155,7 +153,7 @@ describe('e2e_state_vars', () => {
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
       await expect(
-        contract.methods.initialize_private(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }).wait(),
+        contract.methods.initialize_private(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
       expect(
         await contract.methods
@@ -185,12 +183,11 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
-      const receipt = await contract.methods
+      const txReceipt = await contract.methods
         .update_private_mutable(RANDOMNESS, VALUE)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
-      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -209,12 +206,11 @@ describe('e2e_state_vars', () => {
           .is_private_mutable_initialized(defaultAccountAddress)
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const receipt = await contract.methods
+      const txReceipt = await contract.methods
         .update_private_mutable(RANDOMNESS + 2n, VALUE + 1n)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
-      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -235,9 +231,9 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
-      const receipt = await contract.methods.increase_private_value().send({ from: defaultAccountAddress }).wait();
+      const txReceipt = await contract.methods.increase_private_value().send({ from: defaultAccountAddress });
 
-      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -264,12 +260,11 @@ describe('e2e_state_vars', () => {
       expect(
         await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).toEqual(false);
-      const receipt = await contract.methods
+      const txReceipt = await contract.methods
         .initialize_private_immutable(RANDOMNESS, VALUE)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
 
-      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
@@ -284,7 +279,7 @@ describe('e2e_state_vars', () => {
         await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
       await expect(
-        contract.methods.initialize_private_immutable(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }).wait(),
+        contract.methods.initialize_private_immutable(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
       expect(
         await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
@@ -309,15 +304,15 @@ describe('e2e_state_vars', () => {
 
     const delay = async (blocks: number) => {
       for (let i = 0; i < blocks; i++) {
-        await authContract.methods.get_authorized().send({ from: defaultAccountAddress }).wait();
+        await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
       }
     };
 
     beforeAll(async () => {
       // We use the auth contract here because has a nice, clear, simple implementation of Delayed Public Mutable
-      authContract = await AuthContract.deploy(wallet, defaultAccountAddress)
-        .send({ from: defaultAccountAddress })
-        .deployed();
+      authContract = await AuthContract.deploy(wallet, defaultAccountAddress).send({
+        from: defaultAccountAddress,
+      });
 
       if (aztecSlotDuration !== 36) {
         throw new Error(
@@ -331,7 +326,7 @@ describe('e2e_state_vars', () => {
       // We change the DelayedPublicMutable authorized delay here to 2 slots, this means that a change to the "authorized"
       // value can only be applied 2 slots after it is initiated, and thus read requests on a historical state without
       // an initiated change is valid for at least 2 slots.
-      await authContract.methods.set_authorized_delay(newDelay).send({ from: defaultAccountAddress }).wait();
+      await authContract.methods.set_authorized_delay(newDelay).send({ from: defaultAccountAddress });
 
       // Note: Because we are decreasing the delay, we must first wait for the (full previous delay - 1 slot).
       // Since the CHANGE_AUTHORIZED_DELAY in the Auth contract is equal to 5 slots we just wait for 4 blocks.

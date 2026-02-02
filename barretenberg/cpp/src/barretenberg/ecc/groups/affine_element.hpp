@@ -199,6 +199,23 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         os << "{ " << a.x << ", " << a.y << " }";
         return os;
     }
+
+    /**
+     * @brief Multi-scalar multiplication: compute sum_i(scalars[i] * points[i])
+     * @details Interface matches stdlib::biggroup::element::batch_mul for unified native/stdlib usage.
+     *          Delegates to Pippenger MSM algorithm.
+     * @param points Span of affine points
+     * @param scalars Span of scalar field elements (same length as points)
+     * @param max_num_bits Ignored for native (circuit optimization hint in stdlib)
+     * @param with_edgecases If true, uses Jacobian Pippenger (safe); if false, uses affine (faster)
+     * @param masking_scalar Ignored for native (needed for safe offset generators in stdlib)
+     */
+    static affine_element batch_mul(std::span<const affine_element> points,
+                                    std::span<const Fr> scalars,
+                                    size_t max_num_bits = 0,
+                                    bool with_edgecases = true,
+                                    const Fr& masking_scalar = Fr(1)) noexcept;
+
     Fq x;
     Fq y;
 

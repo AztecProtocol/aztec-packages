@@ -5,6 +5,10 @@ hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 
+function build {
+  cache_load_image consensys/web3signer:25.11.0
+}
+
 # Helper function to extract test names from a test file
 function extract_test_names {
   local test_file="$1"
@@ -41,6 +45,7 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
+    src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do
@@ -227,6 +232,9 @@ function avm_check_circuit {
 }
 
 case "$cmd" in
+  "")
+    build
+    ;;
   *)
     default_cmd_handler "$@"
     ;;

@@ -28,9 +28,7 @@ contract PublicImmutableContract {
 
 mod tests {
     use super::PublicImmutableContract;
-    use aztec::{
-        protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
-    };
+    use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         // Setup test environment

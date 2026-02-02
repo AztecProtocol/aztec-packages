@@ -1,10 +1,12 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
+import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
+import { waitForTx } from '@aztec/aztec.js/node';
 import type {
   Aliased,
+  AppCapabilities,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
   PrivateEvent,
   PrivateEventFilter,
@@ -12,6 +14,7 @@ import type {
   SendOptions,
   SimulateOptions,
   Wallet,
+  WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
@@ -44,9 +47,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type {
   TxExecutionRequest,
-  TxHash,
   TxProfileResult,
-  TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
@@ -120,20 +121,42 @@ export abstract class BaseWallet implements Wallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const fromAccount = await this.getAccountFromAddress(from);
-    return fromAccount.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, executionOptions);
+    const chainInfo = await this.getChainInfo();
+    return fromAccount.createTxExecutionRequest(
+      finalExecutionPayload,
+      feeOptions.gasSettings,
+      chainInfo,
+      executionOptions,
+    );
   }
 
   public async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | IntentInnerHash | CallIntent,
+    messageHashOrIntent: IntentInnerHash | CallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
-    return account.createAuthWit(messageHashOrIntent);
+    const chainInfo = await this.getChainInfo();
+    return account.createAuthWit(messageHashOrIntent, chainInfo);
   }
 
-  public async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(
-    methods: T,
-  ): Promise<BatchResults<T>> {
+  /**
+   * Request capabilities from the wallet.
+   *
+   * This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet.
+   * Embedded wallets typically don't support capability-based authorization (no user authorization flow),
+   * while external wallets (browser extensions, hardware wallets) implement this to reduce authorization
+   * friction by allowing apps to request permissions upfront.
+   *
+   * TODO: Consider making it abstract so implementing it is a conscious decision. Leaving it as-is
+   * while the feature stabilizes.
+   *
+   * @param _manifest - Application capability manifest declaring what operations the app needs
+   */
+  public requestCapabilities(_manifest: AppCapabilities): Promise<WalletCapabilities> {
+    throw new Error('Not implemented');
+  }
+
+  public async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;
@@ -278,7 +301,10 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
-  async sendTx(executionPayload: ExecutionPayload, opts: SendOptions): Promise<TxHash> {
+  public async sendTx<W extends InteractionWaitOptions = undefined>(
+    executionPayload: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest);
@@ -292,7 +318,15 @@ export abstract class BaseWallet implements Wallet {
       throw this.contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
-    return txHash;
+
+    // If wait is NO_WAIT, return txHash immediately
+    if (opts.wait === NO_WAIT) {
+      return txHash as SendReturn<W>;
+    }
+
+    // Otherwise, wait for the full receipt (default behavior on wait: undefined)
+    const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {
@@ -311,10 +345,6 @@ export abstract class BaseWallet implements Wallet {
 
   simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
     return this.pxe.simulateUtility(call, authwits);
-  }
-
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.aztecNode.getTxReceipt(txHash);
   }
 
   async getPrivateEvents<T>(
@@ -341,14 +371,7 @@ export abstract class BaseWallet implements Wallet {
     const instance = await this.pxe.getContractInstance(address);
     const initNullifier = await siloNullifier(address, address.toField());
     const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const [initNullifierMembershipWitness, publiclyRegisteredContractClass] = await Promise.all([
-      this.aztecNode.getNullifierMembershipWitness('latest', initNullifier),
-      publiclyRegisteredContract
-        ? this.aztecNode.getContractClass(
-            publiclyRegisteredContract.currentContractClassId || instance?.currentContractClassId,
-          )
-        : undefined,
-    ]);
+    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
@@ -356,7 +379,6 @@ export abstract class BaseWallet implements Wallet {
       instance: instance ?? undefined,
       isContractInitialized: !!initNullifierMembershipWitness,
       isContractPublished: !!publiclyRegisteredContract,
-      isContractClassPubliclyRegistered: !!publiclyRegisteredContractClass,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,
     };

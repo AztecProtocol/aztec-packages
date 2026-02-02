@@ -250,6 +250,58 @@ export function chunk<T>(items: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+/**
+ * Splits the given array into chunks of the given size, wrapping around to the beginning
+ * if the last chunk would be smaller than the requested size.
+ * Returns empty array for empty input. Returns single chunk with all items if chunkSize <= 0.
+ */
+export function chunkWrapAround<T>(items: T[], chunkSize: number): T[][] {
+  if (items.length === 0) {
+    return [];
+  }
+  if (chunkSize <= 0 || items.length <= chunkSize) {
+    return [items];
+  }
+  const remainder = items.length % chunkSize;
+  if (remainder === 0) {
+    return chunk(items, chunkSize);
+  }
+  const wrapAroundCount = chunkSize - remainder;
+  const wrappedItems = [...items, ...items.slice(0, wrapAroundCount)];
+  return chunk(wrappedItems, chunkSize);
+}
+
+const UNINITIALIZED = Symbol('uninitialized');
+
+/**
+ * Splits the given iterable into chunks based on the key returned by the given function.
+ * Items must be contiguous to be included in the same chunk.
+ */
+export function chunkBy<T, U>(items: T[], fn: (item: T) => U): T[][] {
+  const chunks: T[][] = [];
+  let currentChunk: T[] = [];
+  let currentKey: U | typeof UNINITIALIZED = UNINITIALIZED;
+
+  for (const item of items) {
+    const key = fn(item);
+    if (currentKey === UNINITIALIZED || key !== currentKey) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+      currentChunk = [item];
+      currentKey = key;
+    } else {
+      currentChunk.push(item);
+    }
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks;
+}
+
 /** Partitions the given iterable into two arrays based on the predicate. */
 export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
   const pass: T[] = [];

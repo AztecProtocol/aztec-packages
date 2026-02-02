@@ -56,7 +56,7 @@ describe('e2e_simple', () => {
       const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
       expect(initialHeader).toBeDefined();
       const initialHeaderHash = await initialHeader!.hash();
-      const initialBlockByHash = await aztecNode.getBlockByHash(initialHeaderHash);
+      const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash);
       expect(initialBlockByHash).toBeDefined();
       const initialBlockHash = await initialBlockByHash!.hash();
       expect(initialBlockHash.equals(initialHeaderHash)).toBeTrue();
@@ -72,17 +72,17 @@ describe('e2e_simple', () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
       const sender = ownerAddress;
-      const tx = deployer.deploy(ownerAddress, sender, 1).send({
+      const txReceipt = await deployer.deploy(ownerAddress, sender, 1).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
         skipClassPublication: true,
         skipInstancePublication: true,
+        wait: { returnReceipt: true },
       });
-      const receipt = await tx.wait();
-      await waitForProven(aztecNode, receipt, {
+      await waitForProven(aztecNode, txReceipt, {
         provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
       });
-      expect(receipt.blockNumber).toBeDefined();
+      expect(txReceipt.blockNumber).toBeDefined();
     });
   });
 });

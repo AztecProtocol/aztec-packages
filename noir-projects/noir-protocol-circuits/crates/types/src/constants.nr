@@ -2,6 +2,8 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_ETH_ADDRESS_BIT_SIZE: u32 = 160; // 20 bytes
+pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffffffff;
 pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 
@@ -32,7 +34,7 @@ pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 // TREES RELATED CONSTANTS
 pub global ARCHIVE_HEIGHT: u32 = 30; // 4-second blocks for 100 years.
 pub global VK_TREE_HEIGHT: u32 = 7;
-pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract.
+pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract is therefore 128.
 pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of base rollup insertion), 15tps, for 100 years.
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
 pub global NULLIFIER_TREE_HEIGHT: u32 = NOTE_HASH_TREE_HEIGHT;
@@ -45,6 +47,7 @@ pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
 pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
 pub global ARCHIVE_TREE_ID: Field = 4;
+
 pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u64);
 pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u64);
 pub global OUT_HASH_TREE_LEAF_COUNT: u32 = 1 << OUT_HASH_TREE_HEIGHT;
@@ -75,11 +78,13 @@ pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 64;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
+// Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
+// hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
 
 // "PER CALL" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
@@ -87,11 +92,11 @@ pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 8;
 pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = MAX_ENQUEUED_CALLS_PER_TX;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = MAX_L2_TO_L1_MSGS_PER_TX;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
@@ -161,9 +166,9 @@ pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48; // Is this the max number of chec
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x0dc66232e4edff2923217f4fdf80ecc23ed4bd047e743df85a6827878bf6c4d6;
+    0x20859c34fd7cd64578ba0779e7475e56900de9b95f1b634fbe2d7b266d8d2840;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95;
+    0x2b7cc335b4798b4d9b5e88cd6b55b1ce54b1225970ad2adff7820413a3c4ca3c;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0x00f10d3a401a22634ebb4b0b17410cd138fd388872486b6280d552d6317c255d;
 
@@ -231,10 +236,13 @@ pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddr
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
-pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
+// because we don't want any malicious user to be able to push malicious state for actual contracts through this
+// padding feature.
 // It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
 // that anyone can freely change the state of the contract by adding padding side effects to their transactions.
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
@@ -630,62 +638,64 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // ---------------------------------------------------------------
 // DOMAIN SEPARATORS
 
-// TODO: see ./domain-separators.nr tests for the domain separators that we should migrate to. I just didn't have time to make the changes, as I predict thousands of tests with hard-coded hashes breaking everywhere.
+// See ./domain-separators.nr for how the values of the domain separators are generated.
 
 // ---------------------------------------------------------------
 
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
-pub global DOM_SEP__NOTE_HASH: u32 = 1;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 2;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 3;
-pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 4;
+pub global DOM_SEP__NOTE_HASH: u32 = 570261536;
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 4040695053;
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 1615905817;
+pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3552985968;
 
-pub global DOM_SEP__NOTE_NULLIFIER: u32 = 53;
-pub global DOM_SEP__OUTER_NULLIFIER: u32 = 7;
+pub global DOM_SEP__NOTE_NULLIFIER: u32 = 2273326939;
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 4179235419;
+pub global DOM_SEP__SILOED_NULLIFIER: u32 = 1843769845;
 
-pub global DOM_SEP__PUBLIC_LEAF_INDEX: u32 = 23;
+pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 3381826258;
 
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 5;
+pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 2853865602;
+pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 1106049611;
 
 // ---------------------------------------------------------------
 // Contract Address
 
 // Class Id
-pub global DOM_SEP__FUNCTION_LEAF: u32 = 11;
-pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 60;
-pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 16;
+pub global DOM_SEP__PRIVATE_FUNCTION_LEAF: u32 = 3274445394;
+pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 4245021897;
+pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 1134959961;
 
 // Salted Initialization Hash
-pub global DOM_SEP__CONSTRUCTOR: u32 = 13;
+pub global DOM_SEP__INITIALIZER: u32 = 3165476885;
 
 // Keys
-pub global DOM_SEP__NSK_M: u32 = 48;
-pub global DOM_SEP__IVSK_M: u32 = 49;
-pub global DOM_SEP__OVSK_M: u32 = 50;
-pub global DOM_SEP__TSK_M: u32 = 51;
-pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 52;
+pub global DOM_SEP__NHK_M: u32 = 3431122223;
+pub global DOM_SEP__IVSK_M: u32 = 3641144584;
+pub global DOM_SEP__OVSK_M: u32 = 449371170;
+pub global DOM_SEP__TSK_M: u32 = 4031170476;
+pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 349301051;
 
 // Address
-pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 27;
+pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 1453969891;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 15;
+pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 2091531360;
 
 // ---------------------------------------------------------------
 
-pub global DOM_SEP__BLOCK_HASH: u32 = 28; // Consider renaming to BLOCK_HEADER_HASH
+pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 2064783670;
 
-pub global DOM_SEP__TX_REQUEST: u32 = 33;
-pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 56;
-pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 57;
+pub global DOM_SEP__TX_REQUEST: u32 = 1076396939;
+pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 419169672;
+pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 4261301885;
 
 // Hashing the calldata of public functions:
-pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 43;
+pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 388853507;
 // Hashing the args to private functions:
-pub global DOM_SEP__FUNCTION_ARGS: u32 = 44;
+pub global DOM_SEP__FUNCTION_ARGS: u32 = 587126185;
 
-pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 61;
+pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 3581307760;
 // Part of the protocol, because some protocol contracts emit events.
-pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
+pub global DOM_SEP__EVENT_COMMITMENT: u32 = 469373807;
 
 // ---------------------------------------------------------------
 // Not protocol, but possibly protocol in future.
@@ -697,22 +707,22 @@ pub global DOM_SEP__EVENT_COMMITMENT: u32 = 59;
 // - It might not support authwits (instead using the fee_payer field as evidence of authorization).
 // If FeeJuice doesn't end up supporting those things, then these constants should be moved into aztec.nr.
 
-pub global DOM_SEP__AUTHWIT_INNER: u32 = 45;
-pub global DOM_SEP__AUTHWIT_OUTER: u32 = 46;
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 47;
+pub global DOM_SEP__AUTHWIT_INNER: u32 = 829479065;
+pub global DOM_SEP__AUTHWIT_OUTER: u32 = 1502324539;
+pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1450992171;
 
-pub global DOM_SEP__SYMMETRIC_KEY: u8 = 54;
-pub global DOM_SEP__SYMMETRIC_KEY_2: u8 = 55;
+pub global DOM_SEP__SYMMETRIC_KEY: u32 = 690840336;
+pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 3484314061;
 
-pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 1665410974;
 
 // ---------------------------------------------------------------
 // TODO: consider moving these to aztec-nr
 
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 6;
-pub global DOM_SEP__SECRET_HASH: u32 = 20;
-pub global DOM_SEP__TX_NULLIFIER: u32 = 32;
-pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 34;
+pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 2762319966;
+pub global DOM_SEP__SECRET_HASH: u32 = 15484084;
+pub global DOM_SEP__TX_NULLIFIER: u32 = 1039603495;
+pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 2407104296;
 
 // ---------------------------------------------------------------
 
@@ -1127,12 +1137,12 @@ pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_SSTORE_BASE_L2_GAS: u32 = (633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 126 * 4; // SLOW_SIM_MUL = 3 (+1 for slow proving)
 pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = (261 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 15; // SLOW_SIM_MUL = 15
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 132 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 129 * 7; // SLOW_SIM_MUL = 6 (+1 for slow proving)
 pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM) * 20; // SLOW_SIM_MUL = 20
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (9 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (39 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
@@ -1243,7 +1253,7 @@ mod test {
         GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_ETH_ADDRESS_BIT_SIZE, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
@@ -1253,7 +1263,7 @@ mod test {
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::FromField;
     use super::{
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
@@ -1348,6 +1358,16 @@ mod test {
     fn validate_empty_epoch_out_hash() {
         let empty_root = compute_empty_sha_tree_root::<OUT_HASH_TREE_HEIGHT>();
         assert_eq(empty_root, EMPTY_EPOCH_OUT_HASH);
+    }
+
+    #[test]
+    fn validate_max_eth_address_value() {
+        MAX_ETH_ADDRESS_VALUE.assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn validate_max_eth_address_value_negative() {
+        (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
 
 }

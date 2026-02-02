@@ -46,6 +46,7 @@ void RetrievedBytecodesTreeCheckTraceBuilder::process(
         trace.set(row,
                   { {
                       { C::retrieved_bytecodes_tree_check_sel, 1 },
+                      { C::retrieved_bytecodes_tree_check_const_three, 3 },
                       { C::retrieved_bytecodes_tree_check_write, event.write },
                       { C::retrieved_bytecodes_tree_check_class_id, class_id },
                       { C::retrieved_bytecodes_tree_check_root, event.prev_snapshot.root },

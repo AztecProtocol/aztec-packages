@@ -3,7 +3,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -11,7 +11,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import type { L2BlockNew, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type EpochProver,
@@ -43,7 +43,7 @@ export type EpochProvingJobOptions = {
  */
 export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
-  private log = createLogger('prover-node:epoch-proving-job');
+  private log: Logger;
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
@@ -62,9 +62,14 @@ export class EpochProvingJob implements Traceable {
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
+    bindings?: LoggerBindings,
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
+    this.log = createLogger('prover-node:epoch-proving-job', {
+      ...bindings,
+      instanceId: `epoch-${data.epochNumber}`,
+    });
     this.tracer = metrics.tracer;
   }
 
@@ -362,11 +367,14 @@ export class EpochProvingJob implements Traceable {
     const intervalMs = Math.ceil((await l2BlockSource.getL1Constants()).ethereumSlotDuration / 2) * 1000;
     this.epochCheckPromise = new RunningPromise(
       async () => {
-        const blocks = await l2BlockSource.getBlockHeadersForEpoch(this.epochNumber);
-        const blockHashes = await Promise.all(blocks.map(block => block.hash()));
+        const blockHeaders = await l2BlockSource.getCheckpointedBlockHeadersForEpoch(this.epochNumber);
+        const blockHashes = await Promise.all(blockHeaders.map(header => header.hash()));
         const thisBlocks = this.checkpoints.flatMap(checkpoint => checkpoint.blocks);
         const thisBlockHashes = await Promise.all(thisBlocks.map(block => block.hash()));
-        if (blocks.length !== thisBlocks.length || !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))) {
+        if (
+          blockHeaders.length !== thisBlocks.length ||
+          !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))
+        ) {
           this.log.warn('Epoch blocks changed underfoot', {
             uuid: this.uuid,
             epochNumber: this.epochNumber,
@@ -388,7 +396,7 @@ export class EpochProvingJob implements Traceable {
     return [this.data.previousBlockHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
   }
 
-  private getTxs(block: L2BlockNew): Tx[] {
+  private getTxs(block: L2Block): Tx[] {
     return block.body.txEffects.map(txEffect => this.txs.get(txEffect.txHash.toString())!);
   }
 

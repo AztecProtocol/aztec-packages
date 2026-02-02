@@ -508,6 +508,7 @@ export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArg
     AZTEC_EJECTION_THRESHOLD: args.ejectionThreshold?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: args.governanceProposerRoundSize?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_QUORUM: args.governanceProposerQuorum?.toString(),
+    AZTEC_GOVERNANCE_VOTING_DURATION: args.governanceVotingDuration?.toString(),
     ZKPASSPORT_DOMAIN: args.zkPassportArgs?.zkPassportDomain,
     ZKPASSPORT_SCOPE: args.zkPassportArgs?.zkPassportScope,
   } as const;
@@ -548,6 +549,7 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_MANA_TARGET: args.manaTarget.toString(),
     AZTEC_EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
     AZTEC_PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
+    AZTEC_INITIAL_ETH_PER_FEE_ASSET: args.initialEthPerFeeAsset.toString(),
     AZTEC_SLASHER_FLAVOR: args.slasherFlavor,
     AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
     AZTEC_SLASHING_QUORUM: args.slashingQuorum?.toString(),

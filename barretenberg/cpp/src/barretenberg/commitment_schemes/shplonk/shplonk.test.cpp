@@ -1,5 +1,5 @@
 #include "shplonk.hpp"
-#include "../commitment_key.test.hpp"
+#include "../pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -24,7 +24,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     using ShplonkProver = ShplonkProver_<TypeParam>;
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Generate two random (unrelated) polynomials of two different sizes, as well as their evaluations at a (single
     // but different) random point and their commitments.
@@ -37,7 +37,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
 
     // Initialize verifier transcript from prover transcript
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality
     const auto batched_verifier_claim = ShplonkVerifier::reduce_verification(
@@ -53,7 +53,7 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
     using ShplonkProver = ShplonkProver_<TypeParam>;
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Generate two random (unrelated) polynomials of two different sizes and a random linear combinations
     auto setup = this->generate_claim_data({ MAX_POLY_DEGREE, MAX_POLY_DEGREE / 2 });
@@ -72,7 +72,7 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
     }
 
     // Shplonk verification
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality
     auto verifier_opening_claims = ClaimData::verifier_opening_claims(setup);

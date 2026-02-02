@@ -48,6 +48,7 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
     rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(0n));
     rollupContract.getAttesters.mockResolvedValue(testCommittee);
+    rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
@@ -81,6 +82,7 @@ describe('EpochCache', () => {
       epoch: EpochNumber(0),
       committee: testCommittee,
       seed: 0n,
+      isEscapeHatchOpen: false,
     });
   });
 
@@ -124,17 +126,20 @@ describe('EpochCache', () => {
     // Hence the chosen values for testCommittee below
 
     // Get validator for slot 0
-    const { currentProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    const { currentSlot } = epochCache.getCurrentAndNextSlot();
+    const currentProposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
     expect(currentProposer).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    const { currentProposer: nextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    const { currentSlot: nextSlot } = epochCache.getCurrentAndNextSlot();
+    const nextProposer = await epochCache.getProposerAttesterAddressInSlot(nextSlot);
     expect(nextProposer).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    const { currentProposer: nextNextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    const { currentSlot: nextNextSlot } = epochCache.getCurrentAndNextSlot();
+    const nextNextProposer = await epochCache.getProposerAttesterAddressInSlot(nextNextSlot);
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
@@ -147,7 +152,8 @@ describe('EpochCache', () => {
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * (EPOCH_DURATION - 1) * 1000);
 
     // Should request to update the validator set
-    await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    const { nextSlot } = epochCache.getCurrentAndNextSlot();
+    await epochCache.getProposerAttesterAddressInSlot(nextSlot);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
 

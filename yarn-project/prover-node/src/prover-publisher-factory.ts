@@ -1,6 +1,7 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -14,6 +15,7 @@ export class ProverPublisherFactory {
       publisherManager: PublisherManager<L1TxUtils>;
       telemetry?: TelemetryClient;
     },
+    private bindings?: LoggerBindings,
   ) {}
 
   public async start() {
@@ -30,10 +32,14 @@ export class ProverPublisherFactory {
    */
   public async create(): Promise<ProverNodePublisher> {
     const l1Publisher = await this.deps.publisherManager.getAvailablePublisher();
-    return new ProverNodePublisher(this.config, {
-      rollupContract: this.deps.rollupContract,
-      l1TxUtils: l1Publisher,
-      telemetry: this.deps.telemetry,
-    });
+    return new ProverNodePublisher(
+      this.config,
+      {
+        rollupContract: this.deps.rollupContract,
+        l1TxUtils: l1Publisher,
+        telemetry: this.deps.telemetry,
+      },
+      this.bindings,
+    );
   }
 }

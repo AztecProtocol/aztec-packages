@@ -3,18 +3,18 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
+import { makeBlockHeader } from '@aztec/stdlib/testing';
+import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
-describe('storeEvent', () => {
+describe('validateAndStoreEvent', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
   let randomness: Fr;
@@ -26,25 +26,15 @@ describe('storeEvent', () => {
   let contractAddress: AztecAddress;
   let recipient: AztecAddress;
 
-  let anchorBlockStore: AnchorBlockStore;
   let privateEventStore: PrivateEventStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
 
   let eventService: EventService;
 
-  const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-    return anchorBlockStore.setHeader(
-      BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber }),
-      }),
-    );
-  };
-
   // beforeEach sets up the happy path case, so error modes are tested
   // by minimally failing happy path conditions
   beforeEach(async () => {
     const store = await openTmpStore('test');
-    anchorBlockStore = new AnchorBlockStore(store);
     privateEventStore = new PrivateEventStore(store);
 
     aztecNode = mock<AztecNode>();
@@ -67,7 +57,7 @@ describe('storeEvent', () => {
 
     indexedTxEffect = {
       l2BlockNumber: blockNumber,
-      l2BlockHash: L2BlockHash.random(),
+      l2BlockHash: BlockHash.random(),
       data: txEffect,
       txIndexInBlock: 0,
     };
@@ -76,19 +66,19 @@ describe('storeEvent', () => {
      ** - PXE is sync'd to _at least_ block including tx
      ** - Node returns the corresponding tx effect and the tx effect includes the event commitment
      */
-    await setSyncedBlockNumber(blockNumber);
+    const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
 
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
-    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore);
+    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test');
   });
 
-  function runStoreEvent(
+  async function runStoreEvent(
     overrides: {
       eventCommitment?: Fr;
     } = {},
   ) {
-    return eventService.storeEvent(
+    await eventService.validateAndStoreEvent(
       contractAddress,
       eventSelector,
       randomness,
@@ -97,6 +87,8 @@ describe('storeEvent', () => {
       txEffect.txHash,
       recipient,
     );
+
+    await privateEventStore.commit('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {

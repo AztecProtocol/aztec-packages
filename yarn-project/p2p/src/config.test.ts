@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { parseAllowList } from './config.js';
+import { getP2PDefaultConfig, parseAllowList } from './config.js';
 
 describe('config', () => {
   it('parses allow list', async () => {
@@ -23,5 +23,10 @@ describe('config', () => {
 
     const allowList = parseAllowList(stringifiedAllowList);
     expect(allowList).toEqual(config);
+  });
+
+  it('defaults proposal tx collector type to new', () => {
+    const config = getP2PDefaultConfig();
+    expect(config.txCollectionProposalTxCollectorType).toBe('new');
   });
 });

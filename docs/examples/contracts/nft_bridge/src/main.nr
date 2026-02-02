@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract NFTBridge {
     use dep::aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        protocol_types::{address::{AztecAddress, EthAddress}, hash::sha256_to_field},
+        protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field},
         state_vars::PublicImmutable,
     };
     use dep::NFTPunk::NFTPunk;

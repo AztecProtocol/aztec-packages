@@ -2,7 +2,6 @@ import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
@@ -415,7 +414,7 @@ export function Landing() {
 
       const txReceipt = await sendTx(`Deploy account contract`, deployMethod, address, opts);
 
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (txReceipt?.hasExecutionSucceeded()) {
         setFrom(address);
       }
     } catch (e) {
