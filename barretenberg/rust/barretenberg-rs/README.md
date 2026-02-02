@@ -66,8 +66,10 @@ The FFI backend provides pre-built static libraries for:
 
 - Linux x86_64 (glibc)
 - Linux arm64 (glibc)
+- macOS x86_64
+- macOS arm64 (Apple Silicon)
 
-Additional targets (iOS, Android, macOS) are planned for future releases.
+Additional targets (iOS, Android) are planned for future releases.
 
 ## API
 
