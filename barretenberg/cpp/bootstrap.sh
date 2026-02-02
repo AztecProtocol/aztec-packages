@@ -230,6 +230,12 @@ function build_release_dir {
   if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
   fi
+  if [ -f build-zig-amd64-macos/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-zig-amd64-macos/lib libbb-external.a
+  fi
+  if [ -f build-zig-arm64-macos/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
+  fi
 }
 
 export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version

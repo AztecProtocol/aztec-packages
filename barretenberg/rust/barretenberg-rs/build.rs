@@ -9,7 +9,14 @@ fn main() {
 
         // libbb-external.a contains everything needed: barretenberg + env + vm2_stub
         println!("cargo:rustc-link-lib=static=bb-external");
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+
+        // Link C++ standard library (different name on macOS vs Linux)
+        let target = std::env::var("TARGET").unwrap();
+        if target.contains("apple") {
+            println!("cargo:rustc-link-lib=dylib=c++");
+        } else {
+            println!("cargo:rustc-link-lib=dylib=stdc++");
+        }
     }
 }
 
@@ -39,8 +46,10 @@ fn download_lib(out_dir: &PathBuf) {
     let arch = match target.as_str() {
         t if t.contains("x86_64") && t.contains("linux") => "amd64-linux",
         t if t.contains("aarch64") && t.contains("linux") => "arm64-linux",
+        t if t.contains("x86_64") && t.contains("apple") => "amd64-darwin",
+        t if t.contains("aarch64") && t.contains("apple") => "arm64-darwin",
         _ => panic!(
-            "Unsupported target for FFI backend: {}. Supported: x86_64-linux, aarch64-linux",
+            "Unsupported target for FFI backend: {}. Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin",
             target
         ),
     };
