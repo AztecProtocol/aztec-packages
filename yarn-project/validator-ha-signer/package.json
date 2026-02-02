@@ -74,6 +74,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.3",

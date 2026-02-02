@@ -43,7 +43,7 @@ import { MyContract } from "./artifacts/MyContract";
 ```
 
 :::note[About wallets and accounts]
-In the examples below, `wallet` refers to a `Wallet` instance that manages keys and signs transactions. The `from` option in `send()` specifies which account pays for the transaction. This account must be registered in the wallet and have sufficient fee juice. On a local network, test accounts are pre-funded; on testnet, you typically use sponsored fees.
+In the examples below, `wallet` refers to a `Wallet` instance that manages keys and signs transactions. See [Creating Accounts](./how_to_create_account.md) for how to set up a wallet. The `from` option in `send()` specifies which account pays for the transaction. This account must be registered in the wallet and have sufficient fee juice. On a local network, test accounts are pre-funded; on testnet, you typically use sponsored fees.
 :::
 
 ### Step 2: Deploy the contract
@@ -248,17 +248,41 @@ Use `BatchCall` to bundle a deployment with other calls into a single transactio
 
 ## Verify deployment
 
-### Check contract registration
+### Check contract state
 
-Query the wallet to verify the contract was deployed and its class is published:
+Use `wallet.getContractMetadata()` to check your contract's current state:
+
+```typescript
+const metadata = await wallet.getContractMetadata(contractAddress);
+
+// Check each state:
+metadata.instance                          // Contract registered in your wallet?
+metadata.isContractClassPubliclyRegistered // Class registered on the network?
+metadata.isContractPublished               // Instance registered on the network?
+metadata.isContractInitialized             // Constructor has been called?
+```
+
+For a complete overview of what these states mean and when functions become callable, see [Contract Readiness States](../aztec-nr/contract_readiness_states.md).
+
+Here's a complete example:
 
 #include_code verify_deployment yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
 
-The `getContractMetadata` method returns:
+### What the PXE checks automatically
 
-- `contractInstance` - The contract instance details (if found)
-- `isContractInitialized` - Whether the constructor has been called
-- `isContractPublished` - Whether the contract class is publicly registered
+When you simulate or send a transaction, the PXE automatically verifies:
+
+- Contract instance is registered in your wallet
+- Contract artifact is available locally
+- Contract class ID matches the network state
+
+The PXE does **not** automatically check:
+
+- Whether the contract is published on the network
+- Whether the contract is initialized
+- Whether the contract class is registered on the network
+
+If you call a public function on an unpublished contract, the transaction will fail at the network level, not during local simulation. Use `getContractMetadata()` to check these states before sending transactions if you want to provide better error messages to users.
 
 ### Verify contract is callable
 
@@ -316,6 +340,7 @@ await wallet.registerContract(instance, MyContract.artifact);
 
 ## Next steps
 
+- [Contract Readiness States](../aztec-nr/contract_readiness_states.md) - Understand the different states a contract progresses through
 - [Send transactions](./how_to_send_transaction.md) to interact with your contract
 - [Read contract data](./how_to_read_data.md) including simulating functions and reading events
 - [Use authentication witnesses](./how_to_use_authwit.md) for delegated calls

@@ -52,6 +52,7 @@ describe('createKeyStoreForValidator', () => {
       web3SignerUrl,
       validatorAddresses: validatorAddresses.map(addr => addr),
       publisherAddresses: publisherAddresses.map(addr => addr),
+      l1Contracts: { rollupAddress: EthAddress.random() },
     } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
   };
 
@@ -71,6 +72,7 @@ describe('createKeyStoreForValidator', () => {
       publisherPrivateKeys: undefined,
       coinbase: undefined,
       feeRecipient: undefined,
+      l1Contracts: { rollupAddress: EthAddress.random() },
     } as unknown as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
     const result = createKeyStoreForValidator(config);
     expect(result).toBeUndefined();
