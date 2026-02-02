@@ -19,6 +19,13 @@ class AvmTraceGenHelper {
 
     tracegen::TraceContainer generate_precomputed_columns();
     tracegen::TraceContainer generate_public_inputs_columns(const PublicInputs& public_inputs);
+
+  protected:
+    static std::vector<std::function<void()>> build_precomputed_columns_jobs(tracegen::TraceContainer& trace);
+    static std::vector<std::function<void()>> build_public_inputs_columns_jobs(tracegen::TraceContainer& trace,
+                                                                               const PublicInputs& public_inputs);
+    static std::vector<std::function<void()>> build_fill_trace_columns_jobs(tracegen::TraceContainer& trace,
+                                                                            simulation::EventsContainer&& events);
 };
 
 } // namespace bb::avm2
