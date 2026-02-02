@@ -326,14 +326,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b; // point at infinity for native computations
+            affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
 
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = element_ct::from_witness(&builder, affine_element::infinity());
+            element_ct b = element_ct::from_witness(&builder, input_b);
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
