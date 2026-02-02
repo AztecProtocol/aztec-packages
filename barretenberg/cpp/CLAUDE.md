@@ -25,8 +25,9 @@ Bootstrap modes:
 
 - `./bootstrap.sh` => full build, needed for other components
 - `./bootstrap.sh build` => standard build
-- `AVM=0 ./bootstrap.sh build_native` => quick build without slow bb-avm target. Good for verifying compilation works. Needed to build ts/
-  Development commands:
+- `./bootstrap.sh build_native` => native build. Good for verifying compilation works. Needed to build ts/
+
+Development commands:
 - cmake --preset build
   cd build
   ninja <test>
@@ -54,7 +55,7 @@ Bootstrap modes:
 - **stdlib/** - Circuit-friendly implementations of primitives
 - **ultra_honk/** - Ultra Honk prover/verifier
 - **chonk/** - Client-side IVC (Incremental Verifiable Computation)
-- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh)
+- **vm2/** - AVM (Aztec Virtual Machine) implementation
 - **bbapi/** - BB API for external interaction. If changing here, we will also want to update the ts/ folder because bb.js consumes this. (first build ninja bb in build/)
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
 
@@ -93,7 +94,7 @@ Run end-to-end tests from the root directory:
 ````bash
 # Run specific e2e tests
 yarn-project/end-to-end/scripts/run_test.sh simple e2e_block_building
-# To run this you CANNOT USE DISABLE_AVM=1. Only run this if the user asks (e.g. 'run the prover full test') You first need to confirm with the user that they want to build without AVM.
+# Only run this if the user asks (e.g. 'run the prover full test')
 yarn-project/end-to-end/scripts/run_test.sh simple e2e_prover/full
 
 ### yarn-project IVC integration tests
