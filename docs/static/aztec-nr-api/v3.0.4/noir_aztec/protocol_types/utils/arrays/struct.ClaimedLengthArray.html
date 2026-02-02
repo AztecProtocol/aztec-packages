@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct ClaimedLengthArray documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ClaimedLengthArray</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ClaimedLengthArray</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.array">array</a></li>
+<li><a href="#structfield.length">length</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_dense_trimmed">assert_dense_trimmed</a></li>
+<li><a href="#assert_empty">assert_empty</a></li>
+<li><a href="#assert_length_within_bounds">assert_length_within_bounds</a></li>
+<li><a href="#for_each">for_each</a></li>
+<li><a href="#for_each_i">for_each_i</a></li>
+<li><a href="#from_bounded_vec">from_bounded_vec</a></li>
+<li><a href="#pop">pop</a></li>
+<li><a href="#push">push</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ClaimedLengthArray<T, N>">Deserialize</a></li>
+<li><a href="#impl-Empty-for-ClaimedLengthArray<T, N>">Empty</a></li>
+<li><a href="#impl-Eq-for-ClaimedLengthArray<T, N>">Eq</a></li>
+<li><a href="#impl-Serialize-for-ClaimedLengthArray<T, N>">Serialize</a></li>
+</ul>
+<h2>In module arrays</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ClaimedLengthArray.html">ClaimedLengthArray</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.array_length.html">array_length</a></div></li>
+<li><a href="fn.array_length_until.html">array_length_until</a></div></li>
+<li><a href="fn.array_merge.html">array_merge</a></div></li>
+<li><a href="fn.array_padded_with.html">array_padded_with</a></div></li>
+<li><a href="fn.check_permutation.html">check_permutation</a></div></li>
+<li><a href="fn.find_index_hint.html">find_index_hint</a></div></li>
+<li><a href="fn.find_index_hint_in_reverse.html">find_index_hint_in_reverse</a></div></li>
+<li><a href="fn.subarray.html">subarray</a></div></li>
+<li><a href="fn.trimmed_array_length_hint.html">trimmed_array_length_hint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">arrays</a></div>
+<h1>Struct <span id="struct" class="struct">ClaimedLengthArray</span></h1>
+<pre><code>pub struct ClaimedLengthArray&lt;T, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub array: [T; N],
+    pub length: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<div class="comments">
+<p>ClaimedLengthArray - An array interpreted by Kernel circuits.
+Its <code>length</code> is merely a claim that must eventually be validated.
+Validation must include:</p>
+<ul>
+<li>Asserting all items to the LHS of the length are nonempty (dense).</li>
+<li>Asserting all items to the RHS of the length are empty.</li>
+</ul>
+</div>
+<h2>Fields</h2>
+<div id="structfield.array" class="struct-field"><code class="code-header">array: [T; N]</code></div>
+<div class="padded-description"></div><div id="structfield.length" class="struct-field"><code class="code-header">length: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;</code></h3>
+
+<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <a href="#assert_dense_trimmed"><span class="fn">assert_dense_trimmed</span></a>(self)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="assert_length_within_bounds" class="code-header">pub fn <a href="#assert_length_within_bounds"><span class="fn">assert_length_within_bounds</span></a>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="push" class="code-header">pub fn <a href="#push"><span class="fn">push</span></a>(&mut self, item: T)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="pop" class="code-header">pub fn <a href="#pop"><span class="fn">pop</span></a>(&mut self) -> T
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="for_each" class="code-header">pub fn <a href="#for_each"><span class="fn">for_each</span></a>&lt;Env&gt;(self, f: fn[Env](T))
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="for_each_i" class="code-header">pub fn <a href="#for_each_i"><span class="fn">for_each_i</span></a>&lt;Env&gt;(self, f: fn[Env](T, <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>))
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+<code id="from_bounded_vec" class="code-header">pub fn <a href="#from_bounded_vec"><span class="fn">from_bounded_vec</span></a>(vec: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, N&gt;) -> Self
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
+    serialized: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Deserialize&gt;::N + 1],
+) -> Self</code>
+
+</div><h3 id="impl-Empty-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Serialize&gt;::N + 1]</code>
+
+</div></main>
+</span>
+</body>
+</html>

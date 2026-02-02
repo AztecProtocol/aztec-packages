@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function for_i_in_0_ documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">for_i_in_0_</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module for_loop</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.for_i_in_.html">for_i_in_</a></div></li>
+<li><a href="fn.for_i_in_0_.html">for_i_in_0_</a></div></li>
+<li><a href="fn.for_i_only_in_.html">for_i_only_in_</a></div></li>
+<li><a href="fn.for_i_only_in_0_.html">for_i_only_in_0_</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.for_loop_no_op.html">for_loop_no_op</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">for_loop</a></div>
+<h1>Function <span class="fn">for_i_in_0_</span></h1>
+<pre><code>pub fn for_i_in_0_&lt;Env1, Env2&gt;(
+    max: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    MAX: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    f_within: fn[Env1](<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>),
+    f_after_max: fn[Env2](<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>),
+    assert_max_lte_MAX: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Iterates through i,
+where:</p>
+<ul>
+<li>0 &lt;= i &lt; max</li>
+<li>max is only known at runtime</li>
+<li>MAX is known at compile-time, e.g. the fixed length of an array.</li>
+</ul>
+<p>Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> can be specified.</p>
+<p>If the dev knows what they're doing, they can choose to set the following to <code>false</code>:
+<code>assert_min_lte_max</code>, <code>assert_max_lte_MAX</code>, as a very small constraint optimisation.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function derive_serialization_quotes documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">derive_serialization_quotes</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module utils</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_serialization_quotes.html">derive_serialization_quotes</a></div></li>
+<li><a href="fn.get_params_len_quote.html">get_params_len_quote</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol_types</a>::<a href="../index.html">meta</a>::<a href="index.html">utils</a></div>
+<h1>Function <span class="fn">derive_serialization_quotes</span></h1>
+<pre><code>pub comptime fn derive_serialization_quotes(
+    params: [(<a href="../../../../std/primitive.Quoted.html" class="primitive">Quoted</a>, <a href="../../../../std/primitive.Type.html" class="primitive">Type</a>)],
+    use_self_prefix: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
+) -> (<a href="../../../../std/primitive.Quoted.html" class="primitive">Quoted</a>, <a href="../../../../std/primitive.Quoted.html" class="primitive">Quoted</a>, <a href="../../../../std/primitive.Quoted.html" class="primitive">Quoted</a>)</code></pre>
+
+<div class="comments">
+<p>Generates serialization code for a list of parameters and the total length of the serialized array</p>
+<h2>Parameters</h2>
+<ul>
+<li><code>params</code>: A list of (name, type) tuples to serialize</li>
+<li><code>use_self_prefix</code>: If true, parameters are accessed as <code>self.$param_name</code> (for struct members).
+If false, parameters are accessed directly as <code>$param_name</code> (for function parameters).</li>
+</ul>
+<h2>Returns</h2>
+<p>A tuple containing:</p>
+<ul>
+<li>Quoted code that serializes the parameters into an array named <code>serialized_params</code></li>
+<li>Quoted code that evaluates to the total length of the serialized array</li>
+<li>Quoted code containing the name of the serialized array</li>
+</ul>
+</div>
+</main>
+</span>
+</body>
+</html>

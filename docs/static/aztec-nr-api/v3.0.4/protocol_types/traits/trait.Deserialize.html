@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Trait Deserialize documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Deserialize</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait Deserialize</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#deserialize">deserialize</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-()">()</a></li>
+<li><a href="#impl-Deserialize-for-(T0, T1)">(T0, T1)</a></li>
+<li><a href="#impl-Deserialize-for-(T0, T1, T2)">(T0, T1, T2)</a></li>
+<li><a href="#impl-Deserialize-for-(T0, T1, T2, T3)">(T0, T1, T2, T3)</a></li>
+<li><a href="#impl-Deserialize-for-(T0, T1, T2, T3, T4)">(T0, T1, T2, T3, T4)</a></li>
+<li><a href="#impl-Deserialize-for-(T0, T1, T2, T3, T4, T5)">(T0, T1, T2, T3, T4, T5)</a></li>
+<li><a href="#impl-Deserialize-for-(T1,)">(T1,)</a></li>
+<li><a href="#impl-Deserialize-for-AddressNote">AddressNote</a></li>
+<li><a href="#impl-Deserialize-for-AppendOnlyTreeSnapshot">AppendOnlyTreeSnapshot</a></li>
+<li><a href="#impl-Deserialize-for-AuthorizationSelector">AuthorizationSelector</a></li>
+<li><a href="#impl-Deserialize-for-AvmAccumulatedData">AvmAccumulatedData</a></li>
+<li><a href="#impl-Deserialize-for-AvmAccumulatedDataArrayLengths">AvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Deserialize-for-AvmCircuitPublicInputs">AvmCircuitPublicInputs</a></li>
+<li><a href="#impl-Deserialize-for-AztecAddress">AztecAddress</a></li>
+<li><a href="#impl-Deserialize-for-BlockConstantData">BlockConstantData</a></li>
+<li><a href="#impl-Deserialize-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Deserialize-for-BoundedVec<T, M>">BoundedVec<T, M></a></li>
+<li><a href="#impl-Deserialize-for-CallContext">CallContext</a></li>
+<li><a href="#impl-Deserialize-for-CheckpointConstantData">CheckpointConstantData</a></li>
+<li><a href="#impl-Deserialize-for-CheckpointHeader">CheckpointHeader</a></li>
+<li><a href="#impl-Deserialize-for-ClaimedLengthArray<T, N>">ClaimedLengthArray<T, N></a></li>
+<li><a href="#impl-Deserialize-for-CompressedString<N, M>">CompressedString<N, M></a></li>
+<li><a href="#impl-Deserialize-for-ContentCommitment">ContentCommitment</a></li>
+<li><a href="#impl-Deserialize-for-ContractClassId">ContractClassId</a></li>
+<li><a href="#impl-Deserialize-for-ContractInstance">ContractInstance</a></li>
+<li><a href="#impl-Deserialize-for-Counted<T>">Counted<T></a></li>
+<li><a href="#impl-Deserialize-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
+<li><a href="#impl-Deserialize-for-Empty">Empty</a></li>
+<li><a href="#impl-Deserialize-for-EpochConstantData">EpochConstantData</a></li>
+<li><a href="#impl-Deserialize-for-EthAddress">EthAddress</a></li>
+<li><a href="#impl-Deserialize-for-EventSelector">EventSelector</a></li>
+<li><a href="#impl-Deserialize-for-Fancier">Fancier</a></li>
+<li><a href="#impl-Deserialize-for-FeeRecipient">FeeRecipient</a></li>
+<li><a href="#impl-Deserialize-for-Field">Field</a></li>
+<li><a href="#impl-Deserialize-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Deserialize-for-FieldNote">FieldNote</a></li>
+<li><a href="#impl-Deserialize-for-FunctionData">FunctionData</a></li>
+<li><a href="#impl-Deserialize-for-FunctionSelector">FunctionSelector</a></li>
+<li><a href="#impl-Deserialize-for-Gas">Gas</a></li>
+<li><a href="#impl-Deserialize-for-GasFees">GasFees</a></li>
+<li><a href="#impl-Deserialize-for-GasSettings">GasSettings</a></li>
+<li><a href="#impl-Deserialize-for-GlobalVariables">GlobalVariables</a></li>
+<li><a href="#impl-Deserialize-for-HasArray">HasArray</a></li>
+<li><a href="#impl-Deserialize-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Deserialize-for-IvpkM">IvpkM</a></li>
+<li><a href="#impl-Deserialize-for-KeyValidationRequest">KeyValidationRequest</a></li>
+<li><a href="#impl-Deserialize-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
+<li><a href="#impl-Deserialize-for-L2ToL1Message">L2ToL1Message</a></li>
+<li><a href="#impl-Deserialize-for-Log<N>">Log<N></a></li>
+<li><a href="#impl-Deserialize-for-LogHash">LogHash</a></li>
+<li><a href="#impl-Deserialize-for-MembershipWitness<N, M>">MembershipWitness<N, M></a></li>
+<li><a href="#impl-Deserialize-for-MessageContext">MessageContext</a></li>
+<li><a href="#impl-Deserialize-for-MockStruct">MockStruct</a></li>
+<li><a href="#impl-Deserialize-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-Deserialize-for-NpkM">NpkM</a></li>
+<li><a href="#impl-Deserialize-for-Nullifier">Nullifier</a></li>
+<li><a href="#impl-Deserialize-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Deserialize-for-NullifierMembershipWitness">NullifierMembershipWitness</a></li>
+<li><a href="#impl-Deserialize-for-Option<T>">Option<T></a></li>
+<li><a href="#impl-Deserialize-for-OvpkM">OvpkM</a></li>
+<li><a href="#impl-Deserialize-for-PartialAddress">PartialAddress</a></li>
+<li><a href="#impl-Deserialize-for-PartialStateReference">PartialStateReference</a></li>
+<li><a href="#impl-Deserialize-for-PartialUintNote">PartialUintNote</a></li>
+<li><a href="#impl-Deserialize-for-Poseidon2Sponge">Poseidon2Sponge</a></li>
+<li><a href="#impl-Deserialize-for-PrivateCallRequest">PrivateCallRequest</a></li>
+<li><a href="#impl-Deserialize-for-PrivateCircuitPublicInputs">PrivateCircuitPublicInputs</a></li>
+<li><a href="#impl-Deserialize-for-PrivateLogData">PrivateLogData</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToAvmAccumulatedData">PrivateToAvmAccumulatedData</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToAvmAccumulatedDataArrayLengths">PrivateToAvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToPublicAccumulatedData">PrivateToPublicAccumulatedData</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToPublicKernelCircuitPublicInputs">PrivateToPublicKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToRollupAccumulatedData">PrivateToRollupAccumulatedData</a></li>
+<li><a href="#impl-Deserialize-for-PrivateToRollupKernelCircuitPublicInputs">PrivateToRollupKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Deserialize-for-ProtocolContracts">ProtocolContracts</a></li>
+<li><a href="#impl-Deserialize-for-PublicCallRequest">PublicCallRequest</a></li>
+<li><a href="#impl-Deserialize-for-PublicCallRequestArrayLengths">PublicCallRequestArrayLengths</a></li>
+<li><a href="#impl-Deserialize-for-PublicDataTreeLeafPreimage">PublicDataTreeLeafPreimage</a></li>
+<li><a href="#impl-Deserialize-for-PublicDataWitness">PublicDataWitness</a></li>
+<li><a href="#impl-Deserialize-for-PublicDataWrite">PublicDataWrite</a></li>
+<li><a href="#impl-Deserialize-for-PublicKeys">PublicKeys</a></li>
+<li><a href="#impl-Deserialize-for-PublicKeysHash">PublicKeysHash</a></li>
+<li><a href="#impl-Deserialize-for-PublicLogs">PublicLogs</a></li>
+<li><a href="#impl-Deserialize-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
+<li><a href="#impl-Deserialize-for-Scoped<T>">Scoped<T></a></li>
+<li><a href="#impl-Deserialize-for-Smol">Smol</a></li>
+<li><a href="#impl-Deserialize-for-SpongeBlob">SpongeBlob</a></li>
+<li><a href="#impl-Deserialize-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Deserialize-for-TestAccount">TestAccount</a></li>
+<li><a href="#impl-Deserialize-for-TestValue">TestValue</a></li>
+<li><a href="#impl-Deserialize-for-TpkM">TpkM</a></li>
+<li><a href="#impl-Deserialize-for-TreeSnapshots">TreeSnapshots</a></li>
+<li><a href="#impl-Deserialize-for-TxConstantData">TxConstantData</a></li>
+<li><a href="#impl-Deserialize-for-TxContext">TxContext</a></li>
+<li><a href="#impl-Deserialize-for-TxRequest">TxRequest</a></li>
+<li><a href="#impl-Deserialize-for-UintNote">UintNote</a></li>
+<li><a href="#impl-Deserialize-for-[T; M]">[T; M]</a></li>
+<li><a href="#impl-Deserialize-for-bool">bool</a></li>
+<li><a href="#impl-Deserialize-for-i16">i16</a></li>
+<li><a href="#impl-Deserialize-for-i32">i32</a></li>
+<li><a href="#impl-Deserialize-for-i64">i64</a></li>
+<li><a href="#impl-Deserialize-for-i8">i8</a></li>
+<li><a href="#impl-Deserialize-for-str&lt;M&gt;">str&lt;M&gt;</a></li>
+<li><a href="#impl-Deserialize-for-u1">u1</a></li>
+<li><a href="#impl-Deserialize-for-u128">u128</a></li>
+<li><a href="#impl-Deserialize-for-u16">u16</a></li>
+<li><a href="#impl-Deserialize-for-u32">u32</a></li>
+<li><a href="#impl-Deserialize-for-u64">u64</a></li>
+<li><a href="#impl-Deserialize-for-u8">u8</a></li>
+</ul>
+<h2>In module traits</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Deserialize.html">Deserialize</a></div></li>
+<li><a href="trait.Empty.html">Empty</a></div></li>
+<li><a href="trait.FromField.html">FromField</a></div></li>
+<li><a href="trait.Hash.html">Hash</a></div></li>
+<li><a href="trait.Packable.html">Packable</a></div></li>
+<li><a href="trait.Serialize.html">Serialize</a></div></li>
+<li><a href="trait.ToField.html">ToField</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">traits</a></div>
+<h1>Trait <span id="trait" class="trait">Deserialize</span></h1>
+<pre><code>pub trait Deserialize {
+    let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#deserialize"><span class="fn">deserialize</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self;
+}</code></pre>
+
+<div class="comments">
+<p>Trait for deserializing Noir types from arrays of Fields.</p>
+<p>An implementation of the Deserialize trait has to follow Noir's intrinsic serialization (each member of a struct
+converted directly into one or more Fields without any packing or compression). This trait is typically used when
+deserializing return values from function calls in Noir. Since the same function could be called from TypeScript
+(TS), in which case the TS deserialization would get used, we need to have a match between the 2.</p>
+<h2>Associated Constants</h2>
+<ul>
+<li><code>N</code> - The length of the input Field array, known at compile time</li>
+</ul>
+<h2>Example</h2>
+<pre><code><span class="kw">impl</span>&lt;<span class="kw">let</span> M: u32&gt; Deserialize <span class="kw">for</span> str&lt;M&gt; {
+    <span class="kw">let</span> N: u32 = M;
+
+    #[inline_always]
+    <span class="kw">fn</span> deserialize(fields: [Field; Self::N]) -&gt; Self {
+        str::&lt;Self::N&gt;::from(fields.map(|value| value <span class="kw">as</span> u8))
+    }
+}</code></pre></div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="deserialize" class="code-header">pub fn <a href="#deserialize"><span class="fn">deserialize</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Deserialize-for-()"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for ()</code></h3>
+
+<h3 id="impl-Deserialize-for-(T0, T1)"><code class="code-header">impl&lt;T0, T1&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T0, T1)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-(T0, T1, T2)"><code class="code-header">impl&lt;T0, T1, T2&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T0, T1, T2)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-(T0, T1, T2, T3)"><code class="code-header">impl&lt;T0, T1, T2, T3&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T0, T1, T2, T3)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-(T0, T1, T2, T3, T4)"><code class="code-header">impl&lt;T0, T1, T2, T3, T4&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T0, T1, T2, T3, T4)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T4: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-(T0, T1, T2, T3, T4, T5)"><code class="code-header">impl&lt;T0, T1, T2, T3, T4, T5&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T0, T1, T2, T3, T4, T5)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T4: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a>,
+    T5: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-(T1,)"><code class="code-header">impl&lt;T1&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for (T1,)
+<div class="where-clause">where
+    T1: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-AddressNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AppendOnlyTreeSnapshot"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AuthorizationSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html" class="struct">AvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Deserialize-for-AztecAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<h3 id="impl-Deserialize-for-BlockConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-BlockHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+<h3 id="impl-Deserialize-for-BoundedVec<T, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, M&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-CallContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code></h3>
+
+<h3 id="impl-Deserialize-for-CheckpointConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/checkpoint_constant_data/struct.CheckpointConstantData.html" class="struct">CheckpointConstantData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+
+<h3 id="impl-Deserialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-CompressedString<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../compressed_string/struct.CompressedString.html" class="struct">CompressedString</a>&lt;N, M&gt;</code></h3>
+
+<h3 id="impl-Deserialize-for-ContentCommitment"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/content_commitment/struct.ContentCommitment.html" class="struct">ContentCommitment</a></code></h3>
+
+<h3 id="impl-Deserialize-for-ContractClassId"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<h3 id="impl-Deserialize-for-ContractInstance"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Empty"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for Empty</code></h3>
+
+<h3 id="impl-Deserialize-for-EpochConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-EthAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
+
+<h3 id="impl-Deserialize-for-EventSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/event/event_selector/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Fancier"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for Fancier</code></h3>
+
+<h3 id="impl-Deserialize-for-FeeRecipient"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Field"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FunctionSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Gas"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></h3>
+
+<h3 id="impl-Deserialize-for-GasFees"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></h3>
+
+<h3 id="impl-Deserialize-for-GasSettings"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<h3 id="impl-Deserialize-for-GlobalVariables"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
+
+<h3 id="impl-Deserialize-for-HasArray"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for HasArray</code></h3>
+
+<h3 id="impl-Deserialize-for-HasArrayWithGenerics<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for HasArrayWithGenerics&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-IvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
+
+<h3 id="impl-Deserialize-for-KeyValidationRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
+
+<h3 id="impl-Deserialize-for-KeyValidationRequestAndGenerator"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a></code></h3>
+
+<h3 id="impl-Deserialize-for-L2ToL1Message"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Log<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/log/struct.Log.html" class="struct">Log</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-Deserialize-for-LogHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a></code></h3>
+
+<h3 id="impl-Deserialize-for-MembershipWitness<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/oracle/get_membership_witness/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;N, M&gt;</code></h3>
+
+<h3 id="impl-Deserialize-for-MessageContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/processing/message_context/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
+
+<h3 id="impl-Deserialize-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/test/mocks/mock_struct/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+
+<h3 id="impl-Deserialize-for-NoteMetadata"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<h3 id="impl-Deserialize-for-NpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Nullifier"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<h3 id="impl-Deserialize-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Deserialize-for-NullifierMembershipWitness"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html" class="struct">NullifierMembershipWitness</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Option<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-OvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.OvpkM.html" class="struct">OvpkM</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PartialAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PartialStateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<h3 id="impl-Deserialize-for-Poseidon2Sponge"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateLogData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToAvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToPublicAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToRollupAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Deserialize-for-ProtocolContracts"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicCallRequestArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicDataWitness"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html" class="struct">PublicDataWitness</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicDataWrite"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicKeys"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicKeysHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/public_keys_hash/struct.PublicKeysHash.html" class="struct">PublicKeysHash</a></code></h3>
+
+<h3 id="impl-Deserialize-for-PublicLogs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
+
+<h3 id="impl-Deserialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-Smol"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for Smol</code></h3>
+
+<h3 id="impl-Deserialize-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<h3 id="impl-Deserialize-for-StateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TestAccount"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/test/helpers/utils/struct.TestAccount.html" class="struct">TestAccount</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TestValue"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/tests/types/struct.TestValue.html" class="struct">TestValue</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.TpkM.html" class="struct">TpkM</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TreeSnapshots"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TxConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TxContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></h3>
+
+<h3 id="impl-Deserialize-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
+
+<h3 id="impl-Deserialize-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
+
+<h3 id="impl-Deserialize-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for [T; M]
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-bool"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></h3>
+
+<h3 id="impl-Deserialize-for-i16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-Deserialize-for-i32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-Deserialize-for-i64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-Deserialize-for-i8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+<h3 id="impl-Deserialize-for-str&lt;M&gt;"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;</code></h3>
+
+<h3 id="impl-Deserialize-for-u1"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u1.html" class="primitive">u1</a></code></h3>
+
+<h3 id="impl-Deserialize-for-u128"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-Deserialize-for-u16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-Deserialize-for-u32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-Deserialize-for-u64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-Deserialize-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

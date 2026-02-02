@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../../styles.css">
+<script defer src="../../../../../nargo_doc.js"></script>
+<title>Struct PrivateToPublicKernelCircuitPublicInputs documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateToPublicKernelCircuitPublicInputs</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateToPublicKernelCircuitPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.constants">constants</a></li>
+<li><a href="#structfield.fee_payer">fee_payer</a></li>
+<li><a href="#structfield.gas_used">gas_used</a></li>
+<li><a href="#structfield.include_by_timestamp">include_by_timestamp</a></li>
+<li><a href="#structfield.non_revertible_accumulated_data">non_revertible_accumulated_data</a></li>
+<li><a href="#structfield.public_teardown_call_request">public_teardown_call_request</a></li>
+<li><a href="#structfield.revertible_accumulated_data">revertible_accumulated_data</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PrivateToPublicKernelCircuitPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-PrivateToPublicKernelCircuitPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-PrivateToPublicKernelCircuitPublicInputs">Eq</a></li>
+<li><a href="#impl-Hash-for-PrivateToPublicKernelCircuitPublicInputs">Hash</a></li>
+<li><a href="#impl-Serialize-for-PrivateToPublicKernelCircuitPublicInputs">Serialize</a></li>
+</ul>
+<h2>In module private_to_public_kernel_circuit_public_inputs</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateToPublicKernelCircuitPublicInputs.html">PrivateToPublicKernelCircuitPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../../index.html">aztec-nr</a> - <a href="../../../../index.html">noir_aztec</a>::<a href="../../../index.html">protocol_types</a>::<a href="../../index.html">abis</a>::<a href="../index.html">kernel_circuit_public_inputs</a>::<a href="index.html">private_to_public_kernel_circuit_public_inputs</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateToPublicKernelCircuitPublicInputs</span></h1>
+<pre><code>pub struct PrivateToPublicKernelCircuitPublicInputs {
+    pub constants: <a href="../../../../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a>,
+    pub non_revertible_accumulated_data: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a>,
+    pub revertible_accumulated_data: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a>,
+    pub public_teardown_call_request: <a href="../../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
+    pub gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub include_by_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.constants" class="struct-field"><code class="code-header">constants: <a href="../../../../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code></div>
+<div class="padded-description"></div><div id="structfield.non_revertible_accumulated_data" class="struct-field"><code class="code-header">non_revertible_accumulated_data: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="structfield.revertible_accumulated_data" class="struct-field"><code class="code-header">revertible_accumulated_data: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="structfield.public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
+<div class="padded-description"></div><div id="structfield.gas_used" class="struct-field"><code class="code-header">gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="structfield.fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3040]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Serialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3040]</code>
+
+</div></main>
+</span>
+</body>
+</html>

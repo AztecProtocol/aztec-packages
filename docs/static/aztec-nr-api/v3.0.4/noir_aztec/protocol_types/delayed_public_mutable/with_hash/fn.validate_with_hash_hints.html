@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function validate_with_hash_hints documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">validate_with_hash_hints</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module with_hash</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.compute_with_hash_hash_storage_slot.html">compute_with_hash_hash_storage_slot</a></div></li>
+<li><a href="fn.validate_with_hash_hints.html">validate_with_hash_hints</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol_types</a>::<a href="../index.html">delayed_public_mutable</a>::<a href="index.html">with_hash</a></div>
+<h1>Function <span class="fn">validate_with_hash_hints</span></h1>
+<pre><code>pub fn validate_with_hash_hints&lt;T&gt;(
+    historical_header: <a href="../../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    with_hash_storage_slot: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    with_hash_value_hint: T,
+    witness: <a href="../../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;,
+    leaf_preimage: <a href="../../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>,
+)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></pre>
+
+</main>
+</span>
+</body>
+</html>
