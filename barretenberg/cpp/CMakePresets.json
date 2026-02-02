@@ -530,6 +530,38 @@
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
       }
+    },
+    {
+      "name": "ios-arm64",
+      "displayName": "Build for iOS arm64 (device)",
+      "description": "Build for iOS arm64 devices using ios.toolchain.cmake",
+      "binaryDir": "build-ios-arm64",
+      "generator": "Ninja",
+      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "cacheVariables": {
+        "PLATFORM": "OS64",
+        "DEPLOYMENT_TARGET": "14.0",
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_PIC": "ON",
+        "ENABLE_ARC": "OFF",
+        "HAVE_STD_REGEX": "ON"
+      }
+    },
+    {
+      "name": "ios-sim-arm64",
+      "displayName": "Build for iOS Simulator arm64",
+      "description": "Build for iOS Simulator on Apple Silicon using ios.toolchain.cmake",
+      "binaryDir": "build-ios-sim-arm64",
+      "generator": "Ninja",
+      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "cacheVariables": {
+        "PLATFORM": "SIMULATORARM64",
+        "DEPLOYMENT_TARGET": "14.0",
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_PIC": "ON",
+        "ENABLE_ARC": "OFF",
+        "HAVE_STD_REGEX": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -716,6 +748,16 @@
     {
       "name": "zig-arm64-macos",
       "configurePreset": "zig-arm64-macos",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "ios-arm64",
+      "configurePreset": "ios-arm64",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "ios-sim-arm64",
+      "configurePreset": "ios-sim-arm64",
       "inheritConfigureEnvironment": true
     }
   ],

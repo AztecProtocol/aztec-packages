@@ -107,6 +107,17 @@ function build_cross {
   fi
 }
 
+# Build for iOS (must run on macOS with Xcode installed)
+# Arg is preset name: ios-arm64 or ios-sim-arm64
+function build_ios {
+  set -eu
+  preset=$1
+  if ! cache_download barretenberg-$preset-$hash.zst; then
+    build_preset $preset --target bb-external
+    cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
+  fi
+}
+
 # Selectively build components with address sanitizer (with optimizations)
 function build_asan_fast {
   set -eu
@@ -236,9 +247,17 @@ function build_release_dir {
   if [ -f build-zig-arm64-macos/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
   fi
+
+  # Package iOS static libraries (built on macOS runners)
+  if [ -f build-ios-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-ios-arm64/lib libbb-external.a
+  fi
+  if [ -f build-ios-sim-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-ios-sim-arm64/lib libbb-external.a
+  fi
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
