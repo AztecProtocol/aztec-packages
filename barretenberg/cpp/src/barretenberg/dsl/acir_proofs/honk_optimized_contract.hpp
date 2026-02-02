@@ -408,13 +408,13 @@ uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 41;
 uint256 constant NUMBER_UNSHIFTED = 36;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
-uint256 constant PAIRING_POINTS_SIZE = 16;
+uint256 constant PAIRING_POINTS_SIZE = 8;
 
 uint256 constant VK_HASH = {{ VK_HASH }};
 uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
-uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }} - 16;
+uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 12 - 8;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 // LOG_N * 8
 uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};
@@ -661,14 +661,14 @@ contract HonkVerifier is IVerifier {
                 // Copy Pairing points into eta buffer
                 let public_inputs_end := add(0x20, public_inputs_size)
 
-                calldatacopy(public_inputs_end, proof_ptr, 0x200)
+                calldatacopy(public_inputs_end, proof_ptr, 0x100)
 
-                // 0x20 * 8 = 0x100
-                // End of public inputs + pairing point
-                calldatacopy(add(0x220, public_inputs_size), add(proof_ptr, 0x200), 0x100)
+                // 0x20 * 8 = 0x100 (8 pairing point limbs)
+                // End of public inputs + pairing points
+                calldatacopy(add(0x120, public_inputs_size), add(proof_ptr, 0x100), 0x100)
 
-                // 0x2e0 = 1 * 32 bytes + 3 * 64 bytes for (w1,w2,w3) + 0x200 for pairing points
-                let eta_input_length := add(0x2e0, public_inputs_size)
+                // 0x1e0 = 1 * 32 bytes + 3 * 64 bytes for (w1,w2,w3) + 0x100 for pairing points
+                let eta_input_length := add(0x1e0, public_inputs_size)
 
                 // Get single eta challenge and compute powers (eta, eta², eta³)
                 let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
@@ -3495,26 +3495,18 @@ contract HonkVerifier is IVerifier {
                     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                     /*                   PAIRING AGGREGATION                      */
                     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-                    // Read the pairing encoded in the first 16 field elements of the proof
+                    // Read the pairing encoded in the first 8 field elements of the proof (2 limbs per coordinate)
                     let p0_other_x := mload(PAIRING_POINT_0)
-                    p0_other_x := or(shl(68, mload(PAIRING_POINT_1)), p0_other_x)
-                    p0_other_x := or(shl(136, mload(PAIRING_POINT_2)), p0_other_x)
-                    p0_other_x := or(shl(204, mload(PAIRING_POINT_3)), p0_other_x)
+                    p0_other_x := or(shl(136, mload(PAIRING_POINT_1)), p0_other_x)
 
-                    let p0_other_y := mload(PAIRING_POINT_4)
-                    p0_other_y := or(shl(68, mload(PAIRING_POINT_5)), p0_other_y)
-                    p0_other_y := or(shl(136, mload(PAIRING_POINT_6)), p0_other_y)
-                    p0_other_y := or(shl(204, mload(PAIRING_POINT_7)), p0_other_y)
+                    let p0_other_y := mload(PAIRING_POINT_2)
+                    p0_other_y := or(shl(136, mload(PAIRING_POINT_3)), p0_other_y)
 
-                    let p1_other_x := mload(PAIRING_POINT_8)
-                    p1_other_x := or(shl(68, mload(PAIRING_POINT_9)), p1_other_x)
-                    p1_other_x := or(shl(136, mload(PAIRING_POINT_10)), p1_other_x)
-                    p1_other_x := or(shl(204, mload(PAIRING_POINT_11)), p1_other_x)
+                    let p1_other_x := mload(PAIRING_POINT_4)
+                    p1_other_x := or(shl(136, mload(PAIRING_POINT_5)), p1_other_x)
 
-                    let p1_other_y := mload(PAIRING_POINT_12)
-                    p1_other_y := or(shl(68, mload(PAIRING_POINT_13)), p1_other_y)
-                    p1_other_y := or(shl(136, mload(PAIRING_POINT_14)), p1_other_y)
-                    p1_other_y := or(shl(204, mload(PAIRING_POINT_15)), p1_other_y)
+                    let p1_other_y := mload(PAIRING_POINT_6)
+                    p1_other_y := or(shl(136, mload(PAIRING_POINT_7)), p1_other_y)
 
                     // Validate p_0_other on curve
                     let xx := mulmod(p0_other_x, p0_other_x, q)
