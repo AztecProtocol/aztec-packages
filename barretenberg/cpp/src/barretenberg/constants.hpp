@@ -30,6 +30,11 @@ static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
 
+// IPA proof length: 4 * CONST_ECCVM_LOG_N (L and R commitments) + 2 (G_0) + 2 (a_0)
+// Note: Updating this requires updating noir protocol circuits (rollup-base-private,
+// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root)
+static constexpr size_t IPA_PROOF_LENGTH = (4 * CONST_ECCVM_LOG_N) + 4;
+
 // The number of last rows in ProverPolynomials that are randomized to mask
 // 1) witness commitments,
 // 2) multilinear evaluations of witness polynomials in Sumcheck
