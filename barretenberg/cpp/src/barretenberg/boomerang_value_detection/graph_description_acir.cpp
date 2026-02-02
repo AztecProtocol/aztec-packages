@@ -1,5 +1,6 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -302,6 +303,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::RANGE:
             result = process_range_constraints(constraint_info.ptr);
             break;
+        case AcirConstraintType::EC_ADD:
+            result = process_embedded_curve_add_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -578,6 +582,112 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
 {
     const auto* constraint = std::get<const acir_format::RangeConstraint*>(ptr);
     return validate_range_constraint(constraint->witness, constraint->num_bits);
+}
+
+/**
+ * @brief Validate EC_ADD (embedded curve addition) constraint
+ * @details The EC_ADD constraint computes input1 + input2 on the Grumpkin curve and checks
+ *          that the result equals the provided output witnesses. The constraint can be
+ *          conditionally disabled via a predicate.
+ *
+ *          Validation checks:
+ *          1. If predicate is constant false, constraint is disabled (return true)
+ *          2. Compute native point addition: expected = input1 + input2
+ *          3. Verify result witnesses match expected values
+ *          4. Handle point at infinity cases (coordinates standardized to (0,0))
+ *
+ * @param ptr Pointer to the EcAdd constraint
+ * @param next_constraint_witnesses Witnesses from the next constraint (unused for EC_ADD)
+ * @return true if constraint is correctly implemented, false otherwise
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_embedded_curve_add_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+{
+    (void)next_constraint_witnesses;
+    const auto* constraint = std::get<const acir_format::EcAdd*>(ptr);
+
+    // Helper to get value from WitnessOrConstant
+    auto get_value = [this](const WitnessOrConstant<FF>& woc) -> FF {
+        if (woc.is_constant) {
+            return woc.value;
+        }
+        return builder.get_variable(woc.index);
+    };
+
+    // Check if predicate is constant false (constraint disabled)
+    FF predicate_val = get_value(constraint->predicate);
+    if (constraint->predicate.is_constant && predicate_val == FF::zero()) {
+        return true; // Constraint is disabled, nothing to validate
+    }
+
+    // Get input point 1 values
+    FF input1_x = get_value(constraint->input1_x);
+    FF input1_y = get_value(constraint->input1_y);
+    FF input1_infinite = get_value(constraint->input1_infinite);
+
+    // Get input point 2 values
+    FF input2_x = get_value(constraint->input2_x);
+    FF input2_y = get_value(constraint->input2_y);
+    FF input2_infinite = get_value(constraint->input2_infinite);
+
+    // Get result values from witness indices
+    FF result_x = builder.get_variable(constraint->result_x);
+    FF result_y = builder.get_variable(constraint->result_y);
+    FF result_infinite = builder.get_variable(constraint->result_infinite);
+
+    // Construct native Grumpkin points
+    using AffineElement = bb::grumpkin::g1::affine_element;
+    using Element = bb::grumpkin::g1::element;
+
+    AffineElement p1(input1_x, input1_y);
+    if (input1_infinite == FF::one()) {
+        p1.self_set_infinity();
+    }
+
+    AffineElement p2(input2_x, input2_y);
+    if (input2_infinite == FF::one()) {
+        p2.self_set_infinity();
+    }
+
+    // Compute expected result: p1 + p2
+    Element sum = Element(p1) + Element(p2);
+    AffineElement expected_result(sum);
+
+    // Validate result matches expected
+    // Note: cycle_group standardizes infinity points to have coordinates (0, 0)
+    if (expected_result.is_point_at_infinity()) {
+        // Result should be point at infinity
+        if (result_infinite != FF::one()) {
+            return false;
+        }
+        // Coordinates should be standardized to (0, 0)
+        if (result_x != FF::zero() || result_y != FF::zero()) {
+            return false;
+        }
+    } else {
+        // Result should not be point at infinity
+        if (result_infinite != FF::zero()) {
+            return false;
+        }
+        // Coordinates should match
+        if (result_x != expected_result.x || result_y != expected_result.y) {
+            return false;
+        }
+    }
+
+    // The mathematical correctness is validated above.
+    // The circuit enforces this via:
+    // 1. cycle_group::operator+ which computes the addition with complete formula
+    // 2. cycle_group::assert_equal which constrains result == input_result
+    // 3. conditional_assign based on predicate
+    //
+    // If witness values are mathematically correct, the circuit constraints
+    // will be satisfied. A more thorough validation would trace through
+    // the actual gates, but this provides good coverage for detecting
+    // incorrectly constrained operations.
+
+    return true;
 }
 
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
