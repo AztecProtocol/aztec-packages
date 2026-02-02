@@ -155,6 +155,74 @@ export class TxPoolV2Impl {
   }
 
   async addPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
+    // Step 1: Separate pre-protected txs from regular txs
+    const preProtectedTxs: { tx: Tx; slotNumber: SlotNumber }[] = [];
+    const regularTxs: Tx[] = [];
+
+    for (const tx of txs) {
+      const txHashStr = tx.getTxHash().toString();
+      const slotNumber = this.#protectedTransactions.get(txHashStr);
+      if (slotNumber !== undefined) {
+        preProtectedTxs.push({ tx, slotNumber });
+      } else {
+        regularTxs.push(tx);
+      }
+    }
+
+    // Step 2: Handle pre-protected txs (bypass validation and all rules)
+    const preProtectedResult = await this.#addPreProtectedTxs(preProtectedTxs, opts);
+
+    // Step 3: Handle regular txs with normal flow
+    const regularResult = await this.#addRegularPendingTxs(regularTxs, opts);
+
+    // Step 4: Merge results
+    return {
+      accepted: [...preProtectedResult.accepted, ...regularResult.accepted],
+      ignored: [...preProtectedResult.ignored, ...regularResult.ignored],
+      rejected: regularResult.rejected,
+    };
+  }
+
+  async #addPreProtectedTxs(
+    txs: { tx: Tx; slotNumber: SlotNumber }[],
+    opts: { source?: string },
+  ): Promise<{ accepted: TxHash[]; ignored: TxHash[] }> {
+    const accepted: TxHash[] = [];
+    const ignored: TxHash[] = [];
+    const newlyAdded: Tx[] = [];
+
+    await this.#store.transactionAsync(async () => {
+      for (const { tx, slotNumber } of txs) {
+        const txHash = tx.getTxHash();
+        const txHashStr = txHash.toString();
+
+        // Skip duplicates
+        if (this.#isDuplicateTx(txHashStr)) {
+          this.#log.debug(`Pre-protected tx ${txHashStr} already in pool`);
+          ignored.push(txHash);
+          continue;
+        }
+
+        // Add directly as protected (no validation, no pre-add rules, no evictions)
+        await this.#addNewProtectedTx(tx, slotNumber);
+        accepted.push(txHash);
+        newlyAdded.push(tx);
+      }
+    });
+
+    // Emit events for newly added pre-protected txs
+    if (newlyAdded.length > 0) {
+      this.#callbacks.onTxsAdded(newlyAdded, opts);
+    }
+
+    return { accepted, ignored };
+  }
+
+  async #addRegularPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
+    if (txs.length === 0) {
+      return { accepted: [], ignored: [], rejected: [] };
+    }
+
     const state = this.#createPendingTxBatchState();
     const poolAccess = this.#createPreAddPoolAccess();
 
