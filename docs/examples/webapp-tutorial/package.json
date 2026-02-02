@@ -1,0 +1,48 @@
+{
+  "name": "webapp-tutorial-pod-racing",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "clean": "rm -rf contracts/target src/artifacts/*.json src/artifacts/*.ts dist",
+    "compile": "cd contracts && ${AZTEC:-aztec} compile && mkdir -p ../src/artifacts && cp target/*.json ../src/artifacts",
+    "codegen": "cd contracts && ${AZTEC:-aztec} codegen ./target -o ./target && cp target/*.ts ../src/artifacts",
+    "prep": "yarn compile && yarn codegen",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test:unit": "vitest run tests/unit/",
+    "test:e2e": "vitest run tests/e2e/ --test-timeout=120000",
+    "build:test-extension": "node esbuild.extension.mjs",
+    "test": "yarn test:unit && yarn build:test-extension && yarn test:e2e"
+  },
+  "dependencies": {
+    "@aztec/accounts": "4.0.0-nightly.20260202",
+    "@aztec/aztec.js": "4.0.0-nightly.20260202",
+    "@aztec/constants": "4.0.0-nightly.20260202",
+    "@aztec/entrypoints": "4.0.0-nightly.20260202",
+    "@aztec/foundation": "4.0.0-nightly.20260202",
+    "@aztec/kv-store": "4.0.0-nightly.20260202",
+    "@aztec/noir-contracts.js": "4.0.0-nightly.20260202",
+    "@aztec/pxe": "4.0.0-nightly.20260202",
+    "@aztec/stdlib": "4.0.0-nightly.20260202",
+    "@aztec/wallet-sdk": "4.0.0-nightly.20260202",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.7.2",
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.0",
+    "puppeteer": "^23.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vite-plugin-node-polyfills": "^0.22.0",
+    "vitest": "^2.0.0"
+  }
+}

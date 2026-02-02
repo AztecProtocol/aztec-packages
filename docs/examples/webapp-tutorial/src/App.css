@@ -1,0 +1,227 @@
+/* docs:start:app-css */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --error: #f85149;
+  --success: #3fb950;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  font-size: 1.5rem;
+  flex: 1;
+}
+
+.network-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-info {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.account-label {
+  color: var(--text-muted);
+}
+
+.account-address {
+  font-family: monospace;
+  color: var(--accent);
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wallet-connect,
+.game-lobby,
+.game-board,
+.game-status {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+h3 { font-size: 1rem; margin-bottom: 0.75rem; }
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+}
+
+input, select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  max-width: 400px;
+}
+
+button {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.lobby-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lobby-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.track label {
+  min-width: 120px;
+  margin-bottom: 0;
+}
+
+.track input[type="range"] {
+  flex: 1;
+}
+
+.track span {
+  min-width: 60px;
+  text-align: right;
+  font-family: monospace;
+}
+
+.total {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.privacy-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.emoji-grid {
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  margin: 1rem 0;
+}
+
+.tx-status {
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.tx-status-sending,
+.tx-status-proving {
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid var(--accent);
+}
+
+.tx-status-confirmed {
+  background: rgba(63, 185, 80, 0.1);
+  border: 1px solid var(--success);
+}
+
+.tx-status-error {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid var(--error);
+}
+
+.tx-hash {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.game-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+/* docs:end:app-css */
