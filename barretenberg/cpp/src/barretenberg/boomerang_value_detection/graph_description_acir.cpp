@@ -439,70 +439,61 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
                 continue;
             }
             if (analyzer.to_real(lookup_block.w_o()[gate]) == real_chunk_idx) {
-                bool correct_lookup = true;
-                for (size_t lookup_idx = 0; lookup_idx < num_lookups; lookup_idx++) {
-                    size_t gate_idx = gate + lookup_idx;
-                    if (!(lookup_block.q_lookup()[gate_idx] == FF::one())) {
-                        correct_lookup = false;
-                        break;
-                    }
-                    if (lookup_block.w_4()[gate_idx] != builder.zero_idx()) {
-                        correct_lookup = false;
-                        break;
-                    }
-                    const bool is_last_lookup = (lookup_idx == num_lookups - 1);
-                    BasicTableId expected_table = multi_table.basic_table_ids[lookup_idx];
-                    auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_idx]));
-                    auto table_id = lookup_tables[table_index].id;
-
-                    if (table_id != expected_table) {
-                        correct_lookup = false;
-                        break;
-                    }
-                    FF expected_q2 = is_last_lookup ? FF(0) : -multi_table.column_1_step_sizes[lookup_idx + 1];
-                    FF expected_qm = is_last_lookup ? FF(0) : -multi_table.column_2_step_sizes[lookup_idx + 1];
-                    FF expected_qc = is_last_lookup ? FF(0) : -multi_table.column_3_step_sizes[lookup_idx + 1];
-                    if (!(lookup_block.q_1()[gate_idx].is_zero() && expected_q2 == lookup_block.q_2()[gate_idx] &&
-                          expected_qm == lookup_block.q_m()[gate_idx] && expected_qc == lookup_block.q_c()[gate_idx] &&
-                          lookup_block.q_4()[gate_idx].is_zero())) {
-                        correct_lookup = false;
-                        break;
-                    }
-                }
-
-                if (!correct_lookup) {
-                    return false;
-                }
-
-                uint256_t a_chunk = builder.get_variable(lookup_block.w_l()[gate]);
-                uint256_t b_chunk = builder.get_variable(lookup_block.w_r()[gate]);
-                uint256_t result_chunk = builder.get_variable(lookup_block.w_o()[gate]);
-
-                // Verify operation correctness
-                if (constraint->is_xor_gate ? (a_chunk ^ b_chunk) != result_chunk
-                                            : (a_chunk & b_chunk) != result_chunk) {
-                    return false;
-                }
-
-                auto [a_recovered, b_recovered] = recover_chunks_from_lookups(multi_table, gate);
-
-                if (a_recovered != (a_chunk & ~uint256_t(0x3F)) || b_recovered != (b_chunk & ~uint256_t(0x3F))) {
-                    return false;
-                }
-
-                // Option 5: Store first chunk wire indices for final_bits check
-                if (i == 0) {
-                    first_chunk_a_idx = analyzer.to_real(lookup_block.w_l()[gate]);
-                    first_chunk_b_idx = analyzer.to_real(lookup_block.w_r()[gate]);
-                }
-
-                found_valid_for_chunk = true;
-                // result_chunks are in reverse order: result_chunks[i] is chunk (num_chunks - 1 - i)
-                auto scaling_factor = uint256_t(1) << (32 * (num_chunks - 1 - i));
-                a_accumulated += a_chunk * scaling_factor;
-                b_accumulated += b_chunk * scaling_factor;
-                break;
+                continue;
             }
+            for (size_t lookup_idx = 0; lookup_idx < num_lookups; lookup_idx++) {
+                size_t gate_idx = gate + lookup_idx;
+                if (!(lookup_block.q_lookup()[gate_idx] == FF::one())) {
+                    return false; // q_lookup should be one
+                }
+                if (lookup_block.w_4()[gate_idx] != builder.zero_idx()) {
+                    return false; // w_4 should be zero idx
+                }
+                const bool is_last_lookup = (lookup_idx == num_lookups - 1);
+                BasicTableId expected_table = multi_table.basic_table_ids[lookup_idx];
+                auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_idx]));
+                auto table_id = lookup_tables[table_index].id;
+
+                if (table_id != expected_table) {
+                    return false; // incorrect table index
+                }
+                FF expected_q2 = is_last_lookup ? FF(0) : -multi_table.column_1_step_sizes[lookup_idx + 1];
+                FF expected_qm = is_last_lookup ? FF(0) : -multi_table.column_2_step_sizes[lookup_idx + 1];
+                FF expected_qc = is_last_lookup ? FF(0) : -multi_table.column_3_step_sizes[lookup_idx + 1];
+                if (!(lookup_block.q_1()[gate_idx].is_zero() && expected_q2 == lookup_block.q_2()[gate_idx] &&
+                      expected_qm == lookup_block.q_m()[gate_idx] && expected_qc == lookup_block.q_c()[gate_idx] &&
+                      lookup_block.q_4()[gate_idx].is_zero())) {
+                    return false; // incorrect lookup
+                }
+            }
+
+            uint256_t a_chunk = builder.get_variable(lookup_block.w_l()[gate]);
+            uint256_t b_chunk = builder.get_variable(lookup_block.w_r()[gate]);
+            uint256_t result_chunk = builder.get_variable(lookup_block.w_o()[gate]);
+
+            // Verify operation correctness
+            if (constraint->is_xor_gate ? (a_chunk ^ b_chunk) != result_chunk : (a_chunk & b_chunk) != result_chunk) {
+                return false;
+            }
+
+            auto [a_recovered, b_recovered] = recover_chunks_from_lookups(multi_table, gate);
+
+            if (a_recovered != (a_chunk & ~uint256_t(0x3F)) || b_recovered != (b_chunk & ~uint256_t(0x3F))) {
+                return false;
+            }
+
+            // Option 5: Store first chunk wire indices for final_bits check
+            if (i == 0) {
+                first_chunk_a_idx = analyzer.to_real(lookup_block.w_l()[gate]);
+                first_chunk_b_idx = analyzer.to_real(lookup_block.w_r()[gate]);
+            }
+
+            found_valid_for_chunk = true;
+            // result_chunks are in reverse order: result_chunks[i] is chunk (num_chunks - 1 - i)
+            auto scaling_factor = uint256_t(1) << (32 * (num_chunks - 1 - i));
+            a_accumulated += a_chunk * scaling_factor;
+            b_accumulated += b_chunk * scaling_factor;
+            break;
         } // block to process 1 result_chunk
         if (!found_valid_for_chunk) {
             return false;
