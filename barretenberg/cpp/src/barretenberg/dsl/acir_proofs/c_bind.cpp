@@ -22,8 +22,9 @@ WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
                                         uint32_t* subgroup)
 {
     const acir_format::ProgramMetadata metadata{ .has_ipa_claim = *has_ipa_claim };
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-        from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+    acir_format::AcirProgram program{
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+    };
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
@@ -310,8 +311,9 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     using VerificationKey = UltraFlavor::VerificationKey;
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
@@ -327,8 +329,9 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
@@ -344,8 +347,9 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uin
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
@@ -363,8 +367,9 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t cons
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
@@ -385,8 +390,9 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk([[maybe_unused]] uint8_t c
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec)), {} };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)), {}
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
