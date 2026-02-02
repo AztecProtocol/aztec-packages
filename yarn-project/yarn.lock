@@ -2302,6 +2302,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-ha-signer@workspace:validator-ha-signer"
   dependencies:
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
