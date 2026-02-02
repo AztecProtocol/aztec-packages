@@ -28,13 +28,17 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
 
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18 OR MOBILE)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang20 and need this, eventually warning should be fixed or this will be unconditional.
-        # Also needed for iOS builds which use Apple Clang with stricter defaults.
         add_compile_options(-Wno-vla-cxx-extension)
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)
         # CLI11.hpp
+        add_compile_options(-Wno-deprecated-declarations)
+    endif()
+    if(MOBILE)
+        # iOS builds use Apple Clang which has stricter defaults but doesn't support -Wno-vla-cxx-extension
+        add_compile_options(-Wno-missing-field-initializers)
         add_compile_options(-Wno-deprecated-declarations)
     endif()
 endif()
