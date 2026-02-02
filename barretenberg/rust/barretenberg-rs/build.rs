@@ -46,10 +46,14 @@ fn download_lib(out_dir: &PathBuf) {
     let arch = match target.as_str() {
         t if t.contains("x86_64") && t.contains("linux") => "amd64-linux",
         t if t.contains("aarch64") && t.contains("linux") => "arm64-linux",
-        t if t.contains("x86_64") && t.contains("apple") => "amd64-darwin",
-        t if t.contains("aarch64") && t.contains("apple") => "arm64-darwin",
+        t if t.contains("x86_64") && t.contains("apple") && !t.contains("ios") => "amd64-darwin",
+        t if t.contains("aarch64") && t.contains("apple") && !t.contains("ios") => "arm64-darwin",
+        // iOS device (aarch64-apple-ios)
+        t if t.contains("aarch64") && t.contains("ios") && !t.contains("sim") => "arm64-ios",
+        // iOS Simulator (aarch64-apple-ios-sim)
+        t if t.contains("aarch64") && t.contains("ios") && t.contains("sim") => "arm64-ios-sim",
         _ => panic!(
-            "Unsupported target for FFI backend: {}. Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin",
+            "Unsupported target for FFI backend: {}. Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim",
             target
         ),
     };
