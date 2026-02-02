@@ -53,7 +53,6 @@ static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_Y =
  * multiple sets of pairing points.
  *
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
 template <typename Curve> struct PairingPoints {
@@ -69,14 +68,11 @@ template <typename Curve> struct PairingPoints {
     using value_type = Group;
     static constexpr size_t SIZE = 2;
 
-    // Storage as contiguous array for proper Codec/iterator support
     std::array<Group, 2> _points;
 
-    // Metadata
     bool has_data = false;
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
-    // Named accessors for readability
     Group& P0() { return _points[0]; }
     Group& P1() { return _points[1]; }
     const Group& P0() const { return _points[0]; }
@@ -88,8 +84,7 @@ template <typename Curve> struct PairingPoints {
         : _points{ p0, p1 }
         , has_data(true)
     {
-        // Get the builder from the group elements and assign a new tag
-        Builder* builder = P0().get_context();
+        Builder* builder = validate_context<Builder>(_points);
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
@@ -99,10 +94,6 @@ template <typename Curve> struct PairingPoints {
         info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
-
-    PairingPoints(std::array<Group, 2> const& points)
-        : PairingPoints(points[0], points[1])
-    {}
 
     // Array access (delegates to _points)
     auto& operator[](size_t idx) { return _points[idx]; }
@@ -275,11 +266,7 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Fix the witness values for both pairing points
-     * @details Adds constraints on P0 and P1 coordinates to ensure they are properly constrained in the circuit.
-     * This is useful when pairing points are set as public outputs but need additional constraints.
-     * @note For default pairing points, set_default_to_public() uses a similar but optimized approach that
-     * directly fixes precomputed Fr limbs, avoiding expensive bigfield operations.
+     * @brief Record the witness values of pairing points' coordinates in the selectors
      */
     void fix_witness()
     {
@@ -291,8 +278,6 @@ template <typename Curve> struct PairingPoints {
     /**
      * @brief Perform native pairing check on the witness values
      * @details Extracts native values from P0 and P1 and performs the pairing verification.
-     * Useful for debugging and validating pairing points outside the circuit.
-     * @return true if the pairing check passes: e(P0, [1]_2) * e(P1, [x]_2) == 1
      */
     bool check() const
     {
@@ -305,9 +290,7 @@ template <typename Curve> struct PairingPoints {
      * @brief Set the witness indices for the default limbs of the pairing points to public.
      * @details Optimized version that directly sets precomputed Fr limb values as public inputs,
      *          avoiding expensive bigfield operations. The default pairing points satisfy the
-     *          pairing equation, which is verified at compile time via static assertion.
-     * @note For non-default pairing points, use set_public() followed by fix_witness() to achieve
-     *       similar constraints on the coordinate limbs.
+     *          pairing equation.
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
@@ -316,7 +299,6 @@ template <typename Curve> struct PairingPoints {
         // Directly add precomputed combined limbs as public inputs, bypassing bigfield's self_reduce.
         // These values encode the default pairing points in the format used by bigfield::set_public().
         // Order: P0.x (lo, hi), P0.y (lo, hi), P1.x (lo, hi), P1.y (lo, hi)
-        // Each fix_witness call adds 1 gate to constrain the value at the VK level.
         auto add_fixed_public = [&](const bb::fr& value) {
             uint32_t idx = builder->add_public_variable(value);
             builder->fix_witness(idx, value);

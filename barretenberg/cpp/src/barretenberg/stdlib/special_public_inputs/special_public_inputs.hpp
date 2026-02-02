@@ -113,8 +113,9 @@ class KernelIO {
     {
         Builder* builder = output_hn_accum_hash.get_context();
 
-        if (pairing_inputs.P0().get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        Builder* pairing_ctx = validate_context<Builder>(pairing_inputs);
+        if (pairing_ctx == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
             pairing_inputs.set_public();
@@ -189,7 +190,7 @@ template <typename Builder_> class DefaultIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0().get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
         BB_ASSERT_NEQ(builder, nullptr, "Trying to set constant PairingPoints to public.");
 
         pairing_inputs.set_public();
@@ -256,7 +257,7 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0().get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
 
         transcript_hash.set_public();
         pairing_inputs.set_public();
@@ -318,8 +319,8 @@ template <class Builder_> class HidingKernelIO {
     {
         Builder* builder = ecc_op_tables[0].get_context();
 
-        if (pairing_inputs.P0().get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        if (validate_context<Builder>(pairing_inputs) == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
             pairing_inputs.set_public();
@@ -395,11 +396,10 @@ class RollupIO {
     {
         Builder* builder = ipa_claim.commitment.get_context();
 
-        if (pairing_inputs.P0().get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        if (validate_context<Builder>(pairing_inputs) == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
-            BB_ASSERT_EQ(builder, pairing_inputs.P0().get_context());
             pairing_inputs.set_public();
         }
         ipa_claim.set_public();

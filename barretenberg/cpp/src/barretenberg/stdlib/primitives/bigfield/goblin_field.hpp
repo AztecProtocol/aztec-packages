@@ -184,13 +184,8 @@ template <class Builder> class goblin_field {
      */
     uint32_t set_public() const
     {
-        Builder* ctx = limbs[0].get_context() != nullptr ? limbs[0].get_context() : limbs[1].get_context();
-        const uint32_t start_idx = static_cast<uint32_t>(ctx->num_public_inputs());
-
-        // Goblin field already stores (lo, hi) in the Codec format
-        ctx->set_public_input(limbs[0].normalize().get_witness_index());
-        ctx->set_public_input(limbs[1].normalize().get_witness_index());
-
+        uint32_t start_idx = limbs[0].set_public();
+        limbs[1].set_public();
         return start_idx;
     }
 };

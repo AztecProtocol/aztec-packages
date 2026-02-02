@@ -104,8 +104,7 @@ class RollupIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + IpaClaim::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
     static constexpr bool HasIPA = true;
 
     PairingPoints<curve::BN254> pairing_inputs;

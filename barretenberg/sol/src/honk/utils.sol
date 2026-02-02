@@ -46,7 +46,7 @@ function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point mem
 /**
  * Convert the pairing points to G1 points.
  *
- * The pairing points are serialised as an array of 136-bit limbs representing two points
+ * The pairing points are serialised as an array of 2 limbs representing two points
  * (P0 and P1, used for lhs and rhs of pairing operation).
  *
  * There are 2 limbs (lo, hi) for each coordinate, so 4 limbs per point, 8 total.

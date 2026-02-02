@@ -34,10 +34,9 @@ template <typename Curve_> class PairingPoints {
     using value_type = Point;
     static constexpr size_t SIZE = 2;
 
-    // Storage as contiguous array for Codec compatibility
     std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
 
-    // Named accessors for readability (P0 = _points[0], P1 = _points[1])
+    // Named accessors
     Point& P0() { return _points[0]; }
     Point& P1() { return _points[1]; }
     const Point& P0() const { return _points[0]; }
@@ -48,11 +47,6 @@ template <typename Curve_> class PairingPoints {
         : _points{ p0, p1 }
     {}
 
-    PairingPoints(std::array<Point, 2> const& pts)
-        : _points(pts)
-    {}
-
-    // Array access (delegates to _points)
     auto& operator[](size_t idx) { return _points[idx]; }
     const auto& operator[](size_t idx) const { return _points[idx]; }
 

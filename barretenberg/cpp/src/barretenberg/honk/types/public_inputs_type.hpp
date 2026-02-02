@@ -21,7 +21,6 @@ namespace bb {
 static constexpr std::size_t FR_PUBLIC_INPUTS_SIZE = 1;
 
 // Number of bb::fr elements used to represent a bigfield element in the public inputs
-// This matches the Codec representation (2 limbs of ~127 bits each)
 static constexpr std::size_t BIGFIELD_PUBLIC_INPUTS_SIZE = 2;
 
 // Number of bb::fr elements used to represent a goblin bigfield element in the public inputs
@@ -42,7 +41,7 @@ static constexpr std::size_t GOBLIN_GROUP_PUBLIC_INPUTS_SIZE = 2 * GOBLIN_FIELD_
 static constexpr std::size_t PAIRING_POINTS_SIZE = 2 * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
 
 // Number of bb::fr elements used to represent an opening claim (C, (r, p(r))) over Grumpkin
-// Formula: challenge (fq) + evaluation (fq) + commitment (2 fr coords, since Grumpkin base field is BN254 scalar field)
+// Formula: challenge (fq) + evaluation (fq) + commitment (2 fr coordinates)
 static constexpr std::size_t GRUMPKIN_OPENING_CLAIM_SIZE =
     /*challenge*/ BIGFIELD_PUBLIC_INPUTS_SIZE + /*evaluation*/ BIGFIELD_PUBLIC_INPUTS_SIZE +
     /*commitment*/ 2 * FR_PUBLIC_INPUTS_SIZE;

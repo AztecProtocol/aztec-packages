@@ -94,13 +94,13 @@ template <typename Curve> class OpeningClaim {
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        using FieldT = stdlib::field_t<Builder>;
-        using Codec = stdlib::StdlibCodec<FieldT>;
+        using field_ct = stdlib::field_t<Builder>;
+        using Codec = stdlib::StdlibCodec<field_ct>;
         const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
-        std::span<const FieldT, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
-        std::span<const FieldT, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
-        std::span<const FieldT, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
+        std::span<const field_ct, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const field_ct, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const field_ct, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
         auto challenge = Codec::template deserialize_from_fields<Fr>(challenge_limbs);
         auto evaluation = Codec::template deserialize_from_fields<Fr>(evaluation_limbs);
         auto commitment = Codec::template deserialize_from_fields<Commitment>(commitment_limbs);

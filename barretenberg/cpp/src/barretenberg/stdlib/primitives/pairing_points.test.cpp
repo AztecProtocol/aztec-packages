@@ -19,8 +19,6 @@ TYPED_TEST_SUITE(PairingPointsTests, Curves);
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     using Builder = typename TypeParam::Builder;
-    // Both builders now use the optimized path: 8 fix_witness gates for the 8 combined limbs.
-    // This bypasses bigfield's expensive self_reduce() for Ultra.
     static constexpr size_t NUM_GATES_ADDED = 8;
 
     Builder builder;

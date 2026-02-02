@@ -289,10 +289,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             recursive_decider_verifier.verify_proof(folded_verifier_accumulator, stdlib_proof);
 
         // Natively verify pairing points
-        auto P0 = recursive_pairing_points.P0().get_value();
-        auto P1 = recursive_pairing_points.P1().get_value();
-        NativeHypernovaDeciderVerifier::PairingPoints pp(P0, P1);
-        auto recursive_verified = pp.check();
+        auto recursive_verified = recursive_pairing_points.check();
 
         // The circuit is valid if and only if we have not tampered or we have tampered the folded accumulator
         EXPECT_EQ(bb::CircuitChecker::check(builder),
