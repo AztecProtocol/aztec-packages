@@ -168,6 +168,9 @@ export function prepareL1ContractsForDeployment(): string {
   const foundryTomlPath = join(basePath, 'foundry.toml');
   let foundryToml = readFileSync(foundryTomlPath, 'utf-8');
   const solcPathMatch = foundryToml.match(/solc\s*=\s*"\.\/solc-([^"]+)"/);
+  // Did we find a hardcoded solc path that we need to make absolute?
+  // This code path happens in CI currently as we bundle solc there to avoid race conditions when
+  // downloading solc.
   if (solcPathMatch) {
     const solcVersion = solcPathMatch[1];
     const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
