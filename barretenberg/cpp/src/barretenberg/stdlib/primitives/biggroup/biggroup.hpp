@@ -175,11 +175,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return element(x_fq, y_fq, bool_ct(ctx, false), /*assert_on_curve=*/false);
     }
 
-    static element point_at_infinity([[maybe_unused]] Builder* ctx)
+    static element point_at_infinity(Builder* ctx)
     {
         // Use constant zero coordinates for the canonical infinity representation.
-        // Since we know this is infinity at construction time, constants are more
-        // efficient than witnesses (no decomposition, no range constraints).
         Fq x_fq(ctx, uint256_t(0));
         Fq y_fq(ctx, uint256_t(0));
         return element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true), /*assert_on_curve=*/false);
@@ -969,7 +967,7 @@ class element_test_accessor {
     /**
      * @brief Create an element with explicit infinity flag (for testing only).
      * @details This bypasses the infinity auto-detection of the public constructor.
-     * Use only in tests where you need to control the infinity flag directly.
+     * @warning Use only in tests where you need to control the infinity flag directly.
      */
     template <typename C, typename Fq, typename Fr, typename G>
     static element<C, Fq, Fr, G> create_element_with_explicit_infinity(const Fq& x,
