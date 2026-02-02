@@ -108,12 +108,12 @@ export class LogService {
     );
   }
 
-  public async syncTaggedLogs(
+  public async fetchTaggedLogs(
     contractAddress: AztecAddress,
     pendingTaggedLogArrayBaseSlot: Fr,
     scopes?: AztecAddress[],
   ) {
-    this.log.verbose('Searching for tagged logs', { contract: contractAddress });
+    this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
