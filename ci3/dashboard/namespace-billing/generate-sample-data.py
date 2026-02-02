@@ -17,20 +17,20 @@ import sys
 from datetime import datetime, timedelta
 
 # Namespace cost profiles: base daily cost (USD) and category weights.
-# Categories match what fetch-billing.py produces from GKE metering:
-#   cpu, memory, egress, storage
+# Categories match what fetch-billing.py produces from the Cloud Billing Export:
+#   compute_spot, compute_ondemand, storage, network, other
 NS_PROFILES = {
-    'devnet':           {'base': 180.0, 'cpu': 0.55, 'memory': 0.30, 'egress': 0.05, 'storage': 0.10},
-    'staging':          {'base': 140.0, 'cpu': 0.50, 'memory': 0.30, 'egress': 0.08, 'storage': 0.12},
-    'production':       {'base': 320.0, 'cpu': 0.50, 'memory': 0.30, 'egress': 0.10, 'storage': 0.10},
-    'proving':          {'base': 260.0, 'cpu': 0.70, 'memory': 0.20, 'egress': 0.02, 'storage': 0.08},
-    'ci-runners':       {'base': 95.0,  'cpu': 0.60, 'memory': 0.25, 'egress': 0.05, 'storage': 0.10},
-    'monitoring':       {'base': 45.0,  'cpu': 0.25, 'memory': 0.35, 'egress': 0.10, 'storage': 0.30},
-    'kube-system':      {'base': 30.0,  'cpu': 0.40, 'memory': 0.40, 'egress': 0.05, 'storage': 0.15},
-    'default':          {'base': 10.0,  'cpu': 0.45, 'memory': 0.35, 'egress': 0.05, 'storage': 0.15},
+    'devnet':           {'base': 180.0, 'compute_spot': 0.35, 'compute_ondemand': 0.30, 'storage': 0.15, 'network': 0.10, 'other': 0.10},
+    'staging':          {'base': 140.0, 'compute_spot': 0.30, 'compute_ondemand': 0.30, 'storage': 0.18, 'network': 0.12, 'other': 0.10},
+    'production':       {'base': 320.0, 'compute_spot': 0.10, 'compute_ondemand': 0.50, 'storage': 0.15, 'network': 0.15, 'other': 0.10},
+    'proving':          {'base': 260.0, 'compute_spot': 0.55, 'compute_ondemand': 0.20, 'storage': 0.10, 'network': 0.05, 'other': 0.10},
+    'ci-runners':       {'base': 95.0,  'compute_spot': 0.50, 'compute_ondemand': 0.15, 'storage': 0.10, 'network': 0.10, 'other': 0.15},
+    'monitoring':       {'base': 45.0,  'compute_spot': 0.00, 'compute_ondemand': 0.40, 'storage': 0.30, 'network': 0.15, 'other': 0.15},
+    'kube-system':      {'base': 30.0,  'compute_spot': 0.00, 'compute_ondemand': 0.50, 'storage': 0.20, 'network': 0.15, 'other': 0.15},
+    'default':          {'base': 10.0,  'compute_spot': 0.00, 'compute_ondemand': 0.40, 'storage': 0.25, 'network': 0.15, 'other': 0.20},
 }
 
-CATEGORIES = ['cpu', 'memory', 'egress', 'storage']
+CATEGORIES = ['compute_spot', 'compute_ondemand', 'storage', 'network', 'other']
 
 
 def generate_day(date: datetime) -> dict:

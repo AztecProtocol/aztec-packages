@@ -363,8 +363,10 @@
     ];
 
     const CAT_COLORS = {
-      cpu: '#58a6ff', memory: '#3fb950', egress: '#d2a8ff', storage: '#f0883e',
-      compute: '#58a6ff', network: '#d2a8ff', other: '#8b949e'
+      compute_spot: '#3fb950', compute_ondemand: '#58a6ff',
+      storage: '#f0883e', network: '#d2a8ff', other: '#8b949e',
+      cpu: '#58a6ff', memory: '#3fb950', egress: '#d2a8ff',
+      compute: '#58a6ff'
     };
     const CAT_COLOR_FALLBACK = [
       '#58a6ff', '#3fb950', '#d2a8ff', '#f0883e', '#f85149',
@@ -380,7 +382,7 @@
     }
 
     function capitalize(s) {
-      return s.charAt(0).toUpperCase() + s.slice(1);
+      return s.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
     // ---- Formatting ----

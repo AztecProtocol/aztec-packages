@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
-"""Fetch GKE namespace billing data from BigQuery and write daily JSON files.
+"""Fetch namespace billing data from the GCP Cloud Billing Export in BigQuery.
 
-Queries the `egress_consumption` BigQuery dataset (populated by GKE resource
-consumption metering) for CPU, memory and egress usage per namespace, applies
-GCP pricing to estimate dollar costs, and writes one JSON file per day to the
-billing data directory.
+Queries the detailed billing export table
+(gcp_billing_export_resource_v1_<BILLING_ACCOUNT_ID>) which contains actual
+dollar costs per SKU.  When GKE cost allocation is enabled the export includes
+a `k8s-namespace` label on every GKE line item, giving us real cost-per-namespace
+with zero estimation.
+
+Costs are categorised automatically from the SKU description:
+  - compute_spot    (Spot / Preemptible VM cores + RAM)
+  - compute_ondemand (On-demand VM cores + RAM)
+  - storage         (Persistent Disk, Filestore, etc.)
+  - network         (Egress, LB, IP addresses, etc.)
+  - other           (Everything else)
 
 Usage:
-    # Fetch last 30 days (default)
+    # Fetch last 30 days
     python fetch-billing.py
 
-    # Fetch specific range
+    # Specific range
     python fetch-billing.py --from 2026-01-01 --to 2026-01-31
 
-    # Custom output dir and project
-    python fetch-billing.py --output-dir /logs-disk/billing --project testnet-440309
+    # Point at a different dataset / project
+    python fetch-billing.py --project testnet-440309 --dataset billing_export
 
 Environment:
     Requires Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS.
@@ -23,50 +31,87 @@ Environment:
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 
 from google.cloud import bigquery
 
-
-# -- GCP configuration --
+# ---- defaults ----
 DEFAULT_PROJECT = 'testnet-440309'
-DEFAULT_DATASET = 'egress_consumption'
+DEFAULT_DATASET = None   # auto-discover
 DEFAULT_OUTPUT_DIR = os.path.join(
     os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'billing'
 )
 
-# -- GCE on-demand pricing (us-west1, USD/hour) --
-# Source: https://cloud.google.com/compute/vm-instance-pricing
-# These are approximate list prices; update as needed.
-PRICING = {
-    'cpu_ondemand':    0.03090,   # N2 / T2D vCPU per hour (blended)
-    'memory_ondemand': 0.00414,   # N2 / T2D GB per hour (blended)
-    'cpu_spot':        0.00927,   # ~70% discount
-    'memory_spot':     0.00124,
-    'egress_per_gb':   0.085,     # Egress to internet per GB (first 10 TB tier)
-}
+
+# ---- table discovery ----
+
+def discover_billing_table(client: bigquery.Client, project: str,
+                           dataset: str | None) -> tuple[str, str]:
+    """Find the detailed billing export table.
+
+    If *dataset* is given, look only there.  Otherwise scan every dataset in
+    the project for a table matching the billing export naming convention.
+
+    Returns (dataset_id, table_id).
+    """
+    pattern = re.compile(r'^gcp_billing_export_resource_v1_')
+
+    datasets_to_check = (
+        [dataset] if dataset
+        else [ds.dataset_id for ds in client.list_datasets(project)]
+    )
+
+    for ds_id in datasets_to_check:
+        for tbl in client.list_tables(f'{project}.{ds_id}'):
+            if pattern.match(tbl.table_id):
+                return ds_id, tbl.table_id
+
+    # Also check the egress_consumption dataset for the metering table
+    # as a fallback (less accurate but still useful).
+    raise RuntimeError(
+        'No Cloud Billing export table found '
+        f'(gcp_billing_export_resource_v1_*) in project {project}.  '
+        'Enable detailed billing export to BigQuery first: '
+        'https://docs.google.com/billing/docs/how-to/export-data-bigquery'
+    )
 
 
-def discover_table(client: bigquery.Client, project: str, dataset: str) -> str:
-    """Find the GKE resource consumption table in the dataset."""
-    tables = list(client.list_tables(f'{project}.{dataset}'))
-    table_ids = [t.table_id for t in tables]
+# ---- SKU categorisation ----
 
-    # Prefer the consumption table, fall back to usage
-    for candidate in ['gke_cluster_resource_consumption', 'gke_cluster_resource_usage']:
-        if candidate in table_ids:
-            return candidate
-
-    if table_ids:
-        print(f'Available tables in {dataset}: {table_ids}', file=sys.stderr)
-        raise RuntimeError(
-            f'No GKE consumption table found. Available: {table_ids}'
-        )
-    raise RuntimeError(f'Dataset {project}.{dataset} has no tables')
+_SPOT_RE = re.compile(r'spot|preemptible', re.IGNORECASE)
+_STORAGE_RE = re.compile(
+    r'storage|persistent disk|pd snapshot|filestore|ssd|hdd', re.IGNORECASE
+)
+_NETWORK_RE = re.compile(
+    r'egress|ingress|load balanc|ip address|network|nat|vpn|interconnect|cdn',
+    re.IGNORECASE,
+)
+_COMPUTE_RE = re.compile(
+    r'instance core|instance ram|cpu|memory|core running|ram running|custom instance',
+    re.IGNORECASE,
+)
 
 
-def fetch_daily_usage(
+def categorise_sku(service: str, sku: str) -> str:
+    """Map a (service.description, sku.description) pair to a category."""
+    combined = f'{service} {sku}'
+
+    if _SPOT_RE.search(combined) and _COMPUTE_RE.search(combined):
+        return 'compute_spot'
+    if _COMPUTE_RE.search(combined):
+        return 'compute_ondemand'
+    if _STORAGE_RE.search(combined):
+        return 'storage'
+    if _NETWORK_RE.search(combined):
+        return 'network'
+    return 'other'
+
+
+# ---- BigQuery query ----
+
+def fetch_billing_rows(
     client: bigquery.Client,
     project: str,
     dataset: str,
@@ -74,28 +119,31 @@ def fetch_daily_usage(
     date_from: str,
     date_to: str,
 ) -> list[dict]:
-    """Query BigQuery for daily namespace resource usage.
-
-    Returns list of rows with: date, namespace, resource_name,
-    total_usage, usage_unit.
-    """
+    """Query the billing export for daily cost by namespace + service + SKU."""
+    full_table = f'{project}.{dataset}.{table}'
     query = f"""
     SELECT
-        DATE(start_time) AS date,
-        namespace,
-        resource_name,
-        SUM(usage.amount) AS total_usage,
-        ANY_VALUE(usage.unit) AS usage_unit
+        DATE(usage_start_time) AS date,
+        IFNULL(ns_label.value, '__unallocated__') AS namespace,
+        service.description AS service,
+        sku.description AS sku,
+        SUM(cost)
+            + SUM(IFNULL(
+                (SELECT SUM(c.amount) FROM UNNEST(credits) c), 0
+              )) AS net_cost
     FROM
-        `{project}.{dataset}.{table}`
+        `{full_table}`
+    LEFT JOIN
+        UNNEST(labels) AS ns_label ON ns_label.key = 'k8s-namespace'
     WHERE
-        DATE(start_time) BETWEEN @date_from AND @date_to
-        AND namespace IS NOT NULL
-        AND namespace != ''
+        DATE(usage_start_time) BETWEEN @date_from AND @date_to
+        AND cost_type = 'regular'
     GROUP BY
-        date, namespace, resource_name
+        date, namespace, service, sku
+    HAVING
+        net_cost > 0
     ORDER BY
-        date, namespace, resource_name
+        date, namespace
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
@@ -103,80 +151,48 @@ def fetch_daily_usage(
             bigquery.ScalarQueryParameter('date_to', 'DATE', date_to),
         ]
     )
-    result = client.query(query, job_config=job_config).result()
-    return [dict(row) for row in result]
+    rows = client.query(query, job_config=job_config).result()
+    return [dict(row) for row in rows]
 
 
-def usage_to_cost(resource_name: str, amount: float, unit: str) -> dict:
-    """Convert a resource usage amount into estimated dollar cost.
-
-    Returns dict with cost broken down by on-demand vs spot estimate.
-    Since the metering table doesn't distinguish spot/on-demand,
-    we report a single estimated cost using on-demand rates (conservative).
-    """
-    if resource_name == 'cpu':
-        # amount is in cpu-seconds
-        vcpu_hours = amount / 3600.0
-        return {
-            'cpu': round(vcpu_hours * PRICING['cpu_ondemand'], 4),
-        }
-    elif resource_name == 'memory':
-        # amount is in byte-seconds
-        gb_hours = amount / 3600.0 / (1024 ** 3)
-        return {
-            'memory': round(gb_hours * PRICING['memory_ondemand'], 4),
-        }
-    elif resource_name in ('egress', 'network_egress'):
-        # amount is in bytes
-        gb = amount / (1024 ** 3)
-        return {
-            'egress': round(gb * PRICING['egress_per_gb'], 4),
-        }
-    elif resource_name == 'ephemeral_storage':
-        # Storage usage – approximate with SSD pricing
-        gb_hours = amount / 3600.0 / (1024 ** 3)
-        ssd_per_gb_hour = 0.000232  # ~$0.17/GB/month
-        return {
-            'storage': round(gb_hours * ssd_per_gb_hour, 4),
-        }
-    else:
-        return {}
-
+# ---- aggregate into daily JSON ----
 
 def build_daily_files(rows: list[dict]) -> dict[str, dict]:
-    """Aggregate BQ rows into per-day billing JSON objects."""
-    days = {}
+    days: dict[str, dict] = {}
 
     for row in rows:
-        date_str = row['date'].isoformat() if hasattr(row['date'], 'isoformat') else str(row['date'])
+        date_str = (
+            row['date'].isoformat()
+            if hasattr(row['date'], 'isoformat')
+            else str(row['date'])
+        )
         ns = row['namespace']
-        resource = row['resource_name']
-        amount = float(row['total_usage'])
-        unit = row.get('usage_unit', '')
+        category = categorise_sku(row['service'], row['sku'])
+        cost = float(row['net_cost'])
 
         if date_str not in days:
             days[date_str] = {'date': date_str, 'namespaces': {}}
-
         if ns not in days[date_str]['namespaces']:
             days[date_str]['namespaces'][ns] = {'total': 0, 'breakdown': {}}
 
-        cost_parts = usage_to_cost(resource, amount, unit)
-        ns_data = days[date_str]['namespaces'][ns]
+        entry = days[date_str]['namespaces'][ns]
+        entry['breakdown'][category] = (
+            entry['breakdown'].get(category, 0) + cost
+        )
+        entry['total'] += cost
 
-        for cat, cost in cost_parts.items():
-            ns_data['breakdown'][cat] = ns_data['breakdown'].get(cat, 0) + cost
-            ns_data['total'] += cost
-
-    # Round totals
+    # Round
     for day in days.values():
         for ns_data in day['namespaces'].values():
             ns_data['total'] = round(ns_data['total'], 4)
+            ns_data['breakdown'] = {
+                k: round(v, 4) for k, v in ns_data['breakdown'].items()
+            }
 
     return days
 
 
 def write_files(days: dict[str, dict], output_dir: str) -> int:
-    """Write daily billing JSON files to disk."""
     os.makedirs(output_dir, exist_ok=True)
     count = 0
     for date_str, data in sorted(days.items()):
@@ -187,8 +203,12 @@ def write_files(days: dict[str, dict], output_dir: str) -> int:
     return count
 
 
+# ---- CLI ----
+
 def main():
-    parser = argparse.ArgumentParser(description='Fetch GKE namespace billing from BigQuery')
+    parser = argparse.ArgumentParser(
+        description='Fetch GKE namespace billing from GCP Cloud Billing Export'
+    )
     today = datetime.utcnow().strftime('%Y-%m-%d')
     default_from = (datetime.utcnow() - timedelta(days=30)).strftime('%Y-%m-%d')
 
@@ -199,7 +219,7 @@ def main():
     parser.add_argument('--project', default=DEFAULT_PROJECT,
                         help=f'GCP project ID (default: {DEFAULT_PROJECT})')
     parser.add_argument('--dataset', default=DEFAULT_DATASET,
-                        help=f'BigQuery dataset (default: {DEFAULT_DATASET})')
+                        help='BigQuery dataset (default: auto-discover)')
     parser.add_argument('--output-dir', default=DEFAULT_OUTPUT_DIR,
                         help=f'Output directory (default: {DEFAULT_OUTPUT_DIR})')
     args = parser.parse_args()
@@ -207,34 +227,43 @@ def main():
     print(f'Connecting to BigQuery ({args.project})...')
     client = bigquery.Client(project=args.project)
 
-    print(f'Discovering tables in {args.dataset}...')
-    table = discover_table(client, args.project, args.dataset)
-    print(f'Using table: {args.project}.{args.dataset}.{table}')
+    print('Discovering billing export table...')
+    ds_id, tbl_id = discover_billing_table(client, args.project, args.dataset)
+    print(f'Using table: {args.project}.{ds_id}.{tbl_id}')
 
-    print(f'Fetching data from {args.date_from} to {args.date_to}...')
-    rows = fetch_daily_usage(client, args.project, args.dataset, table,
-                             args.date_from, args.date_to)
+    print(f'Fetching billing data {args.date_from} to {args.date_to}...')
+    rows = fetch_billing_rows(
+        client, args.project, ds_id, tbl_id,
+        args.date_from, args.date_to,
+    )
     print(f'Got {len(rows)} rows')
 
     if not rows:
-        print('No data found for the given date range.')
+        print('No billing data found.  Check that:')
+        print('  1. Cloud Billing export (detailed) is enabled')
+        print('  2. GKE cost allocation is enabled on your clusters')
+        print('  3. The date range has data')
         return
 
     days = build_daily_files(rows)
     count = write_files(days, args.output_dir)
     print(f'Wrote {count} daily billing files to {args.output_dir}')
 
-    # Print summary
-    total_cost = sum(
-        ns['total']
-        for day in days.values()
+    # Summary
+    total = sum(
+        ns['total'] for day in days.values()
         for ns in day['namespaces'].values()
     )
-    ns_set = set()
+    ns_set: set[str] = set()
+    cat_set: set[str] = set()
     for day in days.values():
-        ns_set.update(day['namespaces'].keys())
-    print(f'Total estimated cost: ${total_cost:,.2f}')
-    print(f'Namespaces: {sorted(ns_set)}')
+        for ns_name, ns_data in day['namespaces'].items():
+            ns_set.add(ns_name)
+            cat_set.update(ns_data['breakdown'].keys())
+
+    print(f'\nTotal cost: ${total:,.2f}')
+    print(f'Namespaces ({len(ns_set)}): {sorted(ns_set)}')
+    print(f'Categories: {sorted(cat_set)}')
 
 
 if __name__ == '__main__':
