@@ -411,7 +411,7 @@ uint256 constant VK_HASH = {{ VK_HASH }};
 uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
-uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }} - PAIRING_POINTS_SIZE;
+uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ REAL_NUM_PUBLIC_INPUTS }};
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 // LOG_N * 8
 uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};
@@ -3619,6 +3619,9 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     set_template_param("CIRCUIT_SIZE", std::to_string(1 << verification_key->log_circuit_size));
     set_template_param("LOG_CIRCUIT_SIZE", std::to_string(verification_key->log_circuit_size));
     set_template_param("NUM_PUBLIC_INPUTS", std::to_string(verification_key->num_public_inputs));
+    // REAL_NUM_PUBLIC_INPUTS excludes the 8 pairing point limbs that are part of the proof structure
+    set_template_param("REAL_NUM_PUBLIC_INPUTS",
+                       std::to_string(verification_key->num_public_inputs - bb::PAIRING_POINTS_SIZE));
     set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
     set_template_param("NUMBER_OF_BARYCENTRIC_INVERSES", std::to_string(verification_key->log_circuit_size * 8));
 
