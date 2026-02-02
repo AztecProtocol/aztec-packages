@@ -1,21 +1,28 @@
-# AVM relations and PIL development guide
+# AVM relations and PIL development guide
+
+**Scope:** Use this guide when editing PIL relation files in `barretenberg/cpp/pil/vm2`. After changing PIL you must regenerate C++ and recompile; the C++ side is in `barretenberg/cpp/src/barretenberg/vm2`. See that directory’s CLAUDE.md for build and test.
+
+## Related rules
+
+- **barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md** — AVM C++ simulator, tracegen, prover; build targets and tests.
+- **barretenberg/cpp/CLAUDE.md** — Barretenberg root; bootstrap and general cpp workflow.
+
+---
 
 ## Overview
 
-The Aztec Virtual Machine (AVM) is the subsystem that executes public transactions and proves that execution was correct.
+The **Aztec Virtual Machine (AVM)** executes public transactions and proves correct execution. The **PIL files** in this directory define **relations**: constraints on a trace (matrix of columns and rows) that characterize valid execution. PIL is Polygon’s Polynomial Identity Language.
 
-The PIL files define what we call "relations". These relations are constrains on a trace (a matrix of columns and rows) that define the class of "valid" execution traces. These files are written in Polygon's Polynomial Identity Language.
+PIL is the source of truth for relation constraints; it is compiled into C++ used by the AVM prover in `barretenberg/cpp/src/barretenberg/vm2`.
 
-## Use of PIL files in the AVM
+## Workflow: changing PIL
 
-PIL files are the source of truth for relation constraints but they are processed to generate C++ code.
+**IMPORTANT:** Any change to PIL files requires regenerating C++ and recompiling the AVM.
 
-**IMPORTANT**: Any change to PIL files requires an update to the C++ files.
-
-1. Make sure the `bb-pilcom` (at the root of the project, usually `~aztec-packages/bb-pilcom/`) component is up to date.
-   You can do this by running `bootstrap.sh` in the `bb-pilcom` directory.
-   This is only needed once. Change to PIL files do not change the `bb-pilcom` binary.
-2. Regenerate the C++ code by running: `./scripts/avm2_gen.sh` in the `barretenberg/cpp/` directory.
-   You should watch the text output for any errors. If everything goes well, the files in the
-   `barretenberg/cpp/vm2/generated/` directory will be updated with the new relation code.
-3. If needed, recompile the AVM code using the instructions in @`barretenberg/cpp/vm2/CLAUDE.md`.
+1. **Ensure `bb-pilcom` is built** (once per checkout / when pilcom changes). From repo root: run `./bootstrap.sh` in `bb-pilcom/` (e.g. `bb-pilcom/bootstrap.sh`). Changes to PIL do not require rebuilding pilcom.
+2. **Regenerate C++:** From `barretenberg/cpp/`, run:
+   ```bash
+   ./scripts/avm2_gen.sh
+   ```
+   Check the output for errors. On success, generated files under `barretenberg/cpp/src/barretenberg/vm2/generated/` are updated.
+3. **Recompile AVM:** Follow build and test instructions in `barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md` (e.g. build `bb-avm` or `vm2_tests`).

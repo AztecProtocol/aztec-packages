@@ -56,7 +56,7 @@ Bootstrap modes:
 - **chonk/** - Client-side IVC (Incremental Verifiable Computation)
 - **bbapi/** - BB API for external interaction. If changing here, we will also want to update the ts/ folder because bb.js consumes this. (first build ninja bb in build/)
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
-- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh). If you are asked to work in this directory, follow rules from @vm2/CLAUDE.md
+- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh). If working in vm2, use barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md
 
 ### ts/ => typescript code for bb.js
 
