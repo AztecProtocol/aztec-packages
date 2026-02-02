@@ -98,15 +98,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void validate_on_curve(std::string const& msg = "biggroup::validate_on_curve") const
     {
-        // Return early for constant inputs (must check before accessing context since it may be nullptr)
+        // Return early for constant inputs
         if (this->is_constant()) {
-            // For constant points at infinity, skip validation since (0,0) is not on the curve
-            // get_value() will properly set the infinity flag on the native element
-            auto is_inf = is_point_at_infinity();
-            if (is_inf.get_value()) {
-                return;
-            }
-            // get_value().on_curve() returns true for infinity points, so this handles all cases
             BB_ASSERT(this->get_value().on_curve(), "biggroup::validate_on_curve: constant point not on curve");
             return;
         }
