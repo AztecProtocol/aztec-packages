@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Namespace Billing Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #0d1117;
+      color: #e6edf3;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      color: #e6edf3;
+    }
+
+    h1 a {
+      color: #58a6ff;
+      text-decoration: none;
+      font-size: 0.9rem;
+      margin-left: 12px;
+    }
+    h1 a:hover { text-decoration: underline; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    select, input[type="date"], input[type="text"] {
+      padding: 8px 12px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.9rem;
+      min-width: 140px;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: #2ea043; }
+    button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #30363d;
+    }
+    .btn-secondary:hover { background: #3d444d; }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+
+    .stat-change {
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+    .stat-change.up { color: #f85149; }
+    .stat-change.down { color: #3fb950; }
+    .stat-change.neutral { color: #8b949e; }
+
+    /* Charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 1200px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+
+    .chart-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .chart-card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .chart-card h2 {
+      font-size: 1.1rem;
+      color: #e6edf3;
+      margin-bottom: 16px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .chart-wrapper.tall { height: 400px; }
+    .chart-wrapper.medium { height: 320px; }
+
+    canvas {
+      max-width: 100% !important;
+      max-height: 100% !important;
+    }
+
+    /* Table */
+    .table-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .table-card h2 {
+      font-size: 1.1rem;
+      color: #e6edf3;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 2px solid #30363d;
+      color: #8b949e;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover { color: #e6edf3; }
+    th .sort-arrow { margin-left: 4px; font-size: 0.7rem; }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #21262d;
+      color: #e6edf3;
+    }
+
+    tr:hover td { background: #1c2128; }
+
+    .ns-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .amount { font-variant-numeric: tabular-nums; }
+    .amount.positive { color: #f85149; }
+    .amount.zero { color: #8b949e; }
+
+    /* Loading/error */
+    .message {
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+    .message.loading { background: #161b22; border: 1px solid #30363d; color: #8b949e; }
+    .message.error { background: #3d1116; border: 1px solid #f8514933; color: #f85149; }
+    .message.info { background: #0c2d6b; border: 1px solid #58a6ff33; color: #58a6ff; }
+
+    /* Granularity toggle */
+    .toggle-group {
+      display: inline-flex;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .toggle-group button {
+      border-radius: 0;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      background: #161b22;
+      color: #8b949e;
+      border-right: 1px solid #30363d;
+    }
+    .toggle-group button:last-child { border-right: none; }
+    .toggle-group button.active { background: #238636; color: #fff; }
+    .toggle-group button:hover:not(.active) { background: #1c2128; color: #e6edf3; }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Namespace Billing Dashboard <a href="/">&#8592; CI Dashboard</a></h1>
+      <div class="controls">
+        <div class="control-group">
+          <label>From</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div class="control-group">
+          <label>To</label>
+          <input type="date" id="dateTo" />
+        </div>
+        <div class="control-group">
+          <label>Granularity</label>
+          <div class="toggle-group" id="granularity">
+            <button data-value="daily" class="active">Daily</button>
+            <button data-value="weekly">Weekly</button>
+            <button data-value="monthly">Monthly</button>
+          </div>
+        </div>
+        <div class="control-group">
+          <label>Namespace</label>
+          <select id="namespaceFilter">
+            <option value="all">All namespaces</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>&nbsp;</label>
+          <button id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="messageArea"></div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card">
+        <div class="stat-label">Total Cost (period)</div>
+        <div class="stat-value" id="statTotal">--</div>
+        <div class="stat-change neutral" id="statTotalChange"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Daily Average</div>
+        <div class="stat-value" id="statAvg">--</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Most Expensive Namespace</div>
+        <div class="stat-value" id="statTopNs">--</div>
+        <div class="stat-change neutral" id="statTopNsCost"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Namespaces</div>
+        <div class="stat-value" id="statNsCount">--</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-card full-width">
+        <h2>Cost Over Time</h2>
+        <div class="chart-wrapper tall">
+          <canvas id="timelineChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h2>Cost by Namespace</h2>
+        <div class="chart-wrapper medium">
+          <canvas id="namespacePieChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h2>Cost by Category</h2>
+        <div class="chart-wrapper medium">
+          <canvas id="categoryBarChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown table -->
+    <div class="table-card">
+      <h2>Namespace Breakdown</h2>
+      <table id="breakdownTable">
+        <thead>
+          <tr>
+            <th data-sort="namespace">Namespace <span class="sort-arrow"></span></th>
+            <th data-sort="compute">Compute <span class="sort-arrow"></span></th>
+            <th data-sort="storage">Storage <span class="sort-arrow"></span></th>
+            <th data-sort="network">Network <span class="sort-arrow"></span></th>
+            <th data-sort="other">Other <span class="sort-arrow"></span></th>
+            <th data-sort="total">Total <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="breakdownBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    // ---- State ----
+    let billingData = [];
+    let namespaces = [];
+    let charts = {};
+    let sortState = { col: 'total', dir: 'desc' };
+
+    // ---- Color palette ----
+    const COLORS = [
+      '#58a6ff', '#3fb950', '#d2a8ff', '#f0883e', '#f85149',
+      '#a5d6ff', '#56d364', '#bc8cff', '#db6d28', '#ff7b72',
+      '#79c0ff', '#7ee787', '#e2c5ff', '#d18616', '#ffa198',
+      '#39d353', '#2ea043', '#388bfd', '#8957e5', '#bf4b8a'
+    ];
+
+    function nsColor(ns) {
+      const idx = namespaces.indexOf(ns);
+      return COLORS[idx % COLORS.length];
+    }
+
+    // ---- Formatting ----
+    function fmtUsd(val) {
+      if (val >= 1000) return '$' + val.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      if (val >= 1) return '$' + val.toFixed(2);
+      return '$' + val.toFixed(4);
+    }
+
+    function fmtDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // ---- Message display ----
+    function showMessage(type, text) {
+      const area = document.getElementById('messageArea');
+      area.innerHTML = `<div class="message ${type}">${text}</div>`;
+    }
+
+    function clearMessage() {
+      document.getElementById('messageArea').innerHTML = '';
+    }
+
+    // ---- Default date range: last 30 days ----
+    function initDateRange() {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+    }
+
+    // ---- URL state persistence ----
+    function saveStateToUrl() {
+      const params = new URLSearchParams();
+      params.set('from', document.getElementById('dateFrom').value);
+      params.set('to', document.getElementById('dateTo').value);
+      params.set('granularity', getGranularity());
+      const ns = document.getElementById('namespaceFilter').value;
+      if (ns !== 'all') params.set('namespace', ns);
+      window.history.replaceState({}, '', '?' + params.toString());
+    }
+
+    function loadStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('from')) document.getElementById('dateFrom').value = params.get('from');
+      if (params.get('to')) document.getElementById('dateTo').value = params.get('to');
+      if (params.get('granularity')) setGranularity(params.get('granularity'));
+      // namespace filter is set after data loads
+      return params.get('namespace') || 'all';
+    }
+
+    // ---- Granularity ----
+    function getGranularity() {
+      return document.querySelector('#granularity button.active').dataset.value;
+    }
+
+    function setGranularity(val) {
+      document.querySelectorAll('#granularity button').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === val);
+      });
+    }
+
+    // ---- Data fetching ----
+    async function fetchBillingData() {
+      const from = document.getElementById('dateFrom').value;
+      const to = document.getElementById('dateTo').value;
+      const granularity = getGranularity();
+
+      const params = new URLSearchParams({ from, to, granularity });
+      const response = await fetch(`/api/billing/data?${params}`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.error || `HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function fetchNamespaces() {
+      const response = await fetch('/api/billing/namespaces');
+      if (!response.ok) throw new Error('Failed to fetch namespaces');
+      return response.json();
+    }
+
+    // ---- Aggregate billing data ----
+    function aggregateData(data, nsFilter) {
+      let filtered = data;
+      if (nsFilter && nsFilter !== 'all') {
+        filtered = data.map(entry => {
+          const ns = entry.namespaces[nsFilter];
+          return {
+            date: entry.date,
+            namespaces: ns ? { [nsFilter]: ns } : {}
+          };
+        });
+      }
+
+      // Per-date totals
+      const timeline = filtered.map(entry => {
+        let total = 0;
+        for (const ns of Object.values(entry.namespaces)) {
+          total += ns.total || 0;
+        }
+        return { date: entry.date, total };
+      });
+
+      // Per-namespace totals
+      const nsTotals = {};
+      const catTotals = { compute: 0, storage: 0, network: 0, other: 0 };
+
+      for (const entry of filtered) {
+        for (const [nsName, nsData] of Object.entries(entry.namespaces)) {
+          if (!nsTotals[nsName]) {
+            nsTotals[nsName] = { compute: 0, storage: 0, network: 0, other: 0, total: 0 };
+          }
+          const cats = nsData.breakdown || {};
+          for (const cat of ['compute', 'storage', 'network', 'other']) {
+            const val = cats[cat] || 0;
+            nsTotals[nsName][cat] += val;
+            nsTotals[nsName].total += val;
+            catTotals[cat] += val;
+          }
+        }
+      }
+
+      const grandTotal = Object.values(catTotals).reduce((s, v) => s + v, 0);
+      const days = timeline.length || 1;
+
+      return { timeline, nsTotals, catTotals, grandTotal, days };
+    }
+
+    // Build per-namespace timeline for stacked chart
+    function buildStackedTimeline(data, nsFilter) {
+      const dates = data.map(e => e.date);
+      const nsSet = new Set();
+
+      for (const entry of data) {
+        for (const ns of Object.keys(entry.namespaces)) {
+          if (nsFilter === 'all' || ns === nsFilter) nsSet.add(ns);
+        }
+      }
+
+      const datasets = [];
+      const nsList = Array.from(nsSet).sort();
+
+      for (const ns of nsList) {
+        datasets.push({
+          label: ns,
+          data: data.map(entry => {
+            const nsData = entry.namespaces[ns];
+            return nsData ? nsData.total || 0 : 0;
+          }),
+          backgroundColor: nsColor(ns),
+          borderColor: nsColor(ns),
+          borderWidth: 1,
+          fill: true
+        });
+      }
+
+      return { dates, datasets };
+    }
+
+    // ---- Render stats ----
+    function renderStats(agg) {
+      document.getElementById('statTotal').textContent = fmtUsd(agg.grandTotal);
+      document.getElementById('statAvg').textContent = fmtUsd(agg.grandTotal / agg.days);
+
+      const nsEntries = Object.entries(agg.nsTotals).sort((a, b) => b[1].total - a[1].total);
+      if (nsEntries.length > 0) {
+        document.getElementById('statTopNs').textContent = nsEntries[0][0];
+        document.getElementById('statTopNsCost').textContent = fmtUsd(nsEntries[0][1].total);
+      } else {
+        document.getElementById('statTopNs').textContent = '--';
+        document.getElementById('statTopNsCost').textContent = '';
+      }
+
+      document.getElementById('statNsCount').textContent = nsEntries.length;
+    }
+
+    // ---- Render charts ----
+    function destroyCharts() {
+      for (const c of Object.values(charts)) c.destroy();
+      charts = {};
+    }
+
+    function renderTimelineChart(data, nsFilter) {
+      const { dates, datasets } = buildStackedTimeline(data, nsFilter);
+
+      charts.timeline = new Chart(document.getElementById('timelineChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: dates.map(fmtDate),
+          datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              stacked: true,
+              ticks: { color: '#8b949e', maxRotation: 45 },
+              grid: { color: '#21262d' }
+            },
+            y: {
+              stacked: true,
+              ticks: {
+                color: '#8b949e',
+                callback: v => '$' + v.toFixed(0)
+              },
+              grid: { color: '#21262d' }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#e6edf3', boxWidth: 12, padding: 12 }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${fmtUsd(ctx.raw)}`,
+                footer: items => {
+                  const total = items.reduce((s, i) => s + i.raw, 0);
+                  return `Total: ${fmtUsd(total)}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderNamespacePie(agg) {
+      const entries = Object.entries(agg.nsTotals)
+        .sort((a, b) => b[1].total - a[1].total);
+
+      charts.nsPie = new Chart(document.getElementById('namespacePieChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: entries.map(e => e[0]),
+          datasets: [{
+            data: entries.map(e => e[1].total),
+            backgroundColor: entries.map(e => nsColor(e[0])),
+            borderColor: '#161b22',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#e6edf3', boxWidth: 12, padding: 8, font: { size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.raw / agg.grandTotal) * 100).toFixed(1);
+                  return `${ctx.label}: ${fmtUsd(ctx.raw)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCategoryBar(agg) {
+      const cats = ['compute', 'storage', 'network', 'other'];
+      const catColors = ['#58a6ff', '#3fb950', '#d2a8ff', '#8b949e'];
+
+      charts.catBar = new Chart(document.getElementById('categoryBarChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: cats.map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+          datasets: [{
+            data: cats.map(c => agg.catTotals[c]),
+            backgroundColor: catColors,
+            borderRadius: 4,
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: {
+              ticks: { color: '#8b949e', callback: v => '$' + v.toFixed(0) },
+              grid: { color: '#21262d' }
+            },
+            y: {
+              ticks: { color: '#e6edf3' },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => fmtUsd(ctx.raw)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ---- Render table ----
+    function renderTable(agg) {
+      const entries = Object.entries(agg.nsTotals).map(([ns, data]) => ({
+        namespace: ns,
+        ...data
+      }));
+
+      // Sort
+      entries.sort((a, b) => {
+        const av = sortState.col === 'namespace' ? a.namespace : a[sortState.col];
+        const bv = sortState.col === 'namespace' ? b.namespace : b[sortState.col];
+        if (typeof av === 'string') {
+          return sortState.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        }
+        return sortState.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      const tbody = document.getElementById('breakdownBody');
+      tbody.innerHTML = entries.map(e => `
+        <tr>
+          <td><span class="ns-badge" style="background:${nsColor(e.namespace)}22;color:${nsColor(e.namespace)}">${e.namespace}</span></td>
+          <td class="amount">${fmtUsd(e.compute)}</td>
+          <td class="amount">${fmtUsd(e.storage)}</td>
+          <td class="amount">${fmtUsd(e.network)}</td>
+          <td class="amount">${fmtUsd(e.other)}</td>
+          <td class="amount" style="font-weight:700">${fmtUsd(e.total)}</td>
+        </tr>
+      `).join('');
+
+      // Update sort arrows
+      document.querySelectorAll('#breakdownTable th').forEach(th => {
+        const arrow = th.querySelector('.sort-arrow');
+        if (th.dataset.sort === sortState.col) {
+          arrow.textContent = sortState.dir === 'asc' ? ' \u25B2' : ' \u25BC';
+        } else {
+          arrow.textContent = '';
+        }
+      });
+    }
+
+    // ---- Main render ----
+    async function loadAndRender() {
+      const nsFilter = document.getElementById('namespaceFilter').value;
+      showMessage('loading', 'Loading billing data...');
+
+      try {
+        const [data, nsList] = await Promise.all([fetchBillingData(), fetchNamespaces()]);
+
+        billingData = data;
+        namespaces = nsList;
+
+        // Populate namespace filter (preserve selection)
+        const nsSelect = document.getElementById('namespaceFilter');
+        const currentVal = nsSelect.value;
+        nsSelect.innerHTML = '<option value="all">All namespaces</option>';
+        for (const ns of nsList) {
+          const opt = document.createElement('option');
+          opt.value = ns;
+          opt.textContent = ns;
+          nsSelect.appendChild(opt);
+        }
+        if (nsList.includes(currentVal) || currentVal === 'all') {
+          nsSelect.value = currentVal;
+        }
+
+        // Aggregate
+        const agg = aggregateData(data, nsSelect.value);
+
+        // Render everything
+        destroyCharts();
+        renderStats(agg);
+        renderTimelineChart(data, nsSelect.value);
+        renderNamespacePie(agg);
+        renderCategoryBar(agg);
+        renderTable(agg);
+
+        saveStateToUrl();
+        clearMessage();
+
+        if (data.length === 0) {
+          showMessage('info', 'No billing data found for the selected date range. Ensure billing data files exist in the data directory.');
+        }
+      } catch (err) {
+        showMessage('error', 'Error loading billing data: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    // ---- Event listeners ----
+    document.getElementById('refreshBtn').addEventListener('click', loadAndRender);
+
+    document.querySelectorAll('#granularity button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setGranularity(btn.dataset.value);
+        loadAndRender();
+      });
+    });
+
+    document.getElementById('namespaceFilter').addEventListener('change', () => {
+      const nsFilter = document.getElementById('namespaceFilter').value;
+      const agg = aggregateData(billingData, nsFilter);
+      destroyCharts();
+      renderStats(agg);
+      renderTimelineChart(billingData, nsFilter);
+      renderNamespacePie(agg);
+      renderCategoryBar(agg);
+      renderTable(agg);
+      saveStateToUrl();
+    });
+
+    document.getElementById('dateFrom').addEventListener('change', loadAndRender);
+    document.getElementById('dateTo').addEventListener('change', loadAndRender);
+
+    // Table sorting
+    document.querySelectorAll('#breakdownTable th').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (sortState.col === col) {
+          sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.col = col;
+          sortState.dir = 'desc';
+        }
+        const nsFilter = document.getElementById('namespaceFilter').value;
+        const agg = aggregateData(billingData, nsFilter);
+        renderTable(agg);
+      });
+    });
+
+    // ---- Init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      initDateRange();
+      const savedNs = loadStateFromUrl();
+
+      // Set namespace after first load
+      const origLoadAndRender = loadAndRender;
+      loadAndRender = async function() {
+        await origLoadAndRender();
+        if (savedNs !== 'all') {
+          document.getElementById('namespaceFilter').value = savedNs;
+          const nsFilter = document.getElementById('namespaceFilter').value;
+          const agg = aggregateData(billingData, nsFilter);
+          destroyCharts();
+          renderStats(agg);
+          renderTimelineChart(billingData, nsFilter);
+          renderNamespacePie(agg);
+          renderCategoryBar(agg);
+          renderTable(agg);
+        }
+        // Restore original function
+        loadAndRender = origLoadAndRender;
+      };
+
+      loadAndRender();
+    });
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
+from datetime import datetime, timedelta
 import gzip
 import json
 import os
@@ -144,6 +145,11 @@ def root() -> str:
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
+        f"{RESET}"
+        f"\n"
+        f"Billing:\n"
+        f"\n{YELLOW}"
+        f"{hyperlink('/namespace-billing', 'namespace billing dashboard')}\n"
         f"{RESET}"
     )
 
@@ -486,6 +492,141 @@ def trigger_grind():
 
     # Redirect to log view.
     return redirect(f'/{run_id}')
+
+BILLING_DIR = os.path.join(LOGS_DISK_PATH, 'billing')
+
+def read_billing_file(filepath):
+    """Read a billing JSON file (gzipped or plain)."""
+    try:
+        if filepath.endswith('.gz'):
+            with gzip.open(filepath, 'rb') as f:
+                return json.loads(f.read().decode('utf-8'))
+        else:
+            with open(filepath, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error reading billing file {filepath}: {e}")
+        return None
+
+def get_billing_files_in_range(date_from, date_to):
+    """Return list of billing data entries for dates in range."""
+    results = []
+    if not os.path.exists(BILLING_DIR):
+        return results
+
+    current = date_from
+    while current <= date_to:
+        date_str = current.strftime('%Y-%m-%d')
+        # Try .json then .json.gz
+        for ext in ['.json', '.json.gz']:
+            filepath = os.path.join(BILLING_DIR, date_str + ext)
+            if os.path.exists(filepath):
+                data = read_billing_file(filepath)
+                if data:
+                    data['date'] = date_str
+                    results.append(data)
+                break
+        current += timedelta(days=1)
+    return results
+
+def aggregate_billing_weekly(daily_data):
+    """Aggregate daily billing data into weekly buckets."""
+    if not daily_data:
+        return []
+    weeks = {}
+    for entry in daily_data:
+        d = datetime.strptime(entry['date'], '%Y-%m-%d')
+        # Week starts on Monday
+        week_start = d - timedelta(days=d.weekday())
+        week_key = week_start.strftime('%Y-%m-%d')
+        if week_key not in weeks:
+            weeks[week_key] = {'date': week_key, 'namespaces': {}}
+        for ns, ns_data in entry.get('namespaces', {}).items():
+            if ns not in weeks[week_key]['namespaces']:
+                weeks[week_key]['namespaces'][ns] = {
+                    'total': 0,
+                    'breakdown': {'compute': 0, 'storage': 0, 'network': 0, 'other': 0}
+                }
+            target = weeks[week_key]['namespaces'][ns]
+            target['total'] += ns_data.get('total', 0)
+            for cat in ['compute', 'storage', 'network', 'other']:
+                target['breakdown'][cat] += ns_data.get('breakdown', {}).get(cat, 0)
+    return sorted(weeks.values(), key=lambda x: x['date'])
+
+def aggregate_billing_monthly(daily_data):
+    """Aggregate daily billing data into monthly buckets."""
+    if not daily_data:
+        return []
+    months = {}
+    for entry in daily_data:
+        month_key = entry['date'][:7] + '-01'
+        if month_key not in months:
+            months[month_key] = {'date': month_key, 'namespaces': {}}
+        for ns, ns_data in entry.get('namespaces', {}).items():
+            if ns not in months[month_key]['namespaces']:
+                months[month_key]['namespaces'][ns] = {
+                    'total': 0,
+                    'breakdown': {'compute': 0, 'storage': 0, 'network': 0, 'other': 0}
+                }
+            target = months[month_key]['namespaces'][ns]
+            target['total'] += ns_data.get('total', 0)
+            for cat in ['compute', 'storage', 'network', 'other']:
+                target['breakdown'][cat] += ns_data.get('breakdown', {}).get(cat, 0)
+    return sorted(months.values(), key=lambda x: x['date'])
+
+@app.route('/namespace-billing')
+@auth.login_required
+def namespace_billing():
+    """Serve the namespace billing dashboard."""
+    billing_html_path = Path('namespace-billing/billing-dashboard.html')
+    if billing_html_path.exists():
+        with billing_html_path.open('r') as f:
+            return f.read()
+    return "Billing dashboard not found", 404
+
+@app.route('/api/billing/namespaces')
+@auth.login_required
+def billing_namespaces():
+    """List all known namespaces from billing data."""
+    ns_set = set()
+    if os.path.exists(BILLING_DIR):
+        for filename in os.listdir(BILLING_DIR):
+            if filename.endswith('.json') or filename.endswith('.json.gz'):
+                filepath = os.path.join(BILLING_DIR, filename)
+                data = read_billing_file(filepath)
+                if data:
+                    ns_set.update(data.get('namespaces', {}).keys())
+    return Response(json.dumps(sorted(ns_set)), mimetype='application/json')
+
+@app.route('/api/billing/data')
+@auth.login_required
+def billing_data():
+    """Fetch billing data for a date range with optional granularity."""
+    date_from_str = request.args.get('from')
+    date_to_str = request.args.get('to')
+    granularity = request.args.get('granularity', 'daily')
+
+    if not date_from_str or not date_to_str:
+        return Response(json.dumps({'error': 'from and to date params required (YYYY-MM-DD)'}),
+                        mimetype='application/json', status=400)
+
+    try:
+        date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+        date_to = datetime.strptime(date_to_str, '%Y-%m-%d')
+    except ValueError:
+        return Response(json.dumps({'error': 'Invalid date format, use YYYY-MM-DD'}),
+                        mimetype='application/json', status=400)
+
+    daily_data = get_billing_files_in_range(date_from, date_to)
+
+    if granularity == 'weekly':
+        result = aggregate_billing_weekly(daily_data)
+    elif granularity == 'monthly':
+        result = aggregate_billing_monthly(daily_data)
+    else:
+        result = daily_data
+
+    return Response(json.dumps(result), mimetype='application/json')
 
 @app.route('/<key>')
 @auth.login_required
