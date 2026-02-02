@@ -99,16 +99,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         return get_random_constant_point(builder);
     }
 
-    // Create a point at infinity as a witness.
-    // The canonical representation uses (0, 0) coordinates which auto-detects as infinity.
-    static element_ct get_infinity_witness_point(Builder* builder)
-    {
-        using Fq = typename element_ct::BaseField;
-        Fq zero_x = Fq::from_witness(builder, fq::zero());
-        Fq zero_y = Fq::from_witness(builder, fq::zero());
-        return element_ct(zero_x, zero_y, /*assert_on_curve=*/true);
-    }
-
     // Create a random scalar as a witness
     static std::pair<fr, scalar_ct> get_random_witness_scalar(Builder* builder, bool even = false)
     {
@@ -343,7 +333,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = get_infinity_witness_point(&builder);
+            element_ct b = element_ct::from_witness(&builder, affine_element::infinity());
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
@@ -495,7 +485,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = get_infinity_witness_point(&builder);
+            element_ct b = element_ct::from_witness(&builder, affine_element::infinity());
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
@@ -642,7 +632,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         {
             // Case 1: Doubling point at infinity should return point at infinity
-            element_ct a_infinity = get_infinity_witness_point(&builder);
+            element_ct a_infinity = element_ct::from_witness(&builder, affine_element::infinity());
             a_infinity.set_origin_tag(submitted_value_origin_tag);
 
             element_ct result_infinity = a_infinity.dbl();
@@ -1442,10 +1432,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_raw_b = scalar_raw_b >> (256 - max_num_bits);
             fr scalar_b = fr(scalar_raw_b);
 
-            element_ct P_a = element_ct::from_witness(&builder, input_a); // A
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
-            element_ct P_b = get_infinity_witness_point(&builder);        // ∞
-            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
+            element_ct P_a = element_ct::from_witness(&builder, input_a);                    // A
+            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);                     // s_1 (128 bits)
+            element_ct P_b = element_ct::from_witness(&builder, affine_element::infinity()); // ∞
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);                     // s_2 (128 bits)
 
             // Set tags
             P_a.set_origin_tag(submitted_value_origin_tag);
