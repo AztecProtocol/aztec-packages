@@ -639,6 +639,347 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
+
+    describe('pre-protected tx behavior via addPendingTxs', () => {
+      // Helper to set fee payer balance in the mock
+      const setFeePayerBalanceForPreProtect = (balance: bigint) => {
+        db.getLeafPreimage.mockImplementation((tree, index) => {
+          if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+            return Promise.resolve(
+              new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(balance)), Fr.ONE, 1n),
+            );
+          }
+          return Promise.resolve(undefined);
+        });
+      };
+
+      it('pre-protected tx is accepted and goes directly to protected status', async () => {
+        const tx = await mockTx(1);
+
+        // Pre-record protection
+        await pool.protectTxs([tx.getTxHash()], slot1Header);
+
+        // Add via gossip
+        const result = await pool.addPendingTxs([tx]);
+
+        // Should be accepted, not ignored
+        expect(toStrings(result.accepted)).toContain(hashOf(tx));
+        expect(result.ignored).toHaveLength(0);
+        expect(result.rejected).toHaveLength(0);
+        // Should be protected, not pending
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      });
+
+      it('pre-protected tx bypasses insufficient balance pre-add rule', async () => {
+        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        // Set balance to 0 - normally tx would be ignored
+        setFeePayerBalanceForPreProtect(0n);
+
+        const tx = await mockTx(1, {
+          feePayer: sharedFeePayer,
+          numberOfNonRevertiblePublicCallRequests: 1,
+        });
+
+        // Pre-record protection
+        await pool.protectTxs([tx.getTxHash()], slot1Header);
+
+        // Add via gossip - should bypass balance check
+        const result = await pool.addPendingTxs([tx]);
+
+        expect(toStrings(result.accepted)).toContain(hashOf(tx));
+
+        expect(result.ignored).toHaveLength(0);
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      });
+
+      it('pre-protected tx bypasses nullifier conflict pre-add rule', async () => {
+        // Add a pending tx first
+        const txPending = await mockPublicTx(1, 10); // Higher priority
+        await pool.addPendingTxs([txPending]);
+        expect(await pool.getPendingTxCount()).toBe(1);
+
+        // Pre-protected tx has same nullifier but lower priority
+        // Normally would be ignored due to nullifier conflict
+        const txPreProtected = await mockPublicTx(2, 5);
+        setNullifier(txPreProtected, 0, getNullifier(txPending, 0));
+
+        // Pre-record protection
+        await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+        // Add via gossip - should bypass nullifier conflict check
+        const result = await pool.addPendingTxs([txPreProtected]);
+
+        expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+        expect(result.ignored).toHaveLength(0);
+        expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        // Original tx should still be pending
+        expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
+      });
+
+      it('pre-protected tx bypasses low priority pre-add rule when pool is full', async () => {
+        await pool.updateConfig({ maxPendingTxCount: 2 });
+
+        // Fill pool with high priority txs
+        const tx1 = await mockTxWithFee(1, 100);
+        const tx2 = await mockTxWithFee(2, 200);
+        await pool.addPendingTxs([tx1, tx2]);
+        expect(await pool.getPendingTxCount()).toBe(2);
+
+        // Pre-protected tx has lowest priority - normally would be ignored
+        const txPreProtected = await mockTxWithFee(3, 1);
+
+        // Pre-record protection
+        await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+        // Add via gossip - should bypass low priority check
+        const result = await pool.addPendingTxs([txPreProtected]);
+
+        expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+        expect(result.ignored).toHaveLength(0);
+        expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+      });
+
+      it('pre-protected tx does NOT evict other transactions', async () => {
+        // Add a pending tx with conflicting nullifier and lower priority
+        const txPending = await mockPublicTx(1, 5);
+        await pool.addPendingTxs([txPending]);
+        expect(await pool.getPendingTxCount()).toBe(1);
+
+        // Pre-protected tx has same nullifier and higher priority
+        // Without pre-protection, it would evict txPending
+        const txPreProtected = await mockPublicTx(2, 100);
+        setNullifier(txPreProtected, 0, getNullifier(txPending, 0));
+
+        // Pre-record protection
+        await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+        // Add via gossip - should NOT evict txPending
+        const result = await pool.addPendingTxs([txPreProtected]);
+
+        expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+        expect(result.ignored).toHaveLength(0);
+        // Both txs should be in pool
+        expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
+      });
+
+      it('pre-protected tx does not trigger post-add eviction rules', async () => {
+        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        // Balance covers only one tx
+        setFeePayerBalanceForPreProtect(BigInt(2e8));
+
+        // Add a pending tx first
+        const txPending = await mockTx(1, {
+          feePayer: sharedFeePayer,
+          maxPriorityFeesPerGas: new GasFees(5, 5),
+          numberOfNonRevertiblePublicCallRequests: 1,
+        });
+        await pool.addPendingTxs([txPending]);
+        expect(await pool.getPendingTxCount()).toBe(1);
+
+        // Pre-protected tx from same fee payer
+        // Without pre-protection, adding this would trigger fee payer balance eviction
+        const txPreProtected = await mockTx(2, {
+          feePayer: sharedFeePayer,
+          maxPriorityFeesPerGas: new GasFees(10, 10),
+          numberOfNonRevertiblePublicCallRequests: 1,
+        });
+
+        // Pre-record protection
+        await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+        // Add via gossip - should NOT trigger post-add eviction
+        const result = await pool.addPendingTxs([txPreProtected]);
+
+        expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+        expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        // txPending should still be in pool (not evicted by post-add rules)
+        expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
+      });
+
+      describe('batch with pre-protected tx', () => {
+        it('pre-protected tx in batch does not interfere with other txs in batch', async () => {
+          // txNormal should be processed normally (accepted)
+          const txNormal = await mockTx(1);
+
+          // txPreProtected should bypass rules and become protected
+          const txPreProtected = await mockTx(2);
+
+          // Pre-record protection for one tx
+          await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+          // Add both in same batch
+          const result = await pool.addPendingTxs([txNormal, txPreProtected]);
+
+          // Both should be accepted
+          expect(toStrings(result.accepted)).toContain(hashOf(txNormal));
+          expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+          expect(result.ignored).toHaveLength(0);
+          expect(result.rejected).toHaveLength(0);
+
+          // Normal tx should be pending, pre-protected should be protected
+          expect(await pool.getTxStatus(txNormal.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        });
+
+        it('pre-protected tx with nullifier conflict in batch does not evict batch mate', async () => {
+          // Two txs in batch with same nullifier - normally higher priority evicts lower
+          const txLowPriority = await mockPublicTx(1, 5);
+          const txHighPriority = await mockPublicTx(2, 100);
+          setNullifier(txHighPriority, 0, getNullifier(txLowPriority, 0));
+
+          // Pre-protect the high priority tx - it should NOT evict the low priority tx
+          await pool.protectTxs([txHighPriority.getTxHash()], slot1Header);
+
+          // Add both in same batch
+          const result = await pool.addPendingTxs([txLowPriority, txHighPriority]);
+
+          // Both should be accepted
+          expect(toStrings(result.accepted)).toContain(hashOf(txLowPriority));
+          expect(toStrings(result.accepted)).toContain(hashOf(txHighPriority));
+          expect(result.ignored).toHaveLength(0);
+
+          // Both should be in pool
+          expect(await pool.getTxStatus(txLowPriority.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(txHighPriority.getTxHash())).toBe('protected');
+        });
+
+        it('normal tx in batch still evicts other normal txs despite pre-protected tx present', async () => {
+          // txExisting is in pool
+          const txExisting = await mockPublicTx(1, 5);
+          await pool.addPendingTxs([txExisting]);
+          expect(await pool.getPendingTxCount()).toBe(1);
+
+          // txNormal has higher priority and conflicts with txExisting - should evict it
+          const txNormal = await mockPublicTx(2, 100);
+          setNullifier(txNormal, 0, getNullifier(txExisting, 0));
+
+          // txPreProtected is unrelated
+          const txPreProtected = await mockTx(3);
+          await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+          // Add both in same batch
+          const result = await pool.addPendingTxs([txNormal, txPreProtected]);
+
+          // Both new txs accepted
+          expect(toStrings(result.accepted)).toContain(hashOf(txNormal));
+          expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+
+          // txExisting was evicted by txNormal (normal eviction still works)
+          expect(await pool.getTxStatus(txExisting.getTxHash())).toBeUndefined();
+          expect(await pool.getTxStatus(txNormal.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        });
+
+        it('pre-protected tx in batch does not count towards pool size limit for others', async () => {
+          await pool.updateConfig({ maxPendingTxCount: 2 });
+
+          // Fill pool
+          const tx1 = await mockTxWithFee(1, 100);
+          const tx2 = await mockTxWithFee(2, 200);
+          await pool.addPendingTxs([tx1, tx2]);
+          expect(await pool.getPendingTxCount()).toBe(2);
+
+          // txNormal has high priority - should evict lowest priority in pool
+          const txNormal = await mockTxWithFee(3, 150);
+
+          // txPreProtected has low priority - should bypass limit
+          const txPreProtected = await mockTxWithFee(4, 1);
+          await pool.protectTxs([txPreProtected.getTxHash()], slot1Header);
+
+          // Add both in same batch
+          const result = await pool.addPendingTxs([txNormal, txPreProtected]);
+
+          // Both should be accepted
+          expect(toStrings(result.accepted)).toContain(hashOf(txNormal));
+          expect(toStrings(result.accepted)).toContain(hashOf(txPreProtected));
+
+          // Pool should have: tx2 (200), txNormal (150), txPreProtected (1 - protected)
+          // tx1 (100) was evicted to make room for txNormal
+          expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
+          expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(txNormal.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(txPreProtected.getTxHash())).toBe('protected');
+        });
+      });
+
+      describe('ignored tx succeeds after pre-protection', () => {
+        it('tx ignored due to nullifier conflict succeeds after pre-protection', async () => {
+          // Add a high priority tx
+          const txExisting = await mockPublicTx(1, 100);
+          await pool.addPendingTxs([txExisting]);
+
+          // Try to add conflicting lower priority tx - should be ignored
+          const txConflicting = await mockPublicTx(2, 5);
+          setNullifier(txConflicting, 0, getNullifier(txExisting, 0));
+
+          const result1 = await pool.addPendingTxs([txConflicting]);
+          expect(toStrings(result1.ignored)).toContain(hashOf(txConflicting));
+          expect(await pool.getTxStatus(txConflicting.getTxHash())).toBeUndefined();
+
+          // Now pre-protect and try again - should succeed
+          await pool.protectTxs([txConflicting.getTxHash()], slot1Header);
+          const result2 = await pool.addPendingTxs([txConflicting]);
+
+          expect(toStrings(result2.accepted)).toContain(hashOf(txConflicting));
+          expect(result2.ignored).toHaveLength(0);
+          expect(await pool.getTxStatus(txConflicting.getTxHash())).toBe('protected');
+          // Original tx still in pool
+          expect(await pool.getTxStatus(txExisting.getTxHash())).toBe('pending');
+        });
+
+        it('tx ignored due to insufficient balance succeeds after pre-protection', async () => {
+          const sharedFeePayer = AztecAddress.fromBigInt(999n);
+          // Set balance to 0
+          setFeePayerBalanceForPreProtect(0n);
+
+          const tx = await mockTx(1, {
+            feePayer: sharedFeePayer,
+            numberOfNonRevertiblePublicCallRequests: 1,
+          });
+
+          // Try to add - should be ignored due to insufficient balance
+          const result1 = await pool.addPendingTxs([tx]);
+          expect(toStrings(result1.ignored)).toContain(hashOf(tx));
+          expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+
+          // Now pre-protect and try again - should succeed
+          await pool.protectTxs([tx.getTxHash()], slot1Header);
+          const result2 = await pool.addPendingTxs([tx]);
+
+          expect(toStrings(result2.accepted)).toContain(hashOf(tx));
+          expect(result2.ignored).toHaveLength(0);
+          expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+        });
+
+        it('tx ignored due to pool full succeeds after pre-protection', async () => {
+          await pool.updateConfig({ maxPendingTxCount: 2 });
+
+          // Fill pool with high priority txs
+          const tx1 = await mockTxWithFee(1, 100);
+          const tx2 = await mockTxWithFee(2, 200);
+          await pool.addPendingTxs([tx1, tx2]);
+          expect(await pool.getPendingTxCount()).toBe(2);
+
+          // Try to add lowest priority tx - should be ignored
+          const txLow = await mockTxWithFee(3, 1);
+          const result1 = await pool.addPendingTxs([txLow]);
+          expect(toStrings(result1.ignored)).toContain(hashOf(txLow));
+          expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+
+          // Now pre-protect and try again - should succeed
+          await pool.protectTxs([txLow.getTxHash()], slot1Header);
+          const result2 = await pool.addPendingTxs([txLow]);
+
+          expect(toStrings(result2.accepted)).toContain(hashOf(txLow));
+          expect(result2.ignored).toHaveLength(0);
+          expect(await pool.getTxStatus(txLow.getTxHash())).toBe('protected');
+          // Original txs still in pool
+          expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+          expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+        });
+      });
+    });
   });
 
   describe('handleMinedBlock', () => {
