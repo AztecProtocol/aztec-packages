@@ -62,7 +62,7 @@ using namespace bb::avm2::tracegen;
 
 namespace {
 
-auto build_precomputed_columns_jobs(CopyableTraceContainer& trace)
+auto build_precomputed_columns_jobs(tracegen::TraceContainer& trace)
 {
     return std::vector<std::function<void()>>{
         [&]() {
@@ -112,7 +112,7 @@ auto build_precomputed_columns_jobs(CopyableTraceContainer& trace)
     };
 }
 
-auto build_public_inputs_columns_jobs(CopyableTraceContainer& trace, const PublicInputs& public_inputs)
+auto build_public_inputs_columns_jobs(tracegen::TraceContainer& trace, const PublicInputs& public_inputs)
 {
     return std::vector<std::function<void()>>{
         [&]() {
@@ -133,7 +133,7 @@ template <typename T> inline void clear_events(T& c)
     c.shrink_to_fit();
 }
 
-void print_trace_stats(const CopyableTraceContainer& trace)
+void print_trace_stats(const tracegen::TraceContainer& trace)
 {
     constexpr auto main_relation_names = [] {
         constexpr size_t size = std::tuple_size_v<AvmFlavor::MainRelations>;
@@ -175,10 +175,10 @@ void print_trace_stats(const CopyableTraceContainer& trace)
 
 } // namespace
 
-CopyableTraceContainer AvmFuzzerTraceGenHelper::generate_trace(EventsContainer&& events,
-                                                               const PublicInputs& public_inputs)
+tracegen::TraceContainer AvmFuzzerTraceGenHelper::generate_trace(EventsContainer&& events,
+                                                                 const PublicInputs& public_inputs)
 {
-    CopyableTraceContainer trace;
+    tracegen::TraceContainer trace;
 
     fill_trace_columns(trace, std::move(events), public_inputs);
     fill_trace_interactions(trace);
@@ -188,7 +188,7 @@ CopyableTraceContainer AvmFuzzerTraceGenHelper::generate_trace(EventsContainer&&
     return trace;
 }
 
-void AvmFuzzerTraceGenHelper::fill_trace_columns(CopyableTraceContainer& trace,
+void AvmFuzzerTraceGenHelper::fill_trace_columns(tracegen::TraceContainer& trace,
                                                  EventsContainer&& events,
                                                  const PublicInputs& public_inputs)
 {
@@ -437,7 +437,7 @@ void AvmFuzzerTraceGenHelper::fill_trace_columns(CopyableTraceContainer& trace,
     }
 }
 
-void AvmFuzzerTraceGenHelper::fill_trace_interactions(CopyableTraceContainer& trace)
+void AvmFuzzerTraceGenHelper::fill_trace_interactions(tracegen::TraceContainer& trace)
 {
     // Now we can compute lookups and permutations.
     {
@@ -486,9 +486,9 @@ void AvmFuzzerTraceGenHelper::fill_trace_interactions(CopyableTraceContainer& tr
     }
 }
 
-CopyableTraceContainer AvmFuzzerTraceGenHelper::generate_precomputed_columns()
+tracegen::TraceContainer AvmFuzzerTraceGenHelper::generate_precomputed_columns()
 {
-    CopyableTraceContainer trace;
+    tracegen::TraceContainer trace;
     auto jobs = build_precomputed_columns_jobs(trace);
     execute_jobs(jobs);
     return trace;

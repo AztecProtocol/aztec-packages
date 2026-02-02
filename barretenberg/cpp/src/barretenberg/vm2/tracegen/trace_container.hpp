@@ -24,6 +24,8 @@ namespace bb::avm2::tracegen {
 class TraceContainer {
   public:
     TraceContainer();
+    TraceContainer(const TraceContainer& other);
+    TraceContainer(TraceContainer&&) noexcept = default;
 
     const FF& get(Column col, uint32_t row) const;
     // Returns a tuple of const references to the values in the specified columns.

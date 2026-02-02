@@ -21,6 +21,23 @@ TraceContainer::TraceContainer()
     : trace(std::make_unique<std::array<SparseColumn, NUM_COLUMNS_WITHOUT_SHIFTS>>())
 {}
 
+TraceContainer::TraceContainer(const TraceContainer& other)
+    : trace(std::make_unique<std::array<SparseColumn, NUM_COLUMNS_WITHOUT_SHIFTS>>())
+{
+    if (!other.trace) {
+        return;
+    }
+    for (size_t col = 0; col < num_columns(); ++col) {
+        auto& dst = (*trace)[col];
+        auto& src = (*other.trace)[col];
+        std::shared_lock src_lock(src.mutex);
+        std::unique_lock dst_lock(dst.mutex);
+        dst.rows = src.rows;
+        dst.max_row_number = src.max_row_number;
+        dst.row_number_dirty = src.row_number_dirty;
+    }
+}
+
 const FF& TraceContainer::get(Column col, uint32_t row) const
 {
     auto& column_data = (*trace)[static_cast<size_t>(col)];

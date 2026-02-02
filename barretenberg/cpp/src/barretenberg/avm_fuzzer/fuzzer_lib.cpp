@@ -222,7 +222,7 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     AvmSimulationHelper simulation_helper;
     auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
     AvmFuzzerTraceGenHelper fuzzer_tracegen_helper;
-    CopyableTraceContainer trace = TRACE_WITH_PRECOMPUTED_COLUMNS;
+    tracegen::TraceContainer trace = tracegen::TraceContainer(TRACE_WITH_PRECOMPUTED_COLUMNS);
     fuzzer_tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
     fuzzer_tracegen_helper.fill_trace_interactions(trace);
     AvmProvingHelper proving_helper;

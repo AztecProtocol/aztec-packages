@@ -1,8 +1,7 @@
 #pragma once
-
-#include "barretenberg/avm_fuzzer/common/copyable_trace_container.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
+#include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::fuzzer {
 
@@ -10,15 +9,15 @@ class AvmFuzzerTraceGenHelper {
   public:
     AvmFuzzerTraceGenHelper() = default;
 
-    CopyableTraceContainer generate_trace(simulation::EventsContainer&& events, const PublicInputs& public_inputs);
+    tracegen::TraceContainer generate_trace(simulation::EventsContainer&& events, const PublicInputs& public_inputs);
     // These are useful for debugging.
-    void fill_trace_columns(CopyableTraceContainer& trace,
+    void fill_trace_columns(tracegen::TraceContainer& trace,
                             simulation::EventsContainer&& events,
                             const PublicInputs& public_inputs);
-    void fill_trace_interactions(CopyableTraceContainer& trace);
+    void fill_trace_interactions(tracegen::TraceContainer& trace);
 
-    CopyableTraceContainer generate_precomputed_columns();
-    CopyableTraceContainer generate_public_inputs_columns(const PublicInputs& public_inputs);
+    tracegen::TraceContainer generate_precomputed_columns();
+    tracegen::TraceContainer generate_public_inputs_columns(const PublicInputs& public_inputs);
 };
 
 } // namespace bb::avm2::fuzzer
