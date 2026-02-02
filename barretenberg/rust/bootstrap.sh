@@ -41,6 +41,40 @@ function test {
   RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
+function test_download {
+  echo_header "barretenberg-rs download test"
+
+  # Ensure Cargo is in PATH
+  if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+  fi
+
+  # Test that build.rs can download pre-built libraries from GitHub releases
+  # Hide the local library to force download path
+  local lib_path="../cpp/build/lib/libbb-external.a"
+  if [ -f "$lib_path" ]; then
+    mv "$lib_path" "$lib_path.bak"
+    trap "mv '$lib_path.bak' '$lib_path' 2>/dev/null" EXIT
+  fi
+
+  # Clean cargo cache to force rebuild
+  cargo clean -p barretenberg-rs 2>/dev/null || true
+
+  # Build with a known release version
+  local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/aztec-packages --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
+  echo "Testing download with version: $version"
+
+  # Only run barretenberg-rs tests (not barretenberg-tests which has additional deps)
+  BARRETENBERG_VERSION=$version RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" \
+    denoise "cargo test --release --features ffi -p barretenberg-rs"
+
+  # Restore the local library (trap handles this, but be explicit)
+  if [ -f "$lib_path.bak" ]; then
+    mv "$lib_path.bak" "$lib_path"
+    trap - EXIT
+  fi
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -58,7 +92,7 @@ case "$cmd" in
   bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
-  test|test_cmds)
+  test|test_cmds|test_download)
     $cmd
     ;;
   *)
