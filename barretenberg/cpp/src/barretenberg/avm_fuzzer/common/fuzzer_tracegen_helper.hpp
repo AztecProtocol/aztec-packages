@@ -7,9 +7,11 @@ namespace bb::avm2::fuzzer {
 
 class AvmFuzzerTraceGenHelper : protected AvmTraceGenHelper {
   public:
-    tracegen::TraceContainer generate_trace_without_precomputed_columns(tracegen::TraceContainer& trace,
-                                                                        simulation::EventsContainer&& events,
-                                                                        const PublicInputs& public_inputs);
+    void generate_trace_from_precomputed(tracegen::TraceContainer& trace,
+                                         simulation::EventsContainer&& events,
+                                         const PublicInputs& public_inputs);
+    tracegen::TraceContainer generate_trace_with_precomputed_columns() { return generate_precomputed_columns(); }
+    void fill_trace_interactions(tracegen::TraceContainer& trace);
 };
 
 } // namespace bb::avm2::fuzzer

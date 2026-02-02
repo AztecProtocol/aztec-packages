@@ -21,7 +21,7 @@
 // Almost identical to the fast simulation input
 
 const bb::avm2::tracegen::TraceContainer TRACE_WITH_PRECOMPUTED_COLUMNS =
-    bb::avm2::fuzzer::AvmFuzzerTraceGenHelper().generate_precomputed_columns();
+    bb::avm2::fuzzer::AvmFuzzerTraceGenHelper().generate_trace_with_precomputed_columns();
 
 struct FuzzerTxData {
     // Enqueued calls data
