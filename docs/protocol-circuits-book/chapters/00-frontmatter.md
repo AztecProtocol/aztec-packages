@@ -4,7 +4,13 @@
 
 ---
 
-**Version:** Based on the `aztec-packages` repository
+**Version:** 1.1.0
+
+**Date:** January 28, 2026
+
+**Repository:** `aztec-packages` (commit `6146044`)
+
+---
 
 **Abstract:**
 
@@ -59,6 +65,7 @@ building on previous ones.
 
 1. Introduction to Aztec
 2. High-Level Architecture
+2a. Protocol Contracts
 3. Transaction Lifecycle
 4. Private Kernel Circuits
 4a. The App-to-Kernel Interface
@@ -76,6 +83,25 @@ building on previous ones.
 16. Protocol Constants and Limits
 17. Appendix: Glossary and References
 18. Auditor's Guide to Protocol Circuits
+
+---
+
+**Version History**
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1.0 | 2026-01-28 | Added Protocol Contracts chapter (2a) |
+| | | Updated domain separators for commit 6146044 |
+| | | DOM_SEP__OUTER_NULLIFIER -> DOM_SEP__SILOED_NULLIFIER |
+| | | Added new separators: PUBLIC_STORAGE_MAP_SLOT, etc. |
+| 1.0.1 | 2026-01-27 | Fixed PDF overflow issues |
+| | | Narrowed ASCII diagrams to fit page width |
+| | | Fixed syntax highlighting (noir -> rust) |
+| 1.0.0 | 2026-01-27 | Initial release |
+| | | 19 chapters covering kernel and rollup circuits |
+| | | Added App-to-Kernel Interface chapter (4a) |
+| | | Added Auditor's Guide with code examples |
+| | | Beginner-friendly explanations added |
 
 ---
 

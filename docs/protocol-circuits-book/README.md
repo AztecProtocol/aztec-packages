@@ -2,6 +2,18 @@
 
 A comprehensive guide to understanding Aztec's kernel and rollup circuits.
 
+**Current Version:** 1.1.0 (January 28, 2026)
+
+## Version History
+
+| Version | Date | Summary |
+|---------|------|---------|
+| 1.1.0 | 2026-01-28 | Protocol Contracts chapter, domain separator updates |
+| 1.0.1 | 2026-01-27 | PDF formatting fixes |
+| 1.0.0 | 2026-01-27 | Initial release (21 chapters) |
+
+See the frontmatter in the book for detailed changelog.
+
 ## Contents
 
 The book covers:
@@ -9,10 +21,12 @@ The book covers:
 **Part I: Foundations**
 1. **Introduction** - What is Aztec, ZKPs, notes, nullifiers
 2. **Architecture** - L2 overview, system components
+2a. **Protocol Contracts** - FeeJuice, registries, magic addresses
 3. **Transaction Lifecycle** - End-to-end transaction flow
 
 **Part II: Private Execution**
 4. **Private Kernel Circuits** - Init, Inner, Reset, Tail variants
+4a. **App-to-Kernel Interface** - PrivateContext, PrivateCallData
 5. **Composer/Validator Pattern** - Architectural pattern with real code
 6. **Accumulated Data Flow** - How side effects flow through kernels
 
@@ -86,11 +100,25 @@ protocol-circuits-book/
 
 ## Contributing
 
-The book is based on the `noir-projects/noir-protocol-circuits` code and existing documentation. To update:
+The book is based on the `noir-projects/noir-protocol-circuits` code
+and existing documentation. To update:
 
 1. Check the source code for changes
 2. Update relevant chapter files
-3. Rebuild to verify formatting
+3. Update version in `00-frontmatter.md`
+4. Add changelog entry
+5. Rebuild to verify formatting
+
+### Versioning Guidelines
+
+- **Major version (X.0.0)**: Significant restructuring or new parts
+- **Minor version (0.X.0)**: New chapters or major content additions
+- **Patch version (0.0.X)**: Bug fixes, typos, formatting
+
+When updating for protocol changes:
+1. Note the commit hash in the frontmatter
+2. Document what changed in the version history
+3. Update affected chapters
 
 ## License
 

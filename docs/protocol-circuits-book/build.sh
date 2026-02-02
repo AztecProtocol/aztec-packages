@@ -35,6 +35,7 @@ CHAPTERS=(
     "00-frontmatter.md"
     "01-introduction.md"
     "02-architecture.md"
+    "02a-protocol-contracts.md"
     "03-transaction-lifecycle.md"
     "04-private-kernel.md"
     "04a-app-kernel-interface.md"
