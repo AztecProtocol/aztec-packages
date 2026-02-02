@@ -295,14 +295,14 @@ pub contract ContractInstanceRegistry {
                 avm::calldata_copy(1, <ContractClassId as Serialize>::N);
             let mut reader: Reader<1> = Reader::new(input_calldata);
             let arg0: ContractClassId =
-                reader.read_struct(<ContractClassId as Deserialize>::deserialize);
+                <ContractClassId as Deserialize>::stream_deserialize(&mut reader);
             update(arg0);
             avm::avm_return([].as_vector());
         };
         if selector == SET_UPDATE_DELAY_SELECTOR {
             let input_calldata: [Field; 1] = avm::calldata_copy(1, <u64 as Serialize>::N);
             let mut reader: Reader<1> = Reader::new(input_calldata);
-            let arg0: u64 = reader.read_struct(<u64 as Deserialize>::deserialize);
+            let arg0: u64 = <u64 as Deserialize>::stream_deserialize(&mut reader);
             set_update_delay(arg0);
             avm::avm_return([].as_vector());
         };
