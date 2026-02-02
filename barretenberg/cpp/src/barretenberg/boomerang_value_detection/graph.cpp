@@ -1043,6 +1043,10 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
 
     // Remove variables that are intentionally in one gate (e.g., fix_witness, inverse checks).
     // These are marked at the source via update_used_witnesses().
+    // AUDITTODO: used_witnesses stores raw witness indices, but variables_in_one_gate contains
+    // real_variable_index values. If a witness is copy-constrained (aliased), its raw index may
+    // differ from its real_variable_index, causing the erase to fail silently. Should convert:
+    //   variables_in_one_gate.erase(circuit_builder.real_variable_index[elem]);
     for (const auto& elem : circuit_builder.get_used_witnesses()) {
         variables_in_one_gate.erase(elem);
     }
