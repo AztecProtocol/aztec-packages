@@ -24,7 +24,7 @@ use types::{
         MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
     },
     hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
-    side_effect::{Counted, Ordered, Scoped},
+    side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -182,9 +182,6 @@ impl ResetOutputComposer {
                 i,
             );
 
-            let min_revertible_side_effect_counter =
-                self.previous_kernel.min_revertible_side_effect_counter;
-
             // We don't silo revertible note hashes with a note_nonce, since we don't know their final position in the tx.
             //
             // Elaboration:
@@ -237,11 +234,12 @@ impl ResetOutputComposer {
             //   - For "non-revertible from private-land" note hashes, the `unique_siloed_note_hash`es
             //     that we derived above are correct.
             //   - None of the `unique_siloed_note_hash`es for "revertible" note hashes are fit for use.
-            let is_non_revertible = note_hash.counter() < min_revertible_side_effect_counter;
-            let is_private_only = self.previous_kernel.is_private_only;
+            let is_non_revertible = note_hash.is_non_revertible(
+                self.previous_kernel.is_private_only,
+                self.previous_kernel.claimed_revertible_counter,
+            );
 
-            padded_unique_siloed_sorted_kept_note_hashes.array[i].inner.inner = if is_private_only
-                | is_non_revertible {
+            padded_unique_siloed_sorted_kept_note_hashes.array[i].inner.inner = if is_non_revertible {
                 unique_siloed_note_hash
             } else {
                 siloed_note_hash
