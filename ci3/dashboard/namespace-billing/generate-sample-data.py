@@ -16,38 +16,47 @@ import random
 import sys
 from datetime import datetime, timedelta
 
-# Namespace cost profiles: base daily cost (USD) and category weights.
-# Categories match what fetch-billing.py produces from the Cloud Billing Export:
-#   compute_spot, compute_ondemand, storage, network, other
+# Namespace cost profiles: base daily cost (USD) and spot fraction.
+# Categories match what fetch-billing.py produces from GKE metering:
+#   compute_spot, compute_ondemand
 NS_PROFILES = {
-    'devnet':           {'base': 180.0, 'compute_spot': 0.35, 'compute_ondemand': 0.30, 'storage': 0.15, 'network': 0.10, 'other': 0.10},
-    'staging':          {'base': 140.0, 'compute_spot': 0.30, 'compute_ondemand': 0.30, 'storage': 0.18, 'network': 0.12, 'other': 0.10},
-    'production':       {'base': 320.0, 'compute_spot': 0.10, 'compute_ondemand': 0.50, 'storage': 0.15, 'network': 0.15, 'other': 0.10},
-    'proving':          {'base': 260.0, 'compute_spot': 0.55, 'compute_ondemand': 0.20, 'storage': 0.10, 'network': 0.05, 'other': 0.10},
-    'ci-runners':       {'base': 95.0,  'compute_spot': 0.50, 'compute_ondemand': 0.15, 'storage': 0.10, 'network': 0.10, 'other': 0.15},
-    'monitoring':       {'base': 45.0,  'compute_spot': 0.00, 'compute_ondemand': 0.40, 'storage': 0.30, 'network': 0.15, 'other': 0.15},
-    'kube-system':      {'base': 30.0,  'compute_spot': 0.00, 'compute_ondemand': 0.50, 'storage': 0.20, 'network': 0.15, 'other': 0.15},
-    'default':          {'base': 10.0,  'compute_spot': 0.00, 'compute_ondemand': 0.40, 'storage': 0.25, 'network': 0.15, 'other': 0.20},
+    'sepolia':                  {'base': 8.0,  'spot_frac': 0.00},
+    'eth-mainnet':              {'base': 12.0, 'spot_frac': 0.00},
+    'mainnet':                  {'base': 1.5,  'spot_frac': 0.30},
+    'testnet':                  {'base': 2.0,  'spot_frac': 0.40},
+    'devnet':                   {'base': 0.7,  'spot_frac': 0.02},
+    'devnet-next':              {'base': 0.9,  'spot_frac': 0.02},
+    'staging-public':           {'base': 3.5,  'spot_frac': 0.50},
+    'staging-ignition':         {'base': 1.7,  'spot_frac': 0.30},
+    'next-net':                 {'base': 2.8,  'spot_frac': 0.80},
+    'nightly-bench':            {'base': 1.2,  'spot_frac': 0.70},
+    'kube-system':              {'base': 2.0,  'spot_frac': 0.20},
+    'metrics':                  {'base': 1.4,  'spot_frac': 0.01},
+    'gmp-system':               {'base': 0.6,  'spot_frac': 0.25},
+    'ignition-fisherman-sepolia': {'base': 1.0, 'spot_frac': 0.55},
 }
 
-CATEGORIES = ['compute_spot', 'compute_ondemand', 'storage', 'network', 'other']
+CATEGORIES = ['compute_spot', 'compute_ondemand']
 
 
 def generate_day(date: datetime) -> dict:
     namespaces = {}
     day_of_week = date.weekday()
-    weekend_factor = 0.6 if day_of_week >= 5 else 1.0
+    weekend_factor = 0.7 if day_of_week >= 5 else 1.0
 
     for ns, profile in NS_PROFILES.items():
         days_ago = (datetime.now() - date).days
-        trend = 1.0 + (60 - min(days_ago, 60)) * 0.003
+        trend = 1.0 + (60 - min(days_ago, 60)) * 0.002
         noise = random.uniform(0.8, 1.2)
         daily_total = profile['base'] * weekend_factor * trend * noise
 
+        spot = daily_total * profile['spot_frac'] * random.uniform(0.85, 1.15)
+        ondemand = daily_total - spot
+
         breakdown = {}
-        for cat in CATEGORIES:
-            cat_noise = random.uniform(0.85, 1.15)
-            breakdown[cat] = round(daily_total * profile[cat] * cat_noise, 4)
+        if spot > 0:
+            breakdown['compute_spot'] = round(spot, 4)
+        breakdown['compute_ondemand'] = round(ondemand, 4)
 
         actual_total = sum(breakdown.values())
         namespaces[ns] = {
