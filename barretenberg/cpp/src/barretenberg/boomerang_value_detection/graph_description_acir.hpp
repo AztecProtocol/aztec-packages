@@ -21,6 +21,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_boolean_gate(size_t block_idx, size_t gate_idx);
     void process_constraint_system();
     std::unordered_set<size_t> get_incorrect_opcodes();
+    bool process_quad_constraints(const ConstraintPtr& ptr);
     bool process_logic_constraints(const ConstraintPtr& ptr);
     bool process_aes128_constraints(const ConstraintPtr& ptr,
                                     const std::unordered_set<uint32_t>& next_constraint_witnesses);

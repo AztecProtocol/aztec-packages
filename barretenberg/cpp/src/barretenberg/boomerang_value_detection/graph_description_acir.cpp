@@ -302,6 +302,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::RANGE:
             result = process_range_constraints(constraint_info.ptr);
             break;
+        case AcirConstraintType::QUAD:
+            result = process_quad_constraints(constraint_info.ptr);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -370,6 +373,63 @@ std::pair<uint256_t, uint256_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::recover
     uint256_t b_reconstructed = b_high * step_size;
 
     return std::make_pair(a_reconstructed, b_reconstructed);
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_quad_constraints(const ConstraintPtr& ptr)
+{
+    const auto* constraint = std::get<const acir_format::QuadConstraint*>(ptr);
+    if (constraint->a == bb::stdlib::IS_CONSTANT) {
+        return false;
+    }
+    bool is_gate_created = false;
+    std::array<uint32_t, 4> constraint_variables{ constraint->a, constraint->b, constraint->c, constraint->d };
+    std::array<FF, 6> scalings{ constraint->mul_scaling, constraint->a_scaling, constraint->b_scaling,
+                                constraint->c_scaling,   constraint->d_scaling, constraint->const_scaling };
+
+    for (size_t i = 0; i < constraint_variables.size(); i++) {
+        if (constraint_variables[i] == bb::stdlib::IS_CONSTANT) {
+            constraint_variables[i] = builder.zero_idx();
+        } else {
+            constraint_variables[i] = analyzer.to_real(constraint_variables[i]);
+        }
+    }
+
+    auto zero = builder.zero_idx();
+    const auto var_it = std::find_if(constraint_variables.begin(),
+                                     constraint_variables.end(),
+                                     [zero](const uint32_t var_idx) { return var_idx != zero; });
+    if (var_it != constraint_variables.end()) {
+        auto arithmetic_blk_idx = analyzer.find_block_index(builder.blocks.arithmetic);
+        if (!arithmetic_blk_idx) {
+            return false;
+        }
+        std::vector<std::pair<size_t, size_t>> var_gates = analyzer.get_variable_gates(*var_it);
+        for (const auto& [blk_idx, gate_idx] : var_gates) {
+            if (blk_idx == *arithmetic_blk_idx) {
+                std::vector<uint32_t> gate_indices{ builder.blocks.arithmetic.w_l()[gate_idx],
+                                                    builder.blocks.arithmetic.w_r()[gate_idx],
+                                                    builder.blocks.arithmetic.w_o()[gate_idx],
+                                                    builder.blocks.arithmetic.w_4()[gate_idx] };
+                gate_indices = analyzer.to_real(gate_indices);
+                if (builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one() &&
+                    std::equal(constraint_variables.begin(),
+                               constraint_variables.end(),
+                               gate_indices.begin(),
+                               gate_indices.end()) &&
+                    scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
+                                                    builder.blocks.arithmetic.q_1()[gate_idx],
+                                                    builder.blocks.arithmetic.q_2()[gate_idx],
+                                                    builder.blocks.arithmetic.q_3()[gate_idx],
+                                                    builder.blocks.arithmetic.q_4()[gate_idx],
+                                                    builder.blocks.arithmetic.q_c()[gate_idx] })) {
+                    is_gate_created = true; // we found the correct gate. Can stop and return true
+                    break;
+                }
+            } // continue looking for a gate for the given constraint
+        }
+    }
+    return is_gate_created;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -508,8 +568,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
             return false;
         }
     }
-    // if all chunks for lookup tables are correct => a_accumulated and b_accumulated should be equal to initial values
-    // of a and b
+    // if all chunks for lookup tables are correct => a_accumulated and b_accumulated should be equal to initial
+    // values of a and b
     uint256_t a_init = constraint->a.is_constant ? uint256_t(constraint->a.value)
                                                  : uint256_t(builder.get_variable(constraint->a.index));
     uint256_t b_init = constraint->b.is_constant ? uint256_t(constraint->b.value)
@@ -546,7 +606,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_range_constraint(uint32_t
     // Range constraint consists of variable index and num bits to be constrained.
     // num bits == 1 => bool gate
     // num bits <= 14 => arithmetic gate + create_new_range_constraint <=> arithmetic gate + list[tag]
-    // num bits > 14 => decompose_into_default_range => decompose chain with additional range constrains for sublimbs
+    // num bits > 14 => decompose_into_default_range => decompose chain with additional range constrains for
+    // sublimbs
     const auto& variable_gates = analyzer.get_variable_gates(witness);
 
     if (num_bits == 1) {
