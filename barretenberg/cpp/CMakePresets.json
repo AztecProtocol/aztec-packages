@@ -540,7 +540,7 @@
       "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
       "cacheVariables": {
         "PLATFORM": "OS64",
-        "DEPLOYMENT_TARGET": "14.0",
+        "DEPLOYMENT_TARGET": "16.3",
         "CMAKE_BUILD_TYPE": "Release",
         "ENABLE_PIC": "ON",
         "ENABLE_ARC": "OFF",
@@ -557,7 +557,7 @@
       "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
       "cacheVariables": {
         "PLATFORM": "SIMULATORARM64",
-        "DEPLOYMENT_TARGET": "14.0",
+        "DEPLOYMENT_TARGET": "16.3",
         "CMAKE_BUILD_TYPE": "Release",
         "ENABLE_PIC": "ON",
         "ENABLE_ARC": "OFF",

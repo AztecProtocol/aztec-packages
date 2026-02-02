@@ -690,11 +690,11 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
         algorithm used in Kate commitment scheme, as the coefficients of N(X)/X are given by numerator_polynomial[j]
         for j=1,...,n.
     */
-    Fr numerator_polynomial[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial, n);
+    std::vector<Fr> numerator_polynomial(n + 1);
+    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial.data(), n);
     // First half contains roots, second half contains denominators (to be inverted)
-    Fr roots_and_denominators[2 * n];
-    Fr temp_src[n];
+    std::vector<Fr> roots_and_denominators(2 * n);
+    std::vector<Fr> temp_src(n);
     for (size_t i = 0; i < n; ++i) {
         roots_and_denominators[i] = -evaluation_points[i];
         temp_src[i] = src[i];
@@ -713,7 +713,7 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
     Fr::batch_invert(roots_and_denominators, 2 * n);
 
     Fr z, multiplier;
-    Fr temp_dest[n];
+    std::vector<Fr> temp_dest(n);
     size_t idx_zero = 0;
     bool interpolation_domain_contains_zero = false;
     // if the constant term of the numerator polynomial N(X) is 0, then the interpolation domain contains 0
