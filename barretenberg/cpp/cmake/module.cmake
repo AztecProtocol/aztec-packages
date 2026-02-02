@@ -298,7 +298,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
             add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
 
             # enable lmdb downloading via dependency (solves race condition)
-            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
                 add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
                 add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
             endif()
