@@ -12,12 +12,12 @@ The Aztec network uses economic incentives to encourage honest participation and
 
 Network participants earn rewards from two sources:
 
-1. **Slot Rewards**: Protocol-funded rewards distributed each slot (inflationary)
+1. **Checkpoint Rewards**: Protocol-funded rewards accruing for each proven slot
 2. **Transaction Fees**: Fees paid by users for transaction processing
 
-## Slot Rewards
+## Checkpoint Rewards
 
-The protocol mints new tokens each slot as rewards. The current slot reward is **400 $AZTEC**, split between sequencers and provers:
+Tokens are minted in advance to the RewardDistributor contract. The Rollup contract then claims from the RewardDistributor each slot and distributes them as checkpoint rewards — these are not net new inflation, but they are net new circulating tokens. The current checkpoint reward is **400 $AZTEC** per slot, split between sequencers and provers:
 
 | Recipient | Share | Amount Per Slot |
 |-----------|-------|-----------------|
@@ -26,11 +26,11 @@ The protocol mints new tokens each slot as rewards. The current slot reward is *
 
 This value can be adjusted through governance.
 
-### How Slot Rewards Flow
+### How Checkpoint Rewards Flow
 
 ```mermaid
 flowchart TD
-    Issuer[Issuer Contract] -->|Mints tokens| Dist[Reward Distribution]
+    Governance[Governance] -->|Mints tokens in advance| Dist[Reward Distributor]
     Dist -->|Claims per slot| Rollup[Rollup Contract]
     Rollup -->|70% · 280 $AZTEC| Seq[Block Proposer]
     Rollup -->|30% · 120 $AZTEC| ProverPool[Prover Reward Pool]
@@ -40,19 +40,19 @@ flowchart TD
 
 Sequencers earn rewards for successfully proposing and finalizing blocks:
 
-- **Slot share**: 70% of each slot reward (280 $AZTEC) goes to the block proposer, paid when the block is finalized on L1
-- **Transaction fees**: Sequencers collect fees from users; a portion is burned via the base fee mechanism, and the remainder is split between sequencer and prover
+- **Checkpoint share**: 70% of each checkpoint reward (280 $AZTEC) goes to the block proposer, paid when the block is finalized on L1
+- **Transaction fees**: Sequencers collect fees from users; a portion (the congestion cost) is burned, and 70% of the remainder is awarded to the sequencer
 
 ## Prover Rewards
 
 Provers earn rewards for generating validity proofs that finalize blocks:
 
-- **Slot share**: 30% of each slot reward (120 $AZTEC), distributed among provers who participated in the epoch
-- **Transaction prover fees**: Provers receive a portion of transaction fees, with the rate set by protocol parameters
+- **Checkpoint share**: 30% of each checkpoint reward (120 $AZTEC), distributed among provers who participated in the epoch
+- **Transaction fees**: Provers receive 30% of the unburnt transaction fees
 
 ### Activity Score and Reward Distribution
 
-Prover slot rewards are not split equally. They are distributed based on each prover's **activity score**, which measures consistency of participation. The score:
+Prover checkpoint rewards are not split equally. They are distributed based on each prover's **activity score**, which measures consistency of participation. The score:
 
 - **Increases** by 125,000 per epoch of active proving
 - **Decreases** by 100,000 per epoch of inactivity
