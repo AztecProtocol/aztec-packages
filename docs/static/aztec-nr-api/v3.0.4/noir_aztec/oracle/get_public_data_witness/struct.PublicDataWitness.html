@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct PublicDataWitness documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicDataWitness</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PublicDataWitness</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.index">index</a></li>
+<li><a href="#structfield.leaf_preimage">leaf_preimage</a></li>
+<li><a href="#structfield.path">path</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PublicDataWitness">Deserialize</a></li>
+<li><a href="#impl-Eq-for-PublicDataWitness">Eq</a></li>
+<li><a href="#impl-Serialize-for-PublicDataWitness">Serialize</a></li>
+</ul>
+<h2>In module get_public_data_witness</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PublicDataWitness.html">PublicDataWitness</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.get_public_data_witness.html">get_public_data_witness</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">get_public_data_witness</a></div>
+<h1>Struct <span id="struct" class="struct">PublicDataWitness</span></h1>
+<pre><code>pub struct PublicDataWitness {
+    pub index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub leaf_preimage: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>,
+    pub path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 40],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.index" class="struct-field"><code class="code-header">index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.leaf_preimage" class="struct-field"><code class="code-header">leaf_preimage: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></div>
+<div class="padded-description"></div><div id="structfield.path" class="struct-field"><code class="code-header">path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 40]</code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PublicDataWitness"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html" class="struct">PublicDataWitness</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 45]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-PublicDataWitness"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html" class="struct">PublicDataWitness</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-PublicDataWitness"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html" class="struct">PublicDataWitness</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 45]</code>
+
+</div></main>
+</span>
+</body>
+</html>
