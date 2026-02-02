@@ -20,8 +20,6 @@ static_assert(TranslatorFlavor::PROOF_LENGTH == 786, "Translator proof size chan
 static_assert(ProofLength::Oink<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 96, "Mega Oink proof size changed");
 static_assert(ProofLength::Oink<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 32, "Ultra Oink proof size changed");
 static_assert(ProofLength::Oink<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 36, "UltraZK Oink proof size changed");
-static_assert(ProofLength::Oink<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 32,
-              "UltraRollup Oink proof size changed");
 
 static_assert(ProofLength::Honk<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaFlavor::VIRTUAL_LOG_N) == 433,
               "Mega Honk proof size changed");
@@ -31,9 +29,6 @@ static_assert(ProofLength::Honk<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraFla
               "Ultra Honk proof size changed");
 static_assert(ProofLength::Honk<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraZKFlavor::VIRTUAL_LOG_N) == 492,
               "UltraZK Honk proof size changed");
-// UltraRollupFlavor has same base Honk proof length as UltraFlavor (IPA is handled separately)
-static_assert(ProofLength::Honk<UltraRollupFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraRollupFlavor::VIRTUAL_LOG_N) == 441,
-              "UltraRollup Honk proof size changed");
 
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
               "MultilinearBatching proof size changed");
@@ -113,7 +108,7 @@ TEST_F(MockVerifierInputsTest, MockUltraOinkProofSize)
         EXPECT_EQ(proof.size(), ProofLength::Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE);
     }
     {
-        using Flavor = UltraRollupFlavor;
+        using Flavor = UltraFlavor;
         using IO = stdlib::recursion::honk::RollupIO;
         HonkProof proof = create_mock_oink_proof<Flavor, IO>();
         EXPECT_EQ(proof.size(), ProofLength::Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE);
@@ -159,10 +154,10 @@ TEST_F(MockVerifierInputsTest, MockUltraHonkProofSize)
                   ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) + IO::PUBLIC_INPUTS_SIZE);
     }
     {
-        using Flavor = UltraRollupFlavor;
+        using Flavor = UltraFlavor;
         using IO = stdlib::recursion::honk::RollupIO;
         HonkProof proof = create_mock_honk_proof<Flavor, IO>();
-        // UltraRollupFlavor has HasIPAAccumulator=true, so proof includes IPA_PROOF_LENGTH
+        // RollupIO has HasIPA=true, so proof includes IPA_PROOF_LENGTH
         constexpr size_t expected = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
                                     IO::PUBLIC_INPUTS_SIZE + IPA_PROOF_LENGTH;
         EXPECT_EQ(proof.size(), expected);
