@@ -710,7 +710,7 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
     }
     // at this point roots_and_denominators is populated as follows
     // (x_0,\ldots, x_{n-1}, d_0, \ldots, d_{n-1})
-    Fr::batch_invert(roots_and_denominators, 2 * n);
+    Fr::batch_invert(roots_and_denominators.data(), 2 * n);
 
     Fr z, multiplier;
     std::vector<Fr> temp_dest(n);
