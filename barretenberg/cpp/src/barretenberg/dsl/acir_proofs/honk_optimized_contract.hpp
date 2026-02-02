@@ -83,12 +83,9 @@ inline std::string generate_memory_offsets(int log_n)
                                                 "PROOF_NUM_PUBLIC_INPUTS",
                                                 "PROOF_PUB_INPUTS_OFFSET" };
 
-    const std::vector<std::string> pairing_points = { "PAIRING_POINT_0",  "PAIRING_POINT_1",  "PAIRING_POINT_2",
-                                                      "PAIRING_POINT_3",  "PAIRING_POINT_4",  "PAIRING_POINT_5",
-                                                      "PAIRING_POINT_6",  "PAIRING_POINT_7",  "PAIRING_POINT_8",
-                                                      "PAIRING_POINT_9",  "PAIRING_POINT_10", "PAIRING_POINT_11",
-                                                      "PAIRING_POINT_12", "PAIRING_POINT_13", "PAIRING_POINT_14",
-                                                      "PAIRING_POINT_15" };
+    const std::vector<std::string> pairing_points = { "PAIRING_POINT_0", "PAIRING_POINT_1", "PAIRING_POINT_2",
+                                                      "PAIRING_POINT_3", "PAIRING_POINT_4", "PAIRING_POINT_5",
+                                                      "PAIRING_POINT_6", "PAIRING_POINT_7" };
 
     const std::vector<std::string> proof_g1 = {
         "W_L", "W_R", "W_O", "LOOKUP_READ_COUNTS", "LOOKUP_READ_TAGS", "W_4", "LOOKUP_INVERSES", "Z_PERM"
@@ -414,7 +411,7 @@ uint256 constant VK_HASH = {{ VK_HASH }};
 uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
-uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 12 - 8;
+uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }} - PAIRING_POINTS_SIZE;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 // LOG_N * 8
 uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};
