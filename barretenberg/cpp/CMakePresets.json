@@ -544,7 +544,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "ENABLE_PIC": "ON",
         "ENABLE_ARC": "OFF",
-        "HAVE_STD_REGEX": "ON"
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
       }
     },
     {
@@ -560,7 +561,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "ENABLE_PIC": "ON",
         "ENABLE_ARC": "OFF",
-        "HAVE_STD_REGEX": "ON"
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
       }
     }
   ],

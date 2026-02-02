@@ -114,10 +114,14 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/lmdblib)
 
-if(NOT FUZZING AND NOT WASM)
+if(NOT MOBILE)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
+
+if(NOT FUZZING AND NOT WASM AND NOT MOBILE)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
+    # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
@@ -196,8 +200,8 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM AND NOT FUZZING)
-    # enable merkle trees and lmdb
+if(NOT WASM AND NOT FUZZING AND NOT MOBILE)
+    # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
