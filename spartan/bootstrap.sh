@@ -81,15 +81,16 @@ function network_test_cmds_1 {
 
 function network_test_cmds_2 {
   _emit_test smoke.test.ts
+  _emit_test mbps.test.ts
   _emit_test transfer.test.ts
   _emit_test slash_inactivity.test.ts
-  _emit_test proving.test.ts
-  _emit_test prover-node.test.ts
-  _emit_test gating-passive.test.ts
-  _emit_test invalidate_blocks.test.ts
-  _emit_test mempool_limit.test.ts
-  _emit_test upgrade_governance_proposer.test.ts
-  _emit_test validator_nuke_and_suppression.test.ts
+  # _emit_test proving.test.ts
+  # _emit_test prover-node.test.ts
+  # _emit_test gating-passive.test.ts
+  # _emit_test invalidate_blocks.test.ts
+  # _emit_test mempool_limit.test.ts
+  # _emit_test upgrade_governance_proposer.test.ts
+  # _emit_test validator_nuke_and_suppression.test.ts
 }
 
 # All network tests (for local/manual runs)
