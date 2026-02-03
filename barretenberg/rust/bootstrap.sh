@@ -38,7 +38,8 @@ function test {
   denoise "cargo test --release"
 
   # Run FFI backend tests (requires libbb-external.a from cpp build)
-  RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
+  # BB_LIB_DIR tells build.rs to use local lib instead of downloading
+  BB_LIB_DIR="../cpp/build/lib" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
 function test_download {
