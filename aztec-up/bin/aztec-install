@@ -26,7 +26,7 @@ shared_bin_path="$AZTEC_HOME/bin"
 VERSION="${VERSION:-}"
 
 # Install URI (root, not version-specific)
-INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
+INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
 # Add color to the AZTEC ascii art.
 function print_colored() {
