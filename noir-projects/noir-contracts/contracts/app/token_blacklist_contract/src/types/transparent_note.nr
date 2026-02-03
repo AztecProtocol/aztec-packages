@@ -57,8 +57,10 @@ impl NoteHash for TransparentNote {
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field {
+    ) -> Option<Field> {
         // compute_nullifier ignores context so we can reuse it here
-        self.compute_nullifier(zeroed(), owner, note_hash_for_nullification)
+        Option::some(
+            self.compute_nullifier(zeroed(), owner, note_hash_for_nullification),
+        )
     }
 }

@@ -20,8 +20,9 @@ use crate::{
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
     pub note_hash: Field,
-    /// The result of NoteHash::compute_nullifier_unconstrained (since all of message discovery is unconstrained)
-    pub inner_nullifier: Field,
+    /// The result of NoteHash::compute_nullifier_unconstrained (since all of message discovery is unconstrained).
+    /// This is `None` if the nullifier cannot be computed (e.g., because the nullifier hiding key is not available).
+    pub inner_nullifier: Option<Field>,
 }
 
 /// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
