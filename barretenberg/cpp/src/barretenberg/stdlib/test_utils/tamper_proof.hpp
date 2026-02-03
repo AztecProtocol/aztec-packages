@@ -18,13 +18,13 @@ enum class TamperType {
 
 /**
  * @brief Compute the proof length for re-exporting after tampering
- * @details ProofLayout::Honk excludes IPA (handled separately by prover/verifier for rollup flavors)
+ * @details ProofLength::Honk excludes IPA (handled separately by prover/verifier for rollup flavors)
  * @param num_public_inputs Number of public inputs in the proof
  * @param log_n Log of circuit size (use VIRTUAL_LOG_N for padded flavors, actual log_dyadic_size for non-padded)
  */
 template <typename Flavor> size_t compute_proof_length_for_export(size_t num_public_inputs, size_t log_n)
 {
-    return ProofLayout::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs;
+    return ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs;
 }
 
 /**

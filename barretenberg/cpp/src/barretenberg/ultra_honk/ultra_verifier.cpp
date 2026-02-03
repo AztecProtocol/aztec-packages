@@ -141,7 +141,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     const size_t log_n = compute_log_n();
 
     // Derive num_public_inputs from proof size using centralized proof layout
-    const size_t num_public_inputs = ProofLayout::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
+    const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
@@ -224,7 +224,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    // Step 1: Split proof if needed (IPA handling is IO-driven)
+    // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;
     if constexpr (IO::HasIPA) {

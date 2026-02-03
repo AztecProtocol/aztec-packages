@@ -53,13 +53,9 @@ class MultilinearBatchingFlavor {
     // Number of accumulator evaluations sent in proof (non_shifted + shifted).
     static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
 
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
+    // ============ SUMCHECK CONSTANTS ============
+    // Total polynomials in sumcheck: 4 unshifted + 2 shifted views.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
-    // Number of witness commitments/evaluations sent in proof (non_shifted_accumulator + shifted_accumulator).
-    // Note: eq polynomials are precomputed from challenges, not sent as commitments.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2;
-    // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
 
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -81,33 +77,8 @@ class MultilinearBatchingFlavor {
     using SubrelationSeparator = FF;
 
     /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     */
-    template <typename DataType> class WitnessEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
-                              batched_unshifted_instance,    // column 1: batched unshifted poly for instance
-                              eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
-                              eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
-     */
-    template <typename DataType> class ShiftedEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_shifted_accumulator, // column 0: batched shifted poly for accumulator
-                              batched_shifted_instance     // column 1: batched shifted poly for instance
-        );
-    };
-
-    /**
-     * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
-     * sumcheck) in this Honk variant along with particular subsets of interest
-     * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
+     * @brief All polynomials used in multilinear batching sumcheck.
+     * @details Used to build containers for: the prover's polynomials during sumcheck; the sumcheck's folded
      * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
      * Layout:
