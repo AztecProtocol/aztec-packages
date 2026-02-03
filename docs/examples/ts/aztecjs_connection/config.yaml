@@ -12,3 +12,4 @@ dependencies:
   - "@aztec/accounts"
   - "@aztec/test-wallet"
   - "@aztec/noir-contracts.js"
+  - "@aztec/stdlib"
