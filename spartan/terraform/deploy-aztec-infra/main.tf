@@ -96,6 +96,7 @@ locals {
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
+    "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
@@ -290,13 +291,19 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = [yamlencode({
+      inline_values = concat([yamlencode({
         node = {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
         }
-      })]
+      })], local.is_kind ? [yamlencode({
+        agent = {
+          nodeSelector = null
+          affinity     = null
+          tolerations  = null
+        }
+      })] : [])
       custom_settings = merge(
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC

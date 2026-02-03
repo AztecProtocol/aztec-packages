@@ -107,6 +107,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
+    .command('compute-genesis-values')
+    .description('Computes genesis values (VK tree root, protocol contracts hash, genesis archive root).')
+    .addOption(new Option('--test-accounts', 'Include initial test accounts in genesis state').env('TEST_ACCOUNTS'))
+    .addOption(new Option('--sponsored-fpc', 'Include sponsored FPC contract in genesis state').env('SPONSORED_FPC'))
+    .action(async options => {
+      const { computeGenesisValuesCmd } = await import('./compute_genesis_values.js');
+      await computeGenesisValuesCmd(options.testAccounts, options.sponsoredFpc, log);
+    });
+
+  program
     .command('deposit-governance-tokens')
     .description('Deposits governance tokens to the governance contract.')
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
