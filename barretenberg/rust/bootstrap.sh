@@ -13,7 +13,9 @@ function build {
     (cd ../ts && yarn generate)
 
     # Build all targets
-    denoise "cargo build --release"
+    # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
+    # Must use absolute path since build.rs runs from a different directory
+    BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
     cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
@@ -39,7 +41,8 @@ function test {
 
   # Run FFI backend tests (requires libbb-external.a from cpp build)
   # BB_LIB_DIR tells build.rs to use local lib instead of downloading
-  BB_LIB_DIR="../cpp/build/lib" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
+  # Must use absolute path since build.rs runs from a different directory
+  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
 function test_download {

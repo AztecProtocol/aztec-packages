@@ -55,11 +55,14 @@ fn download_lib(out_dir: &PathBuf) {
     let version = std::env::var("BARRETENBERG_VERSION")
         .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
 
-    // Skip download for test versions (0.0.1)
-    if version == "0.0.1" {
+    // Skip download for development versions (0.x.x without BARRETENBERG_VERSION override)
+    // Real releases use the aztec-packages version (e.g., 4.0.0) set via BARRETENBERG_VERSION
+    if version.starts_with("0.") && std::env::var("BARRETENBERG_VERSION").is_err() {
         panic!(
-            "Cannot download pre-built library for test version 0.0.1. \
-             Build barretenberg locally: cd barretenberg/cpp && ./bootstrap.sh"
+            "Cannot download pre-built library for development version {}. \
+             Either set BARRETENBERG_VERSION to a released version, or \
+             set BB_LIB_DIR to point to a local build: cd barretenberg/cpp && ./bootstrap.sh",
+            version
         );
     }
 

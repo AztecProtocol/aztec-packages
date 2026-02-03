@@ -56,7 +56,7 @@ The Aztec toolchain provides CLI utilities for key generation, validator registr
 Install the Aztec toolchain using the official installer:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
+bash -i <(curl -sL https://install.aztec.network)
 ```
 
 Install the correct version for the current network:
