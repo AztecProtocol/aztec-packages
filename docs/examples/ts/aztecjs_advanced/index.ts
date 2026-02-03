@@ -104,14 +104,19 @@ try {
 // docs:start:register_external_contract
 // wallet is from the connection guide; contractAddress is the address of the deployed contract
 const contractAddress = token.address;
-const externalContract = await TokenContract.at(contractAddress, wallet);
+
+// Get the contract metadata from the node (includes the instance)
+const metadata = await wallet.getContractMetadata(contractAddress);
 
 // Register the contract with the wallet
 // The registerContract method takes positional parameters:
 // - instance: ContractInstanceWithAddress (required)
 // - artifact: ContractArtifact (optional)
 // - secretKey: Fr (optional)
-await wallet.registerContract(externalContract.instance, TokenContract.artifact);
+await wallet.registerContract(metadata.instance!, TokenContract.artifact);
+
+// Now you can interact with the contract
+const externalContract = await TokenContract.at(contractAddress, wallet);
 // docs:end:register_external_contract
 
 await token.methods
