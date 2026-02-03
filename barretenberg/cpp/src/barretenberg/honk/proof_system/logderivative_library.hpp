@@ -29,7 +29,7 @@ namespace bb {
  * If a given row does not contain a lookup gate, the inverse polynomial is set to zero.
  *
  */
-template <typename FF, typename Relation, typename Polynomials, bool IsAvm = false>
+template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
 void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
 {
     using Accumulator = typename Relation::ValueAccumulator0;
@@ -65,15 +65,18 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
         // Note: zeroes are ignored as they are not used anyway
         FF::batch_invert(to_invert);
     };
-    size_t range_size = IsAvm ? inverse_polynomial.size() : circuit_size;
-    parallel_for([&](const ThreadChunk& chunk) {
-        auto range = chunk.range(range_size);
-        if (!range.empty()) {
-            size_t start = *range.begin();
-            size_t end = start + range.size();
-            compute_inverses(start, end);
-        }
-    });
+    if constexpr (UseMultithreading) {
+        parallel_for([&](const ThreadChunk& chunk) {
+            auto range = chunk.range(circuit_size);
+            if (!range.empty()) {
+                size_t start = *range.begin();
+                size_t end = start + range.size();
+                compute_inverses(start, end);
+            }
+        });
+    } else {
+        compute_inverses(0, inverse_polynomial.size());
+    }
 }
 
 /**

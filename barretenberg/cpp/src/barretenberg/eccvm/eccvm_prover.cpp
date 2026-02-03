@@ -100,7 +100,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     compute_logderivative_inverse<typename Flavor::FF,
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
-                                  false>(key->polynomials, relation_parameters, unmasked_witness_size);
+                                  true>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
 }
 
