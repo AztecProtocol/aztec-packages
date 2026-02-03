@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
+import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -138,38 +138,26 @@ describe('TxPoolV2', () => {
     });
     const body = new Body(txEffects);
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
-    return {
+    return new L2Block(
       archive,
       header,
       body,
-      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
-      indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      get number() {
-        return header.globalVariables.blockNumber;
-      },
-      get slot() {
-        return header.globalVariables.slotNumber;
-      },
-    } as L2Block;
+      CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      IndexWithinCheckpoint(0),
+    );
   };
 
   /** Creates an empty L2Block with no transactions */
   const makeEmptyBlock = (header: BlockHeader): L2Block => {
     const body = new Body([]);
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
-    return {
+    return new L2Block(
       archive,
       header,
       body,
-      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
-      indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      get number() {
-        return header.globalVariables.blockNumber;
-      },
-      get slot() {
-        return header.globalVariables.slotNumber;
-      },
-    } as L2Block;
+      CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      IndexWithinCheckpoint(0),
+    );
   };
 
   describe('addPendingTxs', () => {
