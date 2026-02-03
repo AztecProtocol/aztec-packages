@@ -15,20 +15,16 @@ fn main() {
 
 #[cfg(feature = "ffi")]
 fn get_lib_dir() -> PathBuf {
-    // Check if user wants to use local build (for development in monorepo)
-    let use_local = std::env::var("BB_LOCAL_BUILD").is_ok();
-
-    if use_local {
-        // Use local cpp build
-        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-        let local_lib_dir = std::path::Path::new(&manifest_dir).join("../../cpp/build/lib");
-        if local_lib_dir.join("libbb-external.a").exists() {
-            return local_lib_dir.canonicalize().unwrap();
+    // Check if user provided a custom library path
+    if let Ok(lib_dir) = std::env::var("BB_LIB_DIR") {
+        let lib_dir = PathBuf::from(&lib_dir);
+        if lib_dir.join("libbb-external.a").exists() {
+            return lib_dir.canonicalize().unwrap();
         }
         panic!(
-            "BB_LOCAL_BUILD is set but libbb-external.a not found at {:?}. \
+            "BB_LIB_DIR is set to {:?} but libbb-external.a not found there. \
              Build barretenberg locally: cd barretenberg/cpp && ./bootstrap.sh",
-            local_lib_dir
+            lib_dir
         );
     }
 
