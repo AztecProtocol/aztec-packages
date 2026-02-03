@@ -4,6 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { PGlite } from '@electric-sql/pglite';
+import { jest } from '@jest/globals';
 
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
@@ -527,7 +528,7 @@ describe('SlashingProtectionService', () => {
 
   describe('lifecycle', () => {
     it('should start and stop without error', async () => {
-      service.start();
+      await service.start();
       await service.stop();
     });
 
@@ -560,7 +561,7 @@ describe('SlashingProtectionService', () => {
       await sleep(10);
 
       // Start the new service - this should trigger immediate cleanup
-      newService.start();
+      await newService.start();
 
       // Give cleanup time to run
       await sleep(100);
@@ -801,6 +802,294 @@ describe('SlashingProtectionService', () => {
         lockToken: lockToken2,
       });
       expect(deletedCorrect2).toBe(true);
+    });
+  });
+
+  describe('cleanup methods', () => {
+    describe('cleanupOutdatedRollupDuties', () => {
+      it('cleans up outdated rollup duties at startup', async () => {
+        const oldRollupAddress = EthAddress.random();
+        const newRollupAddress = EthAddress.random();
+
+        // Create duties for old rollup
+        for (let i = 0; i < 3; i++) {
+          const params: CheckAndRecordParams = {
+            rollupAddress: oldRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(100 + i),
+            blockNumber: BlockNumber(50 + i),
+            blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+            dutyType: DUTY_TYPE,
+            messageHash: MESSAGE_HASH,
+            nodeId: NODE_ID,
+          };
+          await service.checkAndRecord(params);
+        }
+
+        // Create duties for new rollup
+        for (let i = 0; i < 2; i++) {
+          const params: CheckAndRecordParams = {
+            rollupAddress: newRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(200 + i),
+            blockNumber: BlockNumber(150 + i),
+            blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+            dutyType: DUTY_TYPE,
+            messageHash: MESSAGE_HASH,
+            nodeId: NODE_ID,
+          };
+          await service.checkAndRecord(params);
+        }
+
+        // Create a new service with the new rollup address.
+        // Use default maxStuckDutiesAgeMs so background cleanup does not remove the new rollup duties
+        // (they are in 'signing' and would be treated as stuck if maxStuckDutiesAgeMs were 1ms).
+        const newService = new SlashingProtectionService(db, {
+          ...config,
+          l1Contracts: { rollupAddress: newRollupAddress },
+        });
+
+        // Start the service - this should trigger cleanup at startup
+        await newService.start();
+        await newService.stop();
+
+        // Old rollup duties should be gone
+        for (let i = 0; i < 3; i++) {
+          const params: CheckAndRecordParams = {
+            rollupAddress: oldRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(100 + i),
+            blockNumber: BlockNumber(50 + i),
+            blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+            dutyType: DUTY_TYPE,
+            messageHash: MESSAGE_HASH,
+            nodeId: NODE_ID,
+          };
+          const result = await db.tryInsertOrGetExisting(params);
+          expect(result.isNew).toBe(true);
+        }
+
+        // New rollup duties should still exist
+        for (let i = 0; i < 2; i++) {
+          const params: CheckAndRecordParams = {
+            rollupAddress: newRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(200 + i),
+            blockNumber: BlockNumber(150 + i),
+            blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+            dutyType: DUTY_TYPE,
+            messageHash: MESSAGE_HASH,
+            nodeId: NODE_ID,
+          };
+          const result = await db.tryInsertOrGetExisting(params);
+          expect(result.isNew).toBe(false);
+        }
+      });
+    });
+
+    describe('cleanupOldDuties', () => {
+      it('should only clean up old signed duties', async () => {
+        // Insert some old signed duties directly
+        const oldStartedAt = new Date(Date.now() - 60 * 60 * 1000);
+        for (let i = 0; i < 3; i++) {
+          await pool.query(
+            `INSERT INTO validator_duties (
+               rollup_address,
+               validator_address,
+               slot,
+               block_number,
+               block_index_within_checkpoint,
+               duty_type,
+               status,
+               message_hash,
+               signature,
+               node_id,
+               lock_token,
+               started_at,
+               completed_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, $8, $9, $10, $11, $12)`,
+            [
+              ROLLUP_ADDRESS.toString(),
+              VALIDATOR_ADDRESS.toString(),
+              SlotNumber(100 + i),
+              BlockNumber(50 + i),
+              BLOCK_INDEX_WITHIN_CHECKPOINT,
+              DUTY_TYPE,
+              MESSAGE_HASH,
+              SIGNATURE,
+              NODE_ID,
+              `lock-${i}`,
+              oldStartedAt,
+              oldStartedAt,
+            ],
+          );
+        }
+
+        // Create a recent signed duty
+        const recentParams: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(1000),
+          blockNumber: BlockNumber(900),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+        const recentLockToken = await service.checkAndRecord(recentParams);
+        await service.recordSuccess({
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(1000),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken: recentLockToken,
+        });
+
+        // Create a duty in signing status (not completed)
+        const signingParams: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(500),
+          blockNumber: BlockNumber(250),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+        await service.checkAndRecord(signingParams);
+
+        // Run cleanup via the service (old signed duties should be deleted)
+        const cleanupService = new SlashingProtectionService(db, {
+          ...config,
+          cleanupOldDutiesAfterHours: 0.5, // 30 minutes
+        });
+        await cleanupService.start();
+        await sleep(50);
+        await cleanupService.stop();
+
+        // Verify old signed duties are gone
+        for (let i = 0; i < 3; i++) {
+          const params: CheckAndRecordParams = {
+            rollupAddress: ROLLUP_ADDRESS,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(100 + i),
+            blockNumber: BlockNumber(50 + i),
+            blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+            dutyType: DUTY_TYPE,
+            messageHash: MESSAGE_HASH,
+            nodeId: NODE_ID,
+          };
+          const result = await db.tryInsertOrGetExisting(params);
+          expect(result.isNew).toBe(true);
+        }
+
+        // Verify recent signed duty still exists
+        const recentResult = await db.tryInsertOrGetExisting(recentParams);
+        expect(recentResult.isNew).toBe(false);
+
+        // Verify signing duty still exists and is still signing
+        const signingResult = await db.tryInsertOrGetExisting(signingParams);
+        expect(signingResult.isNew).toBe(false);
+        expect(signingResult.record.status).toBe(DutyStatus.SIGNING);
+      });
+
+      it('should be called during cleanup cycle when configured', async () => {
+        // Create and sign a duty
+        const params: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SLOT,
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+        const lockToken = await service.checkAndRecord(params);
+        await service.recordSuccess({
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SLOT,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken,
+        });
+
+        // Wait a bit
+        await sleep(10);
+
+        // Create a new service with cleanupOldDutiesAfterHours configured
+        const newService = new SlashingProtectionService(db, {
+          ...config,
+          maxStuckDutiesAgeMs: 1,
+          cleanupOldDutiesAfterHours: 0.000001, // ~3.6ms
+        });
+
+        // Start the service - this should trigger cleanup
+        await newService.start();
+        await sleep(100);
+        await newService.stop();
+
+        // Duty should be gone
+        const result = await db.tryInsertOrGetExisting(params);
+        expect(result.isNew).toBe(true);
+      });
+
+      it('should not run cleanupOldDuties more often than its max age', async () => {
+        const cleanupSpy = jest.spyOn(db, 'cleanupOldDuties');
+
+        const newService = new SlashingProtectionService(db, {
+          ...config,
+          maxStuckDutiesAgeMs: 1,
+          cleanupOldDutiesAfterHours: 0.001, // ~3.6s
+        });
+
+        await newService.start();
+        await sleep(50); // allow multiple cleanup cycles
+        await newService.stop();
+
+        expect(cleanupSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it('should not cleanup when cleanupOldDutiesAfterHours is not configured', async () => {
+        // Create a duty
+        const params: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SLOT,
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+        await service.checkAndRecord(params);
+
+        // Wait a bit
+        await sleep(10);
+
+        // Create a new service without cleanupOldDutiesAfterHours configured
+        const newService = new SlashingProtectionService(db, {
+          ...config,
+          maxStuckDutiesAgeMs: 1,
+          // cleanupOldDutiesAfterHours is undefined
+        });
+
+        // Start the service
+        await newService.start();
+        await sleep(100);
+        await newService.stop();
+
+        // Duty should still exist (not cleaned up by old duties cleanup)
+        // But it should be cleaned up by stuck duties cleanup since maxStuckDutiesAgeMs is 1ms
+        const result = await db.tryInsertOrGetExisting(params);
+        expect(result.isNew).toBe(true); // Cleaned by stuck duties cleanup
+      });
     });
   });
 });
