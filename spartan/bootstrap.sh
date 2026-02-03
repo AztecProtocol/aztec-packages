@@ -89,6 +89,7 @@ NETWORK_TESTS_2=(
   mempool_limit.test.ts
   upgrade_governance_proposer.test.ts
   validator_nuke_and_suppression.test.ts
+  mbps.test.ts
 )
 
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
