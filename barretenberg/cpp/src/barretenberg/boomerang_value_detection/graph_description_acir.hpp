@@ -110,4 +110,22 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
 
 using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::UltraCircuitBuilder>;
 
+class AcirGraph {
+  public:
+    // Constructs a graph, where the vertices are the variables indices from the constraint,
+    // and the edges are the presence of the variables in the same ACIR Constraint.
+    AcirGraph(const acir_format::AcirFormat& constraint_system);
+
+    // Returns the number of connected components in the graph.
+    // This will be used to compare the number of connected components in the resulting circuit and the original ACIR.
+    // If the number of connected components is different, it means that there are some missed connections between the
+    // variables. Which might indicate the ACIR -> Circuit conversion bug (e.g.
+    // https://github.com/AztecProtocol/aztec-packages/pull/17998)
+    uint32_t get_components_count();
+
+  private:
+    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> adjacency_list;
+    void add_variable_connection(uint32_t variable_1, uint32_t variable_2);
+};
+
 } // namespace cdg

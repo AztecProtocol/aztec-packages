@@ -642,4 +642,303 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
 }
 
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
+
+AcirGraph::AcirGraph(const acir_format::AcirFormat& constraint_system)
+{
+    // Process logic constraints
+    for (const auto& constraint : constraint_system.logic_constraints) {
+        add_variable_connection(constraint.a.index, constraint.b.index);
+        add_variable_connection(constraint.a.index, constraint.result);
+        add_variable_connection(constraint.b.index, constraint.result);
+    }
+    // Ignore range constraints, they do not connect to other variables
+
+    // Process AES128 constraints
+    // The number of edges produced by each AES128 is 65536 * NUM_BLOCKS ^ 2, where NUM_BLOCKS is msg_len // 16
+    for (const auto& constraint : constraint_system.aes128_constraints) {
+        for (const auto& input : constraint.inputs) {
+            for (const auto& key_byte : constraint.key) {
+                for (const auto& iv_byte : constraint.iv) {
+                    for (const auto& output : constraint.outputs) {
+                        add_variable_connection(input.index, output);
+                        add_variable_connection(input.index, key_byte.index);
+                        add_variable_connection(input.index, iv_byte.index);
+                        add_variable_connection(key_byte.index, iv_byte.index);
+                        add_variable_connection(key_byte.index, iv_byte.index);
+                        add_variable_connection(key_byte.index, output);
+                        add_variable_connection(iv_byte.index, output);
+                    }
+                }
+            }
+        }
+    }
+
+    // Process SHA256 compression constraints
+    for (const auto& constraint : constraint_system.sha256_compression) {
+        for (const auto& input : constraint.inputs) {
+            for (const auto& hash_value : constraint.hash_values) {
+                for (const auto& result : constraint.result) {
+                    add_variable_connection(input.index, hash_value.index);
+                    add_variable_connection(hash_value.index, result);
+                    add_variable_connection(input.index, result);
+                }
+            }
+        }
+    }
+
+    // Process ECDSA constraints
+    // Thats really huge,  2^21 edges for each ECDSA constraint
+    auto process_ecdsa_constraints = [this](const std::vector<acir_format::EcdsaConstraint>& ecdsa_constraints) {
+        for (const auto& constraint : ecdsa_constraints) {
+            for (const auto& hashed_message : constraint.hashed_message) {
+                for (const auto& signature : constraint.signature) {
+                    for (const auto& pub_x_index : constraint.pub_x_indices) {
+                        for (const auto& pub_y_index : constraint.pub_y_indices) {
+                            add_variable_connection(hashed_message, signature);
+                            add_variable_connection(hashed_message, pub_x_index);
+                            add_variable_connection(hashed_message, pub_y_index);
+                            add_variable_connection(hashed_message, constraint.predicate.index);
+                            add_variable_connection(signature, pub_x_index);
+                            add_variable_connection(signature, pub_y_index);
+                            add_variable_connection(signature, constraint.predicate.index);
+                            add_variable_connection(pub_x_index, pub_y_index);
+                            add_variable_connection(pub_x_index, constraint.predicate.index);
+                            add_variable_connection(pub_y_index, constraint.predicate.index);
+                            add_variable_connection(pub_x_index, constraint.result);
+                            add_variable_connection(pub_y_index, constraint.result);
+                            add_variable_connection(constraint.predicate.index, constraint.result);
+                        }
+                    }
+                }
+            }
+        }
+    };
+    process_ecdsa_constraints(constraint_system.ecdsa_k1_constraints);
+    process_ecdsa_constraints(constraint_system.ecdsa_r1_constraints);
+
+    // Process Blake2s constraints
+    for (const auto& constraint : constraint_system.blake2s_constraints) {
+        for (const auto& input : constraint.inputs) {
+            for (const auto& result : constraint.result) {
+                add_variable_connection(input.blackbox_input.index, result);
+            }
+        }
+    }
+
+    // Process Blake3 constraints
+    for (const auto& constraint : constraint_system.blake3_constraints) {
+        for (const auto& input : constraint.inputs) {
+            for (const auto& result : constraint.result) {
+                add_variable_connection(input.blackbox_input.index, result);
+            }
+        }
+    }
+
+    // Process Keccak permutations constraints
+    for (const auto& constraint : constraint_system.keccak_permutations) {
+        for (const auto& state : constraint.state) {
+            for (const auto& result : constraint.result) {
+                add_variable_connection(state.index, result);
+            }
+        }
+    }
+
+    // Process Poseidon2 permutations constraints
+    for (const auto& constraint : constraint_system.poseidon2_constraints) {
+        for (const auto& state : constraint.state) {
+            for (const auto& result : constraint.result) {
+                add_variable_connection(state.index, result);
+            }
+        }
+    }
+
+    // Process MultiScalarMul constraints
+    for (const auto& constraint : constraint_system.multi_scalar_mul_constraints) {
+        for (const auto& point : constraint.points) {
+            for (const auto& scalar : constraint.scalars) {
+                add_variable_connection(point.index, scalar.index);
+                add_variable_connection(point.index, constraint.predicate.index);
+                add_variable_connection(scalar.index, constraint.predicate.index);
+                add_variable_connection(constraint.predicate.index, constraint.out_point_x);
+                add_variable_connection(constraint.predicate.index, constraint.out_point_y);
+                add_variable_connection(constraint.predicate.index, constraint.out_point_is_infinite);
+                add_variable_connection(constraint.out_point_x, constraint.out_point_y);
+                add_variable_connection(constraint.out_point_x, constraint.out_point_is_infinite);
+                add_variable_connection(constraint.out_point_y, constraint.out_point_is_infinite);
+                add_variable_connection(constraint.out_point_x, point.index);
+                add_variable_connection(constraint.out_point_y, point.index);
+                add_variable_connection(constraint.out_point_is_infinite, point.index);
+            }
+        }
+    }
+
+    // Process EC_ADD constraints
+    // I wish I could iterate over structure fields...
+    for (const auto& constraint : constraint_system.ec_add_constraints) {
+        // input1_x with others
+        add_variable_connection(constraint.input1_x.index, constraint.input1_y.index);
+        add_variable_connection(constraint.input1_x.index, constraint.input1_infinite.index);
+        add_variable_connection(constraint.input1_x.index, constraint.input2_x.index);
+        add_variable_connection(constraint.input1_x.index, constraint.input2_y.index);
+        add_variable_connection(constraint.input1_x.index, constraint.input2_infinite.index);
+        add_variable_connection(constraint.input1_x.index, constraint.predicate.index);
+        add_variable_connection(constraint.input1_x.index, constraint.result_x);
+        add_variable_connection(constraint.input1_x.index, constraint.result_y);
+        add_variable_connection(constraint.input1_x.index, constraint.result_infinite);
+        // input1_y with others (we can exclude input1_x)
+        add_variable_connection(constraint.input1_y.index, constraint.input1_infinite.index);
+        add_variable_connection(constraint.input1_y.index, constraint.input2_x.index);
+        add_variable_connection(constraint.input1_y.index, constraint.input2_y.index);
+        add_variable_connection(constraint.input1_y.index, constraint.input2_infinite.index);
+        add_variable_connection(constraint.input1_y.index, constraint.predicate.index);
+        add_variable_connection(constraint.input1_y.index, constraint.result_x);
+        add_variable_connection(constraint.input1_y.index, constraint.result_y);
+        add_variable_connection(constraint.input1_y.index, constraint.result_infinite);
+
+        // input1_infinite with others (exclude input1_x and input1_y)
+        add_variable_connection(constraint.input1_infinite.index, constraint.input2_x.index);
+        add_variable_connection(constraint.input1_infinite.index, constraint.input2_y.index);
+        add_variable_connection(constraint.input1_infinite.index, constraint.input2_infinite.index);
+        add_variable_connection(constraint.input1_infinite.index, constraint.predicate.index);
+        add_variable_connection(constraint.input1_infinite.index, constraint.result_x);
+        add_variable_connection(constraint.input1_infinite.index, constraint.result_y);
+        add_variable_connection(constraint.input1_infinite.index, constraint.result_infinite);
+
+        // input2_x with others (exclude input1_x and input1_y and input1_infinite)
+        add_variable_connection(constraint.input2_x.index, constraint.input2_y.index);
+        add_variable_connection(constraint.input2_x.index, constraint.input2_infinite.index);
+        add_variable_connection(constraint.input2_x.index, constraint.predicate.index);
+        add_variable_connection(constraint.input2_x.index, constraint.result_x);
+        add_variable_connection(constraint.input2_x.index, constraint.result_y);
+        add_variable_connection(constraint.input2_x.index, constraint.result_infinite);
+
+        // input2_y with others (exclude input1_x and input1_y and input1_infinite and input2_x)
+        add_variable_connection(constraint.input2_y.index, constraint.input2_infinite.index);
+        add_variable_connection(constraint.input2_y.index, constraint.predicate.index);
+        add_variable_connection(constraint.input2_y.index, constraint.result_x);
+        add_variable_connection(constraint.input2_y.index, constraint.result_y);
+        add_variable_connection(constraint.input2_y.index, constraint.result_infinite);
+
+        // input2_infinite with others (exclude input1_x and input1_y and input1_infinite and input2_x and input2_y)
+        add_variable_connection(constraint.input2_infinite.index, constraint.predicate.index);
+        add_variable_connection(constraint.input2_infinite.index, constraint.result_x);
+        add_variable_connection(constraint.input2_infinite.index, constraint.result_y);
+        add_variable_connection(constraint.input2_infinite.index, constraint.result_infinite);
+
+        // predicate with others (exclude input1_x and input1_y and input1_infinite and input2_x and input2_y and
+        // input2_infinite)
+        add_variable_connection(constraint.predicate.index, constraint.result_x);
+        add_variable_connection(constraint.predicate.index, constraint.result_y);
+        add_variable_connection(constraint.predicate.index, constraint.result_infinite);
+
+        // result_x with others (exclude input1_x and input1_y and input1_infinite and input2_x and input2_y and
+        // input2_infinite and predicate)
+        add_variable_connection(constraint.result_x, constraint.result_y);
+        add_variable_connection(constraint.result_x, constraint.result_infinite);
+
+        // result_y with others (exclude input1_x and input1_y and input1_infinite and input2_x and input2_y and
+        // input2_infinite and predicate and result_x)
+        add_variable_connection(constraint.result_y, constraint.result_infinite);
+    }
+
+    // Process Recursion constraints
+    auto process_recursion_constraints =
+        [this](const std::vector<acir_format::RecursionConstraint>& recursion_constraints) {
+            for (const auto& constraint : recursion_constraints) {
+                for (const auto& key : constraint.key) {
+                    for (const auto& proof : constraint.proof) {
+                        for (const auto& public_input : constraint.public_inputs) {
+                            add_variable_connection(key, proof);
+                            add_variable_connection(key, public_input);
+                            add_variable_connection(key, constraint.key_hash);
+                            add_variable_connection(key, constraint.predicate.index);
+                            // Proof type is the constant
+                            add_variable_connection(proof, public_input);
+                            add_variable_connection(proof, constraint.key_hash);
+                            add_variable_connection(proof, constraint.predicate.index);
+                            add_variable_connection(public_input, constraint.key_hash);
+                            add_variable_connection(public_input, constraint.predicate.index);
+                            add_variable_connection(constraint.key_hash, constraint.predicate.index);
+                        }
+                    }
+                }
+            }
+        };
+    process_recursion_constraints(constraint_system.honk_recursion_constraints);
+    process_recursion_constraints(constraint_system.avm_recursion_constraints);
+    process_recursion_constraints(constraint_system.hn_recursion_constraints);
+    process_recursion_constraints(constraint_system.chonk_recursion_constraints);
+
+    // Process Quad constraints
+    auto process_quad_constraints = [this](const std::vector<acir_format::QuadConstraint>& quad_constraints) {
+        for (const auto& constraint : quad_constraints) {
+            add_variable_connection(constraint.a, constraint.b);
+            add_variable_connection(constraint.a, constraint.c);
+            add_variable_connection(constraint.a, constraint.d);
+            add_variable_connection(constraint.b, constraint.c);
+            add_variable_connection(constraint.b, constraint.d);
+            add_variable_connection(constraint.c, constraint.d);
+        }
+    };
+    process_quad_constraints(constraint_system.quad_constraints);
+
+    // Process Big Quad constraints
+    for (const auto& constraint : constraint_system.big_quad_constraints) {
+        process_quad_constraints(constraint);
+    };
+
+    // Process Block constraints
+    for (const auto& constraint : constraint_system.block_constraints) {
+        for (const auto& init_idx : constraint.init) {
+            for (const auto& mem_op : constraint.trace) {
+                add_variable_connection(init_idx, mem_op.index.index);
+                add_variable_connection(init_idx, mem_op.value.index);
+                add_variable_connection(mem_op.index.index, mem_op.value.index);
+            }
+        }
+    };
+}
+
+uint32_t AcirGraph::get_components_count()
+{
+    std::unordered_set<uint32_t> visited;
+    uint32_t components_count = 0;
+
+    for (const auto& [vertex, _] : adjacency_list) {
+        if (visited.contains(vertex)) {
+            continue;
+        }
+        components_count += 1;
+
+        std::vector<uint32_t> stack;
+        stack.push_back(vertex);
+        visited.insert(vertex);
+
+        while (!stack.empty()) {
+            uint32_t current = stack.back();
+            stack.pop_back();
+
+            auto it = adjacency_list.find(current);
+            if (it == adjacency_list.end()) {
+                continue;
+            }
+
+            for (uint32_t neighbor : it->second) {
+                if (!visited.contains(neighbor)) {
+                    visited.insert(neighbor);
+                    stack.push_back(neighbor);
+                }
+            }
+        }
+    }
+
+    return components_count;
+}
+
+void AcirGraph::add_variable_connection(uint32_t variable_1, uint32_t variable_2)
+{
+    adjacency_list[variable_1].insert(variable_2);
+    adjacency_list[variable_2].insert(variable_1);
+}
+
 } // namespace cdg
