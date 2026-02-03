@@ -338,8 +338,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
   }))
-  public broadcastCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
+  public async broadcastCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
     this.log.verbose(`Broadcasting checkpoint proposal for slot ${proposal.slotNumber} to peers`);
+    const blockProposal = proposal.getBlockProposal();
+    if (blockProposal) {
+      // Store our own last-block proposal so we can respond to req/resp requests for it.
+      await this.attestationPool.addBlockProposal(blockProposal);
+    }
     return this.p2pService.propagate(proposal);
   }
 

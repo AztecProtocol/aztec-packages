@@ -88,4 +88,18 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
       await this.db.delete(fullKey);
     }
   }
+
+  override async delete(key: K): Promise<void> {
+    const index = this.db.index('keyCount');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.container, this.normalizeKey(key), 0],
+      [this.container, this.normalizeKey(key), Number.MAX_SAFE_INTEGER],
+      false,
+      false,
+    );
+
+    for await (const cursor of index.iterate(rangeQuery)) {
+      await cursor.delete();
+    }
+  }
 }

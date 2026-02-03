@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -113,6 +112,20 @@ template <typename Flavor> struct Honk {
     static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
     {
         return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    }
+
+    /**
+     * @brief Expected proof size for API-level validation (excludes user public inputs).
+     * @details Computes: IO::PUBLIC_INPUTS_SIZE + Honk proof + IPA proof (if IO::HasIPA)
+     * @tparam IO The IO type (DefaultIO, RollupIO, etc.)
+     */
+    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
+    {
+        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        if constexpr (IO::HasIPA) {
+            size += IPA_PROOF_LENGTH;
+        }
+        return size;
     }
 };
 

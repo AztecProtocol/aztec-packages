@@ -24,10 +24,60 @@ These methods were not used by PXE and returned a subset of the information alre
 |----------------|-------------|
 | `getNullifierSiblingPath` | `getNullifierMembershipWitness` |
 | `getNoteHashSiblingPath` | `getNoteHashMembershipWitness` |
-| `getArchiveSiblingPath` | `getArchiveMembershipWitness` |
+| `getArchiveSiblingPath` | `getBlockHashMembershipWitness` |
 | `getPublicDataSiblingPath` | `getPublicDataWitness` |
 
 The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
+
+### [Protocol] "Nullifier secret key" renamed to "nullifier hiding key" (nsk → nhk)
+
+The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hiding key (`nhk_m` / `nhk_app`). This is a protocol-breaking change: the domain separator string changes from `"az_nsk_m"` to `"az_nhk_m"`, producing a different constant value.
+
+**Noir changes:**
+```diff
+- context.request_nsk_app(npk_m_hash)
++ context.request_nhk_app(npk_m_hash)
+
+- get_nsk_app(npk_m_hash)
++ get_nhk_app(npk_m_hash)
+```
+
+**TypeScript changes:**
+```diff
+- import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/stdlib/keys';
++ import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/stdlib/keys';
+
+- const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
++ const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
+
+- const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, contractAddress);
++ const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, contractAddress);
+```
+
+The `GeneratorIndex.NSK_M` enum member is now `GeneratorIndex.NHK_M`.
+
+### [AztecNode/Aztec.nr] `getArchiveMembershipWitness` renamed to `getBlockHashMembershipWitness`
+
+The `getArchiveMembershipWitness` method has been renamed to `getBlockHashMembershipWitness` to better reflect its purpose. Block hashes are the leaves of the archive tree - each time a new block is added to the chain, its block hash is appended as a new leaf. This rename clarifies that the method finds a membership witness for a block hash in the archive tree.
+
+**TypeScript (AztecNode interface):**
+
+```diff
+- const witness = await aztecNode.getArchiveMembershipWitness(blockNumber, archiveLeaf);
++ const witness = await aztecNode.getBlockHashMembershipWitness(blockNumber, blockHash);
+```
+
+The second parameter type has also changed from `Fr` to `BlockHash`.
+
+**Noir (aztec-nr):**
+
+```diff
+- use dep::aztec::oracle::get_membership_witness::get_archive_membership_witness;
++ use dep::aztec::oracle::get_membership_witness::get_block_hash_membership_witness;
+
+- let witness = get_archive_membership_witness(block_header, leaf_value);
++ let witness = get_block_hash_membership_witness(anchor_block_header, block_hash);
+```
 
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 

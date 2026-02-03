@@ -36,7 +36,6 @@ const sidebars = {
       },
       items: [
         "concepts/architecture/block-production",
-        "concepts/architecture/proving-coordination",
       ],
     },
     {

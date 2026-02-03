@@ -13,7 +13,7 @@ use crate::protocol::address::AztecAddress;
 /// Owned state variables are only used when working with private data because, in the public context, write
 /// permissions are solely defined by the contract logic, and anyone can read data. In private, however, modifying
 /// state (nullifying private notes) requires both knowledge of the note (the note commitment preimage) and possession
-/// of the corresponding nullifier secret key.
+/// of the corresponding nullifier hiding key.
 ///
 /// ## So what is an Owner?
 ///

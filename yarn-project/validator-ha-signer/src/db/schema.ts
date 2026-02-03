@@ -16,6 +16,7 @@ export const SCHEMA_VERSION = 1;
  */
 export const CREATE_VALIDATOR_DUTIES_TABLE = `
 CREATE TABLE IF NOT EXISTS validator_duties (
+  rollup_address VARCHAR(42) NOT NULL,
   validator_address VARCHAR(42) NOT NULL,
   slot BIGINT NOT NULL,
   block_number BIGINT NOT NULL,
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS validator_duties (
   completed_at TIMESTAMP,
   error_message TEXT,
 
-  PRIMARY KEY (validator_address, slot, duty_type, block_index_within_checkpoint),
+  PRIMARY KEY (rollup_address, validator_address, slot, duty_type, block_index_within_checkpoint),
   CHECK (completed_at IS NULL OR completed_at >= started_at)
 );
 `;
@@ -101,6 +102,7 @@ SELECT version FROM schema_version ORDER BY version DESC LIMIT 1;
 export const INSERT_OR_GET_DUTY = `
 WITH inserted AS (
   INSERT INTO validator_duties (
+    rollup_address,
     validator_address,
     slot,
     block_number,
@@ -111,9 +113,10 @@ WITH inserted AS (
     node_id,
     lock_token,
     started_at
-  ) VALUES ($1, $2, $3, $4, $5, 'signing', $6, $7, $8, CURRENT_TIMESTAMP)
-  ON CONFLICT (validator_address, slot, duty_type, block_index_within_checkpoint) DO NOTHING
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, $9, CURRENT_TIMESTAMP)
+  ON CONFLICT (rollup_address, validator_address, slot, duty_type, block_index_within_checkpoint) DO NOTHING
   RETURNING
+    rollup_address,
     validator_address,
     slot,
     block_number,
@@ -132,6 +135,7 @@ WITH inserted AS (
 SELECT * FROM inserted
 UNION ALL
 SELECT
+  rollup_address,
   validator_address,
   slot,
   block_number,
@@ -147,10 +151,11 @@ SELECT
   error_message,
   FALSE as is_new
 FROM validator_duties
-WHERE validator_address = $1
-  AND slot = $2
-  AND duty_type = $5
-  AND block_index_within_checkpoint = $4
+WHERE rollup_address = $1
+  AND validator_address = $2
+  AND slot = $3
+  AND duty_type = $6
+  AND block_index_within_checkpoint = $5
   AND NOT EXISTS (SELECT 1 FROM inserted);
 `;
 
@@ -162,12 +167,13 @@ UPDATE validator_duties
 SET status = 'signed',
     signature = $1,
     completed_at = CURRENT_TIMESTAMP
-WHERE validator_address = $2
-  AND slot = $3
-  AND duty_type = $4
-  AND block_index_within_checkpoint = $5
+WHERE rollup_address = $2
+  AND validator_address = $3
+  AND slot = $4
+  AND duty_type = $5
+  AND block_index_within_checkpoint = $6
   AND status = 'signing'
-  AND lock_token = $6;
+  AND lock_token = $7;
 `;
 
 /**
@@ -176,12 +182,13 @@ WHERE validator_address = $2
  */
 export const DELETE_DUTY = `
 DELETE FROM validator_duties
-WHERE validator_address = $1
-  AND slot = $2
-  AND duty_type = $3
-  AND block_index_within_checkpoint = $4
+WHERE rollup_address = $1
+  AND validator_address = $2
+  AND slot = $3
+  AND duty_type = $4
+  AND block_index_within_checkpoint = $5
   AND status = 'signing'
-  AND lock_token = $5;
+  AND lock_token = $6;
 `;
 
 /**
@@ -231,6 +238,7 @@ export const DROP_SCHEMA_VERSION_TABLE = `DROP TABLE IF EXISTS schema_version;`;
  */
 export const GET_STUCK_DUTIES = `
 SELECT
+  rollup_address,
   validator_address,
   slot,
   block_number,

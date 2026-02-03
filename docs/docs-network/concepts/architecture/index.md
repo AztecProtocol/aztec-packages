@@ -19,7 +19,6 @@ The Aztec network operates through coordinated interaction between different nod
 ## Topics
 
 - [Block Production](architecture/block-production) - How sequencers and provers work together to produce and finalize blocks
-- [Proving Coordination](architecture/proving-coordination) - How provers coordinate to generate epoch proofs
 
 ---
 

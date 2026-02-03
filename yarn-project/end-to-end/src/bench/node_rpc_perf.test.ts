@@ -14,6 +14,7 @@ import type { RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { BlockHash } from '@aztec/stdlib/block';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -383,12 +384,12 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(2000);
     });
 
-    it('benchmarks getArchiveMembershipWitness', async () => {
-      const archive = Fr.random();
-      const { stats } = await benchmark('getArchiveMembershipWitness', () =>
-        aztecNode.getArchiveMembershipWitness('latest', archive),
+    it('benchmarks getBlockHashMembershipWitness', async () => {
+      const blockHash = BlockHash.random();
+      const { stats } = await benchmark('getBlockHashMembershipWitness', () =>
+        aztecNode.getBlockHashMembershipWitness('latest', blockHash),
       );
-      addResult('getArchiveMembershipWitness', stats);
+      addResult('getBlockHashMembershipWitness', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 

@@ -1,3 +1,4 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -6,6 +7,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -19,6 +21,8 @@ import { z } from 'zod';
 export interface ValidatorHASignerConfig {
   /** Whether HA signing / slashing protection is enabled */
   haSigningEnabled: boolean;
+  /** L1 contract addresses (rollup address required) */
+  l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
   /** Unique identifier for this node */
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
@@ -50,6 +54,15 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
     env: 'VALIDATOR_HA_SIGNING_ENABLED',
     description: 'Whether HA signing / slashing protection is enabled',
     ...booleanConfigHelper(false),
+  },
+  l1Contracts: {
+    description: 'L1 contract addresses (rollup address required)',
+    nested: {
+      rollupAddress: {
+        description: 'The Ethereum address of the rollup contract (must be set programmatically)',
+        parseEnv: (val: string) => EthAddress.fromString(val),
+      },
+    },
   },
   nodeId: {
     env: 'VALIDATOR_HA_NODE_ID',
@@ -113,6 +126,9 @@ export function getConfigEnvVars(): ValidatorHASignerConfig {
 
 export const ValidatorHASignerConfigSchema = z.object({
   haSigningEnabled: z.boolean(),
+  l1Contracts: z.object({
+    rollupAddress: z.instanceof(EthAddress),
+  }),
   nodeId: z.string(),
   pollingIntervalMs: z.number().min(0),
   signingTimeoutMs: z.number().min(0),

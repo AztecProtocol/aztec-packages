@@ -297,15 +297,15 @@ pub contract AuthRegistry {
             let input_calldata: [Field; 2] =
                 avm::calldata_copy(1, <Field as Serialize>::N + <bool as Serialize>::N);
             let mut reader: Reader<2> = Reader::new(input_calldata);
-            let arg0: Field = reader.read_struct(<Field as Deserialize>::deserialize);
-            let arg1: bool = reader.read_struct(<bool as Deserialize>::deserialize);
+            let arg0: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
+            let arg1: bool = <bool as Deserialize>::stream_deserialize(&mut reader);
             set_authorized(arg0, arg1);
             avm::avm_return([].as_vector());
         };
         if selector == SET_REJECT_ALL_SELECTOR {
             let input_calldata: [Field; 1] = avm::calldata_copy(1, <bool as Serialize>::N);
             let mut reader: Reader<1> = Reader::new(input_calldata);
-            let arg0: bool = reader.read_struct(<bool as Deserialize>::deserialize);
+            let arg0: bool = <bool as Deserialize>::stream_deserialize(&mut reader);
             set_reject_all(arg0);
             avm::avm_return([].as_vector());
         };
@@ -313,8 +313,8 @@ pub contract AuthRegistry {
             let input_calldata: [Field; 2] =
                 avm::calldata_copy(1, <AztecAddress as Serialize>::N + <Field as Serialize>::N);
             let mut reader: Reader<2> = Reader::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(<AztecAddress as Deserialize>::deserialize);
-            let arg1: Field = reader.read_struct(<Field as Deserialize>::deserialize);
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
+            let arg1: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
             let return_value: [Field; 1] = <Field as Serialize>::serialize(consume(arg0, arg1));
             avm::avm_return(return_value.as_vector());
         };
@@ -324,16 +324,16 @@ pub contract AuthRegistry {
                 (<AztecAddress as Serialize>::N + <Field as Serialize>::N) + <bool as Serialize>::N,
             );
             let mut reader: Reader<3> = Reader::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(<AztecAddress as Deserialize>::deserialize);
-            let arg1: Field = reader.read_struct(<Field as Deserialize>::deserialize);
-            let arg2: bool = reader.read_struct(<bool as Deserialize>::deserialize);
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
+            let arg1: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
+            let arg2: bool = <bool as Deserialize>::stream_deserialize(&mut reader);
             _set_authorized(arg0, arg1, arg2);
             avm::avm_return([].as_vector());
         };
         if selector == IS_REJECT_ALL_SELECTOR {
             let input_calldata: [Field; 1] = avm::calldata_copy(1, <AztecAddress as Serialize>::N);
             let mut reader: Reader<1> = Reader::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(<AztecAddress as Deserialize>::deserialize);
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
             let return_value: [Field; 1] = <bool as Serialize>::serialize(is_reject_all(arg0));
             avm::avm_return(return_value.as_vector());
         };
@@ -341,8 +341,8 @@ pub contract AuthRegistry {
             let input_calldata: [Field; 2] =
                 avm::calldata_copy(1, <AztecAddress as Serialize>::N + <Field as Serialize>::N);
             let mut reader: Reader<2> = Reader::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(<AztecAddress as Deserialize>::deserialize);
-            let arg1: Field = reader.read_struct(<Field as Deserialize>::deserialize);
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
+            let arg1: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
             let return_value: [Field; 1] =
                 <bool as Serialize>::serialize(is_consumable(arg0, arg1));
             avm::avm_return(return_value.as_vector());

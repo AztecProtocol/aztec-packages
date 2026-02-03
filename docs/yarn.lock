@@ -12497,14 +12497,15 @@ __metadata:
   linkType: hard
 
 "docusaurus-plugin-llms@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "docusaurus-plugin-llms@npm:0.2.0"
+  version: 0.2.2
+  resolution: "docusaurus-plugin-llms@npm:0.2.2"
   dependencies:
     gray-matter: "npm:^4.0.3"
     minimatch: "npm:^9.0.3"
+    yaml: "npm:^2.8.1"
   peerDependencies:
     "@docusaurus/core": ^3.0.0
-  checksum: 10c0/597d8653da98b8c141650cdebdb5f8a02e02aa35f99561ec28640bafd43d4219e0259c6a19e955b7022b1d2462d1949b8eff048ee91d0c0b4913365d357fe0b3
+  checksum: 10c0/9fced1f053fce6ef7acc44a27837b2a44f7fc2635b4b32fc02f3980e65ec587a9d0b62ff83cdadbbad6be53bc161cd4baf904d07d1d6a15630b55592d15bf553
   languageName: node
   linkType: hard
 
@@ -25250,6 +25251,15 @@ __metadata:
   bin:
     yaml: bin.mjs
   checksum: 10c0/7c587be00d9303d2ae1566e03bc5bc7fe978ba0d9bf39cc418c3139d37929dfcb93a230d9749f2cb578b6aa5d9ebebc322415e4b653cb83acd8bc0bc321707f3
+  languageName: node
+  linkType: hard
+
+"yaml@npm:^2.8.1":
+  version: 2.8.2
+  resolution: "yaml@npm:2.8.2"
+  bin:
+    yaml: bin.mjs
+  checksum: 10c0/703e4dc1e34b324aa66876d63618dcacb9ed49f7e7fe9b70f1e703645be8d640f68ab84f12b86df8ac960bac37acf5513e115de7c970940617ce0343c8c9cd96
   languageName: node
   linkType: hard
 

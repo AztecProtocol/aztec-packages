@@ -31,6 +31,7 @@ function print_usage {
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -126,6 +127,9 @@ case "$cmd" in
     test_set="${4:-}"
 
     export CI_DASHBOARD="network"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     run() {
       local set=$1
       JOB_ID="x-${namespace}-${set}" INSTANCE_POSTFIX="n-deploy-${set}" \
@@ -146,6 +150,9 @@ case "$cmd" in
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-deploy"
     export INSTANCE_POSTFIX="n-deploy"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   network-tests)
@@ -154,14 +161,20 @@ case "$cmd" in
     export JOB_ID="x-${2:?namespace is required}-network-tests"
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     export INSTANCE_POSTFIX="n-tests"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
     ;;
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
     export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-bench" CPUS=16
+    export JOB_ID="x-${2:?namespace is required}-network-bench"
     export INSTANCE_POSTFIX="n-bench"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
     ;;
   network-teardown)
@@ -171,6 +184,15 @@ case "$cmd" in
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    ;;
+
+  network-tests-kind)
+    # Runs KIND-based spartan tests on a 192 CPU instance.
+    export CI_DASHBOARD="network"
+    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
+    export CPUS=192
+    export INSTANCE_POSTFIX="n-kind"
+    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)

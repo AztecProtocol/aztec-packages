@@ -13,6 +13,7 @@ import { Pool } from './test/pglite_pool.js';
 import { type CheckAndRecordParams, DutyStatus, DutyType, type ValidatorHASignerConfig } from './types.js';
 
 // Test data constants
+const ROLLUP_ADDRESS = EthAddress.random();
 const VALIDATOR_ADDRESS = EthAddress.random();
 const SLOT = SlotNumber(100);
 const BLOCK_NUMBER = BlockNumber(50);
@@ -41,6 +42,7 @@ describe('SlashingProtectionService', () => {
 
     config = {
       haSigningEnabled: true,
+      l1Contracts: { rollupAddress: ROLLUP_ADDRESS },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
@@ -57,6 +59,7 @@ describe('SlashingProtectionService', () => {
   describe('checkAndRecord', () => {
     it('should acquire lock on first attempt', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -78,6 +81,7 @@ describe('SlashingProtectionService', () => {
 
     it('should throw DutyAlreadySignedError when duty already signed with same data', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -90,6 +94,7 @@ describe('SlashingProtectionService', () => {
       // First node signs
       const lockToken = await service.checkAndRecord(params);
       await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -106,6 +111,7 @@ describe('SlashingProtectionService', () => {
 
     it('should throw SlashingProtectionError when duty already signed with different data', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -118,6 +124,7 @@ describe('SlashingProtectionService', () => {
       // First node signs
       const lockToken = await service.checkAndRecord(params);
       await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -134,6 +141,7 @@ describe('SlashingProtectionService', () => {
 
     it('should allow retry after deleted duty', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -146,6 +154,7 @@ describe('SlashingProtectionService', () => {
       // First node acquires lock then deletes (simulating failure)
       const lockToken = await service.checkAndRecord(params);
       await service.deleteDuty({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -165,6 +174,7 @@ describe('SlashingProtectionService', () => {
 
     it('should wait and throw when another node is signing same data', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -184,6 +194,7 @@ describe('SlashingProtectionService', () => {
       // Complete first node's signing after a short delay
       await sleep(100);
       await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -199,6 +210,7 @@ describe('SlashingProtectionService', () => {
 
     it('should wait and throw when another node is signing different data', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -218,6 +230,7 @@ describe('SlashingProtectionService', () => {
       // Complete first node's signing after a short delay
       await sleep(100);
       await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -233,6 +246,7 @@ describe('SlashingProtectionService', () => {
 
     it('should acquire lock after other node deletes duty on failure', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -247,6 +261,7 @@ describe('SlashingProtectionService', () => {
 
       // First node deletes on failure
       await service.deleteDuty({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -271,6 +286,7 @@ describe('SlashingProtectionService', () => {
 
       try {
         const params: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SLOT,
           blockNumber: BLOCK_NUMBER,
@@ -295,6 +311,7 @@ describe('SlashingProtectionService', () => {
   describe('recordSuccess', () => {
     it('should update duty to signed status', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -306,6 +323,7 @@ describe('SlashingProtectionService', () => {
 
       const lockToken = await service.checkAndRecord(params);
       const success = await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -325,6 +343,7 @@ describe('SlashingProtectionService', () => {
 
     it('should fail to update with wrong lockToken', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -336,6 +355,7 @@ describe('SlashingProtectionService', () => {
 
       await service.checkAndRecord(params);
       const success = await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -355,6 +375,7 @@ describe('SlashingProtectionService', () => {
   describe('deleteDuty', () => {
     it('should delete duty with correct lockToken', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -366,6 +387,7 @@ describe('SlashingProtectionService', () => {
 
       const lockToken = await service.checkAndRecord(params);
       const success = await service.deleteDuty({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -381,6 +403,7 @@ describe('SlashingProtectionService', () => {
 
     it('should fail to delete with wrong lockToken', async () => {
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -392,6 +415,7 @@ describe('SlashingProtectionService', () => {
 
       await service.checkAndRecord(params);
       const success = await service.deleteDuty({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -409,6 +433,7 @@ describe('SlashingProtectionService', () => {
   describe('concurrent operations', () => {
     it('should handle multiple nodes competing for the same duty', async () => {
       const params1: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -428,6 +453,7 @@ describe('SlashingProtectionService', () => {
       // Whichever resolves first is the actual winner
       const winner = await Promise.race(promises);
       await service.recordSuccess({
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
@@ -460,6 +486,7 @@ describe('SlashingProtectionService', () => {
 
       for (let i = 0; i < 5; i++) {
         const params: CheckAndRecordParams = {
+          rollupAddress: ROLLUP_ADDRESS,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
@@ -476,6 +503,7 @@ describe('SlashingProtectionService', () => {
       // Verify all duties were created
       for (let i = 0; i < 5; i++) {
         const result = await db.tryInsertOrGetExisting({
+          rollupAddress: ROLLUP_ADDRESS,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
@@ -506,6 +534,7 @@ describe('SlashingProtectionService', () => {
     it('should cleanup stuck duties on start', async () => {
       // Create a stuck duty by directly inserting (simulating a crash)
       const params: CheckAndRecordParams = {
+        rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
@@ -541,6 +570,237 @@ describe('SlashingProtectionService', () => {
       // Now the duty should be deleted, so we can insert again
       result = await db.tryInsertOrGetExisting(params);
       expect(result.isNew).toBe(true);
+    });
+  });
+
+  describe('Rollup Upgrade Scenarios', () => {
+    it('should allow same slot/duty for different rollup addresses', async () => {
+      const rollupAddress1 = EthAddress.random();
+      const rollupAddress2 = EthAddress.random();
+
+      const service1 = new SlashingProtectionService(db, {
+        ...config,
+        l1Contracts: { rollupAddress: rollupAddress1 },
+      });
+      const service2 = new SlashingProtectionService(db, {
+        ...config,
+        l1Contracts: { rollupAddress: rollupAddress2 },
+      });
+
+      // Sign same slots for both rollups (e.g. rollup upgrade: slots reset, same slot numbers reused)
+      for (let slotNum = 1; slotNum <= 5; slotNum++) {
+        const params1: CheckAndRecordParams = {
+          rollupAddress: rollupAddress1,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(slotNum),
+          blockNumber: BlockNumber(slotNum),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+
+        const lockToken1 = await service1.checkAndRecord(params1);
+        await service1.recordSuccess({
+          rollupAddress: rollupAddress1,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(slotNum),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken: lockToken1,
+        });
+
+        const params2 = { ...params1, rollupAddress: rollupAddress2 };
+        const lockToken2 = await service2.checkAndRecord(params2);
+        await service2.recordSuccess({
+          rollupAddress: rollupAddress2,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(slotNum),
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken: lockToken2,
+        });
+      }
+
+      // Both rollups should have records for each slot
+      const paramsForSlot1Rollup1: CheckAndRecordParams = {
+        rollupAddress: rollupAddress1,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SlotNumber(1),
+        blockNumber: BlockNumber(1),
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      };
+      const paramsForSlot1Rollup2: CheckAndRecordParams = {
+        ...paramsForSlot1Rollup1,
+        rollupAddress: rollupAddress2,
+      };
+      const result1 = await db.tryInsertOrGetExisting(paramsForSlot1Rollup1);
+      const result2 = await db.tryInsertOrGetExisting(paramsForSlot1Rollup2);
+      expect(result1.isNew).toBe(false);
+      expect(result2.isNew).toBe(false);
+      expect(result1.record.rollupAddress).toEqual(rollupAddress1);
+      expect(result2.record.rollupAddress).toEqual(rollupAddress2);
+    });
+
+    it('should handle multiple validators across rollup upgrade', async () => {
+      const oldRollupAddress = EthAddress.random();
+      const newRollupAddress = EthAddress.random();
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const validator3 = EthAddress.random();
+      const validators = [validator1, validator2, validator3];
+
+      const oldService = new SlashingProtectionService(db, {
+        ...config,
+        l1Contracts: { rollupAddress: oldRollupAddress },
+      });
+      const newService = new SlashingProtectionService(db, {
+        ...config,
+        l1Contracts: { rollupAddress: newRollupAddress },
+      });
+
+      // Old rollup: all validators sign slot 100
+      for (const validator of validators) {
+        const params: CheckAndRecordParams = {
+          rollupAddress: oldRollupAddress,
+          validatorAddress: validator,
+          slot: SLOT,
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+
+        const lockToken = await oldService.checkAndRecord(params);
+        await oldService.recordSuccess({
+          rollupAddress: oldRollupAddress,
+          validatorAddress: validator,
+          slot: SLOT,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken,
+        });
+      }
+
+      // New rollup: all validators should be able to sign slot 100 again
+      for (const validator of validators) {
+        const params: CheckAndRecordParams = {
+          rollupAddress: newRollupAddress,
+          validatorAddress: validator,
+          slot: SLOT, // Same slot!
+          blockNumber: BLOCK_NUMBER,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          messageHash: MESSAGE_HASH,
+          nodeId: NODE_ID,
+        };
+
+        const lockToken = await newService.checkAndRecord(params);
+        await newService.recordSuccess({
+          rollupAddress: newRollupAddress,
+          validatorAddress: validator,
+          slot: SLOT,
+          blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+          dutyType: DUTY_TYPE,
+          signature: { toString: () => SIGNATURE } as any,
+          nodeId: NODE_ID,
+          lockToken,
+        });
+
+        const result = await db.tryInsertOrGetExisting(params);
+        expect(result.isNew).toBe(false);
+        expect(result.record.rollupAddress).toEqual(newRollupAddress);
+      }
+    });
+
+    it('should prevent cross-rollup duty deletion/update', async () => {
+      const rollupAddress1 = EthAddress.random();
+      const rollupAddress2 = EthAddress.random();
+
+      const service1 = new SlashingProtectionService(db, {
+        ...config,
+        l1Contracts: { rollupAddress: rollupAddress1 },
+      });
+
+      const params: CheckAndRecordParams = {
+        rollupAddress: rollupAddress1,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      };
+      const params2: CheckAndRecordParams = {
+        rollupAddress: rollupAddress2,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockNumber: BLOCK_NUMBER,
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        messageHash: MESSAGE_HASH,
+        nodeId: NODE_ID,
+      };
+
+      // Create duty for rollup1
+      const lockToken1 = await service1.checkAndRecord(params);
+      // Create duty for rollup2 (same slot/validator is allowed across rollups)
+      const lockToken2 = await service1.checkAndRecord(params2);
+
+      // Try to delete rollup1 duty using rollup2 address - should fail
+      const deleted = await service1.deleteDuty({
+        rollupAddress: rollupAddress2, // Wrong rollup!
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        lockToken: lockToken1,
+      });
+
+      expect(deleted).toBe(false);
+
+      // Duty should still exist for rollup1
+      const result = await db.tryInsertOrGetExisting(params);
+      expect(result.isNew).toBe(false);
+      expect(result.record.status).toBe(DutyStatus.SIGNING);
+
+      // Duty for rollup2 should still exist
+      const result2 = await db.tryInsertOrGetExisting(params2);
+      expect(result2.isNew).toBe(false);
+      expect(result2.record.status).toBe(DutyStatus.SIGNING);
+
+      // Delete rollup1 duty with correct rollup address should succeed
+      const deletedCorrect = await service1.deleteDuty({
+        rollupAddress: rollupAddress1,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        lockToken: lockToken1,
+      });
+      expect(deletedCorrect).toBe(true);
+
+      // Delete rollup2 duty with correct rollup address should succeed
+      const deletedCorrect2 = await service1.deleteDuty({
+        rollupAddress: rollupAddress2,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SLOT,
+        blockIndexWithinCheckpoint: BLOCK_INDEX_WITHIN_CHECKPOINT,
+        dutyType: DUTY_TYPE,
+        lockToken: lockToken2,
+      });
+      expect(deletedCorrect2).toBe(true);
     });
   });
 });

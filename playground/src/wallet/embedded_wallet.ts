@@ -85,6 +85,7 @@ export class EmbeddedWallet extends BaseWallet {
     const walletDBStore = await createStore(
       `wallet-${rollupAddress}`,
       { dataDirectory: 'wallet', dataStoreMapSizeKb: 2e10 },
+      undefined,
       walletLogger,
     );
     const db = WalletDB.init(walletDBStore, walletLogger.info);

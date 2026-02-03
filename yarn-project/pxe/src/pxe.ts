@@ -303,7 +303,9 @@ export class PXE {
         privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
         this.node,
         this.contractStore,
+        this.noteStore,
         anchorBlockHeader,
+        jobId,
       );
 
       const result = await contractFunctionSimulator.run(
@@ -976,7 +978,9 @@ export class PXE {
           privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
           this.node,
           this.contractStore,
+          this.noteStore,
           anchorBlockHeader,
+          jobId,
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1047,7 +1051,9 @@ export class PXE {
           await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
         this.node,
         this.contractStore,
+        this.noteStore,
         anchorBlockHeader,
+        jobId,
       );
     });
 

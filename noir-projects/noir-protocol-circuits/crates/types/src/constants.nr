@@ -669,7 +669,7 @@ pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 1134959961;
 pub global DOM_SEP__INITIALIZER: u32 = 3165476885;
 
 // Keys
-pub global DOM_SEP__NSK_M: u32 = 1976671838;
+pub global DOM_SEP__NHK_M: u32 = 3431122223;
 pub global DOM_SEP__IVSK_M: u32 = 3641144584;
 pub global DOM_SEP__OVSK_M: u32 = 449371170;
 pub global DOM_SEP__TSK_M: u32 = 4031170476;

@@ -364,10 +364,10 @@ describe('e2e_epochs/epochs_mbps', () => {
     await assertMultipleBlocksPerSlot(2, logger);
   });
 
-  it('builds multiple blocks per slot and non-validator re-executes and stores proposed multi-block slots', async () => {
+  it('builds multiple blocks per slot and non-validators re-execute and sync multi-block slots', async () => {
     await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
 
-    logger.warn(`Creating non-validator node`);
+    logger.warn(`Creating non-validator reexecuting node`);
     const nonValidatorNode = await test.createNonValidatorNode({
       alwaysReexecuteBlockProposals: true,
       skipPushProposedBlocksToArchiver: false,
@@ -413,7 +413,7 @@ describe('e2e_epochs/epochs_mbps', () => {
       0.5,
     );
 
-    // ensure the proposed multi-block slot has valid effects
+    // Ensure the proposed multi-block slot has valid effects
     expect(multiBlockSlotNumber).toBeDefined();
     const blocksInSlot = await nonValidatorArchiver.getBlocksForSlot(SlotNumber(multiBlockSlotNumber!));
     expect(blocksInSlot.length).toBeGreaterThanOrEqual(2);
@@ -424,14 +424,25 @@ describe('e2e_epochs/epochs_mbps', () => {
     const effectsInSlot = await Promise.all(txHashesInSlot.map(txHash => nonValidatorArchiver.getTxEffect(txHash)));
     expect(effectsInSlot.every(effect => effect !== undefined)).toBe(true);
 
+    // Wait until the node syncs to the checkpointed block successfully
     const maxBlockNumberInSlot = Math.max(...blocksInSlot.map(block => block.number));
     await retryUntil(
-      async () => {
-        const tips = await nonValidatorArchiver.getL2Tips();
-        return tips.checkpointed.block.number >= maxBlockNumberInSlot;
-      },
+      async () => (await nonValidatorArchiver.getL2Tips()).checkpointed.block.number >= maxBlockNumberInSlot!,
       'non-validator node to sync checkpointed block',
       test.L2_SLOT_DURATION_IN_S * 5,
+      0.5,
+    );
+
+    // Start a new node an make sure it can sync from scratch including the multi-block slot
+    logger.warn(`Creating non-validator syncing node`);
+    const nonValidatorSyncingNode = await test.createNonValidatorNode({
+      alwaysReexecuteBlockProposals: false,
+    });
+    await retryUntil(
+      async () =>
+        (await nonValidatorSyncingNode.getBlockSource().getL2Tips()).checkpointed.block.number >= maxBlockNumberInSlot!,
+      'non-validator syncing node to sync checkpointed block',
+      test.L2_SLOT_DURATION_IN_S * 10,
       0.5,
     );
   });

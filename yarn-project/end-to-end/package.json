@@ -22,6 +22,7 @@
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --no-cache --runInBand --config jest.integration.config.json",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures",
     "test:compose": "./scripts/run_test.sh compose",
+    "test:ha": "./scripts/run_test.sh ha",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src"
   },
   "dependencies": {
@@ -90,6 +91,7 @@
     "lodash.every": "^4.6.0",
     "lodash.omit": "^4.5.0",
     "msgpackr": "^1.11.2",
+    "pg": "^8.17.1",
     "process": "^0.11.10",
     "snappy": "^7.2.2",
     "stream-browserify": "^3.0.0",
@@ -108,6 +110,7 @@
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/lodash.chunk": "^4.2.9",
+    "@types/pg": "^8",
     "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "concurrently": "^7.6.0",
     "jest": "^30.0.0",

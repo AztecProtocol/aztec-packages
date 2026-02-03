@@ -208,7 +208,7 @@ the unit type <code>()</code>.</p>
 </div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
 <div class="where-clause">where
     Event: <a href="../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
-    Event: <a href="../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code>
+    Event: <a href="../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Emits an event publicly.</p>
@@ -231,7 +231,7 @@ where <code>N</code> is the serialization length of the event.</p></div>
     call: <a href="../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a public contract call.</p>
@@ -251,7 +251,7 @@ where <code>N</code> is the serialization length of the event.</p></div>
     call: <a href="../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a public read-only contract call.</p>
@@ -305,7 +305,7 @@ executed in such a context.</p>
 </div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event) -> <a href="../noir_aztec/event/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
 <div class="where-clause">where
     Event: <a href="../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
-    Event: <a href="../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code>
+    Event: <a href="../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Emits an event privately.</p>
@@ -335,7 +335,7 @@ commitment that includes a random value, so even with full knowledge of the even
 event was emitted or not requires brute-forcing the entire <code>Field</code> space.</p></div>
 </div><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;) -> T
 <div class="where-clause">where
-    T: <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a private contract call.</p>
@@ -388,7 +388,7 @@ ideally agree on some standard.</li>
 </ul></div>
 </div><code id="view" class="code-header">pub fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;) -> T
 <div class="where-clause">where
-    T: <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Makes a read-only private contract call.</p>

@@ -87,7 +87,7 @@ function main {
   # Handle release-pr mode separately (creates tag instead of running CI)
 
   if [ "${CI_MODE}" == "skip" ]; then
-    echo_stderr "WARNING: CI is being skipped in this PR."
+    echo "WARNING: CI is being skipped in this PR." >&2
     exit 0
   fi
   if [ "${CI_MODE}" == "release-pr" ]; then

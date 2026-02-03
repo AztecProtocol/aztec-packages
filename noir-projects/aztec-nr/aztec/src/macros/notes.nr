@@ -92,7 +92,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
                 // in the quote to avoid "trait not in scope" compiler warnings.
                 let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
-                let secret = context.request_nsk_app(owner_npk_m_hash);
+                let secret = context.request_nhk_app(owner_npk_m_hash);
                 aztec::protocol::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
                     aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
@@ -108,7 +108,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
                 // in the quote to avoid "trait not in scope" compiler warnings.
                 let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
-                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                let secret = aztec::keys::getters::get_nhk_app(owner_npk_m_hash);
                 aztec::protocol::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
                     aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,

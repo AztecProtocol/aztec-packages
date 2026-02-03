@@ -95,28 +95,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from the note hash tree.
-   * @param blockHash - The block hash at which to get the membership witness.
-   * @param leafValue - The leaf value
+   * @param anchorBlockHash - The hash of a block that contains the note hash tree root in which to find the membership
+   * witness.
+   * @param noteHash - The note hash to find in the note hash tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetNoteHashMembershipWitness(
-    blockHash: BlockHash,
-    leafValue: Fr,
+    anchorBlockHash: BlockHash,
+    noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.aztecNode.getNoteHashMembershipWitness(blockHash, leafValue);
+    return this.aztecNode.getNoteHashMembershipWitness(anchorBlockHash, noteHash);
   }
 
   /**
-   * Fetches the index and sibling path of a leaf at a given block from the archive tree.
-   * @param blockHash - The block hash at which to get the membership witness.
-   * @param leafValue - The leaf value
+   * Fetches the index and sibling path of a block hash in the archive tree.
+   *
+   * Block hashes are the leaves of the archive tree. Each time a new block is added to the chain,
+   * its block hash is appended as a new leaf to the archive tree.
+   *
+   * @param anchorBlockHash - The hash of a block that contains the archive tree root in which to find the membership
+   * witness.
+   * @param blockHash - The block hash to find in the archive tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetArchiveMembershipWitness(
+  public utilityGetBlockHashMembershipWitness(
+    anchorBlockHash: BlockHash,
     blockHash: BlockHash,
-    leafValue: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    return this.aztecNode.getArchiveMembershipWitness(blockHash, leafValue);
+    return this.aztecNode.getBlockHashMembershipWitness(anchorBlockHash, blockHash);
   }
 
   /**
@@ -357,16 +363,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.log.getBindings(),
     );
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-
-    // It is acceptable to run the following operations in parallel for several reasons:
-    // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
-    //    which is then processed in Noir after this handler returns.
-    // 2. Even if syncTaggedLogs did write to the note store, it would not cause inconsistent state.
-    await Promise.all([
-      logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes),
-      noteService.syncNoteNullifiers(this.contractAddress),
-    ]);
+    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
   }
 
   /**

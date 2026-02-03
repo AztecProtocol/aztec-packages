@@ -32,6 +32,10 @@ concurrency:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_set: ${{ fromJSON(inputs.test_set == '' && '["1","2"]' || format('["{0}"]', inputs.test_set)) }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -51,8 +55,8 @@ jobs:
         run: |
           namespace=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
           echo "NAMESPACE=$namespace" >> $GITHUB_ENV
-          # Run scenario tests (both sets in parallel, or specific set if provided)
-          ./.github/ci3.sh network-scenarios "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}" "${{ inputs.test_set }}"
+          # Run scenario tests for the selected set (matrix expands to 1 or 2).
+          ./.github/ci3.sh network-scenarios "${{ inputs.env_file }}" "$namespace" "${{ inputs.docker_image }}" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
         if: always()
@@ -65,10 +69,4 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: |
-          test_set="${{ inputs.test_set }}"
-          if [[ -z "$test_set" ]]; then
-            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-1" || true
-            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-2" || true
-          else
-            ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-${test_set}" || true
-          fi
+          ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-${{ matrix.test_set }}" || true
