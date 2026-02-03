@@ -2841,7 +2841,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 if iszero(sumcheck_valid) {
                     mstore(0x00, SUMCHECK_FAILED_SELECTOR)
-                    return(0x00, 0x20)
+                    revert(0x00, 0x04)
                 }
             }
 
