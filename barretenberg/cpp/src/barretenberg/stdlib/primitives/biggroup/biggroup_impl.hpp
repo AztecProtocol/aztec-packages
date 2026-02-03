@@ -217,21 +217,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
 
     const bool_ct is_infinity = is_point_at_infinity();
 
-    // For constant elements at infinity, create a new constant element with (0, 0)
-    // The 2-arg constructor will auto-detect infinity from (0, 0) coordinates
-    if (this->is_constant() && is_infinity.is_constant() && is_infinity.get_value()) {
-        const Fq zero = Fq(get_context(), 0);
-        element result(zero, zero);
-        result.set_origin_tag(this->get_origin_tag()); // Preserve the origin tag
-        return result;
-    }
-
     element result(*this);
     const Fq zero = Fq(get_context(), 0);
     result._x = Fq::conditional_assign(is_infinity, zero, this->_x);
     result._y = Fq::conditional_assign(is_infinity, zero, this->_y);
-    // Ensure the infinity flag is preserved
-    result._is_infinity = is_infinity;
     return result;
 }
 
