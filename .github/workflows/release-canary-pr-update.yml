@@ -9,11 +9,12 @@ on:
       - '**/bootstrap.sh'
       # Anything in ci3 folder
       - 'ci3/**'
+      # Anything in yarn-project
+      - 'yarn-project/**'
 
 env:
   CANARY_BRANCH: ad/chore/ci-release-pr-canary
   PR_TITLE: "no-merge: alpha canary PR"
-  PR_LABEL: ci-release-pr
 
 jobs:
   update-canary-pr:
@@ -30,6 +31,27 @@ jobs:
         run: |
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
+
+      - name: Detect changed paths
+        id: detect
+        run: |
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          echo "Changed files:"
+          echo "$changed_files"
+
+          # Check for bootstrap.sh or ci3/ changes -> ci-release-pr label
+          if echo "$changed_files" | grep -qE '(bootstrap\.sh|^ci3/)'; then
+            echo "release_pr=true" >> $GITHUB_OUTPUT
+          else
+            echo "release_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check for yarn-project/ changes -> ci-network-kind label
+          if echo "$changed_files" | grep -q '^yarn-project/'; then
+            echo "network_kind=true" >> $GITHUB_OUTPUT
+          else
+            echo "network_kind=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Ensure canary branch and PR exist
         id: ensure-pr
@@ -52,12 +74,11 @@ jobs:
               --head "$CANARY_BRANCH" \
               --base next \
               --title "$PR_TITLE" \
-              --label "$PR_LABEL" \
               --body "This PR tests certain CI labels periodically. Any failures in this branch log to alpha-team channel with slack.
 
-          This PR is automatically updated when \`**/bootstrap.sh\` or \`ci3/**\` files are pushed to \`next\`.
+          This PR is automatically updated when \`**/bootstrap.sh\`, \`ci3/**\`, or \`yarn-project/**\` files are pushed to \`next\`.
 
-          **Important:** This PR should never be merged. It exists solely to test the \`ci-release-pr\` label.")
+          **Important:** This PR should never be merged. It exists solely to test CI labels.")
 
             pr_number=$(gh pr list --state open --head "$CANARY_BRANCH" --json number --jq '.[0].number')
             echo "Created canary PR #$pr_number"
@@ -102,9 +123,18 @@ jobs:
             git push origin "$CANARY_BRANCH"
             echo "Pushed update to $CANARY_BRANCH"
 
-            # Re-add the ci-release-pr label (it gets removed after each CI run)
-            gh pr edit "$pr_number" --add-label "$PR_LABEL"
-            echo "Re-added $PR_LABEL label to PR #$pr_number"
+            # Add labels based on what changed
+            labels=""
+            if [[ "${{ steps.detect.outputs.release_pr }}" == "true" ]]; then
+              labels="$labels --add-label ci-release-pr"
+            fi
+            if [[ "${{ steps.detect.outputs.network_kind }}" == "true" ]]; then
+              labels="$labels --add-label ci-network-kind"
+            fi
+            if [[ -n "$labels" ]]; then
+              gh pr edit "$pr_number" $labels
+              echo "Added labels to PR #$pr_number: $labels"
+            fi
           else
             echo "Merge conflict detected, aborting"
             git merge --abort

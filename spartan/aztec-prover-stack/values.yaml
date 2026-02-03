@@ -96,6 +96,8 @@ agent:
       OTEL_SERVICE_NAME: "prover-agent"
     configMap:
       envEnabled: true
+    preStartScript: |
+      source /scripts/wait-for-broker.sh
     startCmd:
       - --prover-agent
 

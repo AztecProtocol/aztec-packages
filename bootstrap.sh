@@ -629,6 +629,16 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
     ;;
+  "ci-network-kind-tests")
+    export CI=1
+    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
+    # Set the docker image to the locally built image and load it into KIND
+    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
+    spartan/bootstrap.sh kind
+    kind load docker-image "$AZTEC_DOCKER_IMAGE"
+    # Just one test for now
+    spartan/bootstrap.sh test-kind-upgrade-rollup
+    ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
     # Deploys network and runs benchmarks. Cleanup should be done separately.
@@ -693,7 +703,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-"ci-barretenberg-full")
+  "ci-barretenberg-full")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
@@ -729,6 +739,7 @@ case "$cmd" in
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
     # Args: <registry_address> [KEY=VALUE...]
     export CI=1
+    build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
