@@ -21,7 +21,7 @@ struct perm_registers_mem_op_0_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_0_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_0_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_0_,         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_mem_tag_reg_0_, ColumnAndShifts::execution_rw_reg_0_
     };
@@ -45,7 +45,7 @@ struct perm_registers_mem_op_1_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_1_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_1_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_1_,         ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_mem_tag_reg_1_, ColumnAndShifts::execution_rw_reg_1_
     };
@@ -69,7 +69,7 @@ struct perm_registers_mem_op_2_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_2_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_2_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_2_,         ColumnAndShifts::execution_register_2_,
         ColumnAndShifts::execution_mem_tag_reg_2_, ColumnAndShifts::execution_rw_reg_2_
     };
@@ -93,7 +93,7 @@ struct perm_registers_mem_op_3_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_3_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_3_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_3_,         ColumnAndShifts::execution_register_3_,
         ColumnAndShifts::execution_mem_tag_reg_3_, ColumnAndShifts::execution_rw_reg_3_
     };
@@ -117,7 +117,7 @@ struct perm_registers_mem_op_4_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_4_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_4_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_4_,         ColumnAndShifts::execution_register_4_,
         ColumnAndShifts::execution_mem_tag_reg_4_, ColumnAndShifts::execution_rw_reg_4_
     };
@@ -141,7 +141,7 @@ struct perm_registers_mem_op_5_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_5_;
     static constexpr Column INVERSES = Column::perm_registers_mem_op_5_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_5_,         ColumnAndShifts::execution_register_5_,
         ColumnAndShifts::execution_mem_tag_reg_5_, ColumnAndShifts::execution_rw_reg_5_
     };

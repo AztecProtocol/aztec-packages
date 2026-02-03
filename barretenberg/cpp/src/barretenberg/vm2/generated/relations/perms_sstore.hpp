@@ -29,7 +29,7 @@ struct perm_sstore_storage_write_settings_ {
         ColumnAndShifts::execution_public_data_tree_root,
         ColumnAndShifts::execution_prev_public_data_tree_size,
         ColumnAndShifts::execution_public_data_tree_size,
-        ColumnAndShifts::precomputed_clk
+        ColumnAndShifts::precomputed_idx
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
         ColumnAndShifts::public_data_check_value,

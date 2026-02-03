@@ -21,7 +21,7 @@ struct perm_addressing_base_address_from_memory_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_base;
     static constexpr Column INVERSES = Column::perm_addressing_base_address_from_memory_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::execution_base_address_val,
@@ -50,7 +50,7 @@ struct perm_addressing_indirect_from_memory_0_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_0_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_0_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_0_,
         ColumnAndShifts::execution_rop_0_,
@@ -79,7 +79,7 @@ struct perm_addressing_indirect_from_memory_1_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_1_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_1_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_1_,
         ColumnAndShifts::execution_rop_1_,
@@ -108,7 +108,7 @@ struct perm_addressing_indirect_from_memory_2_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_2_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_2_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_2_,
         ColumnAndShifts::execution_rop_2_,
@@ -137,7 +137,7 @@ struct perm_addressing_indirect_from_memory_3_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_3_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_3_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_3_,
         ColumnAndShifts::execution_rop_3_,
@@ -166,7 +166,7 @@ struct perm_addressing_indirect_from_memory_4_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_4_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_4_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_4_,
         ColumnAndShifts::execution_rop_4_,
@@ -195,7 +195,7 @@ struct perm_addressing_indirect_from_memory_5_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_5_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_5_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_5_,
         ColumnAndShifts::execution_rop_5_,
@@ -224,7 +224,7 @@ struct perm_addressing_indirect_from_memory_6_settings_ {
     static constexpr Column DST_SELECTOR = Column::memory_sel_addressing_indirect_6_;
     static constexpr Column INVERSES = Column::perm_addressing_indirect_from_memory_6_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_op_after_relative_6_,
         ColumnAndShifts::execution_rop_6_,
