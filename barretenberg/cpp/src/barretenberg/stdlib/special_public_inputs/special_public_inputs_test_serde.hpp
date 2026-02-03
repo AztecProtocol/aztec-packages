@@ -43,7 +43,7 @@ class KernelIOSerde {
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 128-bit limb encoding
+        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 136-bit limb encoding
         auto deserialize_point = [&]() {
             std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
                                                                           NativeG1::PUBLIC_INPUTS_SIZE);
@@ -73,7 +73,7 @@ class KernelIOSerde {
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Serialize fq to 2 fr limbs using 128-bit encoding (matching FrCodec)
+        // Serialize fq to 2 fr limbs using 136-bit encoding (matching FrCodec)
         auto serialize_fq = [&](const NativeFq& fq_val) {
             constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 136 bits
             constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
@@ -206,7 +206,7 @@ class AppIOSerde {
         // AppIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 128-bit limb encoding
+        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 136-bit limb encoding
         auto deserialize_point = [&]() {
             std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
                                                                           NativeG1::PUBLIC_INPUTS_SIZE);
