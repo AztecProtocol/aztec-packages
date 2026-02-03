@@ -61,8 +61,10 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_BC_DEC_SEL_BYTES_REM_NON_ZERO:
-            return "BC_DEC_SEL_BYTES_REM_NON_ZERO";
+        case SR_BYTES_REM_NON_ZERO:
+            return "BYTES_REM_NON_ZERO";
+        case SR_LAST_CONTRACT_BYTES_REM_ONE:
+            return "LAST_CONTRACT_BYTES_REM_ONE";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
         case SR_BC_DEC_LAST_CONTRACT_BYTES_REM_ONE:

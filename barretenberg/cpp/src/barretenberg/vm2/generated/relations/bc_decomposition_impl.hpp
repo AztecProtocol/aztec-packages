@@ -25,7 +25,7 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // BYTES_REM_NON_ZERO
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bc_decomposition_last_of_contract)) *
                    (FF(1) - static_cast<View>(in.get(C::bc_decomposition_last_of_contract)));
@@ -125,10 +125,10 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp =
             static_cast<View>(in.get(C::bc_decomposition_sel)) *
             (((CView(bc_decomposition_WINDOW_SIZE) - static_cast<View>(in.get(C::bc_decomposition_bytes_remaining))) *
-                  (static_cast<View>(in.get(C::bc_decomposition_is_windows_eq_remaining)) *
+                  (static_cast<View>(in.get(C::bc_decomposition_sel_windows_eq_remaining)) *
                        (FF(1) - static_cast<View>(in.get(C::bc_decomposition_windows_min_remaining_inv))) +
                    static_cast<View>(in.get(C::bc_decomposition_windows_min_remaining_inv))) +
-              static_cast<View>(in.get(C::bc_decomposition_is_windows_eq_remaining))) -
+              static_cast<View>(in.get(C::bc_decomposition_sel_windows_eq_remaining))) -
              FF(1));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
@@ -142,7 +142,7 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
                    ((static_cast<View>(in.get(C::bc_decomposition_sel_windows_gt_remaining_shift)) -
-                     static_cast<View>(in.get(C::bc_decomposition_is_windows_eq_remaining))) -
+                     static_cast<View>(in.get(C::bc_decomposition_sel_windows_eq_remaining))) -
                     static_cast<View>(in.get(C::bc_decomposition_sel_windows_gt_remaining)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
