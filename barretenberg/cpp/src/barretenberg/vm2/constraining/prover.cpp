@@ -15,6 +15,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -255,8 +256,9 @@ void AvmProver::execute_pcs_rounds()
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
 
+    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        ProvingKey::circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
