@@ -272,7 +272,6 @@ class UltraFlavor {
     /**
      * @brief A container for polynomials handles.
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/966): use inheritance
     template <bool HasZK_ = HasZK> class ProverPolynomials_ : public AllEntities_<Polynomial, HasZK_> {
       public:
         // Define all operations as default, except copy construction/assignment
