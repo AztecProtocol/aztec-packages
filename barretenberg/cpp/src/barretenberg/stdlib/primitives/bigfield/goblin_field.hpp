@@ -8,6 +8,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
@@ -38,9 +39,9 @@ template <class Builder> class goblin_field {
     using bool_ct = stdlib::bool_t<Builder>;
     std::array<field_ct, 2> limbs;
 
-    // Number of bb::fr elements used to represent a goblin field in the public inputs. (Note: 4 instead of 2 for
-    // consistency with bigfield).
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
+    // Number of bb::fr elements used to represent a goblin field in the public inputs
+    // This matches the Codec representation (2 limbs)
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FIELD_PUBLIC_INPUTS_SIZE;
 
     // constructors mirror bigfield constructors
     goblin_field()
@@ -177,28 +178,15 @@ template <class Builder> class goblin_field {
     }
     /**
      * @brief Set the witness indices for the limbs of the goblin field to public
-     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
+     * @details Goblin field is represented in public inputs using 2 limbs (lo, hi), matching the Codec representation.
      *
      * @return uint32_t The public input index at which the representation of the goblin field starts
      */
     uint32_t set_public() const
     {
-        using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
-
-        BigFq bigfield_equivalent(limbs[0], limbs[1]);
-        const uint32_t start_idx = bigfield_equivalent.set_public();
-
+        uint32_t start_idx = limbs[0].set_public();
+        limbs[1].set_public();
         return start_idx;
-    }
-
-    /**
-     * @brief Reconstruct goblin field from its representation as limbs as stored in the public inputs
-     * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
-     *
-     */
-    static goblin_field reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)

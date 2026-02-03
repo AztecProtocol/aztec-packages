@@ -40,7 +40,6 @@ template <typename Curve> class MergeTests : public testing::Test {
     using TableCommitments = typename MergeVerifierType::TableCommitments;
     using InputCommitments = typename MergeVerifierType::InputCommitments;
     using Proof = typename MergeVerifierType::Proof;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
@@ -198,9 +197,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
-        VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
-                                                                   to_native(result.pairing_points.P1));
+        bool pairing_verified = result.pairing_points.check();
         bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 

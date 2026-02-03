@@ -203,7 +203,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             HonkProof ipa_proof_native = ipa_transcript_prover->export_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(proof, static_cast<bool>(idx));
+            tamper_with_proof<InnerFlavor>(proof, static_cast<bool>(idx));
 
             OuterBuilder outer_circuit;
             auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);
