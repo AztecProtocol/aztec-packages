@@ -71,7 +71,7 @@ describe('P2P Client', () => {
   });
 
   const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, config);
+    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, undefined, config);
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -549,6 +549,7 @@ describe('P2P Client', () => {
         realMempools,
         p2pService,
         txCollection,
+        undefined,
         {},
       );
 
