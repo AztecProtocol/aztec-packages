@@ -229,7 +229,7 @@ else
       echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
     elif [[ $exit_code -eq 1 ]]; then
       # All flows had VK changes
-      echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+      echo "VK changes detected. Please re-run the script with --update_inputs"
       exit 1
     else
       # At least one real error
