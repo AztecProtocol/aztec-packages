@@ -147,8 +147,8 @@ export class ValidatorHASigner {
    * Start the HA signer background tasks (cleanup of stuck duties).
    * Should be called after construction and before signing operations.
    */
-  start() {
-    this.slashingProtection.start();
+  async start() {
+    await this.slashingProtection.start();
   }
 
   /**

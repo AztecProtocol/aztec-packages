@@ -29,20 +29,16 @@ export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
-  private proofStore: ProofStore;
-  private failedProofStore: ProofStore | undefined;
-
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     private orchestratorClient: ProvingJobProducer,
+    private proofStore: ProofStore,
+    private failedProofStore: ProofStore | undefined,
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log: Logger = createLogger('prover-client:tx-prover'),
-  ) {
-    this.proofStore = new InlineProofStore();
-    this.failedProofStore = this.config.failedProofStore ? createProofStore(this.config.failedProofStore) : undefined;
-  }
+  ) {}
 
   public createEpochProver(): EpochProver {
     const bindings = this.log.getBindings();
@@ -118,7 +114,9 @@ export class ProverClient implements EpochProverManager {
     broker: ProvingJobBroker,
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    const prover = new ProverClient(config, worldState, broker, broker, telemetry);
+    const proofStore = await createProofStore(config.proofStore);
+    const failedProofStore = config.failedProofStore ? await createProofStore(config.failedProofStore) : undefined;
+    const prover = new ProverClient(config, worldState, broker, proofStore, failedProofStore, broker, telemetry);
     await prover.start();
     return prover;
   }

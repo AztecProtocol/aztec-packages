@@ -41,6 +41,7 @@ import {
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
+import type { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { TxProvider } from '../services/tx_provider.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 
@@ -90,6 +91,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     mempools: MemPools,
     private p2pService: P2PService,
     private txCollection: TxCollection,
+    private txFileStore: TxFileStore | undefined,
     config: Partial<P2PConfig> = {},
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -274,6 +276,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.blockStream!.start();
     await this.txCollection.start();
+    this.txFileStore?.start();
     return this.syncPromise;
   }
 
@@ -306,6 +309,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopping p2p client...');
     await tryStop(this.txCollection);
     this.log.debug('Stopped tx collection service');
+    await this.txFileStore?.stop();
+    this.log.debug('Stopped tx file store');
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
     await this.blockStream?.stop();

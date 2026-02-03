@@ -21,11 +21,17 @@ import {
 } from './services/reqresp/batch-tx-requester/config.js';
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
+import { type TxFileStoreConfig, txFileStoreConfigMappings } from './services/tx_file_store/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig, BatchTxRequesterConfig, ChainConfig, TxCollectionConfig {
+export interface P2PConfig
+  extends P2PReqRespConfig,
+    BatchTxRequesterConfig,
+    ChainConfig,
+    TxCollectionConfig,
+    TxFileStoreConfig {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -439,6 +445,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
+  ...txFileStoreConfigMappings,
 };
 
 /**

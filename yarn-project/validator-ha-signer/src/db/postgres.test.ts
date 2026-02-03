@@ -1362,4 +1362,208 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
     });
   });
+
+  describe('cleanupOutdatedRollupDuties', () => {
+    const CURRENT_ROLLUP_ADDRESS = EthAddress.random();
+    const OLD_ROLLUP_ADDRESS_1 = EthAddress.random();
+    const OLD_ROLLUP_ADDRESS_2 = EthAddress.random();
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    it('should clean up duties with outdated rollup addresses', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Create duties for old rollup addresses
+      for (let i = 0; i < 3; i++) {
+        await spDb.tryInsertOrGetExisting({
+          rollupAddress: OLD_ROLLUP_ADDRESS_1,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(100 + i),
+          blockNumber: BlockNumber(50 + i),
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          dutyType: DutyType.BLOCK_PROPOSAL,
+          messageHash: Buffer32.random().toString(),
+          nodeId: NODE_ID,
+        });
+      }
+
+      for (let i = 0; i < 2; i++) {
+        await spDb.tryInsertOrGetExisting({
+          rollupAddress: OLD_ROLLUP_ADDRESS_2,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(200 + i),
+          blockNumber: BlockNumber(150 + i),
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          dutyType: DutyType.BLOCK_PROPOSAL,
+          messageHash: Buffer32.random().toString(),
+          nodeId: NODE_ID,
+        });
+      }
+
+      // Create duties for current rollup address
+      for (let i = 0; i < 2; i++) {
+        await spDb.tryInsertOrGetExisting({
+          rollupAddress: CURRENT_ROLLUP_ADDRESS,
+          validatorAddress: VALIDATOR_ADDRESS,
+          slot: SlotNumber(300 + i),
+          blockNumber: BlockNumber(250 + i),
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          dutyType: DutyType.BLOCK_PROPOSAL,
+          messageHash: Buffer32.random().toString(),
+          nodeId: NODE_ID,
+        });
+      }
+
+      // Clean up outdated rollup duties
+      const numCleaned = await spDb.cleanupOutdatedRollupDuties(CURRENT_ROLLUP_ADDRESS);
+      expect(numCleaned).toBe(5); // 3 from OLD_ROLLUP_ADDRESS_1 + 2 from OLD_ROLLUP_ADDRESS_2
+
+      // Verify old rollup duties are gone
+      const oldDuties = await pglite.query(`SELECT * FROM validator_duties WHERE rollup_address != $1`, [
+        CURRENT_ROLLUP_ADDRESS.toString(),
+      ]);
+      expect(oldDuties.rows.length).toBe(0);
+
+      // Verify current rollup duties still exist
+      const currentDuties = await pglite.query(`SELECT * FROM validator_duties WHERE rollup_address = $1`, [
+        CURRENT_ROLLUP_ADDRESS.toString(),
+      ]);
+      expect(currentDuties.rows.length).toBe(2);
+    });
+
+    it('should return 0 when no outdated duties exist', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+
+      // Create duties only for current rollup
+      await spDb.tryInsertOrGetExisting({
+        rollupAddress: CURRENT_ROLLUP_ADDRESS,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SlotNumber(100),
+        blockNumber: BlockNumber(50),
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: Buffer32.random().toString(),
+        nodeId: NODE_ID,
+      });
+
+      const numCleaned = await spDb.cleanupOutdatedRollupDuties(CURRENT_ROLLUP_ADDRESS);
+      expect(numCleaned).toBe(0);
+
+      // Verify duty still exists
+      const duties = await pglite.query(`SELECT * FROM validator_duties`);
+      expect(duties.rows.length).toBe(1);
+    });
+  });
+
+  describe('cleanupOldDuties', () => {
+    const ROLLUP_ADDRESS = EthAddress.random();
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    it('should only clean up old signed duties, not signing or recent duties', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const oldTimestamp = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
+
+      // Insert old signed duties (should be cleaned up)
+      for (let i = 0; i < 2; i++) {
+        await pglite.query(
+          `INSERT INTO validator_duties (
+            rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
+            duty_type, status, message_hash, signature, node_id, lock_token, started_at, completed_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, '0xsignature', $8, 'token', $9, $9)`,
+          [
+            ROLLUP_ADDRESS.toString(),
+            VALIDATOR_ADDRESS.toString(),
+            (100 + i).toString(),
+            (50 + i).toString(),
+            0,
+            DutyType.BLOCK_PROPOSAL,
+            Buffer32.random().toString(),
+            NODE_ID,
+            oldTimestamp,
+          ],
+        );
+      }
+
+      // Insert old signing duties (should NOT be cleaned up)
+      for (let i = 0; i < 2; i++) {
+        await pglite.query(
+          `INSERT INTO validator_duties (
+            rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
+            duty_type, status, message_hash, node_id, lock_token, started_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, 'token', $9)`,
+          [
+            ROLLUP_ADDRESS.toString(),
+            VALIDATOR_ADDRESS.toString(),
+            (200 + i).toString(),
+            (150 + i).toString(),
+            0,
+            DutyType.BLOCK_PROPOSAL,
+            Buffer32.random().toString(),
+            NODE_ID,
+            oldTimestamp,
+          ],
+        );
+      }
+
+      // Insert recent signed duty (should NOT be cleaned up)
+      const recentResult = await spDb.tryInsertOrGetExisting({
+        rollupAddress: ROLLUP_ADDRESS,
+        validatorAddress: VALIDATOR_ADDRESS,
+        slot: SlotNumber(300),
+        blockNumber: BlockNumber(250),
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        messageHash: Buffer32.random().toString(),
+        nodeId: NODE_ID,
+      });
+      await spDb.updateDutySigned(
+        ROLLUP_ADDRESS,
+        VALIDATOR_ADDRESS,
+        SlotNumber(300),
+        DutyType.BLOCK_PROPOSAL,
+        '0xsignature',
+        recentResult.record.lockToken,
+        0,
+      );
+
+      // Clean up duties older than 1 hour
+      const maxAgeMs = 60 * 60 * 1000; // 1 hour
+      const numCleaned = await spDb.cleanupOldDuties(maxAgeMs);
+      expect(numCleaned).toBe(2); // Only the 2 old signed duties
+
+      // Verify old signed duties are gone
+      const oldSignedDuties = await pglite.query(`SELECT * FROM validator_duties WHERE slot >= 100 AND slot < 200`);
+      expect(oldSignedDuties.rows.length).toBe(0);
+
+      // Verify old signing duties still exist (critical safety check)
+      const signingDuties = await pglite.query(`SELECT * FROM validator_duties WHERE status = 'signing'`);
+      expect(signingDuties.rows.length).toBe(2);
+
+      // Verify recent signed duty still exists
+      const recentDuty = await pglite.query<DutyRow>(`SELECT * FROM validator_duties WHERE slot = 300`);
+      expect(recentDuty.rows.length).toBe(1);
+      expect(recentDuty.rows[0].status).toBe('signed');
+    });
+
+    it('should return 0 when no old signed duties exist', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000);
+      expect(numCleaned).toBe(0);
+    });
+  });
 });

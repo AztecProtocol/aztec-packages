@@ -177,6 +177,14 @@ case "$cmd" in
     export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
     ;;
+  network-proving-bench)
+    # Args: <scenario> <namespace> [docker_image]
+    # Deploys network and runs proving benchmarks.
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
+    export INSTANCE_POSTFIX="n-proving-bench"
+    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    ;;
   network-teardown)
     # Args: <scenario> <namespace>
     export CI_DASHBOARD="network"
@@ -312,7 +320,7 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench|gh-deploy-bench|gh-spartan-bench)
+  gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 

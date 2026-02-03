@@ -81,7 +81,7 @@ export interface ValidatorDutyRecord {
   startedAt: Date;
   /** When the duty signing was completed (success or failure) */
   completedAt?: Date;
-  /** Error message if status is 'failed' */
+  /** Error message (currently unused) */
   errorMessage?: string;
 }
 
