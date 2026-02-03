@@ -25,7 +25,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Define paths relative to the barretenberg directory
 BARRETENBERG_DIR="$REPO_ROOT/barretenberg"
-SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/optimised/blake-opt.sol"
+SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/optimised/honk-optimized.sol"
 CPP_FILE="$BARRETENBERG_DIR/cpp/src/barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 
 # Check if source file exists
@@ -57,7 +57,7 @@ TEMP_PROCESSED=$(mktemp)
 FINAL_SOL=$(mktemp)
 trap "rm -f $TEMP_CPP $TEMP_SOL $TEMP_PROCESSED $FINAL_SOL" EXIT
 
-# First, copy blake-opt.sol to a temp file for processing
+# First, copy honk-optimized.sol to a temp file for processing
 cp "$SOL_SRC_FILE" "$TEMP_SOL"
 
 # Replace the hardcoded constants with template placeholders
