@@ -223,7 +223,8 @@ export class TxPoolV2Impl {
     // Run post-add eviction rules for pending txs
     if (acceptedPending.size > 0) {
       const feePayers = Array.from(acceptedPending).map(txHash => this.#metadata.get(txHash)!.feePayer);
-      await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), feePayers);
+      const uniqueFeePayers = new Set<string>(feePayers);
+      await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
     }
 
     // Emit events
@@ -435,9 +436,10 @@ export class TxPoolV2Impl {
     // Step 7: Run eviction rules (enforce pool size limit)
     if (added.length > 0) {
       const feePayers = added.map(meta => meta.feePayer);
+      const uniqueFeePayers = new Set<string>(feePayers);
       await this.#evictionManager.evictAfterNewTxs(
         added.map(m => m.txHash),
-        feePayers,
+        [...uniqueFeePayers],
       );
     }
   }
