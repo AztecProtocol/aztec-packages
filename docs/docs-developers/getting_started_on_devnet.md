@@ -39,7 +39,7 @@ Before working with devnet, ensure you have:
 2. Aztec CLI with Devnet version installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network/#include_devnet_version/)
+bash -i <(curl -sL https://install.aztec.network/#include_devnet_version/)
 ```
 
 :::warning

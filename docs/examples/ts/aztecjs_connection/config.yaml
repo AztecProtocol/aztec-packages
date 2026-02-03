@@ -1,0 +1,14 @@
+# Configuration for aztecjs_connection example
+# Demonstrates connecting to network, creating wallets, and basic operations
+
+# No custom contracts needed - using pre-built contracts from @aztec/noir-contracts.js
+contracts: []
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/test-wallet"
+  - "@aztec/noir-contracts.js"
