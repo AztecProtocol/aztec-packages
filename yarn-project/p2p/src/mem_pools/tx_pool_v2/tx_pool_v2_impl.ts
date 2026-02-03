@@ -4,7 +4,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
@@ -221,7 +221,7 @@ export class TxPoolV2Impl {
     });
 
     // Build final accepted list (pending txs need intra-batch eviction filtering)
-    for (const { txHash, feePayer } of pendingAdded) {
+    for (const { txHash } of pendingAdded) {
       if (acceptedInBatch.has(txHash)) {
         accepted.push(TxHash.fromString(txHash));
       }

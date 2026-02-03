@@ -3406,7 +3406,8 @@ describe('TxPoolV2', () => {
 
       const tx = await mockTxWithFee(1, 10);
       await pool1.addPendingTxs([tx]);
-      await pool1.handleMinedBlock(makeBlock([tx], slot1Header));
+      const block = makeBlock([tx], slot1Header);
+      await pool1.handleMinedBlock(block);
 
       expect(await pool1.getPendingTxCount()).toBe(0);
       expect(await pool1.getMinedTxCount()).toBe(1);
@@ -3417,9 +3418,11 @@ describe('TxPoolV2', () => {
       mockL2BlockSource.getTxEffect.mockImplementation(async (txHash: TxHash) => {
         if (txHash.toString() === tx.getTxHash().toString()) {
           return {
-            l2BlockNumber: 1,
-            l2BlockHash: Fr.random().toString(),
-          } as any;
+            l2BlockNumber: BlockNumber(1),
+            l2BlockHash: await block.hash(),
+            data: block.body.txEffects[0],
+            txIndexInBlock: 0,
+          };
         }
         return undefined;
       });
@@ -3468,11 +3471,11 @@ describe('TxPoolV2', () => {
 
       // Create validator that rejects tx1
       const selectiveValidator: TxValidator<Tx> = {
-        validateTx: async (tx: Tx) => {
+        validateTx: (tx: Tx) => {
           if (tx.getTxHash().toString() === tx1.getTxHash().toString()) {
-            return { result: 'invalid', reason: ['test rejection'] };
+            return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
           }
-          return { result: 'valid' };
+          return Promise.resolve({ result: 'valid' });
         },
       };
 

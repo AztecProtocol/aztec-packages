@@ -3,7 +3,7 @@
  * These tests mirror the original TxPool test suite (aztec_kv_tx_pool.test.ts)
  * but use the new TxPoolV2 interface.
  */
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
@@ -594,7 +594,6 @@ describe('TxPoolV2 Compatibility Tests', () => {
     });
 
     await pool.addPendingTxs([tx1, tx2, tx3]);
-    const txHashes = [tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()];
     await pool.handleMinedBlock(makeBlock([tx1, tx2, tx3], block1Header));
     await pool.handlePrunedBlocks(block0Id);
 
