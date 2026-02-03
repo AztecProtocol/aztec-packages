@@ -389,7 +389,7 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     trace.set(
         0,
         std::vector<std::pair<Column, FF>>{
-            { C::precomputed_idx, 0 },
+            { C::execution_clk, 0 },
             { C::precomputed_first_row, 1 },
             { C::execution_sel_execute_sstore, 0 },
             { C::execution_sel_write_public_data, 1 },

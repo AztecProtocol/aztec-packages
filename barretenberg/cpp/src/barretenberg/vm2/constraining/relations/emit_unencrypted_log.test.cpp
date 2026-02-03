@@ -707,7 +707,7 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
-                  { C::precomputed_idx, ghost_row },
+                  { C::execution_clk, ghost_row },
                   { C::precomputed_zero, 0 },
                   { C::emit_unencrypted_log_sel, 0 },
                   { C::emit_unencrypted_log_is_write_memory_value, 1 },

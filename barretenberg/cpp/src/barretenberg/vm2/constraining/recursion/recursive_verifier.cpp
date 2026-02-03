@@ -185,8 +185,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     auto shifted_evals = output.claimed_evaluations.get_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_idx is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
@@ -199,8 +197,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                               std::vector<FF>(shifted_challenges.begin(), shifted_challenges.end()),
                               128);
 
-    // Batch unshifted commitments: ColumnAndShifts::precomputed_idx has coefficient 1, rest are batched with
-    // challenges. We reuse the calculation performed for shifted commitments.
+    // Batch unshifted commitments: We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         Commitment::batch_mul(
             std::vector<Commitment>(unshifted_comms.begin(), unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
