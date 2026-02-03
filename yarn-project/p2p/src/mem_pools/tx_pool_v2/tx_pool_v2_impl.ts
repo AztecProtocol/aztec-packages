@@ -427,7 +427,7 @@ export class TxPoolV2Impl {
     const { valid, invalid } = await this.#validateForPending(txsToRestore);
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
-    const { added, toEvict } = this.#resolveNullifierConflicts(valid);
+    const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
 
     // Step 6: Delete invalid and evicted txs
     await this.#deleteTxsBatch([...invalid, ...toEvict]);
@@ -462,7 +462,7 @@ export class TxPoolV2Impl {
     const { valid, invalid } = await this.#validateForPending(unprotectedTxs);
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
-    const { toEvict } = this.#resolveNullifierConflicts(valid);
+    const { toEvict } = this.#applyNullifierConflictResolution(valid);
 
     // Step 6: Delete invalid and evicted txs
     await this.#deleteTxsBatch([...invalid, ...toEvict]);
@@ -783,7 +783,7 @@ export class TxPoolV2Impl {
    * Modifies the pending indices during iteration to maintain consistent state
    * for subsequent conflict checks within the same batch.
    */
-  #resolveNullifierConflicts(txs: TxMetaData[]): { added: TxMetaData[]; toEvict: string[] } {
+  #applyNullifierConflictResolution(txs: TxMetaData[]): { added: TxMetaData[]; toEvict: string[] } {
     const added: TxMetaData[] = [];
     const toEvict: string[] = [];
 

@@ -5,6 +5,7 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
+import type { PreAddResult } from './eviction/interfaces.js';
 
 /**
  * Lightweight in-memory representation of a transaction.
@@ -90,16 +91,6 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   return fieldA.cmp(fieldB);
 }
 
-/** Result of checking for nullifier conflicts */
-export type NullifierConflictResult = {
-  /** Whether the incoming tx should be ignored (existing tx has equal or higher priority) */
-  shouldIgnore: boolean;
-  /** Tx hashes that should be evicted (incoming tx has higher priority) */
-  txHashesToEvict: string[];
-  /** Reason for ignoring, if applicable */
-  reason?: string;
-};
-
 /**
  * Checks for nullifier conflicts between an incoming transaction and existing pool state.
  *
@@ -115,7 +106,7 @@ export function checkNullifierConflict(
   incomingMeta: TxMetaData,
   getTxHashByNullifier: (nullifier: string) => string | undefined,
   getMetadata: (txHash: string) => TxMetaData | undefined,
-): NullifierConflictResult {
+): PreAddResult {
   const txHashesToEvict: string[] = [];
 
   for (const nullifier of incomingMeta.nullifiers) {
