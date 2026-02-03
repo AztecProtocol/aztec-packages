@@ -33,7 +33,14 @@ export async function initStoreForRollupAndSchemaVersion<T extends AztecKVStore 
     ? (dbVersion as AztecSingleton<string>).get()
     : await (dbVersion as AztecAsyncSingleton<string>).getAsync();
 
+  // Check if this is an old format store (has rollupAddress singleton but no dbVersion)
+  const oldRollupSingleton = store.openSingleton<string>('rollupAddress');
+  const hasOldFormat = isSyncStore(store)
+    ? !storedDatabaseVersion && !!(oldRollupSingleton as AztecSingleton<string>).get()
+    : !storedDatabaseVersion && !!(await (oldRollupSingleton as AztecAsyncSingleton<string>).getAsync());
+
   if (
+    hasOldFormat ||
     doesStoreNeedToBeCleared(
       targetDatabaseVersion,
       storedDatabaseVersion,
@@ -42,6 +49,9 @@ export async function initStoreForRollupAndSchemaVersion<T extends AztecKVStore 
       log,
     )
   ) {
+    if (hasOldFormat) {
+      log?.warn('Detected old store format without dbVersion, clearing database');
+    }
     await store.clear();
   }
 

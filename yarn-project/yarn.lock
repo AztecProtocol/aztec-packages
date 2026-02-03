@@ -1533,6 +1533,7 @@ __metadata:
     "@types/sinon": "npm:^17.0.3"
     "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     "@web/dev-server-esbuild": "npm:^1.0.3"
+    "@web/dev-server-import-maps": "npm:^0.2.1"
     "@web/test-runner": "npm:^0.19.0"
     "@web/test-runner-playwright": "npm:^0.11.0"
     chai: "npm:^5.1.2"
@@ -1548,6 +1549,7 @@ __metadata:
     sinon: "npm:^19.0.2"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
   languageName: unknown
   linkType: soft
 
@@ -3826,6 +3828,13 @@ __metadata:
   version: 2.2.5
   resolution: "@iarna/toml@npm:2.2.5"
   checksum: 10/b61426dc1a3297bbcb24cb8e9c638663866b4bb6f28f2c377b167e4b1f8956d8d208c484b73bb59f4232249903545cc073364c43576d2d5ad66afbd730ad24a9
+  languageName: node
+  linkType: hard
+
+"@import-maps/resolve@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@import-maps/resolve@npm:1.0.1"
+  checksum: 10/3ad4a1622618baf407e68eac7c4ed76f8af5c2238526305a7fea9d2c4e7b1614b44b60d408a97a84f400f6514db101b7b1ae208d23ddbcec3c9d4b068db2301b
   languageName: node
   linkType: hard
 
@@ -8726,6 +8735,20 @@ __metadata:
     parse5: "npm:^6.0.1"
     ua-parser-js: "npm:^1.0.33"
   checksum: 10/50d6974208f4a662d5387edc18bc13eaf8823644c1024ba0f2b0129ea223c8eaf43f4e932d50a00156f5069cc5b159d3ed3976f49ff7554b333608fc56f5948d
+  languageName: node
+  linkType: hard
+
+"@web/dev-server-import-maps@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "@web/dev-server-import-maps@npm:0.2.1"
+  dependencies:
+    "@import-maps/resolve": "npm:^1.0.1"
+    "@types/parse5": "npm:^6.0.1"
+    "@web/dev-server-core": "npm:^0.7.2"
+    "@web/parse5-utils": "npm:^2.1.0"
+    parse5: "npm:^6.0.1"
+    picomatch: "npm:^2.2.2"
+  checksum: 10/7a53da7c6156169de9e240065e8ca86376ef921a9a8a368e6602c7a6c42d3253432e46742f49797c9c69fea1246210a43e73852751b3603e2b2f64b701ea8626
   languageName: node
   linkType: hard
 
