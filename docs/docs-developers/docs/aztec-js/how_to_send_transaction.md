@@ -13,9 +13,8 @@ Transactions on Aztec execute contract functions that modify state. Unlike simpl
 
 ## Prerequisites
 
-- Deployed contract with its address and ABI
-- Funded account wallet (see [paying fees](./how_to_pay_fees.md))
-- Running Aztec local network or connected to a network
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- Deployed contract with its address and ABI (see [How to Deploy](./how_to_deploy_contract.md))
 - Understanding of [contract interactions](../aztec-nr/framework-description/how_to_call_contracts.md)
 
 ## Send a transaction
@@ -25,16 +24,17 @@ After connecting to a contract:
 ```typescript
 import { Contract } from "@aztec/aztec.js";
 
+// wallet is from the connection guide; contractAddress and artifact are from your deployed contract
 const contract = await Contract.at(contractAddress, artifact, wallet);
 ```
 
 Call a function and wait for it to be mined:
 
 ```typescript
+// contract is from the step above; alice is from the connection guide
 const receipt = await contract.methods
-  .transfer(recipientAddress, amount)
-  .send({ from: sender.address })
-  .wait();
+  .transfer(bobAddress, amount)
+  .send({ from: aliceAddress });
 
 console.log(`Transaction mined in block ${receipt.blockNumber}`);
 console.log(`Transaction fee: ${receipt.transactionFee}`);
@@ -44,36 +44,15 @@ The `from` field specifies which account sends the transaction. If that account 
 
 ### Send without waiting
 
-```typescript
-const sentTx = contract.methods
-  .transfer(recipientAddress, amount)
-  .send({ from: sender.address });
+Use the `NO_WAIT` option to get the transaction hash immediately without waiting for inclusion:
 
-// Get transaction hash immediately
-const txHash = await sentTx.getTxHash();
-console.log(`Transaction sent: ${txHash.toString()}`);
-
-// Wait for inclusion later
-const receipt = await sentTx.wait();
-console.log(`Transaction mined in block ${receipt.blockNumber}`);
-```
+#include_code no_wait_transaction /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Send batch transactions
 
 Execute multiple calls atomically using `BatchCall`:
 
-```typescript
-import { BatchCall } from "@aztec/aztec.js";
-
-const batch = new BatchCall(wallet, [
-  token.methods.approve(spender, amount),
-  contract.methods.deposit(amount),
-  contract.methods.updateState(),
-]);
-
-const receipt = await batch.send({ from: sender.address }).wait();
-console.log(`Batch executed in block ${receipt.blockNumber}`);
-```
+#include_code batch_call /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::warning
 All calls in a batch must succeed or the entire batch reverts. Use batch transactions when you need atomic execution of multiple operations.
@@ -81,16 +60,9 @@ All calls in a batch must succeed or the entire batch reverts. Use batch transac
 
 ## Query transaction status
 
-After sending a transaction, you can query its receipt:
+After sending a transaction without waiting, you can query its receipt using the node:
 
-```typescript
-const txHash = await sentTx.getTxHash();
-const receipt = await wallet.getTxReceipt(txHash);
-
-console.log(`Status: ${receipt.status}`);
-console.log(`Block number: ${receipt.blockNumber}`);
-console.log(`Transaction fee: ${receipt.transactionFee}`);
-```
+#include_code query_tx_status /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 The receipt includes:
 
