@@ -41,7 +41,7 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
 
   async sizeAsync(): Promise<number> {
     const index = this.db.index('key');
-    const rangeQuery = IDBKeyRange.bound([this.container, ''], [this.container, '\uffff']);
+    const rangeQuery = IDBKeyRange.bound([this.container], [this.container + '\uffff'], true, true);
     return await index.count(rangeQuery);
   }
 
@@ -80,9 +80,12 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
 
   async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
     const index = this.db.index('key');
+    const startKey = range.start ? this.normalizeKey(range.start) : [];
+    const endKey = range.end ? this.normalizeKey(range.end) : ['\uffff'];
+
     const rangeQuery = IDBKeyRange.bound(
-      [this.container, range.start ? this.normalizeKey(range.start) : ''],
-      [this.container, range.end ? this.normalizeKey(range.end) : '\uffff'],
+      [this.container, startKey],
+      [this.container, endKey],
       !!range.reverse,
       !range.reverse,
     );
@@ -108,14 +111,12 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
     }
   }
 
-  #denormalizeKey(key: string): K {
-    const denormalizedKey = key.split(',').map(part => (part.startsWith('n_') ? Number(part.slice(2)) : part));
-    return (denormalizedKey.length > 1 ? denormalizedKey : denormalizedKey[0]) as K;
+  #denormalizeKey(key: (string | number | Uint8Array)[]): K {
+    return (key.length > 1 ? key : key[0]) as K;
   }
 
-  protected normalizeKey(key: K): string {
-    const arrayKey = Array.isArray(key) ? key : [key];
-    return (arrayKey as K[]).map((element: K) => (typeof element === 'number' ? `n_${element}` : element)).join(',');
+  protected normalizeKey(key: K): (string | number | Uint8Array)[] {
+    return Array.isArray(key) ? key : [key];
   }
 
   protected slot(key: K, index: number = 0): string {
