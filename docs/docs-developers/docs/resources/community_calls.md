@@ -63,4 +63,4 @@ We offer two weekly sessions to accommodate different timezones.
 
 Save time, add everything with one click:
 
-[Subscribe to the Aztec & Noir Community Calendar](https://calendar.google.com/calendar/u/0?cid=ZGI5MTVjMGQ2MzQ5NWNlNTgzOTJmNjg5YjJjZDYyZjQ5MTgxNzk3YjUzYTBiYmUyNmUwOTBkNWQ5Y2E0YzIwZEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t)
+[Subscribe to the Aztec & Noir Community Calendar](https://calendar.google.com/calendar/u/0?cid=Y182ZDg0ZWEwMGNmYmJkY2M3MDViODdkOGQwNGQ2ZjUzYTYyN2YwMTk1MjRmN2I1ODQ4MTY0MzA2N2ZlNzU0ZDFjQGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20)
