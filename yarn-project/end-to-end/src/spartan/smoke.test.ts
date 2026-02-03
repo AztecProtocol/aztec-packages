@@ -10,7 +10,11 @@ import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
 import {
+  type ServiceEndpoint,
+  getEthereumEndpoint,
   getGitProjectRoot,
+  getRPCEndpoint,
+  getSequencers,
   installChaosMeshChart,
   setupEnvironment,
   startPortForward,
@@ -24,28 +28,25 @@ describe('smoke test', () => {
   const logger = createLogger('e2e:spartan-test:smoke');
   let aztecNode: AztecNode;
   let ethereumClient: ViemPublicClient;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
     logger.info('Starting port forward for PXE');
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethereumProcess);
-    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint, ethEndpoint);
 
-    aztecNode = createAztecNodeClient(nodeUrl);
+    aztecNode = createAztecNodeClient(rpcEndpoint.url);
     const nodeInfo = await aztecNode.getNodeInfo();
 
-    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
-    const chain = createEthereumChain([ethereumUrl], nodeInfo.l1ChainId);
+    const chain = createEthereumChain([ethEndpoint.url], nodeInfo.l1ChainId);
     ethereumClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback([http(ethereumUrl, { batch: false })]),
+      transport: fallback([http(ethEndpoint.url, { batch: false })]),
     });
   });
 
@@ -195,12 +196,17 @@ describe('smoke test', () => {
           RETRY_INTERVAL_SECONDS,
         ),
 
-        // Test validator admin port forward
+        // Test validator admin port forward (uses dynamic discovery via label selectors)
         retryUntil(
           async () => {
             try {
+              // Dynamically discover validator pods instead of hardcoding names
+              const validators = await getSequencers(config.NAMESPACE);
+              if (!validators.length) {
+                return undefined;
+              }
               const result = await startPortForward({
-                resource: `pod/${config.NAMESPACE}-validator-aztec-node-0`,
+                resource: `pod/${validators[0]}`,
                 namespace: config.NAMESPACE,
                 containerPort: 8880,
               });

@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
@@ -20,7 +20,7 @@ describe('PrivateEventStore', () => {
   let scope: AztecAddress;
   let msgContent: Fr[];
   let l2BlockNumber: BlockNumber;
-  let l2BlockHash: L2BlockHash;
+  let l2BlockHash: BlockHash;
   let eventSelector: EventSelector;
   let randomness: Fr;
   let txHash: TxHash;
@@ -34,7 +34,7 @@ describe('PrivateEventStore', () => {
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
     l2BlockNumber = BlockNumber(123);
-    l2BlockHash = L2BlockHash.random();
+    l2BlockHash = BlockHash.random();
     eventSelector = EventSelector.random();
     randomness = Fr.random();
     txHash = TxHash.random();
@@ -276,6 +276,51 @@ describe('PrivateEventStore', () => {
     });
 
     expect(events).toEqual([expectedEvent]);
+  });
+
+  it('finds event under each scope it was stored with', async () => {
+    const scope1 = await AztecAddress.random();
+    const scope2 = await AztecAddress.random();
+    const eventCommitment = Fr.random();
+
+    const event = {
+      contractAddress,
+      scope: scope1,
+      txHash,
+      l2BlockNumber,
+      l2BlockHash,
+      txIndexInBlock: 0,
+      eventIndexInTx: 0,
+    };
+
+    await privateEventStore.storePrivateEventLog(eventSelector, randomness, msgContent, eventCommitment, event, 'test');
+    await privateEventStore.storePrivateEventLog(
+      eventSelector,
+      randomness,
+      msgContent,
+      eventCommitment,
+      { ...event, scope: scope2 },
+      'test',
+    );
+
+    await privateEventStore.commit('test');
+
+    const filter = { contractAddress, fromBlock: l2BlockNumber, toBlock: l2BlockNumber + 1 };
+
+    const eventsScope1 = await privateEventStore.getPrivateEvents(eventSelector, { ...filter, scopes: [scope1] });
+    expect(eventsScope1).toHaveLength(1);
+    expect(eventsScope1[0].packedEvent).toEqual(msgContent);
+
+    const eventsScope2 = await privateEventStore.getPrivateEvents(eventSelector, { ...filter, scopes: [scope2] });
+    expect(eventsScope2).toHaveLength(1);
+    expect(eventsScope2[0].packedEvent).toEqual(msgContent);
+
+    // Querying with both scopes returns the event once
+    const eventsBoth = await privateEventStore.getPrivateEvents(eventSelector, {
+      ...filter,
+      scopes: [scope1, scope2],
+    });
+    expect(eventsBoth).toHaveLength(1);
   });
 
   it('returns empty array when no events match criteria', async () => {

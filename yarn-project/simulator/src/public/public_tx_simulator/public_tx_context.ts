@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import {
   AvmAccumulatedData,
   AvmAccumulatedDataArrayLengths,
@@ -87,8 +87,9 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
     private readonly trace: SideEffectTrace,
+    bindings?: LoggerBindings,
   ) {
-    this.log = createLogger(`simulator:public_tx_context`);
+    this.log = createLogger(`simulator:public_tx_context`, bindings);
   }
 
   public static async create(
@@ -98,13 +99,14 @@ export class PublicTxContext {
     globalVariables: GlobalVariables,
     protocolContracts: ProtocolContracts,
     proverId: Fr,
+    bindings?: LoggerBindings,
   ) {
     const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
     const nonRevertibleContractDeploymentData = contractDeploymentData.getNonRevertibleContractDeploymentData();
     const revertibleContractDeploymentData = contractDeploymentData.getRevertibleContractDeploymentData();
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const trace = new SideEffectTrace();
+    const trace = new SideEffectTrace(0, bindings);
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
@@ -115,6 +117,7 @@ export class PublicTxContext {
       trace,
       firstNullifier,
       globalVariables.timestamp,
+      bindings,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -124,7 +127,7 @@ export class PublicTxContext {
 
     return new PublicTxContext(
       tx.getTxHash(),
-      new PhaseStateManager(txStateManager),
+      new PhaseStateManager(txStateManager, bindings),
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       protocolContracts,
@@ -142,6 +145,7 @@ export class PublicTxContext {
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
+      bindings,
     );
   }
 
@@ -441,8 +445,11 @@ class PhaseStateManager {
 
   private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: PublicPersistableStateManager) {
-    this.log = createLogger(`simulator:public_phase_state_manager`);
+  constructor(
+    private readonly txStateManager: PublicPersistableStateManager,
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger(`simulator:public_phase_state_manager`, bindings);
   }
 
   async fork() {

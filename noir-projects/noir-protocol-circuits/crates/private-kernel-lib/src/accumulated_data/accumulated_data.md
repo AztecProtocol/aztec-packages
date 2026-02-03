@@ -84,7 +84,7 @@ In `PrivateKernelCircuitOutputValidator.validate_propagated_from_private_call`:
   - `private_logs`
   - `contract_class_logs_hashes`
 - **`assert_array_appended`**: Validates that `public_call_requests` are appended
-- **`assert_array_appended_reversed_up_to_some_length`**: Validates that `private_call_requests` are appended in reversed order to the `private_call_stack`
+- **`assert_array_appended_reversed`**: Validates that `private_call_requests` are appended in reversed order to the `private_call_stack`
 
 #### Result
 
@@ -188,7 +188,7 @@ For **unsorted** data (`l2_to_l1_msgs`, `contract_class_logs_hashes`, `public_ca
 | Circuit        | Data Transformation                         | Key Validation Functions                                                                                                                                                                      |
 | -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Init           | Scope with contract address and append      | `assert_array_appended_to_empty_dest_and_scoped`<br>`assert_array_appended_and_scoped`<br>`assert_array_appended_to_empty_dest`<br>`assert_array_appended_reversed_to_empty_dest`             |
-| Inner          | Prepend previous + Append new (scoped)      | `assert_array_prepended`<br>`assert_array_prepended_up_to_some_length`<br>`assert_array_appended_and_scoped`<br>`assert_array_appended`<br>`assert_array_appended_reversed_up_to_some_length` |
+| Inner          | Prepend previous + Append new (scoped)      | `assert_array_prepended`<br>`assert_array_prepended_up_to_some_length`<br>`assert_array_appended_and_scoped`<br>`assert_array_appended`<br>`assert_array_appended_reversed` |
 | Reset          | Squash, optionally silo/pad/sort            | `assert_sorted_padded_transformed_array_capped_size`<br>`assert_sorted_padded_transformed_i_array_capped_size`                                                                                |
 | Tail           | Sort and transform to rollup format         | `assert_sorted_transformed_array`                                                                                                                                                             |
 | Tail-to-Public | Sort, split, and transform to public format | `assert_split_transformed_arrays_from_sorted_padded_array`<br>`assert_split_sorted_transformed_arrays`                                                                                        |

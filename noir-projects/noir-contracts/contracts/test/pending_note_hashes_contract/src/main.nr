@@ -14,7 +14,7 @@ pub contract PendingNoteHashes {
         macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
             constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL},
@@ -22,7 +22,7 @@ pub contract PendingNoteHashes {
         },
         state_vars::{Owned, PrivateSet},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

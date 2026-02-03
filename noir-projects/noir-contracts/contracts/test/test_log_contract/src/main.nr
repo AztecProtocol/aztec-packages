@@ -6,10 +6,10 @@ pub contract TestLog {
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
-        protocol_types::{address::AztecAddress, traits::FromField},
+        protocol::{address::AztecAddress, traits::FromField},
         state_vars::{Owned, PrivateSet},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[event]
     struct ExampleEvent0 {

@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize, ToField};
+use dep::aztec::protocol::traits::{Deserialize, Packable, Serialize, ToField};
 use std::meta::derive;
 
 global ADMIN_FLAG: u64 = 1;
@@ -47,7 +47,7 @@ impl Packable for UserFlags {
 
 mod test {
     use crate::types::roles::UserFlags;
-    use aztec::protocol_types::traits::Packable;
+    use aztec::protocol::traits::Packable;
 
     fn assert_packable(is_minter: bool, is_admin: bool, is_blacklisted: bool) {
         let flags = UserFlags { is_minter, is_admin, is_blacklisted };

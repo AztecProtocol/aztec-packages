@@ -130,7 +130,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="24.12.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -150,14 +150,15 @@ function check_toolchains {
 }
 
 function versions {
-  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
-  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
-  local node_version=$(node --version | cut -d 'v' -f 2)
-  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
-  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
-  local zig_version=$(zig version)
-  local rustc_version=$(rustc --version | cut -d' ' -f2)
-  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
   echo "noir: $noir_version"
   echo "foundry: $anvil_version"
   echo "node: $node_version"
@@ -594,11 +595,12 @@ case "$cmd" in
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
   "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image]
+    # Args: <env_file> <namespace> [docker_image] [test_set]
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="${3:-}"
+    test_set="${4:-}"
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "$docker_image" ]; then
@@ -609,7 +611,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out

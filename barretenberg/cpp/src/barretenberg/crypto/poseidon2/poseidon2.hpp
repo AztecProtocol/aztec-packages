@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Sergei], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -12,6 +12,13 @@
 
 namespace bb::crypto {
 
+/**
+ * @brief Native Poseidon2 hash function implementation
+ * @details This implementation is differentially tested against the stdlib (circuit) implementation.
+ *          The stdlib tests (stdlib/hash/poseidon2/poseidon2.test.cpp) validate both implementations
+ *          against independent test vectors from https://github.com/zemse/poseidon2-evm and verify
+ *          that native and circuit implementations produce identical outputs.
+ */
 template <typename Params> class Poseidon2 {
   public:
     using FF = typename Params::FF;

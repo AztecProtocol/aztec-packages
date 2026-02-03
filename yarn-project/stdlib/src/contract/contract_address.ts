@@ -87,5 +87,5 @@ export async function computeInitializationHashFromEncodedArgs(
   encodedArgs: Fr[],
 ): Promise<Fr> {
   const argsHash = await computeVarArgsHash(encodedArgs);
-  return poseidon2HashWithSeparator([initFn, argsHash], GeneratorIndex.CONSTRUCTOR);
+  return poseidon2HashWithSeparator([initFn, argsHash], GeneratorIndex.INITIALIZER);
 }

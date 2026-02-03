@@ -8,7 +8,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -57,7 +57,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
     private readonly wsTreeMapSizes: WorldStateTreeMapSizes,
     private readonly prefilledPublicData: PublicDataTreeLeaf[] = [],
     private readonly instrumentation: WorldStateInstrumentation,
-    private readonly log: Logger = createLogger('world-state:database'),
+    bindings?: LoggerBindings,
+    private readonly log: Logger = createLogger('world-state:database', bindings),
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
@@ -80,7 +81,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       prefilledPublicDataBufferArray,
-      GeneratorIndex.BLOCK_HASH,
+      GeneratorIndex.BLOCK_HEADER_HASH,
       {
         [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
         [MerkleTreeId.NOTE_HASH_TREE]: wsTreeMapSizes.noteHashTreeMapSizeKb,
@@ -105,6 +106,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.wsTreeMapSizes,
       this.prefilledPublicData,
       this.instrumentation,
+      this.log.getBindings(),
       this.log,
     );
   }

@@ -1,7 +1,9 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BlockProposal, CheckpointProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointProposal, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
+
+import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export abstract class ProposalValidator<TProposal extends BlockProposal | CheckpointProposal> {
   protected epochCache: EpochCacheInterface;
@@ -14,30 +16,35 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
     this.logger = createLogger(loggerName);
   }
 
-  public async validate(proposal: TProposal): Promise<PeerErrorSeverity | undefined> {
+  public async validate(proposal: TProposal): Promise<ValidationResult> {
     try {
       // Slot check
       const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
-        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
-        return PeerErrorSeverity.HighToleranceError;
+        // Check if message is for previous slot and within clock tolerance
+        if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
+          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
+          return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+        }
+        this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
+        return { result: 'ignore' };
       }
 
       // Signature validity
       const proposer = proposal.getSender();
       if (!proposer) {
-        this.logger.debug(`Penalizing peer for proposal with invalid signature`);
-        return PeerErrorSeverity.MidToleranceError;
+        this.logger.warn(`Penalizing peer for proposal with invalid signature`);
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Transactions permitted check
       const embeddedTxCount = proposal.txs?.length ?? 0;
       if (!this.txsPermitted && (proposal.txHashes.length > 0 || embeddedTxCount > 0)) {
-        this.logger.debug(
+        this.logger.warn(
           `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when transactions are not permitted`,
         );
-        return PeerErrorSeverity.MidToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Embedded txs must be listed in txHashes
@@ -52,17 +59,17 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
           txHashesLength: proposal.txHashes.length,
           missingTxHashes,
         });
-        return PeerErrorSeverity.MidToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Proposer check
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
+        this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           expectedProposer,
           proposer: proposer.toString(),
         });
-        return PeerErrorSeverity.MidToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Validate tx hashes for all txs embedded in the proposal
@@ -71,13 +78,13 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
           proposer,
           slotNumber,
         });
-        return PeerErrorSeverity.LowToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
-      return undefined;
+      return { result: 'accept' };
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        return PeerErrorSeverity.LowToleranceError;
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
       throw e;
     }

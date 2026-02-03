@@ -1,11 +1,9 @@
 use crate::{
     context::PrivateContext,
     note::{
-        confirmed_note::ConfirmedNote,
-        hinted_note::HintedNote,
-        note_getter_options::{
-            NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder,
-        },
+        ConfirmedNote,
+        HintedNote,
+        note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
         note_interface::{NoteHash, NoteType},
         note_viewer_options::NoteViewerOptions,
         utils::compute_note_existence_request,
@@ -14,7 +12,7 @@ use crate::{
     utils::{array, comparison::compare},
 };
 
-use protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},
@@ -24,13 +22,10 @@ pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
 mod test;
 
-fn extract_property_value_from_selector<let N: u32>(
-    packed_note: [Field; N],
-    selector: PropertySelector,
-) -> Field {
-    // Selectors use PropertySelectors in order to locate note properties inside the packed note.
-    // This allows easier packing and custom (un)packing schemas. A note property is located
-    // inside the packed note using the index inside the array, a byte offset and a length.
+fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], selector: PropertySelector) -> Field {
+    // Selectors use PropertySelectors in order to locate note properties inside the packed note. This allows easier
+    // packing and custom (un)packing schemas. A note property is located inside the packed note using the index inside
+    // the array, a byte offset and a length.
     let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
@@ -48,21 +43,13 @@ fn extract_property_value_from_selector<let N: u32>(
 fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
-        let value_field =
-            extract_property_value_from_selector(packed_note, select.property_selector);
+        let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
 
-        assert(
-            compare(value_field, select.comparator, select.value.to_field()),
-            "Mismatch return note field.",
-        );
+        assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
     }
 }
 
-fn check_notes_order<let N: u32>(
-    fields_0: [Field; N],
-    fields_1: [Field; N],
-    sorts: BoundedVec<Option<Sort>, N>,
-) {
+fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
     for i in 0..sorts.len() {
         let sort = sorts.get_unchecked(i).unwrap_unchecked();
         let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
@@ -85,8 +72,8 @@ pub fn get_note<Note>(
 where
     Note: NoteType + NoteHash + Packable,
 {
-    // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
-    // is check that the metadata is correct, and that the note exists.
+    // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is
+    // check that the metadata is correct, and that the note exists.
     let hinted_note = unsafe { view_note::<Note>(owner, storage_slot) };
 
     confirm_hinted_note(context, hinted_note, owner, storage_slot)
@@ -102,14 +89,11 @@ where
     Note: NoteType + NoteHash + Packable,
 {
     // For settled notes, the contract address is implicitly checked since the hash returned from
-    // `compute_note_existence_request` is siloed and kernels verify the siloing during note read request
-    // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
-    // address returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all
-    // note types.
-    assert(
-        hinted_note.contract_address.eq(context.this_address()),
-        "Note contract address mismatch.",
-    );
+    // `compute_note_existence_request` is siloed and kernels verify the siloing during note read request validation.
+    // Pending notes however are read with the unsiloed note hash, so we need to check that the contract address
+    // returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all note
+    // types.
+    assert(hinted_note.contract_address.eq(context.this_address()), "Note contract address mismatch.");
 
     // If an owner was provided in the function call, we need to check that it matches the one in the note. This is
     // necessary because if there were two valid notes that differed only by owner, the note existence request check
@@ -120,9 +104,8 @@ where
 
     // We need to constrain that the storage slot in the hinted note matches the value on the input. Note that this
     // assertion could be avoided if we did not receive the storage slot from the oracle but we instead directly
-    // injected it into the returned note type (e.g. by doing something like
-    // `HintedNote::from(hinted_note_from_oracle, storage_slot)`). This optimization is too low of a priority
-    // now.
+    // injected it into the returned note type (e.g. by doing something like `HintedNote::from(hinted_note_from_oracle,
+    // storage_slot)`). This optimization is too low of a priority now.
     assert(hinted_note.storage_slot == storage_slot, "Note storage slot mismatch.");
 
     let note_existence_request = compute_note_existence_request(hinted_note);
@@ -174,8 +157,8 @@ where
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
-    // kernel will later validate that these note actually exist, so transformations would cause for that check
-    // to fail.
+    // kernel will later validate that these note actually exist, so transformations would cause for that check to
+    // fail.
     let filter_fn = options.filter;
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(maybe_hinted_notes, filter_args);
@@ -198,21 +181,18 @@ where
             // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the
             // contract address returned from the oracle matches. Since branching in circuits is expensive, we perform
             // this check on all note types.
-            assert(
-                hinted_note.contract_address.eq(context.this_address()),
-                "Note contract address mismatch.",
-            );
+            assert(hinted_note.contract_address.eq(context.this_address()), "Note contract address mismatch.");
 
             // If owner is provided, constrain that it matches the owner in the hinted note.
             if options.owner.is_some() {
                 assert(hinted_note.owner.eq(options.owner.unwrap()), "Note owner mismatch.");
             }
 
-            // We need to constrain that the storage slot in the hinted note matches the value on the input. Note
-            // that this assertion could be avoided if we did not receive the storage slot from the oracle but we
-            // instead directly injected it into the returned note type (e.g. by doing something like
-            // `HintedNote::from(hinted_note_from_oracle, storage_slot)`). This optimization is too low of a
-            // priority now.
+            // We need to constrain that the storage slot in the hinted note matches the value on the input. Note that
+            // this assertion could be avoided if we did not receive the storage slot from the oracle but we instead
+            // directly injected it into the returned note type (e.g. by doing something like
+            // `HintedNote::from(hinted_note_from_oracle, storage_slot)`). This optimization is too low of a priority
+            // now.
             assert(hinted_note.storage_slot == storage_slot, "Note storage slot mismatch.");
 
             let packed_note = hinted_note.note.pack();
@@ -231,10 +211,7 @@ where
     confirmed_notes
 }
 
-pub unconstrained fn view_note<Note>(
-    owner: Option<AztecAddress>,
-    storage_slot: Field,
-) -> HintedNote<Note>
+pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>
 where
     Note: NoteType + Packable,
 {
@@ -328,8 +305,8 @@ where
         options.status,
     );
 
-    // Even though we don't expect for the maybe_hinted_notes array to be sparse, collapse is still useful in this case to
-    // convert it into a BoundedVec.
+    // Even though we don't expect for the maybe_hinted_notes array to be sparse, collapse is still useful in this case
+    // to convert it into a BoundedVec.
     array::collapse(maybe_hinted_notes).map(
         // view_notes just returns the actual note, so we drop the metadata
         |hinted_note| hinted_note.note,
@@ -350,12 +327,9 @@ unconstrained fn flatten_options<let N: u32>(
     for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
-            select_by_indexes[num_selects as u32] =
-                select.unwrap_unchecked().property_selector.index;
-            select_by_offsets[num_selects as u32] =
-                select.unwrap_unchecked().property_selector.offset;
-            select_by_lengths[num_selects as u32] =
-                select.unwrap_unchecked().property_selector.length;
+            select_by_indexes[num_selects as u32] = select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects as u32] = select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects as u32] = select.unwrap_unchecked().property_selector.length;
             select_values[num_selects as u32] = select.unwrap_unchecked().value;
             select_comparators[num_selects as u32] = select.unwrap_unchecked().comparator;
             num_selects += 1;
@@ -377,7 +351,7 @@ unconstrained fn flatten_options<let N: u32>(
     }
 
     (
-        num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values,
-        select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order,
+        num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators,
+        sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order,
     )
 }

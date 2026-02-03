@@ -37,3 +37,24 @@ resource "cloudflare_r2_custom_domain" "aztec_labs_snapshots_com" {
   enabled     = true
 }
 
+# Lifecycle rules to automatically delete old objects
+resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
+  account_id  = var.R2_ACCOUNT_ID
+  bucket_name = cloudflare_r2_bucket.bucket.name
+
+  rules = [
+    {
+      id                        = "delete-snapshot-files"
+      enabled                   = true
+      conditions                = { suffix = ".db" }
+      delete_objects_transition = { days = var.SNAPSHOT_RETENTION_DAYS }
+    },
+    {
+      id                        = "delete-blob-files"
+      enabled                   = true
+      conditions                = { suffix = ".data" }
+      delete_objects_transition = { days = var.BLOB_RETENTION_DAYS }
+    },
+  ]
+}
+

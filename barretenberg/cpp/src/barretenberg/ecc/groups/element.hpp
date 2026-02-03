@@ -169,6 +169,57 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 // constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
 // constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
 // constexpr element<Fq, Fr, Params>::curve_b = Params::b;
+
+/**
+ * @brief Memory layout policy for batch affine operations with parallel arrays
+ * @details Layout: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no prefetch needed)
+ */
+struct ParallelArrayPolicy {
+    static constexpr bool ENABLE_PREFETCH = false;
+
+    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i; }
+
+    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return i; }
+
+    template <typename AffineElement>
+    static constexpr size_t output_index(size_t i, [[maybe_unused]] size_t num_pairs) noexcept
+    {
+        return i;
+    }
+};
+
+/**
+ * @brief Memory layout policy for batch affine operations with interleaved arrays
+ * @details Layout: (points[2i], points[2i+1]) -> points[num_pairs+i] (non-sequential, needs prefetch)
+ */
+struct InterleavedArrayPolicy {
+    static constexpr bool ENABLE_PREFETCH = true;
+
+    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i * 2; }
+
+    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return (i * 2) + 1; }
+
+    template <typename AffineElement> static constexpr size_t output_index(size_t i, size_t num_pairs) noexcept
+    {
+        return num_pairs + i;
+    }
+
+    template <typename AffineElement, typename Fq>
+    static void prefetch_iteration(const AffineElement* base_points,
+                                   const Fq* scratch,
+                                   size_t i,
+                                   size_t num_pairs) noexcept
+    {
+        if (i >= 1) {
+            size_t prev = i - 1;
+            __builtin_prefetch(&base_points[prev * 2]);
+            __builtin_prefetch(&base_points[(prev * 2) + 1]);
+            __builtin_prefetch(&base_points[num_pairs + prev]);
+            __builtin_prefetch(&scratch[prev]);
+        }
+    }
+};
+
 } // namespace bb::group_elements
 
 #include "./element_impl.hpp"

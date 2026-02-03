@@ -84,7 +84,7 @@ function process_function {
       echo_stderr "Generating vk for function: $name..."
 
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
       cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
@@ -126,6 +126,7 @@ function get_contract_hash {
         ../../barretenberg/cpp/.rebuild_patterns \
         ../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/noir-contracts/contracts/$contract_path/" \
+        "^noir-projects/noir-contracts/contracts/protocol/aztec_sublib/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
   fi
@@ -174,7 +175,7 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
+    $NARGO compile --package $contract --inliner-aggressiveness 0  --deny-warnings
     $TRANSPILER $json_path $json_path
     $STRIP_AZTEC_NR_PREFIX $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path

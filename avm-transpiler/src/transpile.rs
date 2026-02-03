@@ -777,43 +777,35 @@ fn handle_nullifier_exists(
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
-    if destinations.len() != 1 || inputs.len() != 2 {
+    if destinations.len() != 1 || inputs.len() != 1 {
         panic!(
-            "Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}",
+            "Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 1 input, got {} and {}",
             destinations.len(),
             inputs.len()
         );
     }
-    let nullifier_offset_operand = match &inputs[0] {
+    let siloed_nullifier_offset_operand = match &inputs[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
-            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
-        ),
-    };
-    let address_offset_operand = match &inputs[1] {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!(
-            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
+            "Transpiler does not know how to handle ForeignCall::NULLIFIEREXISTS with HeapArray/Vector inputs"
         ),
     };
     let exists_offset_operand = match &destinations[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
-            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
+            "Transpiler does not know how to handle ForeignCall::NULLIFIEREXISTS with HeapArray/Vector inputs"
         ),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NULLIFIEREXISTS,
         addressing_mode: Some(
             AddressingModeBuilder::default()
-                .direct_operand(nullifier_offset_operand)
-                .direct_operand(address_offset_operand)
+                .direct_operand(siloed_nullifier_offset_operand)
                 .direct_operand(exists_offset_operand)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: nullifier_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: address_offset_operand.to_u32() as u16 },
+            AvmOperand::U16 { value: siloed_nullifier_offset_operand.to_u32() as u16 },
             AvmOperand::U16 { value: exists_offset_operand.to_u32() as u16 },
         ],
         ..Default::default()
@@ -1696,13 +1688,19 @@ fn handle_storage_read(
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
-    assert_eq!(inputs.len(), 1); // output
+    assert_eq!(inputs.len(), 2); // slot, contract_address
     assert_eq!(destinations.len(), 1); // return value
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
-        _ => panic!("ForeignCall address input should be a single value"),
+        _ => panic!("ForeignCall slot input should be a single value"),
+    };
+
+    let contract_address_offset_maybe = inputs[1];
+    let contract_address_offset = match contract_address_offset_maybe {
+        ValueOrArray::MemoryAddress(contract_address_offset) => contract_address_offset,
+        _ => panic!("ForeignCall contract_address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
@@ -1716,11 +1714,13 @@ fn handle_storage_read(
         addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&slot_offset)
+                .direct_operand(&contract_address_offset)
                 .direct_operand(&dest_offset)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: slot_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: contract_address_offset.to_u32() as u16 },
             AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
         ],
         ..Default::default()

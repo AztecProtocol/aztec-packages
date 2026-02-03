@@ -58,6 +58,11 @@ export class RustCodegen {
     return type.kind === 'vector' && this.needsSerdeBytes(type.element!);
   }
 
+  // Check if field needs serde(with = "serde_array4_bytes") - for [Vec<u8>; 4] (Poseidon2 state)
+  private needsSerdeArray4Bytes(type: Type): boolean {
+    return type.kind === 'array' && type.size === 4 && this.needsSerdeBytes(type.element!);
+  }
+
   // Generate struct field
   private generateField(field: Field): string {
     const rustName = toSnakeCase(field.name);
@@ -70,7 +75,9 @@ export class RustCodegen {
     }
 
     // Add serde bytes handling
-    if (this.needsSerdeVecBytes(field.type)) {
+    if (this.needsSerdeArray4Bytes(field.type)) {
+      attrs += `    #[serde(with = "serde_array4_bytes")]\n`;
+    } else if (this.needsSerdeVecBytes(field.type)) {
       attrs += `    #[serde(with = "serde_vec_bytes")]\n`;
     } else if (this.needsSerdeBytes(field.type)) {
       attrs += `    #[serde(with = "serde_bytes")]\n`;
@@ -330,6 +337,44 @@ mod serde_vec_bytes {
             }
         }
         deserializer.deserialize_seq(VecVecU8Visitor)
+    }
+}
+
+mod serde_array4_bytes {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::ser::SerializeTuple;
+    use serde::de::{SeqAccess, Visitor};
+
+    #[derive(Serialize, Deserialize)]
+    struct BytesWrapper(#[serde(with = "super::serde_bytes")] Vec<u8>);
+
+    pub fn serialize<S>(arr: &[Vec<u8>; 4], serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut tup = serializer.serialize_tuple(4)?;
+        for bytes in arr {
+            tup.serialize_element(&BytesWrapper(bytes.clone()))?;
+        }
+        tup.end()
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[Vec<u8>; 4], D::Error>
+    where D: Deserializer<'de> {
+        struct Array4Visitor;
+        impl<'de> Visitor<'de> for Array4Visitor {
+            type Value = [Vec<u8>; 4];
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("an array of 4 byte arrays")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where A: SeqAccess<'de> {
+                let mut arr: [Vec<u8>; 4] = Default::default();
+                for (i, item) in arr.iter_mut().enumerate() {
+                    *item = seq.next_element::<BytesWrapper>()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?.0;
+                }
+                Ok(arr)
+            }
+        }
+        deserializer.deserialize_tuple(4, Array4Visitor)
     }
 }`;
   }

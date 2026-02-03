@@ -21,13 +21,13 @@ pub global default_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x037939dcecffeec83a83cc58ede4b23e1494778484d3e92be639a5ea31bf4790,
-            0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
-            0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
-            0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
-            0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
-            0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
-            0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512,
+            0x27eac3a6e29301462412fee9595e2c5d8fbedf8b1e463334ecf99cd87b450919,
+            0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
+            0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
+            0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,
+            0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf,
+            0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76,
+            0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b,
         ],
     },
 };
@@ -38,13 +38,13 @@ pub global parent_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed,
-            0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
-            0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
-            0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
-            0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
-            0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
-            0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512,
+            0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1,
+            0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
+            0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
+            0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,
+            0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf,
+            0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76,
+            0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b,
         ],
     },
 };
@@ -55,13 +55,13 @@ pub global updated_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x2bcb577804e7496d0fcea84772c2801ee2e0c90f64472b6e8c5809fac00deb77,
-            0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
-            0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
-            0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
-            0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
-            0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
-            0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512,
+            0x1b15a6fc26bd33b43181c6f3ba8a99c4857aa733248a61ac0967e840230bd5c5,
+            0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
+            0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
+            0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,
+            0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf,
+            0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76,
+            0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b,
         ],
     },
 };

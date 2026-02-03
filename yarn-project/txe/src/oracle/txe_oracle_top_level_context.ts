@@ -22,6 +22,7 @@ import {
   SenderAddressBookStore,
   SenderTaggingStore,
   enrichPublicSimulationError,
+  syncState,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -301,7 +302,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call);
     };
 
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, utilityExecutor);
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await syncState(
+      targetContractAddress,
+      this.contractStore,
+      functionSelector,
+      utilityExecutor,
+      this.noteStore,
+      this.stateMachine.node,
+      blockHeader,
+      this.jobId,
+    );
 
     const blockNumber = await this.txeGetNextBlockNumber();
 
@@ -312,8 +323,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
-
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
@@ -345,7 +354,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
@@ -414,7 +422,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
+    const bindings = this.logger.getBindings();
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      bindings,
+    );
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
@@ -427,8 +439,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config),
+      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
       new TestDateProvider(),
+      undefined,
+      createLogger('simulator:public-processor', bindings),
     );
 
     const tx = await Tx.create({
@@ -525,7 +539,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
+    const bindings2 = this.logger.getBindings();
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      bindings2,
+    );
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
@@ -534,8 +552,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
-    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
+    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    const processor = new PublicProcessor(
+      globals,
+      guardedMerkleTrees,
+      contractsDB,
+      simulator,
+      new TestDateProvider(),
+      undefined,
+      createLogger('simulator:public-processor', bindings2),
+    );
 
     // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private
     // kernel init would in this case inject a nullifier with the transaction request hash as a non-revertible
@@ -645,9 +671,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, async call => {
-      await this.executeUtilityCall(call);
-    });
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await syncState(
+      targetContractAddress,
+      this.contractStore,
+      functionSelector,
+      async call => {
+        await this.executeUtilityCall(call);
+      },
+      this.noteStore,
+      this.stateMachine.node,
+      blockHeader,
+      this.jobId,
+    );
 
     const call = new FunctionCall(
       artifact.name,
@@ -686,7 +722,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.keyStore,
         this.addressStore,
         this.stateMachine.node,
-        this.stateMachine.anchorBlockStore,
         this.recipientTaggingStore,
         this.senderAddressBookStore,
         this.capsuleStore,

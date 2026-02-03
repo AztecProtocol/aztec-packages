@@ -1,6 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -183,7 +184,7 @@ describe('e2e_p2p_preferred_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     let indexOffset = 0;
 
     t.logger.info('Creating preferred nodes');
@@ -345,20 +346,20 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
-    await Promise.all(
+    const receipts = await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
+    const blockNumber = receipts[0].blockNumber!;
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getPublishedCheckpoints(CheckpointNumber(blockNumber), 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

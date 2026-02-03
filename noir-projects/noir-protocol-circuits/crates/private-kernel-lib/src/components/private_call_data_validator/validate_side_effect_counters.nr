@@ -323,7 +323,7 @@ where
     //                                       |                at original index i=0?
     //                                       v
     //  items.counter:                      15 10 13 | ?  ?
-    //  items.global_index  :                0  1  2 | 3  4
+    //  items.global_index:                  0  1  2 | 3  4
     //                                       ^  ^  ^
     //                                       These global_index values are constrained to be iteration index i.
     //
@@ -348,7 +348,7 @@ where
     //                                       |                              at original index i=0?
     //                                       v
     //  items.counter:                       ? 10 13 | ?  ?
-    //  items.global_index  :                0  1  2 | 3  4
+    //  items.global_index:                  0  1  2 | 3  4
     //                                       ^  ^  ^
     //                                       These global_index values are constrained to be iteration index i.
     //

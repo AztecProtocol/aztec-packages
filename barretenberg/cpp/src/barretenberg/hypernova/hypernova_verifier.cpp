@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
 namespace bb {
@@ -58,14 +59,17 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
 
 template <typename Flavor>
 SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_instance(
-    const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof)
+    const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
+    const Proof& proof,
+    size_t num_public_inputs)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_on_incoming_instance");
 
     vinfo("HypernovaFoldingVerifier: verifying Oink proof...");
     // Complete the incoming verifier instance
-    OinkVerifier verifier{ instance, transcript };
     transcript->load_proof(proof);
+
+    OinkVerifier verifier{ instance, transcript, num_public_inputs };
     verifier.verify();
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
@@ -89,7 +93,11 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::instance_to_accumulator");
 
-    auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof);
+    // Derive num_public_inputs from proof size (instance-to-accum proof structure)
+    const size_t num_public_inputs =
+        ProofLength::HypernovaInstanceToAccum<Flavor>::derive_num_public_inputs(proof.size(), Flavor::VIRTUAL_LOG_N);
+
+    auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);
 
     auto accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance);
 
@@ -112,7 +120,12 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
     vinfo("HypernovaFoldingVerifier: verifying folding proof...");
 
-    auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof);
+    // Derive num_public_inputs from proof size (folding proof structure includes batching)
+    const size_t num_public_inputs =
+        ProofLength::HypernovaFolding<Flavor, MultilinearBatchingFlavor>::derive_num_public_inputs(
+            proof.size(), Flavor::VIRTUAL_LOG_N);
+
+    auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     const auto [unshifted_challenges, shifted_challenges] =

@@ -1,8 +1,9 @@
 use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
-use protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::protocol::{address::AztecAddress, traits::Serialize};
 
-/// Intermediate struct used to perform batch note validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle
-/// expects for values of this type to be stored in a `CapsuleArray`.
+/// Intermediate struct used to perform batch note validation by PXE. The
+/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `CapsuleArray`.
 #[derive(Serialize)]
 pub(crate) struct NoteValidationRequest {
     pub contract_address: AztecAddress,
@@ -18,8 +19,8 @@ pub(crate) struct NoteValidationRequest {
 }
 
 mod test {
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::NoteValidationRequest;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
     #[test]
     fn serialization_matches_typescript() {
@@ -37,9 +38,9 @@ mod test {
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
-        // snapshot value below, then note_validation_request.test.ts must be updated with the same value.
-        // Ideally we'd autogenerate this, but for now we only have single-sided snapshot generation, from TS to Noir,
-        // which is not what we need here.
+        // snapshot value below, then note_validation_request.test.ts must be updated with the same value. Ideally we'd
+        // autogenerate this, but for now we only have single-sided snapshot generation, from TS to Noir, which is not
+        // what we need here.
         let expected_serialization = [
             0x0000000000000000000000000000000000000000000000000000000000000001,
             0x0000000000000000000000000000000000000000000000000000000000000032,

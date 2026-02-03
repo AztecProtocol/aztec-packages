@@ -108,26 +108,6 @@ class MegaFlavor {
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
-    // Proof length formula methods
-    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
-
-    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = VIRTUAL_LOG_N)
-    {
-        return /* 2. virtual_log_n sumcheck univariates */
-            (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-            /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
-            /* 4. virtual_log_n - 1 Gemini Fold commitments */ ((virtual_log_n - 1) * num_frs_comm) +
-            /* 5. virtual_log_n Gemini a evaluations */ (virtual_log_n * num_frs_fr) +
-            /* 6. Shplonk Q commitment */ (num_frs_comm) +
-            /* 7. KZG W commitment */ (num_frs_comm);
-    }
-
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
-    {
-        return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
-    }
-
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;

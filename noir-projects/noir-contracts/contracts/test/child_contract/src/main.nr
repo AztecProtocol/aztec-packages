@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol::address::AztecAddress;
 
     use dep::aztec::{
         macros::{functions::external, storage::storage},
@@ -12,7 +12,7 @@ pub contract Child {
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

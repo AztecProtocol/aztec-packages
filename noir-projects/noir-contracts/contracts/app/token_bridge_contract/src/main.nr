@@ -11,10 +11,7 @@ use dep::aztec::macros::aztec;
 pub contract TokenBridge {
     use crate::config::Config;
 
-    use dep::aztec::{
-        protocol_types::address::{AztecAddress, EthAddress},
-        state_vars::PublicImmutable,
-    };
+    use dep::aztec::{protocol::address::{AztecAddress, EthAddress}, state_vars::PublicImmutable};
 
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,

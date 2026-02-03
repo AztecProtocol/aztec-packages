@@ -11,7 +11,7 @@ use super::{
 use dep::types::{
     address::AztecAddress,
     merkle_tree::{LeafPreimage, MembershipWitness},
-    side_effect::{Counted, Ordered, Readable, Scoped},
+    side_effect::{Counted, Readable, Scoped},
     tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end},
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
@@ -21,28 +21,23 @@ pub use read_request_hints_builder::ReadRequestHintsBuilder;
 #[derive(Eq)]
 struct TestValue {
     value: Field,
-    counter: u32,
 }
 
 impl Empty for TestValue {
     fn empty() -> Self {
-        TestValue { value: 0, counter: 0 }
+        TestValue { value: 0 }
     }
 }
 
-impl Ordered for TestValue {
-    fn counter(self) -> u32 {
-        self.counter
+impl TestValue {
+    pub fn count(self, counter: u32) -> Counted<TestValue> {
+        Counted::new(self, counter)
     }
 }
 
 impl Readable for TestValue {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
-        assert_eq(
-            read_request.innermost(),
-            self.value,
-            "Hinted test value does not match read request",
-        );
+    fn assert_match_read_request(self, read_request: Field) {
+        assert_eq(read_request, self.value, "Hinted test value does not match read request");
     }
 }
 
@@ -68,9 +63,9 @@ impl Empty for TestLeafPreimage {
 }
 
 impl Readable for TestLeafPreimage {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
+    fn assert_match_read_request(self, read_request: Field) {
         assert_eq(
-            read_request.innermost(),
+            read_request,
             self.value,
             "Hinted test leaf preimage does not match read request",
         );
@@ -91,7 +86,7 @@ global TEST_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(123);
 
 struct TestBuilder {
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, READ_REQUEST_LEN>,
-    pending_values: ClaimedLengthArray<TestValue, PENDING_VALUE_LEN>,
+    pending_values: ClaimedLengthArray<Scoped<Counted<TestValue>>, PENDING_VALUE_LEN>,
     tree: SingleSubtreeMerkleTree<TEST_SUBTREE_WIDTH, TEST_SUBTREE_HEIGHT, TEST_TREE_HEIGHT>,
     tree_root: Field,
     leaf_preimages: [TestLeafPreimage; TEST_SUBTREE_WIDTH],
@@ -105,10 +100,10 @@ impl TestBuilder {
     pub fn new() -> Self {
         let pending_values = ClaimedLengthArray {
             array: pad_end([
-                TestValue { value: 55, counter: 5 },
-                TestValue { value: 66, counter: 6 },
-                TestValue { value: 77, counter: 7 },
-                TestValue { value: 88, counter: 8 },
+                TestValue { value: 55 }.count(5).scope(TEST_CONTRACT_ADDRESS),
+                TestValue { value: 66 }.count(6).scope(TEST_CONTRACT_ADDRESS),
+                TestValue { value: 77 }.count(7).scope(TEST_CONTRACT_ADDRESS),
+                TestValue { value: 88 }.count(8).scope(TEST_CONTRACT_ADDRESS),
             ]),
             length: 4,
         };
@@ -149,13 +144,18 @@ impl TestBuilder {
 
     pub fn add_pending_read(&mut self, pending_value_index: u32) {
         let pending_value = self.pending_values.array[pending_value_index];
-        let read_request_index = self.add_read_request(pending_value.value);
+        let read_request_index = self.add_read_request(pending_value.innermost().value);
         self.hints.add_pending_read_hint(read_request_index, pending_value_index);
     }
 
     pub fn add_settled_read(&mut self, leaf_preimage_index: u32) {
         let leaf_preimage = self.leaf_preimages[leaf_preimage_index];
-        let read_request_index = self.add_read_request(leaf_preimage.value);
+        // Settled reads use zero contract address because the value is already siloed to match the tree.
+        let read_request_index = self.read_requests.length;
+        let read_request =
+            Counted::new(leaf_preimage.value, self.counter).scope(AztecAddress::zero());
+        self.read_requests.push(read_request);
+        self.counter += 1;
 
         let leaf_index = leaf_preimage_index as Field;
         let membership_witness =

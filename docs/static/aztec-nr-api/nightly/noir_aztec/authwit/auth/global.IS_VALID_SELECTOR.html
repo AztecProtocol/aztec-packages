@@ -41,54 +41,51 @@
 
 <div class="comments">
 <p>Authentication witness helper library</p>
-<p>Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties
-(e.g. protocols or other users) to execute an action on their behalf.</p>
-<p>This library provides helper functions to manage such witnesses.
-The authentication witness, is some &quot;witness&quot; (data) that authenticates a <code>message_hash</code>.
-The simplest example of an authentication witness, is a signature. The signature is the &quot;evidence&quot;,
-that the signer has seen the message, agrees with it, and has allowed it.
-It does not need to be a signature. It could be any kind of &quot;proof&quot; that the message is allowed.
-Another proof could be knowing some kind of secret, or having some kind of &quot;token&quot; that allows the message.</p>
-<p>The <code>message_hash</code> is a hash of the following structure:
-hash(consumer, chain_id, version, inner_hash)</p>
+<p>Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (e.g.
+protocols or other users) to execute an action on their behalf.</p>
+<p>This library provides helper functions to manage such witnesses. The authentication witness, is some &quot;witness&quot;
+(data) that authenticates a <code>message_hash</code>. The simplest example of an authentication witness, is a signature. The
+signature is the &quot;evidence&quot;, that the signer has seen the message, agrees with it, and has allowed it. It does not
+need to be a signature. It could be any kind of &quot;proof&quot; that the message is allowed. Another proof could be knowing
+some kind of secret, or having some kind of &quot;token&quot; that allows the message.</p>
+<p>The <code>message_hash</code> is a hash of the following structure: hash(consumer, chain_id, version, inner_hash)</p>
 <ul>
 <li>consumer: the address of the contract that is &quot;consuming&quot; the message,</li>
 <li>chain_id: the chain id of the chain that the message is being consumed on,</li>
 <li>version: the version of the chain that the message is being consumed on,</li>
 <li>inner_hash: the hash of the &quot;inner&quot; message that is being consumed, this is the &quot;actual&quot; message or action.</li>
 </ul>
-<p>While the <code>inner_hash</code> could be anything, such as showing you signed a specific message, it will often be
-a hash of the &quot;action&quot; to approve, along with who made the call. As part of this library, we provide a few
-helper functions to deal with such messages.</p>
-<p>For example, we provide helper function that is used for checking that the message is an encoding of the current call.
-This can be used to let some contract &quot;allow&quot; another contract to act on its behalf, as long as it can
-show that it is acting on behalf of the contract.</p>
+<p>While the <code>inner_hash</code> could be anything, such as showing you signed a specific message, it will often be a hash of
+the &quot;action&quot; to approve, along with who made the call. As part of this library, we provide a few helper functions
+to deal with such messages.</p>
+<p>For example, we provide helper function that is used for checking that the message is an encoding of the current
+call. This can be used to let some contract &quot;allow&quot; another contract to act on its behalf, as long as it can show
+that it is acting on behalf of the contract.</p>
 <p>If we take a case of allowing a contract to transfer tokens on behalf of an account, the <code>inner_hash</code> can be
-derived as:
-inner_hash = hash(caller, &quot;transfer&quot;, hash(to, amount))</p>
-<p>Where the <code>caller</code> would be the address of the contract that is trying to transfer the tokens, and <code>to</code> and <code>amount</code>
-the arguments for the transfer.</p>
-<p>Note that we have both a <code>caller</code> and a <code>consumer</code>, the <code>consumer</code> will be the contract that is consuming the message,
-in the case of the transfer, it would be the <code>Token</code> contract itself, while the caller, will be the actor that is
-allowed to transfer the tokens.</p>
-<p>The authentication mechanism works differently in public and private contexts. In private, we recall that everything
-is executed on the user's device, so we can use <code>oracles</code> to &quot;ask&quot; the user (not contract) for information. In public
-we cannot do this, since it is executed by the sequencer (someone else). Therefore we can instead use a &quot;registry&quot;
-to store the messages that we have approved.</p>
-<p>A simple example would be a &quot;token&quot; that is being &quot;pulled&quot; from one account into another. We will first outline
-how this would look in private, and then in public later.</p>
-<p>Say that a user <code>Alice</code> wants to deposit some tokens into a DeFi protocol (say a DEX).
-<code>Alice</code> would make a <code>deposit</code> transaction, that she is executing using her account contract.
-The account would call the <code>DeFi</code> contract to execute <code>deposit</code>, which would try to pull funds from the <code>Token</code>
-contract. Since the <code>DeFi</code> contract is trying to pull funds from an account that is not its own, it needs to
-convince the <code>Token</code> contract that it is allowed to do so.</p>
+derived as: inner_hash = hash(caller, &quot;transfer&quot;, hash(to, amount))</p>
+<p>Where the <code>caller</code> would be the address of the contract that is trying to transfer the tokens, and <code>to</code> and
+<code>amount</code> the arguments for the transfer.</p>
+<p>Note that we have both a <code>caller</code> and a <code>consumer</code>, the <code>consumer</code> will be the contract that is consuming the
+message, in the case of the transfer, it would be the <code>Token</code> contract itself, while the caller, will be the actor
+that is allowed to transfer the tokens.</p>
+<p>The authentication mechanism works differently in public and private contexts. In private, we recall that
+everything is executed on the user's device, so we can use <code>oracles</code> to &quot;ask&quot; the user (not contract) for
+information. In public we cannot do this, since it is executed by the sequencer (someone else). Therefore we can
+instead use a &quot;registry&quot; to store the messages that we have approved.</p>
+<p>A simple example would be a &quot;token&quot; that is being &quot;pulled&quot; from one account into another. We will first outline how
+this would look in private, and then in public later.</p>
+<p>Say that a user <code>Alice</code> wants to deposit some tokens into a DeFi protocol (say a DEX). <code>Alice</code> would make a
+<code>deposit</code> transaction, that she is executing using her account contract. The account would call the <code>DeFi</code> contract
+to execute <code>deposit</code>, which would try to pull funds from the <code>Token</code> contract. Since the <code>DeFi</code> contract is trying
+to pull funds from an account that is not its own, it needs to convince the <code>Token</code> contract that it is allowed to
+do so.</p>
 <p>This is where the authentication witness comes in The <code>Token</code> contract computes a <code>message_hash</code> from the
-<code>transfer</code> call, and then asks <code>Alice Account</code> contract to verify that the <code>DeFi</code> contract is allowed to
-execute that call.</p>
+<code>transfer</code> call, and then asks <code>Alice Account</code> contract to verify that the <code>DeFi</code> contract is allowed to execute
+that call.</p>
 <p><code>Alice Account</code> contract can then ask <code>Alice</code> if she wants to allow the <code>DeFi</code> contract to pull funds from her
-account. If she does, she will sign the <code>message_hash</code> and return the signature to the <code>Alice Account</code> which
-will validate it and return success to the <code>Token</code> contract which will then allow the <code>DeFi</code> contract to pull
-funds from <code>Alice</code>.</p>
+account. If she does, she will sign the <code>message_hash</code> and return the signature to the <code>Alice Account</code> which will
+validate it and return success to the <code>Token</code> contract which will then allow the <code>DeFi</code> contract to pull funds from
+<code>Alice</code>.</p>
 <p>To ensure that the same &quot;approval&quot; cannot be used multiple times, we also compute a <code>nullifier</code> for the
 authentication witness, and emit it from the <code>Token</code> contract (consumer).</p>
 <p>Note that we can do this flow as we are in private were we can do oracle calls out from contracts.</p>
@@ -132,12 +129,12 @@ Alice          Alice Account          Token                   DeFi
 |                  |                  |                      |</p>
 <p>If we instead were in public, we cannot do the same flow. Instead we would use an authentication registry to store
 the messages that we have approved.</p>
-<p>To approve a message, <code>Alice Account</code> can make a <code>set_authorized</code> call to the registry, to set a <code>message_hash</code>
-as authorized. This is essentially a mapping from <code>message_hash</code> to <code>true</code> for <code>Alice Contract</code>. Every account
-has its own map in the registry, so <code>Alice</code> cannot approve a message for <code>Bob</code>.</p>
-<p>The <code>Token</code> contract can then try to &quot;spend&quot; the approval by calling <code>consume</code> on the registry. If the message
-was approved, the value is updated to <code>false</code>, and we return the success flag. For more information on the
-registry, see <code>main.nr</code> in <code>auth_registry_contract</code>.</p>
+<p>To approve a message, <code>Alice Account</code> can make a <code>set_authorized</code> call to the registry, to set a <code>message_hash</code> as
+authorized. This is essentially a mapping from <code>message_hash</code> to <code>true</code> for <code>Alice Contract</code>. Every account has its
+own map in the registry, so <code>Alice</code> cannot approve a message for <code>Bob</code>.</p>
+<p>The <code>Token</code> contract can then try to &quot;spend&quot; the approval by calling <code>consume</code> on the registry. If the message was
+approved, the value is updated to <code>false</code>, and we return the success flag. For more information on the registry,
+see <code>main.nr</code> in <code>auth_registry_contract</code>.</p>
 <p>Person          Contract              Contract            Contract               Contract
 Alice          Alice Account          Registry             Token                   DeFi
 |                  |                    |                   |                      |
@@ -179,19 +176,20 @@ Alice          Alice Account          Registry             Token                
 |                  |                    |                   |                      |</p>
 <p>--- FAQ ---
 Q:   Why are we using a success flag of <code>poseidon2_hash_bytes(&quot;IS_VALID()&quot;)</code> instead of just returning a boolean?
-A:   We want to make sure that we don't accidentally return <code>true</code> if there is a collision in the function selector.
-By returning a hash of <code>IS_VALID()</code>, it becomes very unlikely that there is both a collision and we return
-a success flag.</p>
+A:   We want to make sure that we don't accidentally return <code>true</code> if there is a collision in the function
+selector. By returning a hash of <code>IS_VALID()</code>, it becomes very unlikely that there is both a collision and we
+return a success flag.</p>
 <p>Q:   Why are we using static calls?
 A:   We are using static calls to ensure that the account contract cannot re-enter. If it was a normal call, it
 could make a new call and do a re-entry attack. Using a static ensures that it cannot update any state.</p>
 <p>Q:   Would it not be cheaper to use a nullifier instead of updating state in public?
-A:   At a quick glance, a public state update + nullifier is 96 bytes, but two state updates are 128, so it would be
-cheaper to use a nullifier, if this is the way it would always be done. However, if both the approval and the
-consumption is done in the same transaction, then we will be able to squash the updates (only final tx state diff is posted to DA), and now it is cheaper.</p>
+A:   At a quick glance, a public state update + nullifier is 96 bytes, but two state updates are 128, so it would
+be cheaper to use a nullifier, if this is the way it would always be done. However, if both the approval and the
+consumption is done in the same transaction, then we will be able to squash the updates (only final tx state diff
+is posted to DA), and now it is cheaper.</p>
 <p>Q:   Why is the chain id and the version part of the message hash?
-A:   The chain id and the version is part of the message hash to ensure that the message is only valid on a specific
-chain to avoid a case where the same message could be used across multiple chains.</p>
+A:   The chain id and the version is part of the message hash to ensure that the message is only valid on a
+specific chain to avoid a case where the same message could be used across multiple chains.</p>
 </div>
 </main>
 </span>

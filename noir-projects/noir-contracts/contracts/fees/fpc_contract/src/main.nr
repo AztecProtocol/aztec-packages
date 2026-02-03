@@ -12,10 +12,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
-    use dep::uint_note::uint_note::PartialUintNote;
+    use dep::uint_note::PartialUintNote;
     use aztec::{
         macros::{functions::{external, initializer, nophasecheck, only_self}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
     use token::Token;

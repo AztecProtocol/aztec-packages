@@ -12,6 +12,7 @@
 export { loadPrivateLogsForSenderRecipientPair } from './recipient_sync/load_private_logs_for_sender_recipient_pair.js';
 export { syncSenderTaggingIndexes } from './sender_sync/sync_sender_tagging_indexes.js';
 export { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from './constants.js';
+export { getAllPrivateLogsByTags, getAllPublicLogsByTagsFromContract } from './get_all_logs_by_tags.js';
 
 // Re-export tagging-related types from stdlib
 export { DirectionalAppTaggingSecret, Tag, SiloedTag } from '@aztec/stdlib/logs';

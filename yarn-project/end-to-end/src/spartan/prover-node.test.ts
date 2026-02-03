@@ -1,16 +1,18 @@
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import type { ChildProcess } from 'child_process';
-
-import { AlertTriggeredError, GrafanaClient } from '../quality_of_service/grafana_client.js';
+import { AlertTriggeredError } from '../quality_of_service/grafana_client.js';
 import {
+  ChainHealth,
+  type ServiceEndpoint,
   applyProverBrokerKill,
   applyProverKill,
+  createResilientPrometheusConnection,
   deleteResourceByLabel,
   getGitProjectRoot,
+  getRPCEndpoint,
   setupEnvironment,
-  startPortForward,
+  waitForProvenToAdvance,
 } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -18,6 +20,7 @@ const config = setupEnvironment(process.env);
 const logger = createLogger('e2e:spartan-test:prover-node');
 
 const epochDurationSeconds = config.AZTEC_EPOCH_DURATION * config.AZTEC_SLOT_DURATION;
+const slotDurationSeconds = config.AZTEC_SLOT_DURATION;
 
 /**
  * This test aims to check that a prover node is able to recover after a crash.
@@ -54,56 +57,34 @@ const enqueuedRootRollupJobs = {
 };
 
 describe('prover node recovery', () => {
-  const forwardProcesses: ChildProcess[] = [];
-  let alertChecker: GrafanaClient;
+  const endpoints: ServiceEndpoint[] = [];
+  let runAlertCheck: ReturnType<typeof createResilientPrometheusConnection>['runAlertCheck'];
   let spartanDir: string;
+  let rpcEndpoint: ServiceEndpoint;
+  const health = new ChainHealth(config.NAMESPACE, logger);
+
   beforeAll(async () => {
-    // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
-    let promPort = 0;
-    let promProc: ChildProcess | undefined;
-    {
-      const { process: p, port } = await startPortForward({
-        resource: `svc/metrics-prometheus-server`,
-        namespace: 'metrics',
-        containerPort: 80,
-      });
-      promProc = p;
-      promPort = port;
-      if (promPort === 0) {
-        p.kill();
-      }
-    }
+    await health.setup();
 
-    if (promPort === 0) {
-      const { process: p, port } = await startPortForward({
-        resource: `svc/prometheus-server`,
-        namespace: config.NAMESPACE,
-        containerPort: 80,
-      });
-      promProc = p;
-      promPort = port;
-    }
+    rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
 
-    if (!promProc || promPort === 0) {
-      throw new Error('Unable to port-forward to Prometheus. Ensure the metrics stack is deployed.');
-    }
-
-    forwardProcesses.push(promProc);
-    const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
-    const grafanaCredentials = '';
-    alertChecker = new GrafanaClient(logger, { grafanaEndpoint, grafanaCredentials });
+    const prometheus = createResilientPrometheusConnection(config.NAMESPACE, endpoints, logger);
+    await prometheus.connect();
+    runAlertCheck = prometheus.runAlertCheck;
 
     spartanDir = `${getGitProjectRoot()}/spartan`;
   });
 
   afterAll(async () => {
+    await health.teardown();
     const cleanup = async (instanceName: string) => {
       const label = `app.kubernetes.io/instance=${instanceName}`;
       await deleteResourceByLabel({ resource: 'podchaos', namespace: config.NAMESPACE, label }).catch(() => undefined);
     };
     await cleanup('prover-kill');
     await cleanup('prover-broker-kill');
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   it('should recover after a crash', async () => {
@@ -113,7 +94,7 @@ describe('prover node recovery', () => {
     await retryUntil(
       async () => {
         try {
-          await alertChecker.runAlertCheck([enqueuedBlockRollupJobs]);
+          await runAlertCheck([enqueuedBlockRollupJobs]);
         } catch (err) {
           return err && err instanceof AlertTriggeredError;
         }
@@ -132,12 +113,11 @@ describe('prover node recovery', () => {
       values: { 'global.chaosResourceNamespace': config.NAMESPACE },
     });
 
-    // wait for the node to start proving again and
-    // validate it hits the cache
+    // Wait for the node to start proving again and validate it hits the cache
     const result = await retryUntil(
       async () => {
         try {
-          await alertChecker.runAlertCheck([cachedProvingJobs]);
+          await runAlertCheck([cachedProvingJobs]);
         } catch (err) {
           if (err && err instanceof AlertTriggeredError) {
             return true;
@@ -156,10 +136,11 @@ describe('prover node recovery', () => {
   it('should recover after a broker crash', async () => {
     logger.info(`Waiting for epoch proving job to start`);
 
+    // First, wait for proving to be active
     await retryUntil(
       async () => {
         try {
-          await alertChecker.runAlertCheck([enqueuedBlockRollupJobs]);
+          await runAlertCheck([enqueuedBlockRollupJobs]);
         } catch (err) {
           return err && err instanceof AlertTriggeredError;
         }
@@ -169,7 +150,11 @@ describe('prover node recovery', () => {
       5,
     );
 
-    logger.info(`Detected epoch proving job. Killing the broker`);
+    logger.info(`Detected epoch proving job. Waiting for proven block to advance...`);
+
+    await waitForProvenToAdvance(rpcEndpoint.url, logger, epochDurationSeconds * 3, slotDurationSeconds);
+
+    logger.info(`Proven block advanced. Killing the broker`);
 
     await applyProverBrokerKill({
       namespace: config.NAMESPACE,
@@ -178,16 +163,16 @@ describe('prover node recovery', () => {
       values: { 'global.chaosResourceNamespace': config.NAMESPACE },
     });
 
+    // Wait for the broker to recover and proving to resume
     const result = await retryUntil(
       async () => {
         try {
-          await alertChecker.runAlertCheck([enqueuedRootRollupJobs]);
+          await runAlertCheck([enqueuedRootRollupJobs]);
         } catch (err) {
           if (err && err instanceof AlertTriggeredError) {
             return true;
           }
         }
-
         return false;
       },
       'wait for root rollup',

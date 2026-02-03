@@ -1,7 +1,5 @@
-use protocol_types::{
-    abis::{
-        block_header::BlockHeader, call_context::CallContext, transaction::tx_context::TxContext,
-    },
+use crate::protocol::{
+    abis::{block_header::BlockHeader, call_context::CallContext, transaction::tx_context::TxContext},
     traits::Empty,
 };
 

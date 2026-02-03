@@ -1,5 +1,5 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { computeCalldataHash } from '@aztec/stdlib/hash';
 import {
   TX_ERROR_CALLDATA_COUNT_MISMATCH,
@@ -16,7 +16,11 @@ import {
 } from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
-  #log = createLogger('p2p:tx_validator:tx_data');
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('p2p:tx_validator:tx_data', bindings);
+  }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
     const reason =

@@ -6,15 +6,14 @@
 // Together they provide bidirectional conversion between fields and bytes.
 
 /// Converts an input array of fields into a single array of bytes. Use `fields_from_bytes` to obtain the original
-/// field array.
-/// Each field is converted to a 32-byte big-endian array.
+/// field array. Each field is converted to a 32-byte big-endian array.
 ///
 /// For example, if you have a field array [123, 456], it will be converted to a 64-byte array:
 /// [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,123,  // First field (32 bytes)
-///  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,200]  // Second field (32 bytes)
+/// 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,200]  // Second field (32 bytes)
 ///
-/// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end, every 32 bytes. Be careful
-/// that such a gap doesn't leak information! This could happen if you for example expected the output to be
+/// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end, every 32 bytes. Be careful that
+/// such a gap doesn't leak information! This could happen if you for example expected the output to be
 /// indistinguishable from random bytes.
 pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
@@ -30,15 +29,14 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     bytes
 }
 
-/// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays are not allowed: this
-/// is assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents fields. To convert
-/// a byte array into Fields, use `bytes_to_fields`.
+/// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays are not allowed: this is
+/// assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents fields. To convert a byte
+/// array into Fields, use `bytes_to_fields`.
 ///
 /// The input bytes are chunked into chunks of 32 bytes. Each 32-byte chunk is viewed as big-endian, and is converted
-/// into a Field.
-/// For example, [1, 10, 3, ..., 0] (32 bytes) is encoded as [1 * 256^31 + 10 * 256^30 + 3 * 256^29 + ... + 0]
-/// Note 1: N must be a multiple of 32 bytes
-/// Note 2: The max value check code was taken from std::field::to_be_bytes function.
+/// into a Field. For example, [1, 10, 3, ..., 0] (32 bytes) is encoded as [1 * 256^31 + 10 * 256^30 + 3 * 256^29 + ...
+/// + 0] Note 1: N must be a multiple of 32 bytes Note 2: The max value check code was taken from
+/// std::field::to_be_bytes function.
 pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
@@ -82,10 +80,9 @@ mod tests {
         // Convert to bytes
         let bytes = fields_to_bytes(input);
 
-        // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec to be able to feed it to the `fields_from_bytes`
-        // function.
-        // 113 is an arbitrary max length that is larger than the input length of 96.
+        // At this point in production, the log flies through the system and we get a BoundedVec on the other end. So
+        // we need to convert the field array to a BoundedVec to be able to feed it to the `fields_from_bytes`
+        // function. 113 is an arbitrary max length that is larger than the input length of 96.
         let bytes_as_bounded_vec = BoundedVec::<_, 113>::from_array(bytes);
 
         // Convert back to fields
@@ -100,8 +97,8 @@ mod tests {
     unconstrained fn to_fields_assert() {
         // 143 is an arbitrary max length that is larger than 33
         let input = BoundedVec::<_, 143>::from_array([
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32, 33,
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+            30, 31, 32, 33,
         ]);
 
         // This should fail since 33 is not a multiple of 32
@@ -119,8 +116,8 @@ mod tests {
         assert_eq(fields.get(0), -1);
     }
 
-    // In this test we verify that overflow check works by taking the max allowed value, bumping a random byte
-    // and then feeding it to `fields_from_bytes` as input.
+    // In this test we verify that overflow check works by taking the max allowed value, bumping a random byte and then
+    // feeding it to `fields_from_bytes` as input.
     #[test(should_fail_with = "Value does not fit in field")]
     unconstrained fn fields_from_bytes_overflow(random_value: u8) {
         let index_of_byte_to_bump = random_value % 32;
@@ -130,8 +127,8 @@ mod tests {
 
         let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump as u32];
 
-        // Skip test execution if the selected byte is already at maximum value (255).
-        // This is acceptable since we are using fuzz testing to generate many test cases.
+        // Skip test execution if the selected byte is already at maximum value (255). This is acceptable since we are
+        // using fuzz testing to generate many test cases.
         if byte_to_bump != 255 {
             let mut input = BoundedVec::<_, 32>::from_array(max_field_value_as_bytes);
 

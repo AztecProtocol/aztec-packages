@@ -160,15 +160,17 @@ class Execution : public ExecutionInterface {
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
-    void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
+    void sload(ContextInterface& context,
+               MemoryAddress slot_addr,
+               MemoryAddress contract_address_addr,
+               MemoryAddress dst_addr);
     void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
     void note_hash_exists(ContextInterface& context,
                           MemoryAddress unique_note_hash_addr,
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
     void nullifier_exists(ContextInterface& context,
-                          MemoryAddress nullifier_offset,
-                          MemoryAddress address_offset,
+                          MemoryAddress siloed_nullifier_offset,
                           MemoryAddress exists_offset);
     void emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr);
     void get_contract_instance(ContextInterface& context,

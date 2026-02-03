@@ -24,6 +24,7 @@ class KeyNotFoundError extends Error {
 }
 
 export class AztecDatastore implements Datastore {
+  #db: AztecAsyncKVStore;
   #memoryDatastore: Map<string, MemoryItem>;
   #dbDatastore: AztecAsyncMap<string, Uint8Array>;
 
@@ -32,9 +33,9 @@ export class AztecDatastore implements Datastore {
   private maxMemoryItems: number;
 
   constructor(db: AztecAsyncKVStore, { maxMemoryItems } = { maxMemoryItems: 50 }) {
+    this.#db = db;
     this.#memoryDatastore = new Map();
     this.#dbDatastore = db.openMap('p2p_datastore');
-
     this.maxMemoryItems = maxMemoryItems;
   }
 
@@ -106,13 +107,15 @@ export class AztecDatastore implements Datastore {
         });
       },
       commit: async () => {
-        for (const op of this.#batchOps) {
-          if (op.type === 'put' && op.value) {
-            await this.put(op.key, op.value);
-          } else if (op.type === 'del') {
-            await this.delete(op.key);
+        await this.#db.transactionAsync(async () => {
+          for (const op of this.#batchOps) {
+            if (op.type === 'put' && op.value) {
+              await this.put(op.key, op.value);
+            } else if (op.type === 'del') {
+              await this.delete(op.key);
+            }
           }
-        }
+        });
         this.#batchOps = []; // Clear operations after commit
       },
     };

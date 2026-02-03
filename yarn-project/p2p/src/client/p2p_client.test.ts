@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -347,7 +347,7 @@ describe('P2P Client', () => {
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(91)), await L2BlockNew.random(BlockNumber(92))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
       blockSource.setCheckpointedBlockNumber(92);
 
       await client.sync();
@@ -445,7 +445,7 @@ describe('P2P Client', () => {
 
     it('syncs new blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(101)), await L2BlockNew.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
       expect(await client.getSyncedLatestBlockNum()).toEqual(102);
     });
@@ -471,7 +471,7 @@ describe('P2P Client', () => {
 
     it('stops tx collection for pruned blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(101)), await L2BlockNew.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
       blockSource.removeBlocks(1);
@@ -481,7 +481,7 @@ describe('P2P Client', () => {
 
     it('stops tx collection for proven blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(101)), await L2BlockNew.random(BlockNumber(102))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
       await advanceToProvenBlock(BlockNumber(101));
@@ -490,12 +490,12 @@ describe('P2P Client', () => {
 
     it('triggers tx collection for missing txs from mined blocks', async () => {
       await client.start();
-      const block = await L2BlockNew.random(BlockNumber(101), { txsPerBlock: 3 });
+      const block = await L2Block.random(BlockNumber(101), { txsPerBlock: 3 });
       // Compute the block hash since it gets cached when the p2p client logs it
       await block.hash();
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
-      blockSource.addBlocks([block]);
+      blockSource.addProposedBlocks([block]);
       await client.sync();
 
       expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);
@@ -507,7 +507,7 @@ describe('P2P Client', () => {
 
     it('clears non-evictable txs when new blocks are synced', async () => {
       await client.start();
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(101))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
       await client.sync();
 
       expect(txPool.clearNonEvictableTxs).toHaveBeenCalled();
@@ -575,7 +575,7 @@ describe('P2P Client', () => {
       ]);
 
       await realClient.start();
-      blockSource.addBlocks([await L2BlockNew.random(BlockNumber(101))]);
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
       await realClient.sync();
 
       const tx6 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(6, 6) });

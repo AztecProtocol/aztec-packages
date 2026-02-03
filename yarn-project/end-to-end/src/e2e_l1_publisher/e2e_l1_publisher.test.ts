@@ -49,7 +49,7 @@ import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  L2BlockNew,
+  L2Block,
   type L2Tips,
   Signature,
 } from '@aztec/stdlib/block';
@@ -122,7 +122,7 @@ describe('L1Publisher integration', () => {
   let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiverDataSource>;
-  let blocks: L2BlockNew[] = [];
+  let blocks: L2Block[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
 
@@ -186,31 +186,17 @@ describe('L1Publisher integration', () => {
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
     blockSource = mock<ArchiverDataSource>({
-      getBlocks(from, limit, _proven) {
+      getBlocks(from, limit) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
-      getPublishedBlocks(from, limit, _proven) {
-        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
-        return Promise.all(
-          slicedBlocks.map(async block =>
-            CheckpointedL2Block.fromFields({
-              checkpointNumber: CheckpointNumber(block.number),
-              attestations: [],
-              block,
-              // Use L2 block number and hash for faking the L1 info
-              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
-            }),
-          ),
-        );
-      },
       // Methods needed by L2BlockStream for world state sync
-      getCheckpointedBlocks(from, limit, _proven) {
+      getCheckpointedBlocks(from, limit) {
         const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
         return Promise.all(
           slicedBlocks.map(
             async block =>
               new CheckpointedL2Block(
-                CheckpointNumber(block.number),
+                CheckpointNumber.fromBlockNumber(block.number),
                 block,
                 new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
                 [],
@@ -218,7 +204,7 @@ describe('L1Publisher integration', () => {
           ),
         );
       },
-      async getPublishedCheckpoints(checkpointNumber, _limit) {
+      async getCheckpoints(checkpointNumber, _limit) {
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);
@@ -227,7 +213,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          CheckpointNumber(block.number),
+          CheckpointNumber.fromBlockNumber(block.number),
         );
         return [
           new PublishedCheckpoint(
@@ -244,7 +230,7 @@ describe('L1Publisher integration', () => {
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
         const tipId = {
           block: blockId,
-          checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+          checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
         return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
@@ -259,7 +245,6 @@ describe('L1Publisher integration', () => {
 
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
-      worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
@@ -480,6 +465,7 @@ describe('L1Publisher integration', () => {
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
+          checkpoint.header,
           block,
           l1ToL2Content,
           blockBlobs,

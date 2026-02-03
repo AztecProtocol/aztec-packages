@@ -4,7 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { CheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { LendingContract } from '@aztec/noir-contracts.js/Lending';
 
@@ -29,7 +29,7 @@ export class LendingAccount {
    * @returns Key in public space
    */
   public key() {
-    return pedersenHash([this.address, this.secret]);
+    return poseidon2Hash([this.address, this.secret]);
   }
 }
 

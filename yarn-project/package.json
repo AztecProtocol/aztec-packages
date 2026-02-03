@@ -3,6 +3,7 @@
   "packageManager": "yarn@4.5.2",
   "private": true,
   "scripts": {
+    "ci": "../ci.sh",
     "prepare": "node ./scripts/update_package_jsons.mjs && yarn workspaces foreach -A run prepare && workspaces-to-typescript-project-references --tsconfigPath tsconfig.json && prettier -w */tsconfig.json",
     "prepare:check": "node ./scripts/update_package_jsons.mjs --check && workspaces-to-typescript-project-references --check --tsconfigPath tsconfig.json",
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",

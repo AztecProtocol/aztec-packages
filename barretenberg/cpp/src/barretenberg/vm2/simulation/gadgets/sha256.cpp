@@ -65,7 +65,7 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
         sum += value.as<uint32_t>();
     }
     uint32_t lo = static_cast<uint32_t>(sum);
-    uint32_t hi = sum >> 32;
+    uint32_t hi = static_cast<uint32_t>(sum >> 32);
 
     // Do these outside of an assert, in case this gets built without assert
     bool lo_in_range =

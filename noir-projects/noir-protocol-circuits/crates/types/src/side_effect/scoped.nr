@@ -2,10 +2,10 @@ use crate::{
     address::AztecAddress,
     side_effect::{counted::Counted, Ordered},
     tests::types::TestValue,
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Scoped<T> {
     pub inner: T,
     pub contract_address: AztecAddress,
@@ -32,34 +32,6 @@ where
 {
     fn empty() -> Self {
         Self { inner: T::empty(), contract_address: AztecAddress::empty() }
-    }
-}
-
-impl<T> Serialize for Scoped<T>
-where
-    T: Serialize,
-{
-    let N: u32 = <T as Serialize>::N + 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        self.inner.serialize().concat([self.contract_address.to_field()])
-    }
-}
-
-impl<T> Deserialize for Scoped<T>
-where
-    T: Deserialize,
-{
-    let N: u32 = <T as Deserialize>::N + 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let deserialized = Self {
-            inner: reader.read_struct(T::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        deserialized
     }
 }
 

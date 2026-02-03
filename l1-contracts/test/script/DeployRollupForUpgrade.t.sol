@@ -46,6 +46,7 @@ contract DeployRollupForUpgradeTest is Test {
     // Fees config
     vm.setEnv("AZTEC_MANA_TARGET", vm.toString(json.readUint(".AZTEC_MANA_TARGET")));
     vm.setEnv("AZTEC_PROVING_COST_PER_MANA", vm.toString(json.readUint(".AZTEC_PROVING_COST_PER_MANA")));
+    vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
 
     // Slashing config
     vm.setEnv("AZTEC_SLASHER_FLAVOR", json.readString(".AZTEC_SLASHER_FLAVOR"));

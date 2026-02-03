@@ -5,7 +5,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
-  L2BlockNew,
+  L2Block,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
   type L2PruneUnprovenEvent,
@@ -97,7 +97,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
-  private async processPruneL2Blocks(blocks: L2BlockNew[], epochNumber: EpochNumber): Promise<void> {
+  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
     try {
       const l1Constants = this.epochCache.getL1Constants();
       const epochBlocks = blocks.filter(b => getEpochAtSlot(b.header.getSlot(), l1Constants) === epochNumber);
@@ -121,7 +121,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlocks(blocks: L2BlockNew[]): Promise<void> {
+  public async validateBlocks(blocks: L2Block[]): Promise<void> {
     if (blocks.length === 0) {
       return;
     }
@@ -142,7 +142,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public async validateBlock(
-    blockFromL1: L2BlockNew,
+    blockFromL1: L2Block,
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
   ): Promise<void> {
@@ -176,6 +176,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
+      this.log.getBindings(),
     );
 
     const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});

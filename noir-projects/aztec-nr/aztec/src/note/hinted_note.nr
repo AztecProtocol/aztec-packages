@@ -1,8 +1,14 @@
 use crate::note::note_metadata::NoteMetadata;
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
-/// A container for a note and the corresponding metadata that can be used to prove the note's existence, regardless of
-/// whether the note is pending (created in the current transaction) or settled (created in a previous transaction).
+/// A hint for a note that might exist.
+///
+/// This contains the actual note content and all metadata that is required in order to prove note's existence,
+/// regardless of whether the note is pending or settled (see [`crate::note::note_metadata::NoteMetadata`]).
+///
+/// This value typically unconstrained (originating from oracles or as a contract function parameter), and can be
+/// converted into a [`crate::note::confirmed_note::ConfirmedNote`] via
+/// [`crate::history::note::assert_note_existed_by`].
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct HintedNote<Note> {
     pub note: Note,
@@ -14,8 +20,8 @@ pub struct HintedNote<Note> {
 }
 
 mod test {
-    use crate::note::{hinted_note::HintedNote, note_metadata::NoteMetadata};
-    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
+    use crate::note::{HintedNote, note_metadata::NoteMetadata};
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]
     struct TestNote {
@@ -23,12 +29,12 @@ mod test {
         value2: Field,
     }
 
-    /// This test is a bit strange because in TS we don't have on the input the actual packed hinted note but
-    /// instead we run `fromRawData` function to get the NoteMetadata and then we construct and pack the hinted
-    /// note. To ensure that the `fromRawData` function matches the Noir one, we also run it here and compare the
-    /// final packed hinted note. It would be more correct to have a separate unit test for the `fromRawData`
-    /// function but I felt like it's not worth the effort. The code here is not that complex and it all should be
-    /// straightforward to fix if the format, for whatever reason, changes.
+    /// This test is a bit strange because in TS we don't have on the input the actual packed hinted note but instead
+    /// we run `fromRawData` function to get the NoteMetadata and then we construct and pack the hinted note. To ensure
+    /// that the `fromRawData` function matches the Noir one, we also run it here and compare the final packed hinted
+    /// note. It would be more correct to have a separate unit test for the `fromRawData` function but I felt like it's
+    /// not worth the effort. The code here is not that complex and it all should be straightforward to fix if the
+    /// format, for whatever reason, changes.
     #[test]
     unconstrained fn packing_hinted_note_matches_typescript() {
         // The following 5 values are an input to the typescript function `packAsHintedNote`
@@ -39,8 +45,8 @@ mod test {
         let index = Option::<Field>::none(); // Transient note
         let packed_note = [3, 4];
 
-        // Below we reproduce what the typescript function `packAsHintedNote` does. This is a bit strange but we
-        // also want to test that the `fromRawData` function matches the Noir one.
+        // Below we reproduce what the typescript function `packAsHintedNote` does. This is a bit strange but we also
+        // want to test that the `fromRawData` function matches the Noir one.
         let note_is_transient = index.is_none();
         let nonzero_note_hash_counter = note_is_transient;
         let note_metadata = NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce);

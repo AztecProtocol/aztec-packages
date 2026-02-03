@@ -1,11 +1,12 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { L2BlockHash } from '../block/block_hash.js';
+import { BlockHash } from '../block/block_hash.js';
 import { schemas } from '../schemas/index.js';
 
 /** A globally unique log id. */
@@ -20,7 +21,7 @@ export class LogId {
     /** The block number the log was emitted in. */
     public readonly blockNumber: BlockNumber,
     /** The hash of the block the log was emitted in. */
-    public readonly blockHash: L2BlockHash,
+    public readonly blockHash: BlockHash,
     /** The index of a tx in a block the log was emitted in. */
     public readonly txIndex: number,
     /** The index of a log the tx was emitted in. */
@@ -40,7 +41,7 @@ export class LogId {
   static random() {
     return new LogId(
       BlockNumber(Math.floor(Math.random() * 1000) + 1),
-      L2BlockHash.random(),
+      BlockHash.random(),
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 100),
     );
@@ -50,7 +51,7 @@ export class LogId {
     return z
       .object({
         blockNumber: BlockNumberSchema,
-        blockHash: L2BlockHash.schema,
+        blockHash: BlockHash.schema,
         txIndex: schemas.Integer,
         logIndex: schemas.Integer,
       })
@@ -81,7 +82,7 @@ export class LogId {
     const reader = BufferReader.asReader(buffer);
 
     const blockNumber = BlockNumber(reader.readNumber());
-    const blockHash = reader.readObject(L2BlockHash);
+    const blockHash = new BlockHash(reader.readObject(Fr));
     const txIndex = reader.readNumber();
     const logIndex = reader.readNumber();
 
@@ -104,7 +105,7 @@ export class LogId {
   static fromString(data: string): LogId {
     const [rawBlockNumber, rawTxIndex, rawLogIndex, rawBlockHash] = data.split('-');
     const blockNumber = BlockNumber(Number(rawBlockNumber));
-    const blockHash = L2BlockHash.fromString(rawBlockHash);
+    const blockHash = BlockHash.fromString(rawBlockHash);
     const txIndex = Number(rawTxIndex);
     const logIndex = Number(rawLogIndex);
 

@@ -30,7 +30,7 @@
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     compute_note_hash_and_nullifier: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;Env&gt;,
     message_ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
-    message_context: <a href="../../../../noir_aztec/messages/processing/message_context/struct.MessageContext.html" class="struct">MessageContext</a>,
+    message_context: <a href="../../../../noir_aztec/messages/processing/struct.MessageContext.html" class="struct">MessageContext</a>,
 )</code></pre>
 
 <div class="comments">
@@ -39,8 +39,8 @@
 in which the notes would've been created (typically the same transaction in which the log was emitted), along with
 the list of unique note hashes in said transaction and the <code>compute_note_hash_and_nullifier</code> function. Once
 discovered, the notes are enqueued for validation.</p>
-<p>Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
-search for the note's completion public log.</p>
+<p>Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved
+to search for the note's completion public log.</p>
 <p>Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 enqueueing the event data and commitment for validation.</p>
 </div>

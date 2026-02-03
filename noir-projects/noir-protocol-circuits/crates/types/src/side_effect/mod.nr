@@ -9,5 +9,5 @@ pub trait Ordered {
 }
 
 pub trait Readable {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>);
+    fn assert_match_read_request(self, read_request: Field);
 }

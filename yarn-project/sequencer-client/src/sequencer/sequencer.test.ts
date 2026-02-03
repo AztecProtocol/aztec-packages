@@ -15,7 +15,7 @@ import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
-  L2BlockNew,
+  L2Block,
   type L2BlockSink,
   type L2BlockSource,
   type ValidateCheckpointNegativeResult,
@@ -68,7 +68,7 @@ describe('sequencer', () => {
   let newSlotNumber: number;
   let hash: string;
 
-  let block: L2BlockNew;
+  let block: L2Block;
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
 
@@ -235,7 +235,7 @@ describe('sequencer', () => {
     checkpointBuilder.setBlockProvider(() => block);
 
     l2BlockSource = mock<L2BlockSource & L2BlockSink>({
-      getL2BlockNew: mockFn().mockResolvedValue(L2BlockNew.empty()),
+      getL2Block: mockFn().mockResolvedValue(L2Block.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
@@ -255,7 +255,7 @@ describe('sequencer', () => {
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
-      getBlocksForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointedBlocksForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
     });
 

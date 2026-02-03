@@ -6,7 +6,6 @@ import {
   Contract,
   DeployMethod,
 } from '@aztec/aztec.js/contracts';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { type FunctionAbi, getAllFunctionAbis, FunctionType } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../aztecContext';
 import Button from '@mui/material/Button';
@@ -160,7 +159,7 @@ const deployedContractCss = css({
   },
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_state', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
@@ -233,7 +232,7 @@ export function ContractComponent() {
     if (contract && publiclyDeploy) {
       const txReceipt = await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts);
       // Temporarily ignore undeployed contracts
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (txReceipt?.hasExecutionSucceeded()) {
         setCurrentContractAddress(contract.address);
       }
     } else if (contract) {

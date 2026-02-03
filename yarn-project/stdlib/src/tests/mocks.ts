@@ -22,7 +22,7 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block, CommitteeAttestation, L2BlockNew } from '../block/index.js';
+import { CheckpointedL2Block, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
@@ -97,12 +97,14 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
     protocolContractsHash = Fr.ZERO,
+    anchorBlockHeader = BlockHeader.empty(),
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -111,12 +113,14 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
     protocolContractsHash?: Fr;
+    anchorBlockHeader?: BlockHeader;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -126,10 +130,8 @@ export const mockTx = async (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
-  data.constants.txContext.gasSettings = GasSettings.default({
-    maxFeesPerGas: new GasFees(10, 10),
-    maxPriorityFeesPerGas,
-  });
+  data.constants.anchorBlockHeader = anchorBlockHeader;
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -404,32 +406,37 @@ export async function mockCheckpointAndMessages(
     numL1ToL2Messages = 1,
     makeBlockOptions = () => ({}),
     previousArchive,
+    maxEffects,
     ...options
   }: {
     startBlockNumber?: BlockNumber;
     numBlocks?: number;
     numTxsPerBlock?: number;
     numL1ToL2Messages?: number;
-    makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2BlockNew.random>[1]>;
+    makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2Block.random>[1]>;
     previousArchive?: AppendOnlyTreeSnapshot;
-    blocks?: L2BlockNew[];
+    blocks?: L2Block[];
+    maxEffects?: number;
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
-    Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
+    Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
-  const slotNumber = options.slotNumber ?? SlotNumber(checkpointNumber * 10);
+  const slotNumber = options.slotNumber ?? SlotNumber(Number(checkpointNumber) * 10);
   const blocksAndMessages = [];
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
+  // Pass maxEffects via txOptions so it reaches TxEffect.random
+  const txOptions = maxEffects !== undefined ? { maxEffects } : {};
   for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
     const blockNumber = BlockNumber(startBlockNumber + i);
     const { block, messages } = {
       block:
         blocks?.[i] ??
-        (await L2BlockNew.random(blockNumber, {
+        (await L2Block.random(blockNumber, {
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
+          txOptions,
           slotNumber,
           ...options,
           ...makeBlockOptions(blockNumber),
@@ -670,15 +677,15 @@ export const makeCheckpointAttestationFromCheckpoint = (
 };
 
 /**
- * Create a checkpoint attestation from an L2BlockNew
- * Note: This is a compatibility function for tests. L2BlockNew doesn't have a checkpoint header directly.
+ * Create a checkpoint attestation from an L2Block
+ * Note: This is a compatibility function for tests. L2Block doesn't have a checkpoint header directly.
  */
 export const makeCheckpointAttestationFromBlock = (
-  block: L2BlockNew,
+  block: L2Block,
   attesterSigner?: Secp256k1Signer,
   proposerSigner?: Secp256k1Signer,
 ): CheckpointAttestation => {
-  // For L2BlockNew, we create a minimal checkpoint header for testing purposes
+  // For L2Block, we create a minimal checkpoint header for testing purposes
   const header = CheckpointHeader.empty({
     lastArchiveRoot: block.header.lastArchive.root,
     slotNumber: block.slot,
@@ -694,7 +701,7 @@ export async function randomPublishedL2Block(
   l2BlockNumber: number,
   opts: { signers?: Secp256k1Signer[] } = {},
 ): Promise<CheckpointedL2Block> {
-  const block = await L2BlockNew.random(BlockNumber(l2BlockNumber));
+  const block = await L2Block.random(BlockNumber(l2BlockNumber));
   const l1 = L1PublishedData.fromFields({
     blockNumber: BigInt(block.number),
     timestamp: block.header.globalVariables.timestamp,
@@ -702,7 +709,9 @@ export async function randomPublishedL2Block(
   });
 
   const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const checkpoint = await Checkpoint.random(CheckpointNumber(l2BlockNumber), { numBlocks: 0 });
+  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), {
+    numBlocks: 0,
+  });
   checkpoint.blocks = [block];
   const atts = signers.map(signer =>
     makeCheckpointAttestation({
@@ -714,5 +723,5 @@ export async function randomPublishedL2Block(
   const attestations = atts.map(
     (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
   );
-  return new CheckpointedL2Block(CheckpointNumber(l2BlockNumber), block, l1, attestations);
+  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), block, l1, attestations);
 }

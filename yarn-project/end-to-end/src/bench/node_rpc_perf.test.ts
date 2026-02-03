@@ -14,6 +14,7 @@ import type { RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { BlockHash } from '@aztec/stdlib/block';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -150,9 +151,9 @@ describe('e2e_node_rpc_perf', () => {
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n)
-      .send({ from: ownerAddress })
-      .deployed({ timeout: 600 });
+    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+      from: ownerAddress,
+    });
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
@@ -189,8 +190,7 @@ describe('e2e_node_rpc_perf', () => {
         from: ownerAddress,
       });
 
-      const sentTx = provenTx.send();
-      const receipt = await sentTx.wait({ timeout: 600 });
+      const receipt = await provenTx.send({ wait: { timeout: 600 } });
       txHashes.push(receipt.txHash);
       logger.verbose(`Transaction ${receipt.txHash} included in block ${receipt.blockNumber}`);
       logger.info(`Block ${block + 1}/${BLOCKS_TO_BUILD} built`);
@@ -310,10 +310,10 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getPublishedBlocks (5 blocks)', async () => {
+    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getPublishedBlocks', () => aztecNode.getPublishedBlocks(fromBlock, 5));
-      addResult('getPublishedBlocks_5', stats);
+      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
+      addResult('getCheckpointedBlocks_5', stats);
       expect(stats.avg).toBeLessThan(5000);
     });
 
@@ -359,34 +359,6 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(2000);
     });
 
-    it('benchmarks getNullifierSiblingPath', async () => {
-      const { stats } = await benchmark('getNullifierSiblingPath', () =>
-        aztecNode.getNullifierSiblingPath('latest', 0n),
-      );
-      addResult('getNullifierSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getNoteHashSiblingPath', async () => {
-      const { stats } = await benchmark('getNoteHashSiblingPath', () => aztecNode.getNoteHashSiblingPath('latest', 0n));
-      addResult('getNoteHashSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getArchiveSiblingPath', async () => {
-      const { stats } = await benchmark('getArchiveSiblingPath', () => aztecNode.getArchiveSiblingPath('latest', 0n));
-      addResult('getArchiveSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
-    it('benchmarks getPublicDataSiblingPath', async () => {
-      const { stats } = await benchmark('getPublicDataSiblingPath', () =>
-        aztecNode.getPublicDataSiblingPath('latest', 0n),
-      );
-      addResult('getPublicDataSiblingPath', stats);
-      expect(stats.avg).toBeLessThan(2000);
-    });
-
     it('benchmarks getNullifierMembershipWitness', async () => {
       const nullifier = Fr.random();
       const { stats } = await benchmark('getNullifierMembershipWitness', () =>
@@ -412,12 +384,12 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(2000);
     });
 
-    it('benchmarks getArchiveMembershipWitness', async () => {
-      const archive = Fr.random();
-      const { stats } = await benchmark('getArchiveMembershipWitness', () =>
-        aztecNode.getArchiveMembershipWitness('latest', archive),
+    it('benchmarks getBlockHashMembershipWitness', async () => {
+      const blockHash = BlockHash.random();
+      const { stats } = await benchmark('getBlockHashMembershipWitness', () =>
+        aztecNode.getBlockHashMembershipWitness('latest', blockHash),
       );
-      addResult('getArchiveMembershipWitness', stats);
+      addResult('getBlockHashMembershipWitness', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 

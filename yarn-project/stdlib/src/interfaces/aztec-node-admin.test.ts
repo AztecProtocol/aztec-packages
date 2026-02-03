@@ -133,6 +133,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       proverTestDelayType: 'fixed',
       proverTestDelayMs: 100,
       proverTestDelayFactor: 1,
+      cancelJobsOnStop: false,
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
       maxPendingTxCount: 1000,
@@ -169,6 +170,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       pollingIntervalMs: 50,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      },
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

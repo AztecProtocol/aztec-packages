@@ -18,10 +18,10 @@ namespace bb {
  * \f[
  *   M_I =
  *   \begin{bmatrix}
- *     D_1 + 1 &     1   &     1   &     1   \\
- *         1   & D_2 + 1 &     1   &     1   \\
- *         1   &     1   & D_3 + 1 &     1   \\
- *         1   &     1   &     1   & D_4 + 1
+ *     D_1 &  1  &  1  &  1  \\
+ *      1  & D_2 &  1  &  1  \\
+ *      1  &  1  & D_3 &  1  \\
+ *      1  &  1  &  1  & D_4
  *   \end{bmatrix},
  * \quad
  * \text{where } D_i \text{ are the diagonal entries of } M_I.
@@ -73,11 +73,13 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         7, // internal poseidon2 round sub-relation for fourth value
     };
 
-    static constexpr fr D1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0]; // decremented by 1
-    static constexpr fr D2 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1]; // decremented by 1
-    static constexpr fr D3 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2]; // decremented by 1
-    static constexpr fr D4 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3]; // decremented by 1
-    static constexpr fr D1_plus_1 = fr{ 1 } + D1;
+    // Internal matrix diagonal values minus one: these are D_i - 1 where D_i are the actual diagonal entries of M_I.
+    // The internal round computes: v[i] = (D_i - 1) * u[i] + sum = D_i * u[i] + (sum of other elements)
+    static constexpr fr D1_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
+    static constexpr fr D2_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
+    static constexpr fr D3_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
+    static constexpr fr D4_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[3];
+    static constexpr fr D1 = fr{ 1 } + D1_minus_1;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
@@ -138,26 +140,26 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         const auto partial_sum = w_2 + w_3 + w_4;
         const auto scaled_u1 = u1 * q_pos_by_scaling;
 
-        // Row 1:
-        barycentric_term = scaled_u1 * D1_plus_1;
+        // Row 1: v_1 = D_1 * u_1 + u_2 + u_3 + u_4
+        barycentric_term = scaled_u1 * D1;
         auto monomial_term = partial_sum - w_1_shift;
         barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
         std::get<0>(evals) += barycentric_term;
 
-        // Row 2:
-        auto v2_m = w_2 * D2 + partial_sum - w_2_shift;
+        // Row 2: v_2 = u_1 + D_2 * u_2 + u_3 + u_4 = u_1 + (D_2 - 1) * u_2 + u_2 + u_3 + u_4
+        auto v2_m = w_2 * D2_minus_1 + partial_sum - w_2_shift;
         barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<1>(evals) += barycentric_term;
 
-        // Row 3:
-        auto v3_m = w_3 * D3 + partial_sum - w_3_shift;
+        // Row 3: v_3 = u_1 + u_2 + D_3 * u_3 + u_4 = u_1 + u_2 + (D_3 - 1) * u_3 + u_3 + u_4
+        auto v3_m = w_3 * D3_minus_1 + partial_sum - w_3_shift;
         barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<2>(evals) += barycentric_term;
 
-        // Row 4:
-        auto v4_m = w_4 * D4 + partial_sum - w_4_shift;
+        // Row 4: v_4 = u_1 + u_2 + u_3 + D_4 * u_4 = u_1 + u_2 + u_3 + (D_4 - 1) * u_4 + u_4
+        auto v4_m = w_4 * D4_minus_1 + partial_sum - w_4_shift;
         barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<3>(evals) += barycentric_term;

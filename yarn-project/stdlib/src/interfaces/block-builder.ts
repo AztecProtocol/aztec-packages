@@ -1,7 +1,8 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { LoggerBindings } from '@aztec/foundation/log';
 
-import type { L2BlockNew } from '../block/l2_block_new.js';
+import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
@@ -31,7 +32,7 @@ export interface IBlockFactory extends ProcessedTxHandler {
   /**
    * Assembles the block and updates the archive tree.
    */
-  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2BlockNew>;
+  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 }
 
 export interface PublicProcessorLimits {
@@ -61,16 +62,24 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'fakeThrowAfterProcessingTxCount',
 ] as const;
 
+/** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
+export class NoValidTxsError extends Error {
+  constructor(public readonly failedTxs: FailedTx[]) {
+    super('No valid transactions to include in block');
+    this.name = 'NoValidTxsError';
+  }
+}
+
 /** Result of building a block within a checkpoint. */
-export interface BuildBlockInCheckpointResult {
-  block: L2BlockNew;
+export type BuildBlockInCheckpointResult = {
+  block: L2Block;
   publicGas: Gas;
   publicProcessorDuration: number;
   numTxs: number;
   failedTxs: FailedTx[];
   usedTxs: Tx[];
   usedTxBlobFields: number;
-}
+};
 
 /** Interface for building blocks within a checkpoint context. */
 export interface ICheckpointBlockBuilder {
@@ -92,5 +101,6 @@ export interface ICheckpointsBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
+    bindings?: LoggerBindings,
   ): Promise<ICheckpointBlockBuilder>;
 }

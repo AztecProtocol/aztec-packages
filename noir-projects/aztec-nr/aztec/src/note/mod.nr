@@ -1,4 +1,6 @@
-//! Note traits and utilities.
+//! Note traits and utilities
+//!
+//! ## Siloing
 
 pub mod constants;
 pub mod lifecycle;
@@ -7,7 +9,13 @@ pub mod note_getter;
 pub mod note_getter_options;
 pub mod note_interface;
 pub mod note_viewer_options;
-pub mod hinted_note;
+mod hinted_note;
+pub use hinted_note::HintedNote;
+
 pub mod utils;
-pub mod note_message;
-pub mod confirmed_note;
+
+mod note_message;
+pub use note_message::{MaybeNoteMessage, NoteMessage};
+
+mod confirmed_note;
+pub use confirmed_note::ConfirmedNote;

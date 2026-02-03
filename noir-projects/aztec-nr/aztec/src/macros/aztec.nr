@@ -1,8 +1,6 @@
 use crate::macros::{
     calls_generation::{
-        external_functions::{
-            generate_external_function_calls, generate_external_function_self_calls_structs,
-        },
+        external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
         internal_functions::generate_call_internal_struct,
     },
     dispatch::generate_public_dispatch,
@@ -10,13 +8,14 @@ use crate::macros::{
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
     utils::{
-        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal,
-        is_fn_test, module_has_storage,
+        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
+        module_has_storage,
     },
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `sync_private_state` utility function.
+/// the `sync_state` utility function.
+///
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
@@ -34,9 +33,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // We generate ABI exports for all the external functions in the contract.
     let fn_abi_exports = create_fn_abi_exports(m);
 
-    // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
-    // functions only if they are not already implemented. If they are implemented we just insert empty
-    // quotes.
+    // We generate `_compute_note_hash_and_nullifier`, `sync_state` and `process_message` functions only if they are
+    // not already implemented. If they are implemented we just insert empty quotes.
     let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
         f.name() == quote { _compute_note_hash_and_nullifier }
     }) {
@@ -44,17 +42,13 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-    let sync_private_state_fn_and_abi_export = if !m.functions().any(|f| {
-        f.name() == quote { sync_private_state }
-    }) {
-        generate_sync_private_state()
+    let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
+        generate_sync_state()
     } else {
         quote {}
     };
 
-    let process_message_fn_and_abi_export = if !m.functions().any(|f| {
-        f.name() == quote { process_message }
-    }) {
+    let process_message_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { process_message }) {
         generate_process_message()
     } else {
         quote {}
@@ -69,7 +63,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $fn_abi_exports
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
-        $sync_private_state_fn_and_abi_export
+        $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
     }
 }
@@ -102,20 +96,20 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
     quote {
         pub struct $module_name {
-            pub target_contract: dep::aztec::protocol_types::address::AztecAddress
+            pub target_contract: aztec::protocol::address::AztecAddress
         }
 
         impl $module_name {
             $calls
 
             pub fn at(
-                addr: aztec::protocol_types::address::AztecAddress
+                addr: aztec::protocol::address::AztecAddress
             ) -> Self {
                 Self { target_contract: addr }
             }
 
             pub fn interface() -> Self {
-                Self { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+                Self { target_contract: aztec::protocol::address::AztecAddress::zero() }
             }
 
             $storage_layout_getter
@@ -123,14 +117,14 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
         #[contract_library_method]
         pub fn at(
-            addr: aztec::protocol_types::address::AztecAddress
+            addr: aztec::protocol::address::AztecAddress
         ) -> $module_name {
             $module_name { target_contract: addr }
         }
 
         #[contract_library_method]
         pub fn interface() -> $module_name {
-            $module_name { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+            $module_name { target_contract: aztec::protocol::address::AztecAddress::zero() }
         }
 
         $library_storage_layout_getter
@@ -138,8 +132,8 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-/// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note
-/// discovery (to create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note discovery (to
+/// create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     if NOTES.len() > 0 {
@@ -159,7 +153,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             );
             let unpack = get_trait_impl_method(
                 typ,
-                quote { crate::protocol_types::traits::Packable },
+                quote { crate::protocol::traits::Packable },
                 quote { unpack },
             );
 
@@ -187,7 +181,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // As an extra safety check we make sure that the packed_note BoundedVec has the expected
                         // length, since we're about to interpret its raw storage as a fixed-size array by calling the
                         // unpack function on it.
-                        let expected_len = <$typ as $crate::protocol_types::traits::Packable>::N;
+                        let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         assert(
                             actual_len == expected_len,
@@ -198,11 +192,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note_hash = $compute_note_hash(note, owner, storage_slot, randomness);
     
-                        // The message discovery process finds settled notes, that is, notes that were created in prior
-                        // transactions and are therefore already part of the note hash tree. We therefore compute the
-                        // nullification note hash by treating the note as a settled note with the provided note nonce.
+                        // The message discovery process finds settled notes, that is, notes that were created in prior transactions and are therefore already part of the note hash tree. We therefore compute the nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-                            aztec::note::hinted_note::HintedNote{
+                            aztec::note::HintedNote{
                                 note,
                                 contract_address,
                                 owner,
@@ -227,22 +219,18 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
         let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
         quote {
-            /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
-            /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
-            /// tree with `note_nonce`.
+            /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash tree with `note_nonce`.
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
-            /// and so it can be used to call functions from that module such as `discover_new_messages`, 
-            /// `do_process_message` and `attempt_note_discovery`.
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
                 packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
-                owner: aztec::protocol_types::address::AztecAddress,
+                owner: aztec::protocol::address::AztecAddress,
                 storage_slot: Field,
                 note_type_id: Field,
-                contract_address: aztec::protocol_types::address::AztecAddress,
+                contract_address: aztec::protocol::address::AztecAddress,
                 randomness: Field,
                 note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
@@ -256,17 +244,16 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
         // Contracts with no notes still implement this function to avoid having special-casing, the implementation
         // simply throws immediately.
         quote {
-            /// This contract does not use private notes, so this function should never be called as it will
-            /// unconditionally fail.
+            /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
                 _packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
-                _owner: aztec::protocol_types::address::AztecAddress,
+                _owner: aztec::protocol::address::AztecAddress,
                 _storage_slot: Field,
                 _note_type_id: Field,
-                _contract_address: aztec::protocol_types::address::AztecAddress,
+                _contract_address: aztec::protocol::address::AztecAddress,
                 _randomness: Field,
                 _nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
@@ -276,20 +263,20 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-comptime fn generate_sync_private_state() -> Quoted {
+comptime fn generate_sync_state() -> Quoted {
     quote {
-        pub struct sync_private_state_parameters {}
+        pub struct sync_state_parameters {}
 
         #[abi(functions)]
-        pub struct sync_private_state_abi {
-            parameters: sync_private_state_parameters,
+        pub struct sync_state_abi {
+            parameters: sync_state_parameters,
         }
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn sync_private_state() {
-            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+        unconstrained fn sync_state() {
+            let address = aztec::context::UtilityContext::new().this_address();
             
-            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);
+            aztec::messages::discovery::do_sync_state(address, _compute_note_hash_and_nullifier);
         }
     }
 }
@@ -298,7 +285,7 @@ comptime fn generate_process_message() -> Quoted {
     quote {
         pub struct process_message_parameters {
             pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            pub message_context: aztec::messages::processing::message_context::MessageContext,
+            pub message_context: aztec::messages::processing::MessageContext,
         }
 
         #[abi(functions)]
@@ -309,11 +296,10 @@ comptime fn generate_process_message() -> Quoted {
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn process_message(
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            message_context: aztec::messages::processing::message_context::MessageContext,
+            message_context: aztec::messages::processing::MessageContext,
         ) {
-            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+            let address = aztec::context::UtilityContext::new().this_address();
 
-            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);     
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash_and_nullifier,
@@ -327,14 +313,11 @@ comptime fn generate_process_message() -> Quoted {
 /// Checks that all functions in the module have a context macro applied.
 ///
 /// Non-macroified functions are not allowed in contracts. They must all be one of
-/// [external](crate::macros::functions::external), [internal](crate::macros::functions::internal) or `test`.
+/// [`external`](crate::macros::functions::external), [`internal`](crate::macros::functions::internal) or `test`.
 comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();
-        if !is_fn_external(f)
-            & !is_fn_contract_library_method(f)
-            & !is_fn_internal(f)
-            & !is_fn_test(f) {
+        if !is_fn_external(f) & !is_fn_contract_library_method(f) & !is_fn_internal(f) & !is_fn_test(f) {
             // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
             // concept
             panic(

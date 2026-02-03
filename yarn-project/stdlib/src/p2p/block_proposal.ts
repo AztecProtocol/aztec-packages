@@ -8,8 +8,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
+import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
-import type { L2BlockNew } from '../block/l2_block_new.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
@@ -30,8 +30,15 @@ export class BlockProposalHash extends Buffer32 {
 }
 
 export type BlockProposalOptions = {
-  publishFullTxs: boolean;
-  /** Whether to generate an invalid block proposal for broadcasting. Use only for testing. */
+  /**
+   * Whether to include the tx objects along with the block proposal.
+   * Dramatically increases size of the payload but eliminates failed reexecutions due to missing txs.
+   */
+  publishFullTxs?: boolean;
+  /**
+   * Whether to generate an invalid block proposal for broadcasting.
+   * Use only for testing.
+   */
   broadcastInvalidBlockProposal?: boolean;
 };
 
@@ -284,10 +291,10 @@ export class BlockProposal extends Gossipable {
   /**
    * Check if this proposal matches the given block.
    * Compares the archive root and block header.
-   * @param block - The L2BlockNew to compare against
+   * @param block - The L2Block to compare against
    * @returns True if the proposal matches the block
    */
-  matchesBlock(block: L2BlockNew): boolean {
+  matchesBlock(block: L2Block): boolean {
     return this.archiveRoot.equals(block.archive.root) && this.blockHeader.equals(block.header);
   }
 

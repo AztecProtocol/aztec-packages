@@ -28,7 +28,7 @@ static std::vector<fr> VALUES = []() {
 void hash(State& state) noexcept
 {
     for (auto _ : state) {
-        hash_pair_native({ 0, 0, 0, 0 }, { 1, 1, 1, 1 });
+        PedersenHashPolicy::hash_pair({ 0, 0, 0, 0 }, { 1, 1, 1, 1 });
     }
 }
 BENCHMARK(hash)->MinTime(5);

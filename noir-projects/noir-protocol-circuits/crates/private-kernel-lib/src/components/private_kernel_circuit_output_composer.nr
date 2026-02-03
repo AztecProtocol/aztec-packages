@@ -12,19 +12,26 @@ pub(crate) mod get_include_by_timestamp_for_contract_updates;
 
 pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
 
-use crate::accumulated_data::sort_by_counter;
+use crate::{
+    accumulated_data::{
+        assert_array_appended::{
+            append_and_scope_to_empty_dest, append_and_scope_to_index_0_or_1,
+            append_reversed_to_empty_dest, append_to_empty_dest,
+        },
+        sort_by_counter,
+    },
+    private_kernel_init::PrivateKernelInitCircuitPrivateInputs,
+};
 use dep::types::{
     abis::{
         accumulated_data::private_accumulated_data::PrivateAccumulatedData,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
-        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
+        private_tx_constant_data::PrivateTxConstantData,
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
-    constants::MAX_U64_VALUE,
     debug::no_op,
     hash::{create_protocol_nullifier, silo_nullifier},
     side_effect::Ordered,
@@ -55,43 +62,132 @@ pub struct PrivateKernelCircuitOutputComposer {
 }
 
 impl PrivateKernelCircuitOutputComposer {
-    pub unconstrained fn new_from_tx_request(
-        tx_request: TxRequest,
-        private_call_public_inputs: PrivateCircuitPublicInputs,
-        vk_tree_root: Field,
-        protocol_contracts: ProtocolContracts,
-        is_private_only: bool,
-        first_nullifier_hint: Field,
-        revertible_counter_hint: u32,
-    ) -> Self {
+    pub fn compose_output_for_init(
+        inputs: PrivateKernelInitCircuitPrivateInputs,
+    ) -> PrivateKernelCircuitPublicInputs {
         let constants = PrivateTxConstantData {
-            tx_context: private_call_public_inputs.tx_context,
-            vk_tree_root,
-            protocol_contracts,
-            anchor_block_header: private_call_public_inputs.anchor_block_header,
+            tx_context: inputs.private_call.public_inputs.tx_context,
+            vk_tree_root: inputs.vk_tree_root,
+            protocol_contracts: inputs.protocol_contracts,
+            anchor_block_header: inputs.private_call.public_inputs.anchor_block_header,
         };
 
+        let mut validation_requests = PrivateValidationRequests::empty();
         let mut end = PrivateAccumulatedData::empty();
+
         // Every tx needs at least one nullifier for uniqueness (used for computing the nonce for note hashes).
         // If `first_nullifier_hint` equals the protocol nullifier, it is inserted at index 0. Otherwise, at least one
         // private call must emit a nullifier, and the hint should match the first nullifier emitted.
-        let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
+        let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
         let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-        if first_nullifier_hint == protocol_nullifier {
-            end.nullifiers.push(scoped_protocol_nullifier);
+        let should_inject_protocol_nullifier = inputs.first_nullifier_hint == protocol_nullifier;
+        if should_inject_protocol_nullifier {
+            // Safety: we should ordinarily use `push`, so that the length correctly updates, but we know this is the very
+            // first entry in the array, so we do it manually.
+            end.nullifiers.array[0] = scoped_protocol_nullifier;
+            end.nullifiers.length = 1;
         };
 
-        // include_by_timestamp represents the latest block timestamp at which this tx is valid.
-        // It can only decrease (each call may impose stricter time constraints).
-        // We start with max u64 and take the minimum as calls are processed.
-        let include_by_timestamp = MAX_U64_VALUE;
+        let contract_address = inputs.private_call.public_inputs.call_context.contract_address;
 
-        // The initial values of the following are empty.
-        // They may be overwritten by a private call either in this Init circuit or later in the Inner circuit.
-        let min_revertible_side_effect_counter = 0;
-        let validation_requests = PrivateValidationRequests::empty();
-        let public_teardown_call_request = PublicCallRequest::empty();
-        let fee_payer = AztecAddress::empty();
+        append_to_empty_dest(
+            &mut validation_requests.note_hash_read_requests,
+            inputs.private_call.public_inputs.note_hash_read_requests,
+        );
+        append_to_empty_dest(
+            &mut validation_requests.nullifier_read_requests,
+            inputs.private_call.public_inputs.nullifier_read_requests,
+        );
+        append_and_scope_to_empty_dest(
+            &mut validation_requests.scoped_key_validation_requests_and_generators,
+            inputs.private_call.public_inputs.key_validation_requests_and_generators,
+            contract_address,
+        );
+
+        append_and_scope_to_empty_dest(
+            &mut end.note_hashes,
+            inputs.private_call.public_inputs.note_hashes,
+            contract_address,
+        );
+
+        append_and_scope_to_index_0_or_1(
+            &mut end.nullifiers,
+            inputs.private_call.public_inputs.nullifiers,
+            should_inject_protocol_nullifier,
+            contract_address,
+        );
+
+        append_and_scope_to_empty_dest(
+            &mut end.l2_to_l1_msgs,
+            inputs.private_call.public_inputs.l2_to_l1_msgs,
+            contract_address,
+        );
+        append_and_scope_to_empty_dest(
+            &mut end.private_logs,
+            inputs.private_call.public_inputs.private_logs,
+            contract_address,
+        );
+        append_and_scope_to_empty_dest(
+            &mut end.contract_class_logs_hashes,
+            inputs.private_call.public_inputs.contract_class_logs_hashes,
+            contract_address,
+        );
+        append_to_empty_dest(
+            &mut end.public_call_requests,
+            inputs.private_call.public_inputs.public_call_requests,
+        );
+        append_reversed_to_empty_dest(
+            &mut end.private_call_stack,
+            inputs.private_call.public_inputs.private_call_requests,
+        );
+
+        // The `min_revertible_side_effect_counter` is set by private functions. The initial value is from the first
+        // private call.
+        let min_revertible_side_effect_counter =
+            inputs.private_call.public_inputs.min_revertible_side_effect_counter;
+
+        // The `public_teardown_call_request` may be set by at most one private function.
+        // Here we simply copy the value from the first private call:
+        // - if it's empty, that's fine
+        // - if it's nonempty, we know we're not overwriting anything given that this is the first private call.
+        let public_teardown_call_request =
+            inputs.private_call.public_inputs.public_teardown_call_request;
+
+        let fee_payer = if inputs.private_call.public_inputs.is_fee_payer {
+            contract_address
+        } else {
+            AztecAddress::zero()
+        };
+
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each kernel iteration.
+        // Here we take the minimum of:
+        // - The timestamp set by this private call (via `context.set_include_by_timestamp()`)
+        // - The timestamp before which our earlier read of the contract instance registry would
+        //   become stale.
+        //   Recall: for the contract address of the private_call, we read whether the contract's
+        //   class have ever been upgraded, and if so we read the current class_id,
+        //   from a mapping in the ContractInstanceRegistry. Such reads (of DelayedPublicMutable state)
+        //   are only valid for a short period of time, after which the class_id might have been
+        //   overwritten. Hence, the include_by_timestamp of this entire tx must be at most the
+        //   timestamp at which our read becomes stale.
+        //   Note: even if the contract has never upgraded its class_id, we must still read (and
+        //   derive) an inclusion timestamp from its default INITIAL_DELAY in case an upgrade has
+        //   been scheduled since this tx's anchor block. I.e. even reads of empty registry entries
+        //   can go stale.
+        //
+        // Note: by default, at the time of writing, aztecnr sets the private_call.public_inputs.
+        // include_by_timestamp to be 24 hours after the anchor block's timestamp.
+        // Smart contract frameworks are responsible for setting such sensible values. If they were
+        // to set a value of `0`, this `min` would be `0` and the tx would be out of date before it's
+        // been submitted!
+        let timestamp_before_registry_read_goes_stale =
+            get_include_by_timestamp_for_contract_updates(inputs.private_call);
+
+        let include_by_timestamp = std::cmp::min(
+            inputs.private_call.public_inputs.include_by_timestamp,
+            timestamp_before_registry_read_goes_stale,
+        );
 
         let public_inputs = PrivateKernelCircuitPublicInputs {
             constants,
@@ -101,16 +197,16 @@ impl PrivateKernelCircuitOutputComposer {
             public_teardown_call_request,
             fee_payer,
             include_by_timestamp,
-            is_private_only,
-            claimed_first_nullifier: first_nullifier_hint,
-            claimed_revertible_counter: revertible_counter_hint,
+            is_private_only: inputs.is_private_only,
+            claimed_first_nullifier: inputs.first_nullifier_hint,
+            claimed_revertible_counter: inputs.revertible_counter_hint,
         };
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
         // https://github.com/AztecProtocol/aztec-packages/issues/660
-        PrivateKernelCircuitOutputComposer { public_inputs }
+        public_inputs
     }
 
     pub unconstrained fn new_from_previous_kernel(
@@ -162,7 +258,7 @@ impl PrivateKernelCircuitOutputComposer {
             transform_array(self.public_inputs.end.public_call_requests, sort_by_counter);
     }
 
-    pub unconstrained fn finish(self) -> PrivateKernelCircuitPublicInputs {
+    pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
         self.public_inputs
     }
 
@@ -178,6 +274,7 @@ impl PrivateKernelCircuitOutputComposer {
         private_call: PrivateCallData,
     ) {
         self.propagate_include_by_timestamp(private_call);
+
         self.propagate_note_hash_read_requests(private_call.public_inputs);
         self.propagate_nullifier_read_requests(private_call.public_inputs);
         self.scope_and_propagate_key_validation_requests(private_call.public_inputs);
@@ -187,6 +284,7 @@ impl PrivateKernelCircuitOutputComposer {
         self.scope_and_propagate_logs(private_call.public_inputs);
         self.propagate_private_call_requests(private_call.public_inputs);
         self.propagate_public_call_requests(private_call.public_inputs);
+
         self.propagate_public_teardown_call_request(private_call.public_inputs);
         self.propagate_fee_payer(private_call.public_inputs);
         self.propagate_min_revertible_side_effect_counter(private_call.public_inputs);
@@ -211,9 +309,7 @@ impl PrivateKernelCircuitOutputComposer {
     /// Sources of timestamp constraints:
     /// - Explicit: `context.set_include_by_timestamp()` called by the private function
     /// - Implicit: Contract updates via delayed public mutable have time horizons
-    /// - Initial: The initial value when this composer is constructed, which is:
-    ///   - max u64, if this is the first call. Set in `new_from_tx_request`.
-    ///   - the value from the previous kernel iteration. Set in `new_from_previous_kernel`.
+    /// - Initial: The initial value when this composer is constructed, which is from the previous kernel iteration.
     unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
         self.public_inputs.include_by_timestamp = std::cmp::min(
             self.public_inputs.include_by_timestamp,

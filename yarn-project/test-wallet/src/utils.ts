@@ -5,15 +5,37 @@ import {
   ContractFunctionInteraction,
   DeployMethod,
   type DeployOptions,
+  NO_WAIT,
+  type NoWait,
   type SendInteractionOptions,
-  SentTx,
   type WaitOpts,
   toSendOptions,
 } from '@aztec/aztec.js/contracts';
-import type { AztecNode } from '@aztec/aztec.js/node';
-import { type OffchainEffect, type ProvingStats, Tx } from '@aztec/stdlib/tx';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { type OffchainEffect, type ProvingStats, Tx, TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+
+import { inspect } from 'util';
 
 import type { BaseTestWallet } from './wallet/test_wallet.js';
+
+/**
+ * Options for sending a proven transaction.
+ */
+export type ProvenTxSendOpts = {
+  /**
+   * Whether to wait for the transaction to be mined.
+   * - undefined (default): wait with default options and return TxReceipt
+   * - WaitOpts object: wait with custom options and return TxReceipt
+   * - NO_WAIT: return txHash immediately without waiting
+   */
+  wait?: NoWait | WaitOpts;
+};
+
+/**
+ * Return type for ProvenTx.send based on wait option.
+ */
+export type ProvenTxSendReturn<T extends NoWait | WaitOpts | undefined> = T extends NoWait ? TxHash : TxReceipt;
 
 /**
  * Deploys the SchnorrAccount contracts backed by prefunded addresses
@@ -21,7 +43,6 @@ import type { BaseTestWallet } from './wallet/test_wallet.js';
  */
 export async function deployFundedSchnorrAccounts(
   wallet: BaseTestWallet,
-  aztecNode: AztecNode,
   accountsData: InitialAccountData[],
   waitOptions?: WaitOpts,
 ) {
@@ -31,12 +52,11 @@ export async function deployFundedSchnorrAccounts(
     const { secret, salt, signingKey } = accountsData[i];
     const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod
-      .send({
-        from: AztecAddress.ZERO,
-        skipClassPublication: i !== 0, // Publish the contract class at most once.
-      })
-      .wait(waitOptions);
+    await deployMethod.send({
+      from: AztecAddress.ZERO,
+      skipClassPublication: i !== 0, // Publish the contract class at most once.
+      wait: waitOptions,
+    });
     accountManagers.push(accountManager);
   }
   return accountManagers;
@@ -70,12 +90,37 @@ export class ProvenTx extends Tx {
     super(tx.getTxHash(), tx.data, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
-  send() {
-    const sendTx = async () => {
-      await this.node.sendTx(this);
-      return this.getTxHash();
-    };
-    return new SentTx(this.node, sendTx);
+  /**
+   * Sends the transaction to the network.
+   * @param options - Send options including whether to wait.
+   * @returns The transaction receipt if waiting, or the transaction hash if not.
+   */
+  send(options?: Omit<ProvenTxSendOpts, 'wait'>): Promise<TxReceipt>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  send<W extends ProvenTxSendOpts['wait']>(options: ProvenTxSendOpts & { wait: W }): Promise<ProvenTxSendReturn<W>>;
+  async send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
+    const txHash = this.getTxHash();
+    await this.node.sendTx(this).catch(err => {
+      throw this.contextualizeError(err, inspect(this));
+    });
+
+    if (options?.wait === NO_WAIT) {
+      return txHash;
+    }
+
+    const waitOpts = typeof options?.wait === 'object' ? options.wait : undefined;
+    return await waitForTx(this.node, txHash, waitOpts);
+  }
+
+  private contextualizeError(err: Error, ...context: string[]): Error {
+    let contextStr = '';
+    if (context.length > 0) {
+      contextStr = `\nContext:\n${context.join('\n')}`;
+    }
+    if (err instanceof SimulationError) {
+      err.setAztecContext(contextStr);
+    }
+    return err;
   }
 }
 

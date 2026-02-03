@@ -8,10 +8,10 @@ contract OffchainEffect {
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
-        protocol_types::{address::AztecAddress, traits::Serialize},
+        protocol::{address::AztecAddress, traits::Serialize},
         state_vars::{Owned, PrivateSet},
     };
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[event]
     struct TestEvent {

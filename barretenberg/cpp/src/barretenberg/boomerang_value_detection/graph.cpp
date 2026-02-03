@@ -491,7 +491,7 @@ template <typename FF, typename CircuitBuilder>
 std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components()
 {
     if (!connect_variables) {
-        throw std::runtime_error("find_connected_components() can only be called when connect_variables is true");
+        throw_or_abort("find_connected_components() can only be called when connect_variables is true");
     }
     connected_components.clear();
     std::unordered_set<uint32_t> visited;

@@ -18,19 +18,20 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
+import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CommitteeAttestationsAndSigners, L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
+  ITxProvider,
   Validator,
   ValidatorClientFullConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -86,11 +87,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private epochCacheUpdateLoop: RunningPromise;
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
-
-  // TODO(palla/mbps): Remove this once checkpoint validation is stable and we can validate all blocks properly.
-  // Tracks slots for which we have successfully validated a block proposal, so we can attest to checkpoint proposals for those slots.
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  private validatedBlockSlots: Set<SlotNumber> = new Set();
 
   protected constructor(
     private keyStore: ExtendedValidatorKeyStore,
@@ -184,7 +180,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     p2pClient: P2P,
     blockSource: L2BlockSource & L2BlockSink,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    txProvider: TxProvider,
+    txProvider: ITxProvider,
     keyStoreManager: KeystoreManager,
     blobClient: BlobClientInterface,
     dateProvider: DateProvider = new DateProvider(),
@@ -413,10 +409,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
-    // Track that we successfully validated a block for this slot, so we can attest to checkpoint proposals for it.
-    this.validatedBlockSlots.add(slotNumber);
-
     return true;
   }
 
@@ -461,17 +453,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       fishermanMode: this.config.fishermanMode || false,
     });
 
-    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
-    // Check that we have successfully validated a block for this slot before attesting to the checkpoint.
-    if (!this.validatedBlockSlots.has(slotNumber)) {
-      this.log.warn(`No validated block found for slot ${slotNumber}, refusing to attest to checkpoint`, proposalInfo);
-      return undefined;
-    }
-
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
-    // TODO(palla/mbps): Change default to false once checkpoint validation is stable.
-    if (this.config.skipCheckpointProposalValidation !== false) {
-      this.log.verbose(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+    if (this.config.skipCheckpointProposalValidation) {
+      this.log.warn(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
     } else {
       const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
@@ -547,7 +531,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposalInfo: LogData,
   ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
     const slot = proposal.slotNumber;
-    const timeoutSeconds = 10;
+    const timeoutSeconds = 10; // TODO(palla/mbps): This should map to the timetable settings
 
     // Wait for last block to sync by archive
     let lastBlockHeader: BlockHeader | undefined;
@@ -617,6 +601,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         previousCheckpointOutHashes,
         fork,
         blocks,
+        this.log.getBindings(),
       );
 
       // Complete the checkpoint to get computed values
@@ -642,13 +627,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return { isValid: false, reason: 'archive_mismatch' };
       }
 
-      // Check that the accumulated out hash matches the value in the proposal.
-      const computedOutHash = computedCheckpoint.getCheckpointOutHash();
-      const proposalOutHash = proposal.checkpointHeader.epochOutHash;
-      if (!computedOutHash.equals(proposalOutHash)) {
+      // Check that the accumulated epoch out hash matches the value in the proposal.
+      // The epoch out hash is the accumulated hash of all checkpoint out hashes in the epoch.
+      const checkpointOutHash = computedCheckpoint.getCheckpointOutHash();
+      const computedEpochOutHash = accumulateCheckpointOutHashes([...previousCheckpointOutHashes, checkpointOutHash]);
+      const proposalEpochOutHash = proposal.checkpointHeader.epochOutHash;
+      if (!computedEpochOutHash.equals(proposalEpochOutHash)) {
         this.log.warn(`Epoch out hash mismatch`, {
-          proposalOutHash: proposalOutHash.toString(),
-          computedOutHash: computedOutHash.toString(),
+          proposalEpochOutHash: proposalEpochOutHash.toString(),
+          computedEpochOutHash: computedEpochOutHash.toString(),
+          checkpointOutHash: checkpointOutHash.toString(),
+          previousCheckpointOutHashes: previousCheckpointOutHashes.map(h => h.toString()),
           ...proposalInfo,
         });
         return { isValid: false, reason: 'out_hash_mismatch' };
@@ -664,7 +653,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /**
    * Extract checkpoint global variables from a block.
    */
-  private extractCheckpointConstants(block: L2BlockNew): CheckpointGlobalVariables {
+  private extractCheckpointConstants(block: L2Block): CheckpointGlobalVariables {
     const gv = block.header.globalVariables;
     return {
       chainId: gv.chainId,
@@ -739,7 +728,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
-    options: BlockProposalOptions,
+    options: BlockProposalOptions = {},
   ): Promise<BlockProposal> {
     // TODO(palla/mbps): Prevent double proposals properly
     // if (this.previousProposal?.slotNumber === blockHeader.globalVariables.slotNumber) {
@@ -771,7 +760,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     archive: Fr,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
-    options: CheckpointProposalOptions,
+    options: CheckpointProposalOptions = {},
   ): Promise<CheckpointProposal> {
     this.log.info(`Assembling checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
     return await this.validationService.createCheckpointProposal(

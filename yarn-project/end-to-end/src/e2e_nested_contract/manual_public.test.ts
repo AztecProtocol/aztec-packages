@@ -26,16 +26,14 @@ describe('e2e_nested_contract manual', () => {
   it('performs public nested calls', async () => {
     await parentContract.methods
       .pub_entry_point(childContract.address, await childContract.methods.pub_get_value.selector(), 42n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
   });
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/640
   it('reads fresh value after write within the same tx', async () => {
     await parentContract.methods
       .pub_entry_point_twice(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(84n));
   });
 
@@ -50,7 +48,7 @@ describe('e2e_nested_contract manual', () => {
       parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n),
     ];
 
-    const tx = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress }).wait();
+    const tx = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress });
     const extendedLogs = (
       await aztecNode.getPublicLogs({
         fromBlock: tx.blockNumber!,

@@ -135,10 +135,14 @@ contract EscapeHatch is IEscapeHatch {
    *
    * @dev Transfers BOND_SIZE tokens from the caller
    *
+   * @custom:reverts EscapeHatch__HatchTooEarly if called during early period when exit would revert
    * @custom:reverts EscapeHatch__AlreadyInCandidateSet if caller is already in the candidate set
    * @custom:reverts EscapeHatch__InvalidStatus if caller has a non-NONE status
    */
   function joinCandidateSet() external override(IEscapeHatchCore) {
+    // Ensure exit path is viable (reverts with EscapeHatch__HatchTooEarly during early period)
+    getSetTimestamp(getCurrentHatch() + Hatch.wrap(LAG_IN_HATCHES));
+
     address candidate = msg.sender;
 
     require(!$activeCandidates.contains(candidate), Errors.EscapeHatch__AlreadyInCandidateSet(candidate));
@@ -619,7 +623,12 @@ contract EscapeHatch is IEscapeHatch {
    * @return The timestamp at which the candidate set was frozen for this hatch
    */
   function getSetTimestamp(Hatch _hatch) public view override(IEscapeHatch) returns (uint32) {
-    Epoch freezeEpoch = _getFirstEpoch(_hatch - Hatch.wrap(LAG_IN_HATCHES)) - Epoch.wrap(LAG_IN_EPOCHS_FOR_SET_SIZE);
+    require(Hatch.unwrap(_hatch) >= LAG_IN_HATCHES, Errors.EscapeHatch__HatchTooEarly(_hatch));
+
+    Epoch firstEpoch = _getFirstEpoch(_hatch - Hatch.wrap(LAG_IN_HATCHES));
+    require(Epoch.unwrap(firstEpoch) >= LAG_IN_EPOCHS_FOR_SET_SIZE, Errors.EscapeHatch__HatchTooEarly(_hatch));
+
+    Epoch freezeEpoch = firstEpoch - Epoch.wrap(LAG_IN_EPOCHS_FOR_SET_SIZE);
     return Timestamp.unwrap(ROLLUP.getTimestampForEpoch(freezeEpoch)).toUint32();
   }
 
@@ -634,8 +643,12 @@ contract EscapeHatch is IEscapeHatch {
    * @return The timestamp at which the RANDAO seed is sampled for this hatch
    */
   function getSeedTimestamp(Hatch _hatch) public view override(IEscapeHatch) returns (uint32) {
+    require(Hatch.unwrap(_hatch) >= LAG_IN_HATCHES, Errors.EscapeHatch__HatchTooEarly(_hatch));
+
     Hatch samplingHatch = _hatch - Hatch.wrap(LAG_IN_HATCHES);
     Epoch firstEpoch = _getFirstEpoch(samplingHatch);
+    require(Epoch.unwrap(firstEpoch) >= LAG_IN_EPOCHS_FOR_RANDAO, Errors.EscapeHatch__HatchTooEarly(_hatch));
+
     Epoch seedEpoch = firstEpoch - Epoch.wrap(LAG_IN_EPOCHS_FOR_RANDAO);
     return Timestamp.unwrap(ROLLUP.getTimestampForEpoch(seedEpoch)).toUint32();
   }

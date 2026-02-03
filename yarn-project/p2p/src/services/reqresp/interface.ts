@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PReqRespConfig } from './config.js';
+import type { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import { AuthRequest, AuthResponse } from './protocols/auth.js';
 import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
@@ -198,7 +199,7 @@ export const subProtocolMap = {
   },
   [ReqRespSubProtocol.BLOCK]: {
     request: Fr, // block number
-    response: L2BlockNew,
+    response: L2Block,
   },
   [ReqRespSubProtocol.AUTH]: {
     request: AuthRequest,
@@ -237,4 +238,6 @@ export interface ReqRespInterface {
   ): Promise<ReqRespResponse>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
 }

@@ -65,7 +65,6 @@ class KernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -80,6 +79,7 @@ class KernelIO {
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -169,6 +169,7 @@ template <typename Builder_> class DefaultIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -233,6 +234,7 @@ template <typename Builder_> class GoblinAvmIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_AVM_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -287,6 +289,7 @@ template <class Builder_> class HidingKernelIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -369,6 +372,7 @@ class RollupIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -422,10 +426,4 @@ class RollupIO {
         builder.ipa_proof = ipa_proof;
     };
 };
-
-// Default IO type for recursive verifiers: RollupIO for IPA flavors, DefaultIO<Builder> otherwise
-template <typename Flavor>
-using DefaultRecursiveIO =
-    std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO<typename Flavor::CircuitBuilder>>;
-
 } // namespace bb::stdlib::recursion::honk

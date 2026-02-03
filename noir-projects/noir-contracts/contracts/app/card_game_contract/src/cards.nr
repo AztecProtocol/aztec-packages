@@ -3,17 +3,17 @@ use aztec::{
     keys::getters::get_public_keys,
     messages::message_delivery::MessageDelivery,
     note::{
-        constants::MAX_NOTES_PER_PAGE, hinted_note::HintedNote,
-        note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
+        constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
+        note_viewer_options::NoteViewerOptions,
     },
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
-use field_note::field_note::FieldNote;
+use field_note::FieldNote;
 use std::meta::derive;
 
 #[derive(Packable, Serialize)]
@@ -157,7 +157,7 @@ pub fn get_pack_cards(
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_nsk_app(owner_npk_m_hash);
+    let secret = context.request_nhk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes();
     let random_bytes = sha256::digest(mix_bytes);

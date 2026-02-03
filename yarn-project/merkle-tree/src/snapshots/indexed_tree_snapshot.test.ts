@@ -5,7 +5,7 @@ import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { NullifierLeaf, NullifierLeafPreimage } from '@aztec/stdlib/trees';
 
-import { Pedersen, newTree } from '../index.js';
+import { Poseidon, newTree } from '../index.js';
 import { StandardIndexedTreeWithAppend } from '../standard_indexed_tree/test/standard_indexed_tree_with_append.js';
 import { IndexedTreeSnapshotBuilder } from './indexed_tree_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
@@ -31,7 +31,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   beforeEach(async () => {
     db = openTmpStore();
-    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', { fromBuffer: (b: Buffer) => b }, 4);
+    tree = await newTree(NullifierTree, db, new Poseidon(), 'test', { fromBuffer: (b: Buffer) => b }, 4);
     snapshotBuilder = new IndexedTreeSnapshotBuilder(db, tree, NullifierLeafPreimage);
   });
 

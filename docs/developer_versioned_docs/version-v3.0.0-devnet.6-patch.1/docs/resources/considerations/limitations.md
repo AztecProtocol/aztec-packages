@@ -4,44 +4,44 @@ description: Understand the current limitations of the Aztec network and its imp
 sidebar_position: 6
 ---
 
-The Aztec stack is a work in progress. Packages have been released early, to gather feedback on the capabilities of the protocol and user experiences.
+The Aztec stack is a work in progress. Packages have been released early to gather feedback on the capabilities of the protocol and user experiences.
 
-## What to expect?
+## What to expect
 
-- Regular Breaking Changes;
-- Missing features;
-- Bugs;
-- An 'unpolished' UX;
-- Missing information.
+- Regular breaking changes
+- Missing features
+- Bugs
+- An "unpolished" UX
+- Missing information
 
-## Why participate?
+## Why participate
 
 Front-run the future!
 
 Help shape and define:
 
 - Previously-impossible smart contracts and applications
-- Network tooling;
-- Network standards;
-- Smart contract syntax;
-- Educational content;
-- Core protocol improvements;
+- Network tooling
+- Network standards
+- Smart contract syntax
+- Educational content
+- Core protocol improvements
 
 ## Limitations developers need to know about
 
-- It is a testing environment, it is insecure, and unaudited. It is only for testing purposes.
-- `msg_sender` is currently leaking when doing private -> public calls
-  - The `msg_sender` will always be set, if you call a public function from the private world, the `msg_sender` will be set to the private caller's address.
+- It is a testing environment, insecure and unaudited. It is only for testing purposes.
+- `msg_sender` is currently leaked when making private -> public calls.
+  - The `msg_sender` is always set. If you call a public function from the private world, the `msg_sender` is set to the private caller's address.
   - There are patterns that can mitigate this.
 - The initial `msg_sender` is `-1`, which can be problematic for some contracts.
-- The number of side-effects attached to a tx (when sending the tx to the mempool) is leaky. At this stage of development, this is _intentional_, so that we can gauge appropriate choices for privacy sets. We have always had clear plans to implement privacy sets so that side effects are much less leaky, and these will be in place come mainnet.
-- A transaction can only emit a limited number of side-effects (notes, nullifiers, logs, l2->l1 messages), see [circuit limitations](#circuit-limitations).
-  - We haven't settled on the final constants, since we're still in a testing phase. But users could find that certain compositions of nested private function calls (e.g. call stacks that are dynamic in size, based on runtime data) could accumulate so many side-effects as to exceed tx limits. Such txs would then be unprovable. We would love for you to open an issue if you encounter this, as it will help us decide on adequate sizes for our constants.
-- There are lots of features that we still want to implement. Checkout github and the forum for details. If you would like a feature, please open an issue on github!
+- The number of side-effects attached to a transaction (when sending the transaction to the mempool) is leaky. At this stage of development, this is _intentional_, so that we can gauge appropriate choices for privacy sets. We have clear plans to implement privacy sets so that side effects are much less leaky, and these will be in place for mainnet.
+- A transaction can only emit a limited number of side-effects (notes, nullifiers, logs, L2->L1 messages). See [circuit limitations](#circuit-limitations).
+  - We have not settled on the final constants, since we are still in a testing phase. You could find that certain compositions of nested private function calls (for example, call stacks that are dynamic in size, based on runtime data) could accumulate so many side-effects as to exceed transaction limits. Such transactions would then be unprovable. Please open an issue if you encounter this, as it will help us decide on adequate sizes for our constants.
+- There are many features that we still want to implement. Check out GitHub and the forum for details. If you would like a feature, please open an issue on GitHub.
 
 ## WARNING
 
-Do not use real, meaningful secrets in Aztec's testnets. Some privacy features are still being worked on, including ensuring a secure "zk" property. Since the Aztec stack is still being worked on, there are no guarantees that real secrets will remain secret.
+Do not use real, meaningful secrets in Aztec testnets. Some privacy features are still in development, including ensuring a secure "zk" property. Since the Aztec stack is still being developed, there are no guarantees that real secrets will remain secret.
 
 ## Limitations
 
@@ -49,49 +49,49 @@ There are plans to resolve all of the below.
 
 ### It is not audited
 
-None of the Aztec stack is audited. It's being iterated-on every day. It will not be audited for quite some time.
+None of the Aztec stack is audited. It is being iterated on every day. It will not be audited for quite some time.
 
 ### Under-constrained
 
-Some of our more-complex circuits are still being worked on, so they will still be be underconstrained.
+Some of our more complex circuits are still in development, so they are still under-constrained.
 
 #### What are the consequences?
 
-Sound proofs are really only needed as a protection against malicious behavior, which we're not testing for at this stage.
+Sound proofs are really only needed as a protection against malicious behavior, which we are not testing for at this stage.
 
-### Keys and Addresses are subject to change
+### Keys and addresses are subject to change
 
 The way in which keypairs and addresses are derived is still being iterated on as we receive feedback.
 
 #### What are the consequences?
 
-This will impact the kinds of apps that you can build with the Local Network, as it is today:
+This will impact the kinds of apps that you can build with the local network as it is today.
 
-Please open new discussions on [discourse](http://discourse.aztec.network) or open issues on [github](http://github.com/AztecProtocol/aztec-packages), if you have requirements that aren't-yet being met by the local network's current key derivation scheme.
+Please open new discussions on [Discourse](https://discourse.aztec.network) or open issues on [GitHub](https://github.com/AztecProtocol/aztec-packages) if you have requirements that are not yet being met by the local network's current key derivation scheme.
 
 ### No privacy-preserving queries to nodes
 
-Ethereum has a notion of a 'full node' which keeps-up with the blockchain and stores the full chain state. Many users don't wish to run full nodes, so rely on 3rd-party 'full-node-as-a-service' infrastructure providers, who service blockchain queries from their users.
+Ethereum has a notion of a "full node" which keeps up with the blockchain and stores the full chain state. Many users do not wish to run full nodes, so they rely on third-party "full-node-as-a-service" infrastructure providers who service blockchain queries from their users.
 
-This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are, or about their historical network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
+This pattern is likely to develop in Aztec as well, except there is a problem: privacy. If a privacy-seeking user makes a query to a third-party "full node", that user might leak data about who they are, about their historical network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a third-party node without revealing what that data is, nor who is making the request.
 
 ### No private data authentication
 
-Private data should not be returned to an app, unless the user authorizes such access to the app. An authorization layer is not-yet in place.
+Private data should not be returned to an app unless the user authorizes such access to the app. An authorization layer is not yet in place.
 
 #### What are the consequences?
 
-Any app can request and receive any private user data relating to any other private app. Obviously this sounds bad. But the local network is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
+Any app can request and receive any private user data relating to any other private app. This sounds problematic, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
 
-An auth layer will be added in due course.
+An authorization layer will be added in due course.
 
 ### No bytecode validation
 
-For safety reasons, bytecode should not be executed unless the PXE/Wallet has validated that the user's intentions (the function signature and contract address) match the bytecode.
+For safety reasons, bytecode should not be executed unless the PXE (Private eXecution Environment) or wallet has validated that the user's intentions (the function signature and contract address) match the bytecode.
 
 #### What are the consequences?
 
-Without such 'bytecode validation', if the incorrect bytecode is executed, and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. Obviously this would be bad in production. But the local network is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
+Without bytecode validation, if incorrect bytecode is executed and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. This would be problematic in production, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
 
 There are plans to add bytecode validation soon.
 
@@ -101,27 +101,27 @@ We are planning a full assessment of the protocol's hashes, including rigorous d
 
 #### What are the consequences?
 
-Collisions and other hash-related attacks might be possible in the local network. Obviously that would be bad in production. But it's unlikely to cause problems at this early stage of testing.
+Collisions and other hash-related attacks might be possible in the local network. This would be problematic in production, but it is unlikely to cause problems at this early stage of testing.
 
 ### `msg_sender` is leaked when making a private -> public call
 
-There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527 (and some more recent discussions that need to be documented) around how to address this.
+There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527) (and some more recent discussions that need to be documented) around how to address this.
 
-### New Privacy Standards are required
+### New privacy standards are required
 
-There are many [patterns](../../resources/considerations/privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
+There are many [patterns](../../resources/considerations/privacy_considerations.md) which can leak privacy, even on Aztec. Standards have not been developed yet to encourage best practices when designing private smart contracts.
 
 #### What are the consequences?
 
-For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](../../resources/considerations/privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
+For example, until community standards are developed to reduce the uniqueness of ["Tx Fingerprints"](../../resources/considerations/privacy_considerations.md#function-fingerprints-and-tx-fingerprints), app developers might accidentally forfeit some function privacy.
 
-## Smart Contract limitations
+## Smart contract limitations
 
-We will never be done with all the yummy features we want to add to aztec.nr. We have lots of features that we still want to implement. Please check out github, and please open new issues with any feature requests you might have.
+We will never be done with all the features we want to add to Aztec.nr. We have many features that we still want to implement. Please check out GitHub and open new issues with any feature requests you might have.
 
 ## Circuit limitations
 
-### Upper limits on function outputs and tx outputs
+### Upper limits on function outputs and transaction outputs
 
 Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount of computation a circuit can perform, and on the amount of data that can be passed into and out of a function.
 
@@ -211,12 +211,12 @@ When you write an Aztec.nr function, there will be upper bounds on the following
 
 Not only are there limits on a _per function_ basis, there are also limits on a _per transaction_ basis.
 
-**In particular, these _per-transaction_ limits will limit transaction call stack depths**. That means if a function call results in a cascade of nested function calls, and each of those function calls outputs lots of state reads and writes, or logs (etc.), then all of that accumulated output data might exceed the per-transaction limits that we currently have. This would cause such transactions to fail.
+**In particular, these _per-transaction_ limits will limit transaction call stack depths**. This means if a function call results in a cascade of nested function calls, and each of those function calls outputs many state reads and writes, or logs, then all of that accumulated output data might exceed the per-transaction limits that we currently have. This would cause such transactions to fail.
 
-There are plans to relax some of this rigidity, by providing many 'sizes' of circuit.
+There are plans to relax some of this rigidity by providing many "sizes" of circuit.
 
-> **In the mean time**, if you encounter a per-transaction limit when testing, please do open an issue to explain what you were trying to do; we'd love to hear about it. And if you're feeling adventurous, you could 'hack' the PXE to increase the limits. **However**, the limits cannot be increased indefinitely. So although we do anticipate that we'll be able to increase them a little bit, don't go mad and provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
+> **In the meantime**, if you encounter a per-transaction limit when testing, please open an issue to explain what you were trying to do - we would love to hear about it. And if you are feeling adventurous, you could modify the PXE to increase the limits. **However**, the limits cannot be increased indefinitely. Although we do anticipate that we will be able to increase them slightly, do not provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
 
-## There's more
+## There is more
 
-See the [GitHub issues (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues) for all known bugs fixes and features currently being worked on.
+See the [GitHub issues](https://github.com/AztecProtocol/aztec-packages/issues) for all known bug fixes and features currently being worked on.

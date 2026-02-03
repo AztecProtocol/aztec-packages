@@ -21,12 +21,12 @@
 <h3>Module items</h3>
 <ul class="sidebar-list">
 <li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
 </ul>
 <h2>In crate note</h2>
 <h3>Modules</h3><ul class="item-list">
 <li><a href="../authwit/index.html">authwit</a></div></li>
 <li><a href="../context/index.html">context</a></div></li>
-<li><a href="../contract_self/index.html">contract_self</a></div></li>
 <li><a href="../event/index.html">event</a></div></li>
 <li><a href="../hash/index.html">hash</a></div></li>
 <li><a href="../history/index.html">history</a></div></li>
@@ -34,18 +34,24 @@
 <li><a href="../macros/index.html">macros</a></div></li>
 <li><a href="../messages/index.html">messages</a></div></li>
 <li><a href="../note/index.html">note</a></div></li>
+<li><a href="../nullifier/index.html">nullifier</a></div></li>
 <li><a href="../oracle/index.html">oracle</a></div></li>
+<li><a href="../protocol/index.html">protocol</a></div></li>
 <li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
 <li><a href="../state_vars/index.html">state_vars</a></div></li>
 <li><a href="../test/index.html">test</a></div></li>
 <li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="../struct.ContractSelf.html">ContractSelf</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::note</div>
 <h1>Module <span id="mod" class="module">note</span></h1>
 <div class="comments">
-<p>Note traits and utilities.</p>
+<p>Note traits and utilities</p>
+<h2>Siloing</h2>
 </div>
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="constants/index.html" class="module">constants</a></div><div class="item-description"></div></li>
@@ -53,11 +59,17 @@
 <li><div class="item-name"><a href="note_getter/index.html" class="module">note_getter</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="note_getter_options/index.html" class="module">note_getter_options</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="note_interface/index.html" class="module">note_interface</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="note_message/index.html" class="module">note_message</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="note_metadata/index.html" class="module">note_metadata</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="note_viewer_options/index.html" class="module">note_viewer_options</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="retrieved_note/index.html" class="module">retrieved_note</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="utils/index.html" class="module">utils</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.ConfirmedNote.html" class="struct">ConfirmedNote</a></div><div class="item-description">A note that has been confirmed to exist.</div></li>
+<li><div class="item-name"><a href="struct.HintedNote.html" class="struct">HintedNote</a></div><div class="item-description">A hint for a note that might exist.</div></li>
+<li><div class="item-name"><a href="struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a></div><div class="item-description">Same as <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>, except this type also handles the possibility where the note may not have been actually
+created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).</div></li>
+<li><div class="item-name"><a href="struct.NoteMessage.html" class="struct">NoteMessage</a></div><div class="item-description">A message with information about a note that was created in the current contract call. This message <strong>MUST</strong> be
+delivered to a recipient in order to not lose the private note information.</div></li>
 </ul>
 </main>
 </span>

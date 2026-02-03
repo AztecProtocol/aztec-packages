@@ -3,7 +3,13 @@
 
 pragma solidity >=0.8.27;
 
-import {RollupConfigInput, GenesisState, EthValue, RewardConfig} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  RollupConfigInput,
+  GenesisState,
+  EthValue,
+  RewardConfig,
+  EthPerFeeAssetE12
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
@@ -40,6 +46,7 @@ library TestConstants {
   uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
+  EthPerFeeAssetE12 internal constant AZTEC_INITIAL_ETH_PER_FEE_ASSET = EthPerFeeAssetE12.wrap(1e12 / 1e5);
   uint256 internal constant AZTEC_COIN_ISSUER_RATE = uint256(25_000_000_000e18) / uint256(60 * 60 * 24 * 365);
 
   uint256 internal constant ACTIVATION_THRESHOLD = 100e18;
@@ -112,6 +119,7 @@ library TestConstants {
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
+      initialEthPerFeeAsset: AZTEC_INITIAL_ETH_PER_FEE_ASSET,
       version: 0,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),

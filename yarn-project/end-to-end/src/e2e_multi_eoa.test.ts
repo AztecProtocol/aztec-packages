@@ -1,7 +1,8 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
@@ -160,11 +161,11 @@ describe('e2e_multi_eoa', () => {
         jest.spyOn(client, 'sendRawTransaction').mockImplementation(mockSendRawTransaction),
       );
 
-      const tx = deployMethodTx.send();
-      logger.warn(`L2 deploy tx sent with hash ${(await tx.getTxHash()).toString()}`);
+      const txHash = await deployMethodTx.send({ wait: NO_WAIT });
+      logger.warn(`L2 deploy tx sent with hash ${txHash.toString()}`);
 
-      const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.SUCCESS);
+      const receipt = await waitForTx(aztecNode, txHash);
+      expect(receipt.isMined() && receipt.hasExecutionSucceeded()).toBe(true);
 
       logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);

@@ -8,7 +8,7 @@ import { loadTree } from '../load_tree.js';
 import { newTree } from '../new_tree.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
-import { PedersenWithCounter } from '../test/utils/pedersen_with_counter.js';
+import { PoseidonWithCounter } from '../test/utils/poseidon_with_counter.js';
 import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
 
@@ -28,22 +28,22 @@ treeTestSuite('StandardTree', createDb, createFromName);
 standardBasedTreeTestSuite('StandardTree', createDb);
 
 describe('StandardTree_batchAppend', () => {
-  let pedersen: PedersenWithCounter;
+  let poseidon: PoseidonWithCounter;
 
   beforeAll(() => {
-    pedersen = new PedersenWithCounter();
+    poseidon = new PoseidonWithCounter();
   });
 
   afterEach(() => {
-    pedersen.resetCounter();
+    poseidon.resetCounter();
   });
 
   it('correctly computes root when batch appending and calls hash function expected num times', async () => {
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', 3);
+    const tree = await createDb(db, poseidon, 'test', 3);
     const leaves = Array.from({ length: 5 }, _ => Fr.random().toBuffer());
 
-    pedersen.resetCounter();
+    poseidon.resetCounter();
     tree.appendLeaves(leaves);
 
     // We append 5 leaves so to update values we do the following hashing on each level:
@@ -58,25 +58,25 @@ describe('StandardTree_batchAppend', () => {
     const level0NumHashing = 1;
     const expectedNumHashing = level2NumHashing + level1NumHashing + level0NumHashing;
 
-    expect(pedersen.hashCounter).toEqual(expectedNumHashing);
+    expect(poseidon.hashCounter).toEqual(expectedNumHashing);
 
-    const level2Node0 = pedersen.hash(leaves[0], leaves[1]);
-    const level2Node1 = pedersen.hash(leaves[2], leaves[3]);
-    const level2Node2 = pedersen.hash(leaves[4], INITIAL_LEAF);
+    const level2Node0 = poseidon.hash(leaves[0], leaves[1]);
+    const level2Node1 = poseidon.hash(leaves[2], leaves[3]);
+    const level2Node2 = poseidon.hash(leaves[4], INITIAL_LEAF);
 
-    const level2ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level2ZeroHash = poseidon.hash(INITIAL_LEAF, INITIAL_LEAF);
 
-    const level1Node0 = pedersen.hash(level2Node0, level2Node1);
-    const level1Node1 = pedersen.hash(level2Node2, level2ZeroHash);
+    const level1Node0 = poseidon.hash(level2Node0, level2Node1);
+    const level1Node1 = poseidon.hash(level2Node2, level2ZeroHash);
 
-    const root = pedersen.hash(level1Node0, level1Node1);
+    const root = poseidon.hash(level1Node0, level1Node1);
 
     expect(tree.getRoot(true)).toEqual(root);
   });
 
   it('should be able to find indexes of leaves', async () => {
     const db = openTmpStore();
-    const tree = await createDb(db, pedersen, 'test', 3);
+    const tree = await createDb(db, poseidon, 'test', 3);
     const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
 
     tree.appendLeaves([values[0]]);

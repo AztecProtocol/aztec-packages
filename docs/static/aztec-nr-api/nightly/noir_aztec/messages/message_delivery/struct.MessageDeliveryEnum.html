@@ -43,7 +43,7 @@
 </code></pre>
 <div class="comments">
 <p>Placeholder struct until Noir adds <code>enum</code> support.</p>
-<p>See <a href="../../../noir_aztec/messages/message_delivery/global.MessageDelivery.html">MessageDelivery</a> instead.</p></div>
+<p>See <a href="../../../noir_aztec/messages/message_delivery/global.MessageDelivery.html"><code>MessageDelivery</code></a> instead.</p></div>
 <h2>Fields</h2>
 <div id="structfield.OFFCHAIN" class="struct-field"><code class="code-header">OFFCHAIN: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">
@@ -54,9 +54,9 @@ some external reason, and where the sender is able to directly contact the recip
 it might be unnecessary to force the sender to spend proving time guaranteeing message correctness, or to pay
 transaction fees in order to use the chain as a medium.</p>
 <p>For example, if performing a payment in exchange for some good or service, the recipient will only accept the
-payment once they receive note and event messages, allowing them to observe the balance increase. The sender has
-no reason not to deliver the message correctly to the recipient, and in all likelihood has a way to send it to
-them.</p>
+payment once they receive note and event messages, allowing them to observe the balance increase. The sender
+has no reason not to deliver the message correctly to the recipient, and in all likelihood has a way to send it
+to them.</p>
 <p>Similarly, in games and other applications that might rely on some server processing state, players might be
 required to update the server with their current state.</p>
 <p>Finally, any messages for which the recipient is a local account (e.g.: the message for the change note in a
@@ -64,10 +64,10 @@ token transfer) work well with this delivery option, since the sender would only
 delivering correctly.</p>
 <h4>Guarantees</h4>
 <p>The sender of the message is free to both not deliver the message to the recipient at all (since no delivery
-occurs on-chain), and to alter the message contents (possibly resulting in an undecryptable message, or one with
-incorrect content).</p>
-<p>An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient, who
-can always validate the existence of the note or event on-chain.</p>
+occurs on-chain), and to alter the message contents (possibly resulting in an undecryptable message, or one
+with incorrect content).</p>
+<p>An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
+who can always validate the existence of the note or event on-chain.</p>
 <p>Because the message is not stored on-chain, it is the sender's (and eventually recipient's) responsability to
 back it up and make sure it is not lost.</p>
 <h4>Costs</h4>
@@ -76,9 +76,9 @@ these are zero.</p>
 <p>Additionally, no circuit gates are introduced when the message is encrypted, since its provenance cannot be
 authenticated anyway. Therefore, off-chain messages do not affect proving time at all.</p>
 <h4>Privacy</h4>
-<p>No information is revelead on-chain about sender, recipient, or the message contents. The message itself reveals
-no information about the sender or recipient, and requires knowledge of the recipient's private address keys in
-order to obtain the plaintext.</p>
+<p>No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+keys in order to obtain the plaintext.</p>
 </div>
 </div><div id="structfield.ONCHAIN_UNCONSTRAINED" class="struct-field"><code class="code-header">ONCHAIN_UNCONSTRAINED: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"><div class="comments">
@@ -95,13 +95,13 @@ correctly.</p>
 <h4>Guarantees</h4>
 <p>The message will be stored on-chain in a private log, as part of the transaction's effects, and will be
 retrievable in the future without requiring any backups. However, the sender is free to alter the message
-contents (possibly resulting in an undecryptable message, or one with incorrect content), including making it so
-that the recipient cannot find it.</p>
-<p>An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient, who
-can always validate the existence of the note or event on-chain.</p>
-<p>These guarantees make this delivery mechanism be quite similar to <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN">MessageDeliveryEnum::OFFCHAIN</a>, except the
-sender does not need to establish an off-chain communication channel with the recipient, and neither party needs
-to worry about backups.</p>
+contents (possibly resulting in an undecryptable message, or one with incorrect content), including making it
+so that the recipient cannot find it.</p>
+<p>An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
+who can always validate the existence of the note or event on-chain.</p>
+<p>These guarantees make this delivery mechanism be quite similar to <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN"><code>MessageDeliveryEnum::OFFCHAIN</code></a>, except the
+sender does not need to establish an off-chain communication channel with the recipient, and neither party
+needs to worry about backups.</p>
 <h4>Costs</h4>
 <p>Because the encrypted message is emitted on-chain as transaction private logs, this delivery option results in
 transaction fees associated with DA gas. The length of the original message is irrelevant to this cost, since
@@ -109,9 +109,9 @@ all private logs are padded to the same length with random data to enhance priva
 <p>However, no circuit gates are introduced when the message is encrypted. Therefore, on-chain unconstrained
 messages do not affect proving time at all.</p>
 <h4>Privacy</h4>
-<p>No information is revealed on-chain about sender, recipient, or the message contents. The message itself reveals
-no information about the sender or recipient, and requires knowledge of the recipient's private address keys in
-order to obtain the plaintext.</p>
+<p>No information is revealed on-chain about sender, recipient, or the message contents. The message itself
+reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+keys in order to obtain the plaintext.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs, so transactions that
 deliver many messages this way might be identifiable by the large number of logs.</p>
 <p>Identifying that a log corresponds to a message between a given sender and recipient requires, among other
@@ -120,15 +120,14 @@ things, knowledge of both of their addresses <strong>and</strong> either the sen
 <div class="padded-description"><div class="comments">
 <p>Delivers the message on-chain, guaranteeing the recipient will receive the correct content.</p>
 <blockquote>
-<p><strong>WARNING</strong>: this delivery mode is
-<a href="https://github.com/AztecProtocol/aztec-packages/issues/14565">currently NOT fully constrained</a>. The log's
-tag is unconstrained, meaning a malicious sender could manipulate it to prevent the recipient from  finding
-the message.</p>
+<p><strong>WARNING</strong>: this delivery mode is <a href="https://github.com/AztecProtocol/aztec-packages/issues/14565">currently NOT fully
+constrained</a>. The log's tag is unconstrained,
+meaning a malicious sender could manipulate it to prevent the recipient from  finding the message.</p>
 </blockquote>
 <h4>Use Cases</h4>
 <p>This delivery method is suitable for all use cases, since it always works as expected. It is however the most
-costly method, and there are multiple scenarios where alternatives such as <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN">MessageDeliveryEnum::OFFCHAIN</a>
-or <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_UNCONSTRAINED">MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED</a> will suffice.</p>
+costly method, and there are multiple scenarios where alternatives such as <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN"><code>MessageDeliveryEnum::OFFCHAIN</code></a> or
+<a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_UNCONSTRAINED"><code>MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED</code></a> will suffice.</p>
 <p>If the sender cannot be relied on to correctly send the message to the recipient (e.g. because they have no
 incentive to do so, such as when paying a fee to a protocol, creating the change note after spending a third
 party's tokens, or updating the configuration of a shared system like a multisig) then this is the only
@@ -148,9 +147,9 @@ to the emission of nullifiers.</p>
 <p>Proving time is also increased as circuit gates are introduced to guarantee both the correct encryption of the
 message, and selection of log tag.</p>
 <h4>Privacy</h4>
-<p>No information is revelead on-chain about sender, recipient, or the message contents. The message itself reveals
-no information about the sender or recipient, and requires knowledge of the recipient's private address keys in
-order to obtain the plaintext.</p>
+<p>No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+keys in order to obtain the plaintext.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
 transactions that deliver many messages this way might be identifiable by these markers.</p>
 <p>Identifying that a log corresponds to a message between a given sender and recipient requires, among other

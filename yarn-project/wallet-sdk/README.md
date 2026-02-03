@@ -10,6 +10,8 @@ All types and utilities needed for wallet integration are exported from `@aztec/
 import type {
   DiscoveryRequest,
   DiscoveryResponse,
+  KeyExchangeRequest,
+  KeyExchangeResponse,
   WalletInfo,
   WalletMessage,
   WalletResponse,
@@ -22,377 +24,298 @@ Cryptographic utilities for secure channel establishment are exported from `@azt
 import type { EncryptedPayload, ExportedPublicKey } from '@aztec/wallet-sdk/crypto';
 import {
   decrypt,
-  deriveSharedKey,
+  deriveSessionKeys,
   encrypt,
   exportPublicKey,
   generateKeyPair,
-  hashSharedSecret,
   hashToEmoji,
   importPublicKey,
 } from '@aztec/wallet-sdk/crypto';
 ```
 
-## Overview
-
-The Wallet SDK uses a **unified discovery and connection** model with **end-to-end encryption**:
-
-1. **dApp requests wallets** for a specific chain/version via `WalletManager.getAvailableWallets({ chainInfo })`
-2. **SDK broadcasts** a discovery message with chain information and the dApp's ECDH public key
-3. **Your wallet responds** with its ECDH public key and a MessagePort ONLY if it supports that network
-4. **Both parties derive** the same shared secret via ECDH key exchange
-5. **SDK receives** discovered wallets with secure channel already established (port + sharedKey)
-6. **All subsequent communication** is encrypted using AES-256-GCM over the private MessagePort
-
-### Key Features
-
-- **No separate connection step**: The secure channel is established during discovery
-- **MessagePort transferred immediately**: The discovery response includes a MessagePort for private communication
-- **Anti-MITM verification**: Both parties can display emoji verification codes derived from the shared secret
-
-### Transport Mechanisms
-
-This guide uses **browser extension wallets** as the primary example, which communicate via `window.postMessage` for discovery and MessageChannel for secure communication. The same message protocol can be adapted for other transport mechanisms.
-
-## Discovery Protocol
-
-### 1. Listen for Discovery Requests
-
-**Extension wallet (content script):**
-
-```typescript
-window.addEventListener('message', async (event) => {
-  if (event.source !== window) return;
-
-  let data: DiscoveryRequest;
-  try {
-    data = JSON.parse(event.data);
-  } catch {
-    return;
-  }
-
-  if (data.type === 'aztec-wallet-discovery') {
-    await handleDiscoveryRequest(data);
-  }
-});
-```
-
-### 2. Discovery Message Format
-
-Discovery messages have this structure:
-
-```typescript
-interface DiscoveryRequest {
-  type: 'aztec-wallet-discovery';
-  requestId: string;              // UUID for tracking this request
-  chainInfo: ChainInfo;           // Chain ID and protocol version
-  publicKey: ExportedPublicKey;   // dApp's ECDH public key for key exchange
-}
-```
-
-### 3. Handle Discovery and Establish Secure Channel
-
-When your wallet receives a discovery request:
-
-1. Check if you support the requested network
-2. Derive the shared secret from the dApp's public key
-3. Create a MessageChannel for secure communication
-4. Respond with your wallet info and transfer one end of the channel
-
-**Extension wallet (background script):**
+**For extension wallets**, pre-built connection handlers are available:
 
 ```typescript
 import {
-  deriveSharedKey,
-  exportPublicKey,
-  generateKeyPair,
-  hashSharedSecret,
-  importPublicKey,
-} from '@aztec/wallet-sdk/crypto';
-
-// Generate key pair on wallet initialization (per session)
-let walletKeyPair = await generateKeyPair();
-let walletPublicKey = await exportPublicKey(walletKeyPair.publicKey);
-
-// Store sessions by requestId
-const sessions = new Map<string, { sharedKey: CryptoKey; verificationHash: string; tabId: number }>();
-
-async function handleDiscovery(
-  request: DiscoveryRequest,
-  tabId: number
-): Promise<{ success: true; response: DiscoveryResponse }> {
-  // Check network support
-  if (!supportsNetwork(request.chainInfo)) {
-    throw new Error('Network not supported');
-  }
-
-  // Import dApp's public key and derive shared secret
-  const dAppPublicKey = await importPublicKey(request.publicKey);
-  const sharedKey = await deriveSharedKey(walletKeyPair.privateKey, dAppPublicKey);
-
-  // Compute verification hash for anti-MITM verification
-  const verificationHash = await hashSharedSecret(sharedKey);
-
-  // Store the session with verificationHash (emoji computed lazily for display)
-  sessions.set(request.requestId, { sharedKey, verificationHash, tabId });
-
-  const response: DiscoveryResponse = {
-    type: 'aztec-wallet-discovery-response',
-    requestId: request.requestId,
-    walletInfo: {
-      id: 'my-aztec-wallet',
-      name: 'My Aztec Wallet',
-      version: '1.0.0',
-      publicKey: walletPublicKey,
-    },
-  };
-
-  return { success: true, response };
-}
+  BackgroundConnectionHandler,
+  ContentScriptConnectionHandler,
+} from '@aztec/wallet-sdk/extension/handlers';
 ```
 
-**Content script (creates MessageChannel and sends response):**
+## Overview
 
-```typescript
-async function handleDiscoveryRequest(request: DiscoveryRequest) {
-  // Forward to background script for key derivation
-  const result = await browser.runtime.sendMessage({
-    type: 'aztec-wallet-discovery',
-    content: request,
-  });
+The Wallet SDK uses a **two-phase connection model** with **end-to-end encryption**:
 
-  if (!result?.success) return;
+### Phase 1: Discovery
 
-  // Create MessageChannel for secure communication
-  const channel = new MessageChannel();
+1. **dApp broadcasts** a discovery request with chain information (NO public keys)
+2. **Your wallet shows** a pending connection request to the user
+3. **User approves** the connection request
+4. **Your wallet responds** with basic wallet info and a MessagePort
 
-  // Set up relay from page to background
-  channel.port1.onmessage = (event) => {
-    browser.runtime.sendMessage({
-      type: 'secure-message',
-      requestId: request.requestId,
-      content: event.data,  // Encrypted payload
-    });
-  };
-  channel.port1.start();
+### Phase 2: Secure Channel Establishment
 
-  // Send response with port2 to the page
-  window.postMessage(JSON.stringify(result.response), '*', [channel.port2]);
-}
-```
+5. **dApp initiates key exchange** by sending its ECDH public key over the MessagePort
+6. **Wallet generates** ephemeral key pair and derives session keys using HKDF
+7. **Both parties compute** the same verification hash independently
+8. **User verifies** the has matches on both sides. A util for conversion to an emoji grid is provided
+9. **User confirms** the connection in the dApp
+10. **All subsequent communication** is encrypted using AES-256-GCM
 
-### 4. Discovery Response Format
+### Key Security Features
 
-```typescript
-interface DiscoveryResponse {
-  type: 'aztec-wallet-discovery-response';
-  requestId: string;              // Must match the request
-  walletInfo: WalletInfo;         // Wallet info including public key
-}
+- **User approval required**: Wallet never reveals itself without explicit user consent
+- **Ephemeral keys**: New key pairs generated for each session
+- **Anti-MITM verification**: 3x3 emoji grid (72 bits of security) for visual confirmation
 
-interface WalletInfo {
-  id: string;                     // Unique wallet identifier
-  name: string;                   // Display name
-  icon?: string;                  // Optional icon URL
-  version: string;                // Wallet version
-  publicKey: ExportedPublicKey;   // ECDH public key for key exchange
-}
-```
-
-**Important:** The response is sent via `window.postMessage` with a MessagePort transferred as the third argument. The SDK receives the port and uses it for all subsequent encrypted communication.
-
-## Secure Communication
-
-### Architecture for Extension Wallets
+## Architecture for Extension Wallets
 
 ```
 ┌─────────────┐    window.postMessage    ┌─────────────────┐    browser.runtime   ┌──────────────────┐
-│   dApp      │◄───(discovery only)─────►│  Content Script │◄────────────────────►│ Background Script│
-│ (web page)  │                          │  (message relay)│                      │ (decrypt+process)│
+│   dApp      │◄──(discovery + port)────►│  Content Script │◄────────────────────►│ Background Script│
+│ (web page)  │                          │  (message relay)│                      │ (crypto+state)   │
 └─────────────┘                          └─────────────────┘                      └──────────────────┘
        │                                          │
-       │         MessagePort (private channel)    │
-       └──────────(encrypted messages)────────────┘
+       │              MessagePort                 │
+       └──────────(key exchange + encrypted)──────┘
 ```
 
-**Security benefits:**
+**Security model:**
 
-- Content script never has access to private keys or shared secrets
+- The MessagePort is transferred via `window.postMessage` - other scripts on the page could intercept it
+- **Security comes from encryption**: After key exchange, all communication is AES-256-GCM encrypted
+- Content script never has access to private keys or session secrets
 - All cryptographic operations happen in the background script (service worker)
-- MessagePort provides a private channel not visible to other page scripts
-- Only discovery uses `window.postMessage`; all wallet calls are encrypted on the MessagePort
+- Anti-MITM verification (emoji grid) ensures both parties derived the same keys
 
-### Handle Encrypted Messages
+## Using Pre-built Connection Handlers
 
-All wallet method calls arrive as encrypted payloads on the MessagePort:
+The SDK provides `BackgroundConnectionHandler` and `ContentScriptConnectionHandler` to handle the connection flow. These are the recommended way to build extension wallets.
 
-```typescript
-interface EncryptedPayload {
-  iv: string;         // Base64-encoded initialization vector
-  ciphertext: string; // Base64-encoded encrypted data
-}
-```
-
-**Background script:**
+### Background Script Setup
 
 ```typescript
-import { decrypt, encrypt } from '@aztec/wallet-sdk/crypto';
-
-async function handleSecureMessage(requestId: string, encrypted: EncryptedPayload) {
-  const session = sessions.get(requestId);
-  if (!session) return;
-
-  try {
-    // Decrypt the incoming message
-    const message = await decrypt<WalletMessage>(session.sharedKey, encrypted);
-    const { type, messageId, args, chainInfo, walletId } = message;
-
-    // Process the wallet method call
-    const wallet = await getWalletForChain(chainInfo);
-    const result = await wallet[type](...args);
-
-    // Create and encrypt response
-    const response: WalletResponse = { messageId, result, walletId };
-    const encryptedResponse = await encrypt(session.sharedKey, response);
-
-    // Send back through content script
-    browser.tabs.sendMessage(session.tabId, {
-      type: 'secure-response',
-      requestId,
-      content: encryptedResponse,
-    });
-  } catch (error) {
-    // Send encrypted error response
-    const errorResponse: WalletResponse = {
-      messageId: message?.messageId ?? '',
-      error: { message: error.message },
-      walletId: message?.walletId ?? '',
-    };
-    const encryptedError = await encrypt(session.sharedKey, errorResponse);
-    // ... send error response
-  }
-}
-```
-
-## Message Formats
-
-### Wallet Method Request (Decrypted)
-
-```typescript
-interface WalletMessage {
-  type: string;        // Wallet method name (e.g., 'getAccounts', 'sendTx')
-  messageId: string;   // UUID for tracking this request
-  args: unknown[];     // Method arguments
-  chainInfo: ChainInfo;
-  appId: string;       // Application identifier
-  walletId: string;    // Your wallet's ID
-}
-```
-
-### Wallet Method Response
-
-```typescript
-interface WalletResponse {
-  messageId: string;   // Must match the request
-  result?: unknown;    // Method result (if successful)
-  error?: unknown;     // Error (if failed)
-  walletId: string;    // Your wallet's ID
-}
-```
-
-## Anti-MITM Verification
-
-Both the dApp and wallet independently compute a `verificationHash` from the shared secret. If both parties compute the same hash, they know there's no man-in-the-middle attack.
-
-```typescript
-import { hashSharedSecret } from '@aztec/wallet-sdk/crypto';
-
-// Compute verification hash from shared key
-const verificationHash = await hashSharedSecret(sharedKey);
-
-// Store verificationHash in session - this is the cryptographic proof
-sessions.set(requestId, { sharedKey, verificationHash, tabId });
-```
-
-For user-friendly display, convert the hash to an emoji sequence:
-
-```typescript
+import {
+  BackgroundConnectionHandler,
+  type BackgroundConnectionConfig,
+  type BackgroundConnectionCallbacks,
+  type BackgroundTransport,
+} from '@aztec/wallet-sdk/extension/handlers';
 import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
 
-// Convert to emoji only when displaying to the user
-const emoji = hashToEmoji(verificationHash);  // e.g., "🔵🦋🎯🐼"
+// Configuration for your wallet
+const config: BackgroundConnectionConfig = {
+  walletId: 'my-aztec-wallet',
+  walletName: 'My Aztec Wallet',
+  walletVersion: '1.0.0',
+  walletIcon: 'https://example.com/icon.png',
+};
+
+// Transport for browser extension APIs
+const transport: BackgroundTransport = {
+  sendToTab: (tabId, message) => browser.tabs.sendMessage(tabId, message),
+  addContentListener: (handler) => browser.runtime.onMessage.addListener(handler),
+};
+
+// Event callbacks (all optional)
+const callbacks: BackgroundConnectionCallbacks = {
+  // Called when a new discovery request is received
+  onPendingDiscovery: (discovery) => {
+    // Show pending connection in wallet UI
+    // Check if wallet supports this network (chainId AND version)
+    const supported = supportedNetworks.some(
+      n => n.chainId === discovery.chainInfo.chainId.toString() &&
+           n.version === discovery.chainInfo.version.toString()
+    );
+    if (supported) {
+      // Show the user so they can approve or reject
+    }
+  },
+
+  // Called when key exchange completes and session is ready
+  onSessionEstablished: (session) => {
+    // Display verification emojis for user reference
+    console.log('Session emojis:', hashToEmoji(session.verificationHash));
+  },
+
+  // Called when a session is terminated
+  onSessionTerminated: (requestId) => {
+    console.log('Session terminated:', requestId);
+  },
+
+  // Called when a decrypted wallet message is received
+  onWalletMessage: (session, message) => {
+    // Forward to your wallet backend
+    wallet.postMessage(message);
+  },
+};
+
+const handler = new BackgroundConnectionHandler(config, transport, callbacks);
+
+// Initialize the handler to start listening
+handler.initialize();
+
+// User approves connection from wallet UI
+function approveConnection(requestId: string) {
+  handler.approveDiscovery(requestId);
+}
+
+// User denies connection
+function denyConnection(requestId: string) {
+  handler.rejectDiscovery(requestId);
+}
+
+// Send response back to dApp
+async function sendWalletResponse(requestId: string, response: WalletResponse) {
+  await handler.sendResponse(requestId, response);
+}
+
+// Clean up on tab close/navigate
+browser.tabs.onRemoved.addListener((tabId) => {
+  handler.terminateForTab(tabId);
+});
 ```
 
-The dApp displays the same emoji sequence. If they match, the connection is secure.
-
-## Session Management
-
-Sessions should be cleaned up when:
-
-- **Tab closes**: Browser tabs API `onRemoved` event
-- **Tab navigates**: Browser tabs API `onUpdated` event with `status === 'loading'`
+### Content Script Setup
 
 ```typescript
-// Clean up when tab closes
-browser.tabs.onRemoved.addListener((tabId) => {
-  for (const [requestId, session] of sessions) {
-    if (session.tabId === tabId) {
-      sessions.delete(requestId);
-    }
-  }
-});
+import {
+  ContentScriptConnectionHandler,
+  type ContentScriptTransport,
+} from '@aztec/wallet-sdk/extension/handlers';
 
-// Clean up when tab navigates
-browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === 'loading') {
-    for (const [requestId, session] of sessions) {
-      if (session.tabId === tabId) {
-        sessions.delete(requestId);
-      }
-    }
-  }
-});
+const transport: ContentScriptTransport = {
+  sendToBackground: (message) => browser.runtime.sendMessage(message),
+  addBackgroundListener: (handler) => browser.runtime.onMessage.addListener(handler),
+};
+
+const handler = new ContentScriptConnectionHandler(transport);
+
+// Start listening for discovery requests and background messages
+handler.start();
 ```
 
-## Testing Your Integration
+## Testing Your Integration (dApp Side)
 
-### Using WalletManager
+The `WalletManager` supports two patterns for consuming discovered wallets.
+
+### Async Iterator Pattern
 
 ```typescript
 import { Fr } from '@aztec/foundation/fields';
-import { WalletManager, hashToEmoji } from '@aztec/wallet-sdk/manager';
+import { WalletManager } from '@aztec/wallet-sdk/manager';
+import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
 
-const manager = WalletManager.configure({
+const discovery = WalletManager.configure({
   extensions: { enabled: true },
-});
-
-// Discover wallets (secure channel established automatically)
-const wallets = await manager.getAvailableWallets({
+}).getAvailableWallets({
   chainInfo: {
     chainId: new Fr(31337),
-    version: new Fr(0),
+    version: new Fr(1),
   },
-  timeout: 2000,
+  appId: 'my-dapp',
+  timeout: 60000,
 });
 
-// Each wallet provider has verification info
-for (const provider of wallets) {
-  const emoji = hashToEmoji(provider.metadata.verificationHash);
-  console.log(`${provider.name}: ${emoji}`);
-}
+// Iterate over discovered wallets as they're approved
+for await (const provider of discovery.wallets) {
+  console.log(`Found: ${provider.name}`);
 
-// Connect and use
-const walletProvider = wallets.find(w => w.id === 'my-aztec-wallet');
-if (walletProvider) {
-  const wallet = await walletProvider.connect('my-app-id');
+  // Establish secure channel (key exchange)
+  const pending = await provider.establishSecureChannel('my-dapp');
 
-  // All calls are automatically encrypted
+  // Display verification emojis to user
+  const emojis = hashToEmoji(pending.verificationHash);
+  console.log('Verify this matches your wallet:', emojis);
+
+  // User confirms emojis match
+  const wallet = await pending.confirm();
+
+  // All calls are now encrypted
   const accounts = await wallet.getAccounts();
   console.log('Accounts:', accounts);
 }
+
+// Cancel discovery when done or on cleanup
+discovery.cancel();
 ```
 
-## Reference Implementation
+### Callback Pattern
 
-For a complete reference implementation, see the demo wallet at:
+```typescript
+import { Fr } from '@aztec/foundation/fields';
+import { WalletManager, type WalletProvider } from '@aztec/wallet-sdk/manager';
+import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
 
-- Repository: `~/repos/demo-wallet`
+const discoveredProviders: WalletProvider[] = [];
+
+const discovery = WalletManager.configure({
+  extensions: { enabled: true },
+}).getAvailableWallets({
+  chainInfo: {
+    chainId: new Fr(31337),
+    version: new Fr(1),
+  },
+  appId: 'my-dapp',
+  timeout: 60000,
+  // Callback fires as each wallet is discovered
+  onWalletDiscovered: (provider) => {
+    discoveredProviders.push(provider);
+    updateUI(); // Your UI update function
+  },
+});
+
+// Wait for discovery to complete (or cancel early with discovery.cancel())
+await discovery.done;
+console.log('Discovery complete, found:', discoveredProviders.length);
+
+// Connect to a selected provider
+async function connectToWallet(provider: WalletProvider) {
+  const pending = await provider.establishSecureChannel('my-dapp');
+
+  // Show verification UI
+  const emojis = hashToEmoji(pending.verificationHash);
+  showVerificationDialog(emojis);
+
+  // User confirms
+  const wallet = await pending.confirm();
+  return wallet;
+}
+```
+
+### React Hook Example
+
+```typescript
+function useWalletDiscovery(chainInfo: ChainInfo, appId: string) {
+  const [providers, setProviders] = useState<WalletProvider[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(true);
+  const discoveryRef = useRef<DiscoverySession | null>(null);
+
+  useEffect(() => {
+    setProviders([]);
+    setIsDiscovering(true);
+
+    const discovery = WalletManager.configure({
+      extensions: { enabled: true },
+    }).getAvailableWallets({
+      chainInfo,
+      appId,
+      timeout: 60000,
+      onWalletDiscovered: (provider) => {
+        setProviders(prev => [...prev, provider]);
+      },
+    });
+
+    discoveryRef.current = discovery;
+
+    discovery.done.then(() => setIsDiscovering(false));
+
+    return () => {
+      discovery.cancel();
+      discoveryRef.current = null;
+    };
+  }, [chainInfo.chainId.toString(), chainInfo.version.toString(), appId]);
+
+  return { providers, isDiscovering, cancel: () => discoveryRef.current?.cancel() };
+}
+```

@@ -4,6 +4,7 @@
 #include "../field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
@@ -181,8 +182,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         auto pif_normal = bool_ct(witness_ct(&builder, false));
 
         x_death.set_origin_tag(instant_death_tag);
+        // Set constant tags on the other elements so they can be merged with instant_death_tag
+        y_normal.set_origin_tag(constant_tag);
+        pif_normal.set_origin_tag(constant_tag);
 
-        element_ct b(x_death, y_normal, pif_normal);
+        // Use assert_on_curve=false to avoid triggering instant_death during validate_on_curve()
+        element_ct b(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
         // Working with instant death tagged element causes an exception
         EXPECT_THROW(b + b, std::runtime_error);
 #endif
@@ -1149,6 +1154,43 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_compute_naf_overflow_lower_half()
+    {
+        Builder builder = Builder();
+
+        // Create a scalar that is even (skew=1) and has least-significant 2L bits all 0 (L=68, 2L=136)
+        // This causes overflow in negative_lo = skew + sum_{i=0}^{135} a'_{i+1} * 2^i = 1 + (2^136 - 1) = 2^136
+        //
+        // Scalar chosen such that least significant 136 bits are zero:
+        fr scalar_native = fr::random_element();
+        uint256_t scalar_raw = uint256_t(scalar_native);
+        scalar_raw = (scalar_raw >> 136) << 136;
+        fr scalar_val = fr(scalar_raw);
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+        scalar.set_origin_tag(submitted_value_origin_tag);
+
+        // Compute NAF with full field size
+        const size_t length = fr::modulus.get_msb() + 1;
+
+        // This should not overflow with the fix in place
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        // Verify NAF correctness
+        for (const auto& bit : naf) {
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Reconstruct scalar from NAF: scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+        }
+        reconstructed_val -= fr(naf[length].get_value());
+
+        EXPECT_EQ(scalar_val, reconstructed_val);
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
     {
         Builder builder;
@@ -1460,7 +1502,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         fr scalar_c(6);
         std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
 
-        OriginTag tag_union{};
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         std::vector<scalar_ct> scalars;
         std::vector<element_ct> points;
         for (size_t i = 0; i < 3; ++i) {
@@ -1616,7 +1659,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             circuit_points.push_back(P);
         }
 
-        OriginTag tag_union{};
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             // Set tag to submitted value tag at round i
             circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
@@ -1674,7 +1718,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
-        OriginTag tag_union{};
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1723,7 +1768,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
 
-        OriginTag tag_union{};
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1777,7 +1823,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
 
-            OriginTag tag_union{};
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1837,7 +1884,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
 
-            OriginTag tag_union{};
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1885,7 +1933,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
-            OriginTag tag_union{};
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -2486,6 +2535,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_overflow_lower_half)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_overflow_lower_half();
     } else {
         GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }

@@ -1,5 +1,5 @@
 // docs:start:nft_note_struct
-use dep::aztec::{macros::notes::note, protocol_types::traits::Packable};
+use dep::aztec::{macros::notes::note, protocol::traits::Packable};
 
 #[derive(Eq, Packable)]
 #[note]

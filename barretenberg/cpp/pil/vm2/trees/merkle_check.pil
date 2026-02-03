@@ -198,19 +198,27 @@ namespace merkle_check;
     pol commit read_output_hash;
     pol commit write_output_hash;
 
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit const_two;
+    sel * (const_two - 2) = 0;
+
     // Lookup to the full poseidon2 gadget
     #[MERKLE_POSEIDON2_READ]
     sel {
-        read_left_node, read_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ sel, read_output_hash
-    } in poseidon2_hash.end {
-        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output
+        read_left_node, read_right_node, /*input_2=*/ precomputed.zero,
+        read_output_hash, const_two
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     #[MERKLE_POSEIDON2_WRITE]
     write {
-        write_left_node, write_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ write, write_output_hash
-    } in poseidon2_hash.end {
-        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output
+        write_left_node, write_right_node, /*input_2=*/ precomputed.zero,
+        write_output_hash, const_two
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     // If we are not done, this row's output_hash is the next row's node

@@ -35,13 +35,13 @@ pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
-        oracle::notes::check_nullifier_exists,
-        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        oracle::nullifiers::check_nullifier_exists,
+        protocol::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
     };
 
     use token::Token;
-    use uint_note::uint_note::PartialUintNote;
+    use uint_note::PartialUintNote;
 
     // The event contains only the `order_id` as the order itself can be retrieved via the `get_order` function.
     #[event]

@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash, L2BlockNew } from '@aztec/stdlib/block';
+import { BlockHash, L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
@@ -59,7 +59,7 @@ export class LogStore {
    * @param block - The L2 block to extract logs from.
    * @returns An object containing the private and public tagged logs for the block.
    */
-  #extractTaggedLogsFromBlock(block: L2BlockNew) {
+  #extractTaggedLogsFromBlock(block: L2Block) {
     // SiloedTag (as string) -> array of log buffers.
     const privateTaggedLogs = new Map<string, Buffer[]>();
     // "{contractAddress}_{tag}" (as string) -> array of log buffers.
@@ -120,7 +120,7 @@ export class LogStore {
    * @returns A map from tag (as string) to an array of serialized private logs belonging to that tag, and a map from
    * "{contractAddress}_{tag}" (as string) to an array of serialized public logs belonging to that key.
    */
-  #extractTaggedLogs(blocks: L2BlockNew[]): {
+  #extractTaggedLogs(blocks: L2Block[]): {
     privateTaggedLogs: Map<string, Buffer[]>;
     publicTaggedLogs: Map<string, Buffer[]>;
   } {
@@ -146,7 +146,7 @@ export class LogStore {
     return { privateTaggedLogs, publicTaggedLogs };
   }
 
-  async #addPrivateLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addPrivateLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#privateLogKeysByBlock.hasAsync(block.number)),
@@ -181,7 +181,7 @@ export class LogStore {
     }
   }
 
-  async #addPublicLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addPublicLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#publicLogKeysByBlock.hasAsync(block.number)),
@@ -229,7 +229,7 @@ export class LogStore {
     }
   }
 
-  async #addContractClassLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addContractClassLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#contractClassLogsByBlock.hasAsync(block.number)),
@@ -260,7 +260,7 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       await Promise.all([
         this.#addPrivateLogs(blocks),
@@ -271,21 +271,21 @@ export class LogStore {
     });
   }
 
-  #packWithBlockHash(blockHash: Fr, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
+  #packWithBlockHash(blockHash: BlockHash, data: Buffer<ArrayBufferLike>[]): Buffer<ArrayBufferLike> {
     return Buffer.concat([blockHash.toBuffer(), ...data]);
   }
 
-  #unpackBlockHash(reader: BufferReader): L2BlockHash {
+  #unpackBlockHash(reader: BufferReader): BlockHash {
     const blockHash = reader.remainingBytes() > 0 ? reader.readObject(Fr) : undefined;
 
     if (!blockHash) {
       throw new Error('Failed to read block hash from log entry buffer');
     }
 
-    return L2BlockHash.fromField(blockHash);
+    return new BlockHash(blockHash);
   }
 
-  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       await Promise.all(
         blocks.map(async block => {
@@ -543,7 +543,7 @@ export class LogStore {
   #accumulateLogs(
     results: (ExtendedContractClassLog | ExtendedPublicLog)[],
     blockNumber: number,
-    blockHash: L2BlockHash,
+    blockHash: BlockHash,
     txIndex: number,
     txLogs: (ContractClassLog | PublicLog)[],
     filter: LogFilter = {},
