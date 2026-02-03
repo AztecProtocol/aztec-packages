@@ -190,7 +190,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
-    challenges.get(ColumnAndShifts::precomputed_clk) = FF(1);
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 

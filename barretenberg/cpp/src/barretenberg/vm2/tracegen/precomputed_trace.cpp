@@ -38,7 +38,7 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
     // 256 per input (a and b), and 3 different bitwise ops
-    constexpr auto num_rows = 256 * 256 * 3;
+    constexpr auto num_rows = PRECOMPUTED_TRACE_SIZE;
     trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);

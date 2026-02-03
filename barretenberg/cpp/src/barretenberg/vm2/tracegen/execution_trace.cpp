@@ -326,6 +326,7 @@ void ExecutionTraceBuilder::process(
             row,
             { {
                 { C::execution_sel, 1 },
+                { C::execution_exec_clk, row },
                 // Selectors that indicate "dispatch" from tx trace
                 // Note: Enqueued Call End is determined during the opcode execution temporality group
                 { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },

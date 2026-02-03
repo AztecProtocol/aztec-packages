@@ -208,17 +208,22 @@ void AvmProver::execute_pcs_rounds()
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
+    auto index_of_max_end_index = [](const auto& polys) {
+        size_t max_idx = 0;
+        size_t max_end_idx = polys[0].end_index();
+        for (size_t idx = 0; const auto& poly : polys) {
+            if (poly.end_index() > max_end_idx) {
+                max_idx = idx;
+                max_end_idx = poly.end_index();
+            }
+            idx++;
+        }
+        return max_idx;
+    };
+
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
-    size_t max_idx = 0;
-    size_t max_end_idx = shifted_polys[0].end_index();
-    for (size_t idx = 0; const auto& poly : shifted_polys) {
-        if (poly.end_index() > max_end_idx) {
-            max_idx = idx;
-            max_end_idx = poly.end_index();
-        }
-        idx++;
-    }
+    size_t max_idx = index_of_max_end_index(shifted_polys);
 
     Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
     batched_shifted *= shifted_challenges[max_idx];
@@ -230,14 +235,16 @@ void AvmProver::execute_pcs_rounds()
     }
 
     // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
-    // polynomial with precomputed_clk, which is always of circuit size)
-    Polynomial batched_unshifted =
-        prover_polynomials.get(ColumnAndShifts::precomputed_clk); // Initial poly has coefficient 1
+    // polynomial with the largest polynomial)
+    max_idx = index_of_max_end_index(unshifted_polys);
+
+    Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
+    batched_unshifted *= unshifted_challenges[max_idx];
     batched_unshifted += batched_shifted;
     for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
         // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
         if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-            if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
+            if (idx != max_idx) {
                 batched_unshifted.add_scaled(poly, challenge);
             }
         }
