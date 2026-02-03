@@ -15,7 +15,7 @@ import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -331,7 +331,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    '--batch-size',
+    MAGIC_ANVIL_BATCH_SIZE.toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
