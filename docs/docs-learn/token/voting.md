@@ -1,7 +1,7 @@
 ---
 title: Voting on Proposals
 description: Learn how to vote on governance proposals on the Aztec network using your staked tokens.
-displayed_sidebar: usersSidebar
+displayed_sidebar: sidebar
 ---
 
 # Voting on Proposals

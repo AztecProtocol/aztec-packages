@@ -8,9 +8,9 @@ const lightTheme = themes.github;
 const darkTheme = themes.dracula;
 
 // @ts-ignore
-import math from "remark-math";
+const math = require("remark-math").default || require("remark-math");
 // @ts-ignore
-import katex from "rehype-katex";
+const katex = require("rehype-katex").default || require("rehype-katex");
 
 // @ts-ignore
 const path = require("path");
@@ -32,9 +32,12 @@ const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
-const docsPath = "processed-docs/docs";
-const developerDocsPath = "processed-docs/docs-developers";
-const networkDocsPath = "processed-docs/docs-network";
+// In development, serve from source directories for hot reload
+const isDev = process.env.NODE_ENV === "development";
+const docsPath = isDev ? "docs" : "processed-docs/docs";
+const developerDocsPath = isDev ? "docs-developers" : "processed-docs/docs-developers";
+const networkDocsPath = isDev ? "docs-network" : "processed-docs/docs-network";
+const learnDocsPath = isDev ? "docs-learn" : "processed-docs/docs-learn";
 
 // Shared remark/rehype plugins configuration
 const remarkPlugins = [math];
@@ -106,6 +109,24 @@ const config = {
     },
   ],
   plugins: [
+    // Learn docs instance (general users)
+    [
+      "@docusaurus/plugin-content-docs",
+      {
+        id: "learn",
+        path: learnDocsPath,
+        routeBasePath: "learn",
+        sidebarPath: "./sidebars-learn.js",
+        editUrl: (params) => {
+          return (
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-learn/` +
+            params.docPath
+          );
+        },
+        remarkPlugins,
+        rehypePlugins,
+      },
+    ],
     // Developer docs instance - nightly/devnet versions
     [
       "@docusaurus/plugin-content-docs",
@@ -268,10 +289,13 @@ const config = {
           src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
-          // Unified version dropdown - shows context-aware versions based on current section
+          // Learn sidebar link
           {
-            type: "custom-unifiedVersionDropdown",
+            type: "docSidebar",
+            sidebarId: "sidebar",
+            docsPluginId: "learn",
             position: "left",
+            label: "Learn",
           },
           // Developer sidebar link
           {
@@ -281,7 +305,6 @@ const config = {
             position: "left",
             label: "Build",
           },
-
           // Network portal link
           {
             type: "doc",
@@ -289,6 +312,11 @@ const config = {
             docsPluginId: "network",
             position: "left",
             label: "Network",
+          },
+          // Unified version dropdown - shows context-aware versions based on current section
+          {
+            type: "custom-unifiedVersionDropdown",
+            position: "right",
           },
           {
             to: "/networks",

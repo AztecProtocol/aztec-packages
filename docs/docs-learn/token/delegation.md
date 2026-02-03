@@ -1,7 +1,7 @@
 ---
 title: Delegating Stake
 description: Learn how to delegate your stake to operators on the Aztec network without running infrastructure.
-displayed_sidebar: usersSidebar
+displayed_sidebar: sidebar
 ---
 
 # Delegating Stake
@@ -12,15 +12,15 @@ If you want to participate in staking but don't want to run your own infrastruct
 
 Understanding these concepts will help you choose the right operator:
 
-- [How proof of stake works](../concepts/proof-of-stake/)
-- [Slashing conditions](../concepts/proof-of-stake/#slashing) - your delegated stake can be slashed
-- [How governance works](../concepts/governance/) - understand voting power
+- [How proof of stake works](/network/concepts/proof-of-stake/)
+- [Slashing conditions](/network/concepts/proof-of-stake/#slashing) - your delegated stake can be slashed
+- [How governance works](/network/concepts/governance/) - understand voting power
 
 ## How Delegation Works
 
 When you delegate tokens to an operator:
 
-1. **Your tokens are staked** through the operator's validator
+1. **Your tokens are staked** through the operator's sequencer
 2. **The operator runs infrastructure** on your behalf
 3. **Rewards are shared** between you and the operator based on their fee structure
 4. **Slashing risk is shared** - if the operator misbehaves, your delegated stake can be slashed
@@ -77,5 +77,5 @@ To maintain control over your votes:
 ## Next Steps
 
 - [Learn about voting](./voting) with your staked or delegated tokens
-- [Understand slashing](../concepts/proof-of-stake/#slashing) to know the risks
-- [Run your own validator](../operators/setup/sequencer_management) if you prefer direct control
+- [Understand slashing](/network/concepts/proof-of-stake/#slashing) to know the risks
+- [Run your own sequencer](/network/operators/setup/sequencer_management) if you prefer direct control

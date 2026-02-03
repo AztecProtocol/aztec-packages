@@ -33,7 +33,7 @@ Validators must stake tokens on L1 to join the sequencer set. The staked tokens 
 
 ### Stake Delegation
 
-Token holders who don't want to run their own infrastructure can delegate their stake to professional operators. See the [Delegating Stake](../users/delegation) guide for details.
+<!-- Token holders who don't want to run their own infrastructure can delegate their stake to professional operators. See the [Delegating Stake](../users/delegation) guide for details. -->
 
 ### Key Registration
 
@@ -177,7 +177,7 @@ Since both delays start at the same time, the effective wait is whichever is lon
 2. **Wait for the exit delay**: Your tokens remain locked during this period
 3. **Finalize withdrawal**: After the delay, complete the withdrawal to receive your tokens
 
-For step-by-step instructions, see the [Unstaking Guide](../../users/staking.md#unstaking).
+<!-- For step-by-step instructions, see the [Unstaking Guide](../../users/staking.md#unstaking). -->
 
 ---
 
