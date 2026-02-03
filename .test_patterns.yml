@@ -170,9 +170,6 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
-  - regex: "src/composed/ha/e2e_ha_full.test.ts"
-    owners:
-      - *alex
 
   # yarn-project tests
   - regex: "yarn-project/kv-store"
