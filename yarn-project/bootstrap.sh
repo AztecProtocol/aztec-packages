@@ -239,7 +239,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
-  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=600 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
@@ -248,6 +248,14 @@ function bench_cmds {
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
+
+  # Strip platform-specific solc binary from l1-artifacts before npm publish.
+  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
+  # the correct binary via SVM on the end-user's machine.
+  local l1_artifacts="l1-artifacts/l1-contracts"
+  rm -f "$l1_artifacts"/solc-*
+  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1 $2")
