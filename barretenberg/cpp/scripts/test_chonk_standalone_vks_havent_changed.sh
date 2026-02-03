@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions

@@ -65,7 +65,7 @@ class BufferPolyfill extends Uint8Array {
   toJSON() {
     return {
       type: 'Buffer',
-      data: Array.from(this)
+      data: Array.from(this),
     };
   }
 
@@ -147,7 +147,7 @@ class BufferPolyfill extends Uint8Array {
       }
     }
 
-    return x.length < y.length ? -1 : (x.length > y.length ? 1 : 0);
+    return x.length < y.length ? -1 : x.length > y.length ? 1 : 0;
   }
 
   fill(val, start, end, encoding) {
@@ -168,8 +168,7 @@ class BufferPolyfill extends Uint8Array {
       }
       if (val.length === 1) {
         const code = val.charCodeAt(0);
-        if ((encoding === 'utf8' && code < 128) ||
-            encoding === 'latin1') {
+        if ((encoding === 'utf8' && code < 128) || encoding === 'latin1') {
           val = code;
         }
       }
@@ -195,9 +194,7 @@ class BufferPolyfill extends Uint8Array {
         this[i] = val;
       }
     } else {
-      const bytes = BufferPolyfill.isBuffer(val)
-        ? val
-        : BufferPolyfill.from(val, encoding);
+      const bytes = BufferPolyfill.isBuffer(val) ? val : BufferPolyfill.from(val, encoding);
       const len = bytes.length;
       for (let i = 0; i < end - start; ++i) {
         this[i + start] = bytes[i % len];
@@ -221,7 +218,9 @@ BufferPolyfill.from = function (value, encodingOrOffset, length) {
   }
 
   if (value == null) {
-    throw new TypeError('The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object');
+    throw new TypeError(
+      'The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object',
+    );
   }
 
   if (value instanceof ArrayBuffer) {
@@ -236,7 +235,9 @@ BufferPolyfill.from = function (value, encodingOrOffset, length) {
     return copy;
   }
 
-  throw new TypeError('The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object');
+  throw new TypeError(
+    'The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object',
+  );
 };
 
 BufferPolyfill.alloc = function (size, fill, encoding) {
@@ -345,11 +346,7 @@ BufferPolyfill.prototype.copy = function (target, targetStart, start, end) {
   if (this === target && typeof Uint8Array.prototype.copyWithin === 'function') {
     this.copyWithin(targetStart, start, end);
   } else {
-    Uint8Array.prototype.set.call(
-      target,
-      this.subarray(start, end),
-      targetStart
-    );
+    Uint8Array.prototype.set.call(target, this.subarray(start, end), targetStart);
   }
 
   return len;
@@ -460,7 +457,12 @@ function utf8Write(buf, string, offset, length) {
 }
 
 function latin1Write(buf, string, offset, length) {
-  return blitBuffer(string.split('').map(c => c.charCodeAt(0)), buf, offset, length);
+  return blitBuffer(
+    string.split('').map(c => c.charCodeAt(0)),
+    buf,
+    offset,
+    length,
+  );
 }
 
 function base64Write(buf, string, offset, length) {
@@ -488,9 +490,28 @@ function base64ToBytes(str) {
 }
 
 const hexCharValueTable = {
-  48: 0, 49: 1, 50: 2, 51: 3, 52: 4, 53: 5, 54: 6, 55: 7, 56: 8, 57: 9,
-  65: 10, 66: 11, 67: 12, 68: 13, 69: 14, 70: 15,
-  97: 10, 98: 11, 99: 12, 100: 13, 101: 14, 102: 15
+  48: 0,
+  49: 1,
+  50: 2,
+  51: 3,
+  52: 4,
+  53: 5,
+  54: 6,
+  55: 7,
+  56: 8,
+  57: 9,
+  65: 10,
+  66: 11,
+  67: 12,
+  68: 13,
+  69: 14,
+  70: 15,
+  97: 10,
+  98: 11,
+  99: 12,
+  100: 13,
+  101: 14,
+  102: 15,
 };
 
 // Constants
@@ -499,7 +520,7 @@ BufferPolyfill.kMaxLength = K_MAX_LENGTH;
 BufferPolyfill.kStringMaxLength = K_STRING_MAX_LENGTH;
 BufferPolyfill.constants = {
   MAX_LENGTH: K_MAX_LENGTH,
-  MAX_STRING_LENGTH: K_STRING_MAX_LENGTH
+  MAX_STRING_LENGTH: K_STRING_MAX_LENGTH,
 };
 
 // Export

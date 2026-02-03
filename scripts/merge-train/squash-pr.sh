@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -xeuo pipefail
 
@@ -93,10 +93,10 @@ git commit -m "$commit_message" --no-verify
 if [[ "$is_fork" == "true" ]]; then
   # It's a fork - need to push to the fork repository
   echo "Detected fork: pushing to $head_repo"
-  
+
   # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
   git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
-  
+
   # Push to the fork
   git push --force fork "HEAD:refs/heads/$branch"
 else

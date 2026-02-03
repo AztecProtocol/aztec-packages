@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script updates versions.json for a specific docs instance with the latest versions.
 # It automatically detects if nightly versions exist and includes them appropriately.

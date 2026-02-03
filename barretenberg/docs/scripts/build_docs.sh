@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -13,11 +13,11 @@ if ! [ -d "docs/build" ]; then
   exit 1
 fi
 # First, clean the destination to avoid any leftover files
-rm -rf ../docs/static/api/*
+rm -rf ../docs/static/api
 
 # Copy the built documentation
 mkdir -p ../docs/static/api/
-cp -R docs/build/* ../docs/static/api/
+cp -R docs/build/. ../docs/static/api/
 
 # NOTE(AD): hack - but was blocked and couldn't figure out why we had two examples for something called 'if' with different casing.
 rm -f ../docs/static/api/if-example.html

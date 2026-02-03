@@ -3,7 +3,10 @@
 # This can be sourced multiple by scripts calling scripts, so it makes sense to only do certain sets through first pass.
 
 # Enter our script directory, allowing usage of scripts from any directory.
-[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
+# Skip cd if $0 is a shell binary (e.g., /bin/bash or /opt/homebrew/bin/bash)
+if [ -z "${NO_CD:-}" ] && [[ "$0" != */bash ]] && [[ "$0" != */zsh ]] && [[ "$0" != */sh ]]; then
+  cd "$(dirname $0)"
+fi
 
 # We export so we can use from exported functions.
 export root=${root:-$(git rev-parse --show-toplevel)}
@@ -20,6 +23,12 @@ fi
 
 # We are fine using foundry nightly.
 export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+# Fix for parallel setting XDG_CACHE_HOME to empty string, which breaks corepack.
+# If XDG_CACHE_HOME is set but empty, unset it to use the default.
+if [ -n "${XDG_CACHE_HOME+x}" ] && [ -z "$XDG_CACHE_HOME" ]; then
+  unset XDG_CACHE_HOME
+fi
 
 source $ci3/source_options
 source $ci3/source_stdlib

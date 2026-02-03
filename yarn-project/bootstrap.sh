@@ -122,7 +122,8 @@ function compile_all {
   compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
-  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
+  # Unset XDG_CACHE_HOME if empty - parallel sets it to empty which breaks corepack
+  parallel --joblog joblog.txt --line-buffered --tag '[ -z "$XDG_CACHE_HOME" ] && unset XDG_CACHE_HOME; cd {} && yarn generate' ::: \
     accounts \
     aztec.js \
     cli \

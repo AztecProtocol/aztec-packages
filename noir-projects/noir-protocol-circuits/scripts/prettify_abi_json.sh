@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # VSCode is meant to be able to format json for me, but it's not doing it, so here's a script (which admittedly is longer than the underlying `jq` command, but I'm forgetful).
 

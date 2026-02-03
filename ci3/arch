@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Returns the standard artifact prefixes for each arch.
 case $(uname -m) in
-  aarch64)
+  aarch64|arm64)
     echo arm64
     ;;
   amd64|x86_64)

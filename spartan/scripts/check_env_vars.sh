@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to check that all environment variables used in Helm templates, values files, and Terraform scripts
 # are defined in yarn-project/foundation/src/config/env_var.ts

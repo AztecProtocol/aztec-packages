@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script updates versions.json with the latest version from versioned_docs.
 # It automatically detects if nightly versions exist and includes them appropriately.

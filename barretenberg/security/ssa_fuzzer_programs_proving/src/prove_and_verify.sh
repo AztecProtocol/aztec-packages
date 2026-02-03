@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 target_dir=$(mktemp -d)
 bb_executable="${BB_EXECUTABLE_PATH:-/root/.bb/bb}"

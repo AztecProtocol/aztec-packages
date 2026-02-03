@@ -21,6 +21,9 @@ if (NOT(FUZZING))
     # Link avm_transpiler when library is provided
     if(AVM_TRANSPILER_LIB)
         target_link_libraries(bb PRIVATE ${AVM_TRANSPILER_LIB})
+        if(APPLE)
+            target_link_libraries(bb PRIVATE "-framework CoreFoundation")
+        endif()
     endif()
     if(NOT WASM)
         target_link_libraries(bb PRIVATE ipc)
@@ -35,6 +38,14 @@ if (NOT(FUZZING))
             bb
             PRIVATE
             -ldw -lelf
+        )
+    endif()
+
+    # Re-sign on macOS to fix invalid linker-generated adhoc signature
+    if(APPLE)
+        add_custom_command(TARGET bb POST_BUILD
+            COMMAND codesign -s - -f $<TARGET_FILE:bb>
+            COMMENT "Re-signing bb binary for macOS"
         )
     endif()
 
@@ -61,6 +72,9 @@ if (NOT(FUZZING))
         # Link avm_transpiler when library is provided
         if(AVM_TRANSPILER_LIB)
             target_link_libraries(bb-avm PRIVATE ${AVM_TRANSPILER_LIB})
+            if(APPLE)
+                target_link_libraries(bb-avm PRIVATE "-framework CoreFoundation")
+            endif()
         endif()
         if(NOT WASM)
             target_link_libraries(bb-avm PRIVATE ipc)
@@ -75,6 +89,14 @@ if (NOT(FUZZING))
                 bb-avm
                 PRIVATE
                 -ldw -lelf
+            )
+        endif()
+
+        # Re-sign on macOS to fix invalid linker-generated adhoc signature
+        if(APPLE)
+            add_custom_command(TARGET bb-avm POST_BUILD
+                COMMAND codesign -s - -f $<TARGET_FILE:bb-avm>
+                COMMENT "Re-signing bb-avm binary for macOS"
             )
         endif()
     endif()
