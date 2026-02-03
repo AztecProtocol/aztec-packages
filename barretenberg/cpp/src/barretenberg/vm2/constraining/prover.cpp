@@ -210,16 +210,12 @@ void AvmProver::execute_pcs_rounds()
     auto shifted_challenges = challenges.get_to_be_shifted();
 
     auto index_of_max_end_index = [](const auto& polys) {
-        size_t max_idx = 0;
-        size_t max_end_idx = polys[0].end_index();
-        for (size_t idx = 0; const auto& poly : polys) {
-            if (poly.end_index() > max_end_idx) {
-                max_idx = idx;
-                max_end_idx = poly.end_index();
-            }
-            idx++;
-        }
-        return max_idx;
+        // this assumes non-empty, returns an iterator
+        auto it = std::ranges::max_element(
+            polys.begin(), polys.end(), [](const auto& a, const auto& b) { return a.end_index() < b.end_index(); });
+
+        // retrieves the index of the max element
+        return static_cast<size_t>(std::distance(polys.begin(), it));
     };
 
     // Batch to be shifted polys in their to_be_shifted form
