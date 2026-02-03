@@ -1,6 +1,6 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
@@ -134,11 +134,11 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   // === State Transition Handlers ===
 
   /**
-   * Handles a mined block - marks transactions as mined and triggers eviction.
-   * @param txHashes - Hashes of transactions mined in the block
-   * @param block - Header of the mined block
+   * Handles a mined block - marks transactions as mined and evicts conflicting pending txs.
+   * Uses nullifiers directly from the block to evict pending transactions with conflicts.
+   * @param block - The complete mined block
    */
-  handleMinedBlock(txHashes: TxHash[], block: BlockHeader): Promise<void>;
+  handleMinedBlock(block: L2Block): Promise<void>;
 
   /**
    * Prepares the pool for a new slot.

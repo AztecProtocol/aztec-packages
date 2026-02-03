@@ -3,25 +3,27 @@
  * These tests mirror the original TxPool test suite (aztec_kv_tx_pool.test.ts)
  * but use the new TxPoolV2 interface.
  */
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { unfreeze } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import { RevertCode } from '@aztec/stdlib/avm';
+import { Body, type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
+  AppendOnlyTreeSnapshot,
   MerkleTreeId,
   NullifierLeaf,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -99,6 +101,29 @@ describe('TxPoolV2 Compatibility Tests', () => {
     return tx;
   };
 
+  /** Creates an L2Block from transactions and a header */
+  const makeBlock = (txs: Tx[], header: BlockHeader): L2Block => {
+    const txEffects = txs.map(tx => {
+      const nullifiers = tx.data.getNonEmptyNullifiers();
+      return new TxEffect(RevertCode.OK, tx.getTxHash(), Fr.ZERO, [], nullifiers, [], [], [], [], []);
+    });
+    const body = new Body(txEffects);
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
+    return {
+      archive,
+      header,
+      body,
+      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      get number() {
+        return header.globalVariables.blockNumber;
+      },
+      get slot() {
+        return header.globalVariables.slotNumber;
+      },
+    } as L2Block;
+  };
+
   // === Shared test suite tests (from tx_pool_test_suite.ts) ===
 
   describe('basic operations', () => {
@@ -139,7 +164,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const minedTx = await mockTx(2);
 
       await pool.addPendingTxs([pendingTx, minedTx]);
-      await pool.handleMinedBlock([minedTx.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([minedTx], block1Header));
 
       // Delete a pending tx via handleFailedExecution - should be permanently deleted
       await pool.handleFailedExecution([pendingTx.getTxHash()]);
@@ -154,7 +179,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const tx2 = await mockTx(2);
 
       await pool.addPendingTxs([tx1, tx2]);
-      await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], block1Header));
 
       const retrievedTx = await pool.getTxByHash(tx1.getTxHash());
       expect(retrievedTx?.getTxHash()).toEqual(tx1.getTxHash());
@@ -172,7 +197,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       const tx2 = await mockTx(2);
 
       await pool.addPendingTxs([tx1, tx2]);
-      await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], block1Header));
 
       await pool.handlePrunedBlocks(block0Id);
       expect(await pool.getMinedTxHashes()).toEqual([]);
@@ -189,7 +214,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.addPendingTxs([tx1]);
       // this peer knows that tx2 was mined, but it does not have the tx object
       // In V2, we need to use protectTxs to mark it as protected, then handleMinedBlock
-      await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], block1Header));
       // For tx2, we can add it as mined directly
       await pool.addMinedTxs([tx2], block1Header);
 
@@ -275,7 +300,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.addPendingTxs(txs);
 
       // Mark first tx as mined
-      await pool.handleMinedBlock([txs[0].getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([txs[0]], block1Header));
 
       // Verify initial state
       expect(await pool.getPendingTxCount()).toBe(2);
@@ -315,10 +340,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     await pool.addPendingTxs(txs);
 
     // Only mined txs should be archived, pending are never archived
-    await pool.handleMinedBlock(
-      txs.map(t => t.getTxHash()),
-      block1Header,
-    );
+    await pool.handleMinedBlock(makeBlock(txs, block1Header));
 
     const expectArchivedTx = async (txHash: TxHash, shouldExist: boolean) => {
       const archived = await pool.getArchivedTxByHash(txHash);
@@ -383,7 +405,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx7.getTxHash()]);
 
     // if a tx is mined, any txs can be added until the limit is reached
-    await pool.handleMinedBlock([tx4.getTxHash()], block1Header);
+    await pool.handleMinedBlock(makeBlock([tx4], block1Header));
     const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await pool.addPendingTxs([tx8]);
     await checkPendingTxConsistency();
@@ -521,7 +543,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     // tx2 and tx3 can't replace tx1 since they have same fee (challenge fails)
 
     // Mine tx1
-    await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+    await pool.handleMinedBlock(makeBlock([tx1], block1Header));
 
     // tx4 should be the only pending tx
     expect(await pool.getPendingTxHashes()).toEqual([tx4.getTxHash()]);
@@ -549,7 +571,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     });
 
     await pool.addPendingTxs([tx1, tx2, tx3, tx4]);
-    await pool.handleMinedBlock([tx4.getTxHash()], block1Header);
+    await pool.handleMinedBlock(makeBlock([tx4], block1Header));
 
     const pendingTxHashes = await pool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
@@ -573,7 +595,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
     await pool.addPendingTxs([tx1, tx2, tx3]);
     const txHashes = [tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()];
-    await pool.handleMinedBlock(txHashes, block1Header);
+    await pool.handleMinedBlock(makeBlock([tx1, tx2, tx3], block1Header));
     await pool.handlePrunedBlocks(block0Id);
 
     const pendingTxHashes = await pool.getPendingTxHashes();
@@ -587,7 +609,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     const tx3 = await mockTx(3);
 
     await pool.addPendingTxs([tx1, tx2, tx3]);
-    await pool.handleMinedBlock([tx2.getTxHash()], block1Header);
+    await pool.handleMinedBlock(makeBlock([tx2], block1Header));
     await checkPendingTxConsistency();
 
     const prev = db.getLeafPreimage.getMockImplementation()!;
@@ -703,7 +725,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     it('removes nullifier entries when tx is mined', async () => {
       const tx1 = await mockPublicTx(1, 5);
       await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], block1Header));
 
       // Add a new tx with the same nullifier, it should succeed
       // (In practice this would fail world state nullifier check,
@@ -719,7 +741,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     it('restores nullifier entries on reorg (handlePrunedBlocks)', async () => {
       const tx1 = await mockPublicTx(1, 10);
       await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], block1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], block1Header));
       await pool.handlePrunedBlocks(block0Id);
 
       // Now tx1 is pending again - nullifier should be claimed

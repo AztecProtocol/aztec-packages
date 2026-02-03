@@ -1,14 +1,20 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import { Body, type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -76,6 +82,29 @@ describe('TxPoolV2: benchmarks', () => {
       );
     }
     return txs;
+  };
+
+  /** Creates an L2Block from transactions and a header */
+  const makeBlock = (txs: Tx[], header: BlockHeader): L2Block => {
+    const txEffects = txs.map(tx => {
+      const nullifiers = tx.data.getNonEmptyNullifiers();
+      return new TxEffect(RevertCode.OK, tx.getTxHash(), Fr.ZERO, [], nullifiers, [], [], [], [], []);
+    });
+    const body = new Body(txEffects);
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
+    return {
+      archive,
+      header,
+      body,
+      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      get number() {
+        return header.globalVariables.blockNumber;
+      },
+      get slot() {
+        return header.globalVariables.slotNumber;
+      },
+    } as L2Block;
   };
 
   const setupMocks = () => {
@@ -320,7 +349,8 @@ describe('TxPoolV2: benchmarks', () => {
 
       try {
         const txs = await populatePool(pool, poolSize);
-        const hashesToMine = txs.slice(0, minedCount).map(tx => tx.getTxHash());
+        const txsToMine = txs.slice(0, minedCount);
+        const block = makeBlock(txsToMine, slot1Header);
 
         // Pre-compute block IDs for reset
         const block0Hash = await BlockHeader.empty().hash();
@@ -329,7 +359,7 @@ describe('TxPoolV2: benchmarks', () => {
         let totalDuration = 0;
         for (let i = 0; i < MUTATION_ITERATIONS; i++) {
           const startTime = performance.now();
-          await pool.handleMinedBlock(hashesToMine, slot1Header);
+          await pool.handleMinedBlock(block);
           totalDuration += performance.now() - startTime;
 
           // Reset: un-mine by pruning back to block 0
@@ -414,7 +444,8 @@ describe('TxPoolV2: benchmarks', () => {
 
       try {
         const txs = await populatePool(pool, poolSize);
-        const hashesToMine = txs.slice(0, minedCount).map(tx => tx.getTxHash());
+        const txsToMine = txs.slice(0, minedCount);
+        const block = makeBlock(txsToMine, slot2Header);
 
         // Pre-compute block IDs
         const block1Hash = await slot1Header.hash();
@@ -423,7 +454,7 @@ describe('TxPoolV2: benchmarks', () => {
         let totalDuration = 0;
         for (let i = 0; i < MUTATION_ITERATIONS; i++) {
           // Mine transactions at block 2
-          await pool.handleMinedBlock(hashesToMine, slot2Header);
+          await pool.handleMinedBlock(block);
 
           // Measure: prune back to block 1 (un-mines the transactions)
           const startTime = performance.now();

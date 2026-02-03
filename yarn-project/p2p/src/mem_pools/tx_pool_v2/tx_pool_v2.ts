@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { L2BlockId } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -87,8 +87,8 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   // === State Transition Handlers ===
 
-  handleMinedBlock(txHashes: TxHash[], block: BlockHeader): Promise<void> {
-    return this.#queue.put(() => this.#impl.handleMinedBlock(txHashes, block));
+  handleMinedBlock(block: L2Block): Promise<void> {
+    return this.#queue.put(() => this.#impl.handleMinedBlock(block));
   }
 
   prepareForSlot(slotNumber: SlotNumber): Promise<void> {

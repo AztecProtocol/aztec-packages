@@ -1,14 +1,20 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import { Body, type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -108,6 +114,62 @@ describe('TxPoolV2', () => {
       return tx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[index];
     }
     throw new Error('Transaction has no nullifiers');
+  };
+
+  /**
+   * Creates an L2Block from transactions and a header.
+   * Extracts nullifiers from txs to create matching TxEffects.
+   */
+  const makeBlock = (txs: Tx[], header: BlockHeader): L2Block => {
+    const txEffects = txs.map(tx => {
+      const nullifiers = tx.data.getNonEmptyNullifiers();
+      return new TxEffect(
+        RevertCode.OK,
+        tx.getTxHash(),
+        Fr.ZERO, // transactionFee
+        [], // noteHashes
+        nullifiers,
+        [], // l2ToL1Msgs
+        [], // publicDataWrites
+        [], // privateLogs
+        [], // publicLogs
+        [], // contractClassLogs
+      );
+    });
+    const body = new Body(txEffects);
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
+    return {
+      archive,
+      header,
+      body,
+      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      get number() {
+        return header.globalVariables.blockNumber;
+      },
+      get slot() {
+        return header.globalVariables.slotNumber;
+      },
+    } as L2Block;
+  };
+
+  /** Creates an empty L2Block with no transactions */
+  const makeEmptyBlock = (header: BlockHeader): L2Block => {
+    const body = new Body([]);
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
+    return {
+      archive,
+      header,
+      body,
+      checkpointNumber: CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      get number() {
+        return header.globalVariables.blockNumber;
+      },
+      get slot() {
+        return header.globalVariables.slotNumber;
+      },
+    } as L2Block;
   };
 
   describe('addPendingTxs', () => {
@@ -987,7 +1049,7 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
 
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
@@ -996,17 +1058,15 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
 
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getPendingTxCount()).toBe(0);
     });
 
-    it('handles missing transactions gracefully', async () => {
-      const unknownHash = TxHash.random();
-
-      // Should not throw
-      await pool.handleMinedBlock([unknownHash], slot1Header);
+    it('handles empty block gracefully', async () => {
+      // Should not throw when processing an empty block
+      await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
     });
 
     it('deletes pending transactions with conflicting nullifiers', async () => {
@@ -1256,7 +1316,7 @@ describe('TxPoolV2', () => {
     it('un-mines transactions from pruned block', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
@@ -1277,7 +1337,7 @@ describe('TxPoolV2', () => {
 
       // Add mined tx first and mine it
       await pool.addPendingTxs([txMined]);
-      await pool.handleMinedBlock([txMined.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
       expect(await pool.getTxStatus(txMined.getTxHash())).toBe('mined');
 
       // Now txPending can be added since txMined's nullifier is no longer in pending
@@ -1304,7 +1364,7 @@ describe('TxPoolV2', () => {
 
       // Add mined tx first and mine it
       await pool.addPendingTxs([txMined]);
-      await pool.handleMinedBlock([txMined.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
 
       // Now txPending can be added (higher priority)
       await pool.addPendingTxs([txPending]);
@@ -1332,15 +1392,15 @@ describe('TxPoolV2', () => {
 
       // Add all as pending, then mine them all in one block
       await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
 
       // After tx1 is mined, we can add tx2 (same nullifier but tx1 no longer pending)
       await pool.addPendingTxs([tx2]);
-      await pool.handleMinedBlock([tx2.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx2], slot1Header));
 
       // After tx2 is mined, we can add tx3
       await pool.addPendingTxs([tx3]);
-      await pool.handleMinedBlock([tx3.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx3], slot1Header));
 
       // Reorg all - only highest priority should survive
       await pool.handlePrunedBlocks(block0Id);
@@ -1365,7 +1425,7 @@ describe('TxPoolV2', () => {
 
       // Mine txMined first
       await pool.addPendingTxs([txMined]);
-      await pool.handleMinedBlock([txMined.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
 
       // Now add the pending txs (no conflict since txMined is mined)
       await pool.addPendingTxs([txPending1, txPending2]);
@@ -1394,7 +1454,7 @@ describe('TxPoolV2', () => {
 
       // Mine txMined first
       await pool.addPendingTxs([txMined]);
-      await pool.handleMinedBlock([txMined.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
 
       // Add the pending txs
       await pool.addPendingTxs([txPendingHigh, txPendingLow]);
@@ -1495,7 +1555,7 @@ describe('TxPoolV2', () => {
 
       // Add, mine
       await poolWithValidator.addPendingTxs([tx]);
-      await poolWithValidator.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Make validator reject this tx
@@ -1518,7 +1578,7 @@ describe('TxPoolV2', () => {
 
       // Add, mine
       await poolWithValidator.addPendingTxs([tx]);
-      await poolWithValidator.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
 
       // Validator returns valid (default)
       await poolWithValidator.handlePrunedBlocks(block0Id);
@@ -1536,10 +1596,7 @@ describe('TxPoolV2', () => {
 
       // Add and mine all txs
       await poolWithValidator.addPendingTxs([txValid, txInvalid, txAlsoValid]);
-      await poolWithValidator.handleMinedBlock(
-        [txValid.getTxHash(), txInvalid.getTxHash(), txAlsoValid.getTxHash()],
-        slot1Header,
-      );
+      await poolWithValidator.handleMinedBlock(makeBlock([txValid, txInvalid, txAlsoValid], slot1Header));
 
       // Configure validator to reject only txInvalid
       mockValidator.validateTx.mockImplementation((tx: Tx) => {
@@ -1605,7 +1662,7 @@ describe('TxPoolV2', () => {
     it('permanently deletes mined transactions', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       await pool.handleFinalizedBlock(slot1Header);
 
@@ -1617,7 +1674,7 @@ describe('TxPoolV2', () => {
       await pool.updateConfig({ archivedTxLimit: 10 });
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       await pool.handleFinalizedBlock(slot1Header);
 
@@ -1638,7 +1695,7 @@ describe('TxPoolV2', () => {
       await pool.addProtectedTxs([tx], slot1Header);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
@@ -1663,7 +1720,7 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([tx]);
       await pool.addProtectedTxs([tx], slot1Header);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // After reorg, tx retains its protection status (protection is managed by prepareForSlot)
@@ -1677,7 +1734,7 @@ describe('TxPoolV2', () => {
       await pool.addProtectedTxs([tx], slot1Header);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
@@ -1763,8 +1820,8 @@ describe('TxPoolV2', () => {
       const tx2 = await mockTx(2);
 
       await pool.addPendingTxs([tx1, tx2]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
-      await pool.handleMinedBlock([tx2.getTxHash()], slot2Header);
+      await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
+      await pool.handleMinedBlock(makeBlock([tx2], slot2Header));
 
       const mined = await pool.getMinedTxHashes();
       expect(mined).toHaveLength(2);
@@ -1802,7 +1859,7 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       await pool.handleFinalizedBlock(slot1Header);
 
       const archived = await pool.getArchivedTxByHash(tx.getTxHash());
@@ -1823,7 +1880,7 @@ describe('TxPoolV2', () => {
           }),
         });
         await pool.addPendingTxs([txs[i]]);
-        await pool.handleMinedBlock([txs[i].getTxHash()], header);
+        await pool.handleMinedBlock(makeBlock([txs[i]], header));
         await pool.handleFinalizedBlock(header);
       }
 
@@ -1854,7 +1911,7 @@ describe('TxPoolV2', () => {
     it('removes nullifier entries when tx is mined', async () => {
       const tx1 = await mockPublicTx(1, 5);
       await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
 
       // Add a new tx with the same nullifier - should succeed
       const tx2 = await mockPublicTx(2, 1);
@@ -1868,7 +1925,7 @@ describe('TxPoolV2', () => {
     it('restores nullifier entries on reorg', async () => {
       const tx1 = await mockPublicTx(1, 10);
       await pool.addPendingTxs([tx1]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
       await pool.handlePrunedBlocks(block0Id);
 
       // Now tx1 is pending again - nullifier should be claimed
@@ -2070,7 +2127,7 @@ describe('TxPoolV2', () => {
 
       // Mine the highest priority tx - this triggers balance check for sharedFeePayer
       // The fee payer balance rule will check remaining pending txs from this fee payer
-      await pool.handleMinedBlock([txHigh.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txHigh], slot1Header));
 
       // txHigh is now mined
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('mined');
@@ -2100,7 +2157,7 @@ describe('TxPoolV2', () => {
       });
 
       await pool.addPendingTxs([txLow, txHigh]);
-      await pool.handleMinedBlock([txLow.getTxHash(), txHigh.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txLow, txHigh], slot1Header));
       expect(await pool.getTxStatus(txLow.getTxHash())).toBe('mined');
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('mined');
 
@@ -2140,10 +2197,7 @@ describe('TxPoolV2', () => {
 
       // Add and mine all
       await pool.addPendingTxs([txPriority1, txPriority5, txPriority10]);
-      await pool.handleMinedBlock(
-        [txPriority1.getTxHash(), txPriority5.getTxHash(), txPriority10.getTxHash()],
-        slot1Header,
-      );
+      await pool.handleMinedBlock(makeBlock([txPriority1, txPriority5, txPriority10], slot1Header));
 
       // Reorg - triggers balance eviction
       await pool.handlePrunedBlocks(block0Id);
@@ -2175,7 +2229,7 @@ describe('TxPoolV2', () => {
       });
 
       await pool.addPendingTxs([txLow, txHigh]);
-      await pool.handleMinedBlock([txLow.getTxHash(), txHigh.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txLow, txHigh], slot1Header));
 
       await pool.handlePrunedBlocks(block0Id);
 
@@ -2190,7 +2244,7 @@ describe('TxPoolV2', () => {
     it('evicts txs with pruned anchor blocks after reorg', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Simulate reorg - anchor block is no longer in archive
@@ -2205,7 +2259,7 @@ describe('TxPoolV2', () => {
     it('keeps txs with valid anchor blocks after reorg', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       // Anchor block still exists in archive
       db.findLeafIndices.mockResolvedValue([1n]); // Block found at index 1
@@ -2228,7 +2282,7 @@ describe('TxPoolV2', () => {
       });
 
       await pool.addPendingTxs([txValid, txInvalid]);
-      await pool.handleMinedBlock([txValid.getTxHash(), txInvalid.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txValid, txInvalid], slot1Header));
 
       // Get the anchor block hashes
       const validAnchorHash = await txValid.data.constants.anchorBlockHeader.hash();
@@ -2250,7 +2304,7 @@ describe('TxPoolV2', () => {
       const tx2 = await mockTx(2);
 
       await pool.addPendingTxs([tx1, tx2]);
-      await pool.handleMinedBlock([tx1.getTxHash(), tx2.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx1, tx2], slot1Header));
 
       // Mock: anchor block does not exist (pruned)
       db.findLeafIndices.mockResolvedValue([undefined]);
@@ -2293,9 +2347,9 @@ describe('TxPoolV2', () => {
 
       // Mine txs in different blocks
       await pool.addPendingTxs([tx1, tx2, tx3]);
-      await pool.handleMinedBlock([tx1.getTxHash()], slot1Header);
-      await pool.handleMinedBlock([tx2.getTxHash()], slot2Header);
-      await pool.handleMinedBlock([tx3.getTxHash()], slot3Header);
+      await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
+      await pool.handleMinedBlock(makeBlock([tx2], slot2Header));
+      await pool.handleMinedBlock(makeBlock([tx3], slot3Header));
 
       expect(await pool.getTxStatus(tx1.getTxHash())).toBe('mined');
       expect(await pool.getTxStatus(tx2.getTxHash())).toBe('mined');
@@ -2317,13 +2371,13 @@ describe('TxPoolV2', () => {
 
       // Mine, prune, re-mine cycle
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
-      await pool.handleMinedBlock([tx.getTxHash()], slot2Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot2Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
 
@@ -2333,14 +2387,14 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot3Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot3Header));
 
       // First reorg to block 2
       await pool.handlePrunedBlocks(block2Id);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       // Re-mine in block 3
-      await pool.handleMinedBlock([tx.getTxHash()], slot4Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot4Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Second reorg all the way to block 0
@@ -2363,12 +2417,97 @@ describe('TxPoolV2', () => {
       await pool.addProtectedTxs([txToMine], slot1Header);
 
       // Mine txToMine - this should evict txPending because its nullifier is now in the mined block
-      await pool.handleMinedBlock([txToMine.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([txToMine], slot1Header));
 
       // txPending should be evicted (nullifier conflict with mined tx)
       expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
       // txToMine should be mined
       expect(await pool.getTxStatus(txToMine.getTxHash())).toBe('mined');
+    });
+
+    it('evicts pending tx when block contains conflicting nullifier from unknown tx', async () => {
+      // This tests the key behavior: we extract nullifiers directly from the block's txEffects,
+      // so we can evict pending txs even if we never had the mined transaction in our pool
+
+      const txPending = await mockPublicTx(1, 5);
+
+      // Create a tx that the pool will never see - we'll only use it to create the block
+      const txUnknown = await mockPublicTx(2, 10);
+      // Give it the same nullifier as txPending
+      setNullifier(txUnknown, 0, getNullifier(txPending, 0));
+
+      // Add txPending to the pool
+      await pool.addPendingTxs([txPending]);
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
+
+      // The pool has never seen txUnknown
+      expect(await pool.getTxStatus(txUnknown.getTxHash())).toBeUndefined();
+
+      // Mine a block containing txUnknown - pool doesn't have this tx but gets its nullifiers from the block
+      await pool.handleMinedBlock(makeBlock([txUnknown], slot1Header));
+
+      // txPending should be evicted because the block contains a conflicting nullifier
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
+      // txUnknown should NOT be in the pool (we never added it)
+      expect(await pool.getTxStatus(txUnknown.getTxHash())).toBeUndefined();
+    });
+
+    it('evicts multiple pending txs when block contains multiple conflicting nullifiers', async () => {
+      const tx1 = await mockPublicTx(1, 5);
+      const tx2 = await mockPublicTx(2, 5);
+      const tx3 = await mockPublicTx(3, 5); // This one won't conflict
+
+      // Create unknown txs with conflicting nullifiers
+      const unknownTx1 = await mockPublicTx(10, 10);
+      const unknownTx2 = await mockPublicTx(11, 10);
+      setNullifier(unknownTx1, 0, getNullifier(tx1, 0));
+      setNullifier(unknownTx2, 0, getNullifier(tx2, 0));
+
+      // Add pending txs
+      await pool.addPendingTxs([tx1, tx2, tx3]);
+      expect(await pool.getPendingTxCount()).toBe(3);
+
+      // Mine block with unknown txs - tx1 and tx2 should be evicted, tx3 should remain
+      await pool.handleMinedBlock(makeBlock([unknownTx1, unknownTx2], slot1Header));
+
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+      expect(await pool.getPendingTxCount()).toBe(1);
+    });
+
+    it('evicts pending tx when any nullifier in the block conflicts', async () => {
+      // A transaction can have multiple nullifiers - test that we check all of them
+      const txPending = await mockPublicTx(1, 5);
+
+      // Create unknown tx with multiple nullifiers, one of which conflicts
+      const txUnknown = await mockPublicTx(2, 10);
+      // Set the second nullifier (index 1) to conflict with txPending's first nullifier
+      setNullifier(txUnknown, 1, getNullifier(txPending, 0));
+
+      await pool.addPendingTxs([txPending]);
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBe('pending');
+
+      await pool.handleMinedBlock(makeBlock([txUnknown], slot1Header));
+
+      // txPending should be evicted even though only the second nullifier conflicts
+      expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
+    });
+
+    it('does not evict protected txs when block contains conflicting nullifiers', async () => {
+      const txProtected = await mockPublicTx(1, 5);
+      const txUnknown = await mockPublicTx(2, 10);
+      setNullifier(txUnknown, 0, getNullifier(txProtected, 0));
+
+      // Add as protected
+      await pool.addProtectedTxs([txProtected], slot1Header);
+      expect(await pool.getTxStatus(txProtected.getTxHash())).toBe('protected');
+
+      // Mine block with conflicting nullifier
+      await pool.handleMinedBlock(makeBlock([txUnknown], slot1Header));
+
+      // Protected tx should still exist (eviction rules skip protected txs)
+      expect(await pool.getTxStatus(txProtected.getTxHash())).toBe('protected');
     });
   });
 
@@ -2406,7 +2545,7 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Try to protect - should remain mined
@@ -2544,8 +2683,8 @@ describe('TxPoolV2', () => {
       expect(await pool.getMinedTxHashes()).toHaveLength(0);
       expect(await pool.getLowestPriorityPending(10)).toHaveLength(0);
 
-      // Operations on non-existent txs
-      await pool.handleMinedBlock([TxHash.random()], slot1Header);
+      // Operations on empty pool
+      await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
       await pool.handleFailedExecution([TxHash.random()]);
       await pool.handlePrunedBlocks(block0Id);
       await pool.handleFinalizedBlock(slot1Header);
@@ -2557,7 +2696,7 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       await pool.handleFinalizedBlock(slot1Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
@@ -2568,8 +2707,8 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header); // Duplicate
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header)); // Duplicate
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
     });
@@ -2657,7 +2796,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getPendingTxCount()).toBe(1);
 
       // Mine
-      await pool.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
       expect(await pool.getPendingTxCount()).toBe(0);
 
       // Reorg
@@ -3267,7 +3406,7 @@ describe('TxPoolV2', () => {
 
       const tx = await mockTxWithFee(1, 10);
       await pool1.addPendingTxs([tx]);
-      await pool1.handleMinedBlock([tx.getTxHash()], slot1Header);
+      await pool1.handleMinedBlock(makeBlock([tx], slot1Header));
 
       expect(await pool1.getPendingTxCount()).toBe(0);
       expect(await pool1.getMinedTxCount()).toBe(1);
@@ -3412,8 +3551,8 @@ describe('TxPoolV2', () => {
       expect(missing[0].equals(txHash)).toBe(true);
 
       // 2. Block is mined with this tx
-      // Since tx isn't in pool yet, handleMinedBlock has no effect
-      await pool.handleMinedBlock([txHash], slot1Header);
+      // Since tx isn't in pool yet, handleMinedBlock just processes the block (no tx to mark as mined)
+      await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
 
       // 3. Mock the block source to return mined status for this tx
       mockL2BlockSource.getTxEffect.mockImplementation(async (hash: TxHash) => {

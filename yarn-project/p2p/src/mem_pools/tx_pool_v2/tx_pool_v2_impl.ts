@@ -4,7 +4,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import { type L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
@@ -389,18 +389,30 @@ export class TxPoolV2Impl {
     }
   }
 
-  async handleMinedBlock(txHashes: TxHash[], block: BlockHeader): Promise<void> {
+  async handleMinedBlock(block: L2Block): Promise<void> {
     // Step 1: Build block ID
-    const blockId = await this.#buildBlockId(block);
+    const blockId = await this.#buildBlockId(block.header);
 
-    // Step 2: Collect info from mined txs (nullifiers, fee payers)
-    const { nullifiers, feePayers, found } = this.#collectMinedTxInfo(txHashes);
+    // Step 2: Extract tx hashes and nullifiers directly from the block
+    const txHashes = block.body.txEffects.map(tx => tx.txHash);
+    const nullifiers = block.body.txEffects.flatMap(tx => tx.nullifiers.map(n => n.toString()));
 
-    // Step 3: Mark each tx as mined
+    // Step 3: Collect fee payers from txs we have in the pool (for balance-based eviction)
+    const feePayers: string[] = [];
+    const found: TxMetaData[] = [];
+    for (const txHash of txHashes) {
+      const meta = this.#metadata.get(txHash.toString());
+      if (meta) {
+        feePayers.push(meta.feePayer);
+        found.push(meta);
+      }
+    }
+
+    // Step 4: Mark txs as mined (only those we have in the pool)
     this.#markTxsAsMined(found, blockId);
 
-    // Step 4: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
-    await this.#evictionManager.evictAfterNewBlock(block, nullifiers, feePayers);
+    // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
+    await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
 
     this.#callbacks.onTxsRemoved(txHashes.map(h => h.toBigInt()));
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
@@ -860,30 +872,6 @@ export class TxPoolV2Impl {
       number: txEffect.l2BlockNumber,
       hash: txEffect.l2BlockHash.toString(),
     };
-  }
-
-  /**
-   * Collects information from mined transactions for eviction rules.
-   * Returns nullifiers, fee payers, and the found metadata entries.
-   */
-  #collectMinedTxInfo(txHashes: TxHash[]): { nullifiers: string[]; feePayers: string[]; found: TxMetaData[] } {
-    const nullifiers: string[] = [];
-    const feePayers: string[] = [];
-    const found: TxMetaData[] = [];
-
-    for (const txHash of txHashes) {
-      const meta = this.#metadata.get(txHash.toString());
-      if (!meta) {
-        this.#log.debug(`Tx ${txHash} not found for marking as mined`);
-        continue;
-      }
-
-      nullifiers.push(...meta.nullifiers);
-      feePayers.push(meta.feePayer);
-      found.push(meta);
-    }
-
-    return { nullifiers, feePayers, found };
   }
 
   /** Marks a batch of transactions as mined */
