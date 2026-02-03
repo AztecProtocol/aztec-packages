@@ -146,11 +146,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return goblin_element(x_fq, y_fq);
     }
 
-    static goblin_element point_at_infinity([[maybe_unused]] Builder* ctx)
+    /**
+     * @brief Creates a constant point at infinity with canonical (0, 0) coordinates.
+     * @note For witness infinity points, use from_witness(ctx, affine_element::infinity()) instead.
+     */
+    static goblin_element constant_infinity([[maybe_unused]] Builder* ctx)
     {
-        // Use constant zero coordinates for the canonical infinity representation.
-        // Since we know this is infinity at construction time, constants are more
-        // efficient than witnesses (no decomposition, no range constraints).
         Fq x_fq(ctx, uint256_t(0));
         Fq y_fq(ctx, uint256_t(0));
         return goblin_element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true));
@@ -231,7 +232,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element operator-() const
     {
         auto builder = get_context();
-        return point_at_infinity(builder) - *this;
+        return constant_infinity(builder) - *this;
     }
 
     goblin_element operator+=(const goblin_element& other)

@@ -140,14 +140,14 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
             element_ct zero_ct2 = lhs_ct - lhs2_ct;
             EXPECT_TRUE(zero_ct2.get_value().is_point_at_infinity());
 
-            element_ct out2_ct = element_ct::point_at_infinity(&builder) - rhs_ct;
+            element_ct out2_ct = element_ct::constant_infinity(&builder) - rhs_ct;
             EXPECT_EQ(out2_ct.get_value(), -rhs);
 
-            element_ct out3_ct = lhs_ct - element_ct::point_at_infinity(&builder);
+            element_ct out3_ct = lhs_ct - element_ct::constant_infinity(&builder);
             EXPECT_EQ(out3_ct.get_value(), lhs);
 
-            auto lhs_infinity_ct = element_ct::point_at_infinity(&builder);
-            auto rhs_infinity_ct = element_ct::point_at_infinity(&builder);
+            auto lhs_infinity_ct = element_ct::constant_infinity(&builder);
+            auto rhs_infinity_ct = element_ct::constant_infinity(&builder);
             element_ct out4_ct = lhs_infinity_ct - rhs_infinity_ct;
             EXPECT_TRUE(out4_ct.get_value().is_point_at_infinity());
             EXPECT_TRUE(out4_ct.is_point_at_infinity().get_value());
@@ -170,7 +170,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
         element_ct result_ct = -lhs_ct;
         EXPECT_EQ(result_ct.get_value(), expected);
 
-        element_ct infinity = element_ct::point_at_infinity(&builder);
+        element_ct infinity = element_ct::constant_infinity(&builder);
         element_ct result2_ct = -infinity;
         EXPECT_EQ(result2_ct.get_value(), g1::affine_point_at_infinity);
         EXPECT_CIRCUIT_CORRECTNESS(builder);

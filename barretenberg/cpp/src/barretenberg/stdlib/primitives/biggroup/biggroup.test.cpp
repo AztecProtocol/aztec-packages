@@ -385,10 +385,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         size_t num_repetitions = 5;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            // Create canonical point at infinity using factory method (constant and witness cases)
-            // The factory creates points with (0, 0) coordinates and is_infinity = true
-            element_ct input_a = element_ct::point_at_infinity(nullptr);  // constant case
-            element_ct input_b = element_ct::point_at_infinity(&builder); // witness case
+            // Create canonical point at infinity (constant and witness cases)
+            element_ct input_a = element_ct::constant_infinity(&builder);
+            element_ct input_b = element_ct::from_witness(&builder, affine_element::infinity());
 
             // Set tags
             input_a.set_origin_tag(submitted_value_origin_tag);
@@ -478,7 +477,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b; // point at infinity for native computations
+            affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
 
@@ -951,9 +950,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             Builder builder;
             size_t num_repetitions = 10;
             for (size_t i = 0; i < num_repetitions; ++i) {
-                // Use point_at_infinity() factory to create canonical infinity points
-                element_ct a = element_ct::point_at_infinity(&builder);
-                element_ct b = element_ct::point_at_infinity(&builder);
+                // Use constant_infinity() factory to create canonical infinity points
+                element_ct a = element_ct::constant_infinity(&builder);
+                element_ct b = element_ct::constant_infinity(&builder);
 
                 // Set different tags in a and b
                 a.set_origin_tag(submitted_value_origin_tag);
@@ -1035,8 +1034,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             Builder builder;
             affine_element input_b(element::random_element());
 
-            // Use point_at_infinity() factory for the infinity point
-            element_ct a = element_ct::point_at_infinity(&builder);     // at infinity
+            // Use constant_infinity() factory for the infinity point
+            element_ct a = element_ct::constant_infinity(&builder);     // at infinity
             element_ct b = element_ct::from_witness(&builder, input_b); // not at infinity
 
             a.incomplete_assert_equal(b, "infinity flag mismatch test");
@@ -1054,8 +1053,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
 
         // Create two canonical infinity points with (0, 0) coordinates
-        element_ct a = element_ct::point_at_infinity(&builder);
-        element_ct b = element_ct::point_at_infinity(&builder);
+        element_ct a = element_ct::constant_infinity(&builder);
+        element_ct b = element_ct::constant_infinity(&builder);
 
         // Set different tags in a and b
         a.set_origin_tag(submitted_value_origin_tag);
@@ -1249,9 +1248,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Case 2: (∞) * k = ∞
         {
             info("Case 2: (∞) * k");
-            // Use point_at_infinity() factory which creates canonical infinity with (0, 0) coordinates
-            element_ct P = (point_type == InputType::CONSTANT) ? element_ct::point_at_infinity(nullptr)
-                                                               : element_ct::point_at_infinity(&builder);
+            // Use constant_infinity() factory which creates canonical infinity with (0, 0) coordinates
+            element_ct P = (point_type == InputType::CONSTANT) ? element_ct::constant_infinity(nullptr)
+                                                               : element_ct::constant_infinity(&builder);
 
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
             affine_element expected_infinity = affine_element(element::infinity());
@@ -1348,8 +1347,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_raw = scalar_raw >> (256 - max_num_bits);
             fr scalar = fr(scalar_raw);
 
-            // Use point_at_infinity() for infinity points, from_witness() for regular points
-            element_ct P = point.is_point_at_infinity() ? element_ct::point_at_infinity(&builder)
+            // Use constant_infinity() for infinity points, from_witness() for regular points
+            element_ct P = point.is_point_at_infinity() ? element_ct::constant_infinity(&builder)
                                                         : element_ct::from_witness(&builder, point);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
@@ -1864,9 +1863,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             OriginTag tag_union =
                 OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
-                // Use point_at_infinity() for infinity points, from_witness() for regular points
+                // Use constant_infinity() for infinity points, from_witness() for regular points
                 if (points[i].is_point_at_infinity()) {
-                    circuit_points.push_back(element_ct::point_at_infinity(&builder));
+                    circuit_points.push_back(element_ct::constant_infinity(&builder));
                 } else {
                     circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
                 }
@@ -1965,8 +1964,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         for (size_t i = 0; i < scalars.size(); ++i) {
-            // All points are at infinity - use point_at_infinity()
-            circuit_points.push_back(element_ct::point_at_infinity(&builder));
+            // All points are at infinity - use constant_infinity()
+            circuit_points.push_back(element_ct::constant_infinity(&builder));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 
@@ -2060,9 +2059,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         for (size_t i = 0; i < points.size(); ++i) {
-            // Use point_at_infinity() for infinity points, from_witness() for regular points
+            // Use constant_infinity() for infinity points, from_witness() for regular points
             if (points[i].is_point_at_infinity()) {
-                circuit_points.push_back(element_ct::point_at_infinity(&builder));
+                circuit_points.push_back(element_ct::constant_infinity(&builder));
             } else {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
             }
@@ -2249,9 +2248,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
 
-        // Case 1: point_at_infinity() returns canonical form
+        // Case 1: constant_infinity() returns canonical form
         {
-            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct inf = element_ct::constant_infinity(&builder);
             EXPECT_TRUE(inf.is_point_at_infinity().get_value());
             // Verify coordinates are (0, 0)
             EXPECT_EQ(fq(inf.x().get_value().lo), fq(0));
@@ -2284,8 +2283,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 4: infinity + infinity = infinity with canonical coords
         {
-            element_ct inf1 = element_ct::point_at_infinity(&builder);
-            element_ct inf2 = element_ct::point_at_infinity(&builder);
+            element_ct inf1 = element_ct::constant_infinity(&builder);
+            element_ct inf2 = element_ct::constant_infinity(&builder);
             element_ct result = inf1 + inf2;
 
             EXPECT_TRUE(result.is_point_at_infinity().get_value());
@@ -2295,7 +2294,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 5: 2 * infinity = infinity with canonical coords
         {
-            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct inf = element_ct::constant_infinity(&builder);
             element_ct result = inf.dbl();
 
             EXPECT_TRUE(result.is_point_at_infinity().get_value());
@@ -2315,7 +2314,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         {
             affine_element input(element::random_element());
             element_ct a = element_ct::from_witness(&builder, input);
-            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct inf = element_ct::constant_infinity(&builder);
 
             element_ct temp = a + inf;
             element_ct result = temp - a;
@@ -2345,8 +2344,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         {
             affine_element input(element::random_element());
             element_ct a = element_ct::from_witness(&builder, input);
-            element_ct inf1 = element_ct::point_at_infinity(&builder);
-            element_ct inf2 = element_ct::point_at_infinity(&builder);
+            element_ct inf1 = element_ct::constant_infinity(&builder);
+            element_ct inf2 = element_ct::constant_infinity(&builder);
 
             element_ct zero = inf1 - inf2;
             element_ct result = zero + a;
@@ -2365,7 +2364,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         affine_element input_a(element::random_element());
         element_ct a = element_ct::from_witness(&builder, input_a);
-        element_ct inf = element_ct::point_at_infinity(&builder);
+        element_ct inf = element_ct::constant_infinity(&builder);
 
         // Case 1: Select finite point when predicate is false
         {
@@ -2387,7 +2386,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 3: Select between two infinity points
         {
-            element_ct inf2 = element_ct::point_at_infinity(&builder);
+            element_ct inf2 = element_ct::constant_infinity(&builder);
             bool_ct pred(witness_ct(&builder, true));
             element_ct result = inf.conditional_select(inf2, pred);
 
@@ -2402,7 +2401,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
 
-        element_ct inf = element_ct::point_at_infinity(&builder);
+        element_ct inf = element_ct::constant_infinity(&builder);
 
         // Negating infinity should still be infinity
         {
@@ -2430,10 +2429,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
 
-        // Use point_at_infinity() factory to create canonical infinity with (0, 0) coordinates
+        // Use constant_infinity() factory to create canonical infinity with (0, 0) coordinates
         // Note: We no longer support non-canonical infinity representations (points with
         // random coords but is_infinity=true) through the public API
-        element_ct P = element_ct::point_at_infinity(&builder);
+        element_ct P = element_ct::constant_infinity(&builder);
 
         // Canonical infinity has (0, 0) coordinates
         EXPECT_EQ(fq(P.x().get_value().lo), fq(0));
@@ -2484,7 +2483,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 2: k * infinity = infinity
         {
-            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct inf = element_ct::constant_infinity(&builder);
             fr scalar_val = fr::random_element();
             scalar_ct k = scalar_ct::from_witness(&builder, scalar_val);
 
@@ -2496,7 +2495,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 3: 0 * infinity = infinity
         {
-            element_ct inf = element_ct::point_at_infinity(&builder);
+            element_ct inf = element_ct::constant_infinity(&builder);
             scalar_ct zero = scalar_ct::from_witness(&builder, fr(0));
 
             element_ct result = inf * zero;
@@ -2546,7 +2545,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // P + constant_infinity = P
         affine_element input(element::random_element());
         element_ct P = element_ct::from_witness(&builder, input);
-        element_ct const_inf = element_ct::point_at_infinity(&builder); // This is a constant
+        element_ct const_inf = element_ct::constant_infinity(&builder); // This is a constant
 
         element_ct result = P + const_inf;
 

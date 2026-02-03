@@ -175,9 +175,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return element(x_fq, y_fq, bool_ct(ctx, false), /*assert_on_curve=*/false);
     }
 
-    static element point_at_infinity(Builder* ctx)
+    /**
+     * @brief Creates a constant point at infinity with canonical (0, 0) coordinates.
+     * @note For witness infinity points, use from_witness(ctx, affine_element::infinity()) instead.
+     */
+    static element constant_infinity(Builder* ctx)
     {
-        // Use constant zero coordinates for the canonical infinity representation.
         Fq x_fq(ctx, uint256_t(0));
         Fq y_fq(ctx, uint256_t(0));
         return element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true), /*assert_on_curve=*/false);
