@@ -53,7 +53,7 @@ include "gt.pil";
  *
  * Usage: CD COPY
  * execution.sel_calldata_copy {
- *     precomputed.clk,
+ *     precomputed.idx,
  *     parent_id, context_id,
  *     reg[0], reg[1], rop[2],
  *     parent_calldata_addr, parent_calldata_size,
@@ -70,7 +70,7 @@ include "gt.pil";
  *
  * Usage: RD COPY
  * execution.sel_returndata_copy {
- *     precomputed.clk,
+ *     precomputed.idx,
  *     last_child_id, context_id,
  *     reg[0], reg[1], rop[2],
  *     last_child_returndata_addr, last_child_returndata_size,

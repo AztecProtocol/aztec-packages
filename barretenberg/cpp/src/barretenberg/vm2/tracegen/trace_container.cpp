@@ -13,7 +13,7 @@ namespace {
 
 // We need a zero value to return (a reference to) when a value is not found.
 static const FF zero = FF::zero();
-constexpr auto clk_column = Column::precomputed_clk;
+constexpr auto clk_column = Column::precomputed_idx;
 
 } // namespace
 

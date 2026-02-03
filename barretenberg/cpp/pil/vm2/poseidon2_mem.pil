@@ -29,7 +29,7 @@ include "memory.pil";
  *
  *[DISPATCH_TO_POSEIDON2_PERM]
  * sel_exec_dispatch_poseidon2_perm {
- *         precomputed.clk,
+ *         precomputed.idx,
  *         context_id,
  *         rop[0],
  *         rop[1],

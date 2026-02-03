@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -9,6 +10,10 @@ namespace bb::avm2::tracegen {
 
 // Currently due to the bitwise tables.
 constexpr uint32_t PRECOMPUTED_TRACE_SIZE = (3 << 16);
+
+// precomputed trace size must be greater than the public inputs trace size
+// because we use precomputed_idx to lookup into the public inputs trace.
+static_assert(PRECOMPUTED_TRACE_SIZE >= AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
 // This fills the trace for the "general" precomputed columns.
 // See precomputed.pil.

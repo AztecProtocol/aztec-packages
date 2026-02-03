@@ -29,9 +29,9 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
 
     // Clk
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, num_rows);
+    trace.reserve_column(C::precomputed_idx, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_clk, i, i);
+        trace.set(C::precomputed_idx, i, i);
     }
 }
 
@@ -86,13 +86,13 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
  * Generate a selector column that activates the first 2^8 (256) rows.
  * We can enforce that a value X is <= 8 bits via a lookup that checks
  * whether the selector (sel_range_8) is high at the corresponding
- * clk's row (X==clk).
+ * idx's row (X==idx).
  */
 void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 {
     constexpr auto num_rows = 1 << 8; // 256
     // Set this selector high for the first 2^8 rows
-    // For these rows, clk will be 0...255
+    // For these rows, idx will be 0...255
     trace.reserve_column(C::precomputed_sel_range_8, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_8, i, 1);
@@ -103,13 +103,13 @@ void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
  * Generate a selector column that activates the first 2^16 rows.
  * We can enforce that a value X is <= 16 bits via a lookup that checks
  * whether the selector (sel_range_16) is high at the corresponding
- * clk's row (X==clk).
+ * idx's row (X==idx).
  */
 void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 {
     constexpr auto num_rows = 1 << 16; // 2^16
     // Set this selector high for the first 2^16 rows
-    // For these rows, clk will be 0...2^16-1
+    // For these rows, idx will be 0...2^16-1
     trace.reserve_column(C::precomputed_sel_range_16, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_16, i, 1);
@@ -117,7 +117,7 @@ void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 }
 
 /**
- * Generate a column where each row is a power of 2 (2^clk).
+ * Generate a column where each row is a power of 2 (2^idx).
  * Populate the first 256 rows.
  */
 void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)

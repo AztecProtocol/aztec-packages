@@ -54,7 +54,7 @@ include "../bytecode/contract_instance_retrieval.pil";
  *
  * sel_exec_dispatch_get_contract_instance {
  *     // inputs
- *     precomputed.clk,
+ *     precomputed.idx,
  *     register[0],
  *     rop[1],
  *     rop[2],
@@ -130,7 +130,7 @@ namespace get_contract_instance;
         is_init_hash
     } in precomputed.sel_range_8 {
         // inputs
-        precomputed.clk,
+        precomputed.idx,
         // outputs
         precomputed.is_valid_member_enum,
         precomputed.is_deployer,

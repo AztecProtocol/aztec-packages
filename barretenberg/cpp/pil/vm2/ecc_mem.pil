@@ -21,7 +21,7 @@ include "precomputed.pil";
  * USAGE: Dispatching lookup defined in execution.pil:
  *        #[DISPATCH_TO_ECC_ADD]
  *        sel_exec_dispatch_ecc_add {
- *          precomputed.clk, context_id,
+ *          precomputed.idx, context_id,
  *          register[0], register[1], register[2], // Point P
  *          register[3], register[4], register[5], // Point Q
  *          rop[6], // Dst address

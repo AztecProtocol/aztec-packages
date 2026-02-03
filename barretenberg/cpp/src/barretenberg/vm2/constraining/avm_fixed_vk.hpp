@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x0a8254ea199877d56d064e32a5925483cc51aae4c620c250750927333a46e28a")); }
+    static FF vk_hash() { return FF(uint256_t("0x2a7fe86e3974fe9b13e4e669ede04b200216a779d5f36aed721f1a837d36410c")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -42,9 +42,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x302ca89489db6a8475874cc59ce7aa2ef77f11af5622c5ed60f8501711c8b954"),
                 uint256_t(
                     "0x0281f371b3fc75d6068e15637c8d5636eafc95ceaf56b67dd993be344f495720")), // precomputed_bitwise_output
-            Commitment(
-                uint256_t("0x1bda0632b7f6f7564376cb380466a7a1b379f19849dce5c4bdb0366ffdc02661"),
-                uint256_t("0x11920b6adf6ddae78d07b31b2c44981ce2150f1e5f2f743e6962550563dfb6dd")), // precomputed_clk
             Commitment(
                 uint256_t("0x298cbe8d7aabda5cf9272257c13681843126d8ffaa6087a1773e5c9b3c5dd513"),
                 uint256_t(
@@ -98,6 +95,9 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x0000000000000000000000000000000000000000000000000000000000000001"),
                 uint256_t(
                     "0x0000000000000000000000000000000000000000000000000000000000000002")), // precomputed_first_row
+            Commitment(
+                uint256_t("0x1bda0632b7f6f7564376cb380466a7a1b379f19849dce5c4bdb0366ffdc02661"),
+                uint256_t("0x11920b6adf6ddae78d07b31b2c44981ce2150f1e5f2f743e6962550563dfb6dd")), // precomputed_idx
             Commitment(
                 uint256_t("0x1e497723c3f95466c480f1ac1addb1e0dc68bb123cae27ee70d00e6d6fcc6896"),
                 uint256_t(

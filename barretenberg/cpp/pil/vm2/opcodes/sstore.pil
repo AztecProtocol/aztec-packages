@@ -83,7 +83,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         public_data_tree_root,
         prev_public_data_tree_size,
         public_data_tree_size,
-        precomputed.clk
+        precomputed.idx
     } is public_data_check.non_protocol_write {
         public_data_check.value,
         public_data_check.address,

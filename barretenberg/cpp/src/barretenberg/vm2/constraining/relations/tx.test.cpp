@@ -85,7 +85,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
     {
         uint32_t row = 0;
         // Prepended first row:
-        trace.set(row++, { { { C::precomputed_clk, 0 }, { C::precomputed_first_row, 1 } } });
+        trace.set(row++, { { { C::precomputed_idx, 0 }, { C::precomputed_first_row, 1 } } });
         // Nullifer, note, and message insertion:
         trace.set(
             row++,
@@ -447,7 +447,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     auto pub_inputs_col = test_public_inputs.to_columns();
     TestTraceContainer trace({
         // Row 0
-        { { C::precomputed_clk, 0 }, { C::precomputed_first_row, 1 } },
+        { { C::precomputed_idx, 0 }, { C::precomputed_first_row, 1 } },
 
         // Row 1
         { { C::tx_sel, 1 },
