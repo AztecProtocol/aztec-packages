@@ -484,7 +484,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
-            element_ct b = element_ct::from_witness(&builder, affine_element::infinity());
+            element_ct b = element_ct::from_witness(&builder, input_b);
 
             // Set different tags on all elements
             a.set_origin_tag(submitted_value_origin_tag);
@@ -631,7 +631,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         {
             // Case 1: Doubling point at infinity should return point at infinity
-            element_ct a_infinity = element_ct::from_witness(&builder, affine_element::infinity());
+            affine_element input_infinity(element::random_element());
+            input_infinity.self_set_infinity();
+            element_ct a_infinity = element_ct::from_witness(&builder, input_infinity);
             a_infinity.set_origin_tag(submitted_value_origin_tag);
 
             element_ct result_infinity = a_infinity.dbl();
@@ -945,14 +947,15 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
-        // Case 2: Should pass because both points are at infinity (canonical representation)
+        // Case 2: Should pass because the points are identical and at infinity (canonical representation)
         {
             Builder builder;
             size_t num_repetitions = 10;
             for (size_t i = 0; i < num_repetitions; ++i) {
-                // Use constant_infinity() factory to create canonical infinity points
-                element_ct a = element_ct::constant_infinity(&builder);
-                element_ct b = element_ct::constant_infinity(&builder);
+                affine_element input_a(element::random_element());
+                input_a.self_set_infinity();
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
 
                 // Set different tags in a and b
                 a.set_origin_tag(submitted_value_origin_tag);
@@ -1032,10 +1035,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Case 3: Infinity flag mismatch (one point at infinity, one not)
         {
             Builder builder;
+            affine_element input_a(element::random_element());
             affine_element input_b(element::random_element());
 
-            // Use constant_infinity() factory for the infinity point
-            element_ct a = element_ct::constant_infinity(&builder);     // at infinity
+            input_a.self_set_infinity();
+            element_ct a = element_ct::from_witness(&builder, input_a); // at infinity
             element_ct b = element_ct::from_witness(&builder, input_b); // not at infinity
 
             a.incomplete_assert_equal(b, "infinity flag mismatch test");
@@ -1043,27 +1047,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(builder.failed(), true);
             EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
         }
-    }
-
-    static void test_incomplete_assert_equal_edge_cases()
-    {
-        // Test that canonical infinity points (created via factory) pass equality check
-        // Note: We no longer support non-canonical infinity representations (points with
-        // random coords but is_infinity=true) through the public API
-        Builder builder;
-
-        // Create two canonical infinity points with (0, 0) coordinates
-        element_ct a = element_ct::constant_infinity(&builder);
-        element_ct b = element_ct::constant_infinity(&builder);
-
-        // Set different tags in a and b
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
-
-        a.incomplete_assert_equal(b, "canonical infinity points should be equal");
-
-        // Circuit should pass since both are canonical infinity points
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
     static void test_compute_naf()
@@ -1326,18 +1309,21 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul_infinity()
     {
         // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against
-        // a short scalar.
+        // a short scalar and also check that the number of gates in this case is more than the number of gates
+        // spent on a finite point.
 
         // Populate test points.
         std::vector<element> points(2);
 
         points[0] = element::infinity();
         points[1] = element::random_element();
+        // Containter for gate counts.
+        std::vector<size_t> gates(2);
 
         // We initialize this flag as `true`, because the first result is expected to be the point at infinity.
         bool expect_infinity = true;
 
-        for (const auto& point : points) {
+        for (auto [point, num_gates] : zip_view(points, gates)) {
             Builder builder;
 
             const size_t max_num_bits = 128;
@@ -1347,9 +1333,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_raw = scalar_raw >> (256 - max_num_bits);
             fr scalar = fr(scalar_raw);
 
-            // Use constant_infinity() for infinity points, from_witness() for regular points
-            element_ct P = point.is_point_at_infinity() ? element_ct::constant_infinity(&builder)
-                                                        : element_ct::from_witness(&builder, point);
+            element_ct P = element_ct::from_witness(&builder, point);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
             // Set input tags
@@ -1359,7 +1343,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
             std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            std::cerr << "num gates = " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            num_gates = builder.get_num_finalized_gates_inefficient();
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
@@ -1368,6 +1352,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // The second point is finite, hence we flip the flag
             expect_infinity = false;
         }
+        // Check that the numbers of gates are greater when multiplying by point at infinity,
+        // because we transform (s * ∞) into (0 * G), and NAF representation of 0 ≡ NAF(r) which is 254 bits long.
+        EXPECT_GT(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -2840,10 +2827,6 @@ TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 {
     TestFixture::test_incomplete_assert_equal_failure();
-}
-TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
-{
-    TestFixture::test_incomplete_assert_equal_edge_cases();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
