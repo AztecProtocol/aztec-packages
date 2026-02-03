@@ -1,16 +1,10 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 #include <vector>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
@@ -26,6 +20,19 @@ using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldPar
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process bytecode decomposition events and populate the and populate the relevant columns in the trace.
+ *  Corresponds to bc_decomposition.pil.
+ *
+ *  This trace is non memory-aware and does not handle any errors. It populates the columns with bytecode values
+ *  in a stream or 'sliding window' of DECOMPOSE_WINDOW_SIZE = MAX_INSTRUCTION_SIZE = 37 individual bytes, range
+ *  checking each byte. It enforces the size of the bytecode by decrementing the bytes_remaining counter.
+ *  The trace additionally constrains the bytecode as fields by packing in 31 byte segments. These fields are used
+ *  by the hashing trace to enforce correctness of the bytecode id (= hashed public bytecode commitment).
+ *
+ * @param events The container of bytecode decomposition events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
     TraceContainer& trace)
@@ -116,15 +123,21 @@ void BytecodeTraceBuilder::process_decomposition(
             // We need to read uint256_ts because reading FFs messes up the order of the bytes.
             uint256_t as_int = 0;
             if (bytecode_len - i >= 32) {
+                // If we have more than 31 bytes remaining, we read 32 bytes directly from the bytecode
+                // vector starting at byte i:
                 as_int = from_buffer<uint256_t>(bytecode, i);
             } else {
+                // Otherwise, we pad the final bytes with zeros to 32:
                 std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
                 tail.resize(32, 0);
                 as_int = from_buffer<uint256_t>(tail, 0);
             }
+            // We shift to form a 31 byte int:
             return as_int >> 8;
         };
         for (uint32_t i = 0; i < bytecode_len; i += 31) {
+            // Set the packed field and related columns. Note that the multipermutation columns (sel_packed_read)
+            // are set separately by the MultiPermutationBuilder.
             trace.set(row + i,
                       { {
                           { C::bc_decomposition_sel_packed, 1 },
@@ -132,6 +145,8 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_next_packed_pc, i },
                           { C::bc_decomposition_next_packed_pc_min_pc_inv, 0 },
                       } });
+            // At each row until the next packed field, set the next pc and inverse required for the zero check
+            // (#[PC_IS_PACKED]):
             for (uint32_t j = i + 1; j < std::min(bytecode_len, i + 31); j++) {
                 trace.set(
                     row + j,
