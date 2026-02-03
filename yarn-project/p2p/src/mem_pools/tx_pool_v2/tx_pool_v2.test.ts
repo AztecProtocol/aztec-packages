@@ -3107,4 +3107,453 @@ describe('TxPoolV2', () => {
       expect(await pool.getPendingTxCount()).toBe(1);
     });
   });
+
+  describe('hydration and rebuild', () => {
+    it('resolves nullifier conflicts during hydration - higher priority wins', async () => {
+      // First, we need to bypass the normal addPendingTxs conflict resolution
+      // by adding txs directly to separate pools, then merging at DB level
+      const store = await openTmpStore('p2p-hydration-test');
+      const archiveStore = await openTmpStore('archive-hydration-test');
+
+      // Create first pool and add low priority tx
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      const txLowPriority = await mockPublicTx(1, 5);
+      await pool1.addPendingTxs([txLowPriority]);
+      expect(await pool1.getPendingTxCount()).toBe(1);
+
+      // Now add a conflicting high priority tx - this will evict the low priority one
+      const txHighPriority = await mockPublicTx(2, 10);
+      setNullifier(txHighPriority, 0, getNullifier(txLowPriority, 0));
+      await pool1.addPendingTxs([txHighPriority]);
+
+      // Verify high priority won
+      expect(await pool1.getPendingTxCount()).toBe(1);
+      const pending = toStrings(await pool1.getPendingTxHashes());
+      expect(pending).toContain(hashOf(txHighPriority));
+      expect(pending).not.toContain(hashOf(txLowPriority));
+
+      await pool1.stop();
+
+      // Create new pool with same stores - hydration should maintain the state
+      const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool2.start();
+
+      // Verify only high priority tx survived
+      expect(await pool2.getPendingTxCount()).toBe(1);
+      const pendingAfterHydration = toStrings(await pool2.getPendingTxHashes());
+      expect(pendingAfterHydration).toContain(hashOf(txHighPriority));
+
+      await pool2.stop();
+    });
+
+    it('enforces pool size limit during hydration', async () => {
+      const store = await openTmpStore('p2p-hydration-size-test');
+      const archiveStore = await openTmpStore('archive-hydration-size-test');
+
+      // Create pool with large limit and add many txs
+      const pool1 = new AztecKVTxPoolV2(
+        store,
+        archiveStore,
+        {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          pendingTxValidator: alwaysValidValidator,
+        },
+        undefined, // telemetry
+        { maxPendingTxCount: 100 },
+      );
+      await pool1.start();
+
+      // Add 5 txs with different priorities
+      const tx1 = await mockTxWithFee(1, 1);
+      const tx2 = await mockTxWithFee(2, 2);
+      const tx3 = await mockTxWithFee(3, 3);
+      const tx4 = await mockTxWithFee(4, 4);
+      const tx5 = await mockTxWithFee(5, 5);
+
+      await pool1.addPendingTxs([tx1, tx2, tx3, tx4, tx5]);
+      expect(await pool1.getPendingTxCount()).toBe(5);
+
+      await pool1.stop();
+
+      // Create new pool with smaller limit
+      const pool2 = new AztecKVTxPoolV2(
+        store,
+        archiveStore,
+        {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          pendingTxValidator: alwaysValidValidator,
+        },
+        undefined, // telemetry
+        { maxPendingTxCount: 3 },
+      );
+      await pool2.start();
+
+      // Only top 3 priority txs should survive
+      expect(await pool2.getPendingTxCount()).toBe(3);
+      const pending = toStrings(await pool2.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx5)); // fee=5
+      expect(pending).toContain(hashOf(tx4)); // fee=4
+      expect(pending).toContain(hashOf(tx3)); // fee=3
+      expect(pending).not.toContain(hashOf(tx2)); // fee=2 - evicted
+      expect(pending).not.toContain(hashOf(tx1)); // fee=1 - evicted
+
+      await pool2.stop();
+    });
+
+    it('processes txs through pre-add rules during hydration', async () => {
+      const store = await openTmpStore('p2p-hydration-rules-test');
+      const archiveStore = await openTmpStore('archive-hydration-rules-test');
+
+      // Create pool and add txs
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      const tx3 = await mockTxWithFee(3, 15);
+
+      await pool1.addPendingTxs([tx1, tx2, tx3]);
+      expect(await pool1.getPendingTxCount()).toBe(3);
+
+      await pool1.stop();
+
+      // Hydrate into new pool
+      const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool2.start();
+
+      // All txs should survive (no conflicts, within limits)
+      expect(await pool2.getPendingTxCount()).toBe(3);
+
+      // Verify they're in correct priority order
+      const pending = await pool2.getPendingTxHashes();
+      expect(pending[0].toString()).toEqual(hashOf(tx2)); // fee=20
+      expect(pending[1].toString()).toEqual(hashOf(tx3)); // fee=15
+      expect(pending[2].toString()).toEqual(hashOf(tx1)); // fee=10
+
+      await pool2.stop();
+    });
+
+    it('mined txs are not subject to pending pool rules during hydration', async () => {
+      const store = await openTmpStore('p2p-hydration-mined-test');
+      const archiveStore = await openTmpStore('archive-hydration-mined-test');
+
+      // Create pool and add tx, then mark as mined
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      const tx = await mockTxWithFee(1, 10);
+      await pool1.addPendingTxs([tx]);
+      await pool1.handleMinedBlock([tx.getTxHash()], slot1Header);
+
+      expect(await pool1.getPendingTxCount()).toBe(0);
+      expect(await pool1.getMinedTxCount()).toBe(1);
+
+      await pool1.stop();
+
+      // Mock the block source to return mined status
+      mockL2BlockSource.getTxEffect.mockImplementation(async (txHash: TxHash) => {
+        if (txHash.toString() === tx.getTxHash().toString()) {
+          return {
+            l2BlockNumber: 1,
+            l2BlockHash: Fr.random().toString(),
+          } as any;
+        }
+        return undefined;
+      });
+
+      // Hydrate into new pool with small limit
+      const pool2 = new AztecKVTxPoolV2(
+        store,
+        archiveStore,
+        {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          pendingTxValidator: alwaysValidValidator,
+        },
+        undefined, // telemetry
+        { maxPendingTxCount: 0 }, // No pending txs allowed
+      );
+      await pool2.start();
+
+      // Mined tx should still be present (not subject to pending limits)
+      expect(await pool2.getPendingTxCount()).toBe(0);
+      expect(await pool2.getMinedTxCount()).toBe(1);
+      expect(await pool2.getTxByHash(tx.getTxHash())).toBeDefined();
+
+      await pool2.stop();
+    });
+
+    it('rejects invalid txs during hydration validation', async () => {
+      const store = await openTmpStore('p2p-hydration-validation-test');
+      const archiveStore = await openTmpStore('archive-hydration-validation-test');
+
+      // Create pool with always-valid validator and add txs
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+
+      await pool1.addPendingTxs([tx1, tx2]);
+      expect(await pool1.getPendingTxCount()).toBe(2);
+
+      await pool1.stop();
+
+      // Create validator that rejects tx1
+      const selectiveValidator: TxValidator<Tx> = {
+        validateTx: async (tx: Tx) => {
+          if (tx.getTxHash().toString() === tx1.getTxHash().toString()) {
+            return { result: 'invalid', reason: ['test rejection'] };
+          }
+          return { result: 'valid' };
+        },
+      };
+
+      // Hydrate into new pool with selective validator
+      const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: selectiveValidator,
+      });
+      await pool2.start();
+
+      // Only tx2 should survive (tx1 rejected by validator)
+      expect(await pool2.getPendingTxCount()).toBe(1);
+      const pending = toStrings(await pool2.getPendingTxHashes());
+      expect(pending).toContain(hashOf(tx2));
+      expect(pending).not.toContain(hashOf(tx1));
+
+      await pool2.stop();
+    });
+
+    it('resolves nullifier conflict between pending and protected txs during hydration', async () => {
+      const store = await openTmpStore('p2p-hydration-pending-protected-test');
+      const archiveStore = await openTmpStore('archive-hydration-pending-protected-test');
+
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      // Add low priority tx as pending
+      const txPendingLowPriority = await mockPublicTx(1, 5);
+      await pool1.addPendingTxs([txPendingLowPriority]);
+      expect(await pool1.getPendingTxCount()).toBe(1);
+
+      // Add high priority tx with same nullifier as protected
+      const txProtectedHighPriority = await mockPublicTx(2, 10);
+      setNullifier(txProtectedHighPriority, 0, getNullifier(txPendingLowPriority, 0));
+      await pool1.addProtectedTxs([txProtectedHighPriority], slot1Header);
+
+      // Verify both are in pool (pending + protected don't conflict)
+      expect(await pool1.getPendingTxCount()).toBe(1);
+      expect(await pool1.getTxStatus(txPendingLowPriority.getTxHash())).toBe('pending');
+      expect(await pool1.getTxStatus(txProtectedHighPriority.getTxHash())).toBe('protected');
+
+      await pool1.stop();
+
+      // Hydrate into new pool - protected status is lost, conflict must be resolved
+      const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool2.start();
+
+      // Only one tx should survive - the higher priority one
+      expect(await pool2.getPendingTxCount()).toBe(1);
+      const pending = toStrings(await pool2.getPendingTxHashes());
+      expect(pending).toContain(hashOf(txProtectedHighPriority));
+      expect(pending).not.toContain(hashOf(txPendingLowPriority));
+
+      await pool2.stop();
+    });
+  });
+
+  describe('late arrival scenarios', () => {
+    it('tx arriving via gossip after being mined is marked as mined when pre-protected', async () => {
+      const tx = await mockTx(1);
+      const txHash = tx.getTxHash();
+
+      // Scenario: Validator proposes a block with a tx we don't have yet
+      // 1. protectTxs is called for the tx (pre-records protection, tx not in pool)
+      const missing = await pool.protectTxs([txHash], slot1Header);
+      expect(missing).toHaveLength(1);
+      expect(missing[0].equals(txHash)).toBe(true);
+
+      // 2. Block is mined with this tx
+      // Since tx isn't in pool yet, handleMinedBlock has no effect
+      await pool.handleMinedBlock([txHash], slot1Header);
+
+      // 3. Mock the block source to return mined status for this tx
+      mockL2BlockSource.getTxEffect.mockImplementation(async (hash: TxHash) => {
+        if (hash.equals(txHash)) {
+          return {
+            l2BlockNumber: 1,
+            l2BlockHash: (await slot1Header.hash()).toString(),
+          } as any;
+        }
+        return undefined;
+      });
+
+      // 4. Tx finally arrives via gossip
+      const result = await pool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+
+      // Expected: tx should be mined (not pending, not just protected)
+      // because we received it after the block was already mined
+      const status = await pool.getTxStatus(txHash);
+      expect(status).toBe('mined');
+
+      // Verify it's in mined list, not pending
+      expect(await pool.getPendingTxCount()).toBe(0);
+      expect(await pool.getMinedTxCount()).toBe(1);
+    });
+
+    it('regular pending tx arriving after being mined is marked as mined and not in pending indices', async () => {
+      const txMined = await mockTx(1);
+      const txMinedHash = txMined.getTxHash();
+      const txNotMined = await mockTx(2);
+
+      // Mock the block source to return mined status ONLY for txMined
+      mockL2BlockSource.getTxEffect.mockImplementation(async (hash: TxHash) => {
+        if (hash.equals(txMinedHash)) {
+          return {
+            l2BlockNumber: 1,
+            l2BlockHash: (await slot1Header.hash()).toString(),
+          } as any;
+        }
+        return undefined;
+      });
+
+      // Add both txs via gossip
+      const result = await pool.addPendingTxs([txMined, txNotMined]);
+      expect(result.accepted).toHaveLength(2);
+
+      // txMined should be mined (detected as already mined)
+      expect(await pool.getTxStatus(txMinedHash)).toBe('mined');
+
+      // txNotMined should be pending (not mined)
+      expect(await pool.getTxStatus(txNotMined.getTxHash())).toBe('pending');
+
+      // Verify counts
+      expect(await pool.getPendingTxCount()).toBe(1);
+      expect(await pool.getMinedTxCount()).toBe(1);
+
+      // Verify getPendingTxHashes contains only the non-mined tx
+      const pendingHashes = await pool.getPendingTxHashes();
+      expect(pendingHashes).toHaveLength(1);
+      expect(toStrings(pendingHashes)).toContain(hashOf(txNotMined));
+      expect(toStrings(pendingHashes)).not.toContain(hashOf(txMined));
+    });
+
+    it('addProtectedTxs marks new tx as mined if already mined', async () => {
+      const tx = await mockTx(1);
+      const txHash = tx.getTxHash();
+
+      // Mock the block source to return mined status for this tx
+      mockL2BlockSource.getTxEffect.mockImplementation(async (hash: TxHash) => {
+        if (hash.equals(txHash)) {
+          return {
+            l2BlockNumber: 1,
+            l2BlockHash: (await slot1Header.hash()).toString(),
+          } as any;
+        }
+        return undefined;
+      });
+
+      // Add tx directly as protected
+      await pool.addProtectedTxs([tx], slot1Header);
+
+      // Expected: tx should be mined (protection is set, but mined status takes precedence)
+      const status = await pool.getTxStatus(txHash);
+      expect(status).toBe('mined');
+
+      expect(await pool.getPendingTxCount()).toBe(0);
+      expect(await pool.getMinedTxCount()).toBe(1);
+    });
+
+    it('addProtectedTxs marks existing pending tx as mined if already mined', async () => {
+      const tx = await mockTx(1);
+      const txHash = tx.getTxHash();
+
+      // First add as pending (not mined yet)
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(txHash)).toBe('pending');
+
+      // Now mock the block source to return mined status
+      mockL2BlockSource.getTxEffect.mockImplementation(async (hash: TxHash) => {
+        if (hash.equals(txHash)) {
+          return {
+            l2BlockNumber: 1,
+            l2BlockHash: (await slot1Header.hash()).toString(),
+          } as any;
+        }
+        return undefined;
+      });
+
+      // Call addProtectedTxs - this should detect the tx is mined
+      await pool.addProtectedTxs([tx], slot1Header);
+
+      // Expected: tx should be mined
+      const status = await pool.getTxStatus(txHash);
+      expect(status).toBe('mined');
+
+      expect(await pool.getPendingTxCount()).toBe(0);
+      expect(await pool.getMinedTxCount()).toBe(1);
+    });
+
+    it('pre-protected tx arriving not yet mined is marked as protected', async () => {
+      const tx = await mockTx(1);
+      const txHash = tx.getTxHash();
+
+      // Pre-protect the tx
+      const missing = await pool.protectTxs([txHash], slot1Header);
+      expect(missing).toHaveLength(1);
+
+      // Block source returns undefined (not mined)
+      mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      // Tx arrives via gossip
+      const result = await pool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+
+      // Expected: tx should be protected (not mined, not pending)
+      const status = await pool.getTxStatus(txHash);
+      expect(status).toBe('protected');
+
+      expect(await pool.getPendingTxCount()).toBe(0);
+      expect(await pool.getMinedTxCount()).toBe(0);
+    });
+  });
 });

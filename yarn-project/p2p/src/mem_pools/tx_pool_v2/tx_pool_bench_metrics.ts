@@ -13,6 +13,7 @@ export enum TxPoolOperation {
   PREPARE_FOR_SLOT = 'prepareForSlot',
   HANDLE_PRUNED_BLOCKS = 'handlePrunedBlocks',
   GET_LOWEST_PRIORITY_PENDING = 'getLowestPriorityPending',
+  HYDRATE_FROM_DATABASE = 'hydrateFromDatabase',
 }
 
 type OperationMetric = {

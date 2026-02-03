@@ -77,18 +77,35 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
 type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
 
 /**
+ * Compares two priority fees in ascending order.
+ * Returns negative if a < b, positive if a > b, 0 if equal.
+ */
+export function compareFee(a: bigint, b: bigint): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Compares two tx hashes in ascending order.
+ * Uses field element comparison for deterministic ordering.
+ * Returns negative if a < b, positive if a > b, 0 if equal.
+ */
+export function compareTxHash(a: string, b: string): number {
+  const fieldA = Fr.fromHexString(a);
+  const fieldB = Fr.fromHexString(b);
+  return fieldA.cmp(fieldB);
+}
+
+/**
  * Compares two transactions by priority fee, with txHash as tiebreaker.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  * Use with sort() for ascending order, or negate/reverse for descending.
  */
 export function comparePriority(a: PriorityComparable, b: PriorityComparable): number {
-  if (a.priorityFee !== b.priorityFee) {
-    return a.priorityFee < b.priorityFee ? -1 : 1;
+  const feeComparison = compareFee(a.priorityFee, b.priorityFee);
+  if (feeComparison !== 0) {
+    return feeComparison;
   }
-  const fieldA = Fr.fromHexString(a.txHash);
-  const fieldB = Fr.fromHexString(b.txHash);
-  // Use txHash as tiebreaker for deterministic ordering
-  return fieldA.cmp(fieldB);
+  return compareTxHash(a.txHash, b.txHash);
 }
 
 /**

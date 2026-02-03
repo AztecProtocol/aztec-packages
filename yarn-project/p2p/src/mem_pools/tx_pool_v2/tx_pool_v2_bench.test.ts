@@ -58,16 +58,18 @@ describe('TxPoolV2: benchmarks', () => {
 
   /**
    * Creates a batch of mock transactions with varied priority fees and cycling fee payers.
+   * Uses unique seeds with large spacing to avoid nullifier conflicts between transactions.
    */
   const createTxBatch = async (count: number, startSeed = 1): Promise<Tx[]> => {
     const txs: Tx[] = [];
     for (let i = 0; i < count; i++) {
       const priorityFee = ((startSeed + i) % 100) + 1;
       const feePayer = feePayers[(startSeed + i) % feePayers.length];
+      // Use large seed spacing to prevent nullifier overlaps between transactions
+      // Each tx generates nullifiers from seed+1 onwards, so spacing by 100 ensures no overlap
       txs.push(
-        await mockTx(startSeed + i, {
+        await mockTx((startSeed + i) * 100, {
           numberOfNonRevertiblePublicCallRequests: 1,
-          numberOfRevertibleNullifiers: 32,
           maxPriorityFeesPerGas: new GasFees(priorityFee, priorityFee),
           feePayer,
         }),
@@ -90,8 +92,14 @@ describe('TxPoolV2: benchmarks', () => {
     });
     db.getLeafPreimage.mockImplementation((tree, index) => {
       if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        // Return a very high balance (1e24) to ensure fee payer balance checks pass
+        // with 1000 txs split across 3 fee payers (~333 txs each with high fee limits)
         return Promise.resolve(
-          new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(1e18)), Fr.ONE, 1n),
+          new PublicDataTreeLeafPreimage(
+            new PublicDataTreeLeaf(new Fr(index), new Fr(BigInt('1000000000000000000000000'))),
+            Fr.ONE,
+            1n,
+          ),
         );
       }
       return Promise.resolve(undefined);
@@ -432,6 +440,52 @@ describe('TxPoolV2: benchmarks', () => {
       } finally {
         await pool.stop();
       }
+    });
+  });
+
+  describe('hydrateFromDatabase', () => {
+    it('hydrate 1000 pending txs', async () => {
+      setupMocks();
+
+      // Create persistent stores that survive pool restart
+      const store = await openTmpStore('p2p-hydrate-bench');
+      const archiveStore = await openTmpStore('archive-hydrate-bench');
+
+      // Create pool and populate with 1000 txs (default config has no limit)
+      const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        pendingTxValidator: alwaysValidValidator,
+      });
+      await pool1.start();
+
+      const txs = preCreatedTxs.get(1000)!;
+      expect(txs.length).toBe(1000); // Verify we have 1000 pre-created txs
+      await pool1.addPendingTxs(txs);
+      expect(await pool1.getPendingTxCount()).toBe(1000);
+
+      await pool1.stop();
+
+      // Measure hydration time
+      let totalDuration = 0;
+      for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+        const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          pendingTxValidator: alwaysValidValidator,
+        });
+
+        const startTime = performance.now();
+        await pool2.start();
+        totalDuration += performance.now() - startTime;
+
+        // Verify hydration was successful
+        expect(await pool2.getPendingTxCount()).toBe(1000);
+
+        await pool2.stop();
+      }
+
+      metrics.addMetric(TxPoolOperation.HYDRATE_FROM_DATABASE, 1000, 0, totalDuration / MUTATION_ITERATIONS);
     });
   });
 });
