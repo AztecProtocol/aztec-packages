@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Script to sync VK values from generated BlakeHonkVerificationKey.sol to blake-opt.sol
-# This ensures blake-opt.sol stays in sync when VK structure changes
+# Script to sync VK values from generated BlakeHonkVerificationKey.sol to honk-optimized.sol
+# This ensures honk-optimized.sol stays in sync when VK structure changes
 #
 # This script is IDEMPOTENT - safe to run multiple times, will only update if values differ
 
@@ -8,8 +8,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VK_FILE="$SCRIPT_DIR/../src/honk/keys/BlakeHonkVerificationKey.sol"
-OPT_FILE="$SCRIPT_DIR/../src/honk/optimised/blake-opt.sol"
-TEMPLATE_FILE="$SCRIPT_DIR/../src/honk/optimised/blake-opt.sol.template"
+OPT_FILE="$SCRIPT_DIR/../src/honk/optimised/honk-optimized.sol"
+TEMPLATE_FILE="$SCRIPT_DIR/../src/honk/optimised/honk-optimized.sol.template"
 
 if [ ! -f "$VK_FILE" ]; then
     echo "Error: VK file not found at $VK_FILE"
@@ -17,7 +17,7 @@ if [ ! -f "$VK_FILE" ]; then
 fi
 
 if [ ! -f "$TEMPLATE_FILE" ]; then
-    echo "Error: blake-opt.sol.template not found at $TEMPLATE_FILE"
+    echo "Error: honk-optimized.sol.template not found at $TEMPLATE_FILE"
     exit 1
 fi
 
@@ -37,11 +37,11 @@ VK_HASH=$(grep "uint256 constant VK_HASH" "$VK_FILE" | sed -E 's/.*= (0x[0-9a-fA
 CURRENT_VK_HASH=$(grep "uint256 constant VK_HASH" "$OPT_FILE" | sed -E 's/.*= (0x[0-9a-fA-F]+);/\1/')
 
 if [ "$VK_HASH" = "$CURRENT_VK_HASH" ]; then
-    echo "✓ blake-opt.sol already in sync with VK (VK_HASH: $VK_HASH)"
+    echo "✓ honk-optimized.sol already in sync with VK (VK_HASH: $VK_HASH)"
     exit 0
 fi
 
-echo "Syncing VK values from VK file to blake-opt.sol..."
+echo "Syncing VK values from VK file to honk-optimized.sol..."
 echo "  VK_HASH: $CURRENT_VK_HASH → $VK_HASH"
 
 # Extract circuit parameters
@@ -65,7 +65,7 @@ read Q_NNF_X Q_NNF_Y <<< $(extract_coords "qNnf")
 read Q_POSEIDON_2_EXTERNAL_X Q_POSEIDON_2_EXTERNAL_Y <<< $(extract_coords "qPoseidon2External")
 read Q_POSEIDON_2_INTERNAL_X Q_POSEIDON_2_INTERNAL_Y <<< $(extract_coords "qPoseidon2Internal")
 
-# Extract permutation polynomials (SIGMA in blake-opt.sol, s in VK)
+# Extract permutation polynomials (SIGMA in honk-optimized.sol, s in VK)
 read SIGMA_1_X SIGMA_1_Y <<< $(extract_coords "s1")
 read SIGMA_2_X SIGMA_2_Y <<< $(extract_coords "s2")
 read SIGMA_3_X SIGMA_3_Y <<< $(extract_coords "s3")
@@ -165,6 +165,6 @@ sed -i "s/mstore(LAGRANGE_FIRST_Y_LOC, 0x[0-9a-fA-F]\+)/mstore(LAGRANGE_FIRST_Y_
 sed -i "s/mstore(LAGRANGE_LAST_X_LOC, 0x[0-9a-fA-F]\+)/mstore(LAGRANGE_LAST_X_LOC, $LAGRANGE_LAST_X)/" "$OPT_FILE"
 sed -i "s/mstore(LAGRANGE_LAST_Y_LOC, 0x[0-9a-fA-F]\+)/mstore(LAGRANGE_LAST_Y_LOC, $LAGRANGE_LAST_Y)/" "$OPT_FILE"
 
-echo "✓ Successfully synced all VK values to blake-opt.sol"
+echo "✓ Successfully synced all VK values to honk-optimized.sol"
 echo "  Updated: VK_HASH, circuit params, and all selector commitments"
 echo "  Backup saved at ${OPT_FILE}.bak"
