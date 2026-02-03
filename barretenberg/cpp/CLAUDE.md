@@ -72,9 +72,9 @@ Note: Once you enable AVM, subsequent `ninja` calls will include AVM targets unt
 - **stdlib/** - Circuit-friendly implementations of primitives
 - **ultra_honk/** - Ultra Honk prover/verifier
 - **chonk/** - Client-side IVC (Incremental Verifiable Computation)
-- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh)
 - **bbapi/** - BB API for external interaction. If changing here, we will also want to update the ts/ folder because bb.js consumes this. (first build ninja bb in build/)
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
+- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh). If working in vm2, use barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md
 
 ### ts/ => typescript code for bb.js
 
