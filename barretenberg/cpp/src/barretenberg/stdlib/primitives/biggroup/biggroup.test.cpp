@@ -1221,7 +1221,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Case 1: P * 0 = ∞
         {
-            info("Case 1: P * 0");
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
                                                               : scalar_ct(&builder, fr(0));
@@ -1230,10 +1229,13 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 2: (∞) * k = ∞
         {
-            info("Case 2: (∞) * k");
-            // Use constant_infinity() factory which creates canonical infinity with (0, 0) coordinates
-            element_ct P = (point_type == InputType::CONSTANT) ? element_ct::constant_infinity(nullptr)
-                                                               : element_ct::constant_infinity(&builder);
+            auto [input, P] = get_random_point(&builder, point_type);
+            if (point_type == InputType::CONSTANT) {
+                P = element_ct::constant_infinity(&builder);
+            } else {
+                input.self_set_infinity();
+                P = element_ct::from_witness(&builder, input);
+            }
 
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
             affine_element expected_infinity = affine_element(element::infinity());
@@ -1241,7 +1243,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 3: P * 1 = P
         {
-            info("Case 3: P * 1");
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct one = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(1))
                                                                 : scalar_ct(&builder, fr(1));
@@ -1249,7 +1250,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
         // Case 4: P * (-1) = -P
         {
-            info("Case 4: P * (-1)");
             auto [input, P] = get_random_point(&builder, point_type);
             fr neg_one = -fr(1);
             scalar_ct neg_one_ct = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, neg_one)
@@ -1850,12 +1850,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             OriginTag tag_union =
                 OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
-                // Use constant_infinity() for infinity points, from_witness() for regular points
-                if (points[i].is_point_at_infinity()) {
-                    circuit_points.push_back(element_ct::constant_infinity(&builder));
-                } else {
-                    circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                }
+                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
                 // Set tag to submitted value tag at round i
                 circuit_points[i].set_origin_tag(
@@ -1941,8 +1936,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_batch_mul_all_infinity()
     {
         Builder builder;
-        std::vector<fr> scalars;
         std::vector<affine_element> points;
+        std::vector<fr> scalars;
 
         for (size_t i = 0; i < 5; ++i) {
             points.push_back(affine_element::infinity());
@@ -1952,7 +1947,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
 
-        for (size_t i = 0; i < scalars.size(); ++i) {
+        for (size_t i = 0; i < points.size(); ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
