@@ -151,8 +151,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
-        // Use point_at_infinity() for infinity points (from_witness rejects infinity)
-        bn254_element<Builder> group_element = bn254_element<Builder>::point_at_infinity(&builder);
+        // Use constant_infinity() for infinity points (from_witness rejects infinity)
+        bn254_element<Builder> group_element = bn254_element<Builder>::constant_infinity(&builder);
         // Point at infinity is now consistently represented as (0, 0) across all builders
         this->check_conversion(group_element);
     }

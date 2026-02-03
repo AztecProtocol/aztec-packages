@@ -1418,7 +1418,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            affine_element input_b; // point at infinity for native computations
+            affine_element input_b(element::random_element());
             input_b.self_set_infinity();
 
             // Get two 128-bit scalars
@@ -1431,10 +1431,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_raw_b = scalar_raw_b >> (256 - max_num_bits);
             fr scalar_b = fr(scalar_raw_b);
 
-            element_ct P_a = element_ct::from_witness(&builder, input_a);                    // A
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);                     // s_1 (128 bits)
-            element_ct P_b = element_ct::from_witness(&builder, affine_element::infinity()); // ∞
-            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);                     // s_2 (128 bits)
+            element_ct P_a = element_ct::from_witness(&builder, input_a); // A
+            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
+            element_ct P_b = element_ct::from_witness(&builder, input_b); // ∞
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
 
             // Set tags
             P_a.set_origin_tag(submitted_value_origin_tag);
@@ -1955,8 +1955,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
         std::vector<fr> scalars;
+        std::vector<affine_element> points;
 
         for (size_t i = 0; i < 5; ++i) {
+            points.push_back(affine_element::infinity());
             scalars.push_back(fr::random_element());
         }
 
@@ -1964,8 +1966,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         for (size_t i = 0; i < scalars.size(); ++i) {
-            // All points are at infinity - use constant_infinity()
-            circuit_points.push_back(element_ct::constant_infinity(&builder));
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 
@@ -2059,12 +2060,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         for (size_t i = 0; i < points.size(); ++i) {
-            // Use constant_infinity() for infinity points, from_witness() for regular points
-            if (points[i].is_point_at_infinity()) {
-                circuit_points.push_back(element_ct::constant_infinity(&builder));
-            } else {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-            }
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 
