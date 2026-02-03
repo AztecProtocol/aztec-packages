@@ -3,6 +3,9 @@ import { jest } from '@jest/globals';
 import { InterruptError } from '../error/index.js';
 import { InterruptibleSleep } from './index.js';
 
+// Force CI to be 0 so we don't make sleep a noop.
+process.env.CI = '0';
+
 describe('InterruptibleSleep', () => {
   it('should sleep for 100ms', async () => {
     const sleeper = new InterruptibleSleep();

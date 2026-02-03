@@ -1,4 +1,16 @@
 import { InterruptError } from '../error/index.js';
+import { createLogger } from '../log/index.js';
+
+const logger = createLogger('sleep');
+
+function getMs(ms: number) {
+  if (process.env.CI == '1') {
+    logger.warn("🔥 sleep() is a noop in CI! Let's burn some cycles! 🔥");
+    return 0;
+  } else {
+    return ms;
+  }
+}
 
 /**
  * InterruptibleSleep is a utility class that allows you to create an interruptible sleep function.
@@ -38,7 +50,7 @@ export class InterruptibleSleep {
       this.interrupts.push(resolve);
     });
 
-    const timeoutPromise = new Promise<boolean>(resolve => setTimeout(() => resolve(false), ms));
+    const timeoutPromise = new Promise<boolean>(resolve => setTimeout(() => resolve(false), getMs(ms)));
     const shouldThrow = await Promise.race([interruptPromise, timeoutPromise]);
 
     this.interrupts = this.interrupts.filter(res => res !== interruptResolve);
@@ -71,7 +83,7 @@ export class InterruptibleSleep {
  * @returns A Promise that resolves after the specified duration, allowing the use of 'await' to pause execution.
  */
 export function sleep<T>(ms: number, returnValue?: T): Promise<T> {
-  return new Promise(resolve => setTimeout(() => resolve(returnValue as T), ms));
+  return new Promise(resolve => setTimeout(() => resolve(returnValue as T), getMs(ms)));
 }
 
 /** Sleeps until the target date */
