@@ -34,6 +34,23 @@ PureTxBytecodeManager::~PureTxBytecodeManager()
           " kB.");
 }
 
+/**
+ * @brief Retrieves and validates bytecode from the PureTxBytecodeManager's ContractDBInterface.
+ *
+ *  If we have not yet processed the gathered bytecode instance, we store the packed bytecode in the
+ *  flat map bytecodes against the class id.
+ *
+ * @throws BytecodeRetrievalError if
+ *        - the contract at the given address is not deployed
+ *        - we have reached the limit of the number of bytecodes to retrieve for this tx
+ * @throws Unexpected exception if
+ *        - the contract class for the retrieved instance does not exist
+ *          Note: the deployer contract guarantees that if we have a deployed instance, its contract class
+ *          must exist. If the contract is not deployed, this is caught by the above BytecodeRetrievalError.
+ *
+ * @param address The address of the contract instance to retrieve bytecode for.
+ * @return The id (=class_id here) of the bytecode.
+ */
 BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     BB_BENCH_NAME("PureTxBytecodeManager::get_bytecode");
@@ -81,7 +98,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // We now save the bytecode so that we don't repeat this process.
+    // We now save the bytecode against the class id so that we don't repeat this process for the same class.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     return bytecode_id;
 }

@@ -4,16 +4,38 @@
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Retrieves and validates bytecode from the TxBytecodeManager's ContractDBInterface. Corresponds to traces:
+ *  bc_retrieval.pil
+ *  bc_hashing.pil
+ *  bc_decomposition.pil
+ *
+ *  If we have not yet processed the gathered bytecode instance, we emit a BytecodeHashingEvent and
+ *  BytecodeDecompositionEvent. The decomposition trace stores the bytecode from the BytecodeDecompositionEvent as
+ *  individual bytes to be referred to by instruction fetching. It enforces the bytecode size and representation as
+ *  packed fields, which are used by the hashing trace to enforce the correctness of the bytecode id (=commitment).
+ *
+ * @throws BytecodeRetrievalError if
+ *        - the contract at the given address is not deployed
+ *        - we have reached the limit of the number of bytecodes to retrieve for this tx
+ * @throws Unexpected exception if
+ *        - the contract class for the retrieved instance does not exist
+ *        - the bytecode commitment the retrieved instance does not exist
+ *        - the bytecode commitment does not match the calculated hash (inside assert_public_bytecode_commitment())
+ *          Note: the deployer contract guarantees that if we have a deployed instance, its contract class and hence its
+ *          bytecode commitment must exist. If the contract is not deployed, this is caught by the above
+ *          BytecodeRetrievalError.
+ *
+ * @param address The address of the contract instance to retrieve bytecode for.
+ * @return The id (=commitment) of the bytecode.
+ */
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     BB_BENCH_NAME("TxBytecodeManager::get_bytecode");
@@ -70,7 +92,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
 
-    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
+    // Bytecode hashing (bc_hashing.pil) and decomposition (bc_decomposition.pil)
     std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
     // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
     BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
@@ -78,22 +100,25 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     retrieval_event.bytecode_id = bytecode_id;
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
+    // Check if we've already processed this bytecode by deduplicating by bytecode_id (=commitment). If so, don't do
+    // hashing and decomposition again!
     if (bytecodes.contains(bytecode_id)) {
         // Already processed this bytecode - just emit retrieval event and return
         retrieval_events.emit(std::move(retrieval_event));
         return bytecode_id;
     }
 
-    // First time seeing this bytecode - check hashing and decomposition
+    // First time seeing this bytecode - perform hashing and decomposition.
+    // Emits BytecodeHashingEvent and corresponding Poseidon2HashEvent and Poseidon2PermutationEvent(s).
     bytecode_hasher.assert_public_bytecode_commitment(
         bytecode_id, klass.packed_bytecode, /*public_bytecode_commitment=*/bytecode_id);
 
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
+    // Emits BytecodeDecompositionEvent.
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
-    // We now save the bytecode so that we don't repeat this process.
+    // We now save the bytecode against its id so that we don't repeat this process.
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
     retrieval_events.emit(std::move(retrieval_event));
