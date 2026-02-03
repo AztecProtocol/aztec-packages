@@ -29,6 +29,10 @@ element<C, Fq, Fr, G>::element()
  * considered the point at infinity. This ensures a single canonical representation and prevents
  * inconsistent states where coordinates and infinity flag disagree.
  *
+ * @warning The input coordinates must have range-constrained binary basis limbs (e.g., freshly
+ * constructed from witnesses or after self_reduce()). If limbs are not range-constrained, the
+ * infinity detection may produce incorrect results.
+ *
  * @param x_in The x coordinate
  * @param y_in The y coordinate
  * @param assert_on_curve If true, validate that (x, y) satisfies the curve equation (unless point is at infinity)
@@ -38,11 +42,18 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
     : _x(x_in)
     , _y(y_in)
 {
-    // Detect infinity: point is at infinity iff both coordinates are zero
-    const Fq zero = Fq::zero();
-    const bool_ct x_is_zero = (_x == zero);
-    const bool_ct y_is_zero = (_y == zero);
-    _is_infinity = x_is_zero && y_is_zero;
+    // Detect infinity: point is at infinity iff both coordinates are zero.
+    // We sum all 8 binary basis limbs (4 from x, 4 from y) and check if the sum is zero.
+    // This works because: (1) after reduction, each limb is non-negative and range-constrained,
+    // so sum=0 iff all limbs=0; (2) max sum is 8 * 2^68 ≈ 2^71 << n ≈ 2^254, so no native wraparound.
+    field_ct limb_sum = 0;
+    for (const auto& limb : _x.binary_basis_limbs) {
+        limb_sum += limb.element;
+    }
+    for (const auto& limb : _y.binary_basis_limbs) {
+        limb_sum += limb.element;
+    }
+    _is_infinity = limb_sum.is_zero();
 
     // Validate on-curve if requested
     if (assert_on_curve) {
