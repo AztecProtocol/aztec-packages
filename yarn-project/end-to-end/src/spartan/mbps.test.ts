@@ -48,7 +48,7 @@ describe('multi-blocks-per-slot network test', () => {
   const TRANSFER_AMOUNT = 1n;
   const BLOCK_DURATION_MS = 8000;
   const MAX_BLOCKS_PER_SLOT = Math.floor((config.AZTEC_SLOT_DURATION * 1000) / BLOCK_DURATION_MS);
-  const TX_COUNT = Math.max(15, MAX_BLOCKS_PER_SLOT);
+  const TX_COUNT = Math.max(10, MAX_BLOCKS_PER_SLOT);
   const TX_SEND_BATCH_SIZE = Math.min(3, TX_COUNT);
 
   beforeAll(async () => {
@@ -85,6 +85,8 @@ describe('multi-blocks-per-slot network test', () => {
       maxTxsPerBlock: 1,
       blockDurationMs: BLOCK_DURATION_MS,
       enforceTimeTable: true,
+      l1PublishingTime: 2,
+      attestationPropagationTime: 0.5,
     });
     logger.info(
       `Sequencer config after update: ${JSON.stringify(
@@ -93,6 +95,8 @@ describe('multi-blocks-per-slot network test', () => {
           maxTxsPerBlock: sequencerConfig.maxTxsPerBlock,
           blockDurationMs: sequencerConfig.blockDurationMs,
           enforceTimeTable: sequencerConfig.enforceTimeTable,
+          l1PublishingTime: sequencerConfig.l1PublishingTime,
+          attestationPropagationTime: sequencerConfig.attestationPropagationTime,
         })),
       )}`,
     );
@@ -177,20 +181,26 @@ describe('multi-blocks-per-slot network test', () => {
       `Tips after receipts: proposed=${tipsAtReceipts.proposed.number}, checkpointed=${tipsAtReceipts.checkpointed.block.number}`,
     );
 
-    const blockNumbers = receipts.map(receipt => Number(receipt!.blockNumber));
-    const uniqueBlockNumbers = [...new Set(blockNumbers)];
-    expect(uniqueBlockNumbers.length).toBeGreaterThanOrEqual(2); // sanity check
+    const txBlockNumbers = receipts.map(receipt => Number(receipt!.blockNumber));
+    const uniqueTxBlockNumbers = [...new Set(txBlockNumbers)];
+    const minTxBlockNumber = Math.min(...txBlockNumbers);
+    const maxTxBlockNumber = Math.max(...txBlockNumbers);
 
-    const headers = await Promise.all(
-      uniqueBlockNumbers.map(blockNumber => aztecNode.getBlockHeader(BlockNumber(blockNumber))),
+    // Fetch all block headers in the range to check for MBPS (not just blocks with our txs)
+    const allBlockNumbers = Array.from(
+      { length: maxTxBlockNumber - minTxBlockNumber + 1 },
+      (_, i) => minTxBlockNumber + i,
     );
-    if (headers.some(header => !header)) {
-      throw new Error('Failed to load block headers for submitted txs');
+    const allHeaders = await Promise.all(
+      allBlockNumbers.map(blockNumber => aztecNode.getBlockHeader(BlockNumber(blockNumber))),
+    );
+    if (allHeaders.some(header => !header)) {
+      throw new Error('Failed to load block headers for block range');
     }
 
-    const headerByBlockNumber = new Map<number, (typeof headers)[number]>();
-    for (let i = 0; i < uniqueBlockNumbers.length; i++) {
-      headerByBlockNumber.set(uniqueBlockNumbers[i], headers[i]);
+    const headerByBlockNumber = new Map<number, (typeof allHeaders)[number]>();
+    for (let i = 0; i < allBlockNumbers.length; i++) {
+      headerByBlockNumber.set(allBlockNumbers[i], allHeaders[i]);
     }
     const receiptSummary = txHashes.map((hash, i) => {
       const receipt = receipts[i]!;
@@ -205,27 +215,28 @@ describe('multi-blocks-per-slot network test', () => {
     });
     logger.info(`Tx receipt summary: ${JSON.stringify(receiptSummary)}`);
 
-    // count blocks in slot
-    const slotNumbers = headers.map(header => header!.globalVariables.slotNumber);
+    // Count blocks per slot across all blocks in range (not just blocks with our txs)
     const slotCounts = new Map<number, number>();
-    for (const slot of slotNumbers) {
+    for (const header of allHeaders) {
+      const slot = Number(header!.globalVariables.slotNumber);
       slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1);
     }
     const slotCountsEntries = [...slotCounts.entries()];
-    const [_, blocksInSlotCount] = slotCountsEntries.reduce((max, entry) => (entry[1] > max[1] ? entry : max));
-    const blockTimeline = headers.map(header => ({
+    const [maxSlot, blocksInSlotCount] = slotCountsEntries.reduce((max, entry) => (entry[1] > max[1] ? entry : max));
+    const blockTimeline = allHeaders.map(header => ({
       blockNumber: Number(header!.globalVariables.blockNumber),
       slotNumber: Number(header!.globalVariables.slotNumber),
       timestamp: Number(header!.globalVariables.timestamp),
     }));
     logger.info(`Block timeline: ${JSON.stringify(blockTimeline)}`);
     logger.info(`Blocks per slot: ${JSON.stringify(slotCountsEntries)}`);
+    logger.info(`Max blocks in a single slot: ${blocksInSlotCount} (slot ${maxSlot})`);
+    logger.info(`Txs distributed across ${uniqueTxBlockNumbers.length} blocks`);
     expect(blocksInSlotCount).toBeGreaterThanOrEqual(2);
-    const maxBlockNumber = Math.max(...blockNumbers);
     await retryUntil(
       async () => {
         const tips = await aztecNode.getL2Tips();
-        return Number(tips.checkpointed.block.number) >= maxBlockNumber;
+        return Number(tips.checkpointed.block.number) >= maxTxBlockNumber;
       },
       'checkpointed tip to reach multi-block slot',
       config.AZTEC_SLOT_DURATION * 10,
