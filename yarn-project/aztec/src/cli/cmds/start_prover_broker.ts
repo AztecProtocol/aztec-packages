@@ -5,6 +5,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import {
   type ProverBrokerConfig,
   ProvingJobBrokerSchema,
+  ProvingJobBrokerSchemaWithDebug,
   createAndStartProvingBroker,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
@@ -59,7 +60,10 @@ export async function startProverBroker(
     );
   }
 
-  services.proverBroker = [broker, ProvingJobBrokerSchema];
+  services.proverBroker = [
+    broker,
+    config.proverBrokerDebugReplayEnabled ? ProvingJobBrokerSchemaWithDebug : ProvingJobBrokerSchema,
+  ];
   signalHandlers.push(() => broker.stop());
 
   return { broker, config };
