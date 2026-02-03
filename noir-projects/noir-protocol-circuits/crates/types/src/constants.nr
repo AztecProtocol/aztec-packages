@@ -612,7 +612,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 pub global RECURSIVE_PROOF_LENGTH: u32 = 449;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 64;
-pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 339; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
+pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
