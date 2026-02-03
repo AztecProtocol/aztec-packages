@@ -8,27 +8,27 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include <cstdint>
 #include <span>
 namespace bb {
 
 /**
- * @brief A concept defining requirements for types that are to be deserialized from the public inputs of a circuit
- * via the PublicInputComponent class.
- *
- * @tparam ComponentType The type of the object to be deserialized
+ * @brief A concept for types that can be deserialized from public inputs
  */
 template <typename ComponentType>
-concept IsDeserializableFromPublicInputs =
-    requires(std::span<bb::fr, ComponentType::PUBLIC_INPUTS_SIZE> public_inputs) {
-        { // A method to reconstruct the object from the limbs stored in public inputs
-            ComponentType::reconstruct_from_public(public_inputs)
-        } -> std::same_as<ComponentType>;
-        { // A constant defining the number of limbs needed to represent the object in the public inputs
-            ComponentType::PUBLIC_INPUTS_SIZE
-        } -> std::convertible_to<size_t>;
-    };
+concept IsDeserializableFromPublicInputs = requires {
+    { ComponentType::PUBLIC_INPUTS_SIZE } -> std::convertible_to<size_t>;
+};
+
+/**
+ * @brief Check if a type has reconstruct_from_public method
+ */
+template <typename T>
+concept HasReconstructFromPublic = requires(std::span<bb::fr, T::PUBLIC_INPUTS_SIZE> limbs) {
+    { T::reconstruct_from_public(limbs) } -> std::same_as<T>;
+};
 
 /**
  * @brief A wrapper class for deserializing objects from the public inputs of a circuit
@@ -38,6 +38,7 @@ concept IsDeserializableFromPublicInputs =
 template <typename ComponentType>
     requires IsDeserializableFromPublicInputs<ComponentType>
 class PublicInputComponent {
+    using Codec = FrCodec;
     static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
@@ -56,7 +57,14 @@ class PublicInputComponent {
                       public_inputs.size(),
                       "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
         std::span<const bb::fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
-        return ComponentType::reconstruct_from_public(limbs);
+
+        // Use reconstruct_from_public if available (for composite types like OpeningClaim),
+        // otherwise use Codec (for primitives and array-like types like PairingPoints)
+        if constexpr (HasReconstructFromPublic<ComponentType>) {
+            return ComponentType::reconstruct_from_public(limbs);
+        } else {
+            return Codec::deserialize_from_fields<ComponentType>(limbs);
+        }
     }
 };
 

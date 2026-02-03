@@ -200,20 +200,6 @@ template <typename Builder> class cycle_group {
         return start_idx;
     }
 
-    /**
-     * @brief Reconstruct a cycle_group from limbs (generally stored in the public inputs)
-     * @details The base field of the cycle_group curve is the same as the circuit's native field so each coordinate is
-     * represented by a single "limb".
-     *
-     * @param limbs The coordinates of the cycle_group element
-     * @return cycle_group
-     */
-    static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
-    {
-        cycle_group result(limbs[0], limbs[1], false, /*assert_on_curve=*/true);
-        return result;
-    }
-
   private:
     field_t _x;
     field_t _y;
