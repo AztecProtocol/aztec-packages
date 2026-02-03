@@ -171,10 +171,9 @@ export class TxPoolV2Impl {
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
     const newlyAdded: Tx[] = [];
-    const pendingAdded: { txHash: string; feePayer: string }[] = [];
+    const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
-    const acceptedInBatch = new Set<string>();
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -192,11 +191,8 @@ export class TxPoolV2Impl {
         const preProtectedSlot = this.#protectedTransactions.get(txHashStr);
 
         if (minedBlockId) {
-          // Already mined - add directly, preserving protection if pre-protected
+          // Already mined - add directly (protection already set if pre-protected)
           await this.#addNewMinedTx(tx, minedBlockId);
-          if (preProtectedSlot !== undefined) {
-            this.#protectedTransactions.set(txHashStr, preProtectedSlot);
-          }
           accepted.push(txHash);
           newlyAdded.push(tx);
         } else if (preProtectedSlot !== undefined) {
@@ -206,11 +202,10 @@ export class TxPoolV2Impl {
           newlyAdded.push(tx);
         } else {
           // Regular pending tx - validate and run pre-add rules
-          const result = await this.#tryAddRegularPendingTx(tx, poolAccess, acceptedInBatch, ignored);
+          const result = await this.#tryAddRegularPendingTx(tx, poolAccess, acceptedPending, ignored);
           if (result.status === 'accepted') {
-            acceptedInBatch.add(txHashStr);
+            acceptedPending.add(txHashStr);
             newlyAdded.push(tx);
-            pendingAdded.push({ txHash: txHashStr, feePayer: result.feePayer });
           } else if (result.status === 'rejected') {
             rejected.push(txHash);
           } else {
@@ -220,20 +215,15 @@ export class TxPoolV2Impl {
       }
     });
 
-    // Build final accepted list (pending txs need intra-batch eviction filtering)
-    for (const { txHash } of pendingAdded) {
-      if (acceptedInBatch.has(txHash)) {
-        accepted.push(TxHash.fromString(txHash));
-      }
+    // Build final accepted list for pending txs (excludes intra-batch evictions)
+    for (const txHashStr of acceptedPending) {
+      accepted.push(TxHash.fromString(txHashStr));
     }
 
     // Run post-add eviction rules for pending txs
-    const pendingFeePayers = pendingAdded.filter(p => acceptedInBatch.has(p.txHash)).map(p => p.feePayer);
-    if (pendingFeePayers.length > 0) {
-      await this.#evictionManager.evictAfterNewTxs(
-        pendingAdded.filter(p => acceptedInBatch.has(p.txHash)).map(p => p.txHash),
-        pendingFeePayers,
-      );
+    if (acceptedPending.size > 0) {
+      const feePayers = Array.from(acceptedPending).map(txHash => this.#metadata.get(txHash)!.feePayer);
+      await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), feePayers);
     }
 
     // Emit events
@@ -244,13 +234,13 @@ export class TxPoolV2Impl {
     return { accepted, ignored, rejected };
   }
 
-  /** Validates and adds a regular pending tx. Returns status and fee payer if accepted. */
+  /** Validates and adds a regular pending tx. Returns status. */
   async #tryAddRegularPendingTx(
     tx: Tx,
     poolAccess: PreAddPoolAccess,
-    acceptedInBatch: Set<string>,
+    acceptedPending: Set<string>,
     ignored: TxHash[],
-  ): Promise<{ status: 'accepted'; feePayer: string } | { status: 'ignored' | 'rejected' }> {
+  ): Promise<{ status: 'accepted' | 'ignored' | 'rejected' }> {
     const txHash = tx.getTxHash();
     const txHashStr = txHash.toString();
 
@@ -274,15 +264,15 @@ export class TxPoolV2Impl {
     for (const evictHashStr of preAddResult.txHashesToEvict) {
       await this.#deleteTx(evictHashStr);
       this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
-      if (acceptedInBatch.has(evictHashStr)) {
-        acceptedInBatch.delete(evictHashStr);
+      if (acceptedPending.has(evictHashStr)) {
+        acceptedPending.delete(evictHashStr);
         ignored.push(TxHash.fromString(evictHashStr));
       }
     }
 
     // Add the transaction
     await this.#addNewPendingTx(tx);
-    return { status: 'accepted', feePayer: meta.feePayer };
+    return { status: 'accepted' };
   }
 
   async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
