@@ -10,8 +10,8 @@ import type { KeyPrefix } from './key_types.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
-export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
-  return computeAppSecretKey(masterNullifierSecretKey, app, 'n'); // 'n' is the key prefix for nullifier secret key
+export function computeAppNullifierHidingKey(masterNullifierHidingKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
+  return computeAppSecretKey(masterNullifierHidingKey, app, 'n'); // 'n' is the key prefix for nullifier hiding key
 }
 
 export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Promise<Fr> {
@@ -26,8 +26,8 @@ export async function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress): P
   return GrumpkinScalar.fromBuffer(ovskAppFr.toBuffer());
 }
 
-export function deriveMasterNullifierSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NSK_M]);
+export function deriveMasterNullifierHidingKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NHK_M]);
 }
 
 export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
@@ -93,15 +93,15 @@ export function derivePublicKeyFromSecretKey(secretKey: Fq) {
  * @returns The derived keys.
  */
 export async function deriveKeys(secretKey: Fr) {
-  // First we derive master secret keys -  we use sha512 here because this derivation will never take place
+  // First we derive master secret/hiding keys -  we use sha512 here because this derivation will never take place
   // in a circuit
-  const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secretKey);
+  const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secretKey);
   const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
   const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
   const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
 
   // Then we derive master public keys
-  const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierSecretKey);
+  const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);
   const masterIncomingViewingPublicKey = await derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
@@ -115,7 +115,7 @@ export async function deriveKeys(secretKey: Fr) {
   );
 
   return {
-    masterNullifierSecretKey,
+    masterNullifierHidingKey,
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,

@@ -13,7 +13,6 @@ This section explains how the Aztec network operates. Understanding these fundam
 How the different components of the network work together:
 
 - [Block Production](concepts/architecture/block-production) - How transactions become blocks
-- [Proving Coordination](concepts/architecture/proving-coordination) - How proofs are generated and submitted
 
 ## Proof of Stake
 

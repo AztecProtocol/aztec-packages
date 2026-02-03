@@ -149,10 +149,11 @@ export class SlashingProtectionService {
    * @returns true if the update succeeded, false if token didn't match
    */
   async recordSuccess(params: RecordSuccessParams): Promise<boolean> {
-    const { validatorAddress, slot, dutyType, signature, nodeId, lockToken } = params;
+    const { rollupAddress, validatorAddress, slot, dutyType, signature, nodeId, lockToken } = params;
     const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
     const success = await this.db.updateDutySigned(
+      rollupAddress,
       validatorAddress,
       slot,
       dutyType,
@@ -184,10 +185,17 @@ export class SlashingProtectionService {
    * @returns true if the delete succeeded, false if token didn't match
    */
   async deleteDuty(params: DeleteDutyParams): Promise<boolean> {
-    const { validatorAddress, slot, dutyType, lockToken } = params;
+    const { rollupAddress, validatorAddress, slot, dutyType, lockToken } = params;
     const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
-    const success = await this.db.deleteDuty(validatorAddress, slot, dutyType, lockToken, blockIndexWithinCheckpoint);
+    const success = await this.db.deleteDuty(
+      rollupAddress,
+      validatorAddress,
+      slot,
+      dutyType,
+      lockToken,
+      blockIndexWithinCheckpoint,
+    );
 
     if (success) {
       this.log.info(`Deleted duty ${dutyType} at slot ${slot} to allow retry`, {

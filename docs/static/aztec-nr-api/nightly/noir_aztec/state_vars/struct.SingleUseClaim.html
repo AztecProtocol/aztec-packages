@@ -89,7 +89,7 @@ when using it in storage.</p>
 <p>Exercising a claim (via the <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> function) emits one nullifier.</p>
 <h2>Privacy considerations</h2>
 <p>The <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> function emits a public nullifier per owner: it's fully private, hidden behind the
-owner's app-siloed nullifier secret key (aka <code>nsk</code>).</p>
+owner's app-siloed nullifier hiding key (aka <code>nhk</code>).</p>
 <p>Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 infer who likely exercised the claim, so consider that when designing flows.</p>
 <pre><code></code></pre></div>
@@ -115,7 +115,7 @@ fail.</p>
 the same owner. Its invocation is typically accompanied by other contract actions, e.g. minting tokens, casting
 a vote, etc.</p>
 <h4>Advanced</h4>
-<p>The implementation of this function emits a nullifier derived from the <code>owner</code>'s nullifier secret key and the
+<p>The implementation of this function emits a nullifier derived from the <code>owner</code>'s nullifier hiding key and the
 storage slot of the underlying state variable.</p>
 </div>
 </div><code id="assert_claimed" class="code-header">pub fn <a href="#assert_claimed"><span class="fn">assert_claimed</span></a>(self)</code>

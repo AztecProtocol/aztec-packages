@@ -23,21 +23,23 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
-import type {
-  MerkleTreeWriteOperations,
-  ResolvedSequencerConfig,
-  WorldStateSynchronizer,
+import {
+  type BuildBlockInCheckpointResult,
+  type MerkleTreeWriteOperations,
+  NoValidTxsError,
+  type ResolvedSequencerConfig,
+  type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
-import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
+import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 import { DutyType } from '@aztec/validator-ha-signer/types';
 
@@ -458,7 +460,7 @@ describe('CheckpointProposalJob', () => {
     const txs = await Promise.all(Array.from({ length: totalTxs }, (_, i) => makeTx(i + 1, chainId)));
 
     // Set up p2p mocks
-    p2p.getPendingTxCount.mockResolvedValue(10);
+    p2p.getPendingTxCount.mockResolvedValue(txs.length);
     p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
     // Create blocks with incrementing block numbers
@@ -583,6 +585,92 @@ describe('CheckpointProposalJob', () => {
       expect(waitSpy).toHaveBeenCalledTimes(1);
       // The wait time is until the next block deadline
       expect(waitSpy.mock.calls[0][0]).toEqual(10);
+    });
+
+    it('builds a single empty block when no txs are available and no min txs required', async () => {
+      // Mock timetable to have two sub-slots
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      // Set up test data for an empty block
+      const { lastBlock } = await setupMultipleBlocks(1, [0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+
+      job.updateConfig({ minTxsPerBlock: 0 });
+      const checkpoint = await job.execute();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+
+      // Verify waitUntilTimeInSlot was called between blocks
+      expect(waitSpy).toHaveBeenCalledTimes(1);
+      // The wait time is until the next block deadline
+      expect(waitSpy.mock.calls[0][0]).toEqual(2);
+    });
+
+    it('builds a single block when not enough txs are available but we build empty checkpoints', async () => {
+      // Mock timetable to have two sub-slots
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      // Set up test data for a block with only 2 txs, note that min txs is 5
+      const { lastBlock } = await setupMultipleBlocks(1, [2]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: true });
+      const checkpoint = await job.execute();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+
+      // Verify waitUntilTimeInSlot was called between blocks
+      expect(waitSpy).toHaveBeenCalledTimes(1);
+      // The wait time is until the next block deadline
+      expect(waitSpy.mock.calls[0][0]).toEqual(2);
+    });
+
+    it('does not build anything if not enough txs and we do not build empty checkpoints', async () => {
+      // Mock timetable to have two sub-slots
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      // Not enough txs to build a block
+      p2p.getPendingTxCount.mockResolvedValue(2);
+
+      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      const checkpoint = await job.execute();
+
+      expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(0);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(0);
+
+      // Verify waitUntilTimeInSlot was called between blocks
+      expect(waitSpy).toHaveBeenCalledTimes(1);
+      // The wait time is until the next block deadline
+      expect(waitSpy.mock.calls[0][0]).toEqual(2);
     });
 
     it('stops building when canStartNextBlock returns false', async () => {
@@ -717,6 +805,53 @@ describe('CheckpointProposalJob', () => {
       const remainingAfterBlock1 = block1MaxBlobFields - block1BlobFieldsUsed;
       const block2MaxBlobFields = remainingAfterBlock1 - NUM_BLOCK_END_BLOB_FIELDS;
       expect(checkpointBuilder.buildBlockCalls[1].opts.maxBlobFields).toBe(block2MaxBlobFields);
+    });
+  });
+
+  describe('build single block', () => {
+    it('does not build a block if not enough valid txs are collected', async () => {
+      // We have enough txs, but not enough valid ones
+      job.updateConfig({ minTxsPerBlock: 3, minValidTxsPerBlock: 2 });
+      const txs = await timesAsync(3, i => makeTx(i + 1, chainId));
+      mockPendingTxs(p2p, txs);
+
+      const checkpointBuilder = mock<CheckpointBuilder>();
+      const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
+      checkpointBuilder.buildBlock.mockResolvedValue({ failedTxs, numTxs: 1 } as BuildBlockInCheckpointResult);
+
+      const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
+        blockNumber: newBlockNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        buildDeadline: undefined,
+        blockTimestamp: 0n,
+        remainingBlobFields: 1,
+        txHashesAlreadyIncluded: new Set<string>(),
+      });
+
+      expect(checkpoint).toBeUndefined();
+      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+    });
+
+    it('does not build a block if checkpoint builder fails with invalid txs', async () => {
+      job.updateConfig({ minTxsPerBlock: 3 });
+      const txs = await timesAsync(3, i => makeTx(i + 1, chainId));
+      mockPendingTxs(p2p, txs);
+
+      const checkpointBuilder = mock<CheckpointBuilder>();
+      const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
+      checkpointBuilder.buildBlock.mockRejectedValue(new NoValidTxsError(failedTxs));
+
+      const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
+        blockNumber: newBlockNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        buildDeadline: undefined,
+        blockTimestamp: 0n,
+        remainingBlobFields: 1,
+        txHashesAlreadyIncluded: new Set<string>(),
+      });
+
+      expect(checkpoint).toBeUndefined();
+      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
   });
 
@@ -855,7 +990,7 @@ describe('CheckpointProposalJob', () => {
     });
   });
 
-  describe('HA error handling during block building', () => {
+  describe('high-availability error handling during block building', () => {
     it('should stop checkpoint building when block proposal throws DutyAlreadySignedError on first block', async () => {
       // Set up test data for 3 blocks (to verify it stops even with multiple blocks configured)
       const { lastBlock } = await setupMultipleBlocks(3, 1);
@@ -960,5 +1095,21 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Get timetable for testing - allows tests to spy on methods */
   public getTimetable(): SequencerTimetable {
     return this.timetable;
+  }
+
+  /** Expose internal buildSingleBlock method */
+  public override buildSingleBlock(
+    checkpointBuilder: CheckpointBuilder,
+    opts: {
+      forceCreate?: boolean;
+      blockTimestamp: bigint;
+      blockNumber: BlockNumber;
+      indexWithinCheckpoint: IndexWithinCheckpoint;
+      buildDeadline: Date | undefined;
+      txHashesAlreadyIncluded: Set<string>;
+      remainingBlobFields: number;
+    },
+  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
+    return super.buildSingleBlock(checkpointBuilder, opts);
   }
 }

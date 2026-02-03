@@ -28,6 +28,7 @@ The local network comes with pre-funded accounts. Load them into your wallet:
 ```typescript
 import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/test-wallet/server";
 
+// wallet is the TestWallet from the setup section above
 const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 ```
 
@@ -38,15 +39,14 @@ Deploy contracts using the generated contract class:
 ```typescript
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
+// wallet is from the setup section; alice is from registerInitialLocalNetworkAccountsInWallet
 const contract = await TokenContract.deploy(
   wallet,
   alice, // admin
   "TestToken",
   "TST",
-  18
-)
-  .send({ from: alice })
-  .deployed();
+  18,
+).send({ from: alice });
 ```
 
 ## Verifying contract state
@@ -65,75 +65,22 @@ Simulations are free (no gas cost) and return the function's result directly. Us
 
 Send transactions and wait for confirmation:
 
-```typescript
-await contract.methods
-  .transfer(bob, 100n)
-  .send({ from: alice })
-  .wait();
-```
+#include_code send_transaction /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The `.wait()` method blocks until the transaction is included in a block.
+The `send()` method returns when the transaction is included in a block.
 
 ## Example test structure
 
-Here's a complete test example using Jest:
+Here's a complete test example showing the typical structure with setup, test cases, and assertions:
 
-```typescript
-import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
-import {
-  TestWallet,
-  registerInitialLocalNetworkAccountsInWallet,
-} from "@aztec/test-wallet/server";
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
-
-describe("Token contract", () => {
-  let wallet: TestWallet;
-  let alice: AztecAddress;
-  let bob: AztecAddress;
-  let token: TokenContract;
-
-  beforeAll(async () => {
-    const node = createAztecNodeClient("http://localhost:8080");
-    await waitForNode(node);
-    wallet = await TestWallet.create(node);
-    [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
-
-    token = await TokenContract.deploy(wallet, alice, "Test", "TST", 18)
-      .send({ from: alice })
-      .deployed();
-  });
-
-  it("mints tokens to an account", async () => {
-    await token.methods.mint_to_public(alice, 1000n).send({ from: alice }).wait();
-
-    const balance = await token.methods
-      .balance_of_public(alice)
-      .simulate({ from: alice });
-
-    expect(balance).toEqual(1000n);
-  });
-
-  it("transfers tokens between accounts", async () => {
-    await token.methods.transfer_in_public(bob, 100n).send({ from: alice }).wait();
-
-    const aliceBalance = await token.methods
-      .balance_of_public(alice)
-      .simulate({ from: alice });
-    const bobBalance = await token.methods
-      .balance_of_public(bob)
-      .simulate({ from: bob });
-
-    expect(aliceBalance).toEqual(900n);
-    expect(bobBalance).toEqual(100n);
-  });
-});
-```
+#include_code complete_test_example /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Testing failure cases
 
 Test that invalid operations revert as expected:
 
 ```typescript
+// token, alice, and bob are from the test setup in beforeAll
 it("reverts when transferring more than balance", async () => {
   const balance = await token.methods
     .balance_of_public(alice)

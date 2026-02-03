@@ -475,14 +475,14 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"node_getPublicDataWitness","params":[12345,"0x0000..."],"id":1}'
 ```
 
-### node_getArchiveMembershipWitness
+### node_getBlockHashMembershipWitness
 
-Gets archive tree membership witness.
+Gets a membership witness for a block hash in the archive tree. Block hashes are the leaves of the archive tree - each time a new block is added to the chain, its block hash is appended as a new leaf.
 
 **Parameters**:
 
-1. `blockNumber` - `number | "latest"` - Block number
-2. `archive` - `string` - Archive leaf value (32-byte hex)
+1. `block` - `number | "latest"` - Block number at which to query the archive tree
+2. `blockHash` - `string` - Block hash to find in the archive tree (32-byte hex)
 
 **Returns**: `MembershipWitness | null`
 
@@ -491,7 +491,7 @@ Gets archive tree membership witness.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getArchiveMembershipWitness","params":[12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getBlockHashMembershipWitness","params":[12345,"0x1234..."],"id":1}'
 ```
 
 ### node_getNoteHashMembershipWitness

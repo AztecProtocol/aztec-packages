@@ -161,6 +161,7 @@ describe('ValidatorClient Integration', () => {
     // Create and start validator
     const validator = await ValidatorClient.new(
       {
+        l1Contracts: { rollupAddress },
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
         disableValidator: false,

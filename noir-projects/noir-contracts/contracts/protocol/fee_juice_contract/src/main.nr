@@ -7,7 +7,7 @@ pub contract FeeJuice {
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             constants::FEE_JUICE_ADDRESS,
-            traits::ToField,
+            traits::{Deserialize, ToField},
         },
         state_vars::{Map, PublicMutable},
     };
@@ -204,11 +204,8 @@ pub contract FeeJuice {
             );
             let mut reader: aztec::protocol::utils::reader::Reader<2> =
                 aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(
-                <AztecAddress as aztec::protocol::traits::Deserialize>::deserialize,
-            );
-            let arg1: u128 =
-                reader.read_struct(<u128 as aztec::protocol::traits::Deserialize>::deserialize);
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
+            let arg1: u128 = <u128 as Deserialize>::stream_deserialize(&mut reader);
             _increase_public_balance(arg0, arg1);
             aztec::oracle::avm::avm_return([].as_vector());
         };
@@ -219,8 +216,7 @@ pub contract FeeJuice {
             );
             let mut reader: aztec::protocol::utils::reader::Reader<1> =
                 aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u128 =
-                reader.read_struct(<u128 as aztec::protocol::traits::Deserialize>::deserialize);
+            let arg0: u128 = <u128 as Deserialize>::stream_deserialize(&mut reader);
             check_balance(arg0);
             aztec::oracle::avm::avm_return([].as_vector());
         };
@@ -231,9 +227,7 @@ pub contract FeeJuice {
             );
             let mut reader: aztec::protocol::utils::reader::Reader<1> =
                 aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: AztecAddress = reader.read_struct(
-                <AztecAddress as aztec::protocol::traits::Deserialize>::deserialize,
-            );
+            let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
             let return_value: [Field; 1] =
                 <u128 as aztec::protocol::traits::Serialize>::serialize(balance_of_public(arg0));
             aztec::oracle::avm::avm_return(return_value.as_vector());

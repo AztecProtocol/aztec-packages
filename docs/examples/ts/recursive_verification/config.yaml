@@ -1,0 +1,21 @@
+# Configuration for recursive_verification example
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - recursive_verification_contract-ValueNotEqual
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use link:path for packages outside yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/test-wallet"
+  - "@aztec/kv-store"
+  - "@aztec/pxe"
+  - "@aztec/noir-contracts.js"
+  # Packages outside yarn-project/ - use explicit link paths
+  - "link:@aztec/bb.js:barretenberg/ts"
+  - "link:@aztec/noir-noir_js:noir/packages/noir_js"

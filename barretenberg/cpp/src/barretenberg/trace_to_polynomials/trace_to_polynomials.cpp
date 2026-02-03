@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 namespace bb {
 
@@ -117,7 +116,6 @@ template class TraceToPolynomials<UltraStarknetFlavor>;
 template class TraceToPolynomials<UltraStarknetZKFlavor>;
 #endif
 template class TraceToPolynomials<UltraKeccakZKFlavor>;
-template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;

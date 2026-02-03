@@ -139,6 +139,7 @@ validate_project() {
 
         # Separate @aztec packages (linked) from npm packages (external)
         local aztec_deps=()
+        local explicit_link_deps=()
         local npm_deps=()
         local pkg
         local has_deps=false
@@ -159,20 +160,32 @@ validate_project() {
                 # External package: npm:viem -> viem
                 local npm_pkg="${pkg#npm:}"
                 npm_deps+=("$npm_pkg")
+            elif [[ "$pkg" =~ ^link: ]]; then
+                # Explicit link: link:@aztec/bb.js:barretenberg/ts -> @aztec/bb.js@link:$REPO_ROOT/barretenberg/ts
+                local link_spec="${pkg#link:}"
+                local link_pkg_name="${link_spec%%:*}"
+                local link_path="${link_spec#*:}"
+                explicit_link_deps+=("${link_pkg_name}@link:$REPO_ROOT/${link_path}")
             elif [[ "$pkg" =~ ^@ ]]; then
                 # @aztec/* package - auto-link from yarn-project/
                 local pkg_name="${pkg#@aztec/}"
                 aztec_deps+=("${pkg}@link:$REPO_ROOT/yarn-project/${pkg_name}")
             else
-                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg' or 'npm:pkg')"
+                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', or 'npm:pkg')"
             fi
         done < <(yq eval '.dependencies[]' config.yaml)
 
         if [ "$has_deps" = true ]; then
-            # Install linked @aztec dependencies
+            # Install linked @aztec dependencies from yarn-project/
             if [ ${#aztec_deps[@]} -gt 0 ]; then
                 echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
                 yarn add "${aztec_deps[@]}"
+            fi
+
+            # Install explicit link dependencies (packages outside yarn-project/)
+            if [ ${#explicit_link_deps[@]} -gt 0 ]; then
+                echo_stderr "Adding explicit link deps: ${explicit_link_deps[*]}"
+                yarn add "${explicit_link_deps[@]}"
             fi
 
             # Install external npm dependencies
@@ -218,6 +231,34 @@ validate_project() {
             fi
 
             echo_stderr "  ✓ @aztec/$pkg_name: $dts_count .d.ts files"
+        done
+
+        # Verify explicit link packages
+        for dep in "${explicit_link_deps[@]}"; do
+            # Extract path from @aztec/pkg@link:$REPO_ROOT/path format
+            local link_target="${dep#*@link:}"
+            local pkg_name="${dep%%@link:*}"
+
+            if [ ! -d "$link_target" ]; then
+                echo_stderr "ERROR: Link target does not exist: $link_target"
+                return 1
+            fi
+
+            # Check for .d.ts files in dest/ or lib/ (different packages use different output dirs)
+            local dts_count=0
+            if [ -d "$link_target/dest" ]; then
+                dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
+            elif [ -d "$link_target/lib" ]; then
+                dts_count=$(find "$link_target/lib" -name "*.d.ts" 2>/dev/null | wc -l)
+            fi
+
+            if [ "$dts_count" -eq 0 ]; then
+                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/ and lib/)"
+                ls -la "$link_target" | head -20 || true
+                return 1
+            fi
+
+            echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done
 
         yarn add -D typescript >/dev/null 2>&1

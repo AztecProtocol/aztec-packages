@@ -14,6 +14,7 @@ import {
   type CheckAndRecordParams,
   type DeleteDutyParams,
   type DutyIdentifier,
+  type DutyRow,
   DutyType,
   type OtherDutyIdentifier,
   type RecordSuccessParams,
@@ -25,6 +26,7 @@ export type {
   CheckAndRecordParams,
   DeleteDutyParams,
   DutyIdentifier,
+  DutyRow,
   OtherDutyIdentifier,
   RecordSuccessParams,
   ValidatorDutyRecord,
@@ -170,6 +172,7 @@ export interface SlashingProtectionDatabase {
    * @returns true if the update succeeded, false if token didn't match or duty not found
    */
   updateDutySigned(
+    rollupAddress: EthAddress,
     validatorAddress: EthAddress,
     slot: SlotNumber,
     dutyType: DutyType,
@@ -186,6 +189,7 @@ export interface SlashingProtectionDatabase {
    * @returns true if the delete succeeded, false if token didn't match or duty not found
    */
   deleteDuty(
+    rollupAddress: EthAddress,
     validatorAddress: EthAddress,
     slot: SlotNumber,
     dutyType: DutyType,
