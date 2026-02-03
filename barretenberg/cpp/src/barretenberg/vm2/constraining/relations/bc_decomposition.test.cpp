@@ -172,11 +172,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivatedSel)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_SEL_BYTES_REM_NON_ZERO);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BYTES_REM_NON_ZERO);
     trace.set(C::bc_decomposition_sel, 2, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_SEL_BYTES_REM_NON_ZERO),
-        "BC_DEC_SEL_BYTES_REM_NON_ZERO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BYTES_REM_NON_ZERO),
+                              "BYTES_REM_NON_ZERO");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateLastContract)
@@ -200,11 +199,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateLastContract)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_LAST_CONTRACT_BYTES_REM_ONE);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_LAST_CONTRACT_BYTES_REM_ONE);
     trace.set(C::bc_decomposition_last_of_contract, 2, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_LAST_CONTRACT_BYTES_REM_ONE),
-        "BC_DEC_LAST_CONTRACT_BYTES_REM_ONE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_LAST_CONTRACT_BYTES_REM_ONE),
+                              "LAST_CONTRACT_BYTES_REM_ONE");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRow)
@@ -217,11 +215,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRo
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_ZERO_INITIALIZATION);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION);
     trace.set(C::bc_decomposition_pc, 1, 7); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_ZERO_INITIALIZATION),
-        "BC_DEC_PC_ZERO_INITIALIZATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION),
+                              "PC_ZERO_INITIALIZATION");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationInside)
@@ -234,11 +231,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationInside)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_ZERO_INITIALIZATION);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION);
     trace.set(C::bc_decomposition_pc, 1, 32); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_ZERO_INITIALIZATION),
-        "BC_DEC_PC_ZERO_INITIALIZATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION),
+                              "PC_ZERO_INITIALIZATION");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongIncrement)
@@ -259,10 +255,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongIncrement)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_INCREMENT);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_INCREMENTS);
     trace.set(C::bc_decomposition_pc, 2, 6); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_PC_INCREMENT),
-                              "BC_DEC_PC_INCREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_INCREMENTS),
+                              "PC_INCREMENTS");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeBytesRemWrongDecrement)
@@ -283,11 +279,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeBytesRemWrongDecrement)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_BYTES_REMAINING_DECREMENT);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BYTES_REMAINING_DECREMENTS);
     trace.set(C::bc_decomposition_bytes_remaining, 0, 4); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_BYTES_REMAINING_DECREMENT),
-        "BC_DEC_BYTES_REMAINING_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BYTES_REMAINING_DECREMENTS),
+                              "BYTES_REMAINING_DECREMENTS");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeMutateBytecodeId)
@@ -308,10 +303,10 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeMutateBytecodeId)
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_ID_CONSTANT);
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_ID_PROPAGATION);
     trace.set(C::bc_decomposition_id, 2, 77); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_ID_CONSTANT),
-                              "BC_DEC_ID_CONSTANT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_ID_PROPAGATION),
+                              "ID_PROPAGATION");
 }
 
 // Both positive and negative tests for sel_windows_gt_remaining initialization
@@ -373,7 +368,7 @@ TEST(BytecodeDecompositionConstrainingTest, SelWindowsGtRemainingPropagationWith
 {
     TestTraceContainer trace({
         {
-            { C::bc_decomposition_is_windows_eq_remaining, 1 },
+            { C::bc_decomposition_sel_windows_eq_remaining, 1 },
             { C::bc_decomposition_sel, 1 },
             { C::bc_decomposition_sel_windows_gt_remaining, 0 },
         },
