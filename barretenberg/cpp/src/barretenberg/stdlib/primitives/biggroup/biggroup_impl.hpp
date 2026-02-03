@@ -165,13 +165,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::add_internal(const element& other) 
 
     // If either input is a point at infinity, or if the result would be infinity, set lambda_denominator to 1
     // to prevent division by zero. Cases where result is infinity: x₁ == x₂ but y₁ != y₂ (points are inverses)
-    // Also guard when doubling with y = 0 (denominator 2y would be zero).
-    // For valid on-curve points on bn254/secp256k1/r1, y = 0 cannot occur, but we guard in-circuit anyway.
-    const bool_ct y_is_zero = (dbl_lambda_denominator == Fq::zero());
-    const bool_ct double_with_zero_y = double_predicate && y_is_zero;
-    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate || double_with_zero_y;
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
     lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
-    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+
+    // Compute λ = numerator / denominator
+    // We enforce that denominator is not zero to protect against soundness issues.
+    const Fq lambda = lambda_numerator / lambda_denominator;
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
     Fq x3 = lambda.sqradd({ -other._x, -_x });
@@ -273,11 +272,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::subtract_internal(const element& ot
     // If either input is a point at infinity, or if the result would be infinity (x₁ == x₂ and y₁ == y₂),
     // set lambda_denominator to 1 to prevent division by zero. The lambda value won't be used in these cases.
     // Defense in depth: also guard when doubling with y = 0 (denominator 2y would be zero).
-    const bool_ct y_is_zero = (dbl_lambda_denominator == Fq::zero());
-    const bool_ct double_with_zero_y = double_predicate && y_is_zero;
-    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate || double_with_zero_y;
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
     lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
-    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+
+    // Now compute lambda = numerator / denominator
+    // We enforce that the denominator is not zero (in division operator), so this division is safe.
+    const Fq lambda = lambda_numerator / lambda_denominator;
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
     Fq x3 = lambda.sqradd({ -other._x, -_x });
@@ -395,13 +395,10 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
     }
 
-    // If the input is a point at infinity or has y = 0, use a safe denominator (1) to prevent division by zero.
+    // If the input is a point at infinity, use a safe denominator (1) to prevent division by zero.
     // The result will be infinity anyway, so the computed coordinates don't matter.
-    // For valid on-curve points on bn254/secp256k1/r1, y = 0 cannot occur,
-    // but we guard in-circuit anyway.
     const Fq two_y = _y + _y;
-    const bool_ct y_is_zero = (two_y == Fq::zero());
-    Fq denominator = Fq::conditional_assign(is_infinity || y_is_zero, Fq(get_context(), 1), two_y);
+    Fq denominator = Fq::conditional_assign(is_infinity, Fq(get_context(), 1), two_y);
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
@@ -410,7 +407,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 
         // Compute neg_lambda = -λ = -(3x² + a) / (2y)
         // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
-        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, { a }, /*enable_divisor_nz_check*/ false);
+        // We enforce the denominator is not zero to protect against soundness issues.
+        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, { a }, /*enable_divisor_nz_check*/ true);
 
         // Compute x₃ = λ² - 2x
         // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
@@ -427,7 +425,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     // Curve equation when a = 0: y² = x³ + b
     // Compute neg_lambda = -λ = -3x² / (2y)
     // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
-    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, {}, /*enable_divisor_nz_check*/ false);
+    // We enforce the denominator is not zero to protect against soundness issues.
+    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, {}, /*enable_divisor_nz_check*/ true);
 
     // Compute x₃ = λ² - 2x
     // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
