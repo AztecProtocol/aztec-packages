@@ -1,0 +1,11 @@
+{
+  "transform": {
+    "^.+\\.tsx?$": ["@swc/jest"]
+  },
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "testRegex": "./test/.*\\.test\\.ts$",
+  "rootDir": "./test"
+}

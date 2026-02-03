@@ -1,0 +1,22 @@
+{{- if .Values.validatorKill.enabled }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-validator-kill
+  namespace: {{ default .Values.global.chaosMeshNamespace .Values.global.chaosResourceNamespace }}
+  labels:
+    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  action: pod-kill
+  mode: fixed-percent
+  value: {{ .Values.validatorKill.percent | quote }}
+  duration: {{ .Values.validatorKill.duration | quote }}
+  selector:
+    namespaces:
+      - {{ .Values.global.targetNamespace }}
+    labelSelectors:
+      app.kubernetes.io/component: sequencer-node
+{{- end }}

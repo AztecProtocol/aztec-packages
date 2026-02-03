@@ -1,0 +1,20 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
+pub contract AuthWitTest {
+    use dep::aztec::{
+        authwit::auth::{assert_inner_hash_valid_authwit, assert_inner_hash_valid_authwit_public},
+        macros::functions::external,
+        protocol::address::AztecAddress,
+    };
+
+    #[external("private")]
+    fn consume(on_behalf_of: AztecAddress, inner_hash: Field) {
+        assert_inner_hash_valid_authwit(self.context, on_behalf_of, inner_hash);
+    }
+
+    #[external("public")]
+    fn consume_public(on_behalf_of: AztecAddress, inner_hash: Field) {
+        assert_inner_hash_valid_authwit_public(self.context, on_behalf_of, inner_hash);
+    }
+}

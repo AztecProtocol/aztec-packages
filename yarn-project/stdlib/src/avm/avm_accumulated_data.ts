@@ -1,0 +1,316 @@
+import {
+  AVM_ACCUMULATED_DATA_LENGTH,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { schemas } from '@aztec/foundation/schemas';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  assertLength,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+
+import { inspect } from 'util';
+import { z } from 'zod';
+
+import { countAccumulatedItems } from '../kernel/utils/index.js';
+import { FlatPublicLogs } from '../logs/public_log.js';
+import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { PublicDataWrite } from './public_data_write.js';
+
+export class AvmAccumulatedData {
+  constructor(
+    /**
+     * The note hashes from private combining with those made in the AVM execution.
+     */
+    public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
+    /**
+     * The nullifiers from private combining with those made in the AVM execution.
+     */
+    public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
+    /**
+     * The L2 to L1 messages from private combining with those made in the AVM execution.
+     */
+    public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    /**
+     * The public logs emitted from the AVM execution.
+     */
+    public publicLogs: FlatPublicLogs,
+    /**
+     * The public data writes made in the AVM execution.
+     */
+    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: schemas.Fr.array().min(MAX_NOTE_HASHES_PER_TX).max(MAX_NOTE_HASHES_PER_TX),
+        nullifiers: schemas.Fr.array().min(MAX_NULLIFIERS_PER_TX).max(MAX_NULLIFIERS_PER_TX),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array().min(MAX_L2_TO_L1_MSGS_PER_TX).max(MAX_L2_TO_L1_MSGS_PER_TX),
+        publicLogs: FlatPublicLogs.schema,
+        publicDataWrites: PublicDataWrite.schema
+          .array()
+          .min(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+          .max(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites }) =>
+          new AvmAccumulatedData(
+            assertLength(noteHashes, MAX_NOTE_HASHES_PER_TX),
+            assertLength(nullifiers, MAX_NULLIFIERS_PER_TX),
+            assertLength(l2ToL1Msgs, MAX_L2_TO_L1_MSGS_PER_TX),
+            publicLogs,
+            assertLength(publicDataWrites, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+          ),
+      );
+  }
+
+  getSize() {
+    return (
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
+      this.publicLogs.toBuffer().length +
+      arraySerializedSizeOfNonEmpty(this.publicDataWrites)
+    );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new this(
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readObject(FlatPublicLogs),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+    );
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
+  }
+
+  static getFields(fields: FieldsOf<AvmAccumulatedData>) {
+    return [
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.publicLogs,
+      fields.publicDataWrites,
+    ] as const;
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new this(
+      reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
+      reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readObject(FlatPublicLogs),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+    );
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...AvmAccumulatedData.getFields(this));
+    if (fields.length !== AVM_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for AvmAccumulatedData. Expected ${AVM_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  static fromString(str: string) {
+    return this.fromBuffer(hexToBuffer(str));
+  }
+
+  toString() {
+    return bufferToHex(this.toBuffer());
+  }
+
+  static empty() {
+    return new this(
+      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
+      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
+      FlatPublicLogs.empty(),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
+    );
+  }
+
+  /**
+   * Creates an AvmAccumulatedData instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmAccumulatedData fields
+   * @returns An AvmAccumulatedData instance
+   */
+  static fromPlainObject(obj: any): AvmAccumulatedData {
+    return new AvmAccumulatedData(
+      assertLength(
+        obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      assertLength(
+        obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      assertLength(
+        obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      FlatPublicLogs.fromPlainObject(obj.publicLogs),
+      assertLength(
+        obj.publicDataWrites.map((w: any) => PublicDataWrite.fromPlainObject(w)),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
+    );
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.noteHashes.every(x => x.isZero()) &&
+      this.nullifiers.every(x => x.isZero()) &&
+      this.l2ToL1Msgs.every(x => x.isEmpty()) &&
+      this.publicLogs.isEmpty() &&
+      this.publicDataWrites.every(x => x.isEmpty())
+    );
+  }
+
+  [inspect.custom]() {
+    // print out the non-empty fields
+    return `AvmAccumulatedData {
+  noteHashes: [${this.noteHashes
+    .filter(x => !x.isZero())
+    .map(h => inspect(h))
+    .join(', ')}],
+  nullifiers: [${this.nullifiers
+    .filter(x => !x.isZero())
+    .map(h => inspect(h))
+    .join(', ')}],
+  l2ToL1Msgs: [${this.l2ToL1Msgs
+    .filter(x => !x.isEmpty())
+    .map(h => inspect(h))
+    .join(', ')}],
+  publicLogs: [${this.publicLogs
+    .toLogs()
+    .filter(x => !x.isEmpty())
+    .map(h => inspect(h))
+    .join(', ')}],
+  publicDataWrites: [${this.publicDataWrites
+    .filter(x => !x.isEmpty())
+    .map(h => inspect(h))
+    .join(', ')}],
+}`;
+  }
+
+  getArrayLengths() {
+    return new AvmAccumulatedDataArrayLengths(
+      countAccumulatedItems(this.noteHashes),
+      countAccumulatedItems(this.nullifiers),
+      countAccumulatedItems(this.l2ToL1Msgs),
+      countAccumulatedItems(this.publicDataWrites),
+    );
+  }
+}
+
+/**
+ * Represents the lengths of arrays in AVM accumulated data
+ */
+export class AvmAccumulatedDataArrayLengths {
+  constructor(
+    /**
+     * Number of note hashes
+     */
+    public noteHashes: number,
+    /**
+     * Number of nullifiers
+     */
+    public nullifiers: number,
+    /**
+     * Number of L2 to L1 messages
+     */
+    public l2ToL1Msgs: number,
+    /**
+     * Number of public data writes
+     */
+    public publicDataWrites: number,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: z.number(),
+        nullifiers: z.number(),
+        l2ToL1Msgs: z.number(),
+        publicDataWrites: z.number(),
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites }) =>
+          new AvmAccumulatedDataArrayLengths(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites),
+      );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new AvmAccumulatedDataArrayLengths(
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readNumber(),
+    );
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicDataWrites);
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new AvmAccumulatedDataArrayLengths(
+      Number(reader.readField()),
+      Number(reader.readField()),
+      Number(reader.readField()),
+      Number(reader.readField()),
+    );
+  }
+
+  toFields(): Fr[] {
+    return [new Fr(this.noteHashes), new Fr(this.nullifiers), new Fr(this.l2ToL1Msgs), new Fr(this.publicDataWrites)];
+  }
+
+  static empty() {
+    return new AvmAccumulatedDataArrayLengths(0, 0, 0, 0);
+  }
+
+  /**
+   * Creates an AvmAccumulatedDataArrayLengths instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmAccumulatedDataArrayLengths fields
+   * @returns An AvmAccumulatedDataArrayLengths instance
+   */
+  static fromPlainObject(obj: any): AvmAccumulatedDataArrayLengths {
+    return new AvmAccumulatedDataArrayLengths(obj.noteHashes, obj.nullifiers, obj.l2ToL1Msgs, obj.publicDataWrites);
+  }
+
+  [inspect.custom]() {
+    return `AvmAccumulatedDataArrayLengths {
+  noteHashes: ${this.noteHashes},
+  nullifiers: ${this.nullifiers},
+  l2ToL1Msgs: ${this.l2ToL1Msgs},
+  publicDataWrites: ${this.publicDataWrites},
+}`;
+  }
+}

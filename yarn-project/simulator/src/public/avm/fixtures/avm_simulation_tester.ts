@@ -1,0 +1,122 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { encodeArguments } from '@aztec/stdlib/abi';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables } from '@aztec/stdlib/tx';
+import { NativeWorldStateService } from '@aztec/world-state';
+
+import { SideEffectTrace } from '../../../public/side_effect_trace.js';
+import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
+import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
+import { AvmSimulator } from '../avm_simulator.js';
+import { CallDataArray } from '../calldata.js';
+import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
+import { initContext, initExecutionEnvironment } from './initializers.js';
+import {
+  DEFAULT_TIMESTAMP,
+  getContractFunctionAbi,
+  getFunctionSelector,
+  resolveContractAssertionMessage,
+} from './utils.js';
+
+const DEFAULT_GAS_FEES = new GasFees(2, 3);
+
+/**
+ * A test class that extends the BaseAvmSimulationTester to enable real-app testing of the core AvmSimulator.
+ * It provides an interface for simulating one top-level call at a time and maintains state between
+ * subsequent top-level calls.
+ */
+export class AvmSimulationTester extends BaseAvmSimulationTester {
+  constructor(
+    contractDataSource: SimpleContractDataSource,
+    merkleTrees: MerkleTreeWriteOperations,
+    private stateManager: PublicPersistableStateManager,
+  ) {
+    super(contractDataSource, merkleTrees);
+  }
+
+  static async create(
+    worldStateService: NativeWorldStateService, // make sure to close this later
+  ): Promise<AvmSimulationTester> {
+    const contractDataSource = new SimpleContractDataSource();
+    const merkleTrees = await worldStateService.fork();
+    const treesDB = new PublicTreesDB(merkleTrees);
+    const contractsDB = new PublicContractsDB(contractDataSource);
+    const trace = new SideEffectTrace();
+    const firstNullifier = new Fr(420000);
+
+    const stateManager = PublicPersistableStateManager.create(
+      treesDB,
+      contractsDB,
+      trace,
+      firstNullifier,
+      DEFAULT_TIMESTAMP,
+    );
+    return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
+  }
+
+  /**
+   * Simulate a top-level contract call.
+   */
+  async simulateCall(
+    sender: AztecAddress,
+    address: AztecAddress,
+    fnName: string,
+    args: any[],
+    isStaticCall = false,
+  ): Promise<AvmContractCallResult> {
+    const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+    if (!contractArtifact) {
+      throw new Error(`Contract not found at address: ${address}`);
+    }
+    const fnSelector = await getFunctionSelector(fnName, contractArtifact);
+    const fnAbi = getContractFunctionAbi(fnName, contractArtifact);
+    const encodedArgs = encodeArguments(fnAbi!, args);
+    const calldata = [fnSelector.toField(), ...encodedArgs];
+
+    const globals = GlobalVariables.empty();
+    globals.timestamp = DEFAULT_TIMESTAMP;
+    globals.gasFees = DEFAULT_GAS_FEES;
+
+    const config = PublicSimulatorConfig.from({
+      skipFeeEnforcement: false,
+      collectDebugLogs: true,
+      collectHints: false,
+      collectStatistics: false,
+      collectCallMetadata: true,
+    });
+    const environment = initExecutionEnvironment({
+      calldata: new CallDataArray(calldata),
+      globals,
+      address,
+      sender,
+      isStaticCall,
+      config,
+    });
+    const persistableState = await this.stateManager.fork();
+    const context = initContext({ env: environment, persistableState });
+
+    // First we simulate (though it's not needed in this simple case).
+    const simulator = new AvmSimulator(context);
+    const result = await simulator.execute();
+    if (result.reverted) {
+      this.logger.error(`Error in ${fnName}:`);
+      this.logger.error(
+        resolveContractAssertionMessage(
+          fnName,
+          result.revertReason!,
+          result.output.bestEffortReadAll(),
+          contractArtifact,
+        )!,
+      );
+    } else {
+      this.logger.info(`Simulation of function ${fnName} succeeded!`);
+      await this.stateManager.merge(persistableState);
+    }
+    return result;
+  }
+}

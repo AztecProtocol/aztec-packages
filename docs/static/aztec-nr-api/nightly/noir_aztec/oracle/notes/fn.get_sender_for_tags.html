@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function get_sender_for_tags documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">get_sender_for_tags</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module notes</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.get_next_app_tag_as_sender.html">get_next_app_tag_as_sender</a></div></li>
+<li><a href="fn.get_notes.html">get_notes</a></div></li>
+<li><a href="fn.get_sender_for_tags.html">get_sender_for_tags</a></div></li>
+<li><a href="fn.notify_created_note.html">notify_created_note</a></div></li>
+<li><a href="fn.notify_nullified_note.html">notify_nullified_note</a></div></li>
+<li><a href="fn.set_sender_for_tags.html">set_sender_for_tags</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">notes</a></div>
+<h1>Function <span class="fn">get_sender_for_tags</span></h1>
+<pre><code>pub unconstrained fn get_sender_for_tags() -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code></pre>
+
+<div class="comments">
+<p>Gets the sender for tags.</p>
+<p>This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+sender, and hence about the shared secret.</p>
+<p>The value persists through nested calls, meaning all calls down the stack will use the same 'senderForTags' value
+(unless it is replaced).</p>
+</div>
+</main>
+</span>
+</body>
+</html>

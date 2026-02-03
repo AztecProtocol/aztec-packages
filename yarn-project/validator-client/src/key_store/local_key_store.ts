@@ -1,0 +1,105 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
+import type { SigningContext } from '@aztec/validator-ha-signer/types';
+
+import { type TypedDataDefinition, hashTypedData } from 'viem';
+
+import type { ValidatorKeyStore } from './interface.js';
+
+/**
+ * Local Key Store
+ *
+ * An implementation of the Key store using in memory private keys.
+ */
+export class LocalKeyStore implements ValidatorKeyStore {
+  private signers: Secp256k1Signer[];
+  private signersByAddress: Map<`0x${string}`, Secp256k1Signer>;
+
+  constructor(privateKeys: Buffer32[]) {
+    this.signers = privateKeys.map(privateKey => new Secp256k1Signer(privateKey));
+    this.signersByAddress = new Map(this.signers.map(signer => [signer.address.toString(), signer]));
+  }
+
+  /**
+   * Get the address of a signer by index
+   *
+   * @param index - The index of the signer
+   * @returns the address
+   */
+  public getAddress(index: number): EthAddress {
+    if (index >= this.signers.length) {
+      throw new Error(`Index ${index} is out of bounds.`);
+    }
+    return this.signers[index].address;
+  }
+
+  /**
+   * Get the addresses of all signers
+   *
+   * @returns the addresses
+   */
+  public getAddresses(): EthAddress[] {
+    return this.signers.map(signer => signer.address);
+  }
+
+  /**
+   * Sign a message with all keystore private keys
+   * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
+   * @return signature
+   */
+  public signTypedData(typedData: TypedDataDefinition, _context: SigningContext): Promise<Signature[]> {
+    const digest = hashTypedData(typedData);
+    return Promise.all(this.signers.map(signer => signer.sign(Buffer32.fromString(digest))));
+  }
+
+  /**
+   * Sign a message with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
+   * @returns signature for the specified address
+   * @throws Error if the address is not found in the keystore
+   */
+  public signTypedDataWithAddress(
+    address: EthAddress,
+    typedData: TypedDataDefinition,
+    _context: SigningContext,
+  ): Promise<Signature> {
+    const signer = this.signersByAddress.get(address.toString());
+    if (!signer) {
+      throw new Error(`No signer found for address ${address.toString()}`);
+    }
+    const digest = hashTypedData(typedData);
+    return Promise.resolve(signer.sign(Buffer32.fromString(digest)));
+  }
+
+  /**
+   * Sign a message using eth_sign with all keystore private keys
+   *
+   * @param message - The message to sign
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
+   * @return signatures
+   */
+  public signMessage(message: Buffer32, _context: SigningContext): Promise<Signature[]> {
+    return Promise.all(this.signers.map(signer => signer.signMessage(message)));
+  }
+
+  /**
+   * Sign a message using eth_sign with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param message - The message to sign
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
+   * @returns signature for the specified address
+   * @throws Error if the address is not found in the keystore
+   */
+  public signMessageWithAddress(address: EthAddress, message: Buffer32, _context: SigningContext): Promise<Signature> {
+    const signer = this.signersByAddress.get(address.toString());
+    if (!signer) {
+      throw new Error(`No signer found for address ${address.toString()}`);
+    }
+    return Promise.resolve(signer.signMessage(message));
+  }
+}

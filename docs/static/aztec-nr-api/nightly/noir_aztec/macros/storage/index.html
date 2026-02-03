@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Module storage documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">storage</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module storage</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#functions">Functions</a></li>
+<li><a href="#globals">Globals</a></li>
+</ul>
+<h2>In module macros</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../authorization/index.html">authorization</a></div></li>
+<li><a href="../aztec/index.html">aztec</a></div></li>
+<li><a href="../dispatch/index.html">dispatch</a></div></li>
+<li><a href="../events/index.html">events</a></div></li>
+<li><a href="../functions/index.html">functions</a></div></li>
+<li><a href="../internals_functions_generation/index.html">internals_functions_generation</a></div></li>
+<li><a href="../notes/index.html">notes</a></div></li>
+<li><a href="../storage/index.html">storage</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::storage</div>
+<h1>Module <span id="mod" class="module">storage</span></h1>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.storage.html" class="fn">storage</a></div><div class="item-description">This function</p>
+<ul>
+<li>marks the contract as having storage, so that <code>macros::utils::module_has_storage</code> will return true,</li>
+<li>marks the struct <code>s</code> as the one describing the storage layout of a contract,</li>
+<li>generates an <code>impl</code> block for the storage struct with an <code>init</code> function (call to <code>init</code> is then injected at the
+beginning of every <code>#[external(...)]</code> and <code>#[internal]</code> contract function and the storage is then available as
+<code>self.storage</code>),</li>
+<li>creates a <code>StorageLayout</code> struct that is is exposed via the <code>abi(storage)</code> macro in the contract artifact.</li>
+</ul></div></li>
+<li><div class="item-name"><a href="fn.storage_no_init.html" class="fn">storage_no_init</a></div><div class="item-description">Same as <code>storage</code>, except the user is in charge of providing an implementation of the <code>init</code> constructor function
+with signature <code>fn init&lt;Context&gt;(context: Context) -&gt; Self</code>, which allows for manual control of storage slot
+allocation. Similarly, no <code>StorageLayout</code> struct will be created.</div></li>
+</ul>
+<h2 id="globals">Globals</h2><ul class="item-list">
+<li><div class="item-name"><a href="global.STORAGE_LAYOUT_NAME.html" class="global">STORAGE_LAYOUT_NAME</a></div><div class="item-description">Stores a map from a module to the name of the struct that describes its storage layout. This is then used when
+generating a <code>storage_layout()</code> getter on the contract struct.</div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

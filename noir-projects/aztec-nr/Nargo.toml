@@ -1,0 +1,9 @@
+[workspace]
+members = [
+  "address-note",
+  "aztec",
+  "balance-set",
+  "compressed-string",
+  "field-note",
+  "uint-note",
+]

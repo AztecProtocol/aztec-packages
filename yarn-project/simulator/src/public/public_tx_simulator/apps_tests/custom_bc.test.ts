@@ -1,0 +1,116 @@
+import {
+  addressingWithBaseTagIssueTest,
+  addressingWithIndirectTagIssueTest,
+  addressingWithIndirectThenRelativeTagIssueTest,
+  addressingWithRelativeOverflowAndIndirectTagIssueTest,
+} from '@aztec/simulator/public/fixtures';
+import { NativeWorldStateService } from '@aztec/world-state/native';
+
+import {
+  instructionTruncatedTest,
+  invalidByteTest,
+  invalidOpcodeTest,
+  invalidTagValueAndInstructionTruncatedTest,
+  invalidTagValueTest,
+  pcOutOfRangeTest,
+} from '../../fixtures/custom_bytecode_tests.js';
+import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
+
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: custom bytecodes unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+  let worldStateService: NativeWorldStateService;
+  let tester: PublicTxSimulationTester;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
+    );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
+  it('Base address uninitialized indirect relative', async () => {
+    const result = await addressingWithBaseTagIssueTest(/*isIndirect=*/ true, tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Base address uninitialized direct relative', async () => {
+    const result = await addressingWithBaseTagIssueTest(/*isIndirect=*/ false, tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect address with invalid tag', async () => {
+    const result = await addressingWithIndirectTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect addressing succeeds, then relative addressing fails due to wrong base tag', async () => {
+    const result = await addressingWithIndirectThenRelativeTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect relative addressing overflows, then indirect addressing fails', async () => {
+    const result = await addressingWithRelativeOverflowAndIndirectTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+});
+
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: bytecode flow unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+  let worldStateService: NativeWorldStateService;
+  let tester: PublicTxSimulationTester;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
+    );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
+  it('PC out of range', async () => {
+    const result = await pcOutOfRangeTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Invalid opcode', async () => {
+    const result = await invalidOpcodeTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Invalid byte', async () => {
+    const result = await invalidByteTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Instruction truncated', async () => {
+    const result = await instructionTruncatedTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Invalid tag value', async () => {
+    const result = await invalidTagValueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Invalid tag value and instruction truncated', async () => {
+    const result = await invalidTagValueAndInstructionTruncatedTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+});

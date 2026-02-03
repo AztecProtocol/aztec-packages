@@ -1,0 +1,317 @@
+import type { Tuple } from '../serialize/types.js';
+
+/**
+ * Pads an array to the target length by appending an element to its end. Throws if target length exceeds the input array length. Does not modify the input array.
+ * @param arr - Array with elements to pad.
+ * @param elem - Element to use for padding.
+ * @param length - Target length.
+ * @param errorMsg - Error message to throw if target length exceeds the input array length.
+ * @returns A new padded array.
+ */
+export function padArrayEnd<T, N extends number>(
+  arr: T[],
+  elem: T,
+  length: N,
+  errorMsg = 'Array size exceeds target length',
+): Tuple<T, N> {
+  if (arr.length > length) {
+    throw new Error(errorMsg);
+  }
+  // Since typescript cannot always deduce that something is a tuple, we cast
+  return [...arr, ...Array(length - arr.length).fill(elem)] as Tuple<T, N>;
+}
+
+/** Removes the right-padding for an array. Does not modify original array. */
+export function removeArrayPaddingEnd<T>(arr: T[], isEmpty: (item: T) => boolean): T[] {
+  const lastNonEmptyIndex = arr.reduce((last, item, i) => (isEmpty(item) ? last : i), -1);
+  return lastNonEmptyIndex === -1 ? [] : arr.slice(0, lastNonEmptyIndex + 1);
+}
+
+/**
+ * Pads an array to the target length by prepending elements at the beginning. Throws if target length exceeds the input array length. Does not modify the input array.
+ * @param arr - Array with elements to pad.
+ * @param elem - Element to use for padding.
+ * @param length - Target length.
+ * @returns A new padded array.
+ */
+export function padArrayStart<T, N extends number>(arr: T[], elem: T, length: N): Tuple<T, N> {
+  if (arr.length > length) {
+    throw new Error(`Array size exceeds target length`);
+  }
+  // Since typescript cannot always deduce that something is a tuple, we cast
+  return [...Array(length - arr.length).fill(elem), ...arr] as Tuple<T, N>;
+}
+
+/**
+ * Returns if an array is composed of empty items.
+ * @param arr - Array to check.
+ * @returns True if every item in the array isEmpty.
+ */
+export function isArrayEmpty<T>(arr: T[], isEmpty: (item: T) => boolean): boolean {
+  for (const item of arr) {
+    if (!isEmpty(item)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Returns the number of non-empty items in an array.
+ * @param arr - Array to check.
+ * @returns Number of non-empty items in an array.
+ */
+export function arrayNonEmptyLength<T>(arr: T[], isEmpty: (item: T) => boolean): number {
+  return arr.reduce((sum, item) => (isEmpty(item) ? sum : sum + 1), 0);
+}
+
+/**
+ * Executes the given function n times and returns the results in an array.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export function times<T>(n: number, fn: (i: number) => T): T[] {
+  return [...Array(n).keys()].map(i => fn(i));
+}
+
+/**
+ * Executes the given async function n times and returns the results in an array. Awaits each execution before starting the next one.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export async function timesAsync<T>(n: number, fn: (i: number) => Promise<T>): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < n; i++) {
+    results.push(await fn(i));
+  }
+  return results;
+}
+
+/**
+ * Filters an array with an async predicate. Fires all predicate promises in parallel.
+ * @param arr - The array to filter.
+ * @param fn - The async function to determine if an item should be included.
+ * @returns A promise that resolves to the filtered array.
+ */
+export async function filterAsync<T>(arr: T[], fn: (item: T) => Promise<boolean>): Promise<T[]> {
+  const results = await Promise.all(arr.map(fn));
+  return arr.filter((_, i) => results[i]);
+}
+
+/**
+ * Executes the given async function n times in parallel and returns the results in an array.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export async function timesParallel<T>(n: number, fn: (i: number) => Promise<T>): Promise<T[]> {
+  const results: T[] = await Promise.all(
+    Array(n)
+      .fill(0)
+      .map((_, i) => fn(i)),
+  );
+  return results;
+}
+
+/**
+ * Returns the serialized size of all non-empty items in an array.
+ * @param arr - Array
+ * @returns The serialized size in bytes.
+ */
+export function arraySerializedSizeOfNonEmpty(
+  arr: (({ isZero: () => boolean } | { isEmpty: () => boolean }) & { toBuffer: () => Buffer })[],
+) {
+  return arr
+    .filter(x => x && ('isZero' in x ? !x.isZero() : !x.isEmpty()))
+    .map(x => x!.toBuffer().length)
+    .reduce((a, b) => a + b, 0);
+}
+
+/**
+ * Removes duplicates from the given array.
+ * @param arr - The array.
+ * @returns A new array.
+ */
+export function unique<T>(arr: T[]): T[] {
+  return [...new Set(arr)];
+}
+
+/**
+ * Removes all undefined elements from the array.
+ * @param arr - The array.
+ * @returns A new array.
+ */
+export function compactArray<T>(arr: (T | undefined)[]): T[] {
+  return arr.filter((x: T | undefined): x is T => x !== undefined);
+}
+
+/**
+ * Returns whether two arrays are equal. The arrays are equal if they have the same length and all elements are equal.
+ */
+export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = (a: T, b: T) => a === b): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (!eq(a[i], b[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Returns the element of the array that has the maximum value of the given function.
+ * In case of a tie, returns the first element with the maximum value.
+ * @param arr - The array.
+ * @param fn - The function to get the value to compare.
+ */
+export function maxBy<T>(arr: T[], fn: (x: T) => number | bigint): T | undefined {
+  return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
+}
+
+/** Computes the sum of a numeric array. */
+export function sum(arr: number[]): number {
+  return arr.reduce((a, b) => a + b, 0);
+}
+
+/** Computes the median of a numeric array. Returns undefined if array is empty. */
+export function median(arr: number[]): number | undefined;
+/** Computes the median of a bigint array. Returns undefined if array is empty. */
+export function median(arr: bigint[]): bigint | undefined;
+export function median(arr: number[] | bigint[]): number | bigint | undefined {
+  if (arr.length === 0) {
+    return undefined;
+  }
+
+  // Handle number array
+  if (typeof arr[0] === 'number') {
+    const sorted = [...(arr as number[])].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  // Handle bigint array
+  const sorted = [...(arr as bigint[])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2n;
+}
+
+/** Computes the mean of a numeric array. Returns undefined if the array is empty. */
+export function mean(values: number[]) {
+  if (values.length === 0) {
+    return undefined;
+  }
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+/** Computes the variance of a numeric array. Returns undefined if there are less than 2 points. */
+export function variance(values: number[]) {
+  if (values.length < 2) {
+    return undefined;
+  }
+  const avg = mean(values)!;
+  const points = values.map(value => value * value + avg * avg - 2 * value * avg);
+  return sum(points) / (values.length - 1);
+}
+
+/** Computes the standard deviation of a numeric array. Returns undefined if there are less than 2 points. */
+export function stdDev(values: number[]) {
+  if (values.length < 2) {
+    return undefined;
+  }
+  return Math.sqrt(variance(values)!);
+}
+
+/** Counts how many items from the beginning of the array match the given predicate. */
+export function countWhile<T>(collection: T[], predicate: (x: T) => boolean): number {
+  let count = 0;
+  for (const item of collection) {
+    if (predicate(item)) {
+      count++;
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+
+/** Splits the given iterable into chunks of the given size. Last chunk may be of smaller than the requested size. */
+export function chunk<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) {
+    throw new Error('Chunk size must be greater than 0');
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Splits the given array into chunks of the given size, wrapping around to the beginning
+ * if the last chunk would be smaller than the requested size.
+ * Returns empty array for empty input. Returns single chunk with all items if chunkSize <= 0.
+ */
+export function chunkWrapAround<T>(items: T[], chunkSize: number): T[][] {
+  if (items.length === 0) {
+    return [];
+  }
+  if (chunkSize <= 0 || items.length <= chunkSize) {
+    return [items];
+  }
+  const remainder = items.length % chunkSize;
+  if (remainder === 0) {
+    return chunk(items, chunkSize);
+  }
+  const wrapAroundCount = chunkSize - remainder;
+  const wrappedItems = [...items, ...items.slice(0, wrapAroundCount)];
+  return chunk(wrappedItems, chunkSize);
+}
+
+const UNINITIALIZED = Symbol('uninitialized');
+
+/**
+ * Splits the given iterable into chunks based on the key returned by the given function.
+ * Items must be contiguous to be included in the same chunk.
+ */
+export function chunkBy<T, U>(items: T[], fn: (item: T) => U): T[][] {
+  const chunks: T[][] = [];
+  let currentChunk: T[] = [];
+  let currentKey: U | typeof UNINITIALIZED = UNINITIALIZED;
+
+  for (const item of items) {
+    const key = fn(item);
+    if (currentKey === UNINITIALIZED || key !== currentKey) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+      currentChunk = [item];
+      currentKey = key;
+    } else {
+      currentChunk.push(item);
+    }
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks;
+}
+
+/** Partitions the given iterable into two arrays based on the predicate. */
+export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
+  const pass: T[] = [];
+  const fail: T[] = [];
+  for (const item of items) {
+    if (predicate(item)) {
+      pass.push(item);
+    } else {
+      fail.push(item);
+    }
+  }
+  return [pass, fail];
+}

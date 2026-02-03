@@ -1,0 +1,118 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "address": "${config:mainframeAddress}",
+      "port": 9221,
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Remote",
+      "skipFiles": ["<node_internals>/**"],
+      "localRoot": "${workspaceFolder}",
+      "sourceMaps": true
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach",
+      "port": 9229
+    },
+    {
+      "name": "Debug Current CMake Target",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug chonk using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
+      "name": "Debug chonk transaction",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "args": ["prove", "--scheme", "chonk", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
+      "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug acir test
+      "name": "Debug acir test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast/bin/bb",
+      "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "./target/program.json", "--write_vk"],
+      // Can replace with any directory containing target/program.json and target/witness.gz
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/embedded_curve_ops",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug test_graph_for_arithmetic_gates",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/boomerang_value_detection_tests",
+      "args": ["--gtest_filter=BoomerangGoblinRecursiveVerifierTests.graph_description_basic"],
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB API Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
+      "args": ["--gtest_filter=ChonkAPITests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB Chonk Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/chonk_tests",
+      "args": ["--gtest_filter=ChonkTests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB DSL Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/dsl_tests",
+      "args": ["--gtest_filter=IvcRecursionConstraintTest.AccumulateTwo"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug bb write_vk for a contract function
+      // Modify the "Extract contract bytecode" task in tasks.json to change the contract/function
+      "name": "Debug BB write_vk contract",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "args": ["write_vk", "--scheme", "chonk", "-b", "./target/bytecode.bin", "-o", "./target/vk_output", "-v"],
+      "cwd": "${workspaceFolder}/noir-projects/noir-contracts",
+      "preLaunchTask": "Extract contract bytecode",
+      "postDebugTask": "Cleanup contract bytecode",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    }
+  ]
+}

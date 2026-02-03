@@ -1,0 +1,23 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`hash Var args hash matches noir 1`] = `Fr<0x2bc7f722916213294a1a4a53cec9e9ee78e2124797ad129658ebd1b00df820d5>`;
+
+exports[`hash compute secret message hash 1`] = `Fr<0x289f1197a68897bf44de737aca041f2edfc34404e4a9ed6bf5e9bed6f7942ada>`;
+
+exports[`hash computes note hash nonce 1`] = `Fr<0x14a74c3ffd3ce6f83b935e7e5f0a001a28df16774d208a8d9a2a19904f6bc923>`;
+
+exports[`hash computes public data tree leaf slot 1`] = `Fr<0x2abc46277128b24d59797367997ef60717bbd9ab2c32e7975f84daedd5111eea>`;
+
+exports[`hash computes public data tree value 1`] = `Fr<0x0000000000000000000000000000000000000000000000000000000000000003>`;
+
+exports[`hash computes siloed note hash 1`] = `Fr<0x24c929946ff04ac055ad92c3007f2e2865d54b8b738728a95405295506eabb64>`;
+
+exports[`hash computes siloed nullifier 1`] = `Fr<0x01438daee7b451550624e494a5e031936f8992f20997330ea6cfc51e785fd266>`;
+
+exports[`hash computes unique note hash 1`] = `Fr<0x1b5fb14f4b648cb437768ce6038b412e7e1c97b78e9975ce23ddf488b810326c>`;
+
+exports[`hash hashes empty function args 1`] = `Fr<0x0000000000000000000000000000000000000000000000000000000000000000>`;
+
+exports[`hash hashes function args 1`] = `Fr<0x236f42042a9dd14d7417687b89279e845b96257f8122b910e5001480573a5ee3>`;
+
+exports[`hash hashes many function args 1`] = `Fr<0x0675b1a85d42647233a3df9be6bbbfae1984f23fdf9d0b8fef53208b79b3e888>`;

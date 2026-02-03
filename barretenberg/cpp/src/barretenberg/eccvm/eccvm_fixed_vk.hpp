@@ -1,0 +1,51 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+
+#include "barretenberg/common/std_array.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+
+namespace bb {
+
+/**
+ * @brief Stores the fixed ECCVM VK commitments (to precomputed polynomials) that depend only on the circuit size
+ * constant ECCVM_FIXED_SIZE.
+ * @details If the constant ECCVM_FIXED_SIZE changes, these commitments and VK_HASH must be updated accordingly.
+ * Their values can be obtained from the test ECCVMTests::FixedVK.
+ *
+ */
+class ECCVMHardcodedVKAndHash {
+  public:
+    using Commitment = curve::Grumpkin::AffineElement;
+    // BF = Grumpkin base field = BN254 scalar field (fr) - this is what the VK hash uses
+    using BF = curve::Grumpkin::BaseField;
+
+    // Precomputed VK hash (hash of all commitments below). Update via ECCVMTests::FixedVK if commitments change.
+    static BF vk_hash() { return BF(uint256_t("0x129bcf94e91edaa6c74121e0d9c44154e87c332e5deef9d6d60c54bdd1186c6c")); }
+
+    static constexpr std::vector<Commitment> get_all()
+    {
+        return { // lagrange_first
+                 Commitment(uint256_t("0x1b38d3ca76ed177424415672027d98459a875ed1aa43bb969ecffd9e4428c0d1"),
+                            uint256_t("0x1ee6866622f6e654361830d9f545e0943d26876e03aafa0c4cc6772d1c277d46")),
+
+                 // lagrange_second (hiding op row)
+                 Commitment(uint256_t("0x28cc5109376bdec7cdea99ea99cd0b14151f735ed8cd1687f5154cafc5718900"),
+                            uint256_t("0x13df90d6be58ebcfb1b767db72f4c3fe3b98afd7a0094d69cdea854128819bc9")),
+
+                 // lagrange_third (first real op row, after hiding op row)
+                 Commitment(uint256_t("0x08dc1a9a11a3c8dbc14b6a2e4f796a73eb08934ed806781c68df84429941826a"),
+                            uint256_t("0x26f2c37372adb5b781a94193f3b1ce2be85f20c504f2c11b8ae5c31aa997f141")),
+
+                 // lagrange_last
+                 Commitment(uint256_t("0x250f60e47845ded40a7821ccd614187f99e12df72b578d1ff222a61c62f0ace9"),
+                            uint256_t("0x0957036d9fbae4aff11fd9a76828a3292a3e58d30e9a93fe2bbfb2525d522a14"))
+        };
+    }
+};
+
+} // namespace bb

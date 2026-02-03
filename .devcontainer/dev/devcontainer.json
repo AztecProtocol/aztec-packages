@@ -1,0 +1,10 @@
+{
+  "name": "Development",
+  "image": "aztecprotocol/devbox:3.0",
+  "features": {
+    // Use custom fork with noble added to list of supported distros.
+    "./docker-in-docker": {}
+  },
+  "containerUser": "aztec-dev",
+  "mounts": ["source=devbox-home,target=/home/aztec-dev,type=volume"]
+}

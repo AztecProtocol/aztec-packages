@@ -1,0 +1,7 @@
+add_subdirectory(blake2s)
+add_subdirectory(blake3s)
+add_subdirectory(sha256)
+add_subdirectory(keccak)
+add_subdirectory(poseidon2)
+add_subdirectory(pfuzzer)
+add_subdirectory(hash_utils)

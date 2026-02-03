@@ -1,0 +1,19 @@
+networkShaping:
+  enabled: true
+  conditions:
+    latency:
+      enabled: true
+      delay:
+        latency: 100ms
+        jitter: 20ms
+        correlation: "75"
+    bandwidth:
+      enabled: true
+      rate: 25mbps
+    packetLoss:
+      enabled: true
+      loss:
+        loss: "0.5"
+        correlation: "60"
+    isolatePeers:
+      enabled: true

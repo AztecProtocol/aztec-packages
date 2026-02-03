@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Run locally from end-to-end folder while running anvil and local network with:
+# PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
+set -eux
+
+export WALLET_DATA_DIRECTORY=$(mktemp -d)/up_quick_start
+export PXE_PROVER="none"
+
+function on_exit {
+  echo "Cleaning up $WALLET_DATA_DIRECTORY..."
+  rm -rf $WALLET_DATA_DIRECTORY
+}
+trap on_exit EXIT
+
+aztec-wallet() {
+  node --no-warnings ../cli-wallet/dest/bin/index.js "$@"
+}
+
+aztec-wallet import-test-accounts
+
+# docs:start:declare-accounts
+aztec-wallet create-account -a alice -f test0
+aztec-wallet create-account -a bob -f test0
+# docs:end:declare-accounts
+
+DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)
+TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
+echo "Deployed contract at $TOKEN_ADDRESS"
+
+MINT_AMOUNT=69
+aztec-wallet send mint_to_private -ca last --args accounts:alice $MINT_AMOUNT -f test0
+
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q $MINT_AMOUNT; then
+  echo "Incorrect Alice balance after transaction (expected $MINT_AMOUNT but got $ALICE_BALANCE)"
+  exit 1
+fi
+
+TRANSFER_AMOUNT=42
+
+aztec-wallet create-authwit transfer_in_private accounts:test0 -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -f alice
+
+aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -aw authwits:last -f test0
+
+# Test end result
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q "$(($MINT_AMOUNT - $TRANSFER_AMOUNT))"; then
+  echo "Incorrect Alice balance after transaction (expected 27 but got $ALICE_BALANCE)"
+  exit 1
+fi
+
+BOB_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:bob -f bob)
+if ! echo $BOB_BALANCE | grep -q $TRANSFER_AMOUNT; then
+  echo "Incorrect Bob balance after transaction (expected $TRANSFER_AMOUNT but got $BOB_BALANCE)"
+  exit 1
+fi

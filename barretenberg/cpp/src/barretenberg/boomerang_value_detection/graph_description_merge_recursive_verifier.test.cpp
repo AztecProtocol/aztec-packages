@@ -1,0 +1,162 @@
+#include "barretenberg/boomerang_value_detection/graph.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+
+using namespace cdg;
+
+namespace bb::stdlib::recursion::goblin {
+
+/**
+ * @brief Test suite for recursive verification of Goblin Merge proofs
+ * @details The recursive verification circuit is arithmetized using Goblin-style Ultra arithmetization
+ * (MegaCircuitBuilder).
+ *
+ * @tparam Builder
+ */
+template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : public testing::Test {
+
+    // Types for recursive verifier circuit
+    using RecursiveMergeVerifier = MergeRecursiveVerifier<RecursiveBuilder>;
+    using RecursiveTableCommitments = MergeRecursiveVerifier<RecursiveBuilder>::TableCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier<RecursiveBuilder>::InputCommitments;
+
+    // Define types relevant for inner circuit
+    using InnerFlavor = MegaFlavor;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+
+    // Define additional types for testing purposes
+    using Commitment = InnerFlavor::Commitment;
+    using FF = InnerFlavor::FF;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    using MergeProof = MergeProver::MergeProof;
+    using TableCommitments = MergeVerifier::TableCommitments;
+    using MergeCommitments = MergeVerifier::InputCommitments;
+
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static void analyze_circuit(RecursiveBuilder& outer_circuit)
+    {
+        // AUDITTODO: The 8 under-constrained variables are the _is_infinity boolean flags from the 8
+        // commitments created via goblin_element::from_witness (4 t_commitments + 4 T_prev_commitments).
+        // Each boolean is only constrained by a single bool gate (x * (x - 1) = 0) and is not
+        // connected to the point coordinates. This may be a security issue if the infinity flag is not
+        // properly bound to the coordinates via Fiat-Shamir - a malicious prover could potentially
+        // set the flag independently of the actual point value.
+        constexpr size_t EXPECTED_UNCONSTRAINED_INFINITY_FLAGS = 8;
+
+        if constexpr (IsMegaBuilder<RecursiveBuilder>) {
+            MegaStaticAnalyzer tool = MegaStaticAnalyzer(outer_circuit);
+            auto result = tool.analyze_circuit();
+            EXPECT_EQ(result.first.size(), 1);
+            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
+        }
+        if constexpr (IsUltraBuilder<RecursiveBuilder>) {
+            StaticAnalyzer tool = StaticAnalyzer(outer_circuit);
+            auto result = tool.analyze_circuit();
+            EXPECT_EQ(result.first.size(), 1);
+            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
+        }
+    }
+
+    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                       const MergeSettings settings = MergeSettings::PREPEND,
+                                       const bool run_analyzer = false)
+
+    {
+        RecursiveBuilder outer_circuit;
+
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        auto merge_proof = merge_prover.construct_proof();
+
+        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        MergeCommitments merge_commitments;
+        RecursiveMergeCommitments recursive_merge_commitments;
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+        for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
+            merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
+            recursive_merge_commitments.t_commitments[idx] =
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, merge_commitments.t_commitments[idx]);
+            recursive_merge_commitments.T_prev_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
+                &outer_circuit, merge_commitments.T_prev_commitments[idx]);
+            // Removing the free witness tag, since the merge commitments in the full scheme are supposed to
+            // be fiat-shamirred earlier
+            recursive_merge_commitments.t_commitments[idx].unset_free_witness_tag();
+            recursive_merge_commitments.T_prev_commitments[idx].unset_free_witness_tag();
+        }
+
+        // Create a recursive merge verification circuit for the merge proof
+        auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
+        RecursiveMergeVerifier verifier{ settings, merge_transcript };
+        const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
+        [[maybe_unused]] auto [pairing_points, merged_commitments, reduction_succeeded] =
+            verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_FALSE(outer_circuit.failed());
+        if (run_analyzer) {
+            analyze_circuit(outer_circuit);
+        }
+    }
+
+    static void test_recursive_merge_verification_prepend()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+
+        InnerBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+        prove_and_verify_merge(op_queue);
+
+        InnerBuilder circuit2{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit2);
+        prove_and_verify_merge(op_queue);
+
+        InnerBuilder circuit3{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit3);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, true);
+    }
+
+    static void test_recursive_merge_verification_append()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+
+        InnerBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+        prove_and_verify_merge(op_queue);
+
+        InnerBuilder circuit2{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit2);
+        prove_and_verify_merge(op_queue);
+
+        InnerBuilder circuit3{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit3);
+        prove_and_verify_merge(op_queue, MergeSettings::APPEND, true);
+    }
+};
+
+using Builder = testing::Types<MegaCircuitBuilder>;
+
+TYPED_TEST_SUITE(BoomerangRecursiveMergeVerifierTest, Builder);
+
+TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationPrepend)
+{
+    TestFixture::test_recursive_merge_verification_prepend();
+};
+
+TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationAppend)
+{
+    TestFixture::test_recursive_merge_verification_append();
+};
+
+} // namespace bb::stdlib::recursion::goblin

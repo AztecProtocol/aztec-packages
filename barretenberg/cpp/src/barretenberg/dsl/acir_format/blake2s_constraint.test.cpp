@@ -1,0 +1,149 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#include "blake2s_constraint.hpp"
+#include "acir_format.hpp"
+#include "barretenberg/crypto/blake2s/blake2s.hpp"
+#include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
+
+#include <gtest/gtest.h>
+#include <vector>
+
+using namespace bb;
+using namespace acir_format;
+
+template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions {
+  public:
+    using Builder = BuilderType;
+    using AcirConstraint = Blake2sConstraint;
+    using FF = Builder::FF;
+
+    struct InvalidWitness {
+      public:
+        enum class Target : uint8_t {
+            None,
+            Input,  // Tamper with an input value
+            Output, // Tamper with an output value
+        };
+
+        static std::vector<Target> get_all() { return { Target::None, Target::Input, Target::Output }; }
+
+        static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
+    };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
+    {
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::Input: {
+            // Tamper with the first input element
+            if constexpr (IsInputConstant) {
+                constraint.inputs[0] = WitnessOrConstant<FF>::from_constant(constraint.inputs[0].value + bb::fr(1));
+            } else {
+                witness_values[constraint.inputs[0].index] += bb::fr(1);
+            }
+            break;
+        }
+        case InvalidWitness::Target::Output: {
+            // Tamper with the first output element
+            witness_values[constraint.result[0]] += bb::fr(1);
+            break;
+        }
+        case InvalidWitness::Target::None:
+            break;
+        }
+
+        return { constraint, witness_values };
+    }
+
+    /**
+     * @brief Generate a valid Blake2sConstraint with correct witness values
+     */
+    static void generate_constraints(Blake2sConstraint& blake2s_constraint, WitnessVector& witness_values)
+    {
+        // Helper to add a state: either as witness or constant
+        auto construct_state = [&](const std::vector<uint8_t>& state,
+                                   bool as_constant) -> std::vector<WitnessOrConstant<FF>> {
+            std::vector<WitnessOrConstant<FF>> result;
+            if (as_constant) {
+                for (const auto& byte : state) {
+                    result.push_back(WitnessOrConstant<FF>::from_constant(FF(byte)));
+                }
+                return result;
+            }
+            auto indices = add_to_witness_and_track_indices(witness_values, state);
+            for (const auto& idx : indices) {
+                result.push_back(WitnessOrConstant<FF>::from_index(idx));
+            }
+            return result;
+        };
+
+        // Input: 64-byte message
+        std::vector<uint8_t> input_state(64);
+
+        // Expected Blake2s hash output
+        std::array<uint8_t, 32> output_state = crypto::blake2s(input_state);
+
+        // Create the constraint
+        blake2s_constraint.inputs.reserve(input_state.size());
+        for (const auto& state : construct_state(input_state, IsInputConstant)) {
+            blake2s_constraint.inputs.push_back(state);
+        }
+
+        // Add output state to witness
+        auto output_indices = add_to_witness_and_track_indices(witness_values, output_state);
+        // Add output indices to constraint
+        for (auto [blake_result, output_idx] : zip_view(blake2s_constraint.result, output_indices)) {
+            blake_result = output_idx;
+        }
+    }
+};
+
+template <class Builder>
+class Blake2sConstraintsTestInputConstant : public ::testing::Test,
+                                            public TestClass<Blake2sTestingFunctions<Builder, true>> {
+  protected:
+    static void SetUpTestSuite() { srs::init_file_crs_factory(srs::bb_crs_path()); }
+};
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+
+TYPED_TEST_SUITE(Blake2sConstraintsTestInputConstant, BuilderTypes);
+TYPED_TEST(Blake2sConstraintsTestInputConstant, GenerateVKFromConstraints)
+{
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(Blake2sConstraintsTestInputConstant, Tampering)
+{
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}
+
+template <class Builder>
+class Blake2sConstraintsTestInputWitness : public ::testing::Test,
+                                           public TestClass<Blake2sTestingFunctions<Builder, false>> {
+  protected:
+    static void SetUpTestSuite() { srs::init_file_crs_factory(srs::bb_crs_path()); }
+};
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+
+TYPED_TEST_SUITE(Blake2sConstraintsTestInputWitness, BuilderTypes);
+TYPED_TEST(Blake2sConstraintsTestInputWitness, GenerateVKFromConstraints)
+{
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(Blake2sConstraintsTestInputWitness, Tampering)
+{
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}

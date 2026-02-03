@@ -1,0 +1,519 @@
+#include "plookup.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/numeric/bitop/rotate.hpp"
+#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include <gtest/gtest.h>
+
+using namespace bb;
+using namespace bb::plookup;
+
+// Defining ultra-specific types for local testing.
+using Builder = UltraCircuitBuilder;
+using field_ct = stdlib::field_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
+using plookup_read = stdlib::plookup_read<Builder>;
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
+
+TEST(PlookupTests, uint32_xor)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = (32 + 5) / 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+
+    std::vector<uint256_t> out_expected(num_lookups);
+    std::vector<uint256_t> left_expected(num_lookups);
+    std::vector<uint256_t> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        out_expected[i] = left_slices[i] ^ right_slices[i];
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * (1 << 6);
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), bb::fr(left_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), bb::fr(right_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), bb::fr(out_expected[i]));
+    }
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, blake2s_xor_rotate_16)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_16, left, right, true);
+
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+
+    std::vector<fr> out_expected(num_lookups);
+    std::vector<fr> left_expected(num_lookups);
+    std::vector<fr> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        if (i == 2) {
+            uint32_t a = static_cast<uint32_t>(left_slices[i]);
+            uint32_t b = static_cast<uint32_t>(right_slices[i]);
+            uint32_t c = numeric::rotate32(a ^ b, 4);
+            out_expected[i] = uint256_t(c);
+        } else {
+            out_expected[i] = uint256_t(left_slices[i]) ^ uint256_t(right_slices[i]);
+        }
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    /*
+     * The following out coefficients are the ones multiplied for computing the cumulative intermediate terms
+     * in the expected output. If the column_3_coefficients for this table are (a0, a1, ..., a5), then the
+     * out_coefficients must be (a5/a4, a4/a3, a3/a2, a2/a1, a1/a0). Note that these are stored in reverse orde
+     * for simplicity.
+     */
+    std::vector<fr> out_coefficients{ (1 << 6), (bb::fr(1) / bb::fr(1 << 22)), (1 << 2), (1 << 6), (1 << 6) };
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * out_coefficients[i];
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), left_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), right_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), out_expected[i]);
+    }
+
+    /*
+     * Note that we multiply the output of the lookup table (lookup[Column::Idx}0]) by 2^{16} because
+     * while defining the table we had set the coefficient of s0 to 1, so to correct that, we need to multiply by a
+     * constant.
+     */
+    auto mul_constant = fr(1 << 16);
+    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 16);
+    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, blake2s_xor_rotate_8)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_8, left, right, true);
+
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+
+    std::vector<fr> out_expected(num_lookups);
+    std::vector<fr> left_expected(num_lookups);
+    std::vector<fr> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        if (i == 1) {
+            uint32_t a = static_cast<uint32_t>(left_slices[i]);
+            uint32_t b = static_cast<uint32_t>(right_slices[i]);
+            uint32_t c = numeric::rotate32(a ^ b, 2);
+            out_expected[i] = uint256_t(c);
+        } else {
+            out_expected[i] = uint256_t(left_slices[i]) ^ uint256_t(right_slices[i]);
+        }
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    auto mul_constant = fr(1 << 24);
+    std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 4), (1 << 6), (1 << 6), (1 << 6) };
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * out_coefficients[i];
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), left_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), right_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), out_expected[i]);
+    }
+
+    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 8);
+    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, blake2s_xor_rotate_7)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_7, left, right, true);
+
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+
+    std::vector<fr> out_expected(num_lookups);
+    std::vector<fr> left_expected(num_lookups);
+    std::vector<fr> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        if (i == 1) {
+            uint32_t a = static_cast<uint32_t>(left_slices[i]);
+            uint32_t b = static_cast<uint32_t>(right_slices[i]);
+            uint32_t c = numeric::rotate32(a ^ b, 1);
+            out_expected[i] = uint256_t(c);
+        } else {
+            out_expected[i] = uint256_t(left_slices[i]) ^ uint256_t(right_slices[i]);
+        }
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    auto mul_constant = fr(1 << 25);
+    std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 5), (1 << 6), (1 << 6), (1 << 6) };
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * out_coefficients[i];
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), left_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), right_expected[i]);
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), out_expected[i]);
+    }
+
+    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 7);
+    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, blake2s_xor)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR, left, right, true);
+
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+
+    std::vector<uint256_t> out_expected(num_lookups);
+    std::vector<uint256_t> left_expected(num_lookups);
+    std::vector<uint256_t> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        out_expected[i] = left_slices[i] ^ right_slices[i];
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    // Compute ror(a ^ b, 12) from lookup table.
+    // t0 = 2^30 a5 + 2^24 a4 + 2^18 a3 + 2^12 a2 + 2^6 a1 + a0
+    // t1 = 2^24 a5 + 2^18 a4 + 2^12 a3 + 2^6 a2 + a1
+    // t2 = 2^18 a5 + 2^12 a4 + 2^6 a3 + a2
+    // t3 = 2^12 a5 + 2^6 a4 + a3
+    // t4 = 2^6 a5 + a4
+    // t5 = a5
+    //
+    // output = (t0 - 2^12 t2) * 2^{32 - 12} + t2
+    fr lookup_output = lookup[ColumnIdx::C3][2].get_value();
+    fr t2_term = fr(1 << 12) * lookup[ColumnIdx::C3][2].get_value();
+    lookup_output += fr(1 << 20) * (lookup[ColumnIdx::C3][0].get_value() - t2_term);
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * (1 << 6);
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    //
+    // The following checks if the xor output rotated by 12 can be computed correctly from basic blake2s_xor.
+    //
+    auto xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 12);
+    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), bb::fr(left_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), bb::fr(right_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), bb::fr(out_expected[i]));
+    }
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, uint32_and)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = (32 + 5) / 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_AND, left, right, true);
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+    std::vector<uint256_t> out_expected(num_lookups);
+    std::vector<uint256_t> left_expected(num_lookups);
+    std::vector<uint256_t> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        out_expected[i] = left_slices[i] & right_slices[i];
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * (1 << 6);
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), bb::fr(left_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), bb::fr(right_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), bb::fr(out_expected[i]));
+    }
+
+    bool result = CircuitChecker::check(builder);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(PlookupTests, secp256k1_generator)
+{
+    using curve = stdlib::secp256k1<Builder>;
+    Builder builder = Builder();
+
+    uint256_t input_value = (engine.get_random_uint256() >> 128);
+
+    uint64_t wnaf_entries[18] = { 0 };
+    bool skew = false;
+    wnaf::fixed_wnaf<129, 1, 8>(&input_value.data[0], &wnaf_entries[0], skew, 0);
+
+    std::vector<uint64_t> naf_values;
+    for (size_t i = 0; i < 17; ++i) {
+        bool predicate = bool((wnaf_entries[i] >> 31U) & 1U);
+        uint64_t offset_entry;
+        if (predicate) {
+            offset_entry = (127 - (wnaf_entries[i] & 0xffffff));
+        } else {
+            offset_entry = (128 + (wnaf_entries[i] & 0xffffff));
+        }
+        naf_values.emplace_back(offset_entry);
+    }
+
+    std::vector<field_ct> circuit_naf_values;
+    for (size_t i = 0; i < naf_values.size(); ++i) {
+        circuit_naf_values.emplace_back(witness_ct(&builder, naf_values[i]));
+    }
+
+    std::vector<field_ct> accumulators;
+    for (size_t i = 0; i < naf_values.size(); ++i) {
+        field_ct t1 = (circuit_naf_values[naf_values.size() - 1 - i]) * field_ct(uint256_t(1) << (i * 8 + 1));
+        field_ct t2 = field_ct(255) * field_ct(uint256_t(1) << (i * 8));
+        accumulators.emplace_back(t1 - t2);
+    }
+    field_ct accumulator_field = field_ct::accumulate(accumulators);
+    EXPECT_EQ(accumulator_field.get_value(), bb::fr(input_value) + bb::fr(skew));
+
+    for (size_t i = 0; i < 256; ++i) {
+        field_ct index(witness_ct(&builder, bb::fr(i)));
+        const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, index);
+        const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, index);
+        const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, index);
+        const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, index);
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+
+        const auto res = curve::g1_ct(x, y).get_value();
+        curve::fr scalar(i);
+        scalar = scalar + scalar;
+        scalar = scalar - 255;
+        curve::g1::affine_element expec(curve::g1::one * scalar);
+
+        EXPECT_EQ(res, expec);
+    }
+    curve::g1_ct accumulator;
+    {
+        const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, circuit_naf_values[0]);
+        const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[0]);
+        const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[0]);
+        const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[0]);
+
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = curve::g1_ct(x, y);
+    }
+    for (size_t i = 1; i < circuit_naf_values.size(); ++i) {
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+        accumulator = accumulator.dbl();
+
+        const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, circuit_naf_values[i]);
+        const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[i]);
+        const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[i]);
+        const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[i]);
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = accumulator.dbl() + curve::g1_ct(x, y);
+    }
+
+    if (skew) {
+        accumulator = accumulator - curve::g1_ct::one(&builder);
+    }
+
+    curve::g1::affine_element result = accumulator.get_value();
+    curve::g1::affine_element expected(curve::g1::one * input_value);
+    EXPECT_EQ(result, expected);
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
+}
+
+// Constant vs variable path tests
+TEST(PlookupTests, ConstantInputsConstantOutputs)
+{
+    Builder builder;
+
+    // Use constant field elements (not witnesses)
+    field_ct left(&builder, bb::fr(0x12345678));
+    field_ct right(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_TRUE(left.is_constant());
+    ASSERT_TRUE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should be constant
+    EXPECT_TRUE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+}
+
+TEST(PlookupTests, VariableInputsVariableOutputs)
+{
+    Builder builder;
+
+    // Use witness field elements
+    field_ct left = witness_ct(&builder, bb::fr(0x12345678));
+    field_ct right = witness_ct(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_FALSE(left.is_constant());
+    ASSERT_FALSE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should NOT be constant
+    EXPECT_FALSE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST(PlookupTests, MixedConstantVariableInputs)
+{
+    Builder builder;
+
+    // One constant, one variable
+    field_ct left(&builder, bb::fr(0x12345678));
+    field_ct right = witness_ct(&builder, bb::fr(0xDEADBEEF));
+
+    ASSERT_TRUE(left.is_constant());
+    ASSERT_FALSE(right.is_constant());
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+
+    // Result should NOT be constant (one input is variable)
+    EXPECT_FALSE(lookup[ColumnIdx::C3][0].is_constant());
+
+    // Result should still be correct
+    uint32_t expected = 0x12345678 ^ 0xDEADBEEF;
+    EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}

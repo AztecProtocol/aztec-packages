@@ -1,0 +1,179 @@
+include "poseidon2_perm.pil";
+include "precomputed.pil";
+
+/** Performs the poseidon2 full hash
+ * === Usage Tips ===
+ *    - SINGLE ROW: To constrain the result of a poseidon hash over a single row (i.e. 3 or fewer inputs), lookup the inputs,
+ *      output, input_len and use destination selector start (= 1). The caller will pass 1,2, or 3 for input_len. This follows
+ *      from the below constraints that `num_perm_rounds_rem == 1` and `end ==1`.
+ *
+ *      Example (nullifier_check.pil):
+ *             should_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
+ *   in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1,
+ *                           poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
+ *
+ *    - MULTIPLE ROWS:
+ *       - Lookup the inputs and output values for each row.
+ *       - Use num_perm_rounds_rem against the decrementing counter to ensure that each round is
+ *         computed in the correct order (at end = 1, num_perm_rounds_rem is constrained to be 1 => can equivalently
+ *         lookup the end selector for the final row). This can be omitted at the `start==1` row.
+ *       - Lookup the start selector at the expected first row to ensure no extra rows are prepended.
+ *         Pass `input_len` in the lookup at the start row, so that the IV is correctly computed.
+ *
+ *      Example (address_derivation.pil):
+ *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
+ *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
+ *             in poseidon2_hash.start { input_0, input_1, input_2, output, ipnut_len };
+ *
+ *             sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
+ *             in poseidon2_hash.sel { input_0, input_1, input_2, output, num_perm_rounds_rem };
+ *              .....
+ *
+ *             sel { precomputed.zero, precomputed.zero, precomputed.zero, public_keys_hash }
+ *             in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+ *
+ *
+ * === Trace Shape ===
+ * This subtrace is a multi-rows computation. The trace shape is as follows (where `unc` denotes an unconstrained value):
+ *
+ * +------+-------+-----+--------+-----------+---------------------+
+ * | sel  | start | end |padding | input_len | num_perm_rounds_rem |
+ * +------+-------+-----+--------+-----------+---------------------+
+ * |   1  |   1   |  0  |   2    |    22     |     8               |
+ * |   1  |   0   |  0  |   unc  |    unc    |     7               |
+ * .................................................................
+ * |   1  |   1   |  1  |   unc  |    unc    |     1               |
+ * +------+-------+--------------+-----------+---------------------+
+ *
+ * The number of rows for a computation is ceil(input_len/3) rows.
+ *
+ * No errors are expected in this subtrace.
+ *
+ * This subtrace interacts with the poseidon2_perm.pil subtrace and is used by many other subtraces:
+ * - address_derivation.pil
+ * - bc_hashing.pil
+ * - calldata_hashing.pil
+ * - class_id_derivation.pil
+ * - merkle_check.pil
+ * - note_hash_tree_check.pil
+ * - nullifier_check.pil
+ * - public_data_check.pil
+ * - retrieved_bytecodes_tree_check.pil
+ * - tx.pil
+ * - update_check.pil
+ * - written_public_data_slots_tree_check.pil
+ */
+namespace poseidon2_hash;
+
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // == Multi-row Computation Selectors ==
+    // We follow the recipe documented in:
+    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+
+    // Start of a poseidon2 computation
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
+    // The last row of hashing for the given input
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    // === Input Values ===
+    // Unpadded Length of the inputs to be hashed
+    pol commit input_len;
+    // Compute the IV using the unpadded length. Only used at the start of a new poseidon2 hash
+    pol TWOPOW64 = 18446744073709551616;
+    pol IV = TWOPOW64 * input_len;
+
+    // These are the inputs to be hashed this round, we hash chunks of 3 field elements
+    pol commit input_0;
+    pol commit input_1;
+    pol commit input_2;
+
+    // Output of the hash, not permutation round, it is matched with the result of the last permutation round
+    pol commit output;
+    // We enforce that the output has to be kept the same per row until we hit the "end" of the computation
+    // The latch condition (see below for definition) will be on at the first_row (customary pil relations) or when num_perm_rounds_rem - 1 = 0
+    (1 - LATCH_CONDITION) * (output' - output) = 0;
+
+    // === Permutation/Round Counting ===
+    // We use the padded length to calculate the num of rounds to perform
+    pol commit num_perm_rounds_rem;
+    pol commit padding;
+    // The amount of padding can be 0, 1 or 2.
+    // Note the padded values are not enforced to be zero here, the calling function SHOULD enforce this
+    padding * (padding - 1) * (padding - 2) = 0;
+
+    pol PADDED_LEN = input_len + padding;
+    // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
+    start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
+
+    // If we still have rounds to perform, `num_perm_rounds_rem` is decremented.
+    sel * (1 - LATCH_CONDITION) * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
+    // Need an additional helper that holds the inverse of num_perm_rounds_rem - 1.
+    pol commit num_perm_rounds_rem_min_one_inv;
+    pol NEXT_ROUND_COUNT = num_perm_rounds_rem - 1;
+    // end == 1 <==> (num_perm_rounds_rem - 1) == 0
+    sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_min_one_inv) + num_perm_rounds_rem_min_one_inv) - 1 + end) = 0;
+
+    // Prevention of an invalid padding:
+    // Note that in a finite field, we can always divide by 3. For any padding value (0,1,2), we can set
+    // `num_perm_rounds_rem := 3^(-1) * PADDED_LEN`. Hence, a malicious prover can set an incorrect padding value,
+    // setting `padding` so that `PADDED_LEN` is not a multiple of 3 over the integers. If this happens,
+    // on `start == 1`, `num_perm_rounds_rem` must be huge, i.e., larger than p/3 (more than 250 bits).
+    // This cannot happen because to satisfy the current subtrace constraints, the attacker must decrement `num_perm_rounds_rem`
+    // to `1` which would require ca. 2^250 rows. This implies that we will never reach legitimate `num_perm_rounds_rem` values
+    // and that `end == 1` cannot be satisfied for this multi-row invocation.
+    // If we cannot reach `end == 1`, then we cannot satisfy the constraint  #[TRACE_CONTINUITY] on the
+    // last row of the trace.
+
+    //=== Output Chaining ===
+    // The permutation input values are represented by a_0, a_1, a_2, a_3
+    // The permutation output values are represented by b_0, b_1, b_2, b_3
+    // This most definitely could be simplified to a lower degree check
+    // The next perm input is constrained to be the previous perm output + the new values to be hashed if we
+    // are not at the end of hashing
+    pol commit a_0;
+    pol commit a_1;
+    pol commit a_2;
+    pol commit a_3;
+
+    start * (a_0 - input_0) = 0;
+    (1 - LATCH_CONDITION) * (a_0' - b_0 - input_0') = 0;
+    start * (a_1 - input_1) = 0;
+    (1 - LATCH_CONDITION) * (a_1' - b_1 - input_1') = 0;
+    start * (a_2 - input_2) = 0;
+    (1 - LATCH_CONDITION) * (a_2' - b_2 - input_2') = 0;
+    start * (a_3 - IV) = 0; // IV is placed in the last slot if this is the start
+    (1 - LATCH_CONDITION) * (a_3' - b_3) = 0;
+
+    // The Hash output value represented by b_0
+    pol commit b_0;
+    pol commit b_1;
+    pol commit b_2;
+    pol commit b_3;
+
+    // The final result of the output of the hash should match the output from the last permutation (b_0)
+    end * (output - b_0) = 0;
+
+    #[POSEIDON2_PERM]
+    sel { a_0, a_1, a_2, a_3, b_0, b_1, b_2, b_3 }
+    in
+    poseidon2_perm.sel
+        { poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3,
+          poseidon2_perm.b_0, poseidon2_perm.b_1, poseidon2_perm.b_2, poseidon2_perm.b_3 };

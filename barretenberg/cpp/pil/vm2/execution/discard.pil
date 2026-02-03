@@ -1,0 +1,163 @@
+include "../execution.pil";
+
+/**
+ * Discarding on error in execution.
+ *
+ * Design Document: https://docs.google.com/document/d/1xz5sZSxTu841K8uvnT8U-nO2X5ZjY8o0TjOYKfT9b6o
+ * The numbering of the constraints in this file corresponds to the numbering in the Design Document at
+ * Section "Execution trace constraints".
+ *
+ * This subtrace is focused on managing the changes to the discard and dying_context_id columns.
+ * It is a virtual gadget, which is part of the execution trace.
+ */
+namespace execution; // virtual to execution.pil
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0; // from execution.pil.
+
+    // sel_failure == sel_error || sel_execute_revert
+    pol commit sel_failure; // @boolean (see below explanations)
+    // sel_failure is boolean by definition and because sel_error and sel_execute_revert are
+    // guaranteed to be boolean as constrained in execution.pil
+    // #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil enforces mutual exclusivity of sel_error and sel_execute_revert.
+    #[SEL_FAILURE]
+    sel_failure = sel_error + sel_execute_revert;
+
+    // Discard columns for error handling
+    pol commit discard; // @boolean This context or one of its ancestors fails. All side effects should be discarded.
+    // 1. discard is boolean
+    discard * (1 - discard) = 0;
+
+    pol commit dying_context_id; // The context_id of this context's oldest ancestor that fails. This is nonzero if and only if discard is 1.
+    pol commit dying_context_id_inv; // inverse of dying_context_id
+    // 2. Discard being 1 implies nonzero dying context and vice versa
+    // discard == 1 <=> dying_context_id != 0
+    #[DISCARD_IFF_DYING_CONTEXT]
+    dying_context_id * ((1 - discard) * (1 - dying_context_id_inv) + dying_context_id_inv) - discard = 0;
+
+    // 3. An instruction/row that fails must discard. In other words, if sel_failure == 1, then discard == 1 must hold true.
+    #[DISCARD_IF_FAILURE]
+    sel_failure * (1 - discard) = 0;
+
+    // Helper columns for checking if context_id == dying_context_id
+    pol commit is_dying_context; // @boolean (on active rows - 1 iff context_id == dying_context_id)
+    is_dying_context * (1 - is_dying_context) = 0; // Boolean constraint
+    pol DYING_CONTEXT_DIFF = context_id - dying_context_id;
+    pol commit dying_context_diff_inv; // Inverse of (context_id - dying_context_id) when they're different
+
+    // Constraint to check if context_id == dying_context_id
+    // DYING_CONTEXT_DIFF == 0 <==> is_dying_context == 1 (on active rows)
+    // Note: context_id will never be 0 for an active row and therefore
+    // `is_dying_context == 0` whenever `discard == 0` (because `discard == 0` implies `dying_context_id == 0`).
+    // In other words, `is_dying_context == 1` implies `discard == 1`.
+    #[IS_DYING_CONTEXT_CHECK]
+    sel * (DYING_CONTEXT_DIFF * (is_dying_context * (1 - dying_context_diff_inv) + dying_context_diff_inv) - 1 + is_dying_context) = 0;
+
+    // 4. By default, the values of discard and dying_context_id are propagated to the next row.
+    // 5. The propagation constraint is lifted for discard and dying_context_id on the next row if any one of the following conditions is met:
+    //    a. The next row is the first instruction of an enqueued call.
+    //    b. This instruction/row is a failure in the dying context (discard == 1 && sel_failure == 1 && context_id == dying_context_id)
+    //    c. This instruction/row is a call and the nested context will eventually fail (sel_enter_call == 1 && discard == 0)
+
+    // Note: we could, instead, _not_ lift propagation at enqueued call boundaries,
+    // but then we need to special case the transition from setup to app logic,
+    // since setup must have discard=0, and app logic can have discard=1.
+    // App logic to teardown wouldn't need special-casing because if teardown discards,
+    // all of app logic must discard too.
+
+    // 5b. condition
+    pol RESOLVES_DYING_CONTEXT = sel_failure * is_dying_context;
+    // Recall: `sel_failure == 1` implies `discard == 1` (#[DISCARD_IF_FAILURE])
+
+    // 5c. condition
+    pol NESTED_CALL_FROM_UNDISCARDED_CONTEXT = sel_enter_call * (1 - discard);
+
+    // `RESOLVES_DYING_CONTEXT` and `NESTED_CALL_FROM_UNDISCARDED_CONTEXT` are mutually exclusive because
+    // `sel_failure` and `sel_enter_call` are mutually exclusive.
+
+    // Note: if any of these conditions are met, we lift the propagation constraint.
+    // Otherwise, propagation is enforced.
+    pol PROPAGATE_DISCARD = NOT_LAST_EXEC * (1 - enqueued_call_end) * (1 - RESOLVES_DYING_CONTEXT - NESTED_CALL_FROM_UNDISCARDED_CONTEXT);
+    // Note: on nested call, can't know yet whether the nested context will eventually revert.
+    // But, we can lift the propagation constraint, and enforce that a dying context _must_ be resolved.
+    // In this way, we allow `discard` to be raised to 1 on a nested call. And once 1, `discard` _must_
+    // be resolved in a later row by an error encountered in the dying context.
+
+    // Discard propagation
+    #[DYING_CONTEXT_PROPAGATION]
+    PROPAGATE_DISCARD * (dying_context_id' - dying_context_id) = 0;
+    // As a consequence, `discard' = discard` when `PROPAGATE_DISCARD = 1` because `discard`
+    // is a "compressed" version of `dying_context_id`, namely `discard == 1 <=> dying_context_id != 0`.
+
+    // 6. An instruction/row cannot exit the "dying context" without a failure.
+    // If is_dying_context == 1 && exit == 1, then sel_failure == 1 must hold true.
+    // This is equivalent to `is_dying_context == 1 ==> sel_execute_return == 0`, because the
+    // only way to exit the context with a failure is by reverting or erroring.
+    // Algebraically, this equivalence corresponds to:
+    // is_dying_context * sel_exit_call * (1 - sel_failure) = is_dying_context * sel_execute_return = 0
+    // because `sel_exit_call = sel_failure + sel_execute_return`. (definition in context.pil)
+    // Note: recall that `is_dying_context == 1 implies discard == 1`.
+    #[DYING_CONTEXT_MUST_FAIL]
+    is_dying_context * sel_execute_return = 0;
+
+    // 7. On enter_call, if discard is being raised (0->1), the new context must be the dying context.
+    // This prevents attacks where discard is raised with a wrong dying_context_id.
+    // If sel_enter_call == 1 && discard == 0 && discard' == 1, enforce that context_id' == dying_context_id'
+    #[ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT]
+    NESTED_CALL_FROM_UNDISCARDED_CONTEXT * discard' * (context_id' - dying_context_id') = 0;
+
+    // 8. When a dying context with a parent resolves, discard must be cleared (1->0) on the next row.
+    // This prevents attacks where the dying context is changed instead of clearing discard.
+    // If sel_failure == 1 && is_dying_context == 1 && has_parent_ctx == 1, enforce that discard' == 0
+    // We need the gating factor `has_parent_ctx` because for a top-level call, the next row might pertain
+    // to another enqueued call (e.g. TEARDOWN).
+    #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
+    RESOLVES_DYING_CONTEXT * has_parent_ctx * discard' = 0;
+
+
+    // Analysis of correctness
+    // ========================================================
+    // 3 Main cases:
+    //      1) Only nested call(s) fail(s) and is(are) discarded. The enqueued call does not fail and
+    //         is not discarded by another enqueued call 3).
+    //      2) The enqueued call fails and is discarded.
+    //      3) The enqueued call does not fail but needs to be discarded because of the tx-level
+    //         discard flag propagation logic (tx_discard.pil) incurred by another failed enqueued call.
+    //
+    // Case 1) Assume a failing nested call which is not itself inside another failing nested call.
+    //         If a nested call fails, #[DISCARD_IF_FAILURE] implies that `discard' == 1` on the last row of the nested call.
+    //         Then, the only row where `discard` mutates from 0 to 1 (top-down) is when
+    //         `NESTED_CALL_FROM_UNDISCARDED_CONTEXT == 1` where #[ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT]
+    //         constrains that we set the `dying_context_id` to the context_id of the nested call. The lowest row above
+    //         where `discard` mutates from 0 to 1 must therefore be at the start of the nested call, otherwise,
+    //         we would either mutate earlier (contradicting "lowest above row") or later (contradicting
+    //         that the nested call is not included in a failing nested call). We proved that all rows
+    //         of the nested call must have `discard == 1`.
+    //         We still have to deal with the case where all rows of the enqueued call above have `discard == 1`. The lookups
+    //         #[DISPATCH_EXEC_START] and #[DISPATCH_EXEC_END] in tx.pil enforce that the last row of the enqueued call
+    //         has `discard == 1`. Since this enqueued call does not fail, we have `sel_failure == 0` and by
+    //         #[DISPATCH_EXEC_END], in tx.pil, we have `discard' == 1` and `reverted == 0` which can only happen
+    //         if another enqueued call occurs (Case 3), according to explanations in tx_discard.pil.
+    //         We now explain that a malicious prover cannot toggle `discard == 1` in a nested call which does not fail.
+    //         Following the same reasoning as above, a row with `discard == 1` propagates up to the top row of a nested
+    //         call and propagates down to the bottom row of the nested call. Here, #[DYING_CONTEXT_MUST_FAIL] enforces
+    //         that the last row of the nested call has `sel_failure == 1`.
+    //
+    // Case 2) The last row of the enqueued call has `sel_failure == 1` and `discard == 1`. For the proof that
+    //         all rows of the enqueued call have `discard == 1`, we refer to the proof in Case 3).
+    //         Now assume that the enqueued call succeeds but we set `discard == 1` on a row of the top-level call.
+    //         Similarly to Case 1), we show that `discard == 1` propagates to all rows of the enqueued call and that
+    //         the last row of the enqueued call has `reverted == 0` which is prevented by constraints in tx_discard.pil.
+    //
+    // Case 3) By #[DISPATCH_EXEC_END] in tx.pil, the last row of the enqueued call has `discard == 1`.
+    //         If the last row of the enqueued call has `discard == 1`, then `discard' == 1` must be set for all rows
+    //         of the enqueued call. Namely, the only row where `discard` mutates from 0 to 1 (top-down) is when
+    //         NESTED_CALL_FROM_UNDISCARDED_CONTEXT == 1. Consider the lowest above row where this happens. In this case,
+    //         `dying_context_id` becomes the context_id of the nested call and when it resolves, `discard` must be cleared
+    //         to 0 which contradicts "the lowest above row where `discard` mutates from 0 to 1".
+    //         A row where `RESOLVES_DYING_CONTEXT == 1` also lifts the propagation but #[DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD]
+    //         enforces that `discard' == 0` on next row in this case (not a transition from 0 to 1).
+    //         We note that for Case 3), the `dying_context_id` is almost unconstrained. It must be a nonzero value and
+    //         be different from the context_id of any nested call. In tracegen, it will be set to the "dying context id"
+    //         of the enqueued call that failed.

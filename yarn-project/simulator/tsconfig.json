@@ -1,0 +1,47 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../native"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../world-state"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-test-contracts.js"
+    }
+  ],
+  "include": ["src"]
+}

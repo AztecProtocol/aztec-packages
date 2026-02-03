@@ -1,0 +1,163 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
+import type {
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+  UtilitySimulationResult,
+} from '@aztec/stdlib/tx';
+
+import { type MockProxy, mock } from 'jest-mock-extended';
+
+import type { Account } from '../account/account.js';
+import type { Wallet } from '../wallet/wallet.js';
+import { Contract } from './contract.js';
+
+describe('Contract Class', () => {
+  let wallet: MockProxy<Wallet>;
+  let contractAddress: AztecAddress;
+  let account: MockProxy<Account>;
+  let accountAddress: CompleteAddress;
+  let contractInstance: ContractInstanceWithAddress;
+
+  const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
+  const _mockTxHash = { type: 'TxHash' } as any as TxHash;
+  const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
+  const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
+  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
+
+  const defaultArtifact: ContractArtifact = {
+    name: 'FooContract',
+    functions: [
+      {
+        name: 'bar',
+        isInitializer: false,
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        debugSymbols: '',
+        parameters: [
+          {
+            name: 'value',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+          {
+            name: 'value',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'private',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: Buffer.alloc(4064).toString('base64'),
+      },
+      {
+        name: 'public_dispatch',
+        isInitializer: false,
+        isStatic: false,
+        functionType: FunctionType.PUBLIC,
+        isOnlySelf: false,
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfb),
+        debugSymbols: '',
+      },
+      {
+        name: 'qux',
+        isInitializer: false,
+        isStatic: false,
+        functionType: FunctionType.UTILITY,
+        isOnlySelf: false,
+        parameters: [
+          {
+            name: 'value',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
+        returnTypes: [
+          {
+            kind: 'integer',
+            sign: 'unsigned',
+            width: 32,
+          },
+        ],
+        bytecode: Buffer.alloc(8, 0xfc),
+        debugSymbols: '',
+        errorTypes: {},
+      },
+    ],
+    nonDispatchPublicFunctions: [],
+    outputs: {
+      structs: {},
+      globals: {},
+    },
+    fileMap: {},
+    storageLayout: {},
+  };
+
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
+    account = mock<Account>();
+    accountAddress = await CompleteAddress.random();
+    account.getCompleteAddress.mockReturnValue(accountAddress);
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
+
+    wallet = mock<Wallet>();
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
+    account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
+    wallet.registerContract.mockResolvedValue(contractInstance);
+    wallet.sendTx.mockResolvedValue(mockTxReceipt);
+    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
+  });
+
+  it('should create and send a contract method tx', async () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const param0 = 12;
+    const param1 = 345n;
+    const receipt = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
+
+    expect(receipt).toBe(mockTxReceipt);
+    expect(wallet.sendTx).toHaveBeenCalledTimes(1);
+  });
+
+  it('should call view on a utility function', async () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
+    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'qux', to: contractAddress }),
+      [],
+    );
+    expect(result).toBe(42n);
+  });
+});

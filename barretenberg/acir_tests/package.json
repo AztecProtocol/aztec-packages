@@ -1,0 +1,17 @@
+{
+  "name": "@aztec/acir-tests",
+  "packageManager": "yarn@4.5.2",
+  "private": true,
+  "workspaces": [
+    "browser-test-app",
+    "headless-test",
+    "sol-test",
+    "bbjs-test"
+  ],
+  "dependencies": {
+    "pino": "^9.5.0"
+  },
+  "resolutions": {
+    "ws": "^8.17.1"
+  }
+}

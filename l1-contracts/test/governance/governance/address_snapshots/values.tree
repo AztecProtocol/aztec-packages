@@ -1,0 +1,11 @@
+ValuesTest
+├── when no validators are registered
+│   └── it returns empty array
+├── when validators exist
+│   ├── it returns array with correct length
+│   └── it returns array with correct addresses in order
+├── when validators have not changed for some time
+│   └── it returns array with correct length
+│   └── it returns array with correct addresses in order
+└── when validators are removed
+    └── it returns array with remaining validators

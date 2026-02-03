@@ -1,0 +1,436 @@
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <vector>
+
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/sumcheck/sumcheck_round.hpp"
+
+using namespace bb;
+using FF = ECCVMFlavor::FF;
+using PK = ECCVMFlavor::ProvingKey;
+using Transcript = ECCVMFlavor::Transcript;
+using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
+using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
+using eccvm_test_utils::add_hiding_op_for_test;
+
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+ECCVMFlavor::VerificationKey create_vk_from_proving_key(const std::shared_ptr<PK>& proving_key)
+{
+    ECCVMFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+// Compute VK hash from fixed commitments (for test verification that vk_hash() is correct)
+ECCVMFlavor::BF compute_eccvm_vk_hash()
+{
+    std::vector<ECCVMFlavor::BF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : ECCVMHardcodedVKAndHash::get_all()) {
+        auto frs = ECCVMFlavor::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return ECCVMFlavor::HashFunction::hash(elements);
+}
+
+class ECCVMTests : public ::testing::Test {
+  protected:
+    void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
+};
+namespace {
+auto& engine = numeric::get_debug_randomness();
+} // namespace
+
+/**
+ * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
+ *
+ * @param engine
+ * @return ECCVMCircuitBuilder
+ */
+ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    G1 a = G1::random_element(engine);
+    G1 b = G1::random_element(engine);
+    G1 c = G1::random_element(engine);
+    Fr x = Fr::random_element(engine);
+    Fr y = Fr::random_element(engine);
+
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->mul_accumulate(b, y);
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(b, x);
+    op_queue->eq_and_reset();
+    op_queue->add_accumulate(c);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->eq_and_reset();
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->mul_accumulate(c, x);
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+    ECCVMCircuitBuilder builder{ op_queue };
+    return builder;
+}
+
+// returns a CircuitBuilder consisting of mul_add ops of the following form: either 0*g, for a group element, or
+// x * e, where x is a scalar and e is the identity element of the group.
+ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr, bool zero_scalars = 1)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    if (!zero_scalars) {
+        for (auto i = 0; i < 8; i++) {
+            Fr x = Fr::random_element(engine);
+            op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, x);
+        }
+    } else {
+        for (auto i = 0; i < 8; i++) {
+            G1 g = G1::random_element(engine);
+            op_queue->mul_accumulate(g, 0);
+        }
+    }
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder builder{ op_queue };
+    return builder;
+}
+
+void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_parameters,
+                                   std::shared_ptr<PK>& pk,
+                                   std::vector<FF>& gate_challenges)
+{
+    // Prepare the inputs for the sumcheck prover:
+    // Compute and add beta to relation parameters
+    const FF beta = FF::random_element();
+    const FF gamma = FF::random_element();
+    const FF beta_sqr = beta * beta;
+    relation_parameters.gamma = gamma;
+    relation_parameters.beta = beta;
+    relation_parameters.beta_sqr = beta_sqr;
+    relation_parameters.beta_cube = beta_sqr * beta;
+    relation_parameters.eccvm_set_permutation_delta =
+        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+
+    const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+    // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
+    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
+        pk->polynomials, relation_parameters, unmasked_witness_size);
+    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
+
+    // Generate gate challenges
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
+        gate_challenges[idx] = FF::random_element();
+    }
+}
+TEST_F(ECCVMTests, ZeroesCoefficients)
+{
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine, 1);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    // Verify IPA
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+// Calling get_eccvm_ops without a hiding op should throw
+TEST_F(ECCVMTests, MissingHidingOpThrows)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    // get_eccvm_ops() requires a hiding op to have been set; throws "Hiding op must be set before calling
+    // get_eccvm_ops()"
+    EXPECT_THROW(op_queue->get_eccvm_ops(), std::runtime_error);
+}
+
+// Note that `NullOpQueue` is somewhat misleading, as we add a hiding operation.
+TEST_F(ECCVMTests, NullOpQUeue)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    add_hiding_op_for_test(op_queue);
+    ECCVMCircuitBuilder builder{ op_queue };
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    // Verify IPA
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
+TEST_F(ECCVMTests, PointAtInfinity)
+{
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine, 0);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+TEST_F(ECCVMTests, ScalarEdgeCase)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    G1 a = G1::one();
+
+    op_queue->mul_accumulate(a, Fr(uint256_t(1) << 128));
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+    ECCVMCircuitBuilder builder{ op_queue };
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+/**
+ * @brief Check that size of a ECCVM proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in eccvm_flavor.hpp, etc...
+ * - eccvm_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
+TEST_F(ECCVMTests, ProofLengthCheck)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
+}
+
+TEST_F(ECCVMTests, BaseCaseFixedSize)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
+TEST_F(ECCVMTests, EqFailsFixedSize)
+{
+    auto builder = generate_circuit(&engine);
+    // Tamper with the eq op such that the expected value is incorect
+    builder.op_queue->add_erroneous_equality_op_for_testing();
+    builder.op_queue->merge();
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_FALSE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
+TEST_F(ECCVMTests, CommittedSumcheck)
+{
+    using Flavor = ECCVMFlavor;
+    using ProvingKey = ECCVMFlavor::ProvingKey;
+    using FF = ECCVMFlavor::FF;
+    using Transcript = Flavor::Transcript;
+    using ZKData = ZKSumcheckData<Flavor>;
+
+    bb::RelationParameters<FF> relation_parameters;
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto pk = std::make_shared<ProvingKey>(builder);
+
+    // Prepare the inputs for the sumcheck prover:
+    // Compute and add beta to relation parameters
+    const FF alpha = FF::random_element();
+    complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
+
+    // Clear the transcript
+    prover_transcript = std::make_shared<Transcript>();
+
+    // Run Sumcheck on the ECCVM Prover polynomials
+    using SumcheckProver = SumcheckProver<ECCVMFlavor>;
+    SumcheckProver sumcheck_prover(pk->circuit_size,
+                                   pk->polynomials,
+                                   prover_transcript,
+                                   alpha,
+                                   gate_challenges,
+                                   relation_parameters,
+                                   CONST_ECCVM_LOG_N);
+
+    ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
+
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
+
+    // Execute Sumcheck Verifier
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
+    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
+    SumcheckOutput<ECCVMFlavor> verifier_output =
+        sumcheck_verifier.verify(relation_parameters, gate_challenges, padding_indicator_array);
+
+    // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
+    // computed by the verifier
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
+        FF true_eval_at_the_challenge = prover_output.round_univariates[idx].evaluate(prover_output.challenge[idx]);
+        FF verifier_eval_at_the_challenge = verifier_output.round_univariate_evaluations[idx][2];
+        EXPECT_TRUE(true_eval_at_the_challenge == verifier_eval_at_the_challenge);
+    }
+
+    // Check that the first sumcheck univariate is consistent with the claimed ZK Sumchek Sum
+    FF prover_target_sum = zk_sumcheck_data.libra_challenge * zk_sumcheck_data.libra_total_sum;
+
+    EXPECT_TRUE(prover_target_sum == verifier_output.round_univariate_evaluations[0][0] +
+                                         verifier_output.round_univariate_evaluations[0][1]);
+
+    EXPECT_TRUE(verifier_output.verified);
+}
+
+/**
+ * @brief Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit.
+ * @note If this test fails, it may be because the constant ECCVM_FIXED_SIZE has changed and the fixed VK commitments in
+ * ECCVMHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the output of this test.
+ *
+ */
+TEST_F(ECCVMTests, FixedVK)
+{
+    // Generate a circuit and its verification key (computed at runtime from the proving key)
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+
+    // Generate the default fixed VK
+    ECCVMFlavor::VerificationKey fixed_vk{};
+    // Generate a VK from PK
+    ECCVMFlavor::VerificationKey vk_computed_by_prover = create_vk_from_proving_key(prover.key);
+
+    const auto& labels = bb::ECCVMFlavor::VerificationKey::get_labels();
+    size_t index = 0;
+    for (auto [vk_commitment, fixed_commitment] : zip_view(vk_computed_by_prover.get_all(), fixed_vk.get_all())) {
+        EXPECT_EQ(vk_commitment, fixed_commitment)
+            << "Mismatch between vk_commitment and fixed_commitment at label: " << labels[index];
+        ++index;
+    }
+
+    // Check that the fixed VK is equal to the generated VK
+    EXPECT_EQ(fixed_vk, vk_computed_by_prover);
+
+    // Verify that the hardcoded VK hash matches the computed hash
+    auto computed_hash = compute_eccvm_vk_hash();
+    auto hardcoded_hash = ECCVMHardcodedVKAndHash::vk_hash();
+    if (computed_hash != hardcoded_hash) {
+        info("VK hash mismatch! Update ECCVMHardcodedVKAndHash::vk_hash() with:");
+        info("0x", computed_hash);
+    }
+    EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
+}

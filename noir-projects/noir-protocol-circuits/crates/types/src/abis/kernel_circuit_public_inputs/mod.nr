@@ -1,0 +1,7 @@
+pub mod private_to_rollup_kernel_circuit_public_inputs;
+pub mod private_kernel_circuit_public_inputs;
+pub mod private_to_public_kernel_circuit_public_inputs;
+
+pub use private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs;
+pub use private_to_public_kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs;
+pub use private_to_rollup_kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs;

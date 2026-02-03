@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct NoteMetadata documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteMetadata</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct NoteMetadata</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#from_raw_data">from_raw_data</a></li>
+<li><a href="#is_pending_previous_phase">is_pending_previous_phase</a></li>
+<li><a href="#is_pending_same_phase">is_pending_same_phase</a></li>
+<li><a href="#is_settled">is_settled</a></li>
+<li><a href="#to_pending_previous_phase">to_pending_previous_phase</a></li>
+<li><a href="#to_pending_same_phase">to_pending_same_phase</a></li>
+<li><a href="#to_settled">to_settled</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-NoteMetadata">Deserialize</a></li>
+<li><a href="#impl-Eq-for-NoteMetadata">Eq</a></li>
+<li><a href="#impl-From&lt;PendingPreviousPhaseNoteMetadata&gt;-for-NoteMetadata">From&lt;PendingPreviousPhaseNoteMetadata&gt;</a></li>
+<li><a href="#impl-From&lt;PendingSamePhaseNoteMetadata&gt;-for-NoteMetadata">From&lt;PendingSamePhaseNoteMetadata&gt;</a></li>
+<li><a href="#impl-From&lt;SettledNoteMetadata&gt;-for-NoteMetadata">From&lt;SettledNoteMetadata&gt;</a></li>
+<li><a href="#impl-Packable-for-NoteMetadata">Packable</a></li>
+<li><a href="#impl-Serialize-for-NoteMetadata">Serialize</a></li>
+</ul>
+<h2>In module note_metadata</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteMetadata.html">NoteMetadata</a></div></li>
+<li><a href="struct.PendingPreviousPhaseNoteMetadata.html">PendingPreviousPhaseNoteMetadata</a></div></li>
+<li><a href="struct.PendingSamePhaseNoteMetadata.html">PendingSamePhaseNoteMetadata</a></div></li>
+<li><a href="struct.SettledNoteMetadata.html">SettledNoteMetadata</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_metadata</a></div>
+<h1>Struct <span id="struct" class="struct">NoteMetadata</span></h1>
+<pre><code>pub struct NoteMetadata
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for
+kernel read requests, as well as the correct nullifier to avoid double-spends.</p>
+<p>This represents a note in any of the three valid stages (pending same phase, pending previous phase, or settled).
+In order to access the underlying fields callers must first find the appropriate stage (e.g. via <code>is_settled()</code>)
+and then convert this into the appropriate type (e.g. via <code>to_settled()</code>).</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code id="from_raw_data" class="code-header">pub fn <a href="#from_raw_data"><span class="fn">from_raw_data</span></a>(nonzero_note_hash_counter: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>, maybe_note_nonce: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Constructs a <code>NoteMetadata</code> object from optional note hash counter and nonce. Both a zero note hash counter and
+a zero nonce are invalid, so those are used to signal non-existent values.</p>
+</div>
+</div><code id="is_pending_same_phase" class="code-header">pub fn <a href="#is_pending_same_phase"><span class="fn">is_pending_same_phase</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns true if the note is pending <strong>and</strong> from the same phase, i.e. if it's been created in the current
+transaction during the current execution phase (either non-revertible or revertible).</p>
+</div>
+</div><code id="is_pending_previous_phase" class="code-header">pub fn <a href="#is_pending_previous_phase"><span class="fn">is_pending_previous_phase</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns true if the note is pending <strong>and</strong> from the previous phase, i.e. if it's been created in the current
+transaction during an execution phase prior to the current one. Because private execution only has two phases
+with strict ordering, this implies that the note was created in the non-revertible phase, and that the current
+phase is the revertible phase.</p>
+</div>
+</div><code id="is_settled" class="code-header">pub fn <a href="#is_settled"><span class="fn">is_settled</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns true if the note is settled, i.e. if it's been created in a prior transaction and is therefore already
+in the note hash tree.</p>
+</div>
+</div><code id="to_pending_same_phase" class="code-header">pub fn <a href="#to_pending_same_phase"><span class="fn">to_pending_same_phase</span></a>(self) -> <a href="../../../noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html" class="struct">PendingSamePhaseNoteMetadata</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Asserts that the metadata is that of a pending note from the same phase and converts it accordingly.</p>
+</div>
+</div><code id="to_pending_previous_phase" class="code-header">pub fn <a href="#to_pending_previous_phase"><span class="fn">to_pending_previous_phase</span></a>(self) -> <a href="../../../noir_aztec/note/note_metadata/struct.PendingPreviousPhaseNoteMetadata.html" class="struct">PendingPreviousPhaseNoteMetadata</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Asserts that the metadata is that of a pending note from a previous phase and converts it accordingly.</p>
+</div>
+</div><code id="to_settled" class="code-header">pub fn <a href="#to_settled"><span class="fn">to_settled</span></a>(self) -> <a href="../../../noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html" class="struct">SettledNoteMetadata</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Asserts that the metadata is that of a settled note and converts it accordingly.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-NoteMetadata"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-NoteMetadata"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-From&lt;PendingPreviousPhaseNoteMetadata&gt;-for-NoteMetadata"><code class="code-header">impl <a href="../../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../../noir_aztec/note/note_metadata/struct.PendingPreviousPhaseNoteMetadata.html" class="struct">PendingPreviousPhaseNoteMetadata</a>&gt; for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(value: <a href="../../../noir_aztec/note/note_metadata/struct.PendingPreviousPhaseNoteMetadata.html" class="struct">PendingPreviousPhaseNoteMetadata</a>) -> Self</code>
+
+</div><h3 id="impl-From&lt;PendingSamePhaseNoteMetadata&gt;-for-NoteMetadata"><code class="code-header">impl <a href="../../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../../noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html" class="struct">PendingSamePhaseNoteMetadata</a>&gt; for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(_value: <a href="../../../noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html" class="struct">PendingSamePhaseNoteMetadata</a>) -> Self</code>
+
+</div><h3 id="impl-From&lt;SettledNoteMetadata&gt;-for-NoteMetadata"><code class="code-header">impl <a href="../../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../../noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html" class="struct">SettledNoteMetadata</a>&gt; for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(value: <a href="../../../noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html" class="struct">SettledNoteMetadata</a>) -> Self</code>
+
+</div><h3 id="impl-Packable-for-NoteMetadata"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-NoteMetadata"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

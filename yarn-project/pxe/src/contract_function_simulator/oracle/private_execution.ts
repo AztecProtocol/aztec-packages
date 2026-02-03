@@ -1,0 +1,141 @@
+import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import {
+  type ACVMWitness,
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
+import {
+  type FunctionArtifact,
+  type FunctionArtifactWithContractName,
+  type FunctionSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
+
+import { Oracle } from './oracle.js';
+import type { PrivateExecutionOracle } from './private_execution_oracle.js';
+
+/**
+ * Execute a private function and return the execution result.
+ * This does not execute any kernel circuits; only the user functions.
+ *
+ * If this private function execution results in any nested private function calls,
+ * those nested calls are made via oracle calls to the `privateCallPrivateFunction` oracle,
+ * which in turn makes corresponding further calls to this function.
+ */
+export async function executePrivateFunction(
+  simulator: CircuitSimulator,
+  privateExecutionOracle: PrivateExecutionOracle,
+  artifact: FunctionArtifactWithContractName,
+  contractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+  log = createLogger('simulator:private_execution'),
+): Promise<PrivateCallExecutionResult> {
+  const functionName = await privateExecutionOracle.getDebugFunctionName();
+  log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
+  const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
+  const acvmCallback = new Oracle(privateExecutionOracle);
+  const timer = new Timer();
+  const acirExecutionResult = await simulator
+    .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
+    .catch((err: Error) => {
+      err.message = resolveAssertionMessageFromError(err, artifact);
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
+      );
+    });
+  const duration = timer.ms();
+  const partialWitness = acirExecutionResult.partialWitness;
+  const publicInputs = extractPrivateCircuitPublicInputs(artifact, partialWitness);
+
+  // TODO (alexg) estimate this size
+  const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+  log.debug(`Ran external function ${contractAddress.toString()}:${functionSelector}`, {
+    circuitName: 'app-circuit',
+    duration,
+    eventName: 'circuit-witness-generation',
+    inputSize: initialWitnessSize,
+    outputSize: publicInputs.toBuffer().length,
+    appCircuitName: functionName,
+  } satisfies CircuitWitnessGenerationStats);
+
+  const contractClassLogs = privateExecutionOracle.getContractClassLogs();
+
+  const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
+
+  const newNotes = privateExecutionOracle.getNewNotes();
+  const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
+  const offchainEffects = privateExecutionOracle.getOffchainEffects();
+  const preTags = privateExecutionOracle.getUsedPreTags();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
+
+  let timerSubtractionList = nestedExecutionResults;
+  let witgenTime = duration;
+
+  // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
+  while (timerSubtractionList.length > 0) {
+    witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
+  }
+
+  log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+
+  return new PrivateCallExecutionResult(
+    artifact.bytecode,
+    Buffer.from(artifact.verificationKey!, 'base64'),
+    partialWitness,
+    publicInputs,
+    newNotes,
+    noteHashNullifierCounterMap,
+    rawReturnValues,
+    offchainEffects,
+    preTags,
+    nestedExecutionResults,
+    contractClassLogs,
+    {
+      timings: {
+        witgen: witgenTime,
+        oracles: acirExecutionResult.oracles,
+      },
+    },
+  );
+}
+
+/**
+ * Get the private circuit public inputs from the partial witness.
+ * @param artifact - The function artifact
+ * @param partialWitness - The partial witness, result of simulating the function.
+ * @returns - The public inputs.
+ */
+export function extractPrivateCircuitPublicInputs(
+  artifact: FunctionArtifact,
+  partialWitness: ACVMWitness,
+): PrivateCircuitPublicInputs {
+  const parametersSize = countArgumentsSize(artifact) + PRIVATE_CONTEXT_INPUTS_LENGTH;
+  const returnsSize = PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+  const returnData = [];
+  // Return values always appear in the witness after arguments.
+  for (let i = parametersSize; i < parametersSize + returnsSize; i++) {
+    const returnedField = partialWitness.get(i);
+    if (returnedField === undefined) {
+      throw new Error(`Missing return value for index ${i}`);
+    }
+    returnData.push(Fr.fromString(returnedField));
+  }
+  return PrivateCircuitPublicInputs.fromFields(returnData);
+}

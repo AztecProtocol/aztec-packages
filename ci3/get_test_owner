@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Prints a list of test owners based on matching test name pattern, and optional error regex.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+# Use get_test_entry to get matching entries, then extract unique owners
+get_test_entry "$@" | jq -r '.owners[]' | sort -u

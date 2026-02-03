@@ -1,0 +1,27 @@
+SubmitRoundWinnerTest
+├── given canonical instance hold no code
+│   └── it revert
+└── given canonical instance hold code
+    ├── when round not in past
+    │   └── it revert
+    └── when round in past
+        ├── when round too far in past
+        │   └── it revert
+        └── when round in recent past
+            ├── given round already executed
+            │   └── it revert
+            └── given round not executed before
+                ├── given leader is address 0
+                │   └── it revert
+                └── given leader is not address 0
+                    ├── given insufficient signals
+                    │   └── it revert
+                    └── given sufficient signals
+                        ├── given new canonical instance
+                        │   └── it revert
+                        ├── given governance call fails
+                        │   └── it revert
+                        └── given governance call succeeds
+                            ├── it update executed to true
+                            ├── it emits {PayloadSubmitted} event
+                            └── it return true

@@ -1,0 +1,162 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import {
+  Attributes,
+  type Gauge,
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  createUpDownCounterWithDefault,
+} from '@aztec/telemetry-client';
+
+import {
+  type DBStats,
+  type TreeDBStats,
+  type TreeMeta,
+  WorldStateMessageType,
+  type WorldStateStatusFull,
+} from '../native/message.js';
+
+type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
+
+const durationTrackDenylist = new Set<WorldStateMessageType>([
+  WorldStateMessageType.GET_INITIAL_STATE_REFERENCE,
+  WorldStateMessageType.CLOSE,
+
+  // these aren't used anymore, should be removed from the API
+  WorldStateMessageType.COMMIT,
+  WorldStateMessageType.ROLLBACK,
+]);
+
+export class WorldStateInstrumentation {
+  private dbMapSize: Gauge;
+  private dbPhysicalSize: Gauge;
+  private treeSize: Gauge;
+  private unfinalizedHeight: Gauge;
+  private finalizedHeight: Gauge;
+  private oldestBlock: Gauge;
+  private dbNumItems: Gauge;
+  private dbUsedSize: Gauge;
+  private requestHistogram: Histogram;
+  private criticalErrors: UpDownCounter;
+
+  constructor(
+    public readonly telemetry: TelemetryClient,
+    private log: Logger = createLogger('world-state:instrumentation'),
+  ) {
+    const meter = telemetry.getMeter('World State');
+    this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE);
+
+    this.dbPhysicalSize = meter.createGauge(Metrics.WORLD_STATE_DB_PHYSICAL_SIZE);
+
+    this.treeSize = meter.createGauge(Metrics.WORLD_STATE_TREE_SIZE);
+
+    this.unfinalizedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALIZED_HEIGHT);
+
+    this.finalizedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALIZED_HEIGHT);
+
+    this.oldestBlock = meter.createGauge(Metrics.WORLD_STATE_OLDEST_BLOCK);
+
+    this.dbUsedSize = meter.createGauge(Metrics.WORLD_STATE_DB_USED_SIZE);
+
+    this.dbNumItems = meter.createGauge(Metrics.WORLD_STATE_DB_NUM_ITEMS);
+
+    this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME);
+
+    this.criticalErrors = createUpDownCounterWithDefault(meter, Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT, {
+      [Attributes.ERROR_TYPE]: [
+        'synch_pending_block',
+        'finalize_block',
+        'prune_pending_block',
+        'prune_historical_block',
+      ],
+    });
+  }
+
+  private updateTreeStats(treeDbStats: TreeDBStats, treeMeta: TreeMeta, tree: MerkleTreeId) {
+    this.dbMapSize.record(Number(treeDbStats.mapSize), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.dbPhysicalSize.record(Number(treeDbStats.physicalFileSize), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.treeSize.record(Number(treeMeta.size), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.unfinalizedHeight.record(Number(treeMeta.unfinalizedBlockHeight), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.finalizedHeight.record(Number(treeMeta.finalizedBlockHeight), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.oldestBlock.record(Number(treeMeta.oldestHistoricBlock), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+
+    this.updateTreeDBStats(treeDbStats.blockIndicesDBStats, 'block_indices', tree);
+    this.updateTreeDBStats(treeDbStats.blocksDBStats, 'blocks', tree);
+    this.updateTreeDBStats(treeDbStats.leafIndicesDBStats, 'leaf_indices', tree);
+    this.updateTreeDBStats(treeDbStats.leafPreimagesDBStats, 'leaf_preimage', tree);
+    this.updateTreeDBStats(treeDbStats.nodesDBStats, 'nodes', tree);
+  }
+
+  private updateTreeDBStats(dbStats: DBStats, dbType: DBTypeString, tree: MerkleTreeId) {
+    this.dbNumItems.record(Number(dbStats.numDataItems), {
+      [Attributes.WS_DB_DATA_TYPE]: dbType,
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.dbUsedSize.record(Number(dbStats.totalUsedSize), {
+      [Attributes.WS_DB_DATA_TYPE]: dbType,
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+  }
+
+  public updateWorldStateMetrics(worldStateStatus: WorldStateStatusFull) {
+    this.updateTreeStats(
+      worldStateStatus.dbStats.archiveTreeStats,
+      worldStateStatus.meta.archiveTreeMeta,
+      MerkleTreeId.ARCHIVE,
+    );
+
+    this.updateTreeStats(
+      worldStateStatus.dbStats.messageTreeStats,
+      worldStateStatus.meta.messageTreeMeta,
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    );
+
+    this.updateTreeStats(
+      worldStateStatus.dbStats.noteHashTreeStats,
+      worldStateStatus.meta.noteHashTreeMeta,
+      MerkleTreeId.NOTE_HASH_TREE,
+    );
+
+    this.updateTreeStats(
+      worldStateStatus.dbStats.nullifierTreeStats,
+      worldStateStatus.meta.nullifierTreeMeta,
+      MerkleTreeId.NULLIFIER_TREE,
+    );
+
+    this.updateTreeStats(
+      worldStateStatus.dbStats.publicDataTreeStats,
+      worldStateStatus.meta.publicDataTreeMeta,
+      MerkleTreeId.PUBLIC_DATA_TREE,
+    );
+  }
+
+  public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
+    if (!durationTrackDenylist.has(request)) {
+      this.requestHistogram.record(Math.ceil(timeUs), {
+        [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+      });
+    }
+  }
+
+  public incCriticalErrors(
+    errorType: 'synch_pending_block' | 'finalize_block' | 'prune_pending_block' | 'prune_historical_block',
+  ) {
+    this.criticalErrors.add(1, {
+      [Attributes.ERROR_TYPE]: errorType,
+    });
+  }
+}

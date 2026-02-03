@@ -1,0 +1,26 @@
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+
+node:
+  resources:
+    requests:
+      cpu: "0.5"
+      memory: "0.5Gi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 4Gi

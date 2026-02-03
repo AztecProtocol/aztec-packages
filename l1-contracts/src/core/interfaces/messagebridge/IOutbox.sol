@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
+
+import {DataStructures} from "../../libraries/DataStructures.sol";
+import {Epoch} from "../../libraries/TimeLib.sol";
+
+/**
+ * @title IOutbox
+ * @author Aztec Labs
+ * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the Rollup
+ * and will be consumed by the portal contracts.
+ */
+interface IOutbox {
+  event RootAdded(Epoch indexed epoch, bytes32 indexed root);
+  event MessageConsumed(Epoch indexed epoch, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafId);
+
+  // docs:start:outbox_insert
+  /**
+   * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in an epoch specified by _epoch.
+   * @dev Only callable by the rollup contract
+   * @dev Emits `RootAdded` upon inserting the root successfully
+   * @param _epoch - The epoch in which the L2 to L1 messages reside
+   * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
+   */
+  function insert(Epoch _epoch, bytes32 _root) external;
+  // docs:end:outbox_insert
+
+  // docs:start:outbox_consume
+  /**
+   * @notice Consumes an entry from the Outbox
+   * @dev Only useable by portals / recipients of messages
+   * @dev Emits `MessageConsumed` when consuming messages
+   * @param _message - The L2 to L1 message
+   * @param _epoch - The epoch that contains the message we want to consume
+   * @param _leafIndex - The index at the level in the epoch message tree where the message is located
+   * @param _path - The sibling path used to prove inclusion of the message, the _path length depends
+   * on the location of the L2 to L1 message in the epoch message tree.
+   */
+  function consume(
+    DataStructures.L2ToL1Msg calldata _message,
+    Epoch _epoch,
+    uint256 _leafIndex,
+    bytes32[] calldata _path
+  ) external;
+  // docs:end:outbox_consume
+
+  // docs:start:outbox_has_message_been_consumed_at_epoch_and_index
+  /**
+   * @notice Checks to see if an L2 to L1 message in a specific epoch has been consumed
+   * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
+   * @param _epoch - The epoch that contains the message we want to check
+   * @param _leafId - The unique id of the message leaf
+   */
+  function hasMessageBeenConsumedAtEpoch(Epoch _epoch, uint256 _leafId) external view returns (bool);
+  // docs:end:outbox_has_message_been_consumed_at_epoch_and_index
+
+  /**
+   * @notice  Fetch the root data for a given epoch
+   *          Returns (0, 0) if the epoch is not proven
+   *
+   * @param _epoch - The epoch to fetch the root data for
+   *
+   * @return bytes32 - The root of the merkle tree containing the L2 to L1 messages
+   */
+  function getRootData(Epoch _epoch) external view returns (bytes32);
+}

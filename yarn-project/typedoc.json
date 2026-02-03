@@ -1,0 +1,23 @@
+{
+  "cleanOutputDir": false,
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "accounts",
+    "simulator",
+    "archiver",
+    "aztec-cli",
+    "pxe",
+    "aztec",
+    "aztec.js",
+    "key-store",
+    "noir-contracts.js",
+    "builder",
+    "p2p",
+    "prover-client",
+    "aztec-node",
+    "sequencer-client",
+    "types",
+    "world-state",
+    "merkle-tree"
+  ]
+}

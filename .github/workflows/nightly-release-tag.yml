@@ -1,0 +1,35 @@
+name: Nightly Release Tag
+on:
+  schedule:
+    # Run the workflow every night at 2:00 AM UTC.
+    - cron: "0 2 * * *"
+
+# Add permissions for the GitHub Actions bot to push tags
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  nightly-release-tag:
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the repository so we can read files and create tags.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      # Extract the current release version from the manifest.
+      # Then, create a nightly tag using the current version and the current UTC date.
+      - name: Create Nightly Tag
+        run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          echo "Current version: $current_version"
+          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          echo "Nightly tag: $nightly_tag"
+          # Tag and push.
+          git tag -a "$nightly_tag" -m "$nightly_tag"
+          git push origin "$nightly_tag"

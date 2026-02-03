@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+//
+import { injectCommands as injectBuilderCommands } from '@aztec/builder';
+import { injectCommands as injectAztecNodeCommands } from '@aztec/cli/aztec_node';
+import { enrichEnvironmentWithChainName } from '@aztec/cli/config/chain';
+import { enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config/network';
+import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
+import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
+import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
+import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
+import { injectCommands as injectValidatorKeysCommands } from '@aztec/cli/validator_keys';
+import { getActiveNetworkName } from '@aztec/foundation/config';
+import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
+
+import { Command } from 'commander';
+
+import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
+import { injectAztecCommands } from '../cli/index.js';
+import { getCliVersion } from '../cli/release_version.js';
+
+const NETWORK_FLAG = 'network';
+
+const userLog = createConsoleLogger();
+const debugLogger = createLogger('cli');
+
+/** CLI & full node main entrypoint */
+async function main() {
+  const shutdown = () => {
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
+  // Intercept the setting of a network and enrich the environment with defaults for that network
+  let networkValue: string | undefined;
+
+  const args = process.argv.slice(2);
+  const networkIndex = args.findIndex(arg => arg.startsWith(`--${NETWORK_FLAG}=`) || arg === `--${NETWORK_FLAG}`);
+
+  if (networkIndex !== -1) {
+    networkValue = args[networkIndex].split('=')[1] || args[networkIndex + 1];
+  }
+
+  const networkName = getActiveNetworkName(networkValue);
+  await enrichEnvironmentWithNetworkConfig(networkName);
+  enrichEnvironmentWithChainName(networkName);
+
+  const cliVersion = getCliVersion();
+  let program = new Command('aztec');
+  program.description('Aztec command line interface').version(cliVersion);
+  program = injectAztecCommands(program, userLog, debugLogger);
+  program = injectBuilderCommands(program);
+  program = injectContractCommands(program, userLog, debugLogger);
+  program = injectInfrastructureCommands(program, userLog);
+  program = injectL1Commands(program, userLog, debugLogger);
+  program = injectAztecNodeCommands(program, userLog, debugLogger);
+  program = injectMiscCommands(program, userLog);
+  program = injectValidatorKeysCommands(program, userLog);
+  program = injectMigrateCommand(program, userLog);
+
+  await program.parseAsync(process.argv);
+}
+
+main().catch(err => {
+  debugLogger.error(`Error in command execution`);
+  debugLogger.error(err + '\n' + err.stack);
+  // See https://nodejs.org/api/process.html#processexitcode
+  process.exitCode = 1;
+  throw err;
+});

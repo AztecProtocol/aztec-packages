@@ -1,0 +1,148 @@
+import { GeneratorIndex } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
+import { HashedValues } from '@aztec/stdlib/tx';
+
+// These must match the values defined in:
+// - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
+export const APP_MAX_CALLS = 5;
+
+/** Encoded function call for an Aztec entrypoint */
+export type EncodedFunctionCall = {
+  /** Arguments hash for the call. */
+  /** This should be the calldata hash `hash([function_selector, ...args])` if `is_public` is true. */
+  args_hash: Fr;
+  /** Selector of the function to call */
+  function_selector: Fr;
+  /** Address of the contract to call */
+  target_address: Fr;
+  /** Whether the function is public or private */
+  is_public: boolean;
+  /** Only applicable for enqueued public function calls. Whether the msg_sender will be set to "null". */
+  hide_msg_sender: boolean;
+  /** Whether the function can alter state */
+  is_static: boolean;
+};
+
+/** Type that represents function calls ready to be sent to a circuit for execution */
+export type EncodedCalls = {
+  /** Function calls in the expected format (Noir's convention) */
+  encodedFunctionCalls: EncodedFunctionCall[];
+  /** The hashed args for the call, ready to be injected in the execution cache */
+  hashedArguments: HashedValues[];
+};
+
+/**
+ * Entrypoints derive their arguments from the calls that they'll ultimate make.
+ * This utility class helps in creating the payload for the entrypoint by taking into
+ * account how the calls are encoded and hashed.
+ * */
+export class EncodedAppEntrypointCalls implements EncodedCalls {
+  constructor(
+    /** Function calls in the expected format (Noir's convention) */
+    public encodedFunctionCalls: EncodedFunctionCall[],
+    /** The hashed args for the call, ready to be injected in the execution cache */
+    public hashedArguments: HashedValues[],
+    /** The index of the generator to use for hashing */
+    public generatorIndex: number,
+    /**
+     * A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be
+     * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
+     * but higher fee. The nullifier ensures only one transaction can succeed.
+     */
+    // eslint-disable-next-line camelcase
+    public tx_nonce: Fr,
+  ) {}
+
+  /* eslint-disable camelcase */
+  /**
+   * The function calls to execute. This uses snake_case naming so that it is compatible with Noir encoding
+   * @internal
+   */
+  get function_calls() {
+    return this.encodedFunctionCalls;
+  }
+  /* eslint-enable camelcase */
+
+  /**
+   * Serializes the payload to an array of fields
+   * @returns The fields of the payload
+   */
+  toFields(): Fr[] {
+    return [...this.functionCallsToFields(), this.tx_nonce];
+  }
+
+  /**
+   * Hashes the payload
+   * @returns The hash of the payload
+   */
+  hash() {
+    return poseidon2HashWithSeparator(this.toFields(), this.generatorIndex);
+  }
+
+  /** Serializes the function calls to an array of fields. */
+  protected functionCallsToFields() {
+    return this.encodedFunctionCalls.flatMap(call => [
+      call.args_hash,
+      call.function_selector,
+      call.target_address,
+      new Fr(call.is_public),
+      new Fr(call.hide_msg_sender),
+      new Fr(call.is_static),
+    ]);
+  }
+
+  /**
+   * Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
+   * @param functionCalls - The function calls to execute
+   * @param txNonce - A nonce used to enable transaction cancellation when cancellable=true. Transactions with the same
+   * nonce can be replaced by submitting a new one with a higher fee.
+   * @returns The encoded calls
+   */
+  static async create(
+    functionCalls: FunctionCall[] | Tuple<FunctionCall, typeof APP_MAX_CALLS>,
+    txNonce = Fr.random(),
+  ) {
+    if (functionCalls.length > APP_MAX_CALLS) {
+      throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
+    }
+    const paddedCalls = padArrayEnd(functionCalls, FunctionCall.empty(), APP_MAX_CALLS);
+    const encoded = await encode(paddedCalls);
+    return new EncodedAppEntrypointCalls(
+      encoded.encodedFunctionCalls,
+      encoded.hashedArguments,
+      GeneratorIndex.SIGNATURE_PAYLOAD,
+      txNonce,
+    );
+  }
+}
+
+/** Encodes FunctionCalls for execution, following Noir's convention */
+export async function encode(calls: FunctionCall[]): Promise<EncodedCalls> {
+  const hashedArguments: HashedValues[] = [];
+  for (const call of calls) {
+    const hashed =
+      call.type === FunctionType.PUBLIC
+        ? await HashedValues.fromCalldata([call.selector.toField(), ...call.args])
+        : await HashedValues.fromArgs(call.args);
+    hashedArguments.push(hashed);
+  }
+
+  /* eslint-disable camelcase */
+  const encodedFunctionCalls: EncodedFunctionCall[] = calls.map((call, index) => ({
+    args_hash: hashedArguments[index].hash,
+    function_selector: call.selector.toField(),
+    target_address: call.to.toField(),
+    is_public: call.type == FunctionType.PUBLIC,
+    hide_msg_sender: call.hideMsgSender,
+    is_static: call.isStatic,
+  }));
+
+  return {
+    encodedFunctionCalls,
+    hashedArguments,
+  };
+}

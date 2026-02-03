@@ -1,0 +1,7 @@
+.terraform
+.terraform*
+.DS_Store
+bin/0.0.1/versions
+verdaccio-storage
+aztec-up-test-base-image
+aztec-up-test-image

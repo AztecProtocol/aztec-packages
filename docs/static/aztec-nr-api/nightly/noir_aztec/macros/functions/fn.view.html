@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function view documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">view</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module functions</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="initialization_utils/index.html">initialization_utils</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.authorize_once.html">authorize_once</a></div></li>
+<li><a href="fn.external.html">external</a></div></li>
+<li><a href="fn.initializer.html">initializer</a></div></li>
+<li><a href="fn.internal.html">internal</a></div></li>
+<li><a href="fn.noinitcheck.html">noinitcheck</a></div></li>
+<li><a href="fn.nophasecheck.html">nophasecheck</a></div></li>
+<li><a href="fn.only_self.html">only_self</a></div></li>
+<li><a href="fn.view.html">view</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">functions</a></div>
+<h1>Function <span class="fn">view</span></h1>
+<pre><code>pub comptime fn view(f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>)</code></pre>
+
+<div class="comments">
+<p>View functions cannot modify state in any way, including performing contract calls that would in turn modify state.</p>
+<p>This makes them easy to reason about: they are simply 'pure' functions that return a value, and carry e.g. no
+reentrancy risk.</p>
+<h2>Use Cases</h2>
+<p>Only public and private functions can be <a href="../../../noir_aztec/macros/functions/fn.view.html"><code>view</code></a>.</p>
+<p>Private <a href="../../../noir_aztec/macros/functions/fn.view.html"><code>view</code></a> functions are typically not very useful as they cannot emit nullifiers, which is often required
+when
+reading private state (e.g. from a <a href="../../../noir_aztec/state_vars/struct.PrivateMutable.html"><code>crate::state_vars::private_mutable::PrivateMutable</code></a> or
+<a href="../../../noir_aztec/state_vars/struct.PrivateSet.html"><code>crate::state_vars::private_set::PrivateSet</code></a> state variable). They do however have their use cases, such as
+performing a <a href="../../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>crate::state_vars::delayed_public_mutable::DelayedPublicMutable</code></a> read.</p>
+<p>Public view functions on the other hand are very common, since reading public storage does not require any state
+modifications. These are essentially equivalent to a Solidity <code>view</code> function.</p>
+<h2>Guarantees</h2>
+<p><a href="../../../noir_aztec/macros/functions/fn.view.html"><code>view</code></a> functions can <em>only</em> be called in a static execution context, which is typically achieved by calling the
+<a href="../../../noir_aztec/struct.ContractSelf.html#view"><code>crate::contract_self::ContractSelf::view</code></a> method on <code>self</code>.</p>
+<p>No compile time checks are performed on whether a function can be made <a href="../../../noir_aztec/macros/functions/fn.view.html"><code>view</code></a>. If a function marked as view
+attempts to modify state, that will result in <em>runtime</em> failures.</p></div>
+</main>
+</span>
+</body>
+</html>

@@ -1,0 +1,120 @@
+mod config;
+
+use aztec::macros::aztec;
+
+#[aztec]
+pub contract Crowdfunding {
+    use crate::config::Config;
+    use aztec::{
+        macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
+        messages::message_delivery::MessageDelivery,
+        protocol::address::AztecAddress,
+        state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
+        utils::{array, comparison::Comparator},
+    };
+    use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
+    use public_checks::utils::privately_check_timestamp;
+    use token::Token;
+    use uint_note::UintNote;
+
+    #[event]
+    struct WithdrawalProcessed {
+        who: AztecAddress,
+        amount: u128,
+    }
+    // docs:start:storage
+    #[storage]
+    struct Storage<Context> {
+        config: PublicImmutable<Config, Context>,
+        // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
+        donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
+    }
+    // docs:end:storage
+
+    // TODO(#8367): Ensure deadline is quantized to improve privacy set.
+    #[external("public")]
+    #[initializer]
+    // this-will-error:init-header-error
+    fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
+        self.storage.config.initialize(Config { donation_token, operator, deadline });
+    }
+
+    #[external("private")]
+    fn donate(amount: u128) {
+        let config = self.storage.config.read();
+
+        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which contract
+        // is performing the check.
+        // docs:start:call-check-deadline
+        privately_check_timestamp(Comparator.LT, config.deadline, self.context);
+        // docs:end:call-check-deadline
+
+        // 2) Transfer the donation tokens from donor to this contract
+        let donor = self.msg_sender();
+        Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(
+            self.context,
+        );
+
+        // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
+        // contract by proving that the hash of this note exists in the note hash tree.
+        let note = UintNote { value: amount };
+
+        // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
+        // encryption incorrectly would harm himself only.
+        self.storage.donation_receipts.at(donor).insert(note).deliver(
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+        );
+    }
+
+    // Withdraws balance to the operator. Requires that msg_sender() is the operator.
+    #[external("private")]
+    fn withdraw(amount: u128) {
+        let config = self.storage.config.read();
+        let operator_address = config.operator;
+
+        // 1) Check that msg_sender() is the operator
+        assert(self.msg_sender() == operator_address, "Not an operator");
+
+        // 2) Transfer the donation tokens from this contract to the operator
+        self.call(Token::at(config.donation_token).transfer(operator_address, amount));
+        // 3) Emit a public event so that anyone can audit how much the operator has withdrawn
+        self.enqueue_self._publish_donation_receipts(amount, operator_address);
+    }
+
+    #[external("public")]
+    #[only_self]
+    fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
+        self.emit(WithdrawalProcessed { amount, who: to });
+    }
+
+    #[external("utility")]
+    unconstrained fn get_donation_notes(
+        donor: AztecAddress,
+        page_index: u32,
+    ) -> BoundedVec<HintedNote<UintNote>, MAX_NOTES_PER_PAGE> {
+        let storage_slot = self.storage.donation_receipts.get_storage_slot();
+
+        // We bypass Aztec.nr's higher-level abstractions here to access the metadata available only in HintedNote
+        // type that is not returned by view_notes function. We on the other hand need this metadata because we will
+        // be proving the note existence in the Claim contract.
+        let opt_notes = aztec::oracle::notes::get_notes(
+            Option::some(donor),
+            storage_slot,
+            0,
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            MAX_NOTES_PER_PAGE,
+            page_index * MAX_NOTES_PER_PAGE,
+            NoteStatus.ACTIVE,
+        );
+
+        array::collapse(opt_notes)
+    }
+}

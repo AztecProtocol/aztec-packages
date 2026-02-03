@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -u # not -e
+[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+
+if [ -n "${RETRY_DISABLED:-}" ]; then
+  set -e
+  eval "$1"
+  exit
+fi
+
+ATTEMPTS=3
+# Retries up to 3 times with 5 second intervals
+trap 'kill -SIGTERM $pid &>/dev/null || true' SIGTERM
+for i in $(seq 1 $ATTEMPTS); do
+  bash -c "$1" &
+  pid=$!
+  # First wait might be SIGTERM received by this script.
+  # Second should be the actual exit status.
+  wait $pid
+  wait $pid
+  code=$?
+  [ $code -eq 0 ] || [ $code -eq 143 ] && exit 0
+  [ "$i" != "$ATTEMPTS" ] && sleep 5
+done
+
+>&2 echo "Failed after $ATTEMPTS attempts: $1"
+exit 1

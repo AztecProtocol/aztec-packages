@@ -1,0 +1,319 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - "v[0-9]*"
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  release-please:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
+      release-version: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@7d28262f14160787a44a6be36146a18e6f575a3f
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          config-file: .github/release-please-${{ github.ref_name }}.json
+          target-branch: ${{ github.ref_name }}
+
+  auto-tag:
+    needs: [release-please]
+    if: ${{ startsWith(github.ref, 'refs/heads/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Extract version from branch name
+        id: version
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          MAJOR_VERSION="${BRANCH_NAME#v}"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Determine next version
+        id: next_version
+        run: |
+          # Read current version from release-please manifest and use it directly
+          if [ ! -f .release-please-manifest.json ]; then
+            echo "Error: .release-please-manifest.json not found"
+            exit 1
+          fi
+
+          MANIFEST_VERSION=$(jq -r '."."' .release-please-manifest.json)
+          echo "Manifest version: $MANIFEST_VERSION"
+
+          # Ensure manifest major matches vX branch major
+          BRANCH_MAJOR="${{ steps.version.outputs.major }}"
+          if [ -z "$BRANCH_MAJOR" ]; then
+            echo "Error: Branch major version not available from previous step"
+            exit 1
+          fi
+
+          MANIFEST_MAJOR="${MANIFEST_VERSION%%.*}"
+          if [ "$MANIFEST_MAJOR" != "$BRANCH_MAJOR" ]; then
+            echo "Error: Manifest major ($MANIFEST_MAJOR) does not match branch major ($BRANCH_MAJOR)"
+            exit 1
+          fi
+
+          # Accept stable versions (X.Y.Z) and prerelease versions (X.Y.Z-suffix.N)
+          if [[ "$MANIFEST_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.]+)?$ ]]; then
+            NEXT_VERSION="$MANIFEST_VERSION"
+          else
+            echo "Error: Invalid manifest version format: $MANIFEST_VERSION"
+            echo "Expected: X.Y.Z or X.Y.Z-prerelease.N"
+            exit 1
+          fi
+
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version will be: $NEXT_VERSION"
+
+      - name: Get next RC number
+        id: rc
+        run: |
+          # Get all existing RC tags for this specific version
+          EXISTING_TAGS=$(git tag -l "v${{ steps.next_version.outputs.version }}-rc.*" | sort -V)
+
+          if [ -z "$EXISTING_TAGS" ]; then
+            # No RC tags exist yet for this version, start with 1
+            NEXT_RC=1
+          else
+            # Extract the highest RC number and increment
+            LAST_TAG=$(echo "$EXISTING_TAGS" | tail -n 1)
+            LAST_RC=$(echo "$LAST_TAG" | sed 's/.*-rc\.\([0-9]\+\)$/\1/')
+            NEXT_RC=$((LAST_RC + 1))
+          fi
+
+          echo "number=$NEXT_RC" >> $GITHUB_OUTPUT
+          echo "Next RC number: $NEXT_RC"
+
+      - name: Check if commit already tagged
+        id: check_tag
+        run: |
+          # Check if current commit already has any RC tag
+          EXISTING_TAGS=$(git tag --points-at HEAD | grep "^v.*-rc\." || true)
+
+          if [ -n "$EXISTING_TAGS" ]; then
+            echo "Commit already tagged as: $EXISTING_TAGS"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push new RC tag
+        if: steps.check_tag.outputs.skip != 'true'
+        run: |
+          TAG_NAME="v${{ steps.next_version.outputs.version }}-rc.${{ steps.rc.outputs.number }}"
+
+          # Create annotated tag
+          git tag -a "$TAG_NAME" -m "Release candidate ${{ steps.rc.outputs.number }} for v${{ steps.next_version.outputs.version }}"
+          git push origin "$TAG_NAME"
+
+          echo "✅ Created tag: $TAG_NAME"
+
+  update-docs:
+    name: Update docs
+    env:
+      GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release-pr }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Setup dependencies
+        run: |
+          sudo apt install -y --no-install-recommends doxygen
+          corepack enable
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Install Noir toolchain
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: nightly
+
+      - name: Query new version
+        id: version
+        run: |
+          # Extract version from .release-please-manifest.json
+          AZTEC_VERSION=$(jq -r '."."' .release-please-manifest.json)
+
+          # Add v prefix
+          AZTEC_VERSION="v$AZTEC_VERSION"
+
+          echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate Aztec.nr API documentation
+        working-directory: ./docs
+        run: |
+          ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ steps.version.outputs.semver }}
+          echo "Generated Aztec.nr API docs for: ${{ steps.version.outputs.semver }}"
+
+      - name: Build bb (uses cache if available)
+        working-directory: ./barretenberg/cpp
+        run: |
+          ./bootstrap.sh build_native
+          echo "BB_PATH=$(pwd)/build/bin" >> $GITHUB_ENV
+
+      - name: Build noir packages
+        run: |
+          # Initialize noir submodule (required for yarn-project portal dependencies)
+          git submodule update --init --recursive noir/noir-repo
+          # Build noir JS packages (creates noir/packages/ directory needed by yarn-project)
+          cd noir
+          ./bootstrap.sh install_deps
+          ./bootstrap.sh build_packages
+
+      - name: Build aztec CLI
+        working-directory: ./yarn-project
+        run: |
+          ./bootstrap.sh
+          echo "AZTEC_CLI_PATH=$(pwd)/aztec/dest/bin" >> $GITHUB_ENV
+
+      - name: Generate Aztec CLI documentation
+        id: aztec-cli-docs
+        working-directory: ./docs
+        continue-on-error: true
+        run: |
+          # Add locally built binaries to PATH
+          export PATH="${BB_PATH}:${PATH}"
+
+          # Create wrapper for aztec CLI that runs the local build
+          mkdir -p /tmp/cli-bin
+          cat > /tmp/cli-bin/aztec << 'EOF'
+          #!/bin/bash
+          node "$AZTEC_CLI_PATH/index.js" "$@"
+          EOF
+          chmod +x /tmp/cli-bin/aztec
+          export PATH="/tmp/cli-bin:${PATH}"
+
+          # Generate Aztec CLI docs using locally built binaries
+          ./scripts/cli_reference_generation/generate_all_cli_docs.sh --force current
+          echo "Generated Aztec CLI documentation for: ${{ steps.version.outputs.semver }}"
+
+      - name: Generate BB CLI documentation
+        id: bb-cli-docs
+        working-directory: ./barretenberg/docs
+        continue-on-error: true
+        run: |
+          # Add locally built bb to PATH
+          export PATH="${BB_PATH}:${PATH}"
+
+          # Generate BB CLI docs
+          ./scripts/generate_bb_cli_docs.sh --force current
+          echo "Generated BB CLI documentation for: ${{ steps.version.outputs.semver }}"
+
+      - name: Comment on PR if CLI docs generation failed
+        if: steps.aztec-cli-docs.outcome == 'failure' || steps.bb-cli-docs.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          FAILED_DOCS=""
+          if [[ "${{ steps.aztec-cli-docs.outcome }}" == "failure" ]]; then
+            FAILED_DOCS="Aztec CLI"
+          fi
+          if [[ "${{ steps.bb-cli-docs.outcome }}" == "failure" ]]; then
+            if [[ -n "$FAILED_DOCS" ]]; then
+              FAILED_DOCS="$FAILED_DOCS, BB CLI"
+            else
+              FAILED_DOCS="BB CLI"
+            fi
+          fi
+
+          gh pr comment ${{ fromJSON(needs.release-please.outputs.release-pr).number }} --body "$(cat <<EOF
+          ## CLI Documentation Generation Failed
+
+          The following CLI documentation failed to generate: $FAILED_DOCS
+
+          The release will continue, but CLI reference docs may be incomplete for this version.
+
+          [View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+          )"
+
+      - name: Cut Aztec Developer Docs version
+        working-directory: ./docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          yarn
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          # Create versioned docs for Developer docs instance
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version:developer ${{ steps.version.outputs.semver }}
+
+      - name: Update Aztec Developer Docs versions with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_docs_versions.sh developer
+
+      - name: Cut Aztec Network Docs version
+        working-directory: ./docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          # Create versioned docs for Network docs instance
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version:network ${{ steps.version.outputs.semver }}
+
+      - name: Update Aztec Network Docs versions with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_docs_versions.sh network
+
+      - name: Commit new Aztec Docs version
+        run: |
+          # Reset non-versioned CLI docs (only versioned copies should be committed)
+          git checkout -- docs/docs-developers/docs/cli/*_cli_reference.md || true
+          git add .
+          git commit -m "chore(docs): cut new aztec docs version for tag ${{ steps.version.outputs.semver }}"
+          git push
+
+      - name: Cut Barretenberg Docs version
+        working-directory: ./barretenberg/docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          # need to specify at least one version in versions.json for it to build
+          echo "[ \"$(./scripts/get_current_version.sh)\" ]" > versions.json
+          yarn
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+
+      - name: Update Barretenberg Docs versions.json with new version
+        working-directory: ./barretenberg/docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Commit new Barretenberg Docs version
+        run: |
+          git add .
+          git commit -m "chore(docs): cut new barretenberg docs version for tag ${{ steps.version.outputs.semver }}"
+          git push

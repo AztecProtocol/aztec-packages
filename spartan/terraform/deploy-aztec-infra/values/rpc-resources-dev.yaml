@@ -1,0 +1,34 @@
+replicaCount: 1
+
+node:
+  resources:
+    requests:
+      cpu: "0.25"
+      memory: "1Gi"
+    limits:
+      cpu: "0.5"
+      memory: "2Gi"
+
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+
+service:
+  type: ClusterIP
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: true
+  headless:
+    enabled: false

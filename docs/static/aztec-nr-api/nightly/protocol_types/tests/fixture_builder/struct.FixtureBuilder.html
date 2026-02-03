@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct FixtureBuilder documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">FixtureBuilder</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct FixtureBuilder</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.anchor_block_header">anchor_block_header</a></li>
+<li><a href="#structfield.args_hash">args_hash</a></li>
+<li><a href="#structfield.bytecode_hash">bytecode_hash</a></li>
+<li><a href="#structfield.calldata_hash">calldata_hash</a></li>
+<li><a href="#structfield.claimed_first_nullifier">claimed_first_nullifier</a></li>
+<li><a href="#structfield.claimed_revertible_counter">claimed_revertible_counter</a></li>
+<li><a href="#structfield.contract_address">contract_address</a></li>
+<li><a href="#structfield.contract_class_artifact_hash">contract_class_artifact_hash</a></li>
+<li><a href="#structfield.contract_class_log_fields">contract_class_log_fields</a></li>
+<li><a href="#structfield.contract_class_logs_hashes">contract_class_logs_hashes</a></li>
+<li><a href="#structfield.contract_class_public_bytecode_commitment">contract_class_public_bytecode_commitment</a></li>
+<li><a href="#structfield.counter">counter</a></li>
+<li><a href="#structfield.counter_start">counter_start</a></li>
+<li><a href="#structfield.effective_gas_fees">effective_gas_fees</a></li>
+<li><a href="#structfield.end_gas_used">end_gas_used</a></li>
+<li><a href="#structfield.end_tree_snapshots">end_tree_snapshots</a></li>
+<li><a href="#structfield.expected_non_revertible_side_effect_counter">expected_non_revertible_side_effect_counter</a></li>
+<li><a href="#structfield.expected_revertible_side_effect_counter">expected_revertible_side_effect_counter</a></li>
+<li><a href="#structfield.fee_payer">fee_payer</a></li>
+<li><a href="#structfield.function_data">function_data</a></li>
+<li><a href="#structfield.function_leaf_membership_witness">function_leaf_membership_witness</a></li>
+<li><a href="#structfield.gas_used">gas_used</a></li>
+<li><a href="#structfield.global_variables">global_variables</a></li>
+<li><a href="#structfield.include_by_timestamp">include_by_timestamp</a></li>
+<li><a href="#structfield.is_fee_payer">is_fee_payer</a></li>
+<li><a href="#structfield.is_private_only">is_private_only</a></li>
+<li><a href="#structfield.is_static_call">is_static_call</a></li>
+<li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
+<li><a href="#structfield.min_revertible_side_effect_counter">min_revertible_side_effect_counter</a></li>
+<li><a href="#structfield.msg_sender">msg_sender</a></li>
+<li><a href="#structfield.note_hash_read_requests">note_hash_read_requests</a></li>
+<li><a href="#structfield.note_hashes">note_hashes</a></li>
+<li><a href="#structfield.nullifier_read_requests">nullifier_read_requests</a></li>
+<li><a href="#structfield.nullifiers">nullifiers</a></li>
+<li><a href="#structfield.original_class_id">original_class_id</a></li>
+<li><a href="#structfield.private_call_requests">private_call_requests</a></li>
+<li><a href="#structfield.private_logs">private_logs</a></li>
+<li><a href="#structfield.protocol_contracts">protocol_contracts</a></li>
+<li><a href="#structfield.prover_id">prover_id</a></li>
+<li><a href="#structfield.public_call_requests">public_call_requests</a></li>
+<li><a href="#structfield.public_data_writes">public_data_writes</a></li>
+<li><a href="#structfield.public_keys">public_keys</a></li>
+<li><a href="#structfield.public_logs">public_logs</a></li>
+<li><a href="#structfield.public_teardown_call_request">public_teardown_call_request</a></li>
+<li><a href="#structfield.returns_hash">returns_hash</a></li>
+<li><a href="#structfield.revert_code">revert_code</a></li>
+<li><a href="#structfield.reverted">reverted</a></li>
+<li><a href="#structfield.salted_initialization_hash">salted_initialization_hash</a></li>
+<li><a href="#structfield.scoped_key_validation_requests_and_generators">scoped_key_validation_requests_and_generators</a></li>
+<li><a href="#structfield.start_gas_used">start_gas_used</a></li>
+<li><a href="#structfield.start_state">start_state</a></li>
+<li><a href="#structfield.start_tree_snapshots">start_tree_snapshots</a></li>
+<li><a href="#structfield.transaction_fee">transaction_fee</a></li>
+<li><a href="#structfield.tx_context">tx_context</a></li>
+<li><a href="#structfield.updated_class_id_delay_change">updated_class_id_delay_change</a></li>
+<li><a href="#structfield.updated_class_id_leaf">updated_class_id_leaf</a></li>
+<li><a href="#structfield.updated_class_id_value_change">updated_class_id_value_change</a></li>
+<li><a href="#structfield.updated_class_id_witness">updated_class_id_witness</a></li>
+<li><a href="#structfield.value_offset">value_offset</a></li>
+<li><a href="#structfield.vk">vk</a></li>
+<li><a href="#structfield.vk_index">vk_index</a></li>
+<li><a href="#structfield.vk_path">vk_path</a></li>
+<li><a href="#structfield.vk_tree_root">vk_tree_root</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#add_contract_class_log_hash">add_contract_class_log_hash</a></li>
+<li><a href="#add_l2_to_l1_message">add_l2_to_l1_message</a></li>
+<li><a href="#add_new_note_hash">add_new_note_hash</a></li>
+<li><a href="#add_nullifier">add_nullifier</a></li>
+<li><a href="#add_nullifier_for_note_hash">add_nullifier_for_note_hash</a></li>
+<li><a href="#add_nullifier_read_request">add_nullifier_read_request</a></li>
+<li><a href="#add_private_call_request">add_private_call_request</a></li>
+<li><a href="#add_private_log">add_private_log</a></li>
+<li><a href="#add_public_call_request">add_public_call_request</a></li>
+<li><a href="#add_public_data_write">add_public_data_write</a></li>
+<li><a href="#add_public_logs">add_public_logs</a></li>
+<li><a href="#add_read_request_for_pending_note_hash">add_read_request_for_pending_note_hash</a></li>
+<li><a href="#add_read_request_for_pending_nullifier">add_read_request_for_pending_nullifier</a></li>
+<li><a href="#add_read_request_for_settled_nullifier">add_read_request_for_settled_nullifier</a></li>
+<li><a href="#add_request_for_key_validation">add_request_for_key_validation</a></li>
+<li><a href="#add_settled_note_hash_read_request">add_settled_note_hash_read_request</a></li>
+<li><a href="#add_siloed_note_hash">add_siloed_note_hash</a></li>
+<li><a href="#add_siloed_nullifier">add_siloed_nullifier</a></li>
+<li><a href="#add_siloed_nullifier_for_note_hash">add_siloed_nullifier_for_note_hash</a></li>
+<li><a href="#add_siloed_private_log">add_siloed_private_log</a></li>
+<li><a href="#add_siloed_unique_note_hash">add_siloed_unique_note_hash</a></li>
+<li><a href="#append_contract_class_logs">append_contract_class_logs</a></li>
+<li><a href="#append_contract_class_logs_with_length">append_contract_class_logs_with_length</a></li>
+<li><a href="#append_contract_class_logs_with_lengths">append_contract_class_logs_with_lengths</a></li>
+<li><a href="#append_key_validation_requests">append_key_validation_requests</a></li>
+<li><a href="#append_l2_to_l1_msgs">append_l2_to_l1_msgs</a></li>
+<li><a href="#append_note_hash_read_requests">append_note_hash_read_requests</a></li>
+<li><a href="#append_note_hashes">append_note_hashes</a></li>
+<li><a href="#append_note_hashes_with_logs">append_note_hashes_with_logs</a></li>
+<li><a href="#append_nullifier_read_requests">append_nullifier_read_requests</a></li>
+<li><a href="#append_nullifiers">append_nullifiers</a></li>
+<li><a href="#append_padded_note_hashes">append_padded_note_hashes</a></li>
+<li><a href="#append_padded_nullifiers">append_padded_nullifiers</a></li>
+<li><a href="#append_padded_private_logs">append_padded_private_logs</a></li>
+<li><a href="#append_private_call_requests">append_private_call_requests</a></li>
+<li><a href="#append_private_logs">append_private_logs</a></li>
+<li><a href="#append_private_logs_for_note">append_private_logs_for_note</a></li>
+<li><a href="#append_private_logs_with_length">append_private_logs_with_length</a></li>
+<li><a href="#append_private_logs_with_lengths">append_private_logs_with_lengths</a></li>
+<li><a href="#append_public_call_requests">append_public_call_requests</a></li>
+<li><a href="#append_public_data_writes">append_public_data_writes</a></li>
+<li><a href="#append_siloed_note_hashes">append_siloed_note_hashes</a></li>
+<li><a href="#append_siloed_nullifiers">append_siloed_nullifiers</a></li>
+<li><a href="#append_siloed_private_logs">append_siloed_private_logs</a></li>
+<li><a href="#append_siloed_private_logs_for_note">append_siloed_private_logs_for_note</a></li>
+<li><a href="#append_siloed_private_logs_with_length">append_siloed_private_logs_with_length</a></li>
+<li><a href="#append_siloed_private_logs_with_lengths">append_siloed_private_logs_with_lengths</a></li>
+<li><a href="#append_siloed_unique_note_hashes">append_siloed_unique_note_hashes</a></li>
+<li><a href="#as_parent_contract">as_parent_contract</a></li>
+<li><a href="#compute_update_tree_and_hints">compute_update_tree_and_hints</a></li>
+<li><a href="#end_setup">end_setup</a></li>
+<li><a href="#in_vk_tree">in_vk_tree</a></li>
+<li><a href="#is_first_call">is_first_call</a></li>
+<li><a href="#is_static_call">is_static_call</a></li>
+<li><a href="#make_fee_payer">make_fee_payer</a></li>
+<li><a href="#new">new</a></li>
+<li><a href="#new_from_counter">new_from_counter</a></li>
+<li><a href="#reverse_append_private_call_requests">reverse_append_private_call_requests</a></li>
+<li><a href="#set_fee_payer">set_fee_payer</a></li>
+<li><a href="#set_gas_used">set_gas_used</a></li>
+<li><a href="#set_protocol_nullifier">set_protocol_nullifier</a></li>
+<li><a href="#set_public_teardown_call_request">set_public_teardown_call_request</a></li>
+<li><a href="#to_avm_accumulated_data">to_avm_accumulated_data</a></li>
+<li><a href="#to_avm_circuit_public_inputs">to_avm_circuit_public_inputs</a></li>
+<li><a href="#to_call_context">to_call_context</a></li>
+<li><a href="#to_private_accumulated_data">to_private_accumulated_data</a></li>
+<li><a href="#to_private_call_data">to_private_call_data</a></li>
+<li><a href="#to_private_call_request">to_private_call_request</a></li>
+<li><a href="#to_private_circuit_public_inputs">to_private_circuit_public_inputs</a></li>
+<li><a href="#to_private_kernel_circuit_public_inputs">to_private_kernel_circuit_public_inputs</a></li>
+<li><a href="#to_private_kernel_data">to_private_kernel_data</a></li>
+<li><a href="#to_private_to_avm_accumulated_data">to_private_to_avm_accumulated_data</a></li>
+<li><a href="#to_private_to_public_accumulated_data">to_private_to_public_accumulated_data</a></li>
+<li><a href="#to_private_to_public_kernel_circuit_public_inputs">to_private_to_public_kernel_circuit_public_inputs</a></li>
+<li><a href="#to_private_to_rollup_accumulated_data">to_private_to_rollup_accumulated_data</a></li>
+<li><a href="#to_private_to_rollup_kernel_circuit_public_inputs">to_private_to_rollup_kernel_circuit_public_inputs</a></li>
+<li><a href="#to_private_tx_constant_data">to_private_tx_constant_data</a></li>
+<li><a href="#to_private_validation_requests">to_private_validation_requests</a></li>
+<li><a href="#to_private_verification_key_hints">to_private_verification_key_hints</a></li>
+<li><a href="#to_public_call_request">to_public_call_request</a></li>
+<li><a href="#to_tx_constant_data">to_tx_constant_data</a></li>
+<li><a href="#to_tx_request">to_tx_request</a></li>
+<li><a href="#use_contract">use_contract</a></li>
+<li><a href="#use_function">use_function</a></li>
+<li><a href="#use_protocol_contract">use_protocol_contract</a></li>
+<li><a href="#use_updated_contract">use_updated_contract</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Eq-for-FixtureBuilder">Eq</a></li>
+</ul>
+<h2>In module fixture_builder</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.FixtureBuilder.html">FixtureBuilder</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">tests</a>::<a href="index.html">fixture_builder</a></div>
+<h1>Struct <span id="struct" class="struct">FixtureBuilder</span></h1>
+<pre><code>pub struct FixtureBuilder {
+    pub contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub msg_sender: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub is_static_call: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub is_private_only: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub claimed_first_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub claimed_revertible_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub include_by_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub is_fee_payer: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub fee_payer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub public_teardown_call_request: <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
+    pub transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub effective_gas_fees: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+    pub anchor_block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    pub tx_context: <a href="../../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a>,
+    pub global_variables: <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
+    pub note_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;&gt;, 64&gt;,
+    pub nullifiers: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;&gt;, 64&gt;,
+    pub l2_to_l1_msgs: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;&gt;, 8&gt;,
+    pub private_logs: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;&gt;, 64&gt;,
+    pub public_logs: <a href="../../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a>,
+    pub contract_class_logs_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;&gt;, 1&gt;,
+    pub contract_class_log_fields: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;[<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 3023], 1&gt;,
+    pub public_data_writes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a>, 64&gt;,
+    pub private_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 16&gt;,
+    pub public_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;,
+    pub gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub start_gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub end_gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
+    pub reverted: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub note_hash_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;,
+    pub nullifier_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;,
+    pub scoped_key_validation_requests_and_generators: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a>&gt;, 64&gt;,
+    pub function_data: <a href="../../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a>,
+    pub args_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub calldata_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub returns_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub salted_initialization_hash: <a href="../../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a>,
+    pub public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>,
+    pub contract_class_artifact_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub contract_class_public_bytecode_commitment: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub function_leaf_membership_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;7&gt;,
+    pub bytecode_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub prover_id: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub vk: <a href="../../../protocol_types/proof/verification_key/type.MegaVerificationKey.html" class="type">MegaVerificationKey</a>,
+    pub vk_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub vk_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 7],
+    pub vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub protocol_contracts: <a href="../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a>,
+    pub original_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
+    pub updated_class_id_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;,
+    pub updated_class_id_leaf: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>,
+    pub updated_class_id_value_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;<a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>&gt;,
+    pub updated_class_id_delay_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;86400&gt;,
+    pub start_tree_snapshots: <a href="../../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a>,
+    pub end_tree_snapshots: <a href="../../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a>,
+    pub min_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub counter_start: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub expected_non_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub expected_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub start_state: <a href="../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a>,
+    pub value_offset: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.contract_address" class="struct-field"><code class="code-header">contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.msg_sender" class="struct-field"><code class="code-header">msg_sender: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.is_static_call" class="struct-field"><code class="code-header">is_static_call: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="structfield.is_private_only" class="struct-field"><code class="code-header">is_private_only: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="structfield.claimed_first_nullifier" class="struct-field"><code class="code-header">claimed_first_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.claimed_revertible_counter" class="struct-field"><code class="code-header">claimed_revertible_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="structfield.is_fee_payer" class="struct-field"><code class="code-header">is_fee_payer: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="structfield.fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
+<div class="padded-description"></div><div id="structfield.transaction_fee" class="struct-field"><code class="code-header">transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.effective_gas_fees" class="struct-field"><code class="code-header">effective_gas_fees: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></div>
+<div class="padded-description"></div><div id="structfield.anchor_block_header" class="struct-field"><code class="code-header">anchor_block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></div>
+<div class="padded-description"></div><div id="structfield.tx_context" class="struct-field"><code class="code-header">tx_context: <a href="../../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></div>
+<div class="padded-description"></div><div id="structfield.global_variables" class="struct-field"><code class="code-header">global_variables: <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></div>
+<div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;&gt;, 8&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.private_logs" class="struct-field"><code class="code-header">private_logs: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.public_logs" class="struct-field"><code class="code-header">public_logs: <a href="../../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_logs_hashes" class="struct-field"><code class="code-header">contract_class_logs_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;&gt;, 1&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_log_fields" class="struct-field"><code class="code-header">contract_class_log_fields: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;[<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 3023], 1&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.public_data_writes" class="struct-field"><code class="code-header">public_data_writes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a>, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.private_call_requests" class="struct-field"><code class="code-header">private_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 16&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.public_call_requests" class="struct-field"><code class="code-header">public_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.gas_used" class="struct-field"><code class="code-header">gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="structfield.start_gas_used" class="struct-field"><code class="code-header">start_gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="structfield.end_gas_used" class="struct-field"><code class="code-header">end_gas_used: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="structfield.revert_code" class="struct-field"><code class="code-header">revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+<div class="padded-description"></div><div id="structfield.reverted" class="struct-field"><code class="code-header">reverted: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="structfield.note_hash_read_requests" class="struct-field"><code class="code-header">note_hash_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.nullifier_read_requests" class="struct-field"><code class="code-header">nullifier_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.scoped_key_validation_requests_and_generators" class="struct-field"><code class="code-header">scoped_key_validation_requests_and_generators: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a>&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.function_data" class="struct-field"><code class="code-header">function_data: <a href="../../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></div>
+<div class="padded-description"></div><div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.calldata_hash" class="struct-field"><code class="code-header">calldata_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.returns_hash" class="struct-field"><code class="code-header">returns_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.salted_initialization_hash" class="struct-field"><code class="code-header">salted_initialization_hash: <a href="../../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a></code></div>
+<div class="padded-description"></div><div id="structfield.public_keys" class="struct-field"><code class="code-header">public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_artifact_hash" class="struct-field"><code class="code-header">contract_class_artifact_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_public_bytecode_commitment" class="struct-field"><code class="code-header">contract_class_public_bytecode_commitment: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.function_leaf_membership_witness" class="struct-field"><code class="code-header">function_leaf_membership_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;7&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.bytecode_hash" class="struct-field"><code class="code-header">bytecode_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.prover_id" class="struct-field"><code class="code-header">prover_id: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.vk" class="struct-field"><code class="code-header">vk: <a href="../../../protocol_types/proof/verification_key/type.MegaVerificationKey.html" class="type">MegaVerificationKey</a></code></div>
+<div class="padded-description"></div><div id="structfield.vk_index" class="struct-field"><code class="code-header">vk_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.vk_path" class="struct-field"><code class="code-header">vk_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 7]</code></div>
+<div class="padded-description"></div><div id="structfield.vk_tree_root" class="struct-field"><code class="code-header">vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.protocol_contracts" class="struct-field"><code class="code-header">protocol_contracts: <a href="../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></div>
+<div class="padded-description"></div><div id="structfield.original_class_id" class="struct-field"><code class="code-header">original_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></div>
+<div class="padded-description"></div><div id="structfield.updated_class_id_witness" class="struct-field"><code class="code-header">updated_class_id_witness: <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.updated_class_id_leaf" class="struct-field"><code class="code-header">updated_class_id_leaf: <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></div>
+<div class="padded-description"></div><div id="structfield.updated_class_id_value_change" class="struct-field"><code class="code-header">updated_class_id_value_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;<a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.updated_class_id_delay_change" class="struct-field"><code class="code-header">updated_class_id_delay_change: <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;86400&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.start_tree_snapshots" class="struct-field"><code class="code-header">start_tree_snapshots: <a href="../../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></div>
+<div class="padded-description"></div><div id="structfield.end_tree_snapshots" class="struct-field"><code class="code-header">end_tree_snapshots: <a href="../../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></div>
+<div class="padded-description"></div><div id="structfield.min_revertible_side_effect_counter" class="struct-field"><code class="code-header">min_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.counter_start" class="struct-field"><code class="code-header">counter_start: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.counter" class="struct-field"><code class="code-header">counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.expected_non_revertible_side_effect_counter" class="struct-field"><code class="code-header">expected_non_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.expected_revertible_side_effect_counter" class="struct-field"><code class="code-header">expected_revertible_side_effect_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="structfield.start_state" class="struct-field"><code class="code-header">start_state: <a href="../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></div>
+<div class="padded-description"></div><div id="structfield.value_offset" class="struct-field"><code class="code-header">value_offset: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/tests/fixture_builder/struct.FixtureBuilder.html" class="struct">FixtureBuilder</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+
+<code id="new_from_counter" class="code-header">pub fn <a href="#new_from_counter"><span class="fn">new_from_counter</span></a>(counter_start: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<code id="as_parent_contract" class="code-header">pub fn <a href="#as_parent_contract"><span class="fn">as_parent_contract</span></a>(&mut self) -> Self</code>
+
+<code id="in_vk_tree" class="code-header">pub fn <a href="#in_vk_tree"><span class="fn">in_vk_tree</span></a>(&mut self, vk_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<code id="use_protocol_contract" class="code-header">pub fn <a href="#use_protocol_contract"><span class="fn">use_protocol_contract</span></a>(&mut self, contract_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<code id="use_updated_contract" class="code-header">pub fn <a href="#use_updated_contract"><span class="fn">use_updated_contract</span></a>(&mut self, timestamp_of_change: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
+
+<code id="use_contract" class="code-header">pub fn <a href="#use_contract"><span class="fn">use_contract</span></a>(&mut self, contract_data: <a href="../../../protocol_types/tests/fixtures/contracts/struct.ContractData.html" class="struct">ContractData</a>) -> Self</code>
+
+<code id="use_function" class="code-header">pub fn <a href="#use_function"><span class="fn">use_function</span></a>(&mut self, function_data: <a href="../../../protocol_types/tests/fixtures/contract_functions/struct.ContractFunction.html" class="struct">ContractFunction</a>, vk: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 127]) -> Self</code>
+
+<code id="is_static_call" class="code-header">pub fn <a href="#is_static_call"><span class="fn">is_static_call</span></a>(&mut self) -> Self</code>
+
+<code id="is_first_call" class="code-header">pub fn <a href="#is_first_call"><span class="fn">is_first_call</span></a>(&mut self) -> Self</code>
+
+<code id="to_tx_constant_data" class="code-header">pub fn <a href="#to_tx_constant_data"><span class="fn">to_tx_constant_data</span></a>(self) -> <a href="../../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code>
+
+<code id="to_private_tx_constant_data" class="code-header">pub fn <a href="#to_private_tx_constant_data"><span class="fn">to_private_tx_constant_data</span></a>(self) -> <a href="../../../protocol_types/abis/private_tx_constant_data/struct.PrivateTxConstantData.html" class="struct">PrivateTxConstantData</a></code>
+
+<code id="to_tx_request" class="code-header">pub fn <a href="#to_tx_request"><span class="fn">to_tx_request</span></a>(self) -> <a href="../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code>
+
+<code id="to_call_context" class="code-header">pub fn <a href="#to_call_context"><span class="fn">to_call_context</span></a>(self) -> <a href="../../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code>
+
+<code id="to_private_call_request" class="code-header">pub fn <a href="#to_private_call_request"><span class="fn">to_private_call_request</span></a>(self) -> <a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code>
+
+<code id="to_private_circuit_public_inputs" class="code-header">pub fn <a href="#to_private_circuit_public_inputs"><span class="fn">to_private_circuit_public_inputs</span></a>(self) -> <a href="../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code>
+
+<code id="to_private_verification_key_hints" class="code-header">pub fn <a href="#to_private_verification_key_hints"><span class="fn">to_private_verification_key_hints</span></a>(self) -> <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a></code>
+
+<code id="compute_update_tree_and_hints" class="code-header">pub fn <a href="#compute_update_tree_and_hints"><span class="fn">compute_update_tree_and_hints</span></a>(&mut self)</code>
+
+<code id="to_private_call_data" class="code-header">pub fn <a href="#to_private_call_data"><span class="fn">to_private_call_data</span></a>(self) -> <a href="../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a></code>
+
+<code id="to_private_accumulated_data" class="code-header">pub fn <a href="#to_private_accumulated_data"><span class="fn">to_private_accumulated_data</span></a>(self) -> <a href="../../../protocol_types/abis/accumulated_data/private_accumulated_data/struct.PrivateAccumulatedData.html" class="struct">PrivateAccumulatedData</a></code>
+
+<code id="to_public_call_request" class="code-header">pub fn <a href="#to_public_call_request"><span class="fn">to_public_call_request</span></a>(self) -> <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code>
+
+<code id="to_private_to_public_accumulated_data" class="code-header">pub fn <a href="#to_private_to_public_accumulated_data"><span class="fn">to_private_to_public_accumulated_data</span></a>(
+    self,
+    revertible: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+) -> <a href="../../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code>
+
+<code id="to_private_to_rollup_accumulated_data" class="code-header">pub fn <a href="#to_private_to_rollup_accumulated_data"><span class="fn">to_private_to_rollup_accumulated_data</span></a>(self) -> <a href="../../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a></code>
+
+<code id="to_private_validation_requests" class="code-header">pub fn <a href="#to_private_validation_requests"><span class="fn">to_private_validation_requests</span></a>(self) -> <a href="../../../protocol_types/abis/validation_requests/private_validation_requests/struct.PrivateValidationRequests.html" class="struct">PrivateValidationRequests</a></code>
+
+<code id="to_private_kernel_circuit_public_inputs" class="code-header">pub fn <a href="#to_private_kernel_circuit_public_inputs"><span class="fn">to_private_kernel_circuit_public_inputs</span></a>(self) -> <a href="../../../protocol_types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a></code>
+
+<code id="to_private_kernel_data" class="code-header">pub fn <a href="#to_private_kernel_data"><span class="fn">to_private_kernel_data</span></a>(self) -> <a href="../../../protocol_types/abis/private_kernel_data/struct.PrivateKernelData.html" class="struct">PrivateKernelData</a></code>
+
+<code id="to_private_to_public_kernel_circuit_public_inputs" class="code-header">pub fn <a href="#to_private_to_public_kernel_circuit_public_inputs"><span class="fn">to_private_to_public_kernel_circuit_public_inputs</span></a>(
+    self,
+) -> <a href="../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code>
+
+<code id="to_private_to_rollup_kernel_circuit_public_inputs" class="code-header">pub fn <a href="#to_private_to_rollup_kernel_circuit_public_inputs"><span class="fn">to_private_to_rollup_kernel_circuit_public_inputs</span></a>(
+    self,
+) -> <a href="../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code>
+
+<code id="to_avm_accumulated_data" class="code-header">pub fn <a href="#to_avm_accumulated_data"><span class="fn">to_avm_accumulated_data</span></a>(self) -> <a href="../../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code>
+
+<code id="to_private_to_avm_accumulated_data" class="code-header">pub fn <a href="#to_private_to_avm_accumulated_data"><span class="fn">to_private_to_avm_accumulated_data</span></a>(
+    self,
+    revertible: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+) -> <a href="../../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code>
+
+<code id="to_avm_circuit_public_inputs" class="code-header">pub fn <a href="#to_avm_circuit_public_inputs"><span class="fn">to_avm_circuit_public_inputs</span></a>(self) -> <a href="../../../protocol_types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code>
+
+<code id="add_new_note_hash" class="code-header">pub fn <a href="#add_new_note_hash"><span class="fn">add_new_note_hash</span></a>(&mut self, value: <a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>)</code>
+
+<code id="add_siloed_note_hash" class="code-header">pub fn <a href="#add_siloed_note_hash"><span class="fn">add_siloed_note_hash</span></a>(&mut self, value: <a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>)</code>
+
+<code id="add_siloed_unique_note_hash" class="code-header">pub fn <a href="#add_siloed_unique_note_hash"><span class="fn">add_siloed_unique_note_hash</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="append_note_hashes" class="code-header">pub fn <a href="#append_note_hashes"><span class="fn">append_note_hashes</span></a>(&mut self, num_note_hashes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_siloed_note_hashes" class="code-header">pub fn <a href="#append_siloed_note_hashes"><span class="fn">append_siloed_note_hashes</span></a>(&mut self, num_note_hashes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_siloed_unique_note_hashes" class="code-header">pub fn <a href="#append_siloed_unique_note_hashes"><span class="fn">append_siloed_unique_note_hashes</span></a>(&mut self, num_note_hashes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_note_hashes_with_logs" class="code-header">pub fn <a href="#append_note_hashes_with_logs"><span class="fn">append_note_hashes_with_logs</span></a>(&mut self, num_note_hashes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_padded_note_hashes" class="code-header">pub fn <a href="#append_padded_note_hashes"><span class="fn">append_padded_note_hashes</span></a>(&mut self, num_note_hashes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="set_protocol_nullifier" class="code-header">pub fn <a href="#set_protocol_nullifier"><span class="fn">set_protocol_nullifier</span></a>(&mut self)</code>
+
+<code id="add_nullifier" class="code-header">pub fn <a href="#add_nullifier"><span class="fn">add_nullifier</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="add_nullifier_for_note_hash" class="code-header">pub fn <a href="#add_nullifier_for_note_hash"><span class="fn">add_nullifier_for_note_hash</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="add_siloed_nullifier" class="code-header">pub fn <a href="#add_siloed_nullifier"><span class="fn">add_siloed_nullifier</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="add_siloed_nullifier_for_note_hash" class="code-header">pub fn <a href="#add_siloed_nullifier_for_note_hash"><span class="fn">add_siloed_nullifier_for_note_hash</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="append_nullifiers" class="code-header">pub fn <a href="#append_nullifiers"><span class="fn">append_nullifiers</span></a>(&mut self, num_extra_nullifier: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_siloed_nullifiers" class="code-header">pub fn <a href="#append_siloed_nullifiers"><span class="fn">append_siloed_nullifiers</span></a>(&mut self, num_extra_nullifier: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_padded_nullifiers" class="code-header">pub fn <a href="#append_padded_nullifiers"><span class="fn">append_padded_nullifiers</span></a>(&mut self, num_nullifiers: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_l2_to_l1_message" class="code-header">pub fn <a href="#add_l2_to_l1_message"><span class="fn">add_l2_to_l1_message</span></a>(&mut self, content: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, recipient: <a href="../../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>)</code>
+
+<code id="append_l2_to_l1_msgs" class="code-header">pub fn <a href="#append_l2_to_l1_msgs"><span class="fn">append_l2_to_l1_msgs</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_settled_note_hash_read_request" class="code-header">pub fn <a href="#add_settled_note_hash_read_request"><span class="fn">add_settled_note_hash_read_request</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="add_read_request_for_pending_note_hash" class="code-header">pub fn <a href="#add_read_request_for_pending_note_hash"><span class="fn">add_read_request_for_pending_note_hash</span></a>(&mut self, note_hash_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="append_note_hash_read_requests" class="code-header">pub fn <a href="#append_note_hash_read_requests"><span class="fn">append_note_hash_read_requests</span></a>(&mut self, num_reads: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_nullifier_read_request" class="code-header">pub fn <a href="#add_nullifier_read_request"><span class="fn">add_nullifier_read_request</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="add_read_request_for_pending_nullifier" class="code-header">pub fn <a href="#add_read_request_for_pending_nullifier"><span class="fn">add_read_request_for_pending_nullifier</span></a>(&mut self, nullifier_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="add_read_request_for_settled_nullifier" class="code-header">pub fn <a href="#add_read_request_for_settled_nullifier"><span class="fn">add_read_request_for_settled_nullifier</span></a>(&mut self, siloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="append_nullifier_read_requests" class="code-header">pub fn <a href="#append_nullifier_read_requests"><span class="fn">append_nullifier_read_requests</span></a>(&mut self, num_reads: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_request_for_key_validation" class="code-header">pub fn <a href="#add_request_for_key_validation"><span class="fn">add_request_for_key_validation</span></a>(
+    &mut self,
+    pk_m: <a href="../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    sk_app: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    sk_app_generator: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+)</code>
+
+<code id="append_key_validation_requests" class="code-header">pub fn <a href="#append_key_validation_requests"><span class="fn">append_key_validation_requests</span></a>(&mut self, num_requests: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_private_log" class="code-header">pub fn <a href="#add_private_log"><span class="fn">add_private_log</span></a>(
+    &mut self,
+    fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    note_hash_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<code id="append_private_logs_for_note" class="code-header">pub fn <a href="#append_private_logs_for_note"><span class="fn">append_private_logs_for_note</span></a>(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, note_hash_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_private_logs" class="code-header">pub fn <a href="#append_private_logs"><span class="fn">append_private_logs</span></a>(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_private_logs_with_length" class="code-header">pub fn <a href="#append_private_logs_with_length"><span class="fn">append_private_logs_with_length</span></a>&lt;let LogFieldsLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_private_logs_with_lengths" class="code-header">pub fn <a href="#append_private_logs_with_lengths"><span class="fn">append_private_logs_with_lengths</span></a>&lt;let NumLogs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    lengths: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; NumLogs],
+)</code>
+
+<code id="add_siloed_private_log" class="code-header">pub fn <a href="#add_siloed_private_log"><span class="fn">add_siloed_private_log</span></a>(
+    &mut self,
+    fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    note_hash_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<code id="append_siloed_private_logs_for_note" class="code-header">pub fn <a href="#append_siloed_private_logs_for_note"><span class="fn">append_siloed_private_logs_for_note</span></a>(
+    &mut self,
+    num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    note_hash_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<code id="append_siloed_private_logs" class="code-header">pub fn <a href="#append_siloed_private_logs"><span class="fn">append_siloed_private_logs</span></a>(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_siloed_private_logs_with_lengths" class="code-header">pub fn <a href="#append_siloed_private_logs_with_lengths"><span class="fn">append_siloed_private_logs_with_lengths</span></a>&lt;let NumLogs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    lengths: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; NumLogs],
+)</code>
+
+<code id="append_siloed_private_logs_with_length" class="code-header">pub fn <a href="#append_siloed_private_logs_with_length"><span class="fn">append_siloed_private_logs_with_length</span></a>&lt;let LogFieldsLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<code id="append_padded_private_logs" class="code-header">pub fn <a href="#append_padded_private_logs"><span class="fn">append_padded_private_logs</span></a>(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_public_logs" class="code-header">pub fn <a href="#add_public_logs"><span class="fn">add_public_logs</span></a>(&mut self, length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_contract_class_log_hash" class="code-header">pub fn <a href="#add_contract_class_log_hash"><span class="fn">add_contract_class_log_hash</span></a>(&mut self, hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_contract_class_logs" class="code-header">pub fn <a href="#append_contract_class_logs"><span class="fn">append_contract_class_logs</span></a>(&mut self, num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="append_contract_class_logs_with_length" class="code-header">pub fn <a href="#append_contract_class_logs_with_length"><span class="fn">append_contract_class_logs_with_length</span></a>&lt;let LogFieldsLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    num_logs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<code id="append_contract_class_logs_with_lengths" class="code-header">pub fn <a href="#append_contract_class_logs_with_lengths"><span class="fn">append_contract_class_logs_with_lengths</span></a>&lt;let NumLogs: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    lengths: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; NumLogs],
+)</code>
+
+<code id="add_private_call_request" class="code-header">pub fn <a href="#add_private_call_request"><span class="fn">add_private_call_request</span></a>(&mut self)</code>
+
+<code id="append_private_call_requests" class="code-header">pub fn <a href="#append_private_call_requests"><span class="fn">append_private_call_requests</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="reverse_append_private_call_requests" class="code-header">pub fn <a href="#reverse_append_private_call_requests"><span class="fn">reverse_append_private_call_requests</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_public_call_request" class="code-header">pub fn <a href="#add_public_call_request"><span class="fn">add_public_call_request</span></a>(&mut self, request: <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>)</code>
+
+<code id="append_public_call_requests" class="code-header">pub fn <a href="#append_public_call_requests"><span class="fn">append_public_call_requests</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="add_public_data_write" class="code-header">pub fn <a href="#add_public_data_write"><span class="fn">add_public_data_write</span></a>(&mut self, leaf_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+
+<code id="append_public_data_writes" class="code-header">pub fn <a href="#append_public_data_writes"><span class="fn">append_public_data_writes</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="set_fee_payer" class="code-header">pub fn <a href="#set_fee_payer"><span class="fn">set_fee_payer</span></a>(&mut self, fee_payer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>)</code>
+
+<code id="make_fee_payer" class="code-header">pub fn <a href="#make_fee_payer"><span class="fn">make_fee_payer</span></a>(&mut self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<code id="set_gas_used" class="code-header">pub fn <a href="#set_gas_used"><span class="fn">set_gas_used</span></a>(&mut self, da_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, l2_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<code id="set_public_teardown_call_request" class="code-header">pub fn <a href="#set_public_teardown_call_request"><span class="fn">set_public_teardown_call_request</span></a>(&mut self)</code>
+
+<code id="end_setup" class="code-header">pub fn <a href="#end_setup"><span class="fn">end_setup</span></a>(&mut self)</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Eq-for-FixtureBuilder"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/tests/fixture_builder/struct.FixtureBuilder.html" class="struct">FixtureBuilder</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

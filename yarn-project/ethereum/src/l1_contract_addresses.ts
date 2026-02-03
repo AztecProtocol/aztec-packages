@@ -1,0 +1,124 @@
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+/**
+ * The names of the current L1 contract addresses.
+ * NOTE: When changing this list, make sure to update CLI & CI scripts accordingly.
+ * For reference: https://github.com/AztecProtocol/aztec-packages/pull/5553
+ */
+export const L1ContractsNames = [
+  'rollupAddress',
+  'registryAddress',
+  'inboxAddress',
+  'outboxAddress',
+  'feeJuiceAddress',
+  'feeJuicePortalAddress',
+  'coinIssuerAddress',
+  'rewardDistributorAddress',
+  'governanceProposerAddress',
+  'governanceAddress',
+  'stakingAssetAddress',
+] as const;
+
+/** Provides the directory of current L1 contract addresses */
+export type L1ContractAddresses = {
+  [K in (typeof L1ContractsNames)[number]]: EthAddress;
+} & {
+  slashFactoryAddress?: EthAddress | undefined;
+  feeAssetHandlerAddress?: EthAddress | undefined;
+  stakingAssetHandlerAddress?: EthAddress | undefined;
+  zkPassportVerifierAddress?: EthAddress | undefined;
+  gseAddress?: EthAddress | undefined;
+  dateGatedRelayerAddress?: EthAddress | undefined;
+};
+
+export const L1ContractAddressesSchema = zodFor<L1ContractAddresses>()(
+  z.object({
+    rollupAddress: schemas.EthAddress,
+    registryAddress: schemas.EthAddress,
+    inboxAddress: schemas.EthAddress,
+    outboxAddress: schemas.EthAddress,
+    feeJuiceAddress: schemas.EthAddress,
+    stakingAssetAddress: schemas.EthAddress,
+    feeJuicePortalAddress: schemas.EthAddress,
+    coinIssuerAddress: schemas.EthAddress,
+    rewardDistributorAddress: schemas.EthAddress,
+    governanceProposerAddress: schemas.EthAddress,
+    governanceAddress: schemas.EthAddress,
+    slashFactoryAddress: schemas.EthAddress.optional(),
+    feeAssetHandlerAddress: schemas.EthAddress.optional(),
+    stakingAssetHandlerAddress: schemas.EthAddress.optional(),
+    zkPassportVerifierAddress: schemas.EthAddress.optional(),
+    gseAddress: schemas.EthAddress.optional(),
+    dateGatedRelayerAddress: schemas.EthAddress.optional(),
+  }),
+);
+
+const parseEnv = (val: string) => EthAddress.fromString(val);
+
+export const l1ContractAddressesMapping: ConfigMappingsType<
+  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress' | 'dateGatedRelayerAddress'>
+> = {
+  registryAddress: {
+    env: 'REGISTRY_CONTRACT_ADDRESS',
+    description: 'The deployed L1 registry contract address.',
+    parseEnv,
+  },
+  slashFactoryAddress: {
+    env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
+    description: 'The deployed L1 slashFactory contract address',
+    parseEnv,
+  },
+  feeAssetHandlerAddress: {
+    env: 'FEE_ASSET_HANDLER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 feeAssetHandler contract address',
+    parseEnv,
+  },
+  rollupAddress: {
+    description: 'The deployed L1 rollup contract address.',
+    parseEnv,
+  },
+  inboxAddress: {
+    description: 'The deployed L1 inbox contract address.',
+    parseEnv,
+  },
+  outboxAddress: {
+    description: 'The deployed L1 outbox contract address.',
+    parseEnv,
+  },
+  feeJuiceAddress: {
+    description: 'The deployed L1 Fee Juice contract address.',
+    parseEnv,
+  },
+  stakingAssetAddress: {
+    description: 'The deployed L1 staking asset contract address.',
+    parseEnv,
+  },
+  feeJuicePortalAddress: {
+    description: 'The deployed L1 Fee Juice portal contract address.',
+    parseEnv,
+  },
+  coinIssuerAddress: {
+    description: 'The deployed L1 coinIssuer contract address',
+    parseEnv,
+  },
+  rewardDistributorAddress: {
+    description: 'The deployed L1 rewardDistributor contract address',
+    parseEnv,
+  },
+  governanceProposerAddress: {
+    description: 'The deployed L1 governanceProposer contract address',
+    parseEnv,
+  },
+  governanceAddress: {
+    description: 'The deployed L1 governance contract address',
+    parseEnv,
+  },
+  stakingAssetHandlerAddress: {
+    description: 'The deployed L1 stakingAssetHandler contract address',
+    parseEnv,
+  },
+};

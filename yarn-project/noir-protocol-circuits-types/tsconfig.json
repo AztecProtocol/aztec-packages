@@ -1,0 +1,31 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "references": [
+    {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../merkle-tree"
+    }
+  ],
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"],
+  "exclude": ["src/scripts"]
+}

@@ -1,0 +1,77 @@
+use aztec::macros::aztec;
+
+/// This contract is used to test that emitting offchain effects works correctly.
+#[aztec]
+contract OffchainEffect {
+    use aztec::{
+        macros::{events::event, functions::external, storage::storage},
+        messages::message_delivery::MessageDelivery,
+        note::note_viewer_options::NoteViewerOptions,
+        oracle::offchain_effect::emit_offchain_effect,
+        protocol::{address::AztecAddress, traits::Serialize},
+        state_vars::{Owned, PrivateSet},
+    };
+    use uint_note::UintNote;
+
+    #[event]
+    struct TestEvent {
+        pub a: u64,
+        pub b: u64,
+        pub c: u64,
+    }
+
+    #[derive(Serialize)]
+    pub struct EffectPayload {
+        pub data: [Field; 5],
+        pub next_contract: AztecAddress,
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        balances: Owned<PrivateSet<UintNote, Context>, Context>,
+    }
+
+    #[external("private")]
+    fn emit_offchain_effects(effects: BoundedVec<EffectPayload, 6>) {
+        if effects.len() > 0 {
+            let mut effects = effects;
+            let payload = effects.pop();
+            // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+            // which we don't use for anything besides its side effects, therefore this is safe to call.
+            unsafe { emit_offchain_effect(payload.data) };
+
+            if effects.len() > 0 {
+                OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
+                    self.context,
+                );
+            }
+        }
+    }
+
+    #[external("private")]
+    fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
+        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
+    }
+
+    #[external("private")]
+    fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
+        let note = UintNote { value };
+
+        self.storage.balances.at(owner).insert(note).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.OFFCHAIN,
+        );
+    }
+
+    #[external("utility")]
+    unconstrained fn emitting_offchain_effect_from_utility_reverts() {
+        emit_offchain_effect([0; 5]);
+    }
+
+    #[external("utility")]
+    unconstrained fn get_note_value(owner: AztecAddress) -> u128 {
+        let notes = self.storage.balances.at(owner).view_notes(NoteViewerOptions::new());
+        assert(notes.len() == 1, "No note found");
+        notes.get(0).value
+    }
+}

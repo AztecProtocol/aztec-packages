@@ -1,0 +1,10 @@
+[package]
+name = "blob"
+type = "lib"
+authors = [""]
+compiler_version = ">=0.30.0"
+
+[dependencies]
+bignum = { git = "https://github.com/noir-lang/noir-bignum", tag = "v0.8.2" }
+bigcurve = { git = "https://github.com/noir-lang/noir_bigcurve", tag = "v0.12.0" }
+types = { path = "../types" }

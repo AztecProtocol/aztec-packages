@@ -1,0 +1,2 @@
+barretenberg_module(env)
+set_target_properties(env_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)

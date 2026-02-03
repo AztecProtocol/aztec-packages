@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Trait Empty documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Empty</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait Empty</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#empty">empty</a></li>
+</ul>
+<h3>Provided methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_empty">assert_empty</a></li>
+<li><a href="#is_empty">is_empty</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-(A, B)">(A, B)</a></li>
+<li><a href="#impl-Empty-for-AppendOnlyTreeSnapshot">AppendOnlyTreeSnapshot</a></li>
+<li><a href="#impl-Empty-for-AuthorizationSelector">AuthorizationSelector</a></li>
+<li><a href="#impl-Empty-for-AvmAccumulatedData">AvmAccumulatedData</a></li>
+<li><a href="#impl-Empty-for-AvmAccumulatedDataArrayLengths">AvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Empty-for-AvmCircuitPublicInputs">AvmCircuitPublicInputs</a></li>
+<li><a href="#impl-Empty-for-AztecAddress">AztecAddress</a></li>
+<li><a href="#impl-Empty-for-BlockConstantData">BlockConstantData</a></li>
+<li><a href="#impl-Empty-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Empty-for-CallContext">CallContext</a></li>
+<li><a href="#impl-Empty-for-CheckpointConstantData">CheckpointConstantData</a></li>
+<li><a href="#impl-Empty-for-CheckpointHeader">CheckpointHeader</a></li>
+<li><a href="#impl-Empty-for-ClaimedLengthArray<T, N>">ClaimedLengthArray<T, N></a></li>
+<li><a href="#impl-Empty-for-ContractClassId">ContractClassId</a></li>
+<li><a href="#impl-Empty-for-ContractClassLog">ContractClassLog</a></li>
+<li><a href="#impl-Empty-for-Counted<T>">Counted<T></a></li>
+<li><a href="#impl-Empty-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
+<li><a href="#impl-Empty-for-EmbeddedCurveScalar">EmbeddedCurveScalar</a></li>
+<li><a href="#impl-Empty-for-EpochConstantData">EpochConstantData</a></li>
+<li><a href="#impl-Empty-for-EthAddress">EthAddress</a></li>
+<li><a href="#impl-Empty-for-EventSelector">EventSelector</a></li>
+<li><a href="#impl-Empty-for-FeeRecipient">FeeRecipient</a></li>
+<li><a href="#impl-Empty-for-Field">Field</a></li>
+<li><a href="#impl-Empty-for-FunctionData">FunctionData</a></li>
+<li><a href="#impl-Empty-for-FunctionSelector">FunctionSelector</a></li>
+<li><a href="#impl-Empty-for-Gas">Gas</a></li>
+<li><a href="#impl-Empty-for-GasFees">GasFees</a></li>
+<li><a href="#impl-Empty-for-GasSettings">GasSettings</a></li>
+<li><a href="#impl-Empty-for-GlobalVariables">GlobalVariables</a></li>
+<li><a href="#impl-Empty-for-KeyValidationRequest">KeyValidationRequest</a></li>
+<li><a href="#impl-Empty-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
+<li><a href="#impl-Empty-for-L2ToL1Message">L2ToL1Message</a></li>
+<li><a href="#impl-Empty-for-Log<N>">Log<N></a></li>
+<li><a href="#impl-Empty-for-LogHash">LogHash</a></li>
+<li><a href="#impl-Empty-for-MembershipWitness<N>">MembershipWitness<N></a></li>
+<li><a href="#impl-Empty-for-MerkleTree<N>">MerkleTree<N></a></li>
+<li><a href="#impl-Empty-for-MockStruct">MockStruct</a></li>
+<li><a href="#impl-Empty-for-NoteHashLeafPreimage">NoteHashLeafPreimage</a></li>
+<li><a href="#impl-Empty-for-Nullifier">Nullifier</a></li>
+<li><a href="#impl-Empty-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Empty-for-Option<T>">Option<T></a></li>
+<li><a href="#impl-Empty-for-PartialAddress">PartialAddress</a></li>
+<li><a href="#impl-Empty-for-PartialStateReference">PartialStateReference</a></li>
+<li><a href="#impl-Empty-for-PrivateAccumulatedData">PrivateAccumulatedData</a></li>
+<li><a href="#impl-Empty-for-PrivateCallRequest">PrivateCallRequest</a></li>
+<li><a href="#impl-Empty-for-PrivateCircuitPublicInputs">PrivateCircuitPublicInputs</a></li>
+<li><a href="#impl-Empty-for-PrivateContext">PrivateContext</a></li>
+<li><a href="#impl-Empty-for-PrivateContextInputs">PrivateContextInputs</a></li>
+<li><a href="#impl-Empty-for-PrivateLogData">PrivateLogData</a></li>
+<li><a href="#impl-Empty-for-PrivateToAvmAccumulatedData">PrivateToAvmAccumulatedData</a></li>
+<li><a href="#impl-Empty-for-PrivateToAvmAccumulatedDataArrayLengths">PrivateToAvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Empty-for-PrivateToPublicAccumulatedData">PrivateToPublicAccumulatedData</a></li>
+<li><a href="#impl-Empty-for-PrivateToPublicKernelCircuitPublicInputs">PrivateToPublicKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Empty-for-PrivateToRollupAccumulatedData">PrivateToRollupAccumulatedData</a></li>
+<li><a href="#impl-Empty-for-PrivateToRollupKernelCircuitPublicInputs">PrivateToRollupKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Empty-for-PrivateTxConstantData">PrivateTxConstantData</a></li>
+<li><a href="#impl-Empty-for-PrivateValidationRequests">PrivateValidationRequests</a></li>
+<li><a href="#impl-Empty-for-ProtocolContracts">ProtocolContracts</a></li>
+<li><a href="#impl-Empty-for-PublicCallRequest">PublicCallRequest</a></li>
+<li><a href="#impl-Empty-for-PublicCallRequestArrayLengths">PublicCallRequestArrayLengths</a></li>
+<li><a href="#impl-Empty-for-PublicContext">PublicContext</a></li>
+<li><a href="#impl-Empty-for-PublicDataTreeLeaf">PublicDataTreeLeaf</a></li>
+<li><a href="#impl-Empty-for-PublicDataTreeLeafPreimage">PublicDataTreeLeafPreimage</a></li>
+<li><a href="#impl-Empty-for-PublicDataWrite">PublicDataWrite</a></li>
+<li><a href="#impl-Empty-for-PublicKeysHash">PublicKeysHash</a></li>
+<li><a href="#impl-Empty-for-PublicLogs">PublicLogs</a></li>
+<li><a href="#impl-Empty-for-ScheduledDelayChange<INITIAL_DELAY>">ScheduledDelayChange<INITIAL_DELAY></a></li>
+<li><a href="#impl-Empty-for-ScheduledValueChange<T>">ScheduledValueChange<T></a></li>
+<li><a href="#impl-Empty-for-Scoped<T>">Scoped<T></a></li>
+<li><a href="#impl-Empty-for-SpongeBlob">SpongeBlob</a></li>
+<li><a href="#impl-Empty-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Empty-for-TestLeafPreimage">TestLeafPreimage</a></li>
+<li><a href="#impl-Empty-for-TestValue">TestValue</a></li>
+<li><a href="#impl-Empty-for-TreeSnapshots">TreeSnapshots</a></li>
+<li><a href="#impl-Empty-for-TxConstantData">TxConstantData</a></li>
+<li><a href="#impl-Empty-for-TxContext">TxContext</a></li>
+<li><a href="#impl-Empty-for-TxEffect">TxEffect</a></li>
+<li><a href="#impl-Empty-for-TxRequest">TxRequest</a></li>
+<li><a href="#impl-Empty-for-VerificationKey<M>">VerificationKey<M></a></li>
+<li><a href="#impl-Empty-for-VkData<VK_LENGTH>">VkData<VK_LENGTH></a></li>
+<li><a href="#impl-Empty-for-[T; N]">[T; N]</a></li>
+<li><a href="#impl-Empty-for-[T]">[T]</a></li>
+<li><a href="#impl-Empty-for-bool">bool</a></li>
+<li><a href="#impl-Empty-for-u1">u1</a></li>
+<li><a href="#impl-Empty-for-u128">u128</a></li>
+<li><a href="#impl-Empty-for-u16">u16</a></li>
+<li><a href="#impl-Empty-for-u32">u32</a></li>
+<li><a href="#impl-Empty-for-u64">u64</a></li>
+<li><a href="#impl-Empty-for-u8">u8</a></li>
+</ul>
+<h2>In module traits</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Empty.html">Empty</a></div></li>
+<li><a href="trait.FromField.html">FromField</a></div></li>
+<li><a href="trait.Hash.html">Hash</a></div></li>
+<li><a href="trait.Packable.html">Packable</a></div></li>
+<li><a href="trait.ToField.html">ToField</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">traits</a></div>
+<h1>Trait <span id="trait" class="trait">Empty</span></h1>
+<pre><code>pub trait Empty: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self;
+
+    <span class="comment">// Provided methods</span>
+    pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a> { ... }
+    pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;) { ... }
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="empty" class="code-header">pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self</code>
+
+</div><h2>Provided methods</h2>
+<div class="padded-methods"><code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Empty-for-(A, B)"><code class="code-header">impl&lt;A, B&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for (A, B)
+<div class="where-clause">where
+    A: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    B: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-AppendOnlyTreeSnapshot"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></h3>
+
+<h3 id="impl-Empty-for-AuthorizationSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/authwit/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
+
+<h3 id="impl-Empty-for-AvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Empty-for-AvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html" class="struct">AvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Empty-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Empty-for-AztecAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<h3 id="impl-Empty-for-BlockConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<h3 id="impl-Empty-for-BlockHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+<h3 id="impl-Empty-for-CallContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code></h3>
+
+<h3 id="impl-Empty-for-CheckpointConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/checkpoint_constant_data/struct.CheckpointConstantData.html" class="struct">CheckpointConstantData</a></code></h3>
+
+<h3 id="impl-Empty-for-CheckpointHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+
+<h3 id="impl-Empty-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-ContractClassId"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<h3 id="impl-Empty-for-ContractClassLog"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/contract_class_log/struct.ContractClassLog.html" class="struct">ContractClassLog</a></code></h3>
+
+<h3 id="impl-Empty-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Empty-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+
+<h3 id="impl-Empty-for-EpochConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></h3>
+
+<h3 id="impl-Empty-for-EthAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
+
+<h3 id="impl-Empty-for-EventSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/event/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
+
+<h3 id="impl-Empty-for-FeeRecipient"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
+
+<h3 id="impl-Empty-for-Field"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-Empty-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
+
+<h3 id="impl-Empty-for-FunctionSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
+
+<h3 id="impl-Empty-for-Gas"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></h3>
+
+<h3 id="impl-Empty-for-GasFees"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></h3>
+
+<h3 id="impl-Empty-for-GasSettings"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<h3 id="impl-Empty-for-GlobalVariables"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
+
+<h3 id="impl-Empty-for-KeyValidationRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
+
+<h3 id="impl-Empty-for-KeyValidationRequestAndGenerator"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a></code></h3>
+
+<h3 id="impl-Empty-for-L2ToL1Message"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a></code></h3>
+
+<h3 id="impl-Empty-for-Log<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/log/struct.Log.html" class="struct">Log</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-Empty-for-LogHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a></code></h3>
+
+<h3 id="impl-Empty-for-MembershipWitness<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-Empty-for-MerkleTree<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-Empty-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/test/mocks/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+
+<h3 id="impl-Empty-for-NoteHashLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/note_hash_leaf_preimage/struct.NoteHashLeafPreimage.html" class="struct">NoteHashLeafPreimage</a></code></h3>
+
+<h3 id="impl-Empty-for-Nullifier"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<h3 id="impl-Empty-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Empty-for-Option<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<h3 id="impl-Empty-for-PartialAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
+
+<h3 id="impl-Empty-for-PartialStateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/private_accumulated_data/struct.PrivateAccumulatedData.html" class="struct">PrivateAccumulatedData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateContextInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateLogData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToAvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToPublicAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToRollupAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateTxConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/private_tx_constant_data/struct.PrivateTxConstantData.html" class="struct">PrivateTxConstantData</a></code></h3>
+
+<h3 id="impl-Empty-for-PrivateValidationRequests"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/validation_requests/private_validation_requests/struct.PrivateValidationRequests.html" class="struct">PrivateValidationRequests</a></code></h3>
+
+<h3 id="impl-Empty-for-ProtocolContracts"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicCallRequestArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicDataTreeLeaf"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicDataWrite"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicKeysHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/address/public_keys_hash/struct.PublicKeysHash.html" class="struct">PublicKeysHash</a></code></h3>
+
+<h3 id="impl-Empty-for-PublicLogs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
+
+<h3 id="impl-Empty-for-ScheduledDelayChange<INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../std/primitive.u64.html" class="primitive">u64</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></h3>
+
+<h3 id="impl-Empty-for-ScheduledValueChange<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<h3 id="impl-Empty-for-StateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
+
+<h3 id="impl-Empty-for-TestLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/tests/types/struct.TestLeafPreimage.html" class="struct">TestLeafPreimage</a></code></h3>
+
+<h3 id="impl-Empty-for-TestValue"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/tests/types/struct.TestValue.html" class="struct">TestValue</a></code></h3>
+
+<h3 id="impl-Empty-for-TreeSnapshots"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></h3>
+
+<h3 id="impl-Empty-for-TxConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code></h3>
+
+<h3 id="impl-Empty-for-TxContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></h3>
+
+<h3 id="impl-Empty-for-TxEffect"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<h3 id="impl-Empty-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
+
+<h3 id="impl-Empty-for-VerificationKey<M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/proof/verification_key/struct.VerificationKey.html" class="struct">VerificationKey</a>&lt;M&gt;</code></h3>
+
+<h3 id="impl-Empty-for-VkData<VK_LENGTH>"><code class="code-header">impl&lt;let VK_LENGTH: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;VK_LENGTH&gt;</code></h3>
+
+<h3 id="impl-Empty-for-[T; N]"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for [T; N]
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-[T]"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for [T]
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<h3 id="impl-Empty-for-bool"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></h3>
+
+<h3 id="impl-Empty-for-u1"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u1.html" class="primitive">u1</a></code></h3>
+
+<h3 id="impl-Empty-for-u128"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-Empty-for-u16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-Empty-for-u32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-Empty-for-u64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-Empty-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

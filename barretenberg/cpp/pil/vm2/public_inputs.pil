@@ -1,0 +1,5 @@
+namespace public_inputs;
+
+pol constant sel; // 1 for all rows up to AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH
+
+pol public cols[4];

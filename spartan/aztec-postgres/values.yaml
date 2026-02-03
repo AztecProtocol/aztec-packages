@@ -1,0 +1,30 @@
+image:
+  repository: postgres
+  tag: "18"
+  pullPolicy: IfNotPresent
+
+component: "validator-ha-db"
+
+auth:
+  database: validator_ha
+  username: validator
+  password: ""  # Set via Terraform
+
+# PostgreSQL max connections (default 100 is too low for HA validators)
+maxConnections: 500
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""  # Use default
+
+service:
+  port: 5432

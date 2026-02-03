@@ -1,0 +1,47 @@
+# Ensure multiple environments have all publisher keys and bot accounts funded
+# This workflow checks and funds publisher keys and bot accounts for staging-public, next-net, staging-ignition, and testnet
+name: Ensure Funded Environments
+
+on:
+  workflow_dispatch:
+    inputs:
+      low_watermark:
+        description: "Minimum ETH balance"
+        required: false
+        type: string
+        default: "0.5"
+      high_watermark:
+        description: "Target ETH balance when funding"
+        required: false
+        type: string
+        default: "1.0"
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: "0 2 * * *"
+
+concurrency:
+  group: ensure-funded-environments
+  cancel-in-progress: false # Don't cancel funding operations
+
+jobs:
+  fund:
+    strategy:
+      # we can only run one funding operation at a time because all jobs fund from the same address
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        environment: 
+          - staging-public
+          - staging-ignition
+          - next-net
+          - tps-scenario
+          - testnet
+          - devnet
+          - devnet-next
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: ${{ matrix.environment }}
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
+    secrets: inherit
+

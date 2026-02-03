@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "examples/contracts/counter_contract",
+    "examples/contracts/bob_token_contract",
+    "examples/contracts/nft",
+    "examples/contracts/nft_bridge",
+    "examples/contracts/recursive_verification_contract"
+]

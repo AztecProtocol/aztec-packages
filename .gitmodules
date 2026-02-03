@@ -1,0 +1,26 @@
+[submodule "l1-contracts/lib/openzeppelin-contracts"]
+	path = l1-contracts/lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "l1-contracts/lib/forge-std"]
+	path = l1-contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "barretenberg/sol/lib/forge-std"]
+	path = barretenberg/sol/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "barretenberg/sol/lib/solidity-stringutils"]
+	path = barretenberg/sol/lib/solidity-stringutils
+	url = https://github.com/Arachnid/solidity-stringutils
+[submodule "barretenberg/sol/lib/openzeppelin-contracts"]
+	path = barretenberg/sol/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "bb-pilcom/powdr"]
+	path = bb-pilcom/powdr
+	url = https://github.com/AztecProtocol/powdr
+	branch = avm-minimal
+[submodule "l1-contracts/lib/circuits"]
+	path = l1-contracts/lib/circuits
+	url = https://github.com/zkpassport/circuits
+[submodule "noir/noir-repo"]
+	path = noir/noir-repo
+	url = https://github.com/noir-lang/noir.git
+	shallow = true

@@ -1,0 +1,277 @@
+include "precomputed.pil";
+include "constants_gen.pil";
+
+/**
+ * ==============================
+ * INVOCATION WITH ERROR HANDLING
+ * ==============================
+ * Used by execution dispatch #[DISPATCH_TO_BITWISE] in execution.pil for bitwise opcodes
+ * and reads back the tag error flag.
+ *
+ * sel_exec_dispatch_bitwise {
+ *    subtrace_operation_id, sel_opcode_error,
+ *    register[0], mem_tag_reg[0],
+ *    register[1], mem_tag_reg[1],
+ *    register[2], mem_tag_reg[2]
+ * } in bitwise.start {
+ *    bitwise.op_id, bitwise.err,
+ *    bitwise.acc_ia, bitwise.tag_a,
+ *    bitwise.acc_ib, bitwise.tag_b,
+ *    bitwise.acc_ic, bitwise.tag_c
+ * };
+ *
+ * =================================
+ * INVOCATION WITHOUT ERROR HANDLING
+ * =================================
+ *
+ * Used by both `keccakf1600.pil` and `sha256.pil` sub-traces using their respective selectors:
+ * `start_keccak` and `start_sha256`. It assumes that the bitwise operation is always performed
+ * as tags of both inputs are known to be valid. Therefore, there is no error handling. However,
+ * tracegen still needs to populate the trace to satisfy the constraints related to error handling.
+ *
+ * Usage is of the form:
+ *
+ * sel_XXX { a, b, c, xor_sel, tag_a }
+ * in
+ * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+ *
+ * where start_XXX is either start_keccak or start_sha256.
+ * Note that the order of the tuple columns might differ though. As long as the correct columns
+ * are passed, the usage is sound.
+ *
+ *
+ * The bitwise trace performs AND/OR/XOR operations on non-FF types. It does
+ * this by decomposing the inputs into 8-bit chunks and looks up the resulting
+ * chunk of the operation in the precomputed bitwise table. The final output is
+ * the accumulation of these result chunks.
+ * The precomputed bitwise table contains the results of all combinations of
+ * bitwise operations for 8-bit values. These values are stored as a tuple of
+ * <id, input_a, input_b, output_c>  where id is either AND/OR/XOR.
+ * ERROR HANDLING:
+ * The possible errors for this subtrace relate to the AVM memory tag:
+ * 1) Either of the inputs tags is of type FF
+ * 2) The inputs do not have the same tag.
+ * In either case, we do not attempt to perform the bitwise operation.
+ *
+ * N.B The "controlling" selector that drives the computation of the bitwise operation
+ * is NOT the `sel` column but in fact the `start` column, which is in turn driven by `ctr` !=0.
+ * For error handling, err = 1, we do the following:
+ * (1) Set last = 1, this turns off the propagation / decrementing of values to subsequent rows
+ * (2) Set ctr = 0, this turns off `sel` which turns off most constraints including the lookups
+ *
+ * N.B for (2), ctr is technically left unconstrained (although 0 is optimal for the prover).
+ * Since it is unconstrained, a prover is free to set ctr to any value, but
+ * they cannot prevent the propagation of the error flag to execution. Therefore,
+ * any additional work incurred (by not setting ctr to 0) is wasted since the result
+ * will be discarded by the execution trace.
+ */
+
+namespace bitwise;
+
+// Trace example for a AND b == c of type u32
+// a = 0x52488425
+// b = 0xC684486C (We omit acc_ib and ic_byte as it follows the very same behavior as for a and c)
+// c = 0x42000024
+//
+//   ctr   sel   start   last       acc_ia     acc_ic     ia_byte     ic_byte
+//    4     1      1      0       0x52488425  0x42000024    0x25        0x24
+//    3     1      0      0       0x524884    0x420000      0x84        0x00
+//    2     1      0      0       0x5248      0x4200        0x48        0x00
+//    1     1      0      1       0x52        0x42          0x52        0x42
+
+// Selector for Bitwise Operation
+pol commit sel; // @boolean
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+pol commit start; // @boolean Identifies when we want to capture the output to the main trace.
+// Must be constrained as a boolean as any selector used in a lookup/permutation.
+start * (1 - start) = 0;
+
+// This is used to decouple generation of inverses of lookups into this trace.
+pol commit start_keccak; // @boolean
+pol commit start_sha256; // @boolean
+start_keccak * (1 - start_keccak) = 0;
+start_sha256 * (1 - start_sha256) = 0;
+// If any of the above selectors is 1, then start must be 1.
+(start_keccak + start_sha256) * (1 - start) = 0;
+
+// Crucial constraint to prevent the vulnerability described in PR #19875 consisting
+// of maliciously setting start=1 on inactive rows (sel=0) by toggling an error
+// and forging in any bitwise operation result.
+#[BITW_START_ONLY_WHEN_SEL]
+(start_keccak + start_sha256) * (1 - sel) = 0;
+// Note: the more general `start * (1 - sel) = 0` would be too aggressive since error rows
+// legitimately need start=1 with sel=0 for the execution dispatch (#[DISPATCH_TO_BITWISE]).
+
+// To support dynamically sized memory operands we use a counter against a lookup
+// This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
+// corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
+// Consistency can be achieved with a lookup table between the tag and precomputed.tag_byte_length
+pol commit ctr;
+
+// The error flags for this subtrace
+pol commit sel_tag_ff_err; // @boolean
+sel_tag_ff_err * (1 - sel_tag_ff_err) = 0;
+pol commit sel_tag_mismatch_err; // @boolean
+sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
+
+// Consolidated error flag
+pol commit err; // @boolean (by definition)
+err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
+// last is a boolean which serves to mark the end of the computation (end of latch)
+pol commit last; // @boolean
+last * (1 - last) = 0;
+#[LAST_ON_ERROR] // last = 1 if err = 1
+err * (last - 1) = 0;
+
+/////////////////////////////////
+// Tag Checking / Error Handling
+/////////////////////////////////
+// The checks that need to be performed are: (1) the tags are not FF, and (2) that the input tags are the same.
+// We can simplify (1) by just checking that tag_a != FF. It can be observed
+// that we don't need to also check that tag_b != FF since it follows from the the tag check of (2)
+
+// These are the tags {1,2,3,4,5,6} of the inputs (restricted to not be a field)
+pol commit tag_a;
+pol commit tag_b;
+pol commit tag_c; // This is the tag of the result
+// Sufficient to set tag_c == tag_a because we check that tag_a == tag_b
+// If there is an error, we relax this constraint as we want the flexibility to set the register in execution to FF(0)
+#[RES_TAG_SHOULD_MATCH_INPUT]
+(1 - err) * start * (tag_c - tag_a) = 0;
+
+// Check that tag_a is not FF
+pol commit tag_a_inv;
+// When start = 1: tag_a == 0 <==> sel_tag_ff_err = 1
+// For more consistency and clarity we have this helper even though constants.MEM_TAG_FF = 0;
+pol TAG_A_DIFF = tag_a - constants.MEM_TAG_FF;
+#[INPUT_TAG_CANNOT_BE_FF]
+start * (TAG_A_DIFF * (sel_tag_ff_err * (1 - tag_a_inv) + tag_a_inv) - 1 + sel_tag_ff_err) = 0;
+
+// Check that the input tags match each other
+pol TAG_AB_DIFF = tag_a - tag_b;
+pol commit tag_ab_diff_inv;
+// When start = 1:  TAG_AB_DIFF != 0 <==> sel_tag_mismatch_err = 1
+#[INPUT_TAGS_SHOULD_MATCH]
+start * (TAG_AB_DIFF * ((1 - sel_tag_mismatch_err) * (1 - tag_ab_diff_inv) + tag_ab_diff_inv) - sel_tag_mismatch_err) = 0;
+
+/////////////////////////////////
+// Begin Executing Bitwise ops
+/////////////////////////////////
+// Byte recomposition column, the value in these columns are part of the equivalence
+// check to main wherever Start is set to 1.
+pol commit acc_ia;
+pol commit acc_ib;
+pol commit acc_ic;
+
+// Little Endian bitwise decomposition of accumulators (which are processed top-down),
+// constrained to be U8 given by the lookup to the byte_lookup
+pol commit ia_byte;
+pol commit ib_byte;
+pol commit ic_byte;
+
+// Selectors for bitwise operations, constrained from subtrace_operation_id from execution trace
+// Op Id is restricted to be the same during the same computation (i.e. between Starts)
+pol commit op_id;
+
+#[BITW_OP_ID_REL]
+(op_id' - op_id) * (1 - last) = 0;
+
+#[BITW_CTR_DECREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (ctr' - ctr + 1) * (1 - last) = 0;
+
+// sel is set to 1 if and only if ctr != 0. (and sel == 0 <==> ctr == 0)
+// sel is a boolean that is set to 1 if ctr != 0.
+// This is checked by following relation and utilising inverse of ctr: ctr_inv
+pol commit ctr_inv;
+
+#[BITW_SEL_CTR_NON_ZERO]
+ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
+
+// Similarly, we prove that last == 1 <==> ctr - 1 == 0 <==> ctr == 1
+// Note: sel factor is required for an empty row to satisfy this relation
+pol commit ctr_min_one_inv;
+#[BITW_LAST_FOR_CTR_ONE]
+sel * ((ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1) = 0;
+
+// Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
+#[BITW_INIT_A]
+last * (acc_ia - ia_byte) = 0;
+#[BITW_INIT_B]
+last * (acc_ib - ib_byte) = 0;
+#[BITW_INIT_C]
+last * (acc_ic - ic_byte) = 0;
+
+#[BITW_ACC_REL_A]
+(acc_ia - ia_byte - 256 * acc_ia') * (1 - last) = 0;
+#[BITW_ACC_REL_B]
+(acc_ib - ib_byte - 256 * acc_ib') * (1 - last) = 0;
+#[BITW_ACC_REL_C]
+(acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
+
+// If we encounter an error, we do not want to perform a lookup to retrieve ctr.
+// In the case of an error, ctr is unconstrained (ideally set to 0).
+pol commit sel_get_ctr; // @boolean
+sel_get_ctr = start * (1 - err);
+
+#[INTEGRAL_TAG_LENGTH]
+sel_get_ctr { tag_a, ctr }
+in
+precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+
+#[BYTE_OPERATIONS]
+sel { op_id, ia_byte, ib_byte, ic_byte }
+in
+precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
+
+
+// Potential improvements: See the following paragraphs
+
+// ################################################
+// Alternative implementation as potential speed-up
+// ################################################
+//
+// In vm1, we had an approach which requires one extra row per bitwise operation but
+// had 2 less columns and #[BITW_CTR_DECREMENT] would have degree 0 and the degree 4 relation
+// #[BITW_LAST_FOR_CTR_ONE] is not present.
+// The main difference is that we decrement ctr down to zero (extra line) and impose an initialization
+// condition for acc_ia, acc_ib, acc_ic to be zero on this last row.
+// Column last can be removed and sel is used instead of (1 - last).
+// Note that sel == 0 on last row of each operation, but the skippable condition
+// remains valid as the last row will be empty with our witness generator.
+//
+// It might be worth to measure the difference among both approaches.
+
+// ################################################
+// Recycling of bitwise operations of prefixes
+// ################################################
+//
+// Observation: If two inputs are prefixes of other inputs which are already present in the
+//              trace, then we could retrieve the result as a truncated trace of the larger.
+//
+// For instance, re-using example at the top, we consider the U16 and computation over
+// a = 0x5248
+// b = 0xC684
+// c = 0x4200
+// Then, we should activate the start selector where ctr == 2, and the following rows
+// represent a valid trace for this computation.
+// It is not clear if this would lead to some speed-up in practice.
+
+// ################################################
+// Tight counter
+// ################################################
+//
+// The counter is currently set to TAG_LEN, which is the maximum number of bytes of the two inputs.
+// This is not tight, and we can reduce the counter to the effective number of bytes of the largest
+// input. For instance, a == 0x23 and b == 0x123 with tag U64 can be computed with ctr == 2.
+// We can relax the lookup #[INTEGRAL_TAG_LENGTH] and have ctr being chosen "freely" in the
+// interval [1, 31]. Namely, if ctr is non-zero, the computation is triggered and if ctr is too short,
+// a relation will fail. If ctr is too large, then some rows are wasted. However, it is crucial that
+// ctr != 0, otherwise it is underconstrained and the bitwise operation can be completely faked (no lookup to precomputed.bitwise).
+// In addition, requesting a max value of 31 prevents the acc_ia, acc_ib, acc_ic values to overflow the field
+// which represents a potential attack vector.

@@ -1,0 +1,80 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+// clang-format off
+/*                                            )\   /|
+*                                          .-/'-|_/ |
+*                       __            __,-' (   / \/
+*                   .-'"  "'-..__,-'""          -o.`-._
+*                  /                                   '/
+*          *--._ ./                                 _.--
+*                |                              _.-'
+*                :                           .-/
+*                 \                       )_ /
+*                  \                _)   / \(
+*                    `.   /-.___.---'(  /   \\
+*                     (  /   \\       \(     L\
+*                      \(     L\       \\
+*                       \\              \\
+*                        L\              L\
+*/
+// clang-format on
+#include <utility>
+
+#include "barretenberg/ultra_honk/prover_instance.hpp"
+
+namespace bb {
+/**
+ * @brief Class for all the oink rounds, which are shared between the folding prover and ultra prover.
+ * @details This class contains execute_preamble_round(), execute_wire_commitments_round(),
+ * execute_sorted_list_accumulator_round(), execute_log_derivative_inverse_round(), and
+ * execute_grand_product_computation_round().
+ *
+ * @tparam Flavor
+ */
+template <IsUltraOrMegaHonk Flavor> class OinkProver {
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using HonkVK = typename Flavor::VerificationKey;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using Transcript = typename Flavor::Transcript;
+    using FF = typename Flavor::FF;
+    using Proof = typename Transcript::Proof;
+
+  public:
+    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<HonkVK> honk_vk;
+    std::shared_ptr<Transcript> transcript;
+    std::string domain_separator;
+
+    typename Flavor::CommitmentLabels commitment_labels;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
+
+    OinkProver(std::shared_ptr<ProverInstance> prover_instance,
+               std::shared_ptr<HonkVK> honk_vk,
+               const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
+               std::string domain_separator = "")
+        : prover_instance(prover_instance)
+        , honk_vk(honk_vk)
+        , transcript(transcript)
+        , domain_separator(std::move(domain_separator))
+    {}
+
+    void prove();
+    Proof export_proof();
+    void execute_preamble_round();
+    void execute_wire_commitments_round();
+    void execute_sorted_list_accumulator_round();
+    void execute_log_derivative_inverse_round();
+    void execute_grand_product_computation_round();
+    void commit_to_masking_poly();
+    SubrelationSeparator generate_alpha_round();
+    Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
+};
+
+using MegaOinkProver = OinkProver<MegaFlavor>;
+
+} // namespace bb

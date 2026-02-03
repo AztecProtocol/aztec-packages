@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# For running test cmds that are pathed relative to the repo root.
+# Commands are read from stdin.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+cd $root
+
+if [ -z "${1:-}" ]; then
+  num_cpus=$(get_num_cpus)
+  num_cpus=$((num_cpus / 2))
+else
+  num_cpus=$(get_num_cpus_max ${1:-})
+fi
+
+[ -t 1 ] && no_term=0 || no_term=1
+
+echo "Starting parallel run using max $num_cpus cpus..."
+
+sem_sched init $num_cpus
+
+function cleanup {
+  [ -f "$output" ] && rm -f $output
+  kill -TERM $(jobs -p) &>/dev/null
+}
+trap cleanup EXIT
+
+trap 'echo >&2; exit' SIGINT SIGTERM
+
+output=$(mktemp)
+
+function run_and_release {
+  export CPU_LIST=$1
+  trap 'sem_sched release $CPU_LIST' EXIT
+  trap 'kill $pid &>/dev/null' SIGTERM SIGINT
+  run_test_cmd "$cmd" &
+  local pid=$!
+  wait $pid
+  semc --name "/complete_tests" +1
+  wait $pid
+}
+
+function status {
+  [ "$no_term" -eq 1 ] && return
+  local complete_jobs=$(semc --name "/complete_tests")
+  echo_stderr -e -n "\r$num_jobs scheduled, $(jobs -p | wc -l) running, $complete_jobs complete.\e[K"
+}
+
+function wait_for_job {
+  wait -n
+  ret=$?
+  status
+  if [ $ret -ne 0 ]; then
+    if [ $no_term -eq 0 ]; then
+      echo_stderr
+      cat $output | grep FAILED >&2
+    fi
+    exit 1
+  fi
+}
+
+function run_tests {
+  semc --name "/complete_tests" --init 0
+  while IFS= read -r cmd || [ -n "$cmd" ]; do
+    # Default.
+    local CPUS=2
+
+    # Extract the first token and set any variable assignments (locally).
+    # We're actually only using this to get the number of cpus we need.
+    hash_part="${cmd%% *}"
+    if [[ "$hash_part" == *:* ]]; then
+      IFS=':' read -ra parts <<< "$hash_part"
+      # The first element is the actual hash; remaining elements are variable assignments.
+      for var_assignment in "${parts[@]:1}"; do
+        local "$var_assignment"
+      done
+    fi
+
+    # Acquire some cpus.
+    until CPU_LIST=$(sem_sched acquire $CPUS); do
+      # Not enough available. Wait for a job to complete and release some cpus.
+      wait_for_job
+    done
+
+    run_and_release $CPU_LIST &
+
+    num_jobs=$((num_jobs + 1))
+    status
+  done
+}
+
+num_jobs=0
+
+# We'll handle errors explicitly.
+set +e
+run_tests > >(tee $output | cache_log "Test run")
+
+# Loop to monitor jobs until one fails or all finish.
+while (( $(jobs -p | wc -l) > 0 )); do
+  wait_for_job
+done
+
+[ -t 1 ] && echo
+
+function filter_long_times {
+  grep -E '\([0-9]+s\)$' |           # Match lines ending with (number)s
+  sed 's/.*(\([0-9]\+\)s)$/\1 &/' |  # Extract number and keep original line
+  awk '$1 > 300 {print $0}' |        # Filter for times > 300s
+  sort -n |                          # Sort numerically by first column (time)
+  sed 's/^[0-9]\+ //'                # Remove the extracted number used for sorting
+}
+
+slow_jobs=$(cat "$output" | filter_long_times)
+if [ -n "$slow_jobs" ]; then
+  echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
+  echo "$slow_jobs"
+fi
+
+echo "Completed run of $num_jobs tests in $SECONDS seconds."
