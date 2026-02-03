@@ -27,8 +27,7 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk
-    // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
+    // Idx
     trace.reserve_column(C::precomputed_idx, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_idx, i, i);
@@ -38,7 +37,8 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
     // 256 per input (a and b), and 3 different bitwise ops
-    constexpr auto num_rows = PRECOMPUTED_TRACE_SIZE;
+    constexpr auto num_rows = 256 * 256 * 3;
+    static_assert(num_rows <= PRECOMPUTED_TRACE_SIZE);
     trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
