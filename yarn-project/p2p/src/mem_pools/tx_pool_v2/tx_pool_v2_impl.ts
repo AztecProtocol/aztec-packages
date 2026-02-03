@@ -128,7 +128,7 @@ export class TxPoolV2Impl {
     const { loaded, errors: deserializationErrors } = await this.#loadAllTxsFromDb();
 
     // Step 2: Check mined status for each tx
-    await this.#checkMinedStatusBatch(loaded);
+    await this.#markMinedStatusBatch(loaded.map(l => l.meta));
 
     // Step 3: Partition by mined status
     const { mined, nonMined } = this.#partitionByMinedStatus(loaded);
@@ -526,12 +526,8 @@ export class TxPoolV2Impl {
     return results;
   }
 
-  async hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
-    const results: boolean[] = [];
-    for (const h of txHashes) {
-      results.push(await this.#txsDB.hasAsync(h.toString()));
-    }
-    return results;
+  hasTxs(txHashes: TxHash[]): boolean[] {
+    return txHashes.map(h => this.#metadata.has(h.toString()));
   }
 
   getTxStatus(txHash: TxHash): TxState | undefined {
@@ -929,17 +925,17 @@ export class TxPoolV2Impl {
 
   /** Loads all transactions from the database, returning loaded txs and deserialization errors */
   async #loadAllTxsFromDb(): Promise<{
-    loaded: { txHashStr: string; tx: Tx; meta: TxMetaData }[];
+    loaded: { tx: Tx; meta: TxMetaData }[];
     errors: string[];
   }> {
-    const loaded: { txHashStr: string; tx: Tx; meta: TxMetaData }[] = [];
+    const loaded: { tx: Tx; meta: TxMetaData }[] = [];
     const errors: string[] = [];
 
     for await (const [txHashStr, buffer] of this.#txsDB.entriesAsync()) {
       try {
         const tx = Tx.fromBuffer(buffer);
         const meta = await buildTxMetaData(tx);
-        loaded.push({ txHashStr, tx, meta });
+        loaded.push({ tx, meta });
       } catch (err) {
         this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
         errors.push(txHashStr);
@@ -949,11 +945,11 @@ export class TxPoolV2Impl {
     return { loaded, errors };
   }
 
-  /** Checks mined status for transactions by querying the block source */
-  async #checkMinedStatusBatch(txs: { txHashStr: string; meta: TxMetaData }[]): Promise<void> {
-    for (const { txHashStr, meta } of txs) {
+  /** Queries block source and marks mined status on transaction metadata */
+  async #markMinedStatusBatch(metas: TxMetaData[]): Promise<void> {
+    for (const meta of metas) {
       try {
-        const txEffect = await this.#l2BlockSource.getTxEffect(TxHash.fromString(txHashStr));
+        const txEffect = await this.#l2BlockSource.getTxEffect(TxHash.fromString(meta.txHash));
         if (txEffect) {
           meta.minedL2BlockId = {
             number: txEffect.l2BlockNumber,
@@ -961,22 +957,22 @@ export class TxPoolV2Impl {
           };
         }
       } catch (err) {
-        this.#log.warn(`Failed to check mined status for tx ${txHashStr}`, { err });
+        this.#log.warn(`Failed to check mined status for tx ${meta.txHash}`, { err });
       }
     }
   }
 
   /** Partitions transactions by mined status */
-  #partitionByMinedStatus(txs: { txHashStr: string; tx: Tx; meta: TxMetaData }[]): {
-    mined: { txHashStr: string; meta: TxMetaData }[];
-    nonMined: { txHashStr: string; tx: Tx; meta: TxMetaData }[];
+  #partitionByMinedStatus(txs: { tx: Tx; meta: TxMetaData }[]): {
+    mined: TxMetaData[];
+    nonMined: { tx: Tx; meta: TxMetaData }[];
   } {
-    const mined: { txHashStr: string; meta: TxMetaData }[] = [];
-    const nonMined: { txHashStr: string; tx: Tx; meta: TxMetaData }[] = [];
+    const mined: TxMetaData[] = [];
+    const nonMined: { tx: Tx; meta: TxMetaData }[] = [];
 
     for (const entry of txs) {
       if (entry.meta.minedL2BlockId !== undefined) {
-        mined.push({ txHashStr: entry.txHashStr, meta: entry.meta });
+        mined.push(entry.meta);
       } else {
         nonMined.push(entry);
       }
@@ -986,19 +982,17 @@ export class TxPoolV2Impl {
   }
 
   /** Validates non-mined transactions, returning valid metadata and invalid hashes */
-  async #validateNonMinedTxs(
-    txs: { txHashStr: string; tx: Tx; meta: TxMetaData }[],
-  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
+  async #validateNonMinedTxs(txs: { tx: Tx; meta: TxMetaData }[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
 
-    for (const { txHashStr, tx, meta } of txs) {
+    for (const { tx, meta } of txs) {
       const result = await this.#pendingTxValidator.validateTx(tx);
       if (result.result === 'valid') {
         valid.push(meta);
       } else {
-        this.#log.info(`Removing invalid tx ${txHashStr} on startup: ${result.reason?.join(', ')}`);
-        invalid.push(txHashStr);
+        this.#log.info(`Removing invalid tx ${meta.txHash} on startup: ${result.reason?.join(', ')}`);
+        invalid.push(meta.txHash);
       }
     }
 
@@ -1006,9 +1000,9 @@ export class TxPoolV2Impl {
   }
 
   /** Populates metadata index for mined transactions */
-  #populateMinedIndices(txs: { txHashStr: string; meta: TxMetaData }[]): void {
-    for (const { txHashStr, meta } of txs) {
-      this.#metadata.set(txHashStr, meta);
+  #populateMinedIndices(metas: TxMetaData[]): void {
+    for (const meta of metas) {
+      this.#metadata.set(meta.txHash, meta);
     }
   }
 
