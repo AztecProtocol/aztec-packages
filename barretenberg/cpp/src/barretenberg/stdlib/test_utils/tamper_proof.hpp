@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -79,12 +80,11 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
  * @param inner_proof The proof vector to tamper with
  * @param end_of_proof If true, tamper with the last commitment; if false, tamper with the first pairing point
  */
-template <typename InnerProver, typename InnerFlavor, typename ProofType = typename InnerFlavor::Transcript::Proof>
+template <typename InnerFlavor, typename ProofType = typename InnerFlavor::Transcript::Proof>
 void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
 {
     using Commitment = typename InnerFlavor::Curve::AffineElement;
     using FF = typename InnerFlavor::FF;
-    using ProofFF = typename ProofType::value_type;
     using Codec = typename InnerFlavor::Transcript::Codec;
 
     static constexpr size_t NUM_FRS_PER_COMMITMENT = Codec::template calc_num_fields<Commitment>();
@@ -99,37 +99,15 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         std::copy(serialized.begin(), serialized.end(), inner_proof.begin() + static_cast<std::ptrdiff_t>(offset));
     } else {
         // Tamper with the first pairing point (P0) by adding the generator
-        // Pairing points use a different encoding (reconstruct_from_public) than regular commitments
-        static constexpr size_t FRS_PER_POINT = Commitment::PUBLIC_INPUTS_SIZE;
-        static constexpr size_t NUM_LIMB_BITS = bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+        using PP = bb::PairingPoints<typename InnerFlavor::Curve>;
+        static constexpr size_t NUM_FRS = Codec::template calc_num_fields<PP>();
 
-        if (inner_proof.size() >= FRS_PER_POINT) {
-            // Deserialize P0 using the native reconstruct_from_public method
-            std::array<ProofFF, FRS_PER_POINT> p0_limbs;
-            std::copy_n(inner_proof.begin(), FRS_PER_POINT, p0_limbs.begin());
-            Commitment P0 = Commitment::reconstruct_from_public(p0_limbs);
-
-            // Tamper: P0 + G (still on curve, but invalid for verification)
-            Commitment tampered = P0 + Commitment::one();
-
-            // Serialize back based on curve type
-            if constexpr (FRS_PER_POINT == 8) {
-                // BN254: 4 limbs per coordinate
-                constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
-                uint256_t x_val = uint256_t(tampered.x);
-                uint256_t y_val = uint256_t(tampered.y);
-                for (size_t i = 0; i < 4; ++i) {
-                    inner_proof[i] = ProofFF((x_val >> (i * NUM_LIMB_BITS)) & LIMB_MASK);
-                    inner_proof[i + 4] = ProofFF((y_val >> (i * NUM_LIMB_BITS)) & LIMB_MASK);
-                }
-            } else if constexpr (FRS_PER_POINT == 2) {
-                // Grumpkin: 1 field element per coordinate
-                inner_proof[0] = ProofFF(tampered.x);
-                inner_proof[1] = ProofFF(tampered.y);
-            } else {
-                static_assert(FRS_PER_POINT == 8 || FRS_PER_POINT == 2,
-                              "Unsupported curve: FRS_PER_POINT must be 8 (BN254) or 2 (Grumpkin)");
-            }
+        if (inner_proof.size() >= NUM_FRS) {
+            auto pp_span = std::span{ inner_proof }.subspan(0, NUM_FRS);
+            PP pairing_points = Codec::template deserialize_from_fields<PP>(pp_span);
+            pairing_points.P0() = pairing_points.P0() + Commitment::one();
+            auto serialized = Codec::serialize_to_fields(pairing_points);
+            std::copy(serialized.begin(), serialized.end(), inner_proof.begin());
         }
     }
 }

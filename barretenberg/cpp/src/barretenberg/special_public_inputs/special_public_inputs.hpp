@@ -22,21 +22,18 @@ class DefaultIO {
     using FF = curve::BN254::ScalarField;
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
     static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
@@ -61,7 +58,8 @@ class HidingKernelIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE =
+        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
     static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
@@ -70,8 +68,6 @@ class HidingKernelIO {
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
@@ -116,12 +112,10 @@ class RollupIO {
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        // Assumes that the app-io public inputs are at the end of the public_inputs vector
+        // Assumes that the rollup-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });

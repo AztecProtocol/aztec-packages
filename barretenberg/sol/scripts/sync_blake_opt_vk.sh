@@ -97,7 +97,7 @@ sed -i "s/uint256 constant VK_HASH = 0x[0-9a-fA-F]\+;/uint256 constant VK_HASH =
 sed -i "s/uint256 constant CIRCUIT_SIZE = [0-9]\+;/uint256 constant CIRCUIT_SIZE = $CIRCUIT_SIZE;/" "$OPT_FILE"
 sed -i "s/uint256 constant LOG_N = [0-9]\+;/uint256 constant LOG_N = $LOG_N;/" "$OPT_FILE"
 sed -i "s/uint256 constant NUMBER_PUBLIC_INPUTS = [0-9]\+;/uint256 constant NUMBER_PUBLIC_INPUTS = $NUM_PUBLIC_INPUTS;/" "$OPT_FILE"
-sed -i "s/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = [0-9]\+ - 16;/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = $NUM_PUBLIC_INPUTS - 16;/" "$OPT_FILE"
+sed -i "s/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = [0-9]\+ - 8;/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = $NUM_PUBLIC_INPUTS - 8;/" "$OPT_FILE"
 
 # Update Q polynomial commitments
 sed -i "s/mstore(Q_L_X_LOC, 0x[0-9a-fA-F]\+)/mstore(Q_L_X_LOC, $Q_L_X)/" "$OPT_FILE"
