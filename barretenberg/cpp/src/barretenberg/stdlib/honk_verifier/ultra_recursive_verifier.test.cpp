@@ -395,6 +395,102 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             }
         }
     }
+
+    /**
+     * @brief Test recursive verification with static graph analysis to detect unconstrained variables
+     * @details This test constructs a recursive verification circuit and uses the StaticAnalyzer
+     * to verify that all variables are properly constrained, with the expected exception of variables
+     * that appear in only one gate (e.g., unused Shplonk powers due to PCS structure).
+     *
+     * This test was moved from graph_description_ultra_recursive_verifier.test.cpp to consolidate
+     * recursive verifier testing.
+     */
+    static void test_recursive_verification_with_graph_analysis()
+    {
+        // Create an arbitrary inner circuit
+        auto inner_circuit = create_inner_circuit();
+
+        // Generate a proof over the inner circuit
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
+        auto inner_proof = inner_prover.construct_proof();
+
+        // Create a recursive verification circuit for the proof of the inner circuit
+        OuterBuilder outer_circuit;
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
+
+        // Fix witness for VK fields to ensure they're properly constrained
+        verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.fix_witness();
+
+        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+        auto pairing_points = output.points_accumulator;
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their
+        // output coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit
+        // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
+        // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
+        // constrained within the circuit itself, rather than relying solely on them being public outputs.
+        pairing_points.P0.fix_witness();
+        pairing_points.P1.fix_witness();
+
+        // For RollupIO: Fix the IPA claim's bigfield elements (challenge and evaluation).
+        // When reconstructed from public inputs, bigfield::construct_from_limbs creates a prime_basis_limb
+        // that's computed as a linear combination of the binary limbs. Since the IPA claim is just propagated, this
+        // prime_basis_limb appears in only one gate.
+        if constexpr (IO::HasIPA) {
+            output.ipa_claim.opening_pair.challenge.fix_witness();
+            output.ipa_claim.opening_pair.evaluation.fix_witness();
+        }
+
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+
+        outer_circuit.finalize_circuit(false);
+
+        // Run static analysis to detect unconstrained variables
+        // Use the appropriate analyzer based on the outer builder type
+        using Analyzer =
+            std::conditional_t<IsMegaBuilder<OuterBuilder>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        auto graph = Analyzer(outer_circuit);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+
+        // We expect exactly one connected component (all variables properly connected)
+        EXPECT_EQ(cc.size(), 1);
+
+        // Expected variables in one gate:
+        // - Base count of is_infinity booleans (MegaBuilder only, one per deserialized commitment)
+        // - +1 for unused Shplonk power (non-ZK flavors only)
+        //
+        // AUDITTODO: When using MegaBuilder as outer circuit, goblin_element::from_witness() creates
+        // is_point_at_infinity boolean witnesses for each deserialized commitment. These bools are only
+        // constrained to be 0/1 (via bool gate) but are not linked to the actual point coordinates.
+        size_t expected_unconstrained = 0;
+        if constexpr (IsMegaBuilder<OuterBuilder>) {
+            // Number of is_infinity booleans depends on number of commitments in the proof
+            if constexpr (IsAnyOf<RecursiveFlavor,
+                                  MegaRecursiveFlavor_<OuterBuilder>,
+                                  MegaZKRecursiveFlavor_<OuterBuilder>>) {
+                expected_unconstrained = 31; // Mega proofs have more commitments
+            } else {
+                expected_unconstrained = 28; // Ultra proofs have fewer commitments
+            }
+        }
+        // Add 1 for unused Shplonk power in non-ZK flavors
+        if constexpr (!RecursiveFlavor::HasZK) {
+            expected_unconstrained += 1;
+        }
+        EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
+    }
 };
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
