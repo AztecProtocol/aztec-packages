@@ -58,11 +58,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
+    {
         // Auto-detect infinity: point is at infinity iff both coordinates are zero.
         // For goblin_field, each coordinate has 2 limbs. Sum all 4 limbs and check if zero.
-        // This follows the pattern from check_point_at_infinity in field_conversion.hpp.
-        , _is_infinity((x.limbs[0].add_two(x.limbs[1], y.limbs[0]) + y.limbs[1]).is_zero())
-    {}
+        const bool_ct are_limbs_zero = (x.limbs[0].add_two(x.limbs[1], y.limbs[0]) + y.limbs[1]).is_zero();
+        _is_infinity = are_limbs_zero;
+    }
 
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
