@@ -167,218 +167,122 @@ export class TxPoolV2Impl {
   }
 
   async addPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
-    // Step 1: Categorize txs by their status
-    const preProtectedTxs: { tx: Tx; slotNumber: SlotNumber }[] = [];
-    const alreadyMinedTxs: { tx: Tx; blockId: L2BlockId }[] = [];
-    const regularTxs: Tx[] = [];
-
-    for (const tx of txs) {
-      const txHash = tx.getTxHash();
-      const txHashStr = txHash.toString();
-
-      // Check pre-protection first
-      const slotNumber = this.#protectedTransactions.get(txHashStr);
-      if (slotNumber !== undefined) {
-        preProtectedTxs.push({ tx, slotNumber });
-        continue;
-      }
-
-      // Check if already mined (bypass validation entirely for mined txs)
-      const txEffect = await this.#l2BlockSource.getTxEffect(txHash);
-      if (txEffect) {
-        alreadyMinedTxs.push({
-          tx,
-          blockId: {
-            number: txEffect.l2BlockNumber,
-            hash: txEffect.l2BlockHash.toString(),
-          },
-        });
-        continue;
-      }
-
-      regularTxs.push(tx);
-    }
-
-    // Step 2: Handle pre-protected txs (bypass validation and all rules)
-    const preProtectedResult = await this.#addPreProtectedTxs(preProtectedTxs, opts);
-
-    // Step 3: Handle already mined txs (bypass validation and all rules)
-    const minedResult = await this.#addAlreadyMinedTxs(alreadyMinedTxs, opts);
-
-    // Step 4: Handle regular txs with normal flow
-    const regularResult = await this.#addRegularPendingTxs(regularTxs, opts);
-
-    // Step 5: Merge results
-    return {
-      accepted: [...preProtectedResult.accepted, ...minedResult.accepted, ...regularResult.accepted],
-      ignored: [...preProtectedResult.ignored, ...minedResult.ignored, ...regularResult.ignored],
-      rejected: regularResult.rejected,
-    };
-  }
-
-  async #addPreProtectedTxs(
-    txs: { tx: Tx; slotNumber: SlotNumber }[],
-    opts: { source?: string },
-  ): Promise<{ accepted: TxHash[]; ignored: TxHash[] }> {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
+    const rejected: TxHash[] = [];
     const newlyAdded: Tx[] = [];
+    const pendingAdded: { txHash: string; feePayer: string }[] = [];
 
-    await this.#store.transactionAsync(async () => {
-      for (const { tx, slotNumber } of txs) {
-        const txHash = tx.getTxHash();
-        const txHashStr = txHash.toString();
-
-        // Skip duplicates
-        if (this.#isDuplicateTx(txHashStr)) {
-          this.#log.debug(`Pre-protected tx ${txHashStr} already in pool`);
-          ignored.push(txHash);
-          continue;
-        }
-
-        // Check if already mined (pre-protected txs can also be mined)
-        const txEffect = await this.#l2BlockSource.getTxEffect(txHash);
-        if (txEffect) {
-          // Add as mined (with protection recorded)
-          const blockId = {
-            number: txEffect.l2BlockNumber,
-            hash: txEffect.l2BlockHash.toString(),
-          };
-          await this.#addNewMinedTx(tx, blockId);
-          // Also record protection status
-          this.#protectedTransactions.set(txHashStr, slotNumber);
-          this.#log.verbose(`Pre-protected tx ${txHashStr} was already mined in block ${blockId.number}`);
-        } else {
-          // Add as protected (no validation, no pre-add rules, no evictions)
-          await this.#addNewProtectedTx(tx, slotNumber);
-        }
-
-        accepted.push(txHash);
-        newlyAdded.push(tx);
-      }
-    });
-
-    // Emit events for newly added pre-protected txs
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
-
-    return { accepted, ignored };
-  }
-
-  async #addAlreadyMinedTxs(
-    txs: { tx: Tx; blockId: L2BlockId }[],
-    opts: { source?: string },
-  ): Promise<{ accepted: TxHash[]; ignored: TxHash[] }> {
-    const accepted: TxHash[] = [];
-    const ignored: TxHash[] = [];
-    const newlyAdded: Tx[] = [];
-
-    await this.#store.transactionAsync(async () => {
-      for (const { tx, blockId } of txs) {
-        const txHash = tx.getTxHash();
-        const txHashStr = txHash.toString();
-
-        // Skip duplicates
-        if (this.#isDuplicateTx(txHashStr)) {
-          this.#log.debug(`Already-mined tx ${txHashStr} already in pool`);
-          ignored.push(txHash);
-          continue;
-        }
-
-        // Add directly as mined (no validation, no pre-add rules, no evictions)
-        await this.#addNewMinedTx(tx, blockId);
-        this.#log.verbose(`Added tx ${txHashStr} directly as mined from block ${blockId.number}`);
-
-        accepted.push(txHash);
-        newlyAdded.push(tx);
-      }
-    });
-
-    // Emit events for newly added mined txs
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
-
-    return { accepted, ignored };
-  }
-
-  async #addRegularPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
-    if (txs.length === 0) {
-      return { accepted: [], ignored: [], rejected: [] };
-    }
-
-    const state = this.#createPendingTxBatchState();
     const poolAccess = this.#createPreAddPoolAccess();
+    const acceptedInBatch = new Set<string>();
 
-    // Step 1: Process each tx in the batch
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
         const txHash = tx.getTxHash();
         const txHashStr = txHash.toString();
 
-        // Step 1a: Skip duplicates
+        // Skip duplicates
         if (this.#isDuplicateTx(txHashStr)) {
-          this.#log.debug(`Tx ${txHashStr} already in pool`);
-          state.ignored.push(txHash);
+          ignored.push(txHash);
           continue;
         }
 
-        // Step 1b: Validate transaction
-        const validationResult = await this.#pendingTxValidator.validateTx(tx);
-        if (validationResult.result !== 'valid') {
-          this.#log.info(`Rejecting tx ${txHashStr}: ${validationResult.reason?.join(', ')}`);
-          state.rejected.push(txHash);
-          continue;
+        // Check mined status first (applies to all paths)
+        const minedBlockId = await this.#getMinedBlockId(txHash);
+        const preProtectedSlot = this.#protectedTransactions.get(txHashStr);
+
+        if (minedBlockId) {
+          // Already mined - add directly, preserving protection if pre-protected
+          await this.#addNewMinedTx(tx, minedBlockId);
+          if (preProtectedSlot !== undefined) {
+            this.#protectedTransactions.set(txHashStr, preProtectedSlot);
+          }
+          accepted.push(txHash);
+          newlyAdded.push(tx);
+        } else if (preProtectedSlot !== undefined) {
+          // Pre-protected and not mined - add as protected (bypass validation)
+          await this.#addNewProtectedTx(tx, preProtectedSlot);
+          accepted.push(txHash);
+          newlyAdded.push(tx);
+        } else {
+          // Regular pending tx - validate and run pre-add rules
+          const result = await this.#tryAddRegularPendingTx(tx, poolAccess, acceptedInBatch, ignored);
+          if (result.status === 'accepted') {
+            acceptedInBatch.add(txHashStr);
+            newlyAdded.push(tx);
+            pendingAdded.push({ txHash: txHashStr, feePayer: result.feePayer });
+          } else if (result.status === 'rejected') {
+            rejected.push(txHash);
+          } else {
+            ignored.push(txHash);
+          }
         }
-
-        // Step 1c: Build metadata and run pre-add rules
-        const meta = await buildTxMetaData(tx);
-        const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
-
-        if (preAddResult.shouldIgnore) {
-          // Transaction is to be ignored, it would immediately be evicted
-          this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
-          state.ignored.push(txHash);
-          continue;
-        }
-
-        // Step 1d: Evict conflicts (tracking intra-batch evictions)
-        const evictedFromBatch = await this.#evictConflictsAndTrackBatch(
-          preAddResult.txHashesToEvict,
-          txHashStr,
-          state.acceptedInBatch,
-        );
-        state.ignored.push(...evictedFromBatch);
-
-        // Step 1e: Add the transaction
-        await this.#addNewPendingTx(tx);
-
-        state.acceptedInBatch.add(txHashStr);
-        state.added.push({ tx, meta });
       }
     });
 
-    // Step 2: Filter out intra-batch evictions from final results
-    const { finalTxs, finalHashes, finalFeePayers } = this.#filterIntraBatchEvictions(
-      state.added,
-      state.acceptedInBatch,
-    );
+    // Build final accepted list (pending txs need intra-batch eviction filtering)
+    for (const { txHash, feePayer } of pendingAdded) {
+      if (acceptedInBatch.has(txHash)) {
+        accepted.push(TxHash.fromString(txHash));
+      }
+    }
 
-    // Step 3: Run post-add eviction rules
-    if (finalHashes.length > 0) {
+    // Run post-add eviction rules for pending txs
+    const pendingFeePayers = pendingAdded.filter(p => acceptedInBatch.has(p.txHash)).map(p => p.feePayer);
+    if (pendingFeePayers.length > 0) {
       await this.#evictionManager.evictAfterNewTxs(
-        finalHashes.map(h => h.toString()),
-        finalFeePayers,
+        pendingAdded.filter(p => acceptedInBatch.has(p.txHash)).map(p => p.txHash),
+        pendingFeePayers,
       );
     }
 
-    // Step 4: Emit events
-    if (finalTxs.length > 0) {
-      this.#callbacks.onTxsAdded(finalTxs, opts);
+    // Emit events
+    if (newlyAdded.length > 0) {
+      this.#callbacks.onTxsAdded(newlyAdded, opts);
     }
 
-    return { accepted: finalHashes, ignored: state.ignored, rejected: state.rejected };
+    return { accepted, ignored, rejected };
+  }
+
+  /** Validates and adds a regular pending tx. Returns status and fee payer if accepted. */
+  async #tryAddRegularPendingTx(
+    tx: Tx,
+    poolAccess: PreAddPoolAccess,
+    acceptedInBatch: Set<string>,
+    ignored: TxHash[],
+  ): Promise<{ status: 'accepted'; feePayer: string } | { status: 'ignored' | 'rejected' }> {
+    const txHash = tx.getTxHash();
+    const txHashStr = txHash.toString();
+
+    // Validate transaction
+    const validationResult = await this.#pendingTxValidator.validateTx(tx);
+    if (validationResult.result !== 'valid') {
+      this.#log.info(`Rejecting tx ${txHashStr}: ${validationResult.reason?.join(', ')}`);
+      return { status: 'rejected' };
+    }
+
+    // Build metadata and run pre-add rules
+    const meta = await buildTxMetaData(tx);
+    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
+
+    if (preAddResult.shouldIgnore) {
+      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
+      return { status: 'ignored' };
+    }
+
+    // Evict conflicts (tracking intra-batch evictions)
+    for (const evictHashStr of preAddResult.txHashesToEvict) {
+      await this.#deleteTx(evictHashStr);
+      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
+      if (acceptedInBatch.has(evictHashStr)) {
+        acceptedInBatch.delete(evictHashStr);
+        ignored.push(TxHash.fromString(evictHashStr));
+      }
+    }
+
+    // Add the transaction
+    await this.#addNewPendingTx(tx);
+    return { status: 'accepted', feePayer: meta.feePayer };
   }
 
   async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
@@ -411,46 +315,28 @@ export class TxPoolV2Impl {
       for (const tx of txs) {
         const txHash = tx.getTxHash();
         const txHashStr = txHash.toString();
+        const isNew = !this.#metadata.has(txHashStr);
+        const minedBlockId = await this.#getMinedBlockId(txHash);
 
-        // Step 1: Check if tx already exists
-        if (this.#metadata.has(txHashStr)) {
-          // Step 2a: Update protection for existing tx
-          this.#updateProtection(txHashStr, slotNumber);
-
-          // Step 2a-2: Check if already mined and update status
-          const txEffect = await this.#l2BlockSource.getTxEffect(txHash);
-          if (txEffect) {
-            const meta = this.#metadata.get(txHashStr)!;
-            this.#markAsMined(meta, {
-              number: txEffect.l2BlockNumber,
-              hash: txEffect.l2BlockHash.toString(),
-            });
-            this.#log.verbose(
-              `Existing protected tx ${txHashStr} detected as mined in block ${txEffect.l2BlockNumber}`,
-            );
-          }
-        } else {
-          // Step 2b: Check mined status BEFORE adding
-          const txEffect = await this.#l2BlockSource.getTxEffect(txHash);
-          if (txEffect) {
-            // Add as mined (with protection recorded)
-            const blockId = {
-              number: txEffect.l2BlockNumber,
-              hash: txEffect.l2BlockHash.toString(),
-            };
-            await this.#addNewMinedTx(tx, blockId);
+        if (isNew) {
+          // New tx - add as mined or protected
+          if (minedBlockId) {
+            await this.#addNewMinedTx(tx, minedBlockId);
             this.#protectedTransactions.set(txHashStr, slotNumber);
-            this.#log.verbose(`New protected tx ${txHashStr} was already mined in block ${blockId.number}`);
           } else {
-            // Add as protected
             await this.#addNewProtectedTx(tx, slotNumber);
           }
           newlyAdded.push(tx);
+        } else {
+          // Existing tx - update protection and mined status
+          this.#updateProtection(txHashStr, slotNumber);
+          if (minedBlockId) {
+            this.#markAsMined(this.#metadata.get(txHashStr)!, minedBlockId);
+          }
         }
       }
     });
 
-    // Step 3: Emit events for newly added txs
     if (newlyAdded.length > 0) {
       this.#callbacks.onTxsAdded(newlyAdded, opts);
     }
@@ -964,6 +850,18 @@ export class TxPoolV2Impl {
     };
   }
 
+  /** Checks if a tx is already mined and returns its block ID if so */
+  async #getMinedBlockId(txHash: TxHash): Promise<L2BlockId | undefined> {
+    const txEffect = await this.#l2BlockSource.getTxEffect(txHash);
+    if (!txEffect) {
+      return undefined;
+    }
+    return {
+      number: txEffect.l2BlockNumber,
+      hash: txEffect.l2BlockHash.toString(),
+    };
+  }
+
   /**
    * Collects information from mined transactions for eviction rules.
    * Returns nullifiers, fee payers, and the found metadata entries.
@@ -1159,21 +1057,6 @@ export class TxPoolV2Impl {
 
   // --- Add Pending Tx Steps ---
 
-  /** State tracked during batch processing of pending txs */
-  #createPendingTxBatchState(): {
-    ignored: TxHash[];
-    rejected: TxHash[];
-    added: { tx: Tx; meta: TxMetaData }[];
-    acceptedInBatch: Set<string>;
-  } {
-    return {
-      ignored: [],
-      rejected: [],
-      added: [],
-      acceptedInBatch: new Set(),
-    };
-  }
-
   /** Checks if a tx is a duplicate (already in pool) */
   #isDuplicateTx(txHashStr: string): boolean {
     return this.#metadata.has(txHashStr);
@@ -1193,54 +1076,6 @@ export class TxPoolV2Impl {
     });
 
     return meta;
-  }
-
-  /**
-   * Evicts conflicting txs and tracks intra-batch evictions.
-   * Returns the tx hashes that were evicted from within this batch (for moving to ignored).
-   */
-  async #evictConflictsAndTrackBatch(
-    txHashesToEvict: string[],
-    newTxHashStr: string,
-    acceptedInBatch: Set<string>,
-  ): Promise<TxHash[]> {
-    const evictedFromBatch: TxHash[] = [];
-
-    for (const evictHashStr of txHashesToEvict) {
-      await this.#deleteTx(evictHashStr);
-      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${newTxHashStr}`);
-
-      // Track if this eviction affects a tx added earlier in this same batch
-      if (acceptedInBatch.has(evictHashStr)) {
-        acceptedInBatch.delete(evictHashStr);
-        evictedFromBatch.push(TxHash.fromString(evictHashStr));
-      }
-    }
-
-    return evictedFromBatch;
-  }
-
-  /**
-   * Filters batch results to exclude txs that were evicted by later txs in the same batch.
-   * Returns the final lists of accepted txs and their fee payers.
-   */
-  #filterIntraBatchEvictions(
-    added: { tx: Tx; meta: TxMetaData }[],
-    acceptedInBatch: Set<string>,
-  ): { finalTxs: Tx[]; finalHashes: TxHash[]; finalFeePayers: string[] } {
-    const finalTxs: Tx[] = [];
-    const finalHashes: TxHash[] = [];
-    const finalFeePayers: string[] = [];
-
-    for (const { tx, meta } of added) {
-      if (acceptedInBatch.has(meta.txHash)) {
-        finalTxs.push(tx);
-        finalHashes.push(TxHash.fromString(meta.txHash));
-        finalFeePayers.push(meta.feePayer);
-      }
-    }
-
-    return { finalTxs, finalHashes, finalFeePayers };
   }
 
   // ============================================================================
