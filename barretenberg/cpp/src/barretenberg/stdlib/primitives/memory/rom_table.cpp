@@ -153,10 +153,10 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::ope
 {
     if (index >= length) {
         BB_ASSERT(context != nullptr);
-        context->failure("rom_rable: ROM array access out of bounds");
+        context->failure("rom_table: ROM array access out of bounds");
     }
 
-    return entries[index];
+    return raw_entries[index];
 }
 
 template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::operator[](const field_pt& index) const

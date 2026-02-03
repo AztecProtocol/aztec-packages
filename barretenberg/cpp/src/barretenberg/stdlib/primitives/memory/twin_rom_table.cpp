@@ -135,7 +135,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 
-    return entries[index];
+    return raw_entries[index];
 }
 
 template <typename Builder>
