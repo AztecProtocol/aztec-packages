@@ -1,4 +1,3 @@
-import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -70,31 +69,23 @@ export class SenderTaggingStore implements StagedStore {
   }
 
   async #readPendingIndexes(jobId: string, secret: string): Promise<{ index: number; txHash: string }[]> {
-    const jobStagedPendingIndexes = this.#getPendingIndexesForJob(jobId);
-    const pendingIndexes = jobStagedPendingIndexes.get(secret);
-    // We return the staged version of this if it exists, if not, we read from the DB.
-    // If the DB also has nothing, we return an empty array [].
-    return pendingIndexes !== undefined ? pendingIndexes : ((await this.#pendingIndexes.getAsync(secret)) ?? []);
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
+    const dbValue = await this.#pendingIndexes.getAsync(secret);
+    const staged = this.#getPendingIndexesForJob(jobId).get(secret);
+    return staged !== undefined ? staged : (dbValue ?? []);
   }
 
   #writePendingIndexes(jobId: string, secret: string, pendingIndexes: { index: number; txHash: string }[]) {
     this.#getPendingIndexesForJob(jobId).set(secret, pendingIndexes);
   }
 
-  /**
-   * Returns a job view of all the secrets that have a corresponding list of pending indexes either in persistent
-   * storage or the current job.
-   */
-  async #readSecretsWithPendingIndexes(jobId: string): Promise<string[]> {
-    const storedSecrets = new Set(await toArray(this.#pendingIndexes.keysAsync()));
-    const stagedSecrets = this.#getPendingIndexesForJob(jobId).keys();
-    return [...storedSecrets.union(new Set(stagedSecrets))];
-  }
-
   async #readLastFinalizedIndex(jobId: string, secret: string): Promise<number | undefined> {
-    return (
-      this.#getLastFinalizedIndexesForJob(jobId).get(secret) ?? (await this.#lastFinalizedIndexes.getAsync(secret))
-    );
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
+    const dbValue = await this.#lastFinalizedIndexes.getAsync(secret);
+    const staged = this.#getLastFinalizedIndexesForJob(jobId).get(secret);
+    return staged ?? dbValue;
   }
 
   #writeLastFinalizedIndex(jobId: string, secret: string, lastFinalizedIndex: number) {
@@ -156,55 +147,80 @@ export class SenderTaggingStore implements StagedStore {
    * This is enforced because this should never happen if the syncing is done correctly as we look for logs from higher
    * indexes than finalized ones.
    */
-  async storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId: string) {
+  storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId: string): Promise<void> {
+    if (preTags.length === 0) {
+      return Promise.resolve();
+    }
+
     // The secrets in pre-tags should be unique because we always store just the highest index per given secret-txHash
     // pair. Below we check that this is the case.
     const secretsSet = new Set(preTags.map(preTag => preTag.secret.toString()));
     if (secretsSet.size !== preTags.length) {
-      throw new Error(`Duplicate secrets found when storing pending indexes`);
+      return Promise.reject(new Error(`Duplicate secrets found when storing pending indexes`));
     }
 
-    for (const { secret, index } of preTags) {
-      // First we check that for any secret the highest used index in tx is not further than window length from
-      // the highest finalized index.
-      const finalizedIndex = (await this.getLastFinalizedIndex(secret, jobId)) ?? 0;
-      if (index > finalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
-        throw new Error(
-          `Highest used index ${index} is further than window length from the highest finalized index ${finalizedIndex}.
-          Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
-          to increase it!`,
-        );
-      }
+    const txHashStr = txHash.toString();
 
-      // Throw if the new pending index is lower than or equal to the last finalized index
-      const secretStr = secret.toString();
-      const lastFinalizedIndex = await this.#readLastFinalizedIndex(jobId, secretStr);
-      if (lastFinalizedIndex !== undefined && index <= lastFinalizedIndex) {
-        throw new Error(
-          `Cannot store pending index ${index} for secret ${secretStr}: ` +
-            `it is lower than or equal to the last finalized index ${lastFinalizedIndex}`,
-        );
-      }
+    return this.#store.transactionAsync(async () => {
+      // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
+      const preTagReadPromises = preTags.map(({ secret, index }) => {
+        const secretStr = secret.toString();
+        return {
+          secret,
+          secretStr,
+          index,
+          pending: this.#readPendingIndexes(jobId, secretStr),
+          finalized: this.#readLastFinalizedIndex(jobId, secretStr),
+        };
+      });
 
-      // Check if this secret + txHash combination already exists
-      const txHashStr = txHash.toString();
-      const existingForSecret = await this.#readPendingIndexes(jobId, secretStr);
-      const existingForSecretAndTx = existingForSecret.find(entry => entry.txHash === txHashStr);
+      // Await all reads together
+      const preTagData = await Promise.all(
+        preTagReadPromises.map(async item => ({
+          ...item,
+          pendingData: await item.pending,
+          finalizedIndex: await item.finalized,
+        })),
+      );
 
-      if (existingForSecretAndTx) {
-        // If it exists with a different index, throw an error
-        if (existingForSecretAndTx.index !== index) {
+      // Process in memory and validate
+      for (const { secretStr, index, pendingData, finalizedIndex } of preTagData) {
+        // First we check that for any secret the highest used index in tx is not further than window length from
+        // the highest finalized index.
+        if (index > (finalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
           throw new Error(
-            `Cannot store index ${index} for secret ${secretStr} and txHash ${txHashStr}: ` +
-              `a different index ${existingForSecretAndTx.index} already exists for this secret-txHash pair`,
+            `Highest used index ${index} is further than window length from the highest finalized index ${finalizedIndex ?? 0}.
+            Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
+            to increase it!`,
           );
         }
-        // If it exists with the same index, ignore the update (no-op)
-      } else {
-        // If it doesn't exist, add it
-        this.#writePendingIndexes(jobId, secretStr, [...existingForSecret, { index, txHash: txHashStr }]);
+
+        // Throw if the new pending index is lower than or equal to the last finalized index
+        if (finalizedIndex !== undefined && index <= finalizedIndex) {
+          throw new Error(
+            `Cannot store pending index ${index} for secret ${secretStr}: ` +
+              `it is lower than or equal to the last finalized index ${finalizedIndex}`,
+          );
+        }
+
+        // Check if this secret + txHash combination already exists
+        const existingForSecretAndTx = pendingData.find(entry => entry.txHash === txHashStr);
+
+        if (existingForSecretAndTx) {
+          // If it exists with a different index, throw an error
+          if (existingForSecretAndTx.index !== index) {
+            throw new Error(
+              `Cannot store index ${index} for secret ${secretStr} and txHash ${txHashStr}: ` +
+                `a different index ${existingForSecretAndTx.index} already exists for this secret-txHash pair`,
+            );
+          }
+          // If it exists with the same index, ignore the update (no-op)
+        } else {
+          // If it doesn't exist, add it
+          this.#writePendingIndexes(jobId, secretStr, [...pendingData, { index, txHash: txHashStr }]);
+        }
       }
-    }
+    });
   }
 
   /**
@@ -216,17 +232,19 @@ export class SenderTaggingStore implements StagedStore {
    * @returns An array of unique transaction hashes for pending transactions that contain indexes in the range
    * [startIndex, endIndex). Returns an empty array if no pending indexes exist in the range.
    */
-  async getTxHashesOfPendingIndexes(
+  getTxHashesOfPendingIndexes(
     secret: DirectionalAppTaggingSecret,
     startIndex: number,
     endIndex: number,
     jobId: string,
   ): Promise<TxHash[]> {
-    const existing = await this.#readPendingIndexes(jobId, secret.toString());
-    const txHashes = existing
-      .filter(entry => entry.index >= startIndex && entry.index < endIndex)
-      .map(entry => entry.txHash);
-    return Array.from(new Set(txHashes)).map(TxHash.fromString);
+    return this.#store.transactionAsync(async () => {
+      const existing = await this.#readPendingIndexes(jobId, secret.toString());
+      const txHashes = existing
+        .filter(entry => entry.index >= startIndex && entry.index < endIndex)
+        .map(entry => entry.txHash);
+      return Array.from(new Set(txHashes)).map(TxHash.fromString);
+    });
   }
 
   /**
@@ -235,7 +253,7 @@ export class SenderTaggingStore implements StagedStore {
    * @returns The last (highest) finalized index for the given secret.
    */
   getLastFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#readLastFinalizedIndex(jobId, secret.toString());
+    return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(jobId, secret.toString()));
   }
 
   /**
@@ -244,102 +262,168 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The directional app tagging secret to query the last used index for.
    * @returns The last used index.
    */
-  async getLastUsedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastUsedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
     const secretStr = secret.toString();
-    const pendingTxScopedIndexes = await this.#readPendingIndexes(jobId, secretStr);
-    const pendingIndexes = pendingTxScopedIndexes.map(entry => entry.index);
 
-    if (pendingTxScopedIndexes.length === 0) {
-      return this.#readLastFinalizedIndex(jobId, secretStr);
-    }
+    return this.#store.transactionAsync(async () => {
+      const pendingPromise = this.#readPendingIndexes(jobId, secretStr);
+      const finalizedPromise = this.#readLastFinalizedIndex(jobId, secretStr);
 
-    // As the last used index we return the highest one from the pending indexes. Note that this value will be always
-    // higher than the last finalized index because we prune lower pending indexes when a tx is finalized.
-    return Math.max(...pendingIndexes);
+      const [pendingTxScopedIndexes, lastFinalized] = await Promise.all([pendingPromise, finalizedPromise]);
+      const pendingIndexes = pendingTxScopedIndexes.map(entry => entry.index);
+
+      if (pendingTxScopedIndexes.length === 0) {
+        return lastFinalized;
+      }
+
+      // As the last used index we return the highest one from the pending indexes. Note that this value will be always
+      // higher than the last finalized index because we prune lower pending indexes when a tx is finalized.
+      return Math.max(...pendingIndexes);
+    });
   }
 
   /**
    * Drops all pending indexes corresponding to the given transaction hashes.
    */
-  async dropPendingIndexes(txHashes: TxHash[], jobId: string) {
+  dropPendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
     if (txHashes.length === 0) {
-      return;
+      return Promise.resolve();
     }
 
     const txHashStrings = new Set<string>(txHashes.map(txHash => txHash.toString()));
-    const allSecrets = await this.#readSecretsWithPendingIndexes(jobId);
 
-    for (const secret of allSecrets) {
-      const pendingData = await this.#readPendingIndexes(jobId, secret);
-      if (pendingData) {
-        const filtered = pendingData.filter(item => !txHashStrings.has(item.txHash));
-        if (filtered.length === 0) {
-          this.#writePendingIndexes(jobId, secret, []);
-        } else if (filtered.length !== pendingData.length) {
-          // Some items were filtered out, so update the pending data
-          this.#writePendingIndexes(jobId, secret, filtered);
-        }
-        // else: No items were filtered out (txHashes not found for this secret) --> no-op
+    return this.#store.transactionAsync(async () => {
+      // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
+      const secretReadPromises: Map<string, Promise<{ index: number; txHash: string }[]>> = new Map();
+
+      for await (const secret of this.#pendingIndexes.keysAsync()) {
+        secretReadPromises.set(secret, this.#readPendingIndexes(jobId, secret));
       }
-    }
+
+      // Add staged-only secrets (sync, no DB)
+      for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
+        if (!secretReadPromises.has(secret)) {
+          secretReadPromises.set(secret, Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []));
+        }
+      }
+
+      // Await all reads together
+      const secrets = [...secretReadPromises.keys()];
+      const pendingDataResults = await Promise.all(secretReadPromises.values());
+
+      // Process in memory
+      for (let i = 0; i < secrets.length; i++) {
+        const secret = secrets[i];
+        const pendingData = pendingDataResults[i];
+
+        if (pendingData && pendingData.length > 0) {
+          const filtered = pendingData.filter(item => !txHashStrings.has(item.txHash));
+          if (filtered.length === 0) {
+            this.#writePendingIndexes(jobId, secret, []);
+          } else if (filtered.length !== pendingData.length) {
+            // Some items were filtered out, so update the pending data
+            this.#writePendingIndexes(jobId, secret, filtered);
+          }
+          // else: No items were filtered out (txHashes not found for this secret) --> no-op
+        }
+      }
+    });
   }
 
   /**
    * Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending
    * indexes.
    */
-  async finalizePendingIndexes(txHashes: TxHash[], jobId: string) {
+  finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
     if (txHashes.length === 0) {
-      return;
+      return Promise.resolve();
     }
 
-    for (const txHash of txHashes) {
-      const txHashStr = txHash.toString();
+    const txHashStrings = new Set(txHashes.map(tx => tx.toString()));
 
-      const allSecrets = await this.#readSecretsWithPendingIndexes(jobId);
+    return this.#store.transactionAsync(async () => {
+      // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
+      const secretDataPromises: Map<
+        string,
+        { pending: Promise<{ index: number; txHash: string }[]>; finalized: Promise<number | undefined> }
+      > = new Map();
 
-      for (const secret of allSecrets) {
-        const pendingData = await this.#readPendingIndexes(jobId, secret);
-        if (!pendingData) {
-          continue;
-        }
+      for await (const secret of this.#pendingIndexes.keysAsync()) {
+        secretDataPromises.set(secret, {
+          pending: this.#readPendingIndexes(jobId, secret),
+          finalized: this.#readLastFinalizedIndex(jobId, secret),
+        });
+      }
 
-        const matchingIndexes = pendingData.filter(item => item.txHash === txHashStr).map(item => item.index);
-        if (matchingIndexes.length === 0) {
-          continue;
-        }
-
-        if (matchingIndexes.length > 1) {
-          // We should always just store the highest pending index for a given tx hash and secret because the lower
-          // values are irrelevant.
-          throw new Error(`Multiple pending indexes found for tx hash ${txHashStr} and secret ${secret}`);
-        }
-
-        let lastFinalized = await this.#readLastFinalizedIndex(jobId, secret);
-        const newFinalized = matchingIndexes[0];
-
-        if (newFinalized < (lastFinalized ?? 0)) {
-          // This should never happen because when last finalized index was finalized we should have pruned the lower
-          // pending indexes.
-          throw new Error(
-            `New finalized index ${newFinalized} is smaller than the current last finalized index ${lastFinalized}`,
-          );
-        }
-
-        this.#writeLastFinalizedIndex(jobId, secret, newFinalized);
-        lastFinalized = newFinalized;
-
-        // When we add pending indexes, we ensure they are higher than the last finalized index. However, because we
-        // cannot control the order in which transactions are finalized, there may be pending indexes that are now
-        // obsolete because they are lower than the most recently finalized index. For this reason, we prune these
-        // outdated pending indexes.
-        const remainingItemsOfHigherIndex = pendingData.filter(item => item.index > (lastFinalized ?? 0));
-        if (remainingItemsOfHigherIndex.length === 0) {
-          this.#writePendingIndexes(jobId, secret, []);
-        } else {
-          this.#writePendingIndexes(jobId, secret, remainingItemsOfHigherIndex);
+      // Add staged-only secrets (sync, no DB)
+      for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
+        if (!secretDataPromises.has(secret)) {
+          secretDataPromises.set(secret, {
+            pending: Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []),
+            finalized: Promise.resolve(this.#getLastFinalizedIndexesForJob(jobId).get(secret)),
+          });
         }
       }
-    }
+
+      // Await all reads together
+      const secrets = [...secretDataPromises.keys()];
+      const dataResults = await Promise.all(
+        secrets.map(async secret => ({
+          secret,
+          pendingData: await secretDataPromises.get(secret)!.pending,
+          lastFinalized: await secretDataPromises.get(secret)!.finalized,
+        })),
+      );
+
+      // Process all txHashes for each secret in memory
+      for (const { secret, pendingData, lastFinalized } of dataResults) {
+        if (!pendingData || pendingData.length === 0) {
+          continue;
+        }
+
+        let currentPending = pendingData;
+        let currentFinalized = lastFinalized;
+
+        // Process all txHashes for this secret
+        for (const txHashStr of txHashStrings) {
+          const matchingIndexes = currentPending.filter(item => item.txHash === txHashStr).map(item => item.index);
+          if (matchingIndexes.length === 0) {
+            continue;
+          }
+
+          if (matchingIndexes.length > 1) {
+            // We should always just store the highest pending index for a given tx hash and secret because the lower
+            // values are irrelevant.
+            throw new Error(`Multiple pending indexes found for tx hash ${txHashStr} and secret ${secret}`);
+          }
+
+          const newFinalized = matchingIndexes[0];
+
+          if (newFinalized < (currentFinalized ?? 0)) {
+            // This should never happen because when last finalized index was finalized we should have pruned the lower
+            // pending indexes.
+            throw new Error(
+              `New finalized index ${newFinalized} is smaller than the current last finalized index ${currentFinalized}`,
+            );
+          }
+
+          currentFinalized = newFinalized;
+
+          // When we add pending indexes, we ensure they are higher than the last finalized index. However, because we
+          // cannot control the order in which transactions are finalized, there may be pending indexes that are now
+          // obsolete because they are lower than the most recently finalized index. For this reason, we prune these
+          // outdated pending indexes.
+          currentPending = currentPending.filter(item => item.index > currentFinalized!);
+        }
+
+        // Write final state if changed
+        if (currentFinalized !== lastFinalized) {
+          this.#writeLastFinalizedIndex(jobId, secret, currentFinalized!);
+        }
+        if (currentPending !== pendingData) {
+          this.#writePendingIndexes(jobId, secret, currentPending);
+        }
+      }
+    });
   }
 }

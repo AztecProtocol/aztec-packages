@@ -8,7 +8,7 @@ use crate::protocol::{address::AztecAddress, traits::Serialize};
 /// A message with information about an event that was emitted in the current contract call. This message **MUST** be
 /// delivered to a recipient in order to not lose the private event information.
 ///
-/// Use [EventMessage::deliver_to] to select a delivery mechanism.
+/// Use [`EventMessage::deliver_to`] to select a delivery mechanism.
 #[must_use = "Unused EventMessage result - use the `deliver_to` function to prevent the event information from being lost forever"]
 pub struct EventMessage<Event> {
     pub(crate) new_event: NewEvent<Event>,
@@ -35,7 +35,7 @@ where
     ///
     /// The message is first encrypted to the recipient's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be one of [crate::messages::message_delivery::MessageDeliveryEnum], and will inform
+    /// The `delivery_mode` must be one of [`crate::messages::message_delivery::MessageDeliveryEnum`], and will inform
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///

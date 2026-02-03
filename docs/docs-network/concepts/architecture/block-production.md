@@ -15,13 +15,13 @@ Block production in Aztec involves two key roles:
 - **Sequencers**: Order transactions and produce blocks
 - **Provers**: Generate cryptographic proofs for blocks
 
-Sequencers are chosen via a random election using a verifiable random function (VRF), while provers are selected by sequencers via an out-of-protocol coordination mechanism.
+Sequencers are chosen via a random election using randomness derived from L1 RANDAO, while provers independently monitor for completed epochs and submit proofs to L1.
 
 ## How It Works
 
 ### Block Proposal
 
-1. A sequencer is selected for each slot using a VRF-based random selection
+1. A sequencer is selected for each slot using a RANDAO-based random selection
 2. The selected sequencer collects transactions from the mempool
 3. The sequencer orders transactions and proposes a block
 
@@ -34,13 +34,7 @@ Sequencers are chosen via a random election using a verifiable random function (
 
 ### Proof Generation
 
-The proposers in the first `C=13` slots in epoch `N+1` will accept quotes to prove epoch N from provers. The winning prover will have until the end of epoch `N+1` to produce and submit the proof to L1.
-
-See [Proving Coordination](./proving-coordination) for details on how provers coordinate.
-
-## Related Topics
-
-- [Proving Coordination](./proving-coordination) - How provers are selected and coordinated
+After an epoch ends, provers generate a validity proof covering all blocks in the epoch. The proof must be submitted to L1 via `submitEpochRootProof` within the configured proof submission window. If no proof is submitted in time, the unproven checkpoints will be pruned and the epoch will need to be re-proposed.
 
 ---
 

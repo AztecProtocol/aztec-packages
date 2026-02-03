@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    keys::getters::{get_nsk_app, get_public_keys},
+    keys::getters::{get_nhk_app, get_public_keys},
     note::{
         lifecycle::create_note,
         note_getter::{get_note, view_note},
@@ -31,7 +31,7 @@ use crate::protocol::{
 /// }
 /// ```
 ///
-/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what "owned" means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// The value of a PrivateImmutable is stored in the Aztec's private state and hence is represented as a note.
 ///
@@ -82,12 +82,13 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     fn get_initialization_nullifier(self) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = self.context.request_nsk_app(owner_npk_m_hash);
+        let secret = self.context.request_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 
     /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a
-    /// [crate::note::note_message::NoteMessage] that allows you to decide what method of note message delivery to use.
+    /// [`crate::note::note_message::NoteMessage`] that allows you to decide what method of note message delivery to
+    /// use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
@@ -136,7 +137,7 @@ where
     unconstrained fn get_initialization_nullifier(self) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
+        let secret = get_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 

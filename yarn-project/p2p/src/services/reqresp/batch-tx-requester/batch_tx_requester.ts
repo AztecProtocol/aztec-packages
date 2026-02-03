@@ -605,9 +605,9 @@ export class BatchTxRequester {
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
+    const archiveRootsMatch = this.blockProposal.archive.toString() === response.archiveRoot.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
-    return blockIdsMatch && peerHasSomeTxsFromProposal;
+    return archiveRootsMatch && peerHasSomeTxsFromProposal;
   }
 
   private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {

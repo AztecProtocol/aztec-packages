@@ -17,9 +17,9 @@ pub(crate) global PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 0;
 /// encryption overhead and extra fields in the message (e.g. message type id, randomness, etc.).
 pub global MAX_EVENT_SERIALIZED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a private event message (i.e. one of type [PRIVATE_EVENT_MSG_TYPE_ID]).
+/// Creates the plaintext for a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to be decoded via [decode_private_event_message].
+/// This plaintext is meant to be decoded via [`decode_private_event_message`].
 pub fn encode_private_event_message<Event>(
     event: Event,
     randomness: Field,
@@ -55,13 +55,13 @@ where
     )
 }
 
-/// Decodes the plaintext from a private event message (i.e. one of type [PRIVATE_EVENT_MSG_TYPE_ID]).
+/// Decodes the plaintext from a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to have originated from [encode_private_event_message].
+/// This plaintext is meant to have originated from [`encode_private_event_message`].
 ///
-/// Note that while [encode_private_event_message] returns a fixed-size array, this function takes a [BoundedVec]
+/// Note that while [`encode_private_event_message`] returns a fixed-size array, this function takes a [`BoundedVec`]
 /// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
-/// those that originate from [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
+/// those that originate from [`crate::messages::encryption::message_encryption::MessageEncryption::decrypt`].
 pub(crate) unconstrained fn decode_private_event_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,

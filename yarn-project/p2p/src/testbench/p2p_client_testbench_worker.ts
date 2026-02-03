@@ -345,7 +345,7 @@ process.on('message', async msg => {
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
-      kvStore = await openTmpStore(`test-${clientIndex}`);
+      kvStore = await openTmpStore(`test-${clientIndex}`, true, BENCHMARK_CONSTANTS.KV_STORE_MAP_SIZE_KB);
       workerLogger = createLogger(`p2p:${clientIndex}`);
       workerTxPool.setLogger(workerLogger);
       const telemetry = getTelemetryClient();

@@ -1,15 +1,16 @@
-use crate::macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method};
-use poseidon::poseidon2::Poseidon2Hasher;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
+use crate::{
+    macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
+    utils::cmap::CHashMap,
+};
 
 /// Hashmap that stores authorization structs indexed by their selectors, so no duplicates are inadvertedly created by
 /// developers
-comptime mut global AUTH_TYPES: UHashMap<Field, TypeDefinition, BuildHasherDefault<Poseidon2Hasher>> =
-    UHashMap::default();
+comptime mut global AUTH_TYPES: CHashMap<Field, TypeDefinition> = CHashMap::new();
 
 comptime fn register_authorization(authorization_selector: Field, authorization_struct: TypeDefinition) {
-    if AUTH_TYPES.contains_key(authorization_selector) {
-        let existing_authorization = AUTH_TYPES.get(authorization_selector).unwrap().name();
+    let existing_authorization = AUTH_TYPES.get(authorization_selector);
+    if existing_authorization.is_some() {
+        let existing_authorization = existing_authorization.unwrap().name();
         let authorization_name = authorization_struct.name();
         panic(
             f"Selector collision detected between authorizations '{authorization_name}' and '{existing_authorization}'",

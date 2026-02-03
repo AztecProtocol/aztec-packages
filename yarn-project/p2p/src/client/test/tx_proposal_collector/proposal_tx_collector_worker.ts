@@ -104,7 +104,7 @@ async function startClient(config: P2PConfig, clientIndex: number) {
   const worldState = createMockWorldStateSynchronizer();
   const l2BlockSource = new MockL2BlockSource();
   const proofVerifier = new AlwaysTrueCircuitVerifier();
-  kvStore = await openTmpStore(`proposal-bench-${clientIndex}`);
+  kvStore = await openTmpStore(`proposal-bench-${clientIndex}`, true, BENCHMARK_CONSTANTS.KV_STORE_MAP_SIZE_KB);
   logger = createLogger(`p2p:proposal-bench:${clientIndex}`);
 
   const telemetry = getTelemetryClient();

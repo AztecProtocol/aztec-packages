@@ -86,7 +86,7 @@ This:
 After the delay period passes, call `finaliseWithdraw()`:
 
 ```solidity
-function finaliseWithdraw(uint256 withdrawalId) external;
+function finalizeWithdraw(uint256 withdrawalId) external;
 ```
 
 This transfers the tokens to the specified recipient.

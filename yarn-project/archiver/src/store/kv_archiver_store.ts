@@ -291,7 +291,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
     return this.#blockStore.getCheckpointedBlockByHash(blockHash);
   }
   /**
@@ -312,8 +312,8 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
-    return this.#blockStore.getBlockByHash(BlockHash.fromField(blockHash));
+  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
+    return this.#blockStore.getBlockByHash(blockHash);
   }
   /**
    * Returns the block for the given archive root, or undefined if not exists.
@@ -357,8 +357,8 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Returns the block header for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
-    return this.#blockStore.getBlockHeaderByHash(BlockHash.fromField(blockHash));
+  getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
+    return this.#blockStore.getBlockHeaderByHash(blockHash);
   }
 
   /**

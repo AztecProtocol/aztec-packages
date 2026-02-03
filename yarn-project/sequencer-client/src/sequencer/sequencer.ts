@@ -60,6 +60,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
 
+  /** The last slot for which we logged "no committee" warning, to avoid spam */
+  private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
+
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
   private lastSlotForCheckpointProposalJob: SlotNumber | undefined;
 
@@ -557,7 +560,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer = await this.epochCache.getProposerAttesterAddressInSlot(slot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        this.log.warn(`Cannot propose at next L2 slot ${slot} since the committee does not exist on L1`);
+        if (this.lastSlotForNoCommitteeWarning !== slot) {
+          this.lastSlotForNoCommitteeWarning = slot;
+          this.log.warn(`Cannot propose at next L2 slot ${slot} since the committee does not exist on L1`);
+        }
         return [false, undefined];
       }
       this.log.error(`Error getting proposer for slot ${slot}`, e);

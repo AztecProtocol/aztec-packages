@@ -46,4 +46,5 @@ members = [
     "crates/rollup-checkpoint-padding",
     "crates/rollup-checkpoint-merge",
     "crates/rollup-root",
+    "crates/serde"
 ]

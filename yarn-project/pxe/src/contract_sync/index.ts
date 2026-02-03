@@ -6,7 +6,9 @@ import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
  * Read the current class id of a contract from the execution data provider or AztecNode. If not found, class id
@@ -41,6 +43,10 @@ export async function syncState(
   contractStore: ContractStore,
   functionToInvokeAfterSync: FunctionSelector | null,
   utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
+  noteStore: NoteStore,
+  aztecNode: AztecNode,
+  header: BlockHeader,
+  jobId: string,
 ) {
   // Protocol contracts don't have private state to sync
   if (!isProtocolContract(contractAddress)) {
@@ -51,7 +57,11 @@ export async function syncState(
       );
     }
 
-    return utilityExecutor(syncStateFunctionCall);
+    const noteService = new NoteService(noteStore, aztecNode, header, jobId);
+
+    // Both sync_state and syncNoteNullifiers interact with the note store, but running them in parallel is safe
+    // because note store is designed to handle concurrent operations.
+    await Promise.all([utilityExecutor(syncStateFunctionCall), noteService.syncNoteNullifiers(contractAddress)]);
   }
 }
 
@@ -89,10 +99,21 @@ export async function ensureContractSynced(
   utilityExecutor: (call: FunctionCall) => Promise<any>,
   aztecNode: AztecNode,
   contractStore: ContractStore,
+  noteStore: NoteStore,
   header: BlockHeader,
+  jobId: string,
 ): Promise<void> {
   await Promise.all([
-    syncState(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor),
+    syncState(
+      contractAddress,
+      contractStore,
+      functionToInvokeAfterSync,
+      utilityExecutor,
+      noteStore,
+      aztecNode,
+      header,
+      jobId,
+    ),
     verifyCurrentClassId(contractAddress, aztecNode, contractStore, header),
   ]);
 }

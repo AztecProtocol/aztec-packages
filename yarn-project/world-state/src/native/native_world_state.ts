@@ -6,7 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
@@ -147,9 +147,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [
-      (await this.initialHeader.hash()).toField(),
-    ]);
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [(await this.initialHeader.hash()).toFr()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }

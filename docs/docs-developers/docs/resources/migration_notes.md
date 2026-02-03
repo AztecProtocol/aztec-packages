@@ -9,6 +9,76 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [AztecNode] Removed sibling path RPC methods
+
+The following methods have been removed from the `AztecNode` interface:
+
+- `getNullifierSiblingPath`
+- `getNoteHashSiblingPath`
+- `getArchiveSiblingPath`
+- `getPublicDataSiblingPath`
+
+These methods were not used by PXE and returned a subset of the information already available through the corresponding membership witness methods:
+
+| Removed Method | Use Instead |
+|----------------|-------------|
+| `getNullifierSiblingPath` | `getNullifierMembershipWitness` |
+| `getNoteHashSiblingPath` | `getNoteHashMembershipWitness` |
+| `getArchiveSiblingPath` | `getBlockHashMembershipWitness` |
+| `getPublicDataSiblingPath` | `getPublicDataWitness` |
+
+The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
+
+### [Protocol] "Nullifier secret key" renamed to "nullifier hiding key" (nsk → nhk)
+
+The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hiding key (`nhk_m` / `nhk_app`). This is a protocol-breaking change: the domain separator string changes from `"az_nsk_m"` to `"az_nhk_m"`, producing a different constant value.
+
+**Noir changes:**
+```diff
+- context.request_nsk_app(npk_m_hash)
++ context.request_nhk_app(npk_m_hash)
+
+- get_nsk_app(npk_m_hash)
++ get_nhk_app(npk_m_hash)
+```
+
+**TypeScript changes:**
+```diff
+- import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/stdlib/keys';
++ import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/stdlib/keys';
+
+- const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
++ const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
+
+- const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, contractAddress);
++ const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, contractAddress);
+```
+
+The `GeneratorIndex.NSK_M` enum member is now `GeneratorIndex.NHK_M`.
+
+### [AztecNode/Aztec.nr] `getArchiveMembershipWitness` renamed to `getBlockHashMembershipWitness`
+
+The `getArchiveMembershipWitness` method has been renamed to `getBlockHashMembershipWitness` to better reflect its purpose. Block hashes are the leaves of the archive tree - each time a new block is added to the chain, its block hash is appended as a new leaf. This rename clarifies that the method finds a membership witness for a block hash in the archive tree.
+
+**TypeScript (AztecNode interface):**
+
+```diff
+- const witness = await aztecNode.getArchiveMembershipWitness(blockNumber, archiveLeaf);
++ const witness = await aztecNode.getBlockHashMembershipWitness(blockNumber, blockHash);
+```
+
+The second parameter type has also changed from `Fr` to `BlockHash`.
+
+**Noir (aztec-nr):**
+
+```diff
+- use dep::aztec::oracle::get_membership_witness::get_archive_membership_witness;
++ use dep::aztec::oracle::get_membership_witness::get_block_hash_membership_witness;
+
+- let witness = get_archive_membership_witness(block_header, leaf_value);
++ let witness = get_block_hash_membership_witness(anchor_block_header, block_hash);
+```
+
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 
 The `protocol_types` re-export from the `aztec` crate has been renamed to `protocol`. Update all imports accordingly:
@@ -16,6 +86,30 @@ The `protocol_types` re-export from the `aztec` crate has been renamed to `proto
 ```diff
 - use dep::aztec::protocol_types::address::AztecAddress;
 + use dep::aztec::protocol::address::AztecAddress;
+```
+
+### Protocol contract interface separate from protocol contracts
+
+We've stripped protocol contract of `aztec-nr` macros in order for auditors to not need to audit them (protocol contracts are to be audited during the protocol circuits audit).
+This results in the nice Noir interface no longer being generated.
+
+For context, this is the interface I am talking about:
+
+```noir
+let update_delay = self.view(MyContract::at(my_contract_address).my_fn());
+```
+
+where the macros generate the `MyContract` struct.
+
+For this reason we've created place holder protocol contracts in `noir-projects/noir-contracts/contracts/protocol_interface` that still have these macros applied and hence you can use them to get the interface.
+
+On your side all you need to do is update the dependency in `Nargo.toml`:
+
+```diff
+-auth_contract = { path = "../../protocol/auth_registry_contract" }
++auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
+-instance_contract = { path = "../../protocol/contract_instance_registry" }
++instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```
 
 ### [aztec-nr] History module refactored to use standalone functions
@@ -33,19 +127,19 @@ let block_header = context.get_anchor_block_header();
 
 **Function name and module mapping:**
 
-| Old (trait method) | New (standalone function) |
-|--------------------|---------------------------|
-| `history::note_inclusion::prove_note_inclusion` | `history::note::assert_note_existed_by` |
-| `history::note_validity::prove_note_validity` | `history::note::assert_note_was_valid_by` |
-| `history::nullifier_inclusion::prove_nullifier_inclusion` | `history::nullifier::assert_nullifier_existed_by` |
-| `history::nullifier_inclusion::prove_note_is_nullified` | `history::note::assert_note_was_nullified_by` |
-| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by` |
-| `history::nullifier_non_inclusion::prove_note_not_nullified` | `history::note::assert_note_was_not_nullified_by` |
-| `history::contract_inclusion::prove_contract_deployment` | `history::deployment::assert_contract_bytecode_was_published_by` |
-| `history::contract_inclusion::prove_contract_non_deployment` | `history::deployment::assert_contract_bytecode_was_not_published_by` |
-| `history::contract_inclusion::prove_contract_initialization` | `history::deployment::assert_contract_was_initialized_by` |
-| `history::contract_inclusion::prove_contract_non_initialization` | `history::deployment::assert_contract_was_not_initialized_by` |
-| `history::public_storage::public_storage_historical_read` | `history::storage::public_storage_historical_read` |
+| Old (trait method)                                                | New (standalone function)                                            |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `history::note_inclusion::prove_note_inclusion`                   | `history::note::assert_note_existed_by`                              |
+| `history::note_validity::prove_note_validity`                     | `history::note::assert_note_was_valid_by`                            |
+| `history::nullifier_inclusion::prove_nullifier_inclusion`         | `history::nullifier::assert_nullifier_existed_by`                    |
+| `history::nullifier_inclusion::prove_note_is_nullified`           | `history::note::assert_note_was_nullified_by`                        |
+| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by`              |
+| `history::nullifier_non_inclusion::prove_note_not_nullified`      | `history::note::assert_note_was_not_nullified_by`                    |
+| `history::contract_inclusion::prove_contract_deployment`          | `history::deployment::assert_contract_bytecode_was_published_by`     |
+| `history::contract_inclusion::prove_contract_non_deployment`      | `history::deployment::assert_contract_bytecode_was_not_published_by` |
+| `history::contract_inclusion::prove_contract_initialization`      | `history::deployment::assert_contract_was_initialized_by`            |
+| `history::contract_inclusion::prove_contract_non_initialization`  | `history::deployment::assert_contract_was_not_initialized_by`        |
+| `history::public_storage::public_storage_historical_read`         | `history::storage::public_storage_historical_read`                   |
 
 ### [Aztec.js] Transaction sending API redesign
 

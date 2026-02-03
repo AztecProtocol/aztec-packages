@@ -76,7 +76,11 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
                 DiscoveredNoteInfo {
                     note_nonce: candidate_nonce,
                     note_hash: hashes.note_hash,
-                    inner_nullifier: hashes.inner_nullifier,
+                    // TODO: The None case will be handled in a followup PR.
+                    // https://linear.app/aztec-labs/issue/F-265/store-external-notes
+                    inner_nullifier: hashes.inner_nullifier.expect(
+                        f"Failed to compute nullifier for note type {note_type_id}",
+                    ),
                 },
             );
 
@@ -223,8 +227,9 @@ mod test {
             note_nonce,
             compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash),
         );
-        let inner_nullifier =
-            note.compute_nullifier_unconstrained(OWNER, compute_note_hash_for_nullification(hinted_note));
+        let inner_nullifier = note
+            .compute_nullifier_unconstrained(OWNER, compute_note_hash_for_nullification(hinted_note))
+            .expect(f"Could not compute nullifier for note owned by {OWNER}");
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }
     }

@@ -25,7 +25,6 @@ import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -61,7 +60,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly keyStore: KeyStore,
     protected readonly addressStore: AddressStore,
     protected readonly aztecNode: AztecNode,
-    protected readonly anchorBlockStore: AnchorBlockStore,
     protected readonly recipientTaggingStore: RecipientTaggingStore,
     protected readonly senderAddressBookStore: SenderAddressBookStore,
     protected readonly capsuleStore: CapsuleStore,
@@ -97,28 +95,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from the note hash tree.
-   * @param blockHash - The block hash at which to get the membership witness.
-   * @param leafValue - The leaf value
+   * @param anchorBlockHash - The hash of a block that contains the note hash tree root in which to find the membership
+   * witness.
+   * @param noteHash - The note hash to find in the note hash tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
   public utilityGetNoteHashMembershipWitness(
-    blockHash: BlockHash,
-    leafValue: Fr,
+    anchorBlockHash: BlockHash,
+    noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.aztecNode.getNoteHashMembershipWitness(blockHash, leafValue);
+    return this.aztecNode.getNoteHashMembershipWitness(anchorBlockHash, noteHash);
   }
 
   /**
-   * Fetches the index and sibling path of a leaf at a given block from the archive tree.
-   * @param blockHash - The block hash at which to get the membership witness.
-   * @param leafValue - The leaf value
+   * Fetches the index and sibling path of a block hash in the archive tree.
+   *
+   * Block hashes are the leaves of the archive tree. Each time a new block is added to the chain,
+   * its block hash is appended as a new leaf to the archive tree.
+   *
+   * @param anchorBlockHash - The hash of a block that contains the archive tree root in which to find the membership
+   * witness.
+   * @param blockHash - The block hash to find in the archive tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetArchiveMembershipWitness(
+  public utilityGetBlockHashMembershipWitness(
+    anchorBlockHash: BlockHash,
     blockHash: BlockHash,
-    leafValue: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    return this.aztecNode.getArchiveMembershipWitness(blockHash, leafValue);
+    return this.aztecNode.getBlockHashMembershipWitness(anchorBlockHash, blockHash);
   }
 
   /**
@@ -166,7 +170,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
@@ -178,14 +182,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /**
    * Retrieve the complete address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address.
-   * @throws An error if the account is not registered in the database.
+   * @returns A complete address associated with the input address, or `undefined` if not registered.
    */
-  public utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.getCompleteAddress(account);
+  public utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    return this.addressStore.getCompleteAddress(account);
   }
 
-  protected async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+  protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
@@ -262,7 +265,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
@@ -349,7 +352,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockStore,
+      this.anchorBlockHeader,
       this.keyStore,
       this.capsuleStore,
       this.recipientTaggingStore,
@@ -359,16 +362,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.log.getBindings(),
     );
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
-
-    // It is acceptable to run the following operations in parallel for several reasons:
-    // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
-    //    which is then processed in Noir after this handler returns.
-    // 2. Even if syncTaggedLogs did write to the note store, it would not cause inconsistent state.
-    await Promise.all([
-      logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes),
-      noteService.syncNoteNullifiers(this.contractAddress),
-    ]);
+    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
   }
 
   /**
@@ -401,7 +395,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
       noteService.validateAndStoreNote(
         request.contractAddress,
@@ -417,7 +411,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ),
     );
 
-    const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore, this.jobId);
+    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
     const eventStorePromises = eventValidationRequests.map(request =>
       eventService.validateAndStoreEvent(
         request.contractAddress,
@@ -455,7 +449,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockStore,
+      this.anchorBlockHeader,
       this.keyStore,
       this.capsuleStore,
       this.recipientTaggingStore,
@@ -540,7 +534,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   protected async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     // TODO(#12656): return an app-siloed secret
-    const recipientCompleteAddress = await this.getCompleteAddress(address);
+    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );

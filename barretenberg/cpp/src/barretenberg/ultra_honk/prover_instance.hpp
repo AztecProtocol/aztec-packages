@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
@@ -57,7 +56,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
 
-    HonkProof ipa_proof; // utilized only for UltraRollupFlavor
+    HonkProof ipa_proof; // utilized for rollup proofs (IO::HasIPA)
 
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
@@ -189,9 +188,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-                ipa_proof = circuit.ipa_proof;
-            }
+            // Copy IPA proof if present (data-driven, not flavor-dependent)
+            ipa_proof = circuit.ipa_proof;
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

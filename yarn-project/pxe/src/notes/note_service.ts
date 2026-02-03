@@ -5,16 +5,15 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
   constructor(
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
-    private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly anchorBlockHeader: BlockHeader,
     private readonly jobId: string,
   ) {}
 
@@ -72,7 +71,7 @@ export class NoteService {
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
-    const anchorBlockHash = await (await this.anchorBlockStore.getBlockHeader()).hash();
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
 
     const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
 
@@ -142,9 +141,8 @@ export class NoteService {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
-    const anchorBlockHash = await anchorBlockHeader.hash();
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.

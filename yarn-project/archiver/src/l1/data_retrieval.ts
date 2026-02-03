@@ -100,7 +100,7 @@ export async function retrievedToPublishedCheckpoint({
       }),
     });
 
-    const body = Body.fromTxBlobData(checkpointBlobData.blocks[0].txs);
+    const body = Body.fromTxBlobData(blockBlobData.txs);
 
     const blobFields = encodeBlockBlobData(blockBlobData);
     await spongeBlob.absorb(blobFields);

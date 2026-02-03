@@ -12,8 +12,9 @@
 pub trait StateVariable<let N: u32, Context> {
     /// Initializes a new state variable at a given storage slot.
     ///
-    /// This function is automatically called within the [storage](crate::macros::storage::storage) macro and needs to
-    /// be manually called only when [storage_no_init](crate::macros::storage::storage_no_init) is used.
+    /// This function is automatically called within the [`storage`](crate::macros::storage::storage) macro and needs
+    /// to
+    /// be manually called only when [`storage_no_init`](crate::macros::storage::storage_no_init) is used.
     ///
     fn new(context: Context, storage_slot: Field) -> Self;
 

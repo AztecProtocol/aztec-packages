@@ -46,6 +46,7 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
+    src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do
@@ -83,6 +84,14 @@ function test_cmds {
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
     echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+  done
+
+  tests=(
+    src/composed/ha/*.test.ts
+  )
+  for test in "${tests[@]}"; do
+    # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script ha $test"
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"

@@ -36,13 +36,17 @@ const sidebars = {
       },
       items: [
         "concepts/architecture/block-production",
-        "concepts/architecture/proving-coordination",
       ],
     },
     {
       type: "doc",
       id: "concepts/proof-of-stake/index",
       label: "Proof of Stake",
+    },
+    {
+      type: "doc",
+      id: "concepts/economics/index",
+      label: "Economics & Rewards",
     },
     {
       type: "category",

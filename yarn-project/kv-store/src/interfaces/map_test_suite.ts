@@ -107,6 +107,33 @@ export function describeAztecMap(
       expect(await size()).to.equal(1);
     });
 
+    it('returns 0 for empty map size', async () => {
+      expect(await size()).to.equal(0);
+    });
+
+    it('calculates size correctly across multiple operations', async () => {
+      expect(await size()).to.equal(0);
+
+      // Add items
+      await map.set('a', 'value1');
+      await map.set('b', 'value2');
+      await map.set('c', 'value3');
+      expect(await size()).to.equal(3);
+
+      // Update existing (size should not change)
+      await map.set('b', 'updated');
+      expect(await size()).to.equal(3);
+
+      // Delete some
+      await map.delete('a');
+      expect(await size()).to.equal(2);
+
+      // Delete all
+      await map.delete('b');
+      await map.delete('c');
+      expect(await size()).to.equal(0);
+    });
+
     it('should be able to iterate over entries when there are no keys', async () => {
       expect(await entries()).to.deep.equal([]);
     });
@@ -145,10 +172,11 @@ export function describeAztecMap(
     for (const [name, data] of [
       ['chars', ['a', 'b', 'c', 'd']],
       ['numbers', [1, 2, 3, 4]],
-      // disabled because indexeddb sorts lexigographically
-      // ['negative numbers', [-4, -3, -2, -1]],
+      ['negative numbers', [-4, -3, -2, -1]],
       ['strings', ['aaa', 'bbb', 'ccc', 'ddd']],
       ['zero-based numbers', [0, 1, 2, 3]],
+      ['large numbers', [100, 999, 1000, 1001]],
+      ['mixed negative and positive', [-1000, -1, 1, 1000]],
     ]) {
       it(`supports range queries over ${name} keys`, async () => {
         const [a, b, c, d] = data;

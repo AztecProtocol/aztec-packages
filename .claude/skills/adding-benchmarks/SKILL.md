@@ -168,6 +168,16 @@ function bench_cmds {
 
 **Options:** `:ISOLATE=1`, `:CPUS=8`, `:MEM=16g`, `:TIMEOUT=7200`
 
+**CPUS Suggestion:** For long running or compute-heavy benchmarks allocate CPUs (`:CPUS=N`). Benchmarks have strict scheduling, so if you request X CPUs, you'll have them available for consistent results.
+
+**ISOLATE Suggestion:** Use `:ISOLATE=1` when your benchmark needs a clean, isolated environment with no network access and pinned resources. This runs the test in a Docker container, ensuring reproducible results without interference from other processes.
+
+**MEM Suggestion:** Use `:MEM=Xg` (e.g., `:MEM=16g`) for memory-intensive benchmarks that may exceed the default allocation (CPUS × 4GB). Pair with `:ISOLATE=1` since memory limits are enforced via Docker.
+
+**TIMEOUT Suggestion:** Use `:TIMEOUT=N` (in seconds) for benchmarks that take longer than the default timeout. For example, `:TIMEOUT=1800` for 30 minutes, `:TIMEOUT=7200` for 2 hours.
+
+**Important naming gotcha:** Benchmark test files must use `.bench.test.ts` (with a dot before `bench`), NOT `_bench.test.ts`. The test discovery pattern `[[ "$test" =~ \.bench\.test\.ts$ ]]` specifically looks for `.bench.test.ts`.
+
 ### Step 3: Verify
 
 ```bash

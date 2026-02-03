@@ -1,69 +1,133 @@
 import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GovernanceProposerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
-import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import {
-  GSEAbi,
-  GovernanceAbi,
-  RegisterNewRollupVersionPayloadAbi,
-  RegisterNewRollupVersionPayloadBytecode,
-  TestERC20Abi,
-} from '@aztec/l1-artifacts';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { GSEAbi, GovernanceAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
+import fs from 'fs';
 import omit from 'lodash.omit';
+import path from 'path';
 import { type Hex, encodeFunctionData, getAddress, getContract, parseEventLogs } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
-  ChainHealth,
-  type ServiceEndpoint,
-  getEthereumEndpoint,
-  getRPCEndpoint,
-  getSequencersConfig,
+  getGitProjectRoot,
   rollAztecPods,
+  runProjectScript,
   setupEnvironment,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
   updateSequencersConfig,
+  waitForResourceByLabel,
 } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:upgrade_rollup_version');
 
-// This test works through the entire governance process, from proposal creation to execution
+/**
+ * Deployment result from the deploy_rollup_upgrade.sh script.
+ */
+interface DeployResult {
+  rollupAddress: string;
+  payloadAddress: string;
+}
+
+/**
+ * Parse deployment result from the deploy script output.
+ * The Forge script outputs: JSON DEPLOY RESULT: {"rollupAddress":"0x...","payloadAddress":"0x...",...}
+ */
+function parseDeployResult(output: string): DeployResult {
+  const match = output.match(/JSON DEPLOY RESULT:\s*({.*})/);
+  if (!match) {
+    throw new Error('Could not find JSON DEPLOY RESULT in script output');
+  }
+  const json = JSON.parse(match[1]);
+  if (!json.rollupAddress) {
+    throw new Error(`rollupAddress not found in deploy result: ${match[1]}`);
+  }
+  if (!json.payloadAddress) {
+    throw new Error(`payloadAddress not found in deploy result: ${match[1]}`);
+  }
+  return { rollupAddress: json.rollupAddress, payloadAddress: json.payloadAddress };
+}
+
+/**
+ * Temporarily sets AZTEC_MANA_TARGET in network-defaults.yml to (currentManaTarget + 1)
+ * to force a different rollup version hash.
+ *
+ * The rollup version is computed from a hash of configuration parameters including mana target.
+ * When deploying an upgrade, we need the new rollup to have a different version than the current
+ * canonical rollup, otherwise the governance flow will be skipped (can't upgrade to same version).
+ *
+ * By querying the current rollup's mana target and writing that value + 1, we support multiple
+ * sequential upgrades - each time we deploy based on the actual current canonical rollup state,
+ * not a static file value.
+ *
+ * @param currentManaTarget - The mana target from the current canonical rollup
+ * @returns A cleanup function to restore the original file content
+ */
+function bumpManaTargetInNetworkDefaults(currentManaTarget: bigint): () => void {
+  const networkDefaultsPath = path.join(getGitProjectRoot(), 'spartan/environments/network-defaults.yml');
+  const originalContent = fs.readFileSync(networkDefaultsPath, 'utf-8');
+
+  // Find and replace the AZTEC_MANA_TARGET in the l1-contracts section (first occurrence)
+  const manaTargetRegex = /^(\s*AZTEC_MANA_TARGET:\s*)(\d+)/m;
+  const match = originalContent.match(manaTargetRegex);
+  if (!match) {
+    throw new Error('Could not find AZTEC_MANA_TARGET in network-defaults.yml');
+  }
+
+  const fileValue = parseInt(match[2], 10);
+  const newValue = currentManaTarget + 1n;
+  const newContent = originalContent.replace(manaTargetRegex, `$1${newValue}`);
+
+  fs.writeFileSync(networkDefaultsPath, newContent);
+  debugLogger.info(
+    `Set AZTEC_MANA_TARGET to ${newValue} in network-defaults.yml (was ${fileValue}, current rollup has ${currentManaTarget})`,
+  );
+
+  // Return cleanup function to restore original content
+  return () => {
+    fs.writeFileSync(networkDefaultsPath, originalContent);
+    debugLogger.info(`Restored AZTEC_MANA_TARGET to ${fileValue} in network-defaults.yml`);
+  };
+}
+
+// This test deploys a new rollup version using the deploy_rollup_upgrade.sh script
+// and goes through the governance process to register it
 describe('spartan_upgrade_rollup_version', () => {
   let aztecNode: AztecNode;
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
-  const endpoints: ServiceEndpoint[] = [];
-  const health = new ChainHealth(config.NAMESPACE, debugLogger);
+  const forwardProcesses: ChildProcess[] = [];
   jest.setTimeout(3 * 60 * 60 * 1000); // Governance flow can take a while
 
-  afterAll(async () => {
-    await health.teardown();
-    endpoints.forEach(e => e.process?.kill());
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
-    await health.setup();
-    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
-    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
-    endpoints.push(rpcEndpoint, ethEndpoint);
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    forwardProcesses.push(ethereumProcess);
 
-    aztecNode = createAztecNodeClient(rpcEndpoint.url);
+    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
+
+    aztecNode = createAztecNodeClient(nodeUrl);
     nodeInfo = await aztecNode.getNodeInfo();
-    ETHEREUM_HOSTS = [ethEndpoint.url];
+    ETHEREUM_HOSTS = [ethereumUrl];
 
     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
       'slashFactoryAddress',
@@ -72,7 +136,7 @@ describe('spartan_upgrade_rollup_version', () => {
     ]);
   });
 
-  it('should upgrade the rollup version', async () => {
+  it('should deploy a new rollup via deploy script and upgrade via governance', async () => {
     const chain = createEthereumChain(ETHEREUM_HOSTS, nodeInfo.l1ChainId);
 
     // Derive private key from mnemonic
@@ -86,88 +150,75 @@ describe('spartan_upgrade_rollup_version', () => {
     const l1Client = createExtendedL1Client(ETHEREUM_HOSTS, MNEMONIC, chain.chainInfo);
     debugLogger.info(`L1 Client address: ${l1Client.account.address}`);
 
-    // Get the original rollup's genesis archive root directly from L1
-    // This ensures the new rollup has the same genesis as the original,
-    // avoiding version mismatches between local build and deployed network
-    const rollup = new RollupContract(l1Client, originalL1ContractAddresses.rollupAddress.toString());
-    const genesisArchiveRoot = await rollup.getGenesisArchiveTreeRoot();
-    debugLogger.info(`Original rollup genesis archive root: ${genesisArchiveRoot.toString()}`);
+    const registryAddress = originalL1ContractAddresses.registryAddress;
+    debugLogger.info(`Registry address: ${registryAddress}`);
 
-    // Get default L1 contracts config values
-    const l1Config = getL1ContractsConfigEnvVars();
+    // Get the current number of rollup versions in the registry
+    const registry = new RegistryContract(l1Client, registryAddress.toString());
+    const oldNumberOfVersions = await registry.getNumberOfVersions();
+    debugLogger.info(`Current number of rollup versions: ${oldNumberOfVersions}`);
 
-    const { rollup: newRollup } = await deployRollupForUpgrade(
-      privateKey,
-      ETHEREUM_HOSTS[0],
-      nodeInfo.l1ChainId,
-      originalL1ContractAddresses.registryAddress,
-      {
-        vkTreeRoot: getVKTreeRoot(),
-        protocolContractsHash,
-        genesisArchiveRoot,
-        ethereumSlotDuration: l1Config.ethereumSlotDuration,
-        aztecSlotDuration: l1Config.aztecSlotDuration,
-        aztecEpochDuration: l1Config.aztecEpochDuration,
-        aztecProofSubmissionEpochs: l1Config.aztecProofSubmissionEpochs,
-        lagInEpochsForValidatorSet: l1Config.lagInEpochsForValidatorSet,
-        lagInEpochsForRandao: l1Config.lagInEpochsForRandao,
-        inboxLag: l1Config.inboxLag,
-        aztecTargetCommitteeSize: l1Config.aztecTargetCommitteeSize,
-        slashingQuorum: l1Config.slashingQuorum,
-        slashingRoundSizeInEpochs: l1Config.slashingRoundSizeInEpochs,
-        slashingLifetimeInRounds: l1Config.slashingLifetimeInRounds,
-        slashingExecutionDelayInRounds: l1Config.slashingExecutionDelayInRounds,
-        slashingVetoer: l1Config.slashingVetoer,
-        slashingDisableDuration: l1Config.slashingDisableDuration,
-        localEjectionThreshold: l1Config.localEjectionThreshold,
-        manaTarget: l1Config.manaTarget + 1n, // +1 to force different version hash for upgrade
-        provingCostPerMana: l1Config.provingCostPerMana,
-        feeJuicePortalInitialBalance: 0n,
-        realVerifier: false,
-        exitDelaySeconds: l1Config.exitDelaySeconds,
-        slasherFlavor: l1Config.slasherFlavor,
-        slashingOffsetInRounds: l1Config.slashingOffsetInRounds,
-        slashAmountSmall: l1Config.slashAmountSmall,
-        slashAmountMedium: l1Config.slashAmountMedium,
-        slashAmountLarge: l1Config.slashAmountLarge,
-        governanceVotingDuration: l1Config.governanceVotingDuration,
-        initialEthPerFeeAsset: l1Config.initialEthPerFeeAsset,
-      },
-    );
+    const oldRollupAddress = originalL1ContractAddresses.rollupAddress;
+    const oldRollup = new RollupContract(l1Client, oldRollupAddress.toString());
+    const oldVersion = await oldRollup.getVersion();
+    debugLogger.info(`Old rollup version: ${oldVersion}, address: ${oldRollupAddress}`);
 
-    // Safeguard against deploying the same version twice (since it will fail)
-    // We can remove this once https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment is resolved
-    // See yarn-project/ethereum/src/deploy_l1_contracts.ts L:666
-    const currentCanonical = await RegistryContract.collectAddresses(
-      l1Client,
-      originalL1ContractAddresses.registryAddress,
-      'canonical',
-    );
+    // Get the current rollup's mana target and bump it in network-defaults.yml
+    // This ensures the newly deployed rollup will have a different version hash
+    const currentManaTarget = await oldRollup.getManaTarget();
+    debugLogger.info(`Current rollup mana target: ${currentManaTarget}`);
+    const restoreNetworkDefaults = bumpManaTargetInNetworkDefaults(currentManaTarget);
+
+    // Deploy a new rollup via the deploy script
+    // Required env vars for local (chain ID 1337):
+    //   L1_CHAIN_ID, L1_RPC_URL, FUNDING_PRIVATE_KEY
+    // AZTEC_* env vars come from the test environment (next-scenario.env)
+    // When NETWORK is blank, the script loads base l1-contracts defaults
+    let result;
+    try {
+      result = await runProjectScript(
+        'spartan/scripts/deploy_rollup_upgrade.sh',
+        [registryAddress.toString()],
+        debugLogger,
+        {
+          L1_CHAIN_ID: nodeInfo.l1ChainId.toString(),
+          L1_RPC_URL: ETHEREUM_HOSTS[0],
+          FUNDING_PRIVATE_KEY: privateKey,
+          REAL_VERIFIER: config.REAL_VERIFIER ? 'true' : 'false',
+        },
+      );
+    } finally {
+      // Always restore network-defaults.yml after deploy attempt
+      restoreNetworkDefaults();
+    }
+
+    expect(result.exitCode).toBe(0);
+
+    // Parse deployment result from script output (includes rollup and payload addresses)
+    const combinedOutput = result.stdout + result.stderr;
+    const deployResult = parseDeployResult(combinedOutput);
+    debugLogger.info(`New rollup deployed at: ${deployResult.rollupAddress}`);
+    debugLogger.info(`Governance payload deployed at: ${deployResult.payloadAddress}`);
+
+    const newRollup = new RollupContract(l1Client, deployResult.rollupAddress as `0x${string}`);
+    const newVersion = await newRollup.getVersion();
+    debugLogger.info(`New rollup version: ${newVersion}`);
+
+    // Safeguard against deploying the same version twice
+    const currentCanonical = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
     const currentVer = await new RollupContract(l1Client, currentCanonical.rollupAddress.toString()).getVersion();
-    const targetVer = await newRollup.getVersion();
-    if (currentVer === targetVer) {
-      debugLogger.info(`Already at target version ${targetVer}; skipping execute.`);
+    if (currentVer === newVersion) {
+      debugLogger.info(`Already at target version ${newVersion}; skipping governance execution.`);
       expect(true).toBe(true);
       return;
     }
 
-    // Deploy governance payload to register the NEW rollup version in the registry
-    const { address: payloadAddress } = await deployL1Contract(
-      l1Client,
-      RegisterNewRollupVersionPayloadAbi,
-      RegisterNewRollupVersionPayloadBytecode,
-      [originalL1ContractAddresses.registryAddress.toString(), newRollup.address],
-    );
-    debugLogger.info(`RegisterNewRollupVersionPayload deployed at ${payloadAddress.toString()}`);
+    // Use the governance payload deployed by the script
+    const payloadAddress = EthAddress.fromString(deployResult.payloadAddress);
 
     // Point sequencers at the payload so they vote for it
     await updateSequencersConfig(config, { governanceProposerPayload: payloadAddress });
-    try {
-      const configs = await getSequencersConfig(config);
-      debugLogger.info(`Sequencer configs applied; count=${configs.length}`);
-    } catch (e) {
-      debugLogger.warn(`Unable to fetch sequencer configs: ${e}`);
-    }
+    debugLogger.info(`Sequencer configs updated with payload ${payloadAddress.toString()}`);
 
     // Wait for quorum and the round transition, then submit round winner via Governance Proposer
     const governanceProposer = new GovernanceProposerContract(
@@ -175,12 +226,18 @@ describe('spartan_upgrade_rollup_version', () => {
       nodeInfo.l1ContractAddresses.governanceProposerAddress.toString(),
     );
 
+    // Use the CURRENT canonical rollup for governance queries
+    // Sequencers signal on the canonical rollup, which may differ from oldRollupAddress if a previous upgrade occurred
+    const canonicalRollupAddress = await registry.getCanonicalAddress();
+    const canonicalRollup = new RollupContract(l1Client, canonicalRollupAddress.toString());
+    debugLogger.info(`Querying governance for canonical rollup: ${canonicalRollupAddress}`);
+
     const govInfo = async () => {
-      const slot = await rollup.getSlotNumber();
+      const slot = await canonicalRollup.getSlotNumber();
       const round = await governanceProposer.computeRound(slot);
-      const info = await governanceProposer.getRoundInfo(nodeInfo.l1ContractAddresses.rollupAddress.toString(), round);
+      const info = await governanceProposer.getRoundInfo(canonicalRollupAddress.toString(), round);
       const leaderVotes = await governanceProposer.getPayloadSignals(
-        nodeInfo.l1ContractAddresses.rollupAddress.toString(),
+        canonicalRollupAddress.toString(),
         round,
         info.payloadWithMostSignals,
       );
@@ -188,12 +245,14 @@ describe('spartan_upgrade_rollup_version', () => {
     };
 
     const quorumSize = await governanceProposer.getQuorumSize();
-    debugLogger.info(`Governance proposer quorum size: ${quorumSize}`);
+    debugLogger.info(`Governance proposer quorum size: ${quorumSize}, our payload: ${payloadAddress.toString()}`);
 
-    // Wait until payload has quorum
+    // Wait until leader payload has quorum (should be ours since we configured sequencers)
     while (true) {
-      const { round, leaderVotes } = await govInfo();
-      debugLogger.info(`Votes for leader payload: ${leaderVotes}/${quorumSize} (round ${round})`);
+      const { round, info, leaderVotes } = await govInfo();
+      debugLogger.info(
+        `Round ${round}: leader=${info.payloadWithMostSignals.slice(0, 10)}... votes=${leaderVotes}/${quorumSize}`,
+      );
       if (leaderVotes >= quorumSize) {
         break;
       }
@@ -203,6 +262,7 @@ describe('spartan_upgrade_rollup_version', () => {
     // Wait for next round so the proposal becomes executable by proposer
     let { round } = await govInfo();
     const executableRound = round;
+    debugLogger.info(`Our payload has quorum in round ${executableRound}. Waiting for next round...`);
     while (round === executableRound) {
       await new Promise(r => setTimeout(r, 12_500));
       ({ round } = await govInfo());
@@ -343,7 +403,7 @@ describe('spartan_upgrade_rollup_version', () => {
       }
       debugLogger.info(`Voter power: ${voterPower}; total power: ${totalPower}`);
 
-      const voteRollup = new RollupContract(l1Client, nodeInfo.l1ContractAddresses.rollupAddress.toString());
+      const voteRollup = new RollupContract(l1Client, oldRollupAddress.toString());
       debugLogger.info(`Casting local vote for proposal ${proposalId}`);
       const voteResult = await voteRollup.vote(l1TxUtils, proposalId);
       debugLogger.info(`Local vote tx sent: ${voteResult.receipt?.transactionHash ?? 'unknown hash'}`);
@@ -445,16 +505,18 @@ describe('spartan_upgrade_rollup_version', () => {
 
       const gseLatestRollup = (await gse.read.getLatestRollup()) as `0x${string}`;
       debugLogger.info(`GSE.getLatestRollup() = ${gseLatestRollup}`);
-      debugLogger.info(`Expected new rollup = ${newRollup.address}`);
+      debugLogger.info(`Expected new rollup = ${deployResult.rollupAddress}`);
 
-      if (getAddress(gseLatestRollup) !== getAddress(newRollup.address)) {
+      if (getAddress(gseLatestRollup) !== getAddress(deployResult.rollupAddress)) {
         debugLogger.error(
-          `GSE did NOT register new rollup as latest! GSE latest=${gseLatestRollup}, expected=${newRollup.address}`,
+          `GSE did NOT register new rollup as latest! GSE latest=${gseLatestRollup}, expected=${deployResult.rollupAddress}`,
         );
         throw new Error('GSE.addRollup failed - new rollup is not the latest in GSE');
       }
 
-      const isRegistered = (await gse.read.isRollupRegistered([newRollup.address])) as boolean;
+      const isRegistered = (await gse.read.isRollupRegistered([
+        deployResult.rollupAddress as `0x${string}`,
+      ])) as boolean;
       debugLogger.info(`GSE.isRollupRegistered(newRollup) = ${isRegistered}`);
       if (!isRegistered) {
         throw new Error('GSE.addRollup failed - new rollup is not registered in GSE');
@@ -463,11 +525,7 @@ describe('spartan_upgrade_rollup_version', () => {
 
     const newAddresses = await newRollup.getRollupAddresses();
 
-    const newCanonicalAddresses = await RegistryContract.collectAddresses(
-      l1Client,
-      originalL1ContractAddresses.registryAddress,
-      'canonical',
-    );
+    const newCanonicalAddresses = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
     const pick = <T, K extends readonly (keyof T)[]>(obj: T, keys: K) =>
       keys.reduce((acc, k) => ({ ...acc, [k]: obj[k] }), {} as Pick<T, K[number]>);
@@ -506,43 +564,54 @@ describe('spartan_upgrade_rollup_version', () => {
 
     expect(pick(newCanonicalAddresses, keys)).toEqual(expectedProjection);
 
-    const oldVersion = await new RollupContract(
+    const finalOldVersion = await new RollupContract(
       l1Client,
       originalL1ContractAddresses.rollupAddress.toString(),
     ).getVersion();
-    const newVersion = await new RollupContract(l1Client, newCanonicalAddresses.rollupAddress.toString()).getVersion();
+    const finalNewVersion = await new RollupContract(
+      l1Client,
+      newCanonicalAddresses.rollupAddress.toString(),
+    ).getVersion();
 
-    debugLogger.info(`oldVersion: ${oldVersion}, address: ${originalL1ContractAddresses.rollupAddress}`);
-    debugLogger.info(`newVersion: ${newVersion}, address: ${newCanonicalAddresses.rollupAddress}`);
-    expect(oldVersion).not.toEqual(newVersion);
+    debugLogger.info(`oldVersion: ${finalOldVersion}, address: ${originalL1ContractAddresses.rollupAddress}`);
+    debugLogger.info(`newVersion: ${finalNewVersion}, address: ${newCanonicalAddresses.rollupAddress}`);
+    expect(finalOldVersion).not.toEqual(finalNewVersion);
 
-    await expect(
-      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, oldVersion),
-    ).resolves.toEqual(originalL1ContractAddresses);
+    await expect(RegistryContract.collectAddresses(l1Client, registryAddress, finalOldVersion)).resolves.toEqual(
+      originalL1ContractAddresses,
+    );
 
-    await expect(
-      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, newVersion),
-    ).resolves.toEqual(newCanonicalAddresses);
+    await expect(RegistryContract.collectAddresses(l1Client, registryAddress, finalNewVersion)).resolves.toEqual(
+      newCanonicalAddresses,
+    );
 
     try {
       // clearState: true to delete PVCs - old state is incompatible with new rollup
       await rollAztecPods(config.NAMESPACE, /* clearState */ true);
     } catch (err) {
       debugLogger.warn(`rollAztecPods failed (continuing): ${String(err)}`);
+      // rollAztecPods may have failed before waiting for RPC pods - ensure they're ready
+      debugLogger.info('Waiting for RPC pods to be ready...');
+      await waitForResourceByLabel({
+        resource: 'pods',
+        namespace: config.NAMESPACE,
+        label: 'app.kubernetes.io/component=rpc',
+        timeout: '5m',
+      });
     }
 
     // Reconnect to the node via RPC after pods restart
-    const rpcEndpoint2 = await getRPCEndpoint(config.NAMESPACE);
-    endpoints.push(rpcEndpoint2);
-    aztecNode = createAztecNodeClient(rpcEndpoint2.url);
+    const { process: aztecRpcProcess2, port: aztecRpcPort2 } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess2);
+    const nodeUrl2 = `http://127.0.0.1:${aztecRpcPort2}`;
+    aztecNode = createAztecNodeClient(nodeUrl2);
 
     const newNodeInfo = await aztecNode.getNodeInfo();
 
     // Reapply proposer payload so sequencers re-signal after restart
     try {
       await updateSequencersConfig(config, { governanceProposerPayload: payloadAddress });
-      const configs = await getSequencersConfig(config);
-      debugLogger.info(`Sequencer configs re-applied; count=${configs.length}`);
+      debugLogger.info(`Sequencer configs re-applied with payload ${payloadAddress.toString()}`);
     } catch (err) {
       debugLogger.warn(`Failed to reapply proposer payload (continuing): ${String(err)}`);
     }
@@ -582,5 +651,7 @@ describe('spartan_upgrade_rollup_version', () => {
         30,
       ),
     ).resolves.toBe(true);
+
+    debugLogger.info('Successfully verified new rollup is producing and proving blocks');
   });
 });

@@ -33,7 +33,7 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::class_id_derivation_sel)) *
-                   (static_cast<View>(in.get(C::class_id_derivation_const_two)) - FF(2));
+                   (static_cast<View>(in.get(C::class_id_derivation_const_four)) - FF(4));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
 }

@@ -576,6 +576,19 @@ variable "PROVER_FAILED_PROOF_STORE" {
   default     = ""
 }
 
+variable "PROVER_PROOF_STORE" {
+  description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "PROVER_BROKER_DEBUG_REPLAY_ENABLED" {
+  description = "Enable debug replay mode for the prover broker to replay proving jobs from stored inputs"
+  type        = bool
+  default     = false
+}
+
 variable "RPC_REPLICAS" {
   description = "The number of RPC replicas"
   type        = string

@@ -11,7 +11,7 @@ use crate::protocol::address::AztecAddress;
 
 /// Placeholder struct until Noir adds `enum` support.
 ///
-/// See [MessageDelivery] instead.
+/// See [`MessageDelivery`] instead.
 pub struct MessageDeliveryEnum {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.
     ///
@@ -85,7 +85,7 @@ pub struct MessageDeliveryEnum {
     /// An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
     /// who can always validate the existence of the note or event on-chain.
     ///
-    /// These guarantees make this delivery mechanism be quite similar to [MessageDeliveryEnum::OFFCHAIN], except the
+    /// These guarantees make this delivery mechanism be quite similar to [`MessageDeliveryEnum::OFFCHAIN`], except the
     /// sender does not need to establish an off-chain communication channel with the recipient, and neither party
     /// needs to worry about backups.
     ///
@@ -120,8 +120,8 @@ pub struct MessageDeliveryEnum {
     /// ## Use Cases
     ///
     /// This delivery method is suitable for all use cases, since it always works as expected. It is however the most
-    /// costly method, and there are multiple scenarios where alternatives such as [MessageDeliveryEnum::OFFCHAIN] or
-    /// [MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED] will suffice.
+    /// costly method, and there are multiple scenarios where alternatives such as [`MessageDeliveryEnum::OFFCHAIN`] or
+    /// [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`] will suffice.
     ///
     /// If the sender cannot be relied on to correctly send the message to the recipient (e.g. because they have no
     /// incentive to do so, such as when paying a fee to a protocol, creating the change note after spending a third
@@ -173,9 +173,10 @@ pub struct MessageDeliveryEnum {
 /// - whether the contract constrains the message to be constructed correctly
 ///
 /// For scenarios where the sender is incentivized to deliver the message correctly, use
-/// [MessageDeliveryEnum::OFFCHAIN] (the cheapest delivery option, but requiring that sender and recipient can
-/// communicate off-chain) or [MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED]. If the sender cannot be trusted to send the
-/// message to the recipient, use [MessageDeliveryEnum::ONCHAIN_CONSTRAINED].
+/// [`MessageDeliveryEnum::OFFCHAIN`] (the cheapest delivery option, but requiring that sender and recipient can
+/// communicate off-chain) or [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`]. If the sender cannot be trusted to send
+/// the
+/// message to the recipient, use [`MessageDeliveryEnum::ONCHAIN_CONSTRAINED`].
 pub global MessageDelivery: MessageDeliveryEnum =
     MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
 
@@ -190,7 +191,7 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 /// be created, there is no point in delivering the message.
 ///
-/// `delivery_mode` must be one of [MessageDeliveryEnum].
+/// `delivery_mode` must be one of [`MessageDeliveryEnum`].
 pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     context: &mut PrivateContext,
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],

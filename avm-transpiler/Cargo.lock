@@ -418,7 +418,6 @@ dependencies = [
  "ark-grumpkin",
  "hex",
  "lazy_static",
- "num-bigint",
 ]
 
 [[package]]

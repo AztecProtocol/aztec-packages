@@ -443,9 +443,9 @@ pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 // TODO: Leila's considering moving this into a noir file within bb
 // The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
 // They are independent of the circuit's custom public inputs.
-pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 56;
-pub global PAIRING_POINTS_SIZE: u32 = 16;
-pub global IPA_CLAIM_SIZE: u32 = 10;
+pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 28;
+pub global PAIRING_POINTS_SIZE: u32 = 8;
+pub global IPA_CLAIM_SIZE: u32 = 6;
 
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
 // The `(... + 1)` is because these arrays include a `length` field.
@@ -609,14 +609,14 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 457;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 449;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 64;
-pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 339; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
+pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1963;
+pub global CHONK_PROOF_LENGTH: u32 = 1935;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -669,7 +669,7 @@ pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 1134959961;
 pub global DOM_SEP__INITIALIZER: u32 = 3165476885;
 
 // Keys
-pub global DOM_SEP__NSK_M: u32 = 1976671838;
+pub global DOM_SEP__NHK_M: u32 = 3431122223;
 pub global DOM_SEP__IVSK_M: u32 = 3641144584;
 pub global DOM_SEP__OVSK_M: u32 = 449371170;
 pub global DOM_SEP__TSK_M: u32 = 4031170476;

@@ -657,9 +657,18 @@ namespace tx;
 
     pol commit fee_juice_balance_slot;
 
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit const_three;
+    is_collect_fee * (const_three - 3) = 0;
+
     #[BALANCE_SLOT_POSEIDON2]
-    is_collect_fee { is_collect_fee, dom_sep_public_storage_map_slot, fee_juice_balances_slot_constant, fee_payer, fee_juice_balance_slot }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    is_collect_fee {
+         dom_sep_public_storage_map_slot, fee_juice_balances_slot_constant, fee_payer,
+         fee_juice_balance_slot, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     pol commit fee_payer_balance;
 

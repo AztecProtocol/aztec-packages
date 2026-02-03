@@ -34,12 +34,12 @@
 
 <div class="comments">
 <p>Sets the sender for tags.</p>
-<p>This unconstrained value is used as the sender when computing an unconstrained shared secret
-for a tag in order to emit a log. Constrained tagging should not use this as there is no
-guarantee that the recipient knows about the sender, and hence about the shared secret.</p>
-<p>Account contracts typically set this value before calling other contracts. The value persists
-through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-value (unless it is replaced by another call to this setter).</p>
+<p>This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+sender, and hence about the shared secret.</p>
+<p>Account contracts typically set this value before calling other contracts. The value persists through nested calls,
+meaning all calls down the stack will use the same 'senderForTags' value (unless it is replaced by another call to
+this setter).</p>
 </div>
 </main>
 </span>

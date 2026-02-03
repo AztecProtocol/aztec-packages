@@ -68,25 +68,6 @@ if ! command -v helm &> /dev/null; then
   fi
 fi
 
-if ! command -v stern &> /dev/null; then
-  log "Installing stern..."
-  # Download Stern
-  curl -sLo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_$(os)_$(arch).tar.gz
-
-  # Extract the binary
-  tar -xzf stern.tar.gz
-
-  # Move it to /usr/local/bin and set permissions
-  sudo mv stern /usr/local/bin/stern
-  sudo chmod +x /usr/local/bin/stern
-
-  # Verify installation
-  stern --version
-
-  # Clean up
-  rm stern.tar.gz
-fi
-
 if ! command -v gcloud &> /dev/null; then
   log "Installing gcloud..."
   curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz

@@ -29,7 +29,7 @@ void ClassIdDerivationTraceBuilder::process(
 
                       // This is temp because aliasing is not allowed in lookups
                       { C::class_id_derivation_gen_index_contract_class_id, DOM_SEP__CONTRACT_CLASS_ID },
-                      { C::class_id_derivation_const_two, 2 },
+                      { C::class_id_derivation_const_four, 4 },
                   } });
         row++;
     }

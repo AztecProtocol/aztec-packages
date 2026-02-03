@@ -460,6 +460,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
 {
     this->assert_valid_variables({ witness_index });
 
+    // Mark as intentionally single-gate for boomerang detection
+    update_used_witnesses(witness_index);
+
     blocks.arithmetic.populate_wires(witness_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(0);
     blocks.arithmetic.q_1().emplace_back(1);

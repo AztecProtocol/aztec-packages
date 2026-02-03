@@ -5,7 +5,19 @@ tags: [contracts, protocol]
 description: Learn how contract classes and instances are created and deployed on the Aztec network.
 ---
 
-In the Aztec protocol, contracts are created as _instances_ of contract _classes_. The deployment process consists of two main steps: first publishing the contract _class_ (if not already published), and then creating a contract _instance_ that references this class.
+In the Aztec protocol, contracts are created as _instances_ of contract _classes_. Unlike Ethereum where deployment is binary (deployed or not), Aztec contracts progress through multiple states before they are fully operational.
+
+## Contract Lifecycle Overview
+
+Aztec contracts go through these states:
+
+1. **Contract Class Registration** - Publishing the contract bytecode to the network
+2. **Contract Instance Creation** - Computing a deterministic address from class, salt, and initialization parameters
+3. **Initialization** - Running the constructor to set up initial state
+4. **Public Deployment** - Broadcasting the instance to the network for public function calls
+5. **Private Function Broadcasting** - Sharing private function artifacts offchain (optional)
+
+Not every contract needs every state. A private-only contract can skip class registration and public deployment entirely. See the [Contract Deployment Quick Reference](../aztec-nr/contract_readiness_states.md) for a practical guide on which steps your contract needs.
 
 ## Contract Classes
 
@@ -77,6 +89,44 @@ When a function is called on a contract instance, the protocol circuits verify t
 
 The `ContractInstanceRegistry` and `ContractClassRegistry` contracts are protocol contracts that exist from the genesis of the Aztec Network at predefined addresses. They are necessary for deploying other contracts to the network.
 
+## Private Function Broadcasting
+
+Private function artifacts can be shared offchain so others can call your private functions. This is optional—callers who already have the artifacts don't need them broadcast. This step is only necessary when you want external parties to interact with your contract's private functions without having obtained the artifacts through other means.
+
+## Proving Contract States
+
+Your contract can verify the deployment or initialization state of other contracts. This is useful for:
+
+- Ensuring a dependency contract is deployed before interacting
+- Access control based on contract state
+- Conditional logic based on initialization
+
+```rust
+use aztec::history::contract_inclusion::{
+    ProveContractDeployment,
+    ProveContractNonDeployment,
+    ProveContractInitialization,
+    ProveContractNonInitialization,
+};
+
+// Prove a contract is deployed
+header.prove_contract_deployment(contract_address);
+
+// Prove a contract is NOT deployed
+header.prove_contract_non_deployment(contract_address);
+
+// Prove a contract is initialized
+header.prove_contract_initialization(contract_address);
+
+// Prove a contract is NOT initialized
+header.prove_contract_non_initialization(contract_address);
+```
+
+These functions prove inclusion or non-inclusion of the corresponding nullifiers in the nullifier tree at a given block.
+
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../tutorials/js_tutorials/aztecjs-getting-started.md).
+- [Contract Deployment Quick Reference](../aztec-nr/contract_readiness_states.md) - Practical guide for which deployment steps your contract needs
+- [Deploying Contracts](../aztec-js/how_to_deploy_contract.md) - Deploy contracts using TypeScript
+- [DApp Development Tutorial](../tutorials/js_tutorials/aztecjs-getting-started.md) - Build a complete application
+- [Communicating Cross-Chain](../aztec-nr/framework-description/how_to_communicate_cross_chain.md) - Portal contracts and L1/L2 messaging
