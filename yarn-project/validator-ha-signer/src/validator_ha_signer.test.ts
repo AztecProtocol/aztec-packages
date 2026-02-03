@@ -56,6 +56,11 @@ describe('ValidatorHASigner', () => {
     await pool.end();
   });
 
+  afterAll(async () => {
+    await db.close();
+    await pglite.close();
+  });
+
   describe('initialization', () => {
     it('should not initialize when nodeId is not explicitly set', () => {
       const defaultConfig = {
@@ -81,7 +86,7 @@ describe('ValidatorHASigner', () => {
   describe('lifecycle', () => {
     it('should start and stop without error when enabled', async () => {
       const signer = new ValidatorHASigner(db, config);
-      signer.start();
+      await signer.start();
       await signer.stop();
     });
   });
@@ -90,9 +95,9 @@ describe('ValidatorHASigner', () => {
     let signer: ValidatorHASigner;
     let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       signer = new ValidatorHASigner(db, config);
-      signer.start();
+      await signer.start();
       signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
       signFn.mockResolvedValue(mockSignature);
     });
@@ -772,7 +777,7 @@ describe('ValidatorHASigner', () => {
       const signers = nodeIds.map(nodeId => new ValidatorHASigner(db, { ...config, nodeId }));
 
       // Start all signers
-      signers.forEach(signer => signer.start());
+      await Promise.all(signers.map(signer => signer.start()));
 
       try {
         // All signers try to sign the same duty for the same validator
@@ -970,7 +975,7 @@ describe('ValidatorHASigner', () => {
         ...config,
         l1Contracts: { rollupAddress: oldRollupAddress },
       });
-      oldSigner.start();
+      await oldSigner.start();
 
       try {
         const signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
@@ -996,13 +1001,14 @@ describe('ValidatorHASigner', () => {
           ...config,
           l1Contracts: { rollupAddress: newRollupAddress },
         });
-        newSigner.start();
+        // Starting the new signer will clean up duties with outdated rollup addresses
+        await newSigner.start();
 
         try {
           const signFn2 = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
           signFn2.mockResolvedValue(mockSignature);
 
-          // Sign same slot with new rollup - should succeed (no conflict)
+          // Sign same slot with new rollup - should succeed (no conflict, old duty was cleaned up)
           await newSigner.signWithProtection(
             VALIDATOR_ADDRESS,
             MESSAGE_HASH,
@@ -1017,7 +1023,7 @@ describe('ValidatorHASigner', () => {
 
           expect(signFn2).toHaveBeenCalledTimes(1);
 
-          // Verify both duties exist with different rollup addresses
+          // Verify old duty was cleaned up at startup
           const oldDuty = await db.tryInsertOrGetExisting({
             rollupAddress: oldRollupAddress,
             validatorAddress: VALIDATOR_ADDRESS,
@@ -1029,6 +1035,7 @@ describe('ValidatorHASigner', () => {
             nodeId: NODE_ID,
           });
 
+          // Verify new duty exists
           const newDuty = await db.tryInsertOrGetExisting({
             rollupAddress: newRollupAddress,
             validatorAddress: VALIDATOR_ADDRESS,
@@ -1040,11 +1047,9 @@ describe('ValidatorHASigner', () => {
             nodeId: NODE_ID,
           });
 
-          expect(oldDuty.isNew).toBe(false);
-          expect(newDuty.isNew).toBe(false);
-          expect(oldDuty.record.rollupAddress).toEqual(oldRollupAddress);
+          expect(oldDuty.isNew).toBe(true); // Old duty was cleaned up
+          expect(newDuty.isNew).toBe(false); // New duty exists
           expect(newDuty.record.rollupAddress).toEqual(newRollupAddress);
-          expect(oldDuty.record.status).toBe(DutyStatus.SIGNED);
           expect(newDuty.record.status).toBe(DutyStatus.SIGNED);
         } finally {
           await newSigner.stop();

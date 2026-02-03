@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS validator_duties (
   block_number BIGINT NOT NULL,
   block_index_within_checkpoint INTEGER NOT NULL DEFAULT 0,
   duty_type VARCHAR(30) NOT NULL CHECK (duty_type IN ('BLOCK_PROPOSAL', 'CHECKPOINT_PROPOSAL', 'ATTESTATION', 'ATTESTATIONS_AND_SIGNERS', 'GOVERNANCE_VOTE', 'SLASHING_VOTE')),
-  status VARCHAR(20) NOT NULL CHECK (status IN ('signing', 'signed', 'failed')),
+  status VARCHAR(20) NOT NULL CHECK (status IN ('signing', 'signed')),
   message_hash VARCHAR(66) NOT NULL,
   signature VARCHAR(132),
   node_id VARCHAR(255) NOT NULL,
@@ -203,11 +203,11 @@ WHERE status = 'signed'
 
 /**
  * Query to clean up old duties (for maintenance)
- * Removes duties older than a specified timestamp
+ * Removes SIGNED duties older than a specified timestamp
  */
 export const CLEANUP_OLD_DUTIES = `
 DELETE FROM validator_duties
-WHERE status IN ('signing', 'signed', 'failed')
+WHERE status = 'signed'
   AND started_at < $1;
 `;
 
@@ -220,6 +220,16 @@ DELETE FROM validator_duties
 WHERE node_id = $1
   AND status = 'signing'
   AND started_at < $2;
+`;
+
+/**
+ * Query to cleanup duties with outdated rollup address
+ * Removes all duties where the rollup address doesn't match the current one
+ * Used after a rollup upgrade to clean up duties for the old rollup
+ */
+export const CLEANUP_OUTDATED_ROLLUP_DUTIES = `
+DELETE FROM validator_duties
+WHERE rollup_address != $1;
 `;
 
 /**
