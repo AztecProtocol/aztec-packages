@@ -15,11 +15,23 @@ fn main() {
 
 #[cfg(feature = "ffi")]
 fn get_lib_dir() -> PathBuf {
+    // Check if user wants to force local build only (for development)
+    let require_local = std::env::var("BB_LOCAL_BUILD").is_ok();
+
     // First, check for local cpp build (for development)
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let local_lib_dir = std::path::Path::new(&manifest_dir).join("../../cpp/build/lib");
     if local_lib_dir.join("libbb-external.a").exists() {
         return local_lib_dir.canonicalize().unwrap();
+    }
+
+    // If local build is required but not found, fail with helpful message
+    if require_local {
+        panic!(
+            "BB_LOCAL_BUILD is set but libbb-external.a not found at {:?}. \
+             Build barretenberg locally: cd barretenberg/cpp && ./bootstrap.sh",
+            local_lib_dir
+        );
     }
 
     // Otherwise, download from GitHub releases

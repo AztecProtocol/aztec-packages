@@ -64,9 +64,29 @@ function test_download {
   local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/aztec-packages --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
   echo "Testing download with version: $version"
 
-  # Only run barretenberg-rs tests (not barretenberg-tests which has additional deps)
-  BARRETENBERG_VERSION=$version RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" \
-    denoise "cargo test --release --features ffi -p barretenberg-rs"
+  # Retry logic for network flakiness (GitHub releases can be flaky)
+  local max_retries=3
+  local retry=0
+  local success=false
+  while [ $retry -lt $max_retries ]; do
+    if BARRETENBERG_VERSION=$version RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" \
+        cargo test --release --features ffi -p barretenberg-rs 2>&1; then
+      success=true
+      break
+    fi
+    retry=$((retry + 1))
+    if [ $retry -lt $max_retries ]; then
+      echo "Attempt $retry failed, retrying in 5 seconds..."
+      sleep 5
+      # Clean to force re-download
+      cargo clean -p barretenberg-rs 2>/dev/null || true
+    fi
+  done
+
+  if [ "$success" = false ]; then
+    echo "Download test failed after $max_retries attempts"
+    exit 1
+  fi
 
   # Restore the local library (trap handles this, but be explicit)
   if [ -f "$lib_path.bak" ]; then
