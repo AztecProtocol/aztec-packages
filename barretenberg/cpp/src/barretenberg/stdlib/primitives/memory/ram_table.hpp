@@ -22,12 +22,12 @@ template <IsUltraOrMegaBuilder Builder> class ram_table {
     ram_table(Builder* builder, const std::vector<field_pt>& table_entries);
     ram_table(const std::vector<field_pt>& table_entries);
     ram_table(const ram_table& other);
-    ram_table(ram_table&& other);
+    ram_table(ram_table&& other) noexcept;
 
     void initialize_table() const;
 
     ram_table& operator=(const ram_table& other);
-    ram_table& operator=(ram_table&& other);
+    ram_table& operator=(ram_table&& other) noexcept;
 
     field_pt read(const field_pt& index) const;
 

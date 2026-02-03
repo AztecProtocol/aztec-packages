@@ -116,10 +116,48 @@ template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_tabl
 }
 // constructors and move operators
 template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
+
+template <IsUltraOrMegaBuilder Builder>
+ram_table<Builder>::ram_table(ram_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , _tags(std::move(other._tags))
+    , index_initialized(std::move(other.index_initialized))
+    , length(other.length)
+    , ram_id(other.ram_id)
+    , ram_table_generated_in_builder(other.ram_table_generated_in_builder)
+    , all_entries_written_to_with_constant_index(other.all_entries_written_to_with_constant_index)
+    , context(other.context)
+{
+    other.length = 0;
+    other.ram_id = 0;
+    other.ram_table_generated_in_builder = false;
+    other.all_entries_written_to_with_constant_index = false;
+    other.context = nullptr;
+}
+
 template <IsUltraOrMegaBuilder Builder>
 ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
+
+template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        _tags = std::move(other._tags);
+        index_initialized = std::move(other.index_initialized);
+        length = other.length;
+        ram_id = other.ram_id;
+        ram_table_generated_in_builder = other.ram_table_generated_in_builder;
+        all_entries_written_to_with_constant_index = other.all_entries_written_to_with_constant_index;
+        context = other.context;
+
+        other.length = 0;
+        other.ram_id = 0;
+        other.ram_table_generated_in_builder = false;
+        other.all_entries_written_to_with_constant_index = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
 
 /**
  * @brief Read a field element from the RAM table at an index value

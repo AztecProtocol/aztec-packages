@@ -110,10 +110,44 @@ template <IsUltraOrMegaBuilder Builder> void rom_table<Builder>::initialize_tabl
 }
 
 template <IsUltraOrMegaBuilder Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> rom_table<Builder>::rom_table(rom_table&& other) = default;
+
+template <IsUltraOrMegaBuilder Builder>
+rom_table<Builder>::rom_table(rom_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , entries(std::move(other.entries))
+    , _tags(std::move(other._tags))
+    , length(other.length)
+    , rom_id(other.rom_id)
+    , initialized(other.initialized)
+    , context(other.context)
+{
+    other.length = 0;
+    other.rom_id = 0;
+    other.initialized = false;
+    other.context = nullptr;
+}
+
 template <IsUltraOrMegaBuilder Builder>
 rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) = default;
+
+template <IsUltraOrMegaBuilder Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        entries = std::move(other.entries);
+        _tags = std::move(other._tags);
+        length = other.length;
+        rom_id = other.rom_id;
+        initialized = other.initialized;
+        context = other.context;
+
+        other.length = 0;
+        other.rom_id = 0;
+        other.initialized = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
 
 template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {

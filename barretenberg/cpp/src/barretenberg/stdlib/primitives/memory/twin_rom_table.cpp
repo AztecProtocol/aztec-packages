@@ -88,11 +88,44 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
 }
 
 template <typename Builder> twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other) = default;
-template <typename Builder> twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) = default;
+
+template <typename Builder>
+twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , entries(std::move(other.entries))
+    , _tags(std::move(other._tags))
+    , length(other.length)
+    , rom_id(other.rom_id)
+    , initialized(other.initialized)
+    , context(other.context)
+{
+    other.length = 0;
+    other.rom_id = 0;
+    other.initialized = false;
+    other.context = nullptr;
+}
+
 template <typename Builder>
 twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other) = default;
-template <typename Builder>
-twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) = default;
+
+template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        entries = std::move(other.entries);
+        _tags = std::move(other._tags);
+        length = other.length;
+        rom_id = other.rom_id;
+        initialized = other.initialized;
+        context = other.context;
+
+        other.length = 0;
+        other.rom_id = 0;
+        other.initialized = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
 
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
