@@ -1,9 +1,11 @@
+import { EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import {
   type GetProvingJobResponse,
   ProofUri,
   ProvingJob,
   type ProvingJobBroker,
+  type ProvingJobBrokerDebug,
   type ProvingJobConsumer,
   ProvingJobId,
   type ProvingJobProducer,
@@ -51,6 +53,18 @@ export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
 export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
   ...ProvingJobConsumerSchema,
   ...ProvingJobProducerSchema,
+};
+
+export const ProvingJobBrokerDebugSchema: ApiSchemaFor<ProvingJobBrokerDebug> = {
+  replayProvingJob: z
+    .function()
+    .args(ProvingJobId, z.nativeEnum(ProvingRequestType), EpochNumberSchema, ProofUri)
+    .returns(ProvingJobStatus),
+};
+
+export const ProvingJobBrokerSchemaWithDebug: ApiSchemaFor<ProvingJobBroker & ProvingJobBrokerDebug> = {
+  ...ProvingJobBrokerSchema,
+  ...ProvingJobBrokerDebugSchema,
 };
 
 export function createProvingJobBrokerClient(

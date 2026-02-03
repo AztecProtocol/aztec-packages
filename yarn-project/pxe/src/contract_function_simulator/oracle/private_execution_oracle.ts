@@ -242,7 +242,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
-    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     return DirectionalAppTaggingSecret.compute(
       senderCompleteAddress,
@@ -543,7 +543,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.utilityExecutor,
       this.aztecNode,
       this.contractStore,
+      this.noteStore,
       this.anchorBlockHeader,
+      this.jobId,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(

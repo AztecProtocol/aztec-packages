@@ -104,6 +104,38 @@ export function describeAztecMultiMap(
       expect(await size()).to.equal(1);
     });
 
+    it('returns 0 for empty multimap size', async () => {
+      expect(await size()).to.equal(0);
+    });
+
+    it('calculates size correctly with multiple values per key', async () => {
+      expect(await size()).to.equal(0);
+
+      // Add multiple values for same key
+      await multiMap.set('key1', 'value1');
+      expect(await size()).to.equal(1);
+      await multiMap.set('key1', 'value2');
+      expect(await size()).to.equal(2);
+      await multiMap.set('key1', 'value3');
+      expect(await size()).to.equal(3);
+
+      // Add values for different key
+      await multiMap.set('key2', 'value4');
+      expect(await size()).to.equal(4);
+
+      // Delete one value from key1
+      await multiMap.deleteValue('key1', 'value2');
+      expect(await size()).to.equal(3);
+
+      // Delete entire key
+      await multiMap.delete('key1');
+      expect(await size()).to.equal(1);
+
+      // Delete last key
+      await multiMap.delete('key2');
+      expect(await size()).to.equal(0);
+    });
+
     it('should be able to iterate over entries when there are no keys', async () => {
       expect(await entries()).to.deep.equal([]);
     });

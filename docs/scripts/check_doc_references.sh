@@ -7,7 +7,7 @@ set -euo pipefail
 # 1. Extracts all 'references' fields from documentation markdown frontmatter
 # 2. Checks if any referenced files were changed in the current PR
 # 3. Requests AztecProtocol/devrel team as reviewers if files changed and PR is not draft
-# 4. Adds a comprehensive PR comment showing which changed files are referenced by which docs
+# 4. Sends a Slack message to #devrel-docs-updates showing which changed files are referenced by which docs
 # 5. Skips reviewer request if devrel team is already requested or a member has approved
 #
 # Usage: check_doc_references.sh [pr_number] [docs_dir]
@@ -24,6 +24,7 @@ set -euo pipefail
 #   GITHUB_REF - May contain PR number in format refs/pull/123/merge
 #   GITHUB_BASE_REF - Base branch name (set by GitHub Actions)
 #   GITHUB_TOKEN - GitHub token for gh CLI (set by GitHub Actions)
+#   SLACK_BOT_TOKEN - Required for sending Slack messages
 #   CI - Set to 1 in CI environment
 
 # Only run in CI environment to avoid accidental local execution
@@ -32,6 +33,46 @@ if [[ "${CI:-0}" != "1" ]]; then
   exit 0
 fi
 
+# Function to send Slack message
+send_slack_message() {
+  local message=$1
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+    return 0
+  fi
+
+  local data=$(cat <<EOF
+{
+  "channel": "#devrel-docs-updates",
+  "text": "$message"
+}
+EOF
+)
+  local response
+  if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"); then
+    echo "Slack API request failed (curl error)" >&2
+    return 1
+  fi
+
+  # Check if Slack API returned ok: true (Slack returns 200 even on errors)
+  local ok
+  if ! ok=$(echo "$response" | jq -r '.ok' 2>/dev/null); then
+    echo "Slack API returned invalid JSON: $response" >&2
+    return 1
+  fi
+
+  if [[ "$ok" != "true" ]]; then
+    local error
+    error=$(echo "$response" | jq -r '.error // "unknown error"' 2>/dev/null)
+    echo "Slack API error: $error" >&2
+    return 1
+  fi
+
+  return 0
+}
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
@@ -266,13 +307,11 @@ echo "The following referenced files were changed in this PR:"
 echo -e "$CHANGED_REFERENCES"
 echo ""
 
-# Build comprehensive PR comment with file-to-docs mapping
-COMMENT_BODY="📚 **Documentation References Updated**
+# Build Slack message with file-to-docs mapping
+# Get PR URL for linking
+PR_URL=$(gh pr view "$PR_NUMBER" --json url -q .url 2>/dev/null || echo "https://github.com/AztecProtocol/aztec-packages/pull/$PR_NUMBER")
 
-The following source files that changed in this PR are referenced by documentation:
-
-### Changed Files → Documentation
-"
+SLACK_MESSAGE="📚 *Documentation References Updated*\\n\\nThe following source files changed in <$PR_URL|PR #$PR_NUMBER> are referenced by documentation:\\n"
 
 # Get unique doc files count
 ALL_DOCS=""
@@ -285,8 +324,7 @@ while IFS= read -r changed_file; do
   [[ -z "$changed_file" ]] && continue
   CHANGED_FILE_COUNT=$((CHANGED_FILE_COUNT + 1))
 
-  COMMENT_BODY="${COMMENT_BODY}
-**\`${changed_file}\`**"
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n*\`${changed_file}\`*"
 
   # Get docs for this file and split by pipe
   docs="${FILE_TO_DOCS_MAP[$changed_file]}"
@@ -294,8 +332,7 @@ while IFS= read -r changed_file; do
   # Convert pipe-separated list to array and iterate
   IFS='|' read -ra DOC_ARRAY <<< "$docs"
   for doc_file in "${DOC_ARRAY[@]}"; do
-    COMMENT_BODY="${COMMENT_BODY}
-- 📄 \`${doc_file}\`"
+    SLACK_MESSAGE="${SLACK_MESSAGE}\\n  • \`${doc_file}\`"
 
     # Track all unique docs
     if ! echo "$ALL_DOCS" | grep -qF "$doc_file"; then
@@ -307,12 +344,7 @@ done <<< "$SORTED_KEYS"
 # Count unique docs
 DOC_FILE_COUNT=$(echo -e "$ALL_DOCS" | grep -v '^$' | sort -u | wc -l)
 
-COMMENT_BODY="${COMMENT_BODY}
-
----
-**Summary:** ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)
-
-@AztecProtocol/devrel team has been requested for review."
+SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n*Summary:* ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)"
 
 echo "Requesting AztecProtocol/devrel team as a reviewer for PR #$PR_NUMBER..."
 
@@ -321,39 +353,19 @@ REVIEWER_REQUESTED=false
 if gh pr edit "$PR_NUMBER" --add-reviewer AztecProtocol/devrel 2>/dev/null; then
   echo "✓ Successfully requested AztecProtocol/devrel team as a reviewer."
   REVIEWER_REQUESTED=true
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n@AztecProtocol/devrel team has been requested for review."
 else
   echo "⚠ Failed to request AztecProtocol/devrel team as a reviewer. They may need to be added manually."
-
-  # Update comment to reflect failure
-  COMMENT_BODY="⚠️ ${COMMENT_BODY}
-
-**Note:** Failed to automatically add @AztecProtocol/devrel as reviewers. Please add them manually."
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n⚠️ Failed to automatically add @AztecProtocol/devrel as reviewers. Please add them manually."
 fi
 
-# Check if we've already posted a documentation reference comment
-echo "Checking for existing documentation reference comment..."
-EXISTING_COMMENT=$(gh pr view "$PR_NUMBER" --json comments --jq '.comments[] | select(.body | startswith("📚 **Documentation References Updated**")) | .id' 2>/dev/null | head -n 1 || echo "")
-
-if [[ -n "$EXISTING_COMMENT" ]]; then
-  echo "Found existing documentation reference comment (ID: $EXISTING_COMMENT). Updating it..."
-  if gh api "repos/{owner}/{repo}/issues/comments/$EXISTING_COMMENT" -X PATCH -f body="$COMMENT_BODY" 2>/dev/null; then
-    echo "✓ Successfully updated existing documentation reference comment."
-  else
-    echo "⚠ Failed to update existing comment. Will try to add new comment instead."
-    if gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null; then
-      echo "✓ Successfully added new documentation reference comment."
-    else
-      echo "⚠ Failed to add PR comment."
-    fi
-  fi
+# Send Slack notification
+echo "Sending Slack notification to #devrel-docs-updates..."
+if send_slack_message "$SLACK_MESSAGE"; then
+  echo "✓ Successfully sent Slack notification."
 else
-  echo "No existing documentation reference comment found. Adding new comment..."
-  if gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null; then
-    echo "✓ Successfully added documentation reference comment."
-  else
-    echo "⚠ Failed to add PR comment."
-  fi
+  echo "⚠ Failed to send Slack notification." >&2
 fi
 
-# Exit successfully even if comment fails (don't block builds)
+# Exit successfully even if Slack notification fails (don't block builds)
 exit 0

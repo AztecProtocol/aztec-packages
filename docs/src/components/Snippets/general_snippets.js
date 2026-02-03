@@ -19,7 +19,7 @@ export const General = {
           (engine or desktop)
         </li>
         <li>
-          Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
+          Run <code>bash -i &lt;(curl -sL https://install.aztec.network)</code>
         </li>
       </ul>
     </p>

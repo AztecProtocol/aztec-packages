@@ -182,14 +182,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /**
    * Retrieve the complete address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address.
-   * @throws An error if the account is not registered in the database.
+   * @returns A complete address associated with the input address, or `undefined` if not registered.
    */
-  public utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.getCompleteAddress(account);
+  public utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    return this.addressStore.getCompleteAddress(account);
   }
 
-  protected async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+  protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
@@ -363,16 +362,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.log.getBindings(),
     );
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-
-    // It is acceptable to run the following operations in parallel for several reasons:
-    // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
-    //    which is then processed in Noir after this handler returns.
-    // 2. Even if syncTaggedLogs did write to the note store, it would not cause inconsistent state.
-    await Promise.all([
-      logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes),
-      noteService.syncNoteNullifiers(this.contractAddress),
-    ]);
+    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
   }
 
   /**
@@ -544,7 +534,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   protected async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     // TODO(#12656): return an app-siloed secret
-    const recipientCompleteAddress = await this.getCompleteAddress(address);
+    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );

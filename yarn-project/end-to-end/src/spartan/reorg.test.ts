@@ -3,6 +3,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -114,19 +115,52 @@ describe('reorg test', () => {
     debugLogger.info(`Waiting for 3 epochs to pass`);
     await sleep(Number(BigInt(epochDuration) * BigInt(slotDuration)) * 3 * 1000);
 
-    // TODO(#9327): begin delete
-    // The bot must be restarted because the PXE does not handle reorgs without a restart.
-    // When the issue is fixed, we can remove the following restart logic
     await cleanup?.();
-    await sleep(30 * 1000);
+
+    // Wait for the chain to produce a new pending block before restarting PXE
+    const epochDurationSeconds = Number(epochDuration) * Number(slotDuration);
+    const minWaitSeconds = 120;
+    const stabilizationTimeoutSeconds = Math.max(minWaitSeconds + 60, Math.min(5 * 60, epochDurationSeconds / 2));
+    try {
+      const startPendingBlock = await rollupCheatCodes.getTips().then(t => t.pending);
+      const startTime = Date.now();
+      debugLogger.info(
+        `Waiting for pending block to advance from ${startPendingBlock} (min wait: ${minWaitSeconds}s, timeout: ${stabilizationTimeoutSeconds}s)...`,
+      );
+      await retryUntil(
+        async () => {
+          const elapsedSeconds = (Date.now() - startTime) / 1000;
+          const currentPending = await rollupCheatCodes.getTips().then(t => t.pending);
+          if (currentPending > startPendingBlock && elapsedSeconds >= minWaitSeconds) {
+            debugLogger.info(
+              `Pending block advanced from ${startPendingBlock} to ${currentPending} after ${elapsedSeconds.toFixed(0)}s`,
+            );
+            return true;
+          }
+          return false;
+        },
+        'pending block to advance',
+        stabilizationTimeoutSeconds,
+        Number(slotDuration),
+      );
+      debugLogger.info('Chain has stabilized');
+    } catch (err) {
+      debugLogger.warn(`Pending block check timed out, continuing anyway: ${err}`);
+    }
 
     // Restart the PXE
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
 
-    await sleep(30 * 1000);
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
-    // TODO(#9327): end delete
+    // Wait for the RPC node's P2P client to be ready
+    try {
+      debugLogger.info('Waiting for RPC node to be ready...');
+      await retryUntil(async () => await aztecNode.isReady(), 'node ready', 120, 1);
+      debugLogger.info('RPC node is ready');
+    } catch (err) {
+      debugLogger.warn(`RPC node ready check timed out, continuing anyway: ${err}`);
+    }
 
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
     await performTransfers({
       wallet,
       testAccounts,

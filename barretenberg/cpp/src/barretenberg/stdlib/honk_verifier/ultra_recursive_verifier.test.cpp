@@ -262,13 +262,9 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // inner_proof already contains combined honk + IPA for rollup flavors
         bool native_result = native_verifier.verify_proof(inner_proof).result;
 
-        NativeVerifierCommitmentKey pcs_vkey{};
-        bool result =
-            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
+        bool result = output.points_accumulator.check();
         info("input pairing points result: ", result);
-        auto recursive_result =
-            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        EXPECT_EQ(result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
@@ -340,10 +336,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
-                                                     output.points_accumulator.P1.get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
@@ -370,7 +363,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
+            tamper_with_proof<InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
 
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
@@ -388,10 +381,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
                 // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
                 // failure.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
-                                                     output.points_accumulator.P1.get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
@@ -438,8 +428,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
         // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
         // constrained within the circuit itself, rather than relying solely on them being public outputs.
-        pairing_points.P0.fix_witness();
-        pairing_points.P1.fix_witness();
+        pairing_points.fix_witness();
 
         // For RollupIO: Fix the IPA claim's bigfield elements (challenge and evaluation).
         // When reconstructed from public inputs, bigfield::construct_from_limbs creates a prime_basis_limb
@@ -467,15 +456,28 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // We expect exactly one connected component (all variables properly connected)
         EXPECT_EQ(cc.size(), 1);
 
-        // Expected unconstrained variables:
-        // - MegaBuilder (outer) or ZK flavor: 0
-        // - UltraBuilder (outer) + non-ZK flavor: 1 (unused Shplonk power from
-        // compute_shplonk_batching_challenge_powers)
+        // Expected variables in one gate:
+        // - Base count of is_infinity booleans (MegaBuilder only, one per deserialized commitment)
+        // - +1 for unused Shplonk power (non-ZK flavors only)
+        //
+        // AUDITTODO: When using MegaBuilder as outer circuit, goblin_element::from_witness() creates
+        // is_point_at_infinity boolean witnesses for each deserialized commitment. These bools are only
+        // constrained to be 0/1 (via bool gate) but are not linked to the actual point coordinates.
         size_t expected_unconstrained = 0;
-        if constexpr (!IsMegaBuilder<OuterBuilder> && !RecursiveFlavor::HasZK) {
-            expected_unconstrained = 1;
+        if constexpr (IsMegaBuilder<OuterBuilder>) {
+            // Number of is_infinity booleans depends on number of commitments in the proof
+            if constexpr (IsAnyOf<RecursiveFlavor,
+                                  MegaRecursiveFlavor_<OuterBuilder>,
+                                  MegaZKRecursiveFlavor_<OuterBuilder>>) {
+                expected_unconstrained = 31; // Mega proofs have more commitments
+            } else {
+                expected_unconstrained = 28; // Ultra proofs have fewer commitments
+            }
         }
-
+        // Add 1 for unused Shplonk power in non-ZK flavors
+        if constexpr (!RecursiveFlavor::HasZK) {
+            expected_unconstrained += 1;
+        }
         EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }
 };
