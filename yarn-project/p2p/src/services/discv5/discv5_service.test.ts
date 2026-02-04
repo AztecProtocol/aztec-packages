@@ -1,3 +1,4 @@
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -15,23 +16,24 @@ import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 
-const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 15_000): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
-    }, timeout);
-
-    node.on('peer:discovered', () => {
-      if (node.getKadValues().length >= expectedCount) {
-        clearTimeout(timeoutId);
-        resolve();
-      }
-    });
-  });
+/**
+ * Runs discovery queries on all nodes until the condition is met or timeout expires.
+ * This is more resilient than fixed iteration loops as it adapts to varying DHT propagation times.
+ */
+const runDiscoveryUntil = async (nodes: DiscV5Service[], condition: () => boolean, timeout = 60, interval = 0.2) => {
+  await retryUntil(
+    async () => {
+      await Promise.all(nodes.map(n => n.runRandomNodesQuery()));
+      return condition() || undefined;
+    },
+    'Peer discovery',
+    timeout,
+    interval,
+  );
 };
 
 describe('Discv5Service', () => {
-  jest.setTimeout(20_000);
+  jest.setTimeout(120_000);
 
   let store: AztecAsyncKVStore;
   let bootNode: BootstrapNode;
@@ -96,17 +98,7 @@ describe('Discv5Service', () => {
     expect(node1.getKadValues()).toHaveLength(1);
     expect(node2.getKadValues()).toHaveLength(1);
 
-    await Promise.all([
-      waitForPeers(node2, 2),
-      (async () => {
-        await sleep(2000); // wait for peer discovery to be able to start
-        for (let i = 0; i < 5; i++) {
-          await node1.runRandomNodesQuery();
-          await node2.runRandomNodesQuery();
-          await sleep(100);
-        }
-      })(),
-    ]);
+    await runDiscoveryUntil([node1, node2], () => node1.getKadValues().length >= 2 && node2.getKadValues().length >= 2);
 
     const node1Peers = await getPeers(node1);
     const node2Peers = await getPeers(node2);
@@ -141,19 +133,8 @@ describe('Discv5Service', () => {
     }
 
     expect(node.getEnr().ip).toEqual(undefined);
-    await Promise.allSettled([
-      waitForPeers(node, extraNodes),
-      (async () => {
-        await sleep(2000); // wait for peer discovery to be able to start
-        for (let i = 0; i < extraNodes; i++) {
-          await node.runRandomNodesQuery();
-          for (const n of nodes) {
-            await n.runRandomNodesQuery();
-          }
-          await sleep(100);
-        }
-      })(),
-    ]);
+
+    await runDiscoveryUntil(nodes, () => node.getEnr().ip !== undefined);
 
     // Expect it's IP has been updated, and that the tcp and udp ports are the same
     expect(node.getEnr().ip).not.toEqual(undefined);
@@ -178,18 +159,10 @@ describe('Discv5Service', () => {
     const node3 = await createNode({ l1ChainId: 14 });
     await startNodes(node1, node2, node3);
 
-    await Promise.all([
-      waitForPeers(node1, 2),
-      (async () => {
-        await sleep(2000); // wait for peer discovery to be able to start
-        for (let i = 0; i < 5; i++) {
-          await node1.runRandomNodesQuery();
-          await node2.runRandomNodesQuery();
-          await node3.runRandomNodesQuery();
-          await sleep(100);
-        }
-      })(),
-    ]);
+    await runDiscoveryUntil(
+      [node1, node2, node3],
+      () => node1.getKadValues().length >= 2 && node2.getKadValues().length >= 2,
+    );
 
     const node1Peers = await getPeers(node1);
     const node2Peers = await getPeers(node2);
@@ -215,13 +188,15 @@ describe('Discv5Service', () => {
     const node2 = await createNode();
     await node1.start();
     await node2.start();
-    await waitForPeers(node2, 2);
+
+    await runDiscoveryUntil([node1, node2], () => node2.getKadValues().length >= 2);
 
     await node2.stop();
     await bootNode.stop();
 
     await node2.start();
-    await waitForPeers(node2, 1);
+
+    await runDiscoveryUntil([node1, node2], () => node2.getKadValues().length >= 1);
 
     const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId()).toString()));
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
@@ -263,20 +238,10 @@ describe('Discv5Service', () => {
     expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
     expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
 
-    await Promise.all([
-      waitForPeers(node2, 2),
-      waitForPeers(node3, 2),
-      (async () => {
-        await sleep(2000); // wait for peer discovery to be able to start
-        for (let i = 0; i < 5; i++) {
-          await node1.runRandomNodesQuery();
-          await node2.runRandomNodesQuery();
-          await node3.runRandomNodesQuery();
-          await trustedNode.runRandomNodesQuery();
-          await sleep(100);
-        }
-      })(),
-    ]);
+    await runDiscoveryUntil(
+      [node1, node2, node3, trustedNode],
+      () => node2.getKadValues().length >= 2 && node3.getKadValues().length >= 2,
+    );
 
     expect(node1.getKadValues()).toHaveLength(0);
 
@@ -322,13 +287,10 @@ describe('Discv5Service', () => {
     expect(node3.getKadValues()).toHaveLength(0);
     expect(privateNode.getKadValues()).toHaveLength(0);
 
-    await sleep(2000); // wait for peer discovery to be able to start
-    for (let i = 0; i < 3; i++) {
-      await node1.runRandomNodesQuery();
-      await node2.runRandomNodesQuery();
-      await node3.runRandomNodesQuery();
-      await privateNode.runRandomNodesQuery();
-      await sleep(100);
+    // Run discovery for a bit to ensure no peers are found (negative test)
+    for (let i = 0; i < 20; i++) {
+      await Promise.all([node1, node2, node3, privateNode].map(n => n.runRandomNodesQuery()));
+      await sleep(200);
     }
 
     expect(node1.getKadValues()).toHaveLength(0);
@@ -337,7 +299,7 @@ describe('Discv5Service', () => {
     expect(privateNode.getKadValues()).toHaveLength(0);
 
     await stopNodes(node1, node2, node3, privateNode);
-  }, 30_000);
+  });
 
   it('should set client version to ENR', async () => {
     const node = await createNode();

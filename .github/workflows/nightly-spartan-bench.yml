@@ -117,3 +117,120 @@ jobs:
               -H "Content-type: application/json" \
               --data "$data"
           fi
+
+  proving-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        # Note cron jobs will be on 'next' by default.
+
+      - name: Determine nightly tag
+        id: nightly-tag
+        run: |
+          if [[ -n "${{ inputs.nightly_tag }}" ]]; then
+            nightly_tag="${{ inputs.nightly_tag }}"
+          else
+            current_version=$(jq -r '."."' .release-please-manifest.json)
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
+          fi
+          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
+          echo "Using nightly tag: $nightly_tag"
+
+      - name: Check if Docker image exists
+        run: |
+          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          echo "Checking if Docker image exists: $DOCKER_IMAGE"
+          if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
+            echo "Docker image exists: $DOCKER_IMAGE"
+          else
+            echo "Docker image does not exist: $DOCKER_IMAGE"
+            exit 1
+          fi
+
+      - name: Run proving benchmarks
+        timeout-minutes: 150
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 150
+          NO_SPOT: 1
+        run: |
+          ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+
+      - name: Cleanup network resources
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
+        run: ./.github/ci3.sh network-teardown prove-n-tps-fake prove-n-tps-fake
+
+      - name: Download benchmarks
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ./ci.sh gh-spartan-proving-bench; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+          fi
+
+      - name: Upload benchmarks
+        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Spartan
+          benchmark-data-dir-path: "bench/next"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          alert-threshold: "120%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
+
+      - name: Notify Slack on failure
+        if: failure() && github.event_name != 'workflow_dispatch'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-next-scenario",
+              "text": "Nightly Proving Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi
+
+  status:
+    runs-on: ubuntu-latest
+    needs: [benchmark, proving-benchmark]
+    if: always()
+    steps:
+      - name: Check benchmark results
+        run: |
+          if [[ "${{ needs.benchmark.result }}" != "success" || "${{ needs.proving-benchmark.result }}" != "success" ]]; then
+            echo "One or more benchmark jobs failed"
+            echo "benchmark: ${{ needs.benchmark.result }}"
+            echo "proving-benchmark: ${{ needs.proving-benchmark.result }}"
+            exit 1
+          fi
+          echo "All benchmark jobs succeeded"

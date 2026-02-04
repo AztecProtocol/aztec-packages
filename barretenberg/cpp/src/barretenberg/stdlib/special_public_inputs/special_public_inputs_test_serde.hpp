@@ -2,6 +2,7 @@
 
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -42,16 +43,16 @@ class KernelIOSerde {
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Each G1 point is 8 fr elements (4 limbs for x, 4 limbs for y) using 68-bit limb encoding
+        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 136-bit limb encoding
         auto deserialize_point = [&]() {
             std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
                                                                           NativeG1::PUBLIC_INPUTS_SIZE);
             idx += NativeG1::PUBLIC_INPUTS_SIZE;
-            return NativeG1::reconstruct_from_public(limbs);
+            return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         result.app_return_data = deserialize_point();
         for (auto& commitment : result.ecc_op_tables) {
@@ -72,15 +73,13 @@ class KernelIOSerde {
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Serialize fq to 4 fr limbs using 68-bit encoding (matching reconstruct_from_public)
+        // Serialize fq to 2 fr limbs using 136-bit encoding (matching FrCodec)
         auto serialize_fq = [&](const NativeFq& fq_val) {
-            constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 68 bits
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 136 bits
             constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
             uint256_t val = static_cast<uint256_t>(fq_val);
             proof[idx++] = NativeFF(val & LIMB_MASK);
             proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 2)) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 3)) & LIMB_MASK);
         };
 
         auto serialize_point = [&](const NativeG1& point) {
@@ -88,8 +87,8 @@ class KernelIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         serialize_point(app_return_data);
         for (const auto& commitment : ecc_op_tables) {
@@ -133,11 +132,11 @@ class HidingKernelIOSerde {
             std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
                                                                           NativeG1::PUBLIC_INPUTS_SIZE);
             idx += NativeG1::PUBLIC_INPUTS_SIZE;
-            return NativeG1::reconstruct_from_public(limbs);
+            return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         for (auto& commitment : result.ecc_op_tables) {
             commitment = deserialize_point();
@@ -156,13 +155,11 @@ class HidingKernelIOSerde {
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
         auto serialize_fq = [&](const NativeFq& fq_val) {
-            constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
             constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
             uint256_t val = static_cast<uint256_t>(fq_val);
             proof[idx++] = NativeFF(val & LIMB_MASK);
             proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 2)) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 3)) & LIMB_MASK);
         };
 
         auto serialize_point = [&](const NativeG1& point) {
@@ -170,8 +167,8 @@ class HidingKernelIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         for (const auto& commitment : ecc_op_tables) {
             serialize_point(commitment);
@@ -209,16 +206,16 @@ class AppIOSerde {
         // AppIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
-        // Each G1 point is 8 fr elements (4 limbs for x, 4 limbs for y) using 68-bit limb encoding
+        // Each G1 point is 4 fr elements (2 limbs for x, 2 limbs for y) using 136-bit limb encoding
         auto deserialize_point = [&]() {
             std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
                                                                           NativeG1::PUBLIC_INPUTS_SIZE);
             idx += NativeG1::PUBLIC_INPUTS_SIZE;
-            return NativeG1::reconstruct_from_public(limbs);
+            return FrCodec::deserialize_from_fields<NativeG1>(limbs);
         };
 
-        result.pairing_inputs.P0 = deserialize_point();
-        result.pairing_inputs.P1 = deserialize_point();
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
 
         return result;
     }
@@ -234,13 +231,11 @@ class AppIOSerde {
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
         auto serialize_fq = [&](const NativeFq& fq_val) {
-            constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
             constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
             uint256_t val = static_cast<uint256_t>(fq_val);
             proof[idx++] = NativeFF(val & LIMB_MASK);
             proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 2)) & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> (NUM_LIMB_BITS * 3)) & LIMB_MASK);
         };
 
         auto serialize_point = [&](const NativeG1& point) {
@@ -248,8 +243,8 @@ class AppIOSerde {
             serialize_fq(point.y);
         };
 
-        serialize_point(pairing_inputs.P0);
-        serialize_point(pairing_inputs.P1);
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
     }
 };
 

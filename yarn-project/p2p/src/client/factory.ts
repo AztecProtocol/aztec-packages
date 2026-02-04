@@ -21,6 +21,7 @@ import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
@@ -116,6 +117,8 @@ export async function createP2PClient<T extends P2PClientType>(
     logger.createChild('tx-collection'),
   );
 
+  const txFileStore = await TxFileStore.create(mempools.txPool, config, logger.createChild('tx-file-store'), telemetry);
+
   return new P2PClient(
     clientType,
     store,
@@ -123,6 +126,7 @@ export async function createP2PClient<T extends P2PClientType>(
     mempools,
     p2pService,
     txCollection,
+    txFileStore,
     config,
     dateProvider,
     telemetry,
