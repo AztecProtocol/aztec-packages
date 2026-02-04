@@ -104,7 +104,7 @@ fi
 
 # Compute genesis values using the Aztec CLI (see: yarn-project/cli/src/cmds/l1/compute_genesis_values.ts)
 # The CLI reads SPONSORED_FPC and TEST_ACCOUNTS from the environment.
-export SPONSORED_FPC="${SPONSORED_FPC:-false}"
+export SPONSORED_FPC="${SPONSORED_FPC:-true}"
 export TEST_ACCOUNTS="${TEST_ACCOUNTS:-false}"
 log "Computing genesis with SPONSORED_FPC=$SPONSORED_FPC, TEST_ACCOUNTS=$TEST_ACCOUNTS"
 
@@ -117,4 +117,4 @@ log "VK_TREE_ROOT: $VK_TREE_ROOT"
 log "PROTOCOL_CONTRACTS_HASH: $PROTOCOL_CONTRACTS_HASH"
 log "GENESIS_ARCHIVE_ROOT: $GENESIS_ARCHIVE_ROOT"
 
-exec l1-contracts/scripts/run_rollup_upgrade.sh "$registry_address"
+exec "$repo_root/l1-contracts/scripts/run_rollup_upgrade.sh" "$registry_address"
