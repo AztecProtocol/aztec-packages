@@ -28,7 +28,7 @@ template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 6 + ZERO_GATE
 template <typename Builder> inline constexpr size_t LOGIC_AND_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t RANGE_32 = 2744 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 6702 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1432 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1559 + ZERO_GATE + MEGA_OFFSET<Builder>;
 
 // The mega offset works differently for ECDSA opcodes because of the use of ROM tables, which use indices that
 // overlap with the values added for ECCVM. secp256k1 uses table of size 16 whose indices contain all the 4 values
