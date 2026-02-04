@@ -376,7 +376,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
     using Builder = TypeParam;
     // Ultra: full bigfield construction + on-curve validation + assert_is_in_field for x and y
     // Mega: only is_infinity check, range constraint and on_curve validation deferred to ECCVM and Translator
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3984 : 5;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3865 : 5;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected);
 }
@@ -388,7 +388,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 6946 : 50;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5751 : 50;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }
