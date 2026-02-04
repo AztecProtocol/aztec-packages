@@ -115,6 +115,6 @@ Event data published onchain is stored in Ethereum blobs, which incurs costs. Co
 
 ## Next steps
 
-- Learn about [storage](./how_to_define_storage.md) to persist data in your contracts
+- Learn about [storage](./state_variables.md) to persist data in your contracts
 - Explore [calling other contracts](./how_to_call_contracts.md) for cross-contract interactions
 - Understand [cross-chain communication](./how_to_communicate_cross_chain.md) between Ethereum and Aztec
