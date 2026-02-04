@@ -269,7 +269,8 @@ jobs:
   build-bb-ios:
     name: Build iOS static libraries
     runs-on: macos-14
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    # Skip for forks, drafts, and tag pushes (tag builds are redundant with PR builds)
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && !startsWith(github.ref, 'refs/tags/')
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -312,7 +313,8 @@ jobs:
   build-bb-android:
     name: Build Android static libraries
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    # Skip for forks, drafts, and tag pushes (tag builds are redundant with PR builds)
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && !startsWith(github.ref, 'refs/tags/')
     continue-on-error: true
     strategy:
       fail-fast: false
