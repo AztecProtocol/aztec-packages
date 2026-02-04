@@ -118,6 +118,17 @@ function build_ios {
   fi
 }
 
+# Build for Android (requires ANDROID_NDK_HOME to be set)
+# Arg is preset name: android-arm64 or android-x86_64
+function build_android {
+  set -eu
+  preset=$1
+  if ! cache_download barretenberg-$preset-$hash.zst; then
+    build_preset $preset --target bb-external
+    cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
+  fi
+}
+
 # Selectively build components with address sanitizer (with optimizations)
 function build_asan_fast {
   set -eu
@@ -255,9 +266,17 @@ function build_release_dir {
   if [ -f build-ios-sim-arm64/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-ios-sim-arm64/lib libbb-external.a
   fi
+
+  # Package Android static libraries (built on Linux runners with NDK)
+  if [ -f build-android-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-android-arm64/lib libbb-external.a
+  fi
+  if [ -f build-android-x86_64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-android-x86_64/lib libbb-external.a
+  fi
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
