@@ -12,7 +12,7 @@ we use the following expression:
 
 $$\sum_i \left[ q_{L,i} \cdot \frac{1}{L_i} - c_i \cdot q_{T,i} \cdot \frac{1}{T_i} \right] = 0$$
 
-where $L_i$ is the lookup term (the thing we look up), $T_i$ is the table term (the thing in the table from which we look up), $c_i$ is the read count (how many times $T_i$ has been looked up), and $q_{L,i}$, $q_{T,i}$ are two boolean values used to decide which elements should/can be looked up. We call them thelookup term predicate* and thetable term predicate*, respectively.
+where $L_i$ is the lookup term (the thing we look up), $T_i$ is the table term (the thing in the table from which we look up), $c_i$ is the read count (how many times $T_i$ has been looked up), and $q_{L,i}$, $q_{T,i}$ are two boolean values used to decide which elements should/can be looked up. We call them the lookup term predicate* and the table term predicate*, respectively.
 
 ## Types of lookups
 

@@ -205,23 +205,23 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto current_pc = msm_pc - msm_count;
 
         if constexpr (lookup_index == 0) {
-            const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
-            return read_term1; // degree 1
+            const auto lookup_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
+            return lookup_term1; // degree 1
         }
         if constexpr (lookup_index == 1) {
-            const auto read_term2 =
+            const auto lookup_term2 =
                 (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
-            return read_term2; // degree 1
+            return lookup_term2; // degree 1
         }
         if constexpr (lookup_index == 2) {
-            const auto read_term3 =
+            const auto lookup_term3 =
                 (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
-            return read_term3; // degree 1
+            return lookup_term3; // degree 1
         }
         if constexpr (lookup_index == 3) {
-            const auto read_term4 =
+            const auto lookup_term4 =
                 (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
-            return read_term4; // degree 1
+            return lookup_term4; // degree 1
         }
         return Accumulator(1);
     }
