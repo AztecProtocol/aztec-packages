@@ -41,14 +41,14 @@ bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
 
 WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input)
 {
-    WitnessOrConstant<bb::fr> result = std::visit(overloaded{ [&](const Acir::FunctionInput::Witness& e) {
+    WitnessOrConstant<bb::fr> result = std::visit(overloaded{ [](const Acir::FunctionInput::Witness& e) {
                                                                  return WitnessOrConstant<bb::fr>{
                                                                      .index = e.value.value,
                                                                      .value = bb::fr::zero(),
                                                                      .is_constant = false,
                                                                  };
                                                              },
-                                                              [&](const Acir::FunctionInput::Constant& e) {
+                                                              [](const Acir::FunctionInput::Constant& e) {
                                                                   return WitnessOrConstant<bb::fr>{
                                                                       .index = bb::stdlib::IS_CONSTANT,
                                                                       .value = from_buffer_with_bound_checks(e.value),
@@ -600,9 +600,9 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                                            AcirFormat& af,
                                            size_t opcode_index)
 {
-    auto to_witness_or_constant = [&](const Acir::FunctionInput& e) { return parse_input(e); };
-    auto to_witness = [&](const Acir::Witness& e) { return e.value; };
-    auto to_witness_from_input = [&](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
+    auto to_witness_or_constant = [](const Acir::FunctionInput& e) { return parse_input(e); };
+    auto to_witness = [](const Acir::Witness& e) { return e.value; };
+    auto to_witness_from_input = [](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
 
     std::visit(
         overloaded{ [&](const Acir::BlackBoxFuncCall::AND& arg) {
@@ -807,7 +807,7 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
 void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
     // Lambda to convert an Acir::Expression to a witness index
-    auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
+    auto acir_expression_to_witness_or_constant = [](const Acir::Expression& expr) {
         // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
         // that the data coming from Noir is in the correct form.
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
@@ -830,7 +830,7 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
     };
 
     // Lambda to determine whether a memory operation is a read or write operation
-    auto is_read_operation = [&](const Acir::Expression& expr) {
+    auto is_read_operation = [](const Acir::Expression& expr) {
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
         BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
 
