@@ -12,42 +12,33 @@ Every week you can join office hours, townhalls and ecosystem calls to get unblo
 
 ## Ecosystem Call
 
-- **When:** Biweekly · time in shared calendar
-- **Where:** [Google Meet](https://meet.google.com/rqs-ckcy-vyc)
-- **For:** Founders, contributors and newcomers. Updates, demos, feedback, open roles.
+- **When:** Biweekly · 16:00 - 16:30 UTC
+- **Where:** [Google Meet](https://meet.google.com/ekr-aedo-fph)
+- **For:** The Ecosystem Call is the place to be if you're building on Aztec. Get updates on libraries and devnet, watch demo apps, peek at what's coming next, and connect with the community. Building an app? Don't miss it.
 
 ---
 
-## Noir Office Hours
+## Aztec & Noir Developer Office Hours
 
-We offer two weekly sessions to accommodate different timezones.
+For Developers building with Aztec.nr smart contracts or writing and debugging Noir. Bring your questions about syntax, tooling, patterns, or protocol-level topics. Share a project you're working on, or just hang out with the Aztec Labs Dev Rel team and other devs.
 
 ### Morning Session (Americas/Europe)
 
 - **When:** Tuesdays · 15:00 – 16:00 UTC
-- **Where:** [Google Meet](https://meet.google.com/hyh-bdqm-ijg)
-- **For:** Developers writing or debugging Noir. Bring your questions about syntax, tooling, and patterns.
+- **Where:** [Google Meet](https://meet.google.com/pxt-nzfk-bar)
 
 ### Evening Session (Europe/Asia-Pacific)
 
-- **When:** Wednesdays · 01:00 – 01:30 UTC
-- **Where:** [Google Meet](https://meet.google.com/hyh-bdqm-ijg)
-- **For:** An informal session to hang out with the Aztec Labs Dev Rel team and other Noir devs. Bring questions, share a project, or just come listen.
+- **When:** Wednesdays · 02:30 – 03:30 UTC
+- **Where:** [Google Meet](https://meet.google.com/fks-eyrs-nqv)
+
 
 ---
 
-## Aztec Developer Office Hours
+## Community Townhall (Privacy Rabbit Hole)
 
-- **When:** Wednesdays · 01:30 – 02:30 UTC
-- **Where:** [Google Meet](https://meet.google.com/say-ognq-dpc)
-- **For:** Aztec-focused developer questions. The Aztec Labs team is available to answer anything: high-level, architectural, protocol, debugging, and more.
-
----
-
-## Community Townhall
-
-- **When:** Thursdays · Time in shared calendar
-- **Where:** [Google Meet](https://discord.gg/aztec)
+- **When:** Thursdays · 15:00 - 16:00 UTC
+- **Where:** [Discord Event](https://discord.com/events/1144692727120937080/1410275743388270804)
 - **For:** The entire community, from contributors to newcomers. Updates from the core team, open discussions, roadmap insights.
 
 ---
