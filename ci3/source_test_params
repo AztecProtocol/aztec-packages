@@ -1,0 +1,30 @@
+# Source this to parse a full_cmd and extract test parameters.
+# Usage: full_cmd="<hash>[:VAR=val]... <test_command>" source $ci3/source_test_params
+#
+# Requires:
+#   full_cmd - The full test command string
+#
+# Exports:
+#   hash_prefix  - First token (hash and embedded vars)
+#   test_cmd     - Everything after first space
+#   CPUS, TIMEOUT, MEM, CPU_LIST, ISOLATE, MAKEFILE_TARGET, etc.
+
+# Parse full_cmd: extract hash prefix and test command
+hash_prefix="${full_cmd%% *}"
+test_cmd="${full_cmd#* }"
+
+# Extract variables from hash prefix (format: hash:CPUS=4:TIMEOUT=900s:MAKEFILE_TARGET=yarn-project)
+# This must happen before defaults are set so that e.g. MEM can use extracted CPUS.
+if [[ "$hash_prefix" == *:* ]]; then
+  IFS=':' read -ra parts <<< "$hash_prefix"
+  for var_assignment in "${parts[@]:1}"; do
+    export "$var_assignment"
+  done
+fi
+
+# Apply defaults for unset variables
+export TIMEOUT=${TIMEOUT:-600s}
+export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
+export CPUS=${CPUS:-2}
+export MEM=${MEM:-$((CPUS * 4))g}
+# MAKEFILE_TARGET has no default (empty means full bootstrap)
