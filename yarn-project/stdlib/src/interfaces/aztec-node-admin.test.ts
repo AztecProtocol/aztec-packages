@@ -170,6 +170,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       pollingIntervalMs: 50,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      },
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

@@ -490,7 +490,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     // Let A = (x, y) and P = (x₁, y₁)
     // For the first point P, we want to compute: (2A + P) = (A + P) + A
     // We first need to check if x ≠ x₁.
-    x().assert_is_not_equal(add[0].x3_prev);
+    x().assert_is_not_equal(add[0].x3_prev, "biggroup::multiple_montgomery_ladder: x-coordinates must be distinct.");
 
     // Compute λ₁ for computing the first addition: (A + P)
     Fq lambda1;
@@ -522,7 +522,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     //    = (y - (λ₁ * (x - x₃) - y)) / (x - x₃)    (substituting y₃)
     //    = (2y) / (x - x₃) - λ₁
     //
-    x().assert_is_not_equal(x_3);
+    x().assert_is_not_equal(x_3, "biggroup::multiple_montgomery_ladder: x-coordinates must be distinct.");
     Fq lambda2 = Fq::div_without_denominator_check({ y() + y() }, (x() - x_3)) - lambda1;
 
     // Using λ₂, compute x₄ for the final result:
@@ -552,7 +552,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         // Let x = previous_x, y = previous_y
         // Let P = (xᵢ, yᵢ) be the next point to add (represented by add[i])
         // Ensure x-coordinates are distinct: x ≠ xᵢ
-        previous_x.assert_is_not_equal(add[i].x3_prev);
+        previous_x.assert_is_not_equal(add[i].x3_prev,
+                                       "biggroup::multiple_montgomery_ladder: x-coordinates must be distinct.");
 
         // Determine sign adjustment based on previous y's sign
         // If the previous y was positive, we need to negate the y-component from add[i]
@@ -602,7 +603,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         //    = (2y) / (x - x₃) - λ₁
         //    = -2(y / (x₃ - x)) - λ₁
         //
-        previous_x.assert_is_not_equal(x_3);
+        previous_x.assert_is_not_equal(x_3, "biggroup::multiple_montgomery_ladder: x-coordinates must be distinct.");
         Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
         Fq partial_lambda2 = Fq::msub_div(previous_y.mul_left,
                                           previous_y.mul_right,

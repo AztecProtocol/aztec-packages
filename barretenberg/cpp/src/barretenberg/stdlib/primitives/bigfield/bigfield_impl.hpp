@@ -1486,7 +1486,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 {
     // Check the basics
     BB_ASSERT_EQ(mul_left.size(), mul_right.size());
-    BB_ASSERT(divisor.get_value() != 0);
+    BB_ASSERT((divisor.get_value() % modulus_u512) != 0, "bigfield: Division by zero in msub_div");
 
     OriginTag new_tag = divisor.get_origin_tag();
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {

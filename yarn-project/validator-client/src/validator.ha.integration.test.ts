@@ -57,6 +57,7 @@ describe('ValidatorClient HA Integration', () => {
   let txProvider: MockProxy<TxProvider>;
   let blobClient: MockProxy<BlobClientInterface>;
   let dateProvider: TestDateProvider;
+  let rollupAddress: EthAddress;
 
   // Track resources for cleanup
   let pools: Pool[];
@@ -115,6 +116,8 @@ describe('ValidatorClient HA Integration', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
+    rollupAddress = EthAddress.random();
+
     // Create 5 HA validator instances for use across all tests
     const baseConfig: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
@@ -123,6 +126,7 @@ describe('ValidatorClient HA Integration', () => {
       disabledValidators: [],
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      l1Contracts: { rollupAddress },
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,

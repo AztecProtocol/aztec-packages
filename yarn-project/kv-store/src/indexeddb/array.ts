@@ -32,7 +32,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T> 
     return (
       (await this.db
         .index('key')
-        .count(IDBKeyRange.bound([this.#container, this.#name], [this.#container, this.#name]))) ?? 0
+        .count(IDBKeyRange.bound([this.#container, [this.#name]], [this.#container, [this.#name]]))) ?? 0
     );
   }
 
@@ -43,7 +43,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T> 
         value: val,
         hash: hash(val),
         container: this.#container,
-        key: this.#name,
+        key: [this.#name],
         keyCount: length + 1,
         slot: this.#slot(length),
       });
@@ -91,7 +91,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T> 
       value: val,
       hash: hash(val),
       container: this.#container,
-      key: this.#name,
+      key: [this.#name],
       keyCount: index + 1,
       slot: this.#slot(index),
     });
@@ -100,7 +100,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T> 
 
   async *entriesAsync(): AsyncIterableIterator<[number, T]> {
     const index = this.db.index('key');
-    const rangeQuery = IDBKeyRange.bound([this.#container, this.#name], [this.#container, this.#name]);
+    const rangeQuery = IDBKeyRange.bound([this.#container, [this.#name]], [this.#container, [this.#name]]);
     for await (const cursor of index.iterate(rangeQuery)) {
       yield [cursor.value.keyCount - 1, cursor.value.value] as [number, T];
     }

@@ -20,7 +20,7 @@ import { IndexedDBAztecSingleton } from './singleton.js';
 export type StoredData<V extends Value> = {
   value: V;
   container: string;
-  key: string;
+  key: (string | number | Uint8Array)[];
   keyCount: number;
   slot: string;
   hash: string;
@@ -30,7 +30,12 @@ export interface AztecIDBSchema extends DBSchema {
   data: {
     value: StoredData<any>;
     key: string;
-    indexes: { container: string; key: string; keyCount: number; hash: string };
+    indexes: {
+      container: string;
+      key: any; // Runtime: (string | number | Uint8Array)[] - idb types don't support arrays
+      keyCount: number;
+      hash: string;
+    };
   };
 }
 

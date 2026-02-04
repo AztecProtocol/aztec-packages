@@ -62,23 +62,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
-     * @brief Reconstruct a biggroup element from limbs of its coordinates (generally stored in the public inputs)
-     *
-     * @param limbs
-     * @return element
-     */
-    static element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
-        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
-        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
-
-        const Fq x = Fq::reconstruct_from_public(x_limbs);
-        const Fq y = Fq::reconstruct_from_public(y_limbs);
-        return element(x, y);
-    }
-
-    /**
      * @brief Create a biggroup witness from a native group element, allocating new witnesses as necessary
      *
      * @param ctx

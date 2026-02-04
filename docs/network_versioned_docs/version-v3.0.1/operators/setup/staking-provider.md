@@ -22,7 +22,7 @@ Before proceeding, ensure you have:
 - Aztec CLI v3.0.1 or later installed:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
+bash -i <(curl -sL https://install.aztec.network)
 aztec-up 3.0.1
 ```
 

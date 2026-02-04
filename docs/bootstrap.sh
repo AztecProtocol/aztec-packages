@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export BB=${BB:-../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-../avm-transpiler/target/release/avm-transpiler}
-export BB_HASH=${BB_HASH:-$(../barretenberg/cpp/bootstrap.sh hash)}
+repo_root=$(git rev-parse --show-toplevel)
+export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
+export TRANSPILER=${TRANSPILER:-$repo_root/avm-transpiler/target/release/avm-transpiler}
+export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
