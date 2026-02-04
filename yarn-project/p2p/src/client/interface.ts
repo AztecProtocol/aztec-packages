@@ -1,7 +1,7 @@
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
@@ -156,10 +156,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   getPendingTxCount(): Promise<number>;
 
   /**
-   * Marks transactions as non-evictable in the pool.
-   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   * Marks transactions as protected (non-evictable) in the pool.
+   * @param txHashes - Hashes of the transactions to mark as protected.
+   * @param blockHeader - The block header providing slot context.
+   * @returns Hashes of transactions not found in the pool.
    */
-  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+  markTxsAsNonEvictable(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]>;
 
   /**
    * Starts the p2p client.

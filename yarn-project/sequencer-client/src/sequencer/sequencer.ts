@@ -376,6 +376,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.lastSlotForCheckpointProposalJob = slot;
+    // TODO(pw/tx-pool): Call txPool.prepareForSlot(slotNumber) here when transitioning to a new slot
     this.log.info(`Preparing checkpoint proposal ${checkpointNumber} at slot ${slot}`, { ...logCtx, proposer });
 
     // Create and return the checkpoint proposal job

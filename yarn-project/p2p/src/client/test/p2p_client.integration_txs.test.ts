@@ -14,7 +14,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../../services/reqresp/protocols/tx.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
@@ -26,7 +26,7 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUMBER_OF_PEERS = 2;
 
 describe('p2p client integration', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -38,7 +38,7 @@ describe('p2p client integration', () => {
 
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -52,10 +52,7 @@ describe('p2p client integration', () => {
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
-    });
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });

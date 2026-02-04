@@ -11,8 +11,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { TxPool } from '../../mem_pools/index.js';
-import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
@@ -61,16 +60,16 @@ export class TxCollection {
   private readonly txCollectionSink: TxCollectionSink;
 
   /** Handler for the txs-added event from the tx pool */
-  protected readonly handleTxsAddedToPool: TxPoolEvents['txs-added'];
+  protected readonly handleTxsAddedToPool: TxPoolV2Events['txs-added'];
 
   /** Handler for the txs-added event from the tx collection sink */
-  protected readonly handleTxsFound: TxPoolEvents['txs-added'];
+  protected readonly handleTxsFound: TxPoolV2Events['txs-added'];
 
   constructor(
     private readonly p2pService: BatchTxRequesterLibP2PService,
     private readonly nodes: TxSource[],
     private readonly constants: L1RollupConstants,
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     private readonly config: TxCollectionConfig,
     private readonly dateProvider: DateProvider = new DateProvider(),
     telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -104,12 +103,12 @@ export class TxCollection {
       this.config.txCollectionReconcileIntervalMs,
     );
 
-    this.handleTxsFound = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+    this.handleTxsFound = (args: Parameters<TxPoolV2Events['txs-added']>[0]) => {
       this.foundTxs(args.txs);
     };
     this.txCollectionSink.on('txs-added', this.handleTxsFound);
 
-    this.handleTxsAddedToPool = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+    this.handleTxsAddedToPool = (args: Parameters<TxPoolV2Events['txs-added']>[0]) => {
       const { txs, source } = args;
       if (source !== 'tx-collection') {
         this.foundTxs(txs);

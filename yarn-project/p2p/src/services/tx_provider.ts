@@ -11,7 +11,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PClient } from '../client/p2p_client.js';
-import type { TxPool } from '../mem_pools/index.js';
+import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { FastCollectionRequestInput, TxCollection } from './tx_collection/tx_collection.js';
 import { TxProviderInstrumentation } from './tx_provider_instrumentation.js';
 
@@ -24,7 +24,7 @@ export class TxProvider implements ITxProvider {
 
   constructor(
     private txCollection: TxCollection,
-    private txPool: TxPool,
+    private txPool: TxPoolV2,
     private txValidator: Pick<P2PClient, 'validate'>,
     private log: Logger = createLogger('p2p:tx-collector'),
     client: TelemetryClient = getTelemetryClient(),
@@ -227,6 +227,7 @@ export class TxProvider implements ITxProvider {
       return;
     }
     await this.txValidator.validate(txs);
-    await this.txPool.addTxs(txs);
+    // TODO(pw/tx-pool): Add context on the expected state on this tx
+    await this.txPool.addPendingTxs(txs);
   }
 }

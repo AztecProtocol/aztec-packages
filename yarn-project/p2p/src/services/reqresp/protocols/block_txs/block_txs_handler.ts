@@ -4,7 +4,7 @@ import { TxArray } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import type { AttestationPool } from '../../../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../../../mem_pools/index.js';
+import type { TxPoolV2 } from '../../../../mem_pools/tx_pool_v2/interfaces.js';
 import type { ReqRespSubProtocolHandler } from '../../interface.js';
 import { ReqRespStatus, ReqRespStatusError } from '../../status.js';
 import { BitVector } from './bitvector.js';
@@ -16,7 +16,7 @@ import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
  * @param mempools - the mempools containing the tx pool
  * @returns the BlockTxs request handler
  */
-export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool: TxPool): ReqRespSubProtocolHandler {
+export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool: TxPoolV2): ReqRespSubProtocolHandler {
   /**
    * Handler for block txs requests
    * @param msg - the block txs request message

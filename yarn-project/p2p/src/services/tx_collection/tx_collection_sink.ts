@@ -6,7 +6,7 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
 
-import type { TxPool, TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { TxCollectionInstrumentation } from './instrumentation.js';
 import type { CollectionMethod } from './tx_collection.js';
 
@@ -14,11 +14,11 @@ import type { CollectionMethod } from './tx_collection.js';
  * Executes collection requests from the fast and slow collection loops, and handles collected txs
  * by adding them to the tx pool and emitting events, as well as handling logging and metrics.
  */
-export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>) {
+export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) {
   private readonly instrumentation: TxCollectionInstrumentation;
 
   constructor(
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     telemetryClient: TelemetryClient,
     private readonly log: Logger,
   ) {
@@ -114,7 +114,8 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
 
     // Add the txs to the tx pool (should not fail, but we catch it just in case)
     try {
-      await this.txPool.addTxs(txs, { source: `tx-collection` });
+      // TODO(pw/tx-pool): Add context on the expected state on this tx
+      await this.txPool.addPendingTxs(txs, { source: `tx-collection` });
     } catch (err) {
       this.log.error(`Error adding txs to the pool via ${info.description}`, err, {
         ...info,

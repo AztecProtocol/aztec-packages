@@ -882,7 +882,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
       const isValid = await this.validatePropagatedTx(tx, source);
-      const exists = isValid && (await this.mempools.txPool.hasTx(tx.getTxHash()));
+      const exists = isValid && (await this.mempools.txPool.hasTxs([tx.getTxHash()]))[0];
 
       this.logger.trace(`Validate propagated tx`, {
         isValid,
@@ -917,7 +917,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     this.instrumentation.incrementTxReceived(1);
-    await this.mempools.txPool.addTxs([tx]);
+    await this.mempools.txPool.addPendingTxs([tx]);
   }
 
   /**
@@ -1073,8 +1073,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       throw err;
     }
 
-    // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    // Mark the txs in this proposal as protected
+    await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
     // Call the block received callback to validate the proposal.
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
@@ -1163,9 +1163,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Add proposal to the pool (this extracts and stores block proposal separately)
     await this.mempools.attestationPool.addCheckpointProposal(checkpoint);
 
-    // Mark txs as non-evictable if present (from the last block)
-    if (checkpoint.txHashes.length > 0) {
-      await this.mempools.txPool.markTxsAsNonEvictable(checkpoint.txHashes);
+    // Mark txs as protected if present (from the last block)
+    if (checkpoint.txHashes.length > 0 && checkpoint.lastBlock) {
+      await this.mempools.txPool.protectTxs(checkpoint.txHashes, checkpoint.lastBlock.blockHeader);
     }
 
     // If there was a last block proposal, invoke the block callback first for validation.

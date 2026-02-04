@@ -1,23 +1,13 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times, timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { timesAsync } from '@aztec/foundation/collection';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import {
-  MerkleTreeId,
-  NullifierLeaf,
-  NullifierLeafPreimage,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-} from '@aztec/stdlib/trees';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
@@ -27,14 +17,13 @@ import type { P2PConfig } from '../config.js';
 import { InMemoryAttestationPool, type P2PService } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import { AztecKVTxPool } from '../mem_pools/tx_pool/aztec_kv_tx_pool.js';
-import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import type { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { P2PClient } from './p2p_client.js';
 
 describe('P2P Client', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: AttestationPool;
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
@@ -45,13 +34,11 @@ describe('P2P Client', () => {
   let l1Constants: L1RollupConstants;
 
   beforeEach(async () => {
-    txPool = mock<TxPool>();
-    txPool.getAllTxs.mockResolvedValue([]);
+    txPool = mock<TxPoolV2>();
     txPool.getPendingTxHashes.mockResolvedValue([]);
     txPool.getMinedTxHashes.mockResolvedValue([]);
-    txPool.getAllTxHashes.mockResolvedValue([]);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
 
     p2pService = mock<P2PService>();
     p2pService.sendBatchRequest.mockResolvedValue([]);
@@ -108,7 +95,7 @@ describe('P2P Client', () => {
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
-    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);
     expect(p2pService.propagate).toHaveBeenCalledTimes(2);
 
     await client.stop();
@@ -119,10 +106,11 @@ describe('P2P Client', () => {
     const tx1 = await mockTx();
 
     await client.sendTx(tx1);
-    txPool.addTxs.mockResolvedValueOnce(0);
+    // Return empty accepted array to indicate tx was ignored (already existed)
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [], ignored: [tx1.getTxHash()], rejected: [] });
     await client.sendTx(tx1);
 
-    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);
     expect(p2pService.propagate).toHaveBeenCalledTimes(1);
 
     await client.stop();
@@ -135,11 +123,11 @@ describe('P2P Client', () => {
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
-    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);
     await client.stop();
     const tx3 = await mockTx();
     await expect(client.sendTx(tx3)).rejects.toThrow();
-    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);
   });
 
   it('restores the previous block number it was at', async () => {
@@ -154,17 +142,17 @@ describe('P2P Client', () => {
   it('deletes txs once block is finalized', async () => {
     blockSource.setProvenBlockNumber(0);
     await client.start();
-    expect(txPool.deleteTxs).not.toHaveBeenCalled();
+    expect(txPool.handleFinalizedBlock).not.toHaveBeenCalled();
 
     await advanceToProvenBlock(BlockNumber(5));
-    expect(txPool.deleteTxs).not.toHaveBeenCalled();
+    expect(txPool.handleFinalizedBlock).not.toHaveBeenCalled();
 
     await advanceToFinalizedBlock(BlockNumber(5));
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
-    txPool.deleteTxs.mockClear();
+    expect(txPool.handleFinalizedBlock).toHaveBeenCalledTimes(1);
+    txPool.handleFinalizedBlock.mockClear();
 
     await advanceToFinalizedBlock(BlockNumber(8));
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
+    expect(txPool.handleFinalizedBlock).toHaveBeenCalledTimes(1);
     await client.stop();
   });
 
@@ -176,8 +164,8 @@ describe('P2P Client', () => {
     // P2P service will not return tx2
     p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[mockTx1, mockTx3])]);
 
-    // Spy on the tx pool addTxs method, it should not be called for the missing tx
-    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+    // Spy on the tx pool addPendingTxs method, it should not be called for the missing tx
+    const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
 
     // We query for all 3 txs
     const txHashes = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
@@ -198,7 +186,7 @@ describe('P2P Client', () => {
 
     // Retrieved txs should have been added to the pool
     expect(addTxsSpy).toHaveBeenCalledTimes(1);
-    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3]);
+    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3], expect.any(Object));
   });
 
   it('getTxsByHash handles missing items', async () => {
@@ -213,7 +201,7 @@ describe('P2P Client', () => {
       Promise.resolve(txHash === txInMempool.getTxHash() ? txInMempool : undefined),
     );
 
-    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+    const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
     const requestTxsSpy = jest.spyOn(client, 'requestTxsByHash');
 
     p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[txToBeRequested])]);
@@ -226,7 +214,7 @@ describe('P2P Client', () => {
     // We should return the resolved transactions
     expect(results).toEqual([txInMempool, txToBeRequested]);
     // We should add the found requested transactions to the pool
-    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
+    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested], expect.any(Object));
     // We should request the missing transactions from the network, but only find one of them
     expect(requestTxsSpy).toHaveBeenCalledWith([txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()], undefined);
   });
@@ -258,16 +246,22 @@ describe('P2P Client', () => {
     const allTxs = await timesAsync(50, i => mockTx(i));
     const minedTxs = allTxs.slice(0, Math.ceil(allTxs.length / 3));
     const pendingTxs = allTxs.slice(Math.ceil(allTxs.length / 3));
+    // TxPoolV2's getTxs('all') returns pending first, then mined
+    const allTxsInNewOrder = [...pendingTxs, ...minedTxs];
 
-    txPool.getMinedTxHashes.mockResolvedValue(minedTxs.map(tx => [tx.getTxHash(), BlockNumber(42)]));
+    // Mock with block ID instead of just block number (TxPoolV2 returns [TxHash, L2BlockId][])
+    txPool.getMinedTxHashes.mockResolvedValue(
+      minedTxs.map(tx => [tx.getTxHash(), { number: BlockNumber(42), hash: '0x42' }]),
+    );
     txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(pendingTxs.map(tx => tx.getTxHash())));
 
-    txPool.getAllTxs.mockResolvedValue(allTxs);
-    txPool.getAllTxHashes.mockResolvedValue(await Promise.all(allTxs.map(tx => tx.getTxHash())));
     txPool.getTxByHash.mockImplementation(hash => Promise.resolve(allTxs.find(tx => hash.equals(tx.getTxHash()))));
+    txPool.getTxsByHash.mockImplementation(hashes =>
+      Promise.resolve(hashes.map(h => allTxs.find(tx => h.equals(tx.getTxHash())))),
+    );
 
     for (const [txType, txs] of [
-      ['all', allTxs],
+      ['all', allTxsInNewOrder],
       ['pending', pendingTxs],
       ['mined', minedTxs],
     ] as const) {
@@ -291,31 +285,19 @@ describe('P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    it('deletes transactions mined in pruned blocks when flag is enabled', async () => {
-      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+    it('calls handlePrunedBlocks when chain is pruned', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
-
-      // Create two transactions:
-      // 1. A transaction mined in block 95 (which will be pruned)
-      // 2. A transaction mined in block 90 (which will remain)
-      const txMinedInPrunedBlock = await mockTx();
-      const txMinedInKeptBlock = await mockTx();
-
-      // Mock the mined transactions
-      txPool.getMinedTxHashes.mockResolvedValue([
-        [txMinedInPrunedBlock.getTxHash(), BlockNumber(95)],
-        [txMinedInKeptBlock.getTxHash(), BlockNumber(90)],
-      ]);
-
-      txPool.getAllTxs.mockResolvedValue([txMinedInPrunedBlock, txMinedInKeptBlock]);
 
       // Prune the chain back to block 90
       blockSource.removeBlocks(10);
       await client.sync();
 
-      // Verify only the transaction mined in the pruned block is deleted
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([txMinedInPrunedBlock.getTxHash()]);
+      // Verify handlePrunedBlocks is called with the correct block ID
+      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith({
+        number: BlockNumber(90),
+        hash: expect.any(String),
+      });
       await client.stop();
     });
 
@@ -358,58 +340,6 @@ describe('P2P Client', () => {
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
-    });
-
-    it('deletes txs created from a pruned block', async () => {
-      client = createClient();
-      blockSource.setProvenBlockNumber(0);
-      await client.start();
-
-      // add two txs to the pool. One build against block 90, one against block 95
-      // then prune the chain back to block 90
-      // only one tx should be deleted
-      const goodTx = await mockTx();
-      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(90);
-
-      const badTx = await mockTx();
-      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(95);
-
-      txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
-
-      blockSource.removeBlocks(10);
-      await client.sync();
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
-      await client.stop();
-    });
-
-    it('moves mined and valid txs back to the pending set', async () => {
-      client = createClient();
-      blockSource.setProvenBlockNumber(0);
-      await client.start();
-
-      // add three txs to the pool built against different blocks
-      // then prune the chain back to block 90
-      // only one tx should be deleted
-      const goodButOldTx = await mockTx();
-      goodButOldTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(89);
-
-      const goodTx = await mockTx();
-      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(90);
-
-      const badTx = await mockTx();
-      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(95);
-
-      txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
-      txPool.getMinedTxHashes.mockResolvedValue([
-        [goodButOldTx.getTxHash(), BlockNumber(90)],
-        [goodTx.getTxHash(), BlockNumber(91)],
-      ]);
-
-      blockSource.removeBlocks(10);
-      await client.sync();
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
-      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()], expect.any(Number));
-      await client.stop();
     });
   });
 
@@ -503,90 +433,6 @@ describe('P2P Client', () => {
       expect(actualBlock.number).toEqual(block.number);
       expect(await actualBlock.hash()).toEqual(await block.hash());
       expect(actualTxHashes).toEqual([block.body.txEffects[1].txHash]);
-    });
-
-    it('clears non-evictable txs when new blocks are synced', async () => {
-      await client.start();
-      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
-      await client.sync();
-
-      expect(txPool.clearNonEvictableTxs).toHaveBeenCalled();
-    });
-
-    it('evicts low priority txs after block is mined and non-evictable status is cleared', async () => {
-      const worldState = mock<WorldStateSynchronizer>();
-      const db = mock<MerkleTreeReadOperations>();
-      worldState.getCommitted.mockReturnValue(db);
-      worldState.getSnapshot.mockReturnValue(db);
-
-      db.findLeafIndices.mockImplementation((_tree, leaves) => {
-        return Promise.resolve(times(leaves.length, () => 1n));
-      });
-      db.getPreviousValueIndex.mockImplementation((_tree, slot) => {
-        return Promise.resolve({ index: slot, alreadyPresent: true });
-      });
-      db.getLeafPreimage.mockImplementation((tree, index) => {
-        return Promise.resolve(
-          tree === MerkleTreeId.NULLIFIER_TREE
-            ? new NullifierLeafPreimage(new NullifierLeaf(new Fr(index)), Fr.ONE, 1n)
-            : new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(1e18)), Fr.ONE, 1n),
-        );
-      });
-
-      const realTxPool = new AztecKVTxPool(
-        await openTmpStore('p2p'),
-        await openTmpStore('archive'),
-        worldState,
-        undefined,
-        { maxPendingTxCount: 3 },
-      );
-
-      const realMempools = { txPool: realTxPool, attestationPool };
-      const realClient = new P2PClient(
-        P2PClientType.Full,
-        await openTmpStore('test-real'),
-        blockSource,
-        realMempools,
-        p2pService,
-        txCollection,
-        {},
-      );
-
-      let nextTxSeed = 1;
-      const tx1 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(1, 1) });
-      const tx2 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(2, 2) });
-      const tx3 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(3, 3) });
-      await realTxPool.addTxs([tx1, tx2, tx3]);
-      await expect(realTxPool.getPendingTxHashes()).resolves.toEqual([
-        tx3.getTxHash(),
-        tx2.getTxHash(),
-        tx1.getTxHash(),
-      ]);
-
-      await realTxPool.markTxsAsNonEvictable([tx1.getTxHash()]);
-
-      const tx4 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(4, 4) });
-      const tx5 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(5, 5) });
-      await realTxPool.addTxs([tx4, tx5]);
-      await expect(realTxPool.getPendingTxHashes()).resolves.toEqual([
-        tx5.getTxHash(),
-        tx4.getTxHash(),
-        tx1.getTxHash(),
-      ]);
-
-      await realClient.start();
-      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101))]);
-      await realClient.sync();
-
-      const tx6 = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas: new GasFees(6, 6) });
-      await realTxPool.addTxs([tx6]);
-      await expect(realTxPool.getPendingTxHashes()).resolves.toEqual([
-        tx6.getTxHash(),
-        tx5.getTxHash(),
-        tx4.getTxHash(),
-      ]);
-
-      await realClient.stop();
     });
   });
 });

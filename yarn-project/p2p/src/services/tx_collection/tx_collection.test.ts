@@ -13,8 +13,7 @@ import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { TxPool } from '../../mem_pools/index.js';
-import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { ConnectionSampler } from '../reqresp/connection-sampler/connection_sampler.js';
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
@@ -33,7 +32,7 @@ describe('TxCollection', () => {
   const connectionSampler = mock<ConnectionSampler>();
   const mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
   let nodes: MockProxy<TxSource>[];
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let constants: L1RollupConstants;
   let config: TxCollectionConfig;
   let dateProvider: TestDateProvider;
@@ -102,7 +101,7 @@ describe('TxCollection', () => {
   };
 
   const expectTxsAddedToPool = (txs: Tx[]) => {
-    expect(txPool.addTxs).toHaveBeenCalledWith(txs, { source: 'tx-collection' });
+    expect(txPool.addPendingTxs).toHaveBeenCalledWith(txs, { source: 'tx-collection' });
   };
 
   const sortByHash = (txs: Tx[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
@@ -114,7 +113,7 @@ describe('TxCollection', () => {
 
     nodes = [makeNode('node1'), makeNode('node2')];
 
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     txPool.getTxsByHash.mockResolvedValue([]);
 
     dateProvider = new TestDateProvider();
@@ -455,9 +454,9 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
 
-      txPool.addTxs.mockImplementation(txs => {
+      txPool.addPendingTxs.mockImplementation((txs: Tx[]) => {
         jest.clearAllMocks();
-        return Promise.resolve(txs.length);
+        return Promise.resolve({ accepted: txs.map(tx => tx.getTxHash()), ignored: [], rejected: [] });
       });
 
       // Simulate a tx found in a node, another one via reqresp, and a third one added to the pool via gossipsub
@@ -512,5 +511,5 @@ class TestFastTxCollection extends FastTxCollection {
 class TestTxCollection extends TxCollection {
   declare slowCollection: SlowTxCollection;
   declare fastCollection: TestFastTxCollection;
-  declare handleTxsAddedToPool: TxPoolEvents['txs-added'];
+  declare handleTxsAddedToPool: TxPoolV2Events['txs-added'];
 }
