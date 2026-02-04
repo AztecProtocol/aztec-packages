@@ -70,6 +70,8 @@ The FFI backend provides pre-built static libraries for:
 - macOS arm64 (Apple Silicon)
 - iOS arm64 (device)
 - iOS arm64 Simulator (Apple Silicon)
+- Android arm64
+- Android x86_64 (emulator)
 
 ## API
 

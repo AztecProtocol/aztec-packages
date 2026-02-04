@@ -261,3 +261,92 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
+
+  # iOS cross-compilation build for barretenberg.
+  # Runs in parallel with the main CI job on every PR (~9 min per target).
+  # This builds the bb-external static library for iOS devices and simulators.
+  # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
+  build-bb-ios:
+    name: Build iOS static libraries
+    runs-on: macos-14
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: ios-arm64
+            label: arm64-ios
+          - preset: ios-sim-arm64
+            label: arm64-ios-sim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create Build Environment
+        run: |
+          brew install cmake ninja
+
+      - name: Compile bb-external for iOS
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --target bb-external
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\": \"#honk-team\", \"text\": \"iOS build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
+          fi
+
+  # Android cross-compilation build for barretenberg.
+  # Runs in parallel with the main CI job on every PR (~9 min per target).
+  # This builds the bb-external static library for Android devices and emulators.
+  # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
+  build-bb-android:
+    name: Build Android static libraries
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: android-arm64
+            label: arm64-android
+          - preset: android-x86_64
+            label: x86_64-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Create Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Compile bb-external for Android
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --target bb-external
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\": \"#honk-team\", \"text\": \"Android build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
+          fi
