@@ -2,6 +2,15 @@
   "name": "@aztec/node-lib",
   "version": "0.1.0",
   "type": "module",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/actions/index.ts",
+      "./src/config/index.ts",
+      "./src/factories/index.ts"
+    ],
+    "name": "Node Library",
+    "tsconfig": "./tsconfig.json"
+  },
   "exports": {
     "./actions": "./dest/actions/index.js",
     "./config": "./dest/config/index.js",
