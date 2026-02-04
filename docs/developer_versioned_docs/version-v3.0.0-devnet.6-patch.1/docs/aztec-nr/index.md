@@ -1,14 +1,37 @@
 ---
-title: Developing Smart Contracts
+title: Overview
 sidebar_position: 0
 tags: [aztec.nr, smart contracts]
 description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
+references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import DocCardList from "@theme/DocCardList";
 
-Aztec.nr is the smart contract development framework for Aztec. It is a set of utilities that
-help you write Noir programs to deploy on the Aztec network.
+Aztec.nr is a Noir framework used to develop and test Aztec smart contracts. It contains both high-level abstractions (state variables, messages) and low-level protocol primitives, providing granular control to developers if they want custom contracts.
+
+:::tip
+If you are already familiar with writing Aztec smart contracts and Aztec.nr, visit the [API reference](pathname:///aztec-nr-api/devnet/).
+:::
+
+## Motivation
+
+Noir _can_ be used to write circuits, but Aztec contracts are more complex than this. They include multiple external functions, each of a different type: circuits for private functions, AVM bytecode for public functions, and brillig bytecode for utility functions. The circuits for private functions are also need to interact with the protocol's kernel circuits in specific ways, so manually writing them, and then combining everything into a contract artifact is involved work. Aztec.nr takes care of all of this heavy lifting and makes writing contracts as simple as marking functions with the corresponding attributes e.g. `#[external(private)]`.
+
+It allows safe and easy implementation of well understood design patterns, such as the multiple kinds of private state variables, meaning developers don't need to understand the low-levels of how the protocol works. These features are optional, however, advanced developers are not prevented from building their own custom solutions.
+
+## Design principles
+
+- Make it hard to shoot yourself in the foot by making it clear when something is unsafe.
+- Dangerous actions should be easy to spot. e.g. ignoring return values or calling functions with the `_unsafe` prefix.
+- This is achieved by having rails that intentionally trigger a developer's "WTF?" response, to ensure they understand what they're doing.
+
+A good example of this is writing to private state variables. These functions return a `NoteMessage` struct, which results in a compiler error unless used. This is because writing to private state also requires sending an encrypted message with the new state to the people that need to access it - otherwise, because it is private, they will not even know the state changed.
+
+```
+storage.votes.insert(new_vote); // compiler error - unused NoteMessagePendingDelivery return value
+storage.votes.insert(new_vote).deliver(vote_counter); // the vote counter account will now be notified of the new vote
+```
 
 ## Contract Development
 
@@ -25,38 +48,20 @@ help you write Noir programs to deploy on the Aztec network.
 ```toml
 # Nargo.toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v3.0.0-devnet.6-patch.1", directory="aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_version", directory="aztec" }
 ```
 
 Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
 
-```rust title="setup" showLineNumbers
-use dep::aztec::macros::aztec;
-
-#[aztec]
-pub contract Counter {
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/contracts/counter_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L1-L6</a></sub></sup>
-
+#include_code setup /docs/examples/contracts/counter_contract/src/main.nr rust
 
 and import dependencies from the Aztec.nr library.
 
-```rust title="imports" showLineNumbers
-use aztec::{
-    macros::{functions::{external, initializer}, storage::storage},
-    messages::message_delivery::MessageDelivery,
-    oracle::debug_log::debug_log_format,
-    protocol_types::{address::AztecAddress, traits::ToField},
-    state_vars::Owned,
-};
-use balance_set::BalanceSet;
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/contracts/counter_contract/src/main.nr#L7-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L7-L16</a></sub></sup>
-
+#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
 
 :::info
 
-You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/contracts/counter_contract/src/main.nr).
+You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/docs/examples/contracts/counter_contract/src/main.nr).
 
 :::
 

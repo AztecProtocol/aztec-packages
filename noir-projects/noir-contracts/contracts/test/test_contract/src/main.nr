@@ -82,7 +82,9 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
+        // docs:start:private_immutable
         note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        // docs:end:private_immutable
         struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
         note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
         struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,

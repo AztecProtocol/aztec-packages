@@ -33,6 +33,10 @@
     from = "/developers/reference/smart_contract_reference/storage/*"
     to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
 
+[[redirects]]
+    from = "/developers/guides/smart_contracts/how_to_define_storage"
+    to = "/developers/docs/guides/smart_contracts/state_variables"
+
 # [[redirects]]
 #     from = "/developers/docs/aztec-cli/cli_reference"
 #     to = "/developers/docs/cli/aztec_cli_reference"

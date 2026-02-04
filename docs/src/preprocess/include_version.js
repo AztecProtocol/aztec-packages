@@ -107,6 +107,11 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
+  // New macro for API ref paths
+  const apiRefVersion = releaseType === "nightly" ? "nightly"
+                      : releaseType === "devnet" ? "devnet"
+                      : "next";
+
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros
   markdownContent = processConditionalBlocks(
@@ -116,14 +121,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
 
   // Step 2: Replace new release-type-aware macros
-  markdownContent = markdownContent.replaceAll(
-    `#release_version`,
-    releaseVersion,
-  );
-  markdownContent = markdownContent.replaceAll(
-    `#release_network`,
-    releaseNetwork,
-  );
+  markdownContent = markdownContent.replaceAll(`#release_version`, releaseVersion);
+  markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
+  markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
 
   // Step 3: Replace existing macros (backwards compatibility)
   // TODO: Phase out #include_aztec_version and #include_version_without_prefix macros.
