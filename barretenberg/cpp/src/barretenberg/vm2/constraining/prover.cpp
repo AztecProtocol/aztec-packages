@@ -248,11 +248,12 @@ void AvmProver::execute_pcs_rounds()
         idx++;
     }
 
-    PolynomialBatcher polynomial_batcher(ProvingKey::circuit_size);
+    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
+
+    PolynomialBatcher polynomial_batcher(circuit_dyadic_size);
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
 
-    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
         circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
