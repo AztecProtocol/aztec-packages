@@ -39,9 +39,14 @@ pub contract SimulatedAccount {
         true
     }
 
-    /// Since this contract normally emulates an account that uses a note to store the public key, we completely bypass
-    /// state synchronization here to avoid losing time on useless processing and also enabling the emulation of
-    /// different accounts with differently sized public key notes.
+    // This contract override exists solely to enable simulation without requiring users to sign anything. Therefore,
+    // this function should never be called - this contract should never be used to sync the state of the original
+    // contract! Doing so could result in an undefined behavior.
     #[external("utility")]
-    unconstrained fn sync_state() {}
+    unconstrained fn sync_state() {
+        assert(
+            false,
+            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
+        );
+    }
 }

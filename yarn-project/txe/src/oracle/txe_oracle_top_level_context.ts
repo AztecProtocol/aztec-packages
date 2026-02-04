@@ -22,7 +22,6 @@ import {
   SenderAddressBookStore,
   SenderTaggingStore,
   enrichPublicSimulationError,
-  syncState,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -303,13 +302,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     };
 
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await syncState(
+    await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
-      this.contractStore,
       functionSelector,
       utilityExecutor,
-      this.noteStore,
-      this.stateMachine.node,
       blockHeader,
       this.jobId,
     );
@@ -359,6 +355,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.stateMachine.contractSyncService,
       this.jobId,
       0, // totalPublicArgsCount
       minRevertibleSideEffectCounter, // (start) sideEffectCounter
@@ -672,15 +669,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     // Sync notes before executing utility function to discover notes from previous transactions
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await syncState(
+    await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
-      this.contractStore,
       functionSelector,
       async call => {
         await this.executeUtilityCall(call);
       },
-      this.noteStore,
-      this.stateMachine.node,
       blockHeader,
       this.jobId,
     );

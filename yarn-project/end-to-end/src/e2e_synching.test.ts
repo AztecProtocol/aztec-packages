@@ -22,14 +22,14 @@
  *        much from running it in CI, and it is therefore skipped.
  *
  *
- * Previous results. The `blockCount` is the number of blocks we will construct with `txCount`
+ * Previous results. The `checkpointCount` is the number of blocks we will construct with `txCount`
  * transactions of the `complexity` provided.
  * The `numberOfBlocks` is the total number of blocks, including deployments of canonical contracts
  * and setup before we start the "actual" test.
- * blockCount: 10, txCount: 36, complexity: Deployment:      {"numberOfBlocks":16, "syncTime":17.490706521987914}
- * blockCount: 10, txCount: 36, complexity: PrivateTransfer: {"numberOfBlocks":19, "syncTime":20.846745924949644}
- * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
- * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
+ * checkpointCount: 10, txCount: 36, complexity: Deployment:      {"numberOfBlocks":16, "syncTime":17.490706521987914}
+ * checkpointCount: 10, txCount: 36, complexity: PrivateTransfer: {"numberOfBlocks":19, "syncTime":20.846745924949644}
+ * checkpointCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
+ * checkpointCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
@@ -44,7 +44,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
@@ -83,7 +83,7 @@ enum TxComplexity {
 }
 
 type VariantDefinition = {
-  blockCount: number;
+  checkpointCount: number;
   txCount: number;
   txComplexity: TxComplexity;
 };
@@ -111,12 +111,12 @@ class TestVariant {
 
   private contractAddresses: AztecAddress[] = [];
 
-  public blockCount: number;
+  public checkpointCount: number;
   public txCount: number;
   public txComplexity: TxComplexity;
 
   constructor(def: VariantDefinition) {
-    this.blockCount = def.blockCount;
+    this.checkpointCount = def.checkpointCount;
     this.txCount = def.txCount;
     this.txComplexity = def.txComplexity;
   }
@@ -138,11 +138,11 @@ class TestVariant {
   }
 
   description() {
-    return `blockCount: ${this.blockCount}, txCount: ${this.txCount}, complexity: ${TxComplexity[this.txComplexity]}`;
+    return `checkpointCount: ${this.checkpointCount}, txCount: ${this.txCount}, complexity: ${TxComplexity[this.txComplexity]}`;
   }
 
   name() {
-    return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
+    return `${this.checkpointCount}_${this.txCount}_${this.txComplexity}`;
   }
 
   async deployAccounts(accounts: InitialAccountData[]) {
@@ -297,11 +297,11 @@ class TestVariant {
  *        I decided that 1/4 should be acceptable, and still small enough to work.
  */
 const variants: VariantDefinition[] = [
-  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment },
-  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer },
-  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PublicTransfer },
-  { blockCount: 10, txCount: 9, txComplexity: TxComplexity.Spam },
-  { blockCount: 1000, txCount: 4, txComplexity: TxComplexity.PrivateTransfer },
+  { checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment },
+  { checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer },
+  { checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.PublicTransfer },
+  { checkpointCount: 10, txCount: 9, txComplexity: TxComplexity.Spam },
+  { checkpointCount: 1000, txCount: 4, txComplexity: TxComplexity.PrivateTransfer },
 ];
 
 describe('e2e_synching', () => {
@@ -315,7 +315,7 @@ describe('e2e_synching', () => {
       }
 
       // @note  If the `RUN_THE_BIG_ONE` flag is not set, we DO NOT run it.
-      if (!RUN_THE_BIG_ONE && variantDef.blockCount === 1000) {
+      if (!RUN_THE_BIG_ONE && variantDef.checkpointCount === 1000) {
         return;
       }
 
@@ -356,7 +356,7 @@ describe('e2e_synching', () => {
       const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
       await variant.setup(accountsToBeDeployed);
 
-      for (let i = 0; i < variant.blockCount; i++) {
+      for (let i = 0; i < variant.checkpointCount; i++) {
         const txHashPromises = await variant.createAndSendTxs();
         if (txHashPromises) {
           const txHashes = await Promise.all(txHashPromises);
@@ -378,7 +378,7 @@ describe('e2e_synching', () => {
   const testTheVariant = async (
     variant: TestVariant,
     alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
-    provenThrough: number = Number.MAX_SAFE_INTEGER,
+    provenThrough: CheckpointNumber = CheckpointNumber(Number.MAX_SAFE_INTEGER),
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
@@ -470,7 +470,7 @@ describe('e2e_synching', () => {
       // If it breaks here, first place you should look is the pruning.
       await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
-      await cheatCodes.rollup.markAsProven(CheckpointNumber.fromBlockNumber(BlockNumber(provenThrough)));
+      await cheatCodes.rollup.markAsProven(CheckpointNumber(provenThrough));
     }
 
     await alternativeSync(
@@ -486,7 +486,7 @@ describe('e2e_synching', () => {
       'vanilla - %s',
       async (variantDef: VariantDefinition) => {
         // @note  If the `RUN_THE_BIG_ONE` flag is not set, we DO NOT run it.
-        if (!RUN_THE_BIG_ONE && variantDef.blockCount === 1000) {
+        if (!RUN_THE_BIG_ONE && variantDef.checkpointCount === 1000) {
           return;
         }
 
@@ -516,7 +516,7 @@ describe('e2e_synching', () => {
   });
 
   describe.skip('a wild prune appears', () => {
-    const ASSUME_PROVEN_THROUGH = 0;
+    const ASSUME_PROVEN_THROUGH = CheckpointNumber(0);
 
     it('archiver following catches reorg as it occur and deletes blocks', async () => {
       if (AZTEC_GENERATE_TEST_DATA) {
@@ -524,7 +524,7 @@ describe('e2e_synching', () => {
       }
 
       await testTheVariant(
-        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer }),
+        new TestVariant({ checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer }),
         async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
@@ -574,15 +574,14 @@ describe('e2e_synching', () => {
             { blobClient, dateProvider: opts.dateProvider! },
             { blockUntilSync: true },
           );
-          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
+          const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
-          expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const provenThrough = BlockNumber.fromBigInt(pendingBlockNumber - 2n);
-          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber.fromBlockNumber(provenThrough));
+          const provenThrough = CheckpointNumber(pendingCheckpointNumber - 2);
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(provenThrough));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
@@ -590,7 +589,7 @@ describe('e2e_synching', () => {
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
-          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
+          expect(await archiver.getCheckpointNumber()).toBeGreaterThan(provenThrough);
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
@@ -612,7 +611,7 @@ describe('e2e_synching', () => {
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
           await sleep(3000);
-          expect(await archiver.getBlockNumber()).toBe(Number(provenThrough));
+          expect(await archiver.getCheckpointNumber()).toBe(provenThrough);
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
@@ -633,12 +632,8 @@ describe('e2e_synching', () => {
           );
 
           // Check world state reverted as well
-          expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(BlockNumber(Number(provenThrough)));
-          const archiverLatestBlockHash = await archiver
-            .getBlockHeader(BlockNumber(Number(provenThrough)))
-            .then(b => b?.hash());
-          expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
+          const latestBlockNumber = await archiver.getBlockNumber();
+          expect(await worldState.getLatestBlockNumber()).toEqual(latestBlockNumber);
 
           await tryStop(archiver);
           await worldState.stop();
@@ -655,7 +650,7 @@ describe('e2e_synching', () => {
       }
 
       await testTheVariant(
-        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
+        new TestVariant({ checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
         async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
@@ -664,7 +659,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
-          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          const offset = CheckpointNumber(variant.checkpointCount / 2);
           await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
@@ -721,7 +716,7 @@ describe('e2e_synching', () => {
       }
 
       await testTheVariant(
-        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
+        new TestVariant({ checkpointCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
         async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
@@ -730,7 +725,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
-          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          const offset = CheckpointNumber(variant.checkpointCount / 2);
           await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
