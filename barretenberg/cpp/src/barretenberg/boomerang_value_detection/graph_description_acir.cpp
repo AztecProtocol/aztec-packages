@@ -699,7 +699,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
-    const BlockConstraint& constraint, std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
 {
     // Helper: For the given index and value, count the number of corresponding ROM gatess
     auto find_corresponding_mem_op_gate = [this, rom_gates, constraint](uint32_t w_l, uint32_t w_r) {
@@ -750,50 +750,42 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const ConstraintPtr& ptr)
 {
-    // Functions to filter gates by type
-    std::vector<std::pair<uint32_t, uint32_t>> rom_gates, ram_gates, calldata_gates, returndata_gates;
-
-    auto is_calldata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    [[maybe_unused]] auto is_calldata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_busread_gate(block_idx, gate_idx, BusId::CALLDATA) ||
                is_busread_gate(block_idx, gate_idx, BusId::SECONDARY_CALLDATA);
     };
-    auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    [[maybe_unused]] auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_busread_gate(block_idx, gate_idx, BusId::RETURNDATA);
     };
-    auto is_rom_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    auto is_rom_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] == builder.zero_idx();
     };
-    auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    [[maybe_unused]] auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] != builder.zero_idx();
     };
 
     auto memory_block_idx = static_cast<uint32_t>(*analyzer.find_block_index(builder.blocks.memory));
-    auto& memory_block = builder.blocks.get()[memory_block_idx];
-    auto databus_block_idx = static_cast<uint32_t>(*analyzer.find_block_index(builder.blocks.busread));
-    auto& databus_block = builder.blocks.get()[databus_block_idx];
+    [[maybe_unused]] auto databus_block_idx = static_cast<uint32_t>(*analyzer.find_block_index(builder.blocks.busread));
 
-    // Collect ROM/RAM gates
-    for (uint32_t gate_idx = 0; gate_idx < memory_block.size(); gate_idx++) {
-        if (is_rom_gate(memory_block_idx, gate_idx)) {
-            rom_gates.push_back(std::make_pair(memory_block_idx, gate_idx));
-        } else if (is_ram_gate(memory_block_idx, gate_idx)) {
-            ram_gates.push_back(std::make_pair(memory_block_idx, gate_idx));
+    // Get gates from the given block index that satisfy the filter function
+    auto get_gates = [this](const uint32_t block_idx,
+                            const auto& filter_function) -> std::vector<std::pair<uint32_t, uint32_t>> {
+        auto& block = builder.blocks.get()[block_idx];
+        std::vector<std::pair<uint32_t, uint32_t>> gates;
+        for (uint32_t gate_idx = 0; gate_idx < block.size(); gate_idx++) {
+            if (filter_function(block_idx, gate_idx)) {
+                gates.push_back(std::make_pair(block_idx, gate_idx));
+            }
         }
-    }
-    // Collect databus gates
-    for (uint32_t gate_idx = 0; gate_idx < databus_block.size(); gate_idx++) {
-        if (is_calldata_gate(databus_block_idx, gate_idx)) {
-            calldata_gates.push_back(std::make_pair(databus_block_idx, gate_idx));
-        } else if (is_returndata_gate(databus_block_idx, gate_idx)) {
-            returndata_gates.push_back(std::make_pair(databus_block_idx, gate_idx));
-        }
-    }
+        return gates;
+    };
+
     const auto* block_constraint = std::get<const acir_format::BlockConstraint*>(ptr);
     switch (block_constraint->type) {
     case BlockType::ROM:
-        return validate_rom_constraint(*block_constraint, rom_gates);
+        return validate_rom_constraint(*block_constraint, get_gates(memory_block_idx, is_rom_gate));
     default:
         throw std::runtime_error("Unexpected block constraint type");
     }
