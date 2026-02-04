@@ -2,7 +2,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
@@ -14,12 +13,10 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import { ReqRespSubProtocol } from '../reqresp/interface.js';
-import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import {
   BatchTxRequesterCollector,
-  type ProposalTxCollector,
+  type MissingTxsCollector,
   SendBatchRequestCollector,
 } from './proposal_tx_collector.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
@@ -29,22 +26,22 @@ import type { TxSource } from './tx_source.js';
 export class FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected requests: Set<FastCollectionRequest> = new Set();
-  private proposalTxCollector: ProposalTxCollector;
+  private missingTxsCollector: MissingTxsCollector;
 
   constructor(
-    private p2pService: BatchTxRequesterLibP2PService,
+    p2pService: BatchTxRequesterLibP2PService,
     private nodes: TxSource[],
     private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
     private log: Logger = createLogger('p2p:tx_collection_service'),
-    proposalTxCollector?: ProposalTxCollector,
+    missingTxsCollector?: MissingTxsCollector,
   ) {
     const batchTxRequesterConfig = this.config as Partial<BatchTxRequesterConfig>;
-    const proposalCollectorType = this.config.txCollectionProposalTxCollectorType;
-    this.proposalTxCollector =
-      proposalTxCollector ??
-      (proposalCollectorType === 'old'
+    const missingTxsCollectorType = this.config.txCollectionMissingTxsCollectorType;
+    this.missingTxsCollector =
+      missingTxsCollector ??
+      (missingTxsCollectorType === 'old'
         ? new SendBatchRequestCollector(p2pService)
         : new BatchTxRequesterCollector(p2pService, log, dateProvider, undefined, batchTxRequesterConfig));
   }
@@ -258,8 +255,6 @@ export class FastTxCollection {
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
     const timeoutMs = +request.deadline - this.dateProvider.now();
     const pinnedPeer = opts.pinnedPeer;
-    const maxPeers = boundInclusive(Math.ceil(request.missingTxHashes.size / 2), 8, 32);
-    const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
     if (timeoutMs < 100) {
@@ -279,18 +274,13 @@ export class FastTxCollection {
       await this.txCollectionSink.collect(
         async txHashes => {
           if (request.type === 'proposal') {
-            return await this.proposalTxCollector.collectTxs(txHashes, request.blockProposal, pinnedPeer, timeoutMs);
+            return await this.missingTxsCollector.collectTxs(txHashes, request.blockProposal, pinnedPeer, timeoutMs);
           } else if (request.type === 'block') {
-            const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
-              ReqRespSubProtocol.TX,
-              chunkTxHashesRequest(txHashes),
-              pinnedPeer,
-              timeoutMs,
-              maxPeers,
-              maxRetryAttempts,
-            );
-
-            return txs.flat();
+            const blockTxsSource = {
+              txHashes: request.block.body.txEffects.map(e => e.txHash),
+              archive: request.block.archive.root,
+            };
+            return await this.missingTxsCollector.collectTxs(txHashes, blockTxsSource, pinnedPeer, timeoutMs);
           } else {
             throw new Error(`Unknown request type: ${(request as any).type}`);
           }
