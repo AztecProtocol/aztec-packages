@@ -279,7 +279,7 @@ case "$cmd" in
     ;;
   "test-kind-upgrade-rollup")
     source scripts/source_network_env.sh
-    source_network_env kind-provers
+    source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
     INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
