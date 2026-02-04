@@ -186,7 +186,7 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     let lookup_tuple_size = columns_per_set;
 
     // NOTE: hardcoded until optimizations required
-    let inverse_degree = 4;
+    let inverse_degree = 2;
     let lookup_term_degree = 0;
     let table_term_degree = 0;
     let lookup_term_types = "{0}".to_owned();
