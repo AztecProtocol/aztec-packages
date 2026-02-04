@@ -59,7 +59,8 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
-import { ensureContractSynced, readCurrentClassId } from './contract_sync/index.js';
+import { ContractSyncService } from './contract_sync/contract_sync_service.js';
+import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -102,6 +103,7 @@ export class PXE {
     private recipientTaggingStore: RecipientTaggingStore,
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
+    private contractSyncService: ContractSyncService,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -149,6 +151,12 @@ export class PXE {
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
+    const contractSyncService = new ContractSyncService(
+      node,
+      contractStore,
+      noteStore,
+      createLogger('pxe:contract_sync', bindings),
+    );
     const synchronizer = new BlockSynchronizer(
       node,
       store,
@@ -156,6 +164,7 @@ export class PXE {
       noteStore,
       privateEventStore,
       tipsStore,
+      contractSyncService,
       config,
       bindings,
     );
@@ -167,6 +176,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      contractSyncService,
     ]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore, synchronizer, anchorBlockStore);
@@ -186,6 +196,7 @@ export class PXE {
       recipientTaggingStore,
       addressStore,
       privateEventStore,
+      contractSyncService,
       simulator,
       proverEnabled,
       proofCreator,
@@ -223,6 +234,7 @@ export class PXE {
       this.capsuleStore,
       this.privateEventStore,
       this.simulator,
+      this.contractSyncService,
     );
   }
 
@@ -297,13 +309,10 @@ export class PXE {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
 
-      await ensureContractSynced(
+      await this.contractSyncService.ensureContractSynced(
         contractAddress,
         functionSelector,
         privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
-        this.node,
-        this.contractStore,
-        this.noteStore,
         anchorBlockHeader,
         jobId,
       );
@@ -850,7 +859,14 @@ export class PXE {
         // Temporary: in case there are overrides, we have to skip the kernels or validations
         // will fail. Consider handing control to the user/wallet on whether they want to run them
         // or not.
-        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
+        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
+        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
+        const skipKernels = hasOverriddenContracts;
+
+        // Set overridden contracts on the sync service so it knows to skip syncing them
+        if (hasOverriddenContracts) {
+          this.contractSyncService.setOverriddenContracts(jobId, overriddenContracts);
+        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
@@ -972,13 +988,10 @@ export class PXE {
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-        await ensureContractSynced(
+        await this.contractSyncService.ensureContractSynced(
           call.to,
           call.selector,
           privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
-          this.node,
-          this.contractStore,
-          this.noteStore,
           anchorBlockHeader,
           jobId,
         );
@@ -1044,14 +1057,11 @@ export class PXE {
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
-      await ensureContractSynced(
+      await this.contractSyncService.ensureContractSynced(
         filter.contractAddress,
         null,
         async privateSyncCall =>
           await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
-        this.node,
-        this.contractStore,
-        this.noteStore,
         anchorBlockHeader,
         jobId,
       );

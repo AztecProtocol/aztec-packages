@@ -27,6 +27,7 @@ import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
+  type FunctionCall,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -64,6 +65,8 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { syncState } from '../../contract_sync/helpers.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -120,6 +123,7 @@ describe('Private Execution test suite', () => {
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
+  let contractSyncService: MockProxy<ContractSyncService>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
@@ -320,6 +324,28 @@ describe('Private Execution test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
+    contractSyncService = mock<ContractSyncService>();
+    // Configure mock to actually perform sync_state calls (needed for nested call tests)
+    contractSyncService.ensureContractSynced.mockImplementation(
+      async (
+        contractAddress: AztecAddress,
+        functionToInvokeAfterSync: FunctionSelector | null,
+        utilityExecutor: (call: FunctionCall) => Promise<unknown>,
+        header: BlockHeader,
+        jobId: string,
+      ) => {
+        await syncState(
+          contractAddress,
+          contractStore,
+          functionToInvokeAfterSync,
+          utilityExecutor,
+          noteStore,
+          aztecNode,
+          header,
+          jobId,
+        );
+      },
+    );
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
@@ -470,6 +496,7 @@ describe('Private Execution test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
+      contractSyncService,
     );
   });
 
