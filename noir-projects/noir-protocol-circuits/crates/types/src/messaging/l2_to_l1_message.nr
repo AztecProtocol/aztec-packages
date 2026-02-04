@@ -28,12 +28,6 @@ impl L2ToL1Message {
     }
 }
 
-impl Counted<L2ToL1Message> {
-    pub fn scope(self, contract_address: AztecAddress) -> Scoped<Counted<L2ToL1Message>> {
-        Scoped::new(self, contract_address)
-    }
-}
-
 impl Scoped<Counted<L2ToL1Message>> {
     pub fn expose_to_public(self) -> Scoped<L2ToL1Message> {
         self.innermost().scope(self.contract_address)
