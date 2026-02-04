@@ -114,7 +114,7 @@ namespace note_hash_tree_check;
         first_nullifier
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
@@ -181,6 +181,6 @@ namespace note_hash_tree_check;
         unique_note_hash
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };

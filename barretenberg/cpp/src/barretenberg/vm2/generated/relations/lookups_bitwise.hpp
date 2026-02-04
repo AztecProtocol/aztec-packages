@@ -24,7 +24,7 @@ struct lookup_bitwise_integral_tag_length_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_tag_a,
                                                                                     ColumnAndShifts::bitwise_ctr };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_tag_byte_length
     };
 };
 

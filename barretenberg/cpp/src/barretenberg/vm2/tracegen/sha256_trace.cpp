@@ -629,7 +629,7 @@ void Sha256TraceBuilder::process(
 
 const InteractionDefinition Sha256TraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByRow>()
         // GT Interactions
         .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
