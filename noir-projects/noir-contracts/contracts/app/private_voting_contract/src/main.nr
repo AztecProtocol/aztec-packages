@@ -56,6 +56,7 @@ pub contract PrivateVoting {
         self.enqueue_self.add_to_tally_public(election_id, candidate);
     }
 
+    // docs:start:nested_map_access
     #[external("public")]
     #[only_self]
     fn add_to_tally_public(election_id: ElectionId, candidate: Field) {
@@ -64,6 +65,7 @@ pub contract PrivateVoting {
         let new_tally = self.storage.tally.at(election_id).at(candidate).read() + 1;
         self.storage.tally.at(election_id).at(candidate).write(new_tally);
     }
+    // docs:end:nested_map_access
 
     #[external("public")]
     fn start_vote(election_id: ElectionId) {
