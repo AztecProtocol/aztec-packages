@@ -187,6 +187,10 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *grego
+  - regex: "yarn-project/kv-store"
+    error_regex: "Error: Timeout of 2000ms exceeded"
+    owners:
+      - *martin
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
