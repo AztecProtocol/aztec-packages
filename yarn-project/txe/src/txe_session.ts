@@ -6,6 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressStore,
+  AnchorBlockStore,
   CapsuleStore,
   JobCoordinator,
   NoteService,
@@ -49,6 +50,7 @@ import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfac
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { RPCTranslator } from './rpc_translator.js';
+import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
@@ -176,7 +178,9 @@ export class TXESession implements TXESessionStateHandler {
       await contractStore.addContractInstance(instance);
     }
 
-    const stateMachine = await TXEStateMachine.create(store);
+    const archiver = new TXEArchiver(store);
+    const anchorBlockStore = new AnchorBlockStore(store);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -356,6 +360,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.stateMachine.contractSyncService,
       this.currentJobId,
     );
 
