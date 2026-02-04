@@ -83,7 +83,7 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
                 urandom_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
             }
-            ssize_t read_bytes = read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
+            ssize_t read_bytes = ::read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
 #else
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
