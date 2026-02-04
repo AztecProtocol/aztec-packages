@@ -37,9 +37,10 @@ endef
 # Collects the test commands from the given project
 # Writes the full output to /tmp/test_cmds atomically.
 # The test engine is expected to be running and it will read commands from this file.
+# MAKEFILE_TARGET is exported so filter_test_cmds can inject it into the hash prefix for targeted rebuilds.
 define test
 	$(call run_command,$(1),$(ROOT)/$(2),\
-	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | $(ROOT)/ci3/atomic_append /tmp/test_cmds)
+	  export MAKEFILE_TARGET=$(1) && ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | $(ROOT)/ci3/atomic_append /tmp/test_cmds)
 endef
 
 #==============================================================================
@@ -193,16 +194,16 @@ bb-sol: bb-cpp-native
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-tests-native: bb-cpp-native
+bb-cpp-native-tests: bb-cpp-native
 	$(call test,$@,barretenberg/cpp,native)
 
-bb-cpp-tests-wasm-threads: bb-cpp-wasm-threads
+bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
 	$(call test,$@,barretenberg/cpp,wasm_threads)
 
-bb-cpp-tests-asan: bb-cpp-asan
+bb-cpp-asan-tests: bb-cpp-asan
 	$(call test,$@,barretenberg/cpp,asan)
 
-bb-cpp-tests-smt: bb-cpp-smt
+bb-cpp-smt-tests: bb-cpp-smt
 	$(call test,$@,barretenberg/cpp,smt)
 
 bb-acir-tests: bb-acir
@@ -220,9 +221,9 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-tests-native bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
 
-bb-full-tests: bb-cpp-tests-native bb-cpp-tests-wasm-threads bb-cpp-tests-asan bb-cpp-tests-smt  bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-full-tests: bb-cpp-native-tests bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests  bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
 
 #==============================================================================
 # Noir Projects
