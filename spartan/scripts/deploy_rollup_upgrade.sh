@@ -117,4 +117,4 @@ log "VK_TREE_ROOT: $VK_TREE_ROOT"
 log "PROTOCOL_CONTRACTS_HASH: $PROTOCOL_CONTRACTS_HASH"
 log "GENESIS_ARCHIVE_ROOT: $GENESIS_ARCHIVE_ROOT"
 
-exec l1-contracts/scripts/run_rollup_upgrade.sh "$registry_address"
+exec "$repo_root/l1-contracts/scripts/run_rollup_upgrade.sh" "$registry_address"
