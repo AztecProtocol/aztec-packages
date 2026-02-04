@@ -65,7 +65,17 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/abi/index.ts",
+      "./src/aztec-address/index.ts",
+      "./src/block/index.ts",
+      "./src/contract/index.ts",
+      "./src/gas/index.ts",
+      "./src/hash/index.ts",
+      "./src/keys/index.ts",
+      "./src/logs/index.ts",
+      "./src/note/index.ts",
+      "./src/proofs/index.ts",
+      "./src/tx/index.ts"
     ],
     "name": "stdlib",
     "tsconfig": "./tsconfig.json"

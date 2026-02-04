@@ -21,6 +21,13 @@ This project uses Yarn 4.5.2 as specified in the `packageManager` field of packa
 - `yarn spellcheck` - Run spell checking with cspell on markdown files
 - `yarn clean` - Clean build artifacts and processed docs
 
+### API Documentation Generation
+
+- `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires `nargo`)
+- `yarn generate:aztec-nr-api v1.0.0` - Generate for a specific version
+- `yarn generate:typescript-api` - Generate TypeScript API docs (requires yarn-project to be built)
+- `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
+
 ### Development Workflow
 
 The documentation uses a **preprocessing system** that:
@@ -98,7 +105,10 @@ Default content
 - `src/preprocess/` - Preprocessing scripts and macro handlers
 - `src/components/` - React components for documentation
 - `static/img/` - Static images and assets
+- `static/aztec-nr-api/` - Auto-generated Aztec.nr API documentation (HTML)
+- `static/typescript-api/` - Auto-generated TypeScript API documentation (markdown)
 - `scripts/` - Build and utility scripts
+- `scripts/typescript_api_generation/` - TypeScript API doc generation scripts and config
 
 ### Content Structure
 
@@ -106,6 +116,17 @@ This site uses **Docusaurus multi-instance docs** with independent versioning:
 
 - **Developer Guides** (`/developers/`) - Getting started, tutorials, references (devnet + nightly versions)
 - **Network Guides** (`/network/`) - Node operation and network participation (testnet + ignition versions)
+
+### Auto-Generated API Documentation
+
+Two API reference systems generate documentation from source code:
+
+- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `noir-projects/aztec-nr/` using `nargo doc`
+- **TypeScript API** (`static/typescript-api/`) - Generated from `yarn-project/` packages using TypeDoc
+
+The TypeScript API generation is configured in `scripts/typescript_api_generation/config.json` and documents:
+- Client SDKs: `aztec.js`, `accounts`, `pxe`, `wallet-sdk`, `test-wallet`, `entrypoints`
+- Core Libraries: `stdlib`, `foundation`, `constants`
 
 ### Versioning System
 
@@ -304,5 +325,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-01-09
-Version: 1.3
+Last updated: 2026-02-04
+Version: 1.4
