@@ -128,8 +128,8 @@ function cmd_install {
 
   local install_url="$INSTALL_URI/$resolved_version/install"
 
-  # Check if install script exists
-  if ! curl --head --silent --fail "$install_url" > /dev/null; then
+  # Check if install script exists (use -L to follow redirects)
+  if ! curl -L --head --silent --fail "$install_url" > /dev/null; then
     echo "Error: Version installer not found at $install_url"
     echo "Please check the version specified."
     exit 1

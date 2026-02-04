@@ -93,7 +93,7 @@ EOF
   else
     export NON_INTERACTIVE=1
   fi
-  bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
+  bash ${bash_args:-} <(curl -sL $INSTALL_URI/aztec-install)
 
   echo "Version information:"
 

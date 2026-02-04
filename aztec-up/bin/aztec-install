@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Root bootstrap script for Aztec toolchain
 # This script installs aztec-up and then delegates to it for version installation.
-# Usage: bash -i <(curl -s https://install.aztec.network)
-#    or: VERSION=0.85.0 bash -i <(curl -s https://install.aztec.network)
+# Usage: bash -i <(curl -sL https://install.aztec.network)
+#    or: VERSION=0.85.0 bash -i <(curl -sL https://install.aztec.network)
 set -euo pipefail
 
 # Colors

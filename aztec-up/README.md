@@ -1,7 +1,7 @@
 # The Aztec Installation Script
 
 ```
-bash -i <(curl -s https://install.aztec.network)
+bash -i <(curl -sL https://install.aztec.network)
 ```
 
 That is all.
