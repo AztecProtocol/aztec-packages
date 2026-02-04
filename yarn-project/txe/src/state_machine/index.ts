@@ -71,7 +71,10 @@ export class TXEStateMachine {
   }
 
   public async handleL2Block(block: L2Block) {
-    // Create a checkpoint from the block manually
+    // Create a checkpoint from the block manually.
+    // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
+    // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(block.number);
     const checkpoint = new Checkpoint(
       block.archive,
       CheckpointHeader.from({
@@ -88,7 +91,7 @@ export class TXEStateMachine {
         totalManaUsed: block.header.totalManaUsed,
       }),
       [block],
-      CheckpointNumber.fromBlockNumber(block.number),
+      checkpointNumber,
     );
 
     const publishedCheckpoint = new PublishedCheckpoint(

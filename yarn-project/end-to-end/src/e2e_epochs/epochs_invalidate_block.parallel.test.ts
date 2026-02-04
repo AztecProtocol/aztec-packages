@@ -7,7 +7,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -455,7 +455,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
+    const initialCheckpointNumber = await getCheckpointNumberForBlock(nodes[0], initialBlockNumber);
+    expect(await test.rollup.getCheckpointNumber()).toEqual(initialCheckpointNumber);
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -511,7 +512,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
+    const initialCheckpointNumber = await getCheckpointNumberForBlock(nodes[0], initialBlockNumber);
+    expect(await test.rollup.getCheckpointNumber()).toEqual(initialCheckpointNumber);
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -586,3 +588,17 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 });
+
+async function getCheckpointNumberForBlock(
+  node: AztecNodeService,
+  blockNumber: BlockNumber,
+): Promise<CheckpointNumber> {
+  if (blockNumber === 0) {
+    return CheckpointNumber(0);
+  }
+  const block = await node.getBlock(blockNumber);
+  if (!block) {
+    throw new Error(`Block ${blockNumber} not found`);
+  }
+  return block.checkpointNumber;
+}

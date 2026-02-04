@@ -9,6 +9,7 @@ import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
+// Assumes one block per checkpoint
 describe('e2e_epochs/epochs_multiple', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
@@ -42,13 +43,14 @@ describe('e2e_epochs/epochs_multiple', () => {
       logger.info(`Reached proven checkpoint number ${epochEndCheckpointNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
-      // Verify the state syncs
-      await test.waitForNodeToSync(BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber), 'proven');
-      await test.verifyHistoricBlock(BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber), true);
+      // Verify the state syncs. Assumes one block per checkpoint.
+      const epochEndBlockNumber = BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber);
+      await test.waitForNodeToSync(epochEndBlockNumber, 'proven');
+      await test.verifyHistoricBlock(epochEndBlockNumber, true);
 
       // Check that finalized blocks are purged from world state
       // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
-      const provenBlockNumber = BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber);
+      const provenBlockNumber = epochEndBlockNumber;
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
