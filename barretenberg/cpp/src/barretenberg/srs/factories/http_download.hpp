@@ -4,6 +4,8 @@
 
 #ifdef __clang__
 #pragma clang diagnostic push
+// -Wdeprecated-literal-operator is only available in Clang 18+, ignore unknown warnings for Apple Clang
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma clang diagnostic ignored "-Wunused-parameter"
 #endif
