@@ -9,12 +9,20 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/instr_fetching.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
+#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -711,6 +719,292 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
             "Failed.*BYTECODE_SIZE_FROM_BC_DEC. Could not find tuple in destination.");
     }
 }
+
+using simulation::EventEmitter;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::Poseidon2;
+using simulation::Poseidon2HashEvent;
+using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
+using ::testing::StrictMock;
+using tracegen::Poseidon2TraceBuilder;
+
+TEST(InstrFetchingConstrainingTest, PositiveWrongBytecodeSizeRepro)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    const uint32_t pc = 15;
+    std::vector<uint8_t> bytecode(pc, 0x23);
+    WireOpCode opcode = WireOpCode::KECCAKF1600;
+
+    const auto instr = testing::random_instruction(opcode);
+    const auto instr_bytecode = instr.serialize();
+    bytecode.insert(
+        bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
+
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = poseidon2.hash(prepended_fields);
+
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+
+    bytecode_builder.process_hashing({ {
+                                         .bytecode_id = hash,
+                                         .bytecode_length = static_cast<uint32_t>(bytecode.size()),
+                                         .bytecode_fields = fields,
+                                     } },
+                                     trace);
+
+    bytecode_builder.process_decomposition({ {
+                                               .bytecode_id = hash,
+                                               .bytecode = bytecode_ptr,
+                                           } },
+                                           trace);
+
+    InstructionFetchingEvent instr_event = {
+        .bytecode_id = hash,
+        .pc = pc,
+        .instruction = instr,
+        .bytecode = bytecode_ptr,
+    };
+
+    bytecode_builder.process_instruction_fetching({ instr_event }, trace);
+    range_check_builder.process(gen_range_check_events({ instr_event }), trace);
+
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_wire_instruction_spec(trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+                                      perm_bc_hashing_get_packed_field_1_settings,
+                                      perm_bc_hashing_get_packed_field_2_settings>
+        perm_builder(C::bc_decomposition_sel_packed);
+    perm_builder.process(trace);
+    check_relation<bb::avm2::bc_decomposition<FF>>(trace);
+    check_all_interactions<BytecodeTraceBuilder>(trace);
+    check_multipermutation_interaction<BytecodeTraceBuilder,
+                                       perm_bc_hashing_get_packed_field_0_settings,
+                                       perm_bc_hashing_get_packed_field_1_settings,
+                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
+
+    // AvmProvingHelper proving_helper;
+    // auto res = proving_helper.check_circuit(std::move(trace));
+    // info(" res: ", res);
+}
+
+TEST(InstrFetchingConstrainingTest, NegativeExtendedBytecodeRepro)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    // Build some good bytecode:
+    const uint32_t pc = 15;
+    std::vector<uint8_t> bytecode(pc, 0x23);
+    WireOpCode opcode = WireOpCode::KECCAKF1600;
+    const auto instr = testing::random_instruction(opcode);
+    const auto instr_bytecode = instr.serialize();
+    bytecode.insert(
+        bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
+
+    info("bytecode: ", bytecode, ", w len: ", bytecode.size());
+
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
+    // FF hash = poseidon2.hash(prepended_fields);
+    info("hash of good bytecode: ", hash, ", w field len: ", prepended_fields.size());
+
+    // Extend that bytecode by 3 bytes of zeros
+    std::vector<uint8_t> trailing_zeros = { 0, 0, 0 };
+    std::vector<uint8_t> ext_bytecode(pc, 0x23);
+    ext_bytecode.insert(ext_bytecode.end(),
+                        std::make_move_iterator(instr_bytecode.begin()),
+                        std::make_move_iterator(instr_bytecode.end()));
+    ext_bytecode.insert(ext_bytecode.end(),
+                        std::make_move_iterator(trailing_zeros.begin()),
+                        std::make_move_iterator(trailing_zeros.end()));
+    info("ext_bytecode: ", ext_bytecode, ", w len: ", ext_bytecode.size());
+
+    std::vector<FF> ext_fields = simulation::encode_bytecode(ext_bytecode);
+    std::vector<FF> ext_prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    ext_prepended_fields.insert(ext_prepended_fields.end(), ext_fields.begin(), ext_fields.end());
+    // FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
+    FF ext_hash = poseidon2.hash(ext_prepended_fields);
+    info("hash of bad bytecode (matches) ", ext_hash, ", w field len: ", ext_prepended_fields.size());
+
+    // ISSUE 1
+    // 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 ] of length 21 bytes
+    // We can process an extended bytecode with the same id by extending it with zeros:
+    // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 00 00 00 ] of length 24 bytes
+    // Bytecode id = hash = ext_hash:
+    ASSERT_EQ(ext_hash, hash);
+    // This means even though instruction fetching refers to the 'real' 21 byte length bytecode with a correct hash...
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    InstructionFetchingEvent instr_event = {
+        .bytecode_id = hash,
+        .pc = pc,
+        .instruction = instr,
+        .bytecode = bytecode_ptr,
+    };
+    bytecode_builder.process_instruction_fetching({ instr_event }, trace);
+    // ...we can make it fail by processing a 'fake' extended bytecode for that id:
+    bytecode_builder.process_hashing({ {
+                                         .bytecode_id = hash,                                           // = ext_hash
+                                         .bytecode_length = static_cast<uint32_t>(ext_bytecode.size()), // unused
+                                         .bytecode_fields = ext_fields,                                 // = fields
+                                     } },
+                                     trace);
+    auto ext_bytecode_ptr = std::make_shared<std::vector<uint8_t>>(ext_bytecode);
+    bytecode_builder.process_decomposition({ {
+                                               .bytecode_id = hash,          // = ext_hash
+                                               .bytecode = ext_bytecode_ptr, // != bytecode
+                                           } },
+                                           trace);
+
+    // Prep trace:
+    range_check_builder.process(gen_range_check_events({ instr_event }), trace);
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_wire_instruction_spec(trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+                                      perm_bc_hashing_get_packed_field_1_settings,
+                                      perm_bc_hashing_get_packed_field_2_settings>
+        perm_builder(C::bc_decomposition_sel_packed);
+    perm_builder.process(trace);
+    // Everything in decomp/hashing passes:
+    check_relation<bb::avm2::bc_decomposition<FF>>(trace);
+    check_relation<bb::avm2::bc_hashing<FF>>(trace);
+    check_multipermutation_interaction<BytecodeTraceBuilder,
+                                       perm_bc_hashing_get_packed_field_0_settings,
+                                       perm_bc_hashing_get_packed_field_1_settings,
+                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
+    // instruction fetching fails because it expects bytes_to_read = 6 for [41 67 c6 69 73 51], but the bytecode traces
+    // have [41 67 c6 69 73 51 00 00 00 ] (of length 9) for that id:
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(trace)),
+        "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
+}
+// This is a copy of the above test but shows that we cannot extend the bytecode such that it would be encoded into
+// more fields, since this would change the IV and hence the output hash:
+TEST(InstrFetchingConstrainingTest, NegativeExtendedBytecode)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    // Build some good bytecode:
+    const uint32_t pc = 15;
+    std::vector<uint8_t> bytecode(pc, 0x23);
+    WireOpCode opcode = WireOpCode::KECCAKF1600;
+    const auto instr = testing::random_instruction(opcode);
+    const auto instr_bytecode = instr.serialize();
+    bytecode.insert(
+        bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
+
+    info("bytecode: ", bytecode, ", w len: ", bytecode.size());
+
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
+    // FF hash = poseidon2.hash(prepended_fields);
+    info("hash of good bytecode: ", hash, ", w field len: ", prepended_fields.size());
+
+    // Extend that bytecode by 20 bytes of zeros
+    std::vector<uint8_t> trailing_zeros(20, 0);
+    std::vector<uint8_t> ext_bytecode(pc, 0x23);
+    ext_bytecode.insert(ext_bytecode.end(),
+                        std::make_move_iterator(instr_bytecode.begin()),
+                        std::make_move_iterator(instr_bytecode.end()));
+    ext_bytecode.insert(ext_bytecode.end(),
+                        std::make_move_iterator(trailing_zeros.begin()),
+                        std::make_move_iterator(trailing_zeros.end()));
+    info("ext_bytecode: ", ext_bytecode, ", w len: ", ext_bytecode.size());
+
+    std::vector<FF> ext_fields = simulation::encode_bytecode(ext_bytecode);
+    std::vector<FF> ext_prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    ext_prepended_fields.insert(ext_prepended_fields.end(), ext_fields.begin(), ext_fields.end());
+    // FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
+    FF ext_hash = poseidon2.hash(ext_prepended_fields);
+    info("hash of bad bytecode (does NOT match) ", ext_hash, ", w field len: ", ext_prepended_fields.size());
+
+    // ISSUE 1
+    // 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 ] of length 21 bytes
+    // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 ff 4a ec 29 cd 00 00 00 00 00 00 00 00 00 00
+    // 00 00 00 00 00 00 00 00 00 00 ] of length 41 bytes Bytecode id = hash != ext_hash
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    bytecode_builder.process_hashing({ {
+                                         .bytecode_id = hash,                                           // != ext_hash
+                                         .bytecode_length = static_cast<uint32_t>(ext_bytecode.size()), // unused
+                                         .bytecode_fields = ext_fields,                                 // != fields
+                                     } },
+                                     trace);
+    auto ext_bytecode_ptr = std::make_shared<std::vector<uint8_t>>(ext_bytecode);
+    bytecode_builder.process_decomposition({ {
+                                               .bytecode_id = hash,          // != ext_hash
+                                               .bytecode = ext_bytecode_ptr, // != bytecode
+                                           } },
+                                           trace);
+
+    // Prep trace:
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_wire_instruction_spec(trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    // A load of stuff will fail because the hash doesn't match, I picked this one for fun:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::bc_hashing<FF>>(trace, bb::avm2::bc_hashing<FF>::SR_HASH_IS_ID),
+                              "HASH");
+}
+// TODO(MW):
+// ISSUE 2
+// Can we shorten bytecode which ends in zeros and do the same ^ thing? Does such a bytecode exist (e.g. ending with an
+// instr with a final param of value 0)? 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73
+// 51 ] of length 21 bytes 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 00 00 00 ]
+// of length 24 bytes Bytecode id = hash = ext_hash:
 
 TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
 {
