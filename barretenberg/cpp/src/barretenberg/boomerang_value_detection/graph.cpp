@@ -1987,5 +1987,13 @@ template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>:
     bb::UltraTraceLookupBlock>(bb::UltraTraceLookupBlock const&);
 template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<
     bb::UltraTraceArithmeticBlock>(bb::UltraTraceArithmeticBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>::find_block_index<
+    bb::MegaTraceLookupBlock>(bb::MegaTraceLookupBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>::find_block_index<
+    bb::MegaTraceArithmeticBlock>(bb::MegaTraceArithmeticBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>::find_block_index<
+    bb::MegaTraceMemoryBlock>(bb::MegaTraceMemoryBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>::find_block_index<
+    bb::MegaTraceBusReadBlock>(bb::MegaTraceBusReadBlock const&);
 
 } // namespace cdg
