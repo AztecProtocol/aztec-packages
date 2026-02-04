@@ -35,6 +35,8 @@ export type ProverConfig = ActualProverConfig & {
   proverId?: EthAddress;
   /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
+  /** Where to store proving request. Must be accessible to both prover node and agents. If not set will inline-encode the parameters */
+  proofStore?: string;
   /** Store for failed proof inputs. */
   failedProofStore?: string;
 };
@@ -48,6 +50,7 @@ export const ProverConfigSchema = zodFor<ProverConfig>()(
     proverTestDelayMs: z.number(),
     proverTestDelayFactor: z.number(),
     proverAgentCount: z.number(),
+    proofStore: z.string().optional(),
     failedProofStore: z.string().optional(),
     cancelJobsOnStop: z.boolean(),
   }),
@@ -86,6 +89,10 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     env: 'PROVER_AGENT_COUNT',
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
+  },
+  proofStore: {
+    env: 'PROVER_PROOF_STORE',
+    description: 'Optional proof input store for the prover',
   },
   failedProofStore: {
     env: 'PROVER_FAILED_PROOF_STORE',

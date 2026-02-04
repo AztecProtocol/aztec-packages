@@ -247,6 +247,14 @@ function bench_cmds {
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
+
+  # Strip platform-specific solc binary from l1-artifacts before npm publish.
+  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
+  # the correct binary via SVM on the end-user's machine.
+  local l1_artifacts="l1-artifacts/l1-contracts"
+  rm -f "$l1_artifacts"/solc-*
+  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1 $2")

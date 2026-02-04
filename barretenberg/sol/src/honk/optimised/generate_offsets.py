@@ -54,14 +54,6 @@ pairing_points = [
     "PAIRING_POINT_5",
     "PAIRING_POINT_6",
     "PAIRING_POINT_7",
-    "PAIRING_POINT_8",
-    "PAIRING_POINT_9",
-    "PAIRING_POINT_10",
-    "PAIRING_POINT_11",
-    "PAIRING_POINT_12",
-    "PAIRING_POINT_13",
-    "PAIRING_POINT_14",
-    "PAIRING_POINT_15",
 ]
 
 proof_g1 = [

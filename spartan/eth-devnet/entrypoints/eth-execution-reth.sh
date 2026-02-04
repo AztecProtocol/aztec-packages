@@ -11,6 +11,7 @@ reth node \
     --ws.port=${WS_PORT} \
     --ws.api="admin,net,eth,web3,debug,trace" \
     --ws.origins="*" \
+    --rpc.txfeecap=0 \
     --txpool.max-tx-input-bytes=${MAX_TX_INPUT_SIZE_BYTES} \
     --max-outbound-peers=0 \
     --max-inbound-peers=0 \

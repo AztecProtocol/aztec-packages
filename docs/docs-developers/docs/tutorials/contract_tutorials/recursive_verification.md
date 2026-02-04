@@ -30,7 +30,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -s https://install.aztec.network)
+bash -i <(curl -sL https://install.aztec.network)
 aztec-up 3.0.0-devnet.6-patch.1
 
 # Install Nargo via noirup
