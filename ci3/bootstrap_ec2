@@ -188,7 +188,21 @@ container_script=$(
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id && merge_train_failure_slack_notify \$ci_log_id && release_canary_slack_notify \$ci_log_id ;;
+    *)
+      log_ci_run FAILED \$ci_log_id
+      merge_train_failure_slack_notify \$ci_log_id
+      release_canary_slack_notify \$ci_log_id
+      ci_failed_data=\$(jq -n \\
+        --arg status "failed" \\
+        --arg log_id "\$ci_log_id" \\
+        --arg ref_name "\${TARGET_BRANCH:-\$REF_NAME}" \\
+        --arg commit_hash "\$COMMIT_HASH" \\
+        --arg commit_author "\$COMMIT_AUTHOR" \\
+        --arg commit_msg "\$COMMIT_MSG" \\
+        --argjson exit_code "\$code" \\
+        '{status: \$status, log_id: \$log_id, ref_name: \$ref_name, commit_hash: \$commit_hash, commit_author: \$commit_author, commit_msg: \$commit_msg, exit_code: \$exit_code, timestamp: now | todate}')
+      redis_publish "ci:run:failed" "\$ci_failed_data"
+      ;;
   esac
   exit \$code
 EOF
@@ -317,7 +331,7 @@ function run {
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         -e NETWORK=${NETWORK:-} \
-        --pids-limit=32768 \
+        --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
