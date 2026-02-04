@@ -6,7 +6,7 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
@@ -224,7 +224,8 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
