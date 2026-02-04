@@ -340,15 +340,14 @@ jobs:
           cmake --preset ${{ matrix.preset }}
           cmake --build --preset ${{ matrix.preset }} --target bb-external
 
-      # TODO: Re-enable Slack notification once Android builds are stable
-      # - name: Notify Slack on failure
-      #   if: failure()
-      #   env:
-      #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      #   run: |
-      #     if [ -n "${SLACK_BOT_TOKEN}" ]; then
-      #       curl -X POST https://slack.com/api/chat.postMessage \
-      #         -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-      #         -H "Content-type: application/json" \
-      #         --data "{\"channel\": \"#honk-team\", \"text\": \"Android build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
-      #     fi
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\": \"#honk-team\", \"text\": \"Android build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
+          fi
