@@ -10,7 +10,7 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/server.ts"
     ],
     "tsconfig": "./tsconfig.json"
   },
