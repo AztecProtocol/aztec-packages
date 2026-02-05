@@ -1,7 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockId } from '@aztec/stdlib/block';
 
-import type { TxMetaData, TxState } from './tx_metadata.js';
+import { type TxMetaData, type TxState, compareFee, compareTxHash } from './tx_metadata.js';
 
 /**
  * Manages in-memory indices for the transaction pool.
@@ -73,20 +73,16 @@ export class TxPoolIndices {
    * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
    */
   *iteratePendingByPriority(order: 'asc' | 'desc'): Generator<string> {
-    const compareFn =
-      order === 'desc'
-        ? (a: bigint, b: bigint) => (b > a ? 1 : b < a ? -1 : 0)
-        : (a: bigint, b: bigint) => (a > b ? 1 : a < b ? -1 : 0);
+    // Use compareFee from tx_metadata, swap args for descending order
+    const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
+    const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
 
-    const sortedFees = [...this.#pendingByPriority.keys()].sort(compareFn);
+    const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
 
     for (const fee of sortedFees) {
       const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      // Sort hashes in same direction within fee level for deterministic ordering
-      const sortedHashes =
-        order === 'desc'
-          ? [...hashesAtFee].sort((a, b) => (b < a ? -1 : b > a ? 1 : 0))
-          : [...hashesAtFee].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      // Use compareTxHash from tx_metadata, swap args for descending order
+      const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
       for (const hash of sortedHashes) {
         yield hash;
       }

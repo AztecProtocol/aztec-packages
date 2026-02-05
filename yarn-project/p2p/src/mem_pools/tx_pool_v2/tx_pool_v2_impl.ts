@@ -134,7 +134,7 @@ export class TxPoolV2Impl {
     }
 
     // Step 4: Validate non-mined transactions
-    const { valid, invalid } = await this.#validateNonMinedTxs(nonMined);
+    const { valid, invalid } = await this.#validateTxBatch(nonMined, 'on startup');
 
     // Step 5: Populate mined indices (these don't need conflict resolution)
     for (const meta of mined) {
@@ -145,7 +145,7 @@ export class TxPoolV2Impl {
     // This resolves nullifier conflicts, fee payer balance issues, and pool size limits
     const { rejected } = await this.#rebuildPendingPool(valid);
 
-    // Step 7: Delete invalid and rejected txs from DB
+    // Step 7: Delete invalid and rejected txs from DB only (indices were never populated for these)
     const toDelete = [...deserializationErrors, ...invalid, ...rejected];
     if (toDelete.length === 0) {
       return;
@@ -162,7 +162,6 @@ export class TxPoolV2Impl {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
-    const newlyAdded: Tx[] = [];
     const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
@@ -184,20 +183,17 @@ export class TxPoolV2Impl {
 
         if (minedBlockId) {
           // Already mined - add directly (protection already set if pre-protected)
-          await this.#addTx(tx, { mined: minedBlockId });
+          await this.#addTx(tx, { mined: minedBlockId }, opts);
           accepted.push(txHash);
-          newlyAdded.push(tx);
         } else if (preProtectedSlot !== undefined) {
           // Pre-protected and not mined - add as protected (bypass validation)
-          await this.#addTx(tx, { protected: preProtectedSlot });
+          await this.#addTx(tx, { protected: preProtectedSlot }, opts);
           accepted.push(txHash);
-          newlyAdded.push(tx);
         } else {
           // Regular pending tx - validate and run pre-add rules
-          const result = await this.#tryAddRegularPendingTx(tx, poolAccess, acceptedPending, ignored);
+          const result = await this.#tryAddRegularPendingTx(tx, opts, poolAccess, acceptedPending, ignored);
           if (result.status === 'accepted') {
             acceptedPending.add(txHashStr);
-            newlyAdded.push(tx);
           } else if (result.status === 'rejected') {
             rejected.push(txHash);
           } else {
@@ -219,17 +215,13 @@ export class TxPoolV2Impl {
       await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
     }
 
-    // Emit events
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
-
     return { accepted, ignored, rejected };
   }
 
   /** Validates and adds a regular pending tx. Returns status. */
   async #tryAddRegularPendingTx(
     tx: Tx,
+    opts: { source?: string },
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
@@ -238,9 +230,7 @@ export class TxPoolV2Impl {
     const txHashStr = txHash.toString();
 
     // Validate transaction
-    const validationResult = await this.#pendingTxValidator.validateTx(tx);
-    if (validationResult.result !== 'valid') {
-      this.#log.info(`Rejecting tx ${txHashStr}: ${validationResult.reason?.join(', ')}`);
+    if (!(await this.#validateTx(tx))) {
       return { status: 'rejected' };
     }
 
@@ -253,18 +243,19 @@ export class TxPoolV2Impl {
       return { status: 'ignored' };
     }
 
-    // Evict conflicts (tracking intra-batch evictions)
+    // Evict conflicts
     for (const evictHashStr of preAddResult.txHashesToEvict) {
       await this.#deleteTx(evictHashStr);
       this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
       if (acceptedPending.has(evictHashStr)) {
+        // Evicted tx was from this batch - mark as ignored in result
         acceptedPending.delete(evictHashStr);
         ignored.push(TxHash.fromString(evictHashStr));
       }
     }
 
     // Add the transaction
-    await this.#addTx(tx, 'pending');
+    await this.#addTx(tx, 'pending', opts);
     return { status: 'accepted' };
   }
 
@@ -276,7 +267,7 @@ export class TxPoolV2Impl {
       return 'ignored';
     }
 
-    // Validate transaction
+    // Validate transaction (no logging for dry-run check)
     const validationResult = await this.#pendingTxValidator.validateTx(tx);
     if (validationResult.result !== 'valid') {
       return 'rejected';
@@ -292,7 +283,6 @@ export class TxPoolV2Impl {
 
   async addProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
     const slotNumber = block.globalVariables.slotNumber;
-    const newlyAdded: Tx[] = [];
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -302,14 +292,13 @@ export class TxPoolV2Impl {
         const minedBlockId = await this.#getMinedBlockId(txHash);
 
         if (isNew) {
-          // New tx - add as mined or protected
+          // New tx - add as mined or protected (callback emitted by #addTx)
           if (minedBlockId) {
-            await this.#addTx(tx, { mined: minedBlockId });
+            await this.#addTx(tx, { mined: minedBlockId }, opts);
             this.#indices.setProtection(txHashStr, slotNumber);
           } else {
-            await this.#addTx(tx, { protected: slotNumber });
+            await this.#addTx(tx, { protected: slotNumber }, opts);
           }
-          newlyAdded.push(tx);
         } else {
           // Existing tx - update protection and mined status
           this.#indices.updateProtection(txHashStr, slotNumber);
@@ -320,10 +309,6 @@ export class TxPoolV2Impl {
         }
       }
     });
-
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
   }
 
   protectTxs(txHashes: TxHash[], block: BlockHeader): TxHash[] {
@@ -349,7 +334,6 @@ export class TxPoolV2Impl {
   async addMinedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
     // Step 1: Build block ID
     const blockId = await this.#buildBlockId(block);
-    const newlyAdded: Tx[] = [];
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -360,17 +344,11 @@ export class TxPoolV2Impl {
           // Mark existing tx as mined
           this.#indices.markAsMined(existingMeta, blockId);
         } else {
-          // Add new mined tx
-          await this.#addTx(tx, { mined: blockId });
-          newlyAdded.push(tx);
+          // Add new mined tx (callback emitted by #addTx)
+          await this.#addTx(tx, { mined: blockId }, opts);
         }
       }
     });
-
-    // Emit events for newly added txs
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
   }
 
   async handleMinedBlock(block: L2Block): Promise<void> {
@@ -400,8 +378,6 @@ export class TxPoolV2Impl {
     // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
     await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
 
-    // Bug fix: Only emit hashes that were actually in pool
-    this.#callbacks.onTxsRemoved(found.map(m => TxHash.fromString(m.txHash).toBigInt()));
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }
 
@@ -421,7 +397,7 @@ export class TxPoolV2Impl {
     this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#validateForPending(txsToRestore);
+    const { valid, invalid } = await this.#loadAndValidateTxs(txsToRestore, 'during prepareForSlot');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -459,7 +435,7 @@ export class TxPoolV2Impl {
     const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#validateForPending(unprotectedTxs);
+    const { valid, invalid } = await this.#loadAndValidateTxs(unprotectedTxs, 'during handlePrunedBlocks');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -613,12 +589,18 @@ export class TxPoolV2Impl {
 
   /**
    * Adds a new transaction to the pool with the specified state.
+   * Emits onTxsAdded callback immediately after DB write.
    */
-  async #addTx(tx: Tx, state: 'pending' | { protected: SlotNumber } | { mined: L2BlockId }): Promise<TxMetaData> {
+  async #addTx(
+    tx: Tx,
+    state: 'pending' | { protected: SlotNumber } | { mined: L2BlockId },
+    opts: { source?: string } = {},
+  ): Promise<TxMetaData> {
     const txHashStr = tx.getTxHash().toString();
     const meta = await buildTxMetaData(tx);
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
+    this.#callbacks.onTxsAdded([tx], opts);
 
     if (state === 'pending') {
       this.#indices.addPending(meta);
@@ -638,54 +620,83 @@ export class TxPoolV2Impl {
     return meta;
   }
 
+  /**
+   * Deletes a transaction from both indices and DB.
+   * Emits onTxsRemoved callback immediately after DB delete.
+   */
   async #deleteTx(txHashStr: string): Promise<void> {
     this.#indices.remove(txHashStr);
     await this.#txsDB.delete(txHashStr);
+    this.#callbacks.onTxsRemoved([txHashStr]);
   }
 
+  /** Deletes a batch of transactions, emitting callbacks individually for each. */
   async #deleteTxsBatch(txHashes: string[]): Promise<void> {
-    if (txHashes.length === 0) {
-      return;
+    for (const txHashStr of txHashes) {
+      await this.#deleteTx(txHashStr);
     }
-
-    await this.#store.transactionAsync(async () => {
-      for (const txHashStr of txHashes) {
-        await this.#deleteTx(txHashStr);
-      }
-    });
-
-    this.#callbacks.onTxsRemoved(txHashes);
   }
 
   // ============================================================================
   // PRIVATE HELPERS - Validation & Conflict Resolution
   // ============================================================================
 
-  /** Validates transactions for pending pool, returning valid and invalid groups */
-  async #validateForPending(txs: TxMetaData[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
+  /** Validates a single transaction, returning true if valid */
+  async #validateTx(tx: Tx, context?: string): Promise<boolean> {
+    const result = await this.#pendingTxValidator.validateTx(tx);
+    if (result.result !== 'valid') {
+      const contextStr = context ? ` ${context}` : '';
+      this.#log.info(`Tx ${tx.getTxHash()}${contextStr} failed validation: ${result.reason?.join(', ')}`);
+      return false;
+    }
+    return true;
+  }
+
+  /** Loads transactions from DB, returning loaded txs and missing hashes */
+  async #loadTxsFromDb(metas: TxMetaData[]): Promise<{ loaded: { tx: Tx; meta: TxMetaData }[]; missing: string[] }> {
+    const loaded: { tx: Tx; meta: TxMetaData }[] = [];
+    const missing: string[] = [];
+
+    for (const meta of metas) {
+      const buffer = await this.#txsDB.getAsync(meta.txHash);
+      if (!buffer) {
+        this.#log.warn(`Tx ${meta.txHash} not found in DB`);
+        missing.push(meta.txHash);
+        continue;
+      }
+      loaded.push({ tx: Tx.fromBuffer(buffer), meta });
+    }
+
+    return { loaded, missing };
+  }
+
+  /** Validates a batch of transactions, returning valid and invalid groups */
+  async #validateTxBatch(
+    txs: { tx: Tx; meta: TxMetaData }[],
+    context?: string,
+  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
 
-    for (const meta of txs) {
-      const buffer = await this.#txsDB.getAsync(meta.txHash);
-      if (!buffer) {
-        this.#log.warn(`Tx ${meta.txHash} not found in DB during validation`);
-        invalid.push(meta.txHash);
-        continue;
-      }
-
-      const tx = Tx.fromBuffer(buffer);
-      const result = await this.#pendingTxValidator.validateTx(tx);
-
-      if (result.result === 'valid') {
+    for (const { tx, meta } of txs) {
+      if (await this.#validateTx(tx, context)) {
         valid.push(meta);
       } else {
-        this.#log.info(`Tx ${meta.txHash} failed validation: ${result.reason?.join(', ')}`);
         invalid.push(meta.txHash);
       }
     }
 
     return { valid, invalid };
+  }
+
+  /** Loads transactions from DB and validates them */
+  async #loadAndValidateTxs(
+    metas: TxMetaData[],
+    context?: string,
+  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
+    const { loaded, missing } = await this.#loadTxsFromDb(metas);
+    const { valid, invalid } = await this.#validateTxBatch(loaded, context);
+    return { valid, invalid: [...missing, ...invalid] };
   }
 
   /**
@@ -787,24 +798,6 @@ export class TxPoolV2Impl {
     }
   }
 
-  /** Validates non-mined transactions, returning valid metadata and invalid hashes */
-  async #validateNonMinedTxs(txs: { tx: Tx; meta: TxMetaData }[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
-    const valid: TxMetaData[] = [];
-    const invalid: string[] = [];
-
-    for (const { tx, meta } of txs) {
-      const result = await this.#pendingTxValidator.validateTx(tx);
-      if (result.result === 'valid') {
-        valid.push(meta);
-      } else {
-        this.#log.info(`Removing invalid tx ${meta.txHash} on startup: ${result.reason?.join(', ')}`);
-        invalid.push(meta.txHash);
-      }
-    }
-
-    return { valid, invalid };
-  }
-
   /**
    * Rebuilds the pending pool by processing each tx through pre-add rules.
    * Starts with an empty pending pool and adds txs one by one, resolving conflicts.
@@ -858,14 +851,7 @@ export class TxPoolV2Impl {
       getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
       getPendingTxCount: () => this.#indices.getPendingTxCount(),
       getLowestPriorityPending: (limit: number) => this.#indices.getLowestPriorityPending(limit),
-      deleteTxs: async (txHashes: string[]) => {
-        await this.#store.transactionAsync(async () => {
-          for (const txHashStr of txHashes) {
-            await this.#deleteTx(txHashStr);
-          }
-        });
-        this.#callbacks.onTxsRemoved(txHashes);
-      },
+      deleteTxs: (txHashes: string[]) => this.#deleteTxsBatch(txHashes),
     };
   }
 

@@ -25,6 +25,8 @@ export type AddTxsResult = {
 export type TxPoolV2Events = {
   /** Emitted when transactions are successfully added to the pool */
   'txs-added': (args: { txs: Tx[]; source?: string }) => void;
+  /** Emitted when transactions are removed from the pool */
+  'txs-removed': (args: { txHashes: TxHash[] }) => void;
 };
 
 /**
