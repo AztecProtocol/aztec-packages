@@ -1,6 +1,6 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { merge, pick } from '@aztec/foundation/collection';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { chunkBy, merge, pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
+  ICheckpointBlockBuilder,
   ICheckpointsBuilder,
   ITxProvider,
   MerkleTreeWriteOperations,
@@ -106,7 +107,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
         { blocks: epochBlocks.map(b => b.toBlockInfo()) },
       );
 
-      await this.validateBlocks(epochBlocks);
+      await this.validateBlocks(epochBlocks, epochNumber);
       this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
       await this.emitSlashForEpoch(OffenseType.VALID_EPOCH_PRUNED, epochNumber);
     } catch (error) {
@@ -121,19 +122,32 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlocks(blocks: L2Block[]): Promise<void> {
+  public async validateBlocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
     if (blocks.length === 0) {
       return;
     }
 
-    let previousCheckpointOutHashes: Fr[] = [];
-    const fork = await this.checkpointsBuilder.getFork(BlockNumber(blocks[0].header.globalVariables.blockNumber - 1));
-    try {
-      for (const block of blocks) {
-        await this.validateBlock(block, previousCheckpointOutHashes, fork);
+    // Sort blocks by block number and group by checkpoint
+    const sortedBlocks = [...blocks].sort((a, b) => a.number - b.number);
+    const blocksByCheckpoint = chunkBy(sortedBlocks, b => b.checkpointNumber);
 
-        // TODO(mbps): This assumes one block per checkpoint, which is only true for now.
-        const checkpointOutHash = computeCheckpointOutHash([block.body.txEffects.map(tx => tx.l2ToL1Msgs)]);
+    // Get prior checkpoints in the epoch (in case this was a partial prune) to extract the out hashes
+    const priorCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsForEpoch(epochNumber))
+      .filter(c => c.number < sortedBlocks[0].checkpointNumber)
+      .map(c => c.getCheckpointOutHash());
+    let previousCheckpointOutHashes: Fr[] = [...priorCheckpointOutHashes];
+
+    const fork = await this.checkpointsBuilder.getFork(
+      BlockNumber(sortedBlocks[0].header.globalVariables.blockNumber - 1),
+    );
+    try {
+      for (const checkpointBlocks of blocksByCheckpoint) {
+        await this.validateCheckpoint(checkpointBlocks, previousCheckpointOutHashes, fork);
+
+        // Compute checkpoint out hash from all blocks in this checkpoint
+        const checkpointOutHash = computeCheckpointOutHash(
+          checkpointBlocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
+        );
         previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
       }
     } finally {
@@ -141,10 +155,47 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlock(
-    blockFromL1: L2Block,
+  private async validateCheckpoint(
+    checkpointBlocks: L2Block[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
+  ): Promise<void> {
+    const checkpointNumber = checkpointBlocks[0].checkpointNumber;
+    this.log.debug(`Validating pruned checkpoint ${checkpointNumber} with ${checkpointBlocks.length} blocks`);
+
+    // Get L1ToL2Messages once for the entire checkpoint
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+
+    // Build checkpoint constants from first block's global variables
+    const gv = checkpointBlocks[0].header.globalVariables;
+    const constants: CheckpointGlobalVariables = {
+      chainId: gv.chainId,
+      version: gv.version,
+      slotNumber: gv.slotNumber,
+      coinbase: gv.coinbase,
+      feeRecipient: gv.feeRecipient,
+      gasFees: gv.gasFees,
+    };
+
+    // Start checkpoint builder once for all blocks in this checkpoint
+    const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      fork,
+      this.log.getBindings(),
+    );
+
+    // Validate all blocks in the checkpoint sequentially
+    for (const block of checkpointBlocks) {
+      await this.validateBlockInCheckpoint(block, checkpointBuilder);
+    }
+  }
+
+  private async validateBlockInCheckpoint(
+    blockFromL1: L2Block,
+    checkpointBuilder: ICheckpointBlockBuilder,
   ): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
@@ -157,28 +208,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       throw new TransactionsNotAvailableError(missingTxs);
     }
 
-    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockFromL1.number);
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
     const gv = blockFromL1.header.globalVariables;
-    const constants: CheckpointGlobalVariables = {
-      chainId: gv.chainId,
-      version: gv.version,
-      slotNumber: gv.slotNumber,
-      coinbase: gv.coinbase,
-      feeRecipient: gv.feeRecipient,
-      gasFees: gv.gasFees,
-    };
-
-    // Use checkpoint builder to validate the block
-    const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
-      checkpointNumber,
-      constants,
-      l1ToL2Messages,
-      previousCheckpointOutHashes,
-      fork,
-      this.log.getBindings(),
-    );
-
     const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});
 
     if (numTxs !== txs.length) {

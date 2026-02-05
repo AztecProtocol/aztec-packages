@@ -48,7 +48,7 @@ struct lookup_instr_fetching_instr_abs_diff_positive_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::instr_fetching_instr_abs_diff
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_instr_fetching_instr_abs_diff_positive_settings =
@@ -71,7 +71,7 @@ struct lookup_instr_fetching_tag_value_validation_settings_ {
         ColumnAndShifts::instr_fetching_tag_value, ColumnAndShifts::instr_fetching_tag_out_of_range
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sel_mem_tag_out_of_range
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_sel_mem_tag_out_of_range
     };
 };
 
@@ -216,7 +216,7 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
         ColumnAndShifts::instr_fetching_sel_op_dc_16
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_opcode_out_of_range,
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::precomputed_opcode_out_of_range,
         ColumnAndShifts::precomputed_exec_opcode,  ColumnAndShifts::precomputed_instr_size,
         ColumnAndShifts::precomputed_sel_has_tag,  ColumnAndShifts::precomputed_sel_tag_is_op2,
         ColumnAndShifts::precomputed_sel_op_dc_0,  ColumnAndShifts::precomputed_sel_op_dc_1,

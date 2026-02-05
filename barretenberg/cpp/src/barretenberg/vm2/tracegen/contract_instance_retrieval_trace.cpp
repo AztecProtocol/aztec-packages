@@ -101,6 +101,6 @@ const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions 
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
         .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen
