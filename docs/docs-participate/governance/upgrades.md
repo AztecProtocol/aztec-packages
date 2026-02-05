@@ -1,7 +1,7 @@
 ---
 title: Network Upgrades
 description: Learn how the Aztec network upgrades to new rollup versions and how validators transition.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Network Upgrades
@@ -63,4 +63,4 @@ Once an upgrade is executed:
 
 - [Proposal Lifecycle](./proposal-lifecycle) - Detailed stages from signaling to execution
 - [GSE and Stake Mobility](./gse) - How stake transitions work
-- [Governance Participation](../../operators/sequencer-management/creating_and_voting_on_proposals) - How to participate as a sequencer
+- [Governance Participation](/operate/operators/sequencer-management/creating_and_voting_on_proposals) - How to participate as a sequencer

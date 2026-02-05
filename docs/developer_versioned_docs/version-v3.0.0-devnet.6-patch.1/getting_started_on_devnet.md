@@ -261,5 +261,5 @@ https://devnet-6.aztec-labs.com
 ## Additional Resources
 
 - [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
-- [Running a node](/network/)
+- [Running a node](/operate/operators)
 - [Block explorers](https://devnet.aztecscan.xyz)

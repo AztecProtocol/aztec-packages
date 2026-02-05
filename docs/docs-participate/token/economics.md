@@ -1,7 +1,7 @@
 ---
 title: Economics & Rewards
 description: Learn about Aztec network economics including reward distribution, sequencer and prover incentives, and the activity score system.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Economics & Rewards
@@ -73,7 +73,7 @@ This design rewards long-term, consistent provers and discourages sporadic parti
 ---
 
 :::tip Learn More
-- [Proof of Stake](../proof-of-stake/index.md) - How staking and validation work
-- [Governance](../governance/index.md) - How protocol parameters (including rewards) can change
-- [Running a Prover](../../operators/setup/running-a-prover.md) - Technical setup for provers
+- [Staking Tokens](/participate/token/staking) - How to stake and earn rewards
+- [Governance](/participate/governance) - How protocol parameters (including rewards) can change
+- [Running a Prover](/operate/operators/setup/running_a_prover) - Technical setup for provers
 :::

@@ -51,5 +51,5 @@ Accept delegated stake and operate sequencers on behalf of token holders.
 ---
 
 :::info Conceptual Background
-For background on how the network works, see [Network Concepts](../concepts/index.md).
+For background on how the network works, see the [Participate section](/participate).
 :::

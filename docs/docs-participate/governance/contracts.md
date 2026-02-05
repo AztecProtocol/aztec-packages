@@ -1,7 +1,7 @@
 ---
 title: L1 Contracts
 description: Overview of the L1 smart contracts that power Aztec network governance.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # L1 Contracts
@@ -40,7 +40,7 @@ Key functions:
 - `vote()` - Cast votes on proposals
 - `execute()` - Execute approved proposals
 
-See [Proposal Lifecycle](../governance/proposal-lifecycle) for how proposals move through the system.
+See [Proposal Lifecycle](/participate/governance/proposal-lifecycle) for how proposals move through the system.
 
 ## GovernanceProposer
 
@@ -59,10 +59,10 @@ Key features:
 - **Voting delegation**: Validators can delegate voting power
 - **Escape hatch**: `proposeWithLock()` for emergency proposals
 
-See [GSE and Stake Mobility](../governance/gse) for details.
+See [GSE and Stake Mobility](/participate/governance/gse) for details.
 
 ## Related Topics
 
-- [Governance Overview](../governance/) - How the governance system works
-- [Proposal Lifecycle](../governance/proposal-lifecycle) - Stages from signaling to execution
-- [Network Upgrades](../governance/upgrades) - How upgrades use these contracts
+- [Governance Overview](/participate/governance) - How the governance system works
+- [Proposal Lifecycle](/participate/governance/proposal-lifecycle) - Stages from signaling to execution
+- [Network Upgrades](/participate/governance/upgrades) - How upgrades use these contracts
