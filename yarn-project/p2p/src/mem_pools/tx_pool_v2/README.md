@@ -56,13 +56,34 @@ Core implementation containing:
 
 Lightweight metadata stored alongside each transaction:
 - `txHash`: Transaction identifier
-- `state`: Current state (pending, protected, mined)
-- `priorityFee`: For priority ordering
+- `anchorBlockHeaderHash`: Hash of the anchor block header
+- `priorityFee`: For priority ordering and challenges
 - `feePayer`: For balance-based eviction
+- `claimAmount`: Fee payer's claim from bridging
+- `feeLimit`: Maximum fee the tx can pay
 - `nullifiers`: For conflict detection
-- `estimatedTxFee`: For balance calculations
-- `blockId`: Block info when mined
-- `protectedSlot`: Slot number when protected
+- `includeByTimestamp`: Expiration timestamp
+- `minedL2BlockId`: Set when mined (undefined otherwise)
+
+State is derived by TxPoolIndices:
+- `mined` if `minedL2BlockId` is set
+- `protected` if in protection map
+- `pending` otherwise
+
+## Architecture: Pre-add vs Post-event Rules
+
+**Pre-add rules** (run during `addPendingTxs`):
+- Used for external transactions entering the pool
+- Can reject the incoming tx entirely
+- Can evict lower-priority existing txs to make room
+- Rules: NullifierConflictRule, FeePayerBalancePreAddRule, LowPriorityPreAddRule
+
+**Post-event rules** (run after state transitions):
+- Used for internal state changes (block mined, reorg, slot change)
+- Only evict txs already in the pool
+- Rules: InvalidTxsAfterMiningRule, InvalidTxsAfterReorgRule, FeePayerBalanceEvictionRule, LowPriorityEvictionRule
+
+This design choice means restored txs (from protected/mined states) use post-event rules only, because they were already validated on initial submission.
 
 ## Eviction Rules
 
@@ -85,8 +106,8 @@ Run after events to clean up the pool:
 | Rule | Trigger | Purpose |
 |------|---------|---------|
 | `LowPriorityEvictionRule` | `txs_added` | Evicts lowest priority txs when pool exceeds limit. |
-| `FeePayerBalanceEvictionRule` | `block_mined` | Evicts txs when fee payer balance decreases. |
-| `InvalidTxsAfterMiningRule` | `block_mined` | Evicts pending txs with nullifiers that were just mined. |
+| `FeePayerBalanceEvictionRule` | `txs_added`, `block_mined`, `chain_pruned` | Evicts txs when fee payer has insufficient balance. |
+| `InvalidTxsAfterMiningRule` | `block_mined` | Evicts pending txs with: (1) nullifiers in mined block, (2) expired timestamp. |
 | `InvalidTxsAfterReorgRule` | `chain_pruned` | Evicts txs with invalid anchor blocks after reorg. |
 
 ## Usage

@@ -29,14 +29,8 @@ import {
   type TxPoolV2Config,
   type TxPoolV2Dependencies,
 } from './interfaces.js';
-import {
-  type TxMetaData,
-  type TxState,
-  buildTxMetaData,
-  checkNullifierConflict,
-  compareFee,
-  compareTxHash,
-} from './tx_metadata.js';
+import { type TxMetaData, type TxState, buildTxMetaData, checkNullifierConflict } from './tx_metadata.js';
+import { TxPoolIndices } from './tx_pool_indices.js';
 
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
@@ -62,19 +56,7 @@ export class TxPoolV2Impl {
   #pendingTxValidator: TxValidator<Tx>;
 
   // === In-Memory Indices ===
-  /** Primary metadata store: txHash -> TxMetaData */
-  #metadata: Map<string, TxMetaData> = new Map();
-  /** Nullifier to txHash index (pending txs only) */
-  #nullifierToTxHash: Map<string, string> = new Map();
-  /** Fee payer to txHashes index (pending txs only) */
-  #feePayerToTxHashes: Map<string, Set<string>> = new Map();
-  /**
-   * Pending txHashes grouped by priority fee.
-   * Outer map: priorityFee -> Set of txHashes at that fee level.
-   */
-  #pendingByPriority: Map<bigint, Set<string>> = new Map();
-  /** Protected transactions: txHash -> slotNumber. Includes txs we have and txs we expect to receive. */
-  #protectedTransactions: Map<string, SlotNumber> = new Map();
+  #indices: TxPoolIndices = new TxPoolIndices();
 
   // === Config & Services ===
   #config: TxPoolV2Config;
@@ -141,19 +123,29 @@ export class TxPoolV2Impl {
     await this.#markMinedStatusBatch(loaded.map(l => l.meta));
 
     // Step 3: Partition by mined status
-    const { mined, nonMined } = this.#partitionByMinedStatus(loaded);
+    const mined: TxMetaData[] = [];
+    const nonMined: { tx: Tx; meta: TxMetaData }[] = [];
+    for (const entry of loaded) {
+      if (entry.meta.minedL2BlockId !== undefined) {
+        mined.push(entry.meta);
+      } else {
+        nonMined.push(entry);
+      }
+    }
 
     // Step 4: Validate non-mined transactions
-    const { valid, invalid } = await this.#validateNonMinedTxs(nonMined);
+    const { valid, invalid } = await this.#validateTxBatch(nonMined, 'on startup');
 
     // Step 5: Populate mined indices (these don't need conflict resolution)
-    this.#populateMinedIndices(mined);
+    for (const meta of mined) {
+      this.#indices.addMined(meta);
+    }
 
     // Step 6: Rebuild pending pool by running pre-add rules for each tx
     // This resolves nullifier conflicts, fee payer balance issues, and pool size limits
     const { rejected } = await this.#rebuildPendingPool(valid);
 
-    // Step 7: Delete invalid and rejected txs from DB
+    // Step 7: Delete invalid and rejected txs from DB only (indices were never populated for these)
     const toDelete = [...deserializationErrors, ...invalid, ...rejected];
     if (toDelete.length === 0) {
       return;
@@ -170,7 +162,6 @@ export class TxPoolV2Impl {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
-    const newlyAdded: Tx[] = [];
     const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
@@ -181,31 +172,28 @@ export class TxPoolV2Impl {
         const txHashStr = txHash.toString();
 
         // Skip duplicates
-        if (this.#isDuplicateTx(txHashStr)) {
+        if (this.#indices.has(txHashStr)) {
           ignored.push(txHash);
           continue;
         }
 
         // Check mined status first (applies to all paths)
         const minedBlockId = await this.#getMinedBlockId(txHash);
-        const preProtectedSlot = this.#protectedTransactions.get(txHashStr);
+        const preProtectedSlot = this.#indices.getProtectionSlot(txHashStr);
 
         if (minedBlockId) {
           // Already mined - add directly (protection already set if pre-protected)
-          await this.#addNewMinedTx(tx, minedBlockId);
+          await this.#addTx(tx, { mined: minedBlockId }, opts);
           accepted.push(txHash);
-          newlyAdded.push(tx);
         } else if (preProtectedSlot !== undefined) {
           // Pre-protected and not mined - add as protected (bypass validation)
-          await this.#addNewProtectedTx(tx, preProtectedSlot);
+          await this.#addTx(tx, { protected: preProtectedSlot }, opts);
           accepted.push(txHash);
-          newlyAdded.push(tx);
         } else {
           // Regular pending tx - validate and run pre-add rules
-          const result = await this.#tryAddRegularPendingTx(tx, poolAccess, acceptedPending, ignored);
+          const result = await this.#tryAddRegularPendingTx(tx, opts, poolAccess, acceptedPending, ignored);
           if (result.status === 'accepted') {
             acceptedPending.add(txHashStr);
-            newlyAdded.push(tx);
           } else if (result.status === 'rejected') {
             rejected.push(txHash);
           } else {
@@ -222,14 +210,9 @@ export class TxPoolV2Impl {
 
     // Run post-add eviction rules for pending txs
     if (acceptedPending.size > 0) {
-      const feePayers = Array.from(acceptedPending).map(txHash => this.#metadata.get(txHash)!.feePayer);
+      const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
       const uniqueFeePayers = new Set<string>(feePayers);
       await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
-    }
-
-    // Emit events
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
     }
 
     return { accepted, ignored, rejected };
@@ -238,6 +221,7 @@ export class TxPoolV2Impl {
   /** Validates and adds a regular pending tx. Returns status. */
   async #tryAddRegularPendingTx(
     tx: Tx,
+    opts: { source?: string },
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
@@ -246,9 +230,7 @@ export class TxPoolV2Impl {
     const txHashStr = txHash.toString();
 
     // Validate transaction
-    const validationResult = await this.#pendingTxValidator.validateTx(tx);
-    if (validationResult.result !== 'valid') {
-      this.#log.info(`Rejecting tx ${txHashStr}: ${validationResult.reason?.join(', ')}`);
+    if (!(await this.#validateTx(tx))) {
       return { status: 'rejected' };
     }
 
@@ -261,18 +243,19 @@ export class TxPoolV2Impl {
       return { status: 'ignored' };
     }
 
-    // Evict conflicts (tracking intra-batch evictions)
+    // Evict conflicts
     for (const evictHashStr of preAddResult.txHashesToEvict) {
       await this.#deleteTx(evictHashStr);
       this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
       if (acceptedPending.has(evictHashStr)) {
+        // Evicted tx was from this batch - mark as ignored in result
         acceptedPending.delete(evictHashStr);
         ignored.push(TxHash.fromString(evictHashStr));
       }
     }
 
     // Add the transaction
-    await this.#addNewPendingTx(tx);
+    await this.#addTx(tx, 'pending', opts);
     return { status: 'accepted' };
   }
 
@@ -280,11 +263,11 @@ export class TxPoolV2Impl {
     const txHashStr = tx.getTxHash().toString();
 
     // Check if already in pool
-    if (this.#metadata.has(txHashStr)) {
+    if (this.#indices.has(txHashStr)) {
       return 'ignored';
     }
 
-    // Validate transaction
+    // Validate transaction (no logging for dry-run check)
     const validationResult = await this.#pendingTxValidator.validateTx(tx);
     if (validationResult.result !== 'valid') {
       return 'rejected';
@@ -300,37 +283,32 @@ export class TxPoolV2Impl {
 
   async addProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
     const slotNumber = block.globalVariables.slotNumber;
-    const newlyAdded: Tx[] = [];
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
         const txHash = tx.getTxHash();
         const txHashStr = txHash.toString();
-        const isNew = !this.#metadata.has(txHashStr);
+        const isNew = !this.#indices.has(txHashStr);
         const minedBlockId = await this.#getMinedBlockId(txHash);
 
         if (isNew) {
-          // New tx - add as mined or protected
+          // New tx - add as mined or protected (callback emitted by #addTx)
           if (minedBlockId) {
-            await this.#addNewMinedTx(tx, minedBlockId);
-            this.#protectedTransactions.set(txHashStr, slotNumber);
+            await this.#addTx(tx, { mined: minedBlockId }, opts);
+            this.#indices.setProtection(txHashStr, slotNumber);
           } else {
-            await this.#addNewProtectedTx(tx, slotNumber);
+            await this.#addTx(tx, { protected: slotNumber }, opts);
           }
-          newlyAdded.push(tx);
         } else {
           // Existing tx - update protection and mined status
-          this.#updateProtection(txHashStr, slotNumber);
+          this.#indices.updateProtection(txHashStr, slotNumber);
           if (minedBlockId) {
-            this.#markAsMined(this.#metadata.get(txHashStr)!, minedBlockId);
+            const meta = this.#indices.getMetadata(txHashStr)!;
+            this.#indices.markAsMined(meta, minedBlockId);
           }
         }
       }
     });
-
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
   }
 
   protectTxs(txHashes: TxHash[], block: BlockHeader): TxHash[] {
@@ -340,12 +318,12 @@ export class TxPoolV2Impl {
     for (const txHash of txHashes) {
       const txHashStr = txHash.toString();
 
-      if (this.#metadata.has(txHashStr)) {
-        // Step 1a: Update protection for existing tx
-        this.#updateProtection(txHashStr, slotNumber);
+      if (this.#indices.has(txHashStr)) {
+        // Update protection for existing tx
+        this.#indices.updateProtection(txHashStr, slotNumber);
       } else {
-        // Step 1b: Pre-record protection for tx we don't have yet
-        this.#protectedTransactions.set(txHashStr, slotNumber);
+        // Pre-record protection for tx we don't have yet
+        this.#indices.setProtection(txHashStr, slotNumber);
         missing.push(txHash);
       }
     }
@@ -356,28 +334,21 @@ export class TxPoolV2Impl {
   async addMinedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
     // Step 1: Build block ID
     const blockId = await this.#buildBlockId(block);
-    const newlyAdded: Tx[] = [];
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
         const txHashStr = tx.getTxHash().toString();
-        const existingMeta = this.#metadata.get(txHashStr);
+        const existingMeta = this.#indices.getMetadata(txHashStr);
 
         if (existingMeta) {
-          // Step 2a: Mark existing tx as mined
-          this.#markAsMined(existingMeta, blockId);
+          // Mark existing tx as mined
+          this.#indices.markAsMined(existingMeta, blockId);
         } else {
-          // Step 2b: Add new mined tx
-          await this.#addNewMinedTx(tx, blockId);
-          newlyAdded.push(tx);
+          // Add new mined tx (callback emitted by #addTx)
+          await this.#addTx(tx, { mined: blockId }, opts);
         }
       }
     });
-
-    // Step 3: Emit events for newly added txs
-    if (newlyAdded.length > 0) {
-      this.#callbacks.onTxsAdded(newlyAdded, opts);
-    }
   }
 
   async handleMinedBlock(block: L2Block): Promise<void> {
@@ -392,7 +363,7 @@ export class TxPoolV2Impl {
     const feePayers: string[] = [];
     const found: TxMetaData[] = [];
     for (const txHash of txHashes) {
-      const meta = this.#metadata.get(txHash.toString());
+      const meta = this.#indices.getMetadata(txHash.toString());
       if (meta) {
         feePayers.push(meta.feePayer);
         found.push(meta);
@@ -400,24 +371,25 @@ export class TxPoolV2Impl {
     }
 
     // Step 4: Mark txs as mined (only those we have in the pool)
-    this.#markTxsAsMined(found, blockId);
+    for (const meta of found) {
+      this.#indices.markAsMined(meta, blockId);
+    }
 
     // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
     await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
 
-    this.#callbacks.onTxsRemoved(txHashes.map(h => h.toBigInt()));
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
     // Step 1: Find expired protected txs
-    const expiredProtected = this.#findExpiredProtectedTxs(slotNumber);
+    const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
 
     // Step 2: Clear protection for all expired entries (including those without metadata)
-    this.#clearProtection(expiredProtected);
+    this.#indices.clearProtection(expiredProtected);
 
     // Step 3: Filter to only txs that have metadata and are not mined
-    const txsToRestore = this.#filterRestorable(expiredProtected);
+    const txsToRestore = this.#indices.filterRestorable(expiredProtected);
     if (txsToRestore.length === 0) {
       return;
     }
@@ -425,7 +397,7 @@ export class TxPoolV2Impl {
     this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#validateForPending(txsToRestore);
+    const { valid, invalid } = await this.#loadAndValidateTxs(txsToRestore, 'during prepareForSlot');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -446,7 +418,7 @@ export class TxPoolV2Impl {
 
   async handlePrunedBlocks(latestBlock: L2BlockId): Promise<void> {
     // Step 1: Find transactions mined after the prune point
-    const txsToUnmine = this.#findTxsMinedAfter(latestBlock.number);
+    const txsToUnmine = this.#indices.findTxsMinedAfter(latestBlock.number);
     if (txsToUnmine.length === 0) {
       this.#log.debug(`No transactions to un-mine for prune to block ${latestBlock.number}`);
       return;
@@ -455,13 +427,15 @@ export class TxPoolV2Impl {
     this.#log.info(`Handling prune to block ${latestBlock.number}: un-mining ${txsToUnmine.length} txs`);
 
     // Step 2: Unmine - clear mined status from metadata
-    this.#unmineTxs(txsToUnmine);
+    for (const meta of txsToUnmine) {
+      this.#indices.markAsUnmined(meta);
+    }
 
     // Step 3: Filter out protected txs (they'll be handled by prepareForSlot)
-    const unprotectedTxs = this.#filterUnprotected(txsToUnmine);
+    const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#validateForPending(unprotectedTxs);
+    const { valid, invalid } = await this.#loadAndValidateTxs(unprotectedTxs, 'during handlePrunedBlocks');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -475,7 +449,7 @@ export class TxPoolV2Impl {
   }
 
   async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
-    // Step 1: Delete failed txs
+    // Delete failed txs
     await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
 
     this.#log.info(`Deleted ${txHashes.length} failed txs`);
@@ -485,7 +459,7 @@ export class TxPoolV2Impl {
     const blockNumber = block.globalVariables.blockNumber;
 
     // Step 1: Find txs mined at or before finalized block
-    const txsToFinalize = this.#findTxsMinedAtOrBefore(blockNumber);
+    const txsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
     if (txsToFinalize.length === 0) {
       return;
     }
@@ -529,42 +503,32 @@ export class TxPoolV2Impl {
   }
 
   hasTxs(txHashes: TxHash[]): boolean[] {
-    return txHashes.map(h => this.#metadata.has(h.toString()));
+    return txHashes.map(h => this.#indices.has(h.toString()));
   }
 
   getTxStatus(txHash: TxHash): TxState | undefined {
-    const meta = this.#metadata.get(txHash.toString());
+    const meta = this.#indices.getMetadata(txHash.toString());
     if (!meta) {
       return undefined;
     }
-    return this.#getTxState(meta);
+    return this.#indices.getTxState(meta);
   }
 
   getPendingTxHashes(): TxHash[] {
-    return [...this.#iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
+    return [...this.#indices.iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
   }
 
   getPendingTxCount(): number {
-    let count = 0;
-    for (const hashes of this.#pendingByPriority.values()) {
-      count += hashes.size;
-    }
-    return count;
+    return this.#indices.getPendingTxCount();
   }
 
   getMinedTxHashes(): [TxHash, L2BlockId][] {
-    const result: [TxHash, L2BlockId][] = [];
-    for (const [txHash, meta] of this.#metadata) {
-      if (meta.minedL2BlockId !== undefined) {
-        result.push([TxHash.fromString(txHash), meta.minedL2BlockId]);
-      }
-    }
-    return result;
+    return this.#indices.getMinedTxs().map(([hash, blockId]) => [TxHash.fromString(hash), blockId]);
   }
 
   getMinedTxCount(): number {
     let count = 0;
-    for (const meta of this.#metadata.values()) {
+    for (const [, meta] of this.#indices.iterateMetadata()) {
       if (meta.minedL2BlockId !== undefined) {
         count++;
       }
@@ -573,11 +537,11 @@ export class TxPoolV2Impl {
   }
 
   isEmpty(): boolean {
-    return this.#metadata.size === 0;
+    return this.#indices.isEmpty();
   }
 
   getTxCount(): number {
-    return this.#metadata.size;
+    return this.#indices.getTxCount();
   }
 
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
@@ -585,18 +549,7 @@ export class TxPoolV2Impl {
   }
 
   getLowestPriorityPending(limit: number): TxHash[] {
-    if (limit <= 0) {
-      return [];
-    }
-
-    const result: TxHash[] = [];
-    for (const hash of this.#iteratePendingByPriority('asc')) {
-      result.push(TxHash.fromString(hash));
-      if (result.length >= limit) {
-        break;
-      }
-    }
-    return result;
+    return this.#indices.getLowestPriorityPending(limit).map(h => TxHash.fromString(h));
   }
 
   // === Configuration ===
@@ -617,160 +570,133 @@ export class TxPoolV2Impl {
 
   getPoolReadAccess(): PoolReadAccess {
     return {
-      getMetadata: (txHash: string) => this.#metadata.get(txHash),
-      getTxHashByNullifier: (nullifier: string) => this.#nullifierToTxHash.get(nullifier),
-      getTxHashesByFeePayer: (feePayer: string) => this.#feePayerToTxHashes.get(feePayer),
-      getPendingTxCount: () => this.getPendingTxCount(),
+      getMetadata: (txHash: string) => this.#indices.getMetadata(txHash),
+      getTxHashByNullifier: (nullifier: string) => this.#indices.getTxHashByNullifier(nullifier),
+      getTxHashesByFeePayer: (feePayer: string) => this.#indices.getTxHashesByFeePayer(feePayer),
+      getPendingTxCount: () => this.#indices.getPendingTxCount(),
     };
   }
 
   // === Metrics ===
 
   countTxs(): { pending: number; protected: number; mined: number } {
-    let pending = 0;
-    let protected_ = 0;
-    let mined = 0;
-
-    for (const meta of this.#metadata.values()) {
-      const state = this.#getTxState(meta);
-      if (state === 'pending') {
-        pending++;
-      } else if (state === 'protected') {
-        protected_++;
-      } else if (state === 'mined') {
-        mined++;
-      }
-    }
-
-    return { pending, protected: protected_, mined };
+    return this.#indices.countTxs();
   }
 
   // ============================================================================
-  // PRIVATE QUERY IMPLEMENTATIONS
+  // PRIVATE HELPERS - Transaction Management
   // ============================================================================
 
   /**
-   * Derives the transaction state from its metadata and protection status.
-   * A transaction is:
-   * - 'mined' if it has a minedL2BlockId
-   * - 'protected' if it's in the protectedTransactions map (but not mined)
-   * - 'pending' otherwise
+   * Adds a new transaction to the pool with the specified state.
+   * Emits onTxsAdded callback immediately after DB write.
    */
-  #getTxState(meta: TxMetaData): TxState {
-    if (meta.minedL2BlockId !== undefined) {
-      return 'mined';
-    } else if (this.#protectedTransactions.has(meta.txHash)) {
-      return 'protected';
+  async #addTx(
+    tx: Tx,
+    state: 'pending' | { protected: SlotNumber } | { mined: L2BlockId },
+    opts: { source?: string } = {},
+  ): Promise<TxMetaData> {
+    const txHashStr = tx.getTxHash().toString();
+    const meta = await buildTxMetaData(tx);
+
+    await this.#txsDB.set(txHashStr, tx.toBuffer());
+    this.#callbacks.onTxsAdded([tx], opts);
+
+    if (state === 'pending') {
+      this.#indices.addPending(meta);
+    } else if ('protected' in state) {
+      this.#indices.addProtected(meta, state.protected);
     } else {
-      return 'pending';
+      meta.minedL2BlockId = state.mined;
+      this.#indices.addMined(meta);
     }
+
+    const stateStr = typeof state === 'string' ? state : Object.keys(state)[0];
+    this.#log.verbose(`Added ${stateStr} tx ${txHashStr}`, {
+      eventName: 'tx-added-to-pool',
+      state: stateStr,
+    });
+
+    return meta;
   }
 
   /**
-   * Iterates pending transaction hashes in priority order.
-   * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
+   * Deletes a transaction from both indices and DB.
+   * Emits onTxsRemoved callback immediately after DB delete.
    */
-  *#iteratePendingByPriority(order: 'asc' | 'desc'): Generator<string> {
-    // Use shared comparators, negating for descending order
-    const feeCompareFn =
-      order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : (a: bigint, b: bigint) => compareFee(a, b);
-    const hashCompareFn =
-      order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : (a: string, b: string) => compareTxHash(a, b);
-
-    const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
-
-    for (const fee of sortedFees) {
-      const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
-      for (const hash of sortedHashes) {
-        yield hash;
-      }
-    }
+  async #deleteTx(txHashStr: string): Promise<void> {
+    this.#indices.remove(txHashStr);
+    await this.#txsDB.delete(txHashStr);
+    this.#callbacks.onTxsRemoved([txHashStr]);
   }
 
-  // ============================================================================
-  // HELPER FUNCTIONS - Pipeline Step Functions
-  // ============================================================================
-
-  // --- Finding & Filtering Steps ---
-
-  /** Finds all transactions mined in blocks after the given block number */
-  #findTxsMinedAfter(blockNumber: number): TxMetaData[] {
-    const result: TxMetaData[] = [];
-    for (const meta of this.#metadata.values()) {
-      if (meta.minedL2BlockId !== undefined && meta.minedL2BlockId.number > blockNumber) {
-        result.push(meta);
-      }
-    }
-    return result;
-  }
-
-  /** Finds tx hashes mined at or before the given block number */
-  #findTxsMinedAtOrBefore(blockNumber: number): string[] {
-    const result: string[] = [];
-    for (const [txHashStr, meta] of this.#metadata) {
-      if (meta.minedL2BlockId !== undefined && meta.minedL2BlockId.number <= blockNumber) {
-        result.push(txHashStr);
-      }
-    }
-    return result;
-  }
-
-  /** Finds protected tx hashes from slots earlier than the given slot number */
-  #findExpiredProtectedTxs(slotNumber: SlotNumber): string[] {
-    const result: string[] = [];
-    for (const [txHashStr, protectedSlot] of this.#protectedTransactions) {
-      if (protectedSlot < slotNumber) {
-        result.push(txHashStr);
-      }
-    }
-    return result;
-  }
-
-  /** Filters out transactions that are currently protected */
-  #filterUnprotected(txs: TxMetaData[]): TxMetaData[] {
-    return txs.filter(meta => !this.#protectedTransactions.has(meta.txHash));
-  }
-
-  /** Filters to transactions that have metadata and are not mined */
-  #filterRestorable(txHashes: string[]): TxMetaData[] {
-    const result: TxMetaData[] = [];
+  /** Deletes a batch of transactions, emitting callbacks individually for each. */
+  async #deleteTxsBatch(txHashes: string[]): Promise<void> {
     for (const txHashStr of txHashes) {
-      const meta = this.#metadata.get(txHashStr);
-      if (meta && meta.minedL2BlockId === undefined) {
-        result.push(meta);
-      }
+      await this.#deleteTx(txHashStr);
     }
-    return result;
   }
 
-  // --- Validation & Conflict Resolution Steps ---
+  // ============================================================================
+  // PRIVATE HELPERS - Validation & Conflict Resolution
+  // ============================================================================
 
-  /** Validates transactions for pending pool, returning valid and invalid groups */
-  async #validateForPending(txs: TxMetaData[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
+  /** Validates a single transaction, returning true if valid */
+  async #validateTx(tx: Tx, context?: string): Promise<boolean> {
+    const result = await this.#pendingTxValidator.validateTx(tx);
+    if (result.result !== 'valid') {
+      const contextStr = context ? ` ${context}` : '';
+      this.#log.info(`Tx ${tx.getTxHash()}${contextStr} failed validation: ${result.reason?.join(', ')}`);
+      return false;
+    }
+    return true;
+  }
+
+  /** Loads transactions from DB, returning loaded txs and missing hashes */
+  async #loadTxsFromDb(metas: TxMetaData[]): Promise<{ loaded: { tx: Tx; meta: TxMetaData }[]; missing: string[] }> {
+    const loaded: { tx: Tx; meta: TxMetaData }[] = [];
+    const missing: string[] = [];
+
+    for (const meta of metas) {
+      const buffer = await this.#txsDB.getAsync(meta.txHash);
+      if (!buffer) {
+        this.#log.warn(`Tx ${meta.txHash} not found in DB`);
+        missing.push(meta.txHash);
+        continue;
+      }
+      loaded.push({ tx: Tx.fromBuffer(buffer), meta });
+    }
+
+    return { loaded, missing };
+  }
+
+  /** Validates a batch of transactions, returning valid and invalid groups */
+  async #validateTxBatch(
+    txs: { tx: Tx; meta: TxMetaData }[],
+    context?: string,
+  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
 
-    for (const meta of txs) {
-      const buffer = await this.#txsDB.getAsync(meta.txHash);
-      if (!buffer) {
-        this.#log.warn(`Tx ${meta.txHash} not found in DB during validation`);
-        invalid.push(meta.txHash);
-        continue;
-      }
-
-      const tx = Tx.fromBuffer(buffer);
-      const result = await this.#pendingTxValidator.validateTx(tx);
-
-      if (result.result === 'valid') {
+    for (const { tx, meta } of txs) {
+      if (await this.#validateTx(tx, context)) {
         valid.push(meta);
       } else {
-        this.#log.info(`Tx ${meta.txHash} failed validation: ${result.reason?.join(', ')}`);
         invalid.push(meta.txHash);
       }
     }
 
     return { valid, invalid };
+  }
+
+  /** Loads transactions from DB and validates them */
+  async #loadAndValidateTxs(
+    metas: TxMetaData[],
+    context?: string,
+  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
+    const { loaded, missing } = await this.#loadTxsFromDb(metas);
+    const { valid, invalid } = await this.#validateTxBatch(loaded, context);
+    return { valid, invalid: [...missing, ...invalid] };
   }
 
   /**
@@ -785,8 +711,8 @@ export class TxPoolV2Impl {
     for (const meta of txs) {
       const conflict = checkNullifierConflict(
         meta,
-        nullifier => this.#nullifierToTxHash.get(nullifier),
-        txHash => this.#metadata.get(txHash),
+        nullifier => this.#indices.getTxHashByNullifier(nullifier),
+        txHash => this.#indices.getMetadata(txHash),
       );
       if (conflict.shouldIgnore) {
         // Lower priority than existing - don't add, mark for deletion
@@ -796,13 +722,13 @@ export class TxPoolV2Impl {
         toEvict.push(...conflict.txHashesToEvict);
         // Remove evicted from indices immediately for subsequent checks
         for (const evictHash of conflict.txHashesToEvict) {
-          const evictMeta = this.#metadata.get(evictHash);
+          const evictMeta = this.#indices.getMetadata(evictHash);
           if (evictMeta) {
-            this.#removeFromPendingIndices(evictMeta);
+            this.#indices.removeFromPendingIndices(evictMeta);
           }
         }
         // Add to pending indices immediately so subsequent txs in the batch see this tx
-        this.#addToPendingIndices(meta);
+        this.#indices.addToPendingIndices(meta);
         added.push(meta);
       }
     }
@@ -810,43 +736,10 @@ export class TxPoolV2Impl {
     return { added, toEvict };
   }
 
-  // --- State Transition Steps ---
+  // ============================================================================
+  // PRIVATE HELPERS - Block & Hydration
+  // ============================================================================
 
-  /** Clears the mined status from transactions, returning them for further processing */
-  #unmineTxs(txs: TxMetaData[]): TxMetaData[] {
-    for (const meta of txs) {
-      meta.minedL2BlockId = undefined;
-    }
-    return txs;
-  }
-
-  /** Removes protection from tx hashes and clears them from the protected map */
-  #clearProtection(txHashes: string[]): void {
-    for (const txHashStr of txHashes) {
-      this.#protectedTransactions.delete(txHashStr);
-    }
-  }
-
-  // --- Batch Operation Steps ---
-
-  /** Deletes a batch of transactions permanently */
-  async #deleteTxsBatch(txHashes: string[]): Promise<void> {
-    if (txHashes.length === 0) {
-      return;
-    }
-
-    await this.#store.transactionAsync(async () => {
-      for (const txHashStr of txHashes) {
-        await this.#deleteTx(txHashStr);
-      }
-    });
-
-    this.#callbacks.onTxsRemoved(txHashes);
-  }
-
-  // --- Block & Tx Info Steps ---
-
-  /** Builds a block ID from a block header */
   async #buildBlockId(block: BlockHeader): Promise<L2BlockId> {
     return {
       number: block.globalVariables.blockNumber,
@@ -865,50 +758,6 @@ export class TxPoolV2Impl {
       hash: txEffect.l2BlockHash.toString(),
     };
   }
-
-  /** Marks a batch of transactions as mined */
-  #markTxsAsMined(metas: TxMetaData[], blockId: L2BlockId): void {
-    for (const meta of metas) {
-      this.#markAsMined(meta, blockId);
-    }
-  }
-
-  // --- Add Transaction Steps ---
-
-  /** Persists a transaction to the database */
-  async #persistTx(txHashStr: string, tx: Tx): Promise<void> {
-    await this.#txsDB.set(txHashStr, tx.toBuffer());
-  }
-
-  /** Adds a new transaction as protected, returning its metadata */
-  async #addNewProtectedTx(tx: Tx, slotNumber: SlotNumber): Promise<TxMetaData> {
-    const txHashStr = tx.getTxHash().toString();
-    const meta = await buildTxMetaData(tx);
-
-    this.#protectedTransactions.set(txHashStr, slotNumber);
-    await this.#persistTx(txHashStr, tx);
-    this.#metadata.set(txHashStr, meta);
-    // Don't add to pending indices since it's protected
-
-    this.#log.verbose(`Added protected tx ${txHashStr} for slot ${slotNumber}`);
-    return meta;
-  }
-
-  /** Adds a new transaction as mined, returning its metadata */
-  async #addNewMinedTx(tx: Tx, blockId: L2BlockId): Promise<TxMetaData> {
-    const txHashStr = tx.getTxHash().toString();
-    const meta = await buildTxMetaData(tx);
-    meta.minedL2BlockId = blockId;
-
-    await this.#persistTx(txHashStr, tx);
-    this.#metadata.set(txHashStr, meta);
-    // Don't add to pending indices since it's mined
-
-    this.#log.verbose(`Added mined tx ${txHashStr} from block ${blockId.number}`);
-    return meta;
-  }
-
-  // --- Hydration Steps ---
 
   /** Loads all transactions from the database, returning loaded txs and deserialization errors */
   async #loadAllTxsFromDb(): Promise<{
@@ -949,50 +798,6 @@ export class TxPoolV2Impl {
     }
   }
 
-  /** Partitions transactions by mined status */
-  #partitionByMinedStatus(txs: { tx: Tx; meta: TxMetaData }[]): {
-    mined: TxMetaData[];
-    nonMined: { tx: Tx; meta: TxMetaData }[];
-  } {
-    const mined: TxMetaData[] = [];
-    const nonMined: { tx: Tx; meta: TxMetaData }[] = [];
-
-    for (const entry of txs) {
-      if (entry.meta.minedL2BlockId !== undefined) {
-        mined.push(entry.meta);
-      } else {
-        nonMined.push(entry);
-      }
-    }
-
-    return { mined, nonMined };
-  }
-
-  /** Validates non-mined transactions, returning valid metadata and invalid hashes */
-  async #validateNonMinedTxs(txs: { tx: Tx; meta: TxMetaData }[]): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
-    const valid: TxMetaData[] = [];
-    const invalid: string[] = [];
-
-    for (const { tx, meta } of txs) {
-      const result = await this.#pendingTxValidator.validateTx(tx);
-      if (result.result === 'valid') {
-        valid.push(meta);
-      } else {
-        this.#log.info(`Removing invalid tx ${meta.txHash} on startup: ${result.reason?.join(', ')}`);
-        invalid.push(meta.txHash);
-      }
-    }
-
-    return { valid, invalid };
-  }
-
-  /** Populates metadata index for mined transactions */
-  #populateMinedIndices(metas: TxMetaData[]): void {
-    for (const meta of metas) {
-      this.#metadata.set(meta.txHash, meta);
-    }
-  }
-
   /**
    * Rebuilds the pending pool by processing each tx through pre-add rules.
    * Starts with an empty pending pool and adds txs one by one, resolving conflicts.
@@ -1016,18 +821,18 @@ export class TxPoolV2Impl {
 
       // Evict any conflicting txs identified by pre-add rules
       for (const evictHashStr of preAddResult.txHashesToEvict) {
-        const evictMeta = this.#metadata.get(evictHashStr);
+        const evictMeta = this.#indices.getMetadata(evictHashStr);
         if (evictMeta) {
-          this.#removeFromPendingIndices(evictMeta);
-          this.#metadata.delete(evictHashStr);
+          this.#indices.removeFromPendingIndices(evictMeta);
+          this.#indices.remove(evictHashStr);
           rejected.push(evictHashStr);
           accepted.delete(evictHashStr);
           this.#log.debug(`Evicted tx ${evictHashStr} during rebuild due to conflict with ${meta.txHash}`);
         }
       }
 
-      // Add to metadata and pending indices
-      this.#addToIndices(meta);
+      // Add to indices
+      this.#indices.addPending(meta);
       accepted.add(meta.txHash);
     }
 
@@ -1035,207 +840,32 @@ export class TxPoolV2Impl {
     return { accepted: [...accepted], rejected };
   }
 
-  // --- Add Pending Tx Steps ---
-
-  /** Checks if a tx is a duplicate (already in pool) */
-  #isDuplicateTx(txHashStr: string): boolean {
-    return this.#metadata.has(txHashStr);
-  }
-
-  /** Adds a new pending tx to the pool, returning its metadata */
-  async #addNewPendingTx(tx: Tx): Promise<TxMetaData> {
-    const txHashStr = tx.getTxHash().toString();
-    const meta = await buildTxMetaData(tx);
-
-    await this.#persistTx(txHashStr, tx);
-    this.#addToIndices(meta);
-
-    this.#log.verbose(`Added tx ${txHashStr} to pool`, {
-      eventName: 'tx-added-to-pool',
-      state: this.#getTxState(meta),
-    });
-
-    return meta;
-  }
-
   // ============================================================================
-  // HELPER FUNCTIONS - Index Management
+  // PRIVATE HELPERS - Pool Access Adapters
   // ============================================================================
 
-  #addToIndices(meta: TxMetaData): void {
-    this.#metadata.set(meta.txHash, meta);
-
-    if (this.#getTxState(meta) === 'pending') {
-      this.#addToPendingIndices(meta);
-    }
-    // Protected and mined txs don't go into pending indices
-  }
-
-  #addToPendingIndices(meta: TxMetaData): void {
-    // Add to nullifier index
-    for (const nullifier of meta.nullifiers) {
-      this.#nullifierToTxHash.set(nullifier, meta.txHash);
-    }
-
-    // Add to fee payer index
-    let feePayerSet = this.#feePayerToTxHashes.get(meta.feePayer);
-    if (!feePayerSet) {
-      feePayerSet = new Set();
-      this.#feePayerToTxHashes.set(meta.feePayer, feePayerSet);
-    }
-    feePayerSet.add(meta.txHash);
-
-    // Add to priority bucket
-    let prioritySet = this.#pendingByPriority.get(meta.priorityFee);
-    if (!prioritySet) {
-      prioritySet = new Set();
-      this.#pendingByPriority.set(meta.priorityFee, prioritySet);
-    }
-    prioritySet.add(meta.txHash);
-  }
-
-  #removeFromPendingIndices(meta: TxMetaData): void {
-    // Remove from nullifier index
-    for (const nullifier of meta.nullifiers) {
-      this.#nullifierToTxHash.delete(nullifier);
-    }
-
-    // Remove from fee payer index
-    const feePayerSet = this.#feePayerToTxHashes.get(meta.feePayer);
-    if (feePayerSet) {
-      feePayerSet.delete(meta.txHash);
-      if (feePayerSet.size === 0) {
-        this.#feePayerToTxHashes.delete(meta.feePayer);
-      }
-    }
-
-    // Remove from priority map
-    const hashSet = this.#pendingByPriority.get(meta.priorityFee);
-    if (hashSet) {
-      hashSet.delete(meta.txHash);
-      if (hashSet.size === 0) {
-        this.#pendingByPriority.delete(meta.priorityFee);
-      }
-    }
-  }
-
-  #updateProtection(txHashStr: string, slotNumber: SlotNumber): void {
-    const currentSlot = this.#protectedTransactions.get(txHashStr);
-
-    // Only update if not already protected at an equal or later slot
-    if (currentSlot !== undefined && currentSlot >= slotNumber) {
-      return;
-    }
-
-    // Remove from pending indices if transitioning from pending to protected
-    if (currentSlot === undefined) {
-      const meta = this.#metadata.get(txHashStr);
-      if (meta) {
-        this.#removeFromPendingIndices(meta);
-      }
-    }
-
-    this.#protectedTransactions.set(txHashStr, slotNumber);
-  }
-
-  #markAsMined(meta: TxMetaData, blockId: L2BlockId): void {
-    meta.minedL2BlockId = blockId;
-    // Safe to call unconditionally - removeFromPendingIndices is idempotent
-    this.#removeFromPendingIndices(meta);
-  }
-
-  async #deleteTx(txHashStr: string): Promise<void> {
-    const meta = this.#metadata.get(txHashStr);
-    if (!meta) {
-      return;
-    }
-
-    // Remove from all indices
-    this.#metadata.delete(txHashStr);
-    this.#protectedTransactions.delete(txHashStr);
-    this.#removeFromPendingIndices(meta);
-
-    // Remove from persistence
-    await this.#txsDB.delete(txHashStr);
-  }
-
-  // ============================================================================
-  // HELPER FUNCTIONS - Adapters
-  // ============================================================================
-
-  /** Gets all pending transactions for a given fee payer. */
-  #getFeePayerPendingTxs(feePayer: string): TxMetaData[] {
-    const txHashes = this.#feePayerToTxHashes.get(feePayer);
-    if (!txHashes) {
-      return [];
-    }
-    const result: TxMetaData[] = [];
-    for (const txHashStr of txHashes) {
-      const meta = this.#metadata.get(txHashStr);
-      if (meta && this.#getTxState(meta) === 'pending') {
-        result.push(meta);
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Creates a PoolOperations adapter for use with the eviction manager.
-   */
   #createPoolOperations(): PoolOperations {
     return {
-      getPendingTxs: (): TxMetaData[] => {
-        const result: TxMetaData[] = [];
-        for (const hashSet of this.#pendingByPriority.values()) {
-          for (const txHashStr of hashSet) {
-            const meta = this.#metadata.get(txHashStr);
-            if (meta) {
-              result.push(meta);
-            }
-          }
-        }
-        return result;
-      },
-      getPendingFeePayers: (): string[] => {
-        return Array.from(this.#feePayerToTxHashes.keys());
-      },
-      getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
-        return this.#getFeePayerPendingTxs(feePayer);
-      },
-      getPendingTxCount: (): number => {
-        return this.getPendingTxCount();
-      },
-      getLowestPriorityPending: (limit: number): string[] => {
-        return this.getLowestPriorityPending(limit).map(h => h.toString());
-      },
-      deleteTxs: async (txHashes: string[]): Promise<void> => {
-        await this.#store.transactionAsync(async () => {
-          for (const txHashStr of txHashes) {
-            await this.#deleteTx(txHashStr);
-          }
-        });
-        this.#callbacks.onTxsRemoved(txHashes);
-      },
+      getPendingTxs: () => this.#indices.getPendingTxs(),
+      getPendingFeePayers: () => this.#indices.getPendingFeePayers(),
+      getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
+      getPendingTxCount: () => this.#indices.getPendingTxCount(),
+      getLowestPriorityPending: (limit: number) => this.#indices.getLowestPriorityPending(limit),
+      deleteTxs: (txHashes: string[]) => this.#deleteTxsBatch(txHashes),
     };
   }
 
-  /**
-   * Creates a PreAddPoolAccess adapter for use with pre-add eviction rules.
-   * All methods work with strings and TxMetaData for efficiency.
-   */
   #createPreAddPoolAccess(): PreAddPoolAccess {
     return {
-      getMetadata: (txHashStr: string): TxMetaData | undefined => {
-        const meta = this.#metadata.get(txHashStr);
-        if (!meta || this.#getTxState(meta) !== 'pending') {
+      getMetadata: (txHashStr: string) => {
+        const meta = this.#indices.getMetadata(txHashStr);
+        if (!meta || this.#indices.getTxState(meta) !== 'pending') {
           return undefined;
         }
         return meta;
       },
-      getTxHashByNullifier: (nullifier: string): string | undefined => {
-        return this.#nullifierToTxHash.get(nullifier);
-      },
-      getFeePayerBalance: async (feePayer: string): Promise<bigint> => {
+      getTxHashByNullifier: (nullifier: string) => this.#indices.getTxHashByNullifier(nullifier),
+      getFeePayerBalance: async (feePayer: string) => {
         const db = this.#worldStateSynchronizer.getCommitted();
         const publicStateSource = new DatabasePublicStateSource(db);
         const balance = await publicStateSource.storageRead(
@@ -1244,22 +874,9 @@ export class TxPoolV2Impl {
         );
         return balance.toBigInt();
       },
-      getFeePayerPendingTxs: (feePayer: string): TxMetaData[] => {
-        return this.#getFeePayerPendingTxs(feePayer);
-      },
-      getPendingTxCount: (): number => {
-        return this.getPendingTxCount();
-      },
-      getLowestPriorityPendingTx: (): TxMetaData | undefined => {
-        // Iterate in ascending order to find the lowest priority
-        for (const txHashStr of this.#iteratePendingByPriority('asc')) {
-          const meta = this.#metadata.get(txHashStr);
-          if (meta) {
-            return meta;
-          }
-        }
-        return undefined;
-      },
+      getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
+      getPendingTxCount: () => this.#indices.getPendingTxCount(),
+      getLowestPriorityPendingTx: () => this.#indices.getLowestPriorityPendingTx(),
     };
   }
 }
