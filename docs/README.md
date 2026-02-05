@@ -371,7 +371,7 @@ This value may be different from both `#include_aztec_version` and `#include_tes
 
 ### `#include_mainnet_version`
 
-This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.9 yarn build`). If not specified, it defaults to `2.1.9`.
+This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.11 yarn build`). If not specified, it defaults to `2.1.11`.
 This value is used for mainnet and ignition releases.
 
 ### `#release_version`
@@ -382,9 +382,9 @@ This macro is release-type-aware and automatically resolves to the appropriate v
 |--------------|-------------|---------|
 | nightly | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
 | devnet | `DEVNET_TAG` | `3.0.0-devnet.5` |
-| testnet | `TESTNET_TAG` | `2.1.9` |
-| mainnet | `MAINNET_TAG` | `2.1.9` |
-| ignition | `MAINNET_TAG` | `2.1.9` |
+| testnet | `TESTNET_TAG` | `2.1.11` |
+| mainnet | `MAINNET_TAG` | `2.1.11` |
+| ignition | `MAINNET_TAG` | `2.1.11` |
 
 Usage: `aztecprotocol/aztec:#release_version`
 
@@ -421,10 +421,10 @@ NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
 RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
 
 # Build for testnet
-RELEASE_TYPE=testnet TESTNET_TAG=2.1.9 yarn build
+RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 yarn build
 
 # Build for ignition/mainnet
-RELEASE_TYPE=ignition MAINNET_TAG=2.1.9 yarn build
+RELEASE_TYPE=ignition MAINNET_TAG=2.1.11 yarn build
 ```
 
 ### Conditional Content
