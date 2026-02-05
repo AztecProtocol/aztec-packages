@@ -168,14 +168,14 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
     using field_t = typename TestFixture::field_t;
     using Element = typename TestFixture::Element;
     using AffineElement = typename TestFixture::AffineElement;
+    using Group = typename TestFixture::Group;
 
     Builder builder;
 
+    auto base_point_native = Group::point_at_infinity;
     auto offset_gen_native = Element::random_element(&engine);
 
-    // Use constant_infinity() for infinity points (from_witness doesn't support infinity)
-    // TODO: check if witness can also be created for infinity point
-    auto base_point = cycle_group::constant_infinity(&builder);
+    auto base_point = cycle_group::from_witness(&builder, base_point_native);
     auto offset_gen = cycle_group::from_witness(&builder, offset_gen_native);
 
     const size_t table_bits = 2;
@@ -188,9 +188,7 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
         EXPECT_EQ(result.get_value(), AffineElement(offset_gen_native));
     }
 
-    // Gate count difference explanation:
-    // ROM with 4 elements (indices 0-3). Using constant_infinity() for base point is more efficient
-    // than from_witness() since no witness creation or on-curve validation is needed.
+    // Same as TestTableRead - ROM with 4 elements (indices 0-3).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
         check_circuit_and_gate_count(builder, 39);
     } else {
