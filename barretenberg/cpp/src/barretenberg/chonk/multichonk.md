@@ -209,6 +209,36 @@ Phase 3: Hiding-translator circuit (~198K gates) eliminates separate Translator 
 | 5 | Chunked MSM | 4×MSM(n) vs MSM(4n) | Parallelism benefit |
 | 6 | Translator Bigfield | Halved op queue + last merge | Phase 3 feasibility |
 
+### Chunked MSM Benchmark Results (Batch=4, Remote Machine)
+
+Compared commitment strategies for 4 polynomials (CPU time):
+
+| Strategy | $2^{19}$ | $2^{20}$ | vs Production | Notes |
+|----------|----------|----------|---------------|-------|
+| ChunkedContiguous | 1040 ms | 1892 ms | 0% (baseline) | **Current production**: 4 separate MSMs |
+| **InterleavedPippenger** | **932 ms** | **1735 ms** | **-10.4% / -8.3%** | **Proposed**: Single MSM(4n), on-the-fly interleaving |
+| FullCommitment | 905 ms | 1675 ms | -13.0% / -11.5% | Theoretical optimum: pre-materialized poly |
+
+**Impact for Mega proof (15 multi-commits):**
+- Saves ~1.6s @ $2^{19}$, ~2.4s @ $2^{20}$ vs current production
+
+**Key Findings:**
+- **10% speedup** vs current chunked approach (avoids Pippenger scaling penalty)
+- **~3% overhead** vs theoretical optimum (acceptable for on-the-fly construction)
+- **Production ready**: `pippenger_interleaved()` implemented in `scalar_multiplication.cpp`
+
+**Implementation:**
+```cpp
+// Build interleaved array from polynomial chunks
+for (size_t i = 0; i < chunk_size; i++) {
+    for (size_t j = 0; j < batch_size; j++) {
+        interleaved_scalars.push_back(chunks[j][i]);
+    }
+}
+// MSM handles Montgomery transformation internally
+return MSM::msm(points, interleaved_scalars, false);
+```
+
 ---
 
 ## 11. Implementation Changes

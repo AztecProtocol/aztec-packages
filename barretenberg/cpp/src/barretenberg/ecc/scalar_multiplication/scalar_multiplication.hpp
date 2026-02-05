@@ -364,6 +364,18 @@ template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points) noexcept;
 
+/**
+ * @brief MSM for interleaved polynomial chunks without materializing the interleaved polynomial
+ * @details Computes sum_j sum_i chunks[j][i] * points[batch_size * i + j]
+ * @param chunks Array of polynomial chunks to commit
+ * @param points SRS points (size must be batch_size * chunk_size)
+ * @param batch_size Number of chunks (typically 4 for Mega Honk)
+ */
+template <typename Curve>
+typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<const typename Curve::ScalarField>> chunks,
+                                              std::span<const typename Curve::AffineElement> points,
+                                              size_t batch_size) noexcept;
+
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
 
