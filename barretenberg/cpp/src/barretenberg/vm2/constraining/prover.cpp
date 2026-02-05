@@ -15,6 +15,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -200,25 +201,24 @@ void AvmProver::execute_pcs_rounds()
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
+    auto index_of_max_end_index = [](const auto& polys) {
+        // this assumes non-empty, returns an iterator
+        auto it = std::ranges::max_element(
+            polys.begin(), polys.end(), [](const auto& a, const auto& b) { return a.end_index() < b.end_index(); });
+
+        // retrieves the index of the max element
+        return static_cast<size_t>(std::distance(polys.begin(), it));
+    };
+
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
-    size_t max_idx = 0;
-    size_t max_end_idx = shifted_polys[0].end_index();
-    for (size_t idx = 0; const auto& poly : shifted_polys) {
-        if (poly.end_index() > max_end_idx) {
-            max_idx = idx;
-            max_end_idx = poly.end_index();
-        }
-        idx++;
-    }
+    size_t max_idx = index_of_max_end_index(shifted_polys);
 
     Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
     batched_shifted *= shifted_challenges[max_idx];
@@ -230,26 +230,30 @@ void AvmProver::execute_pcs_rounds()
     }
 
     // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
-    // polynomial with precomputed_clk, which is always of circuit size)
-    Polynomial batched_unshifted =
-        prover_polynomials.get(ColumnAndShifts::precomputed_clk); // Initial poly has coefficient 1
+    // polynomial with the polynomial of the largest size)
+    max_idx = index_of_max_end_index(unshifted_polys);
+
+    Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
+    batched_unshifted *= unshifted_challenges[max_idx];
     batched_unshifted += batched_shifted;
     for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
         // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
         if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-            if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
+            if (idx != max_idx) {
                 batched_unshifted.add_scaled(poly, challenge);
             }
         }
         idx++;
     }
 
-    PolynomialBatcher polynomial_batcher(ProvingKey::circuit_size);
+    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
+
+    PolynomialBatcher polynomial_batcher(circuit_dyadic_size);
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        ProvingKey::circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

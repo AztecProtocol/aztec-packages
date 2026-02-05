@@ -382,7 +382,7 @@ namespace sha256;
     #[ROUND_CONSTANT]
     perform_round { round_count, round_constant }
     in
-    precomputed.sel_sha256_compression { precomputed.clk, precomputed.sha256_compression_round_constant };
+    precomputed.sel_sha256_compression { precomputed.idx, precomputed.sha256_compression_round_constant };
 
     pol TMP_1 = h + s_1 + ch + round_constant + w;
 

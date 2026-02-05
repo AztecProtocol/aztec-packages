@@ -290,6 +290,6 @@ namespace emit_unencrypted_log;
         public_inputs_value
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
