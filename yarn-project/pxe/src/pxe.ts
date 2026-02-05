@@ -179,7 +179,7 @@ export class PXE {
       contractSyncService,
     ]);
 
-    const debugUtils = new PXEDebugUtils(contractStore, noteStore, synchronizer, anchorBlockStore);
+    const debugUtils = new PXEDebugUtils(contractSyncService, noteStore, synchronizer, anchorBlockStore);
 
     const jobQueue = new SerialQueue();
 
@@ -207,7 +207,11 @@ export class PXE {
       debugUtils,
     );
 
-    debugUtils.setPXE(pxe, pxe.#putInJobQueue.bind(pxe));
+    debugUtils.setPXEHelpers(
+      pxe.#putInJobQueue.bind(pxe),
+      pxe.#getSimulatorForTx.bind(pxe),
+      pxe.#simulateUtility.bind(pxe),
+    );
 
     pxe.jobQueue.start();
 
