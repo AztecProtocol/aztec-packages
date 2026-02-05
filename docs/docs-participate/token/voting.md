@@ -1,7 +1,7 @@
 ---
 title: Voting on Proposals
 description: Learn how to vote on governance proposals on the Aztec network using your staked tokens.
-displayed_sidebar: usersSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Voting on Proposals
@@ -10,9 +10,9 @@ As a token holder, you can vote on governance proposals that shape the future of
 
 :::info Conceptual Background
 Understanding these concepts will help you participate effectively:
-- [How governance works](../concepts/governance/) - Overview of the governance system
-- [Proposal lifecycle](../concepts/governance/proposal-lifecycle) - The stages from signaling to execution
-- [Voting mechanics](../concepts/governance/voting) - How voting power and timestamps work
+- [How governance works](/participate/governance) - Overview of the governance system
+- [Proposal lifecycle](/participate/governance/proposal-lifecycle) - The stages from signaling to execution
+- [Voting mechanics](/participate/governance/voting) - How voting power and timestamps work
 :::
 
 ## Two Paths to Voting Power
@@ -92,7 +92,7 @@ To see what proposals are currently up for vote:
 
 ## Next Steps
 
-- [Learn about staking](./staking) to acquire voting power through staking
-- [Learn about unstaking](./staking#unstaking) to understand withdrawal delays
-- [Understand governance concepts](../concepts/governance/) for deeper knowledge
-- [Become a sequencer](../operators/setup/sequencer_management) to participate in proposal signaling
+- [Learn about staking](/participate/token/staking) to acquire voting power through staking
+- [Learn about unstaking](/participate/token/staking#unstaking) to understand withdrawal delays
+- [Understand governance concepts](/participate/governance) for deeper knowledge
+- [Become a sequencer](/operate/operators/setup/sequencer_management) to participate in proposal signaling

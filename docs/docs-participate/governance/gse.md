@@ -1,7 +1,7 @@
 ---
 title: GSE and Stake Mobility
 description: Learn how the Governance Staking Escrow (GSE) enables seamless stake migration during rollup upgrades.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Governance Staking Escrow (GSE)
@@ -226,4 +226,4 @@ The long lock prevents governance attacks while ensuring the network can always 
 - [Voting](./voting) - How voting power and delegation work
 - [Proposal Lifecycle](./proposal-lifecycle) - How GSEPayload wrapping fits in
 - [Upgrades](./upgrades) - End-to-end upgrade process
-- [Proof of Stake](../proof-of-stake/) - How staking works at the protocol level
+- [Staking Tokens](/participate/token/staking) - How staking works at the protocol level

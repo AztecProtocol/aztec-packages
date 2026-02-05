@@ -21,7 +21,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://devnet-6.aztec-labs.com/` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) | N/A |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) | [Aztecscan](https://devnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=devnet) |
-| **Getting Started** | [Run a sequencer →](/network/setup/sequencer_management) | [Run a node →](/network/setup/running_a_node) | [Build on Devnet →](/developers/getting_started_on_devnet) |
+| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) | [Build on Devnet →](/developers/getting_started_on_devnet) |
 
 ## Contract Addresses
 
@@ -160,5 +160,5 @@ Devnet is a centralized network operated by Aztec Labs, designed for rapid devel
 Based on your use case:
 
 - **Building an application?** Start with [Devnet Getting Started](/developers/getting_started_on_devnet)
-- **Running infrastructure?** Review [Network Operator Guide](/network/)
-- **Joining as validator?** See [Sequencer Management](/network/setup/sequencer_management)
+- **Running infrastructure?** Review [Network Operator Guide](/operate/operators)
+- **Joining as validator?** See [Sequencer Management](/operate/operators/setup/sequencer_management)

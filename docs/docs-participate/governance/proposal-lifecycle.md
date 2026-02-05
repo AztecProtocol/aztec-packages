@@ -1,7 +1,7 @@
 ---
 title: Proposal Lifecycle
 description: Learn how proposals move through the governance process, from initial signaling to final execution.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Proposal Lifecycle

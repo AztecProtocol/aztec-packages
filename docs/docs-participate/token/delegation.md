@@ -1,7 +1,7 @@
 ---
 title: Delegating Stake
 description: Learn how to delegate your stake to operators on the Aztec network without running infrastructure.
-displayed_sidebar: usersSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Delegating Stake
@@ -12,9 +12,9 @@ If you want to participate in staking but don't want to run your own infrastruct
 
 Understanding these concepts will help you choose the right operator:
 
-- [How proof of stake works](../concepts/proof-of-stake/)
-- [Slashing conditions](../concepts/proof-of-stake/#slashing) - your delegated stake can be slashed
-- [How governance works](../concepts/governance/) - understand voting power
+- [Staking Tokens](/participate/token/staking) - how proof of stake works
+- [Economics & Rewards](/participate/token/economics) - how rewards are distributed
+- [How governance works](/participate/governance) - understand voting power
 
 ## How Delegation Works
 
@@ -72,10 +72,10 @@ By default, when you delegate to an operator, they may vote on your behalf in go
 To maintain control over your votes:
 - Check if the operator allows custom voting preferences
 - Consider delegating voting power separately from stake
-- See [Voting on Proposals](./voting) for voting options
+- See [Voting on Proposals](/participate/token/voting) for voting options
 
 ## Next Steps
 
-- [Learn about voting](./voting) with your staked or delegated tokens
-- [Understand slashing](../concepts/proof-of-stake/#slashing) to know the risks
-- [Run your own validator](../operators/setup/sequencer_management) if you prefer direct control
+- [Learn about voting](/participate/token/voting) with your staked or delegated tokens
+- [Staking Tokens](/participate/token/staking) to understand slashing risks
+- [Run your own validator](/operate/operators/setup/sequencer_management) if you prefer direct control
