@@ -199,3 +199,27 @@ NIST FIPS 202: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.202.pdf
 1. `stdlib/hash/keccak/keccak.fuzzer.cpp`
 2. `boomerang_value_detection/graph_description_keccak.test.cpp`
 
+---
+
+## 5. Pedersen Hash (Native Only)
+
+### Summary
+
+Pedersen hash is a cryptographic commitment scheme based on elliptic curve cryptography. The implementation uses the Grumpkin curve for efficient operations.
+
+### Documentation
+
+Pedersen commitments: https://en.wikipedia.org/wiki/Commitment_scheme#Pedersen_commitment
+
+### Files to Audit
+
+#### Native Implementation
+1. `crypto/pedersen_hash/pedersen.hpp`
+2. `crypto/pedersen_hash/pedersen.cpp`
+3. `crypto/pedersen_commitment/pedersen.hpp`
+4. `crypto/pedersen_commitment/pedersen.cpp`
+5. `crypto/generators/generator_data.hpp`
+
+### Test Files
+1. `crypto/pedersen_hash/pedersen.test.cpp`
+2. `crypto/generators/generator_data.test.cpp`
