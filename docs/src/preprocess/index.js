@@ -129,7 +129,8 @@ async function run() {
   const docsDirs = [
     path.join(rootDir, "docs", "docs"),
     path.join(rootDir, "docs", "docs-developers"),
-    path.join(rootDir, "docs", "docs-network"),
+    path.join(rootDir, "docs", "docs-operate"),
+    path.join(rootDir, "docs", "docs-participate"),
   ];
 
   for (const docsDir of docsDirs) {

@@ -1,128 +1,14 @@
 // @ts-check
-// Sidebar configuration for Network documentation
-// Supports three sections: Concepts, Users, and Operators
+// Sidebar configuration for Operate documentation
+// Focused on operator guides only (concepts and users moved to Participate section)
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   // ============================================
-  // CONCEPTS SIDEBAR
-  // ============================================
-  conceptsSidebar: [
-    {
-      type: "html",
-      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
-      className: "sidebar-back-link-wrapper",
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-title">Concepts</span>',
-      className: "sidebar-title",
-    },
-    {
-      type: "doc",
-      id: "concepts/index",
-      label: "Overview",
-    },
-    {
-      type: "category",
-      label: "Network Architecture",
-      link: {
-        type: "doc",
-        id: "concepts/architecture/index",
-      },
-      items: [
-        "concepts/architecture/block-production",
-      ],
-    },
-    {
-      type: "doc",
-      id: "concepts/proof-of-stake/index",
-      label: "Proof of Stake",
-    },
-    {
-      type: "doc",
-      id: "concepts/economics/index",
-      label: "Economics & Rewards",
-    },
-    {
-      type: "category",
-      label: "Governance",
-      link: {
-        type: "doc",
-        id: "concepts/governance/index",
-      },
-      items: [
-        "concepts/governance/proposal-lifecycle",
-        "concepts/governance/voting",
-        "concepts/governance/gse",
-        "concepts/governance/upgrades",
-      ],
-    },
-    {
-      type: "doc",
-      id: "concepts/contracts/deployment-architecture",
-      label: "L1 Contracts",
-    },
-  ],
-
-  // ============================================
-  // USERS SIDEBAR
-  // ============================================
-  usersSidebar: [
-    {
-      type: "html",
-      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
-      className: "sidebar-back-link-wrapper",
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-title">User Guides</span>',
-      className: "sidebar-title",
-    },
-    {
-      type: "doc",
-      id: "users/index",
-      label: "Overview",
-    },
-    {
-      type: "doc",
-      id: "users/staking",
-      label: "Staking Tokens",
-    },
-    {
-      type: "doc",
-      id: "users/delegation",
-      label: "Delegating Stake",
-    },
-    {
-      type: "doc",
-      id: "users/voting",
-      label: "Voting on Proposals",
-    },
-  ],
-
-  // ============================================
   // OPERATORS SIDEBAR
-  // IDs match actual doc IDs (mix of underscores from frontmatter and dashes from file paths)
+  // Doc IDs use underscores (from frontmatter id fields)
   // ============================================
   operatorsSidebar: [
-    {
-      type: "html",
-      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
-      className: "sidebar-back-link-wrapper",
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
     {
       type: "html",
       value: '<span class="sidebar-title">Getting Started</span>',
@@ -258,7 +144,10 @@ const sidebars = {
         type: "doc",
         id: "operators/reference/changelog/changelog",
       },
-      items: ["operators/reference/changelog/v2.0.2"],
+      items: [
+        "operators/reference/changelog/v4",
+        "operators/reference/changelog/v2.0.2",
+      ],
     },
     {
       type: "doc",
