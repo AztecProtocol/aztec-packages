@@ -20,7 +20,7 @@ Benchmarks flow through the system as follows:
 3. **Upload**: CI caches the merged JSON and GitHub Action uploads to the benchmark dashboard
 4. **Display**: Results appear at the dashboard with historical tracking
 
-**Live dashboard:** https://aztecprotocol.github.io/aztec-packages/bench/?branch=next
+**Live dashboard:** https://aztecprotocol.github.io/benchmark-page-data/bench/?branch=next
 
 ## How Benchmark Names Work
 
