@@ -1336,8 +1336,7 @@ TEST_F(BoomerangConstraintsTests, LogicConstraint_MaxValues_32Bit)
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    auto constraint_system =
-        build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+    auto constraint_system = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
 
     // XOR: max ^ max = 0, AND: max & max = max
     WitnessVector witness = { fr(max_val), fr(max_val), fr(0), fr(max_val), fr(max_val), fr(max_val) };
