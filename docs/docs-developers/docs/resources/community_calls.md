@@ -24,7 +24,7 @@ For Developers building with Aztec.nr smart contracts or writing and debugging N
 
 ### Morning Session (Americas/Europe)
 
-- **When:** Tuesdays · 15:00 – 16:00 UTC
+- **When:** Thursdays · 15:00 – 16:00 UTC
 - **Where:** [Google Meet](https://meet.google.com/pxt-nzfk-bar)
 
 ### Evening Session (Europe/Asia-Pacific)
