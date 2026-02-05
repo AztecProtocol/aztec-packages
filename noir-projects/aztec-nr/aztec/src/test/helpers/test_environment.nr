@@ -40,6 +40,10 @@ impl Counter {
         Self { next_value: 0 }
     }
 
+    fn new_with_offset(offset: Field) -> Self {
+        Self { next_value: offset }
+    }
+
     fn next(&mut self) -> Field {
         let ret = self.next_value;
         self.next_value += 1;
@@ -136,9 +140,13 @@ impl TestEnvironment {
     pub unconstrained fn new() -> Self {
         assert_compatible_oracle_version();
         Self {
+            // Use an offset to avoid secret collision with account secrets. Without this, when
+            // deploying multiple contracts and creating accounts, they could end up with identical
+            // secrets (e.g., Token1 with deployment secret=1 and liquidity_provider with account
+            // secret=1), causing key collisions since keys are derived from the secret alone.
             light_account_secret: Counter::new(),
-            contract_account_secret: Counter::new(),
-            contract_deployment_secret: Counter::new(),
+            contract_account_secret: Counter::new_with_offset(1_000),
+            contract_deployment_secret: Counter::new_with_offset(2_000),
         }
     }
 
@@ -512,12 +520,19 @@ impl TestEnvironment {
     ///
     /// Unlike `call_private`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_private<let M: u32, let N: u32, T>(_self: Self, call: PrivateStaticCall<M, N, T>) -> T
+    ///
+    /// The `from` parameter specifies the account from whose perspective the view is executed. This affects
+    /// scope isolation - only notes scoped to this account will be visible during execution.
+    pub unconstrained fn view_private<let M: u32, let N: u32, T>(
+        _self: Self,
+        from: AztecAddress,
+        call: PrivateStaticCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::private_call_new_flow(
-            std::mem::zeroed(), // The 'from' address is currently not manually set
+            from,
             call.target_contract,
             call.selector,
             call.args,
@@ -746,7 +761,7 @@ impl TestEnvironment {
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
-            Option::none(),
+            Option::some(note_message.new_note.owner),
             compute_note_hash_and_nullifier,
         );
     }

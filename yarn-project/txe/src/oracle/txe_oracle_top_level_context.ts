@@ -296,9 +296,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
+    // When `from` is the zero address (used when creating a new contract account for example),
+    // we disable scope filtering by setting effectiveScopes to undefined. This allows these operations
+    // to proceed without requiring keys registered for the zero address.
+    const effectiveScopes = from.isZero() ? undefined : [from];
+
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall) => {
-      await this.executeUtilityCall(call);
+      await this.executeUtilityCall(call, effectiveScopes);
     };
 
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
@@ -360,7 +365,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       0, // totalPublicArgsCount
       minRevertibleSideEffectCounter, // (start) sideEffectCounter
       undefined, // log
-      undefined, // scopes
+      effectiveScopes, // scopes
       /**
        * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
        * contract would perform, including setting senderForTags.
@@ -693,7 +698,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.executeUtilityCall(call);
   }
 
-  private async executeUtilityCall(call: FunctionCall): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes?: AztecAddress[]): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -721,6 +726,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.capsuleStore,
         this.privateEventStore,
         this.jobId,
+        undefined, // log
+        scopes, // scopes - used to filter notes by account
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
