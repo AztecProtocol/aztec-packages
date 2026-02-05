@@ -1,4 +1,7 @@
+import { getPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
@@ -47,6 +50,27 @@ describe('e2e_token_contract transfer public', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     await asset.methods.transfer_in_public(adminAddress, account1Address, amount, 0).send({ from: adminAddress });
+
+    tokenSim.transferPublic(adminAddress, account1Address, amount);
+  });
+
+  it('emits a Transfer event on public transfer', async () => {
+    const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const amount = balance0 / 2n;
+    expect(amount).toBeGreaterThan(0n);
+    const receipt = await asset.methods
+      .transfer_in_public(adminAddress, account1Address, amount, 0)
+      .send({ from: adminAddress });
+
+    const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+      fromBlock: BlockNumber(receipt.blockNumber!),
+      toBlock: BlockNumber(receipt.blockNumber! + 1),
+    });
+
+    expect(events.length).toBe(1);
+    expect(events[0].event.from).toEqual(adminAddress);
+    expect(events[0].event.to).toEqual(account1Address);
+    expect(events[0].event.amount).toEqual(amount);
 
     tokenSim.transferPublic(adminAddress, account1Address, amount);
   });

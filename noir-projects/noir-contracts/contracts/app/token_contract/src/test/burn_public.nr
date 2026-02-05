@@ -1,6 +1,9 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::{oracle::random::random, test::helpers::authwit::add_public_authwit_from_call};
+use aztec::{
+    oracle::random::random, protocol::address::AztecAddress,
+    test::helpers::authwit::add_public_authwit_from_call,
+};
 
 #[test]
 unconstrained fn burn_public_success() {
@@ -15,6 +18,14 @@ unconstrained fn burn_public_success() {
         token_contract_address,
         owner,
         mint_amount - burn_amount,
+    );
+
+    // Check Transfer event: burn emits Transfer { from: owner, to: zero, amount }
+    utils::check_transfer_event(
+        token_contract_address,
+        owner,
+        AztecAddress::zero(),
+        burn_amount,
     );
 }
 

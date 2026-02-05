@@ -44,6 +44,9 @@ pub contract Token {
     // an overall small circuit regardless.
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
+    global PRIVATE_ADDRESS_MAGIC_VALUE: AztecAddress =
+        AztecAddress { inner: 0x1ea7e01501975545617c2e694d931cb576b691a4a867fed81ebd3264 };
+
     #[event]
     struct Transfer {
         from: AztecAddress,
@@ -161,6 +164,7 @@ pub contract Token {
         let supply = self.storage.total_supply.read().add(amount);
         self.storage.public_balances.at(to).write(new_balance);
         self.storage.total_supply.write(supply);
+        self.emit(Transfer { from: AztecAddress::zero(), to, amount });
     }
 
     // docs:start:transfer_in_public
@@ -176,6 +180,7 @@ pub contract Token {
         self.storage.public_balances.at(from).write(from_balance);
         let to_balance = self.storage.public_balances.at(to).read().add(amount);
         self.storage.public_balances.at(to).write(to_balance);
+        self.emit(Transfer { from, to, amount });
     }
     // docs:end:transfer_in_public
 
@@ -186,6 +191,7 @@ pub contract Token {
         self.storage.public_balances.at(from).write(from_balance);
         let new_supply = self.storage.total_supply.read().sub(amount);
         self.storage.total_supply.write(new_supply);
+        self.emit(Transfer { from, to: AztecAddress::zero(), amount });
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -436,6 +442,7 @@ pub contract Token {
 
         // We finalize the transfer by completing the partial note.
         partial_note.complete(self.context, from_and_completer, amount);
+        self.emit(Transfer { from: from_and_completer, to: PRIVATE_ADDRESS_MAGIC_VALUE, amount });
     }
     // docs:end:finalize_transfer_to_private
 
@@ -496,6 +503,7 @@ pub contract Token {
 
         // We finalize the transfer by completing the partial note.
         partial_note.complete(self.context, completer, amount);
+        self.emit(Transfer { from: AztecAddress::zero(), to: PRIVATE_ADDRESS_MAGIC_VALUE, amount });
     }
 
     #[external("public")]
@@ -505,6 +513,7 @@ pub contract Token {
 
         let new_balance = to_balance.read().add(amount);
         to_balance.write(new_balance);
+        self.emit(Transfer { from: PRIVATE_ADDRESS_MAGIC_VALUE, to, amount });
     }
 
     #[external("public")]
@@ -513,6 +522,7 @@ pub contract Token {
         // Only to be called from burn.
         let new_supply = self.storage.total_supply.read().sub(amount);
         self.storage.total_supply.write(new_supply);
+        self.emit(Transfer { from: PRIVATE_ADDRESS_MAGIC_VALUE, to: AztecAddress::zero(), amount });
     }
 
     // docs:start:balance_of_private

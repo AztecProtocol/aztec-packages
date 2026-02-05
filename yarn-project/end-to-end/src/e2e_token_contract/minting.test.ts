@@ -1,5 +1,12 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getPublicEvents } from '@aztec/aztec.js/events';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
+
 import { U128_OVERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
+
+const PRIVATE_ADDRESS = TokenContractTest.PRIVATE_ADDRESS;
 
 describe('e2e_token_contract minting', () => {
   const t = new TokenContractTest('minting');
@@ -29,6 +36,23 @@ describe('e2e_token_contract minting', () => {
         tokenSim.balanceOfPublic(adminAddress),
       );
       expect(await asset.methods.total_supply().simulate({ from: adminAddress })).toEqual(tokenSim.totalSupply);
+    });
+
+    it('emits a Transfer event on public mint', async () => {
+      const amount = 10000n;
+      const receipt = await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
+
+      const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+        fromBlock: BlockNumber(receipt.blockNumber!),
+        toBlock: BlockNumber(receipt.blockNumber! + 1),
+      });
+
+      expect(events.length).toBe(1);
+      expect(events[0].event.from).toEqual(AztecAddress.ZERO);
+      expect(events[0].event.to).toEqual(adminAddress);
+      expect(events[0].event.amount).toEqual(amount);
+
+      tokenSim.mintPublic(adminAddress, amount);
     });
 
     describe('failure cases', () => {
@@ -65,6 +89,23 @@ describe('e2e_token_contract minting', () => {
         tokenSim.balanceOfPrivate(adminAddress),
       );
       expect(await asset.methods.total_supply().simulate({ from: adminAddress })).toEqual(tokenSim.totalSupply);
+    });
+
+    it('emits a Transfer event on private mint', async () => {
+      const amount = 10000n;
+      const receipt = await asset.methods.mint_to_private(adminAddress, amount).send({ from: adminAddress });
+
+      const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+        fromBlock: BlockNumber(receipt.blockNumber!),
+        toBlock: BlockNumber(receipt.blockNumber! + 1),
+      });
+
+      expect(events.length).toBe(1);
+      expect(events[0].event.from).toEqual(AztecAddress.ZERO);
+      expect(events[0].event.to).toEqual(PRIVATE_ADDRESS);
+      expect(events[0].event.amount).toEqual(amount);
+
+      tokenSim.mintPrivate(adminAddress, amount);
     });
 
     describe('failure cases', () => {

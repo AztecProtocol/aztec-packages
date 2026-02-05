@@ -32,6 +32,7 @@ import {
 
 const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
+const MAX_PUBLIC_EVENTS_PER_TXE_QUERY = 5;
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -304,6 +305,32 @@ export class RPCTranslator {
     const eventLengths = events
       .map(e => new Fr(e.length))
       .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
+    const queryLength = new Fr(events.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
+  }
+
+  async txeGetPublicEvents(foreignSelector: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
+    const selector = EventSelector.fromField(fromSingle(foreignSelector));
+    const contractAddress = addressFromSingle(foreignContractAddress);
+
+    const events = await this.handlerAsTxe().txeGetPublicEvents(selector, contractAddress);
+
+    if (events.length > MAX_PUBLIC_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PUBLIC_EVENTS_PER_TXE_QUERY}`);
+    }
+
+    if (events.some(e => e.length > MAX_EVENT_LEN)) {
+      throw new Error(`Some public event has length larger than maxLen ${MAX_EVENT_LEN}`);
+    }
+
+    const rawArrayStorage = events
+      .map(e => e.concat(Array(MAX_EVENT_LEN - e.length).fill(new Fr(0))))
+      .concat(Array(MAX_PUBLIC_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_EVENT_LEN).fill(new Fr(0))))
+      .flat();
+    const eventLengths = events
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_PUBLIC_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
     const queryLength = new Fr(events.length);
 
     return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);

@@ -18,6 +18,7 @@ export class TokenContractTest {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
+  static PRIVATE_ADDRESS = AztecAddress.fromBigInt(0x1ea7e01501975545617c2e694d931cb576b691a4a867fed81ebd3264n);
   context!: EndToEndContext;
   logger: Logger;
   metricsPort?: number;

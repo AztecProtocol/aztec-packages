@@ -1,5 +1,11 @@
+import { getPublicEvents } from '@aztec/aztec.js/events';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
+
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
+
+const PRIVATE_ADDRESS = TokenContractTest.PRIVATE_ADDRESS;
 
 describe('e2e_token_contract transfer_to_private', () => {
   const t = new TokenContractTest('transfer_to_private');
@@ -31,6 +37,26 @@ describe('e2e_token_contract transfer_to_private', () => {
     // Check that the result matches token sim
     tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
     await tokenSim.check();
+  });
+
+  it('emits a Transfer event on transfer to private', async () => {
+    const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const amount = balancePub / 2n;
+    expect(amount).toBeGreaterThan(0n);
+
+    const receipt = await asset.methods.transfer_to_private(adminAddress, amount).send({ from: adminAddress });
+
+    const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+      fromBlock: BlockNumber(receipt.blockNumber!),
+      toBlock: BlockNumber(receipt.blockNumber! + 1),
+    });
+
+    expect(events.length).toBe(1);
+    expect(events[0].event.from).toEqual(adminAddress);
+    expect(events[0].event.to).toEqual(PRIVATE_ADDRESS);
+    expect(events[0].event.amount).toEqual(amount);
+
+    tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
   });
 
   it('to someone else', async () => {

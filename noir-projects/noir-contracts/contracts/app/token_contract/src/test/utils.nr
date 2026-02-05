@@ -1,5 +1,9 @@
 use crate::Token;
-use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use aztec::{
+    event::EventSelector,
+    protocol::{address::AztecAddress, traits::ToField},
+    test::helpers::{test_environment::TestEnvironment, txe_oracles::get_public_events},
+};
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -104,4 +108,27 @@ pub unconstrained fn setup_and_mint_to_public_with_proxy() -> (TestEnvironment, 
         setup_and_mint_to_public(/* with_account_contracts */ true);
     let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
     (env, token_contract_address, owner, recipient, mint_amount, proxy)
+}
+
+pub unconstrained fn check_transfer_event(
+    contract_address: AztecAddress,
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: u128,
+) {
+    let selector = EventSelector::from_signature("Transfer((Field),(Field),u128)");
+    let events = get_public_events(selector, contract_address);
+    assert(events.len() > 0, "Expected at least one Transfer event");
+
+    let mut found = false;
+    for i in 0..events.len() {
+        let event = events.get(i);
+        if (event.len() == 3)
+            & (event.get(0) == from.to_field())
+            & (event.get(1) == to.to_field())
+            & (event.get(2) == amount as Field) {
+            found = true;
+        }
+    }
+    assert(found, "Expected Transfer event not found");
 }

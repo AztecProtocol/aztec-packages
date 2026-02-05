@@ -1,8 +1,13 @@
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { getPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
+
+const PRIVATE_ADDRESS = TokenContractTest.PRIVATE_ADDRESS;
 
 describe('e2e_token_contract transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
@@ -30,6 +35,28 @@ describe('e2e_token_contract transfer_to_public', () => {
     expect(amount).toBeGreaterThan(0n);
 
     await asset.methods.transfer_to_public(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
+
+    tokenSim.transferToPublic(adminAddress, adminAddress, amount);
+  });
+
+  it('emits a Transfer event on transfer to public', async () => {
+    const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const amount = balancePriv / 2n;
+    expect(amount).toBeGreaterThan(0n);
+
+    const receipt = await asset.methods
+      .transfer_to_public(adminAddress, adminAddress, amount, 0)
+      .send({ from: adminAddress });
+
+    const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+      fromBlock: BlockNumber(receipt.blockNumber!),
+      toBlock: BlockNumber(receipt.blockNumber! + 1),
+    });
+
+    expect(events.length).toBe(1);
+    expect(events[0].event.from).toEqual(PRIVATE_ADDRESS);
+    expect(events[0].event.to).toEqual(adminAddress);
+    expect(events[0].event.amount).toEqual(amount);
 
     tokenSim.transferToPublic(adminAddress, adminAddress, amount);
   });

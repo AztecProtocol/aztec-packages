@@ -1,4 +1,5 @@
 use crate::{test::utils, Token};
+use aztec::protocol::address::AztecAddress;
 
 #[test]
 unconstrained fn mint_to_public_success() {
@@ -12,6 +13,14 @@ unconstrained fn mint_to_public_success() {
 
     let total_supply = env.view_public(Token::at(token_contract_address).total_supply());
     assert(total_supply == mint_amount);
+
+    // Check Transfer event: mint emits Transfer { from: zero, to: owner, amount }
+    utils::check_transfer_event(
+        token_contract_address,
+        AztecAddress::zero(),
+        owner,
+        mint_amount,
+    );
 }
 
 #[test(should_fail_with = "caller is not minter")]

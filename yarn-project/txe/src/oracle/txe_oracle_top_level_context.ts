@@ -182,6 +182,28 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     ).map(e => e.packedEvent);
   }
 
+  async txeGetPublicEvents(selector: EventSelector, contractAddress: AztecAddress) {
+    const lastBlockNumber = await this.getLastBlockNumber();
+    const { logs } = await this.stateMachine.archiver.getPublicLogs({
+      contractAddress,
+      fromBlock: 0,
+      toBlock: lastBlockNumber + 1,
+    });
+
+    // Each public log's fields contain: [serialized_event_fields..., event_type_id]
+    // We filter by event selector (last field) and return only the event data fields (without event_type_id).
+    const selectorField = selector.toField();
+    return logs
+      .filter(extLog => {
+        const fields = extLog.log.fields;
+        return fields.length > 0 && fields[fields.length - 1].equals(selectorField);
+      })
+      .map(extLog => {
+        // Return all fields except the last one (event_type_id)
+        return extLog.log.fields.slice(0, extLog.log.fields.length - 1);
+      });
+  }
+
   async txeAdvanceBlocksBy(blocks: number) {
     this.logger.debug(`time traveling ${blocks} blocks`);
 

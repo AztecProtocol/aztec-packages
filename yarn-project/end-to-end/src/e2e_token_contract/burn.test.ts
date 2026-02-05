@@ -1,8 +1,14 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { getPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { TokenContractTest } from './token_contract_test.js';
+
+const PRIVATE_ADDRESS = TokenContractTest.PRIVATE_ADDRESS;
 
 describe('e2e_token_contract burn', () => {
   const t = new TokenContractTest('burn');
@@ -30,6 +36,25 @@ describe('e2e_token_contract burn', () => {
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       await asset.methods.burn_public(adminAddress, amount, 0).send({ from: adminAddress });
+
+      tokenSim.burnPublic(adminAddress, amount);
+    });
+
+    it('emits a Transfer event on public burn', async () => {
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const amount = balance0 / 2n;
+      expect(amount).toBeGreaterThan(0n);
+      const receipt = await asset.methods.burn_public(adminAddress, amount, 0).send({ from: adminAddress });
+
+      const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+        fromBlock: BlockNumber(receipt.blockNumber!),
+        toBlock: BlockNumber(receipt.blockNumber! + 1),
+      });
+
+      expect(events.length).toBe(1);
+      expect(events[0].event.from).toEqual(adminAddress);
+      expect(events[0].event.to).toEqual(AztecAddress.ZERO);
+      expect(events[0].event.amount).toEqual(amount);
 
       tokenSim.burnPublic(adminAddress, amount);
     });
@@ -135,6 +160,25 @@ describe('e2e_token_contract burn', () => {
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       await asset.methods.burn_private(adminAddress, amount, 0).send({ from: adminAddress });
+      tokenSim.burnPrivate(adminAddress, amount);
+    });
+
+    it('emits a Transfer event on private burn', async () => {
+      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const amount = balance0 / 2n;
+      expect(amount).toBeGreaterThan(0n);
+      const receipt = await asset.methods.burn_private(adminAddress, amount, 0).send({ from: adminAddress });
+
+      const events = await getPublicEvents<Transfer>(t.node, TokenContract.events.Transfer, {
+        fromBlock: BlockNumber(receipt.blockNumber!),
+        toBlock: BlockNumber(receipt.blockNumber! + 1),
+      });
+
+      expect(events.length).toBe(1);
+      expect(events[0].event.from).toEqual(PRIVATE_ADDRESS);
+      expect(events[0].event.to).toEqual(AztecAddress.ZERO);
+      expect(events[0].event.amount).toEqual(amount);
+
       tokenSim.burnPrivate(adminAddress, amount);
     });
 

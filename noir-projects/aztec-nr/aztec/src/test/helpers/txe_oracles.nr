@@ -11,6 +11,7 @@ use crate::protocol::{
 };
 
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
+global MAX_PUBLIC_EVENTS_PER_TXE_QUERY: u32 = 5;
 global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 12;
 
 pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
@@ -103,6 +104,27 @@ unconstrained fn get_private_events_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], [u32; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], u32) {}
+
+// experimental
+pub unconstrained fn get_public_events(
+    selector: EventSelector,
+    contract_address: AztecAddress,
+) -> BoundedVec<BoundedVec<Field, MAX_EVENT_SERIALIZATION_LENGTH>, MAX_PUBLIC_EVENTS_PER_TXE_QUERY> {
+    let (raw_array_storage, event_lengths, query_length) = get_public_events_oracle(selector, contract_address);
+
+    let mut events = BoundedVec::new();
+    for i in 0..query_length {
+        events.push(BoundedVec::from_parts(raw_array_storage[i], event_lengths[i]));
+    }
+
+    events
+}
+
+#[oracle(txeGetPublicEvents)]
+unconstrained fn get_public_events_oracle(
+    selector: EventSelector,
+    contract_address: AztecAddress,
+    ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PUBLIC_EVENTS_PER_TXE_QUERY], [u32; MAX_PUBLIC_EVENTS_PER_TXE_QUERY], u32) {}
 
 #[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}

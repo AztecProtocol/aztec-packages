@@ -64,6 +64,7 @@ export interface ITxeExecutionOracle {
     nullifiers: Fr[];
   }>;
   txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
+  txeGetPublicEvents(selector: EventSelector, contractAddress: AztecAddress): Promise<Fr[][]>;
   txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,

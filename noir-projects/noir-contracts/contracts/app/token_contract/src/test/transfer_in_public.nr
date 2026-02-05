@@ -22,6 +22,9 @@ unconstrained fn public_transfer() {
         mint_amount - transfer_amount,
     );
     utils::check_public_balance(env, token_contract_address, recipient, transfer_amount);
+
+    // Check Transfer event: transfer emits Transfer { from: owner, to: recipient, amount }
+    utils::check_transfer_event(token_contract_address, owner, recipient, transfer_amount);
 }
 
 #[test]
