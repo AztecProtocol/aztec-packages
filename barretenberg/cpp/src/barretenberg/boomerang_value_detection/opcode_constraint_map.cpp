@@ -103,11 +103,16 @@ OpcodeConstraintMap build_opcode_type_map(const AcirFormat& constraint_system)
         opcode_constraint_map[opcode_idx] = { AcirConstraintType::QUAD, &constraint_system.quad_constraints[i] };
     }
 
+    for (size_t i = 0; i < indices.big_quad_constraints.size(); i++) {
+        size_t opcode_idx = indices.big_quad_constraints[i];
+        opcode_constraint_map[opcode_idx] = { AcirConstraintType::BIG_QUAD,
+                                              &constraint_system.big_quad_constraints[i] };
+    }
+
     for (size_t i = 0; i < indices.block_constraints.size(); i++) {
         size_t opcode_idx = indices.block_constraints[i][0];
         opcode_constraint_map[opcode_idx] = { AcirConstraintType::BLOCK, &constraint_system.block_constraints[i] };
     }
-
     return opcode_constraint_map;
 }
 

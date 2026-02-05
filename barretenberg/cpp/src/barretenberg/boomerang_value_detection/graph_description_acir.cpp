@@ -264,11 +264,29 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::collect_wi
         break;
     }
     case AcirConstraintType::QUAD: {
-        const auto* constraint = std::get<const mul_quad_<FF>*>(constraint_info.ptr);
+        const auto* constraint = std::get<const QuadConstraint*>(constraint_info.ptr);
         witness_indices.insert(constraint->a);
         witness_indices.insert(constraint->b);
         witness_indices.insert(constraint->c);
         witness_indices.insert(constraint->d);
+        break;
+    }
+    case AcirConstraintType::BIG_QUAD: {
+        const auto* constraint = std::get<const BigQuadConstraint*>(constraint_info.ptr);
+        for (const auto& gate : *constraint) {
+            if (gate.a != bb::stdlib::IS_CONSTANT) {
+                witness_indices.insert(gate.a);
+            }
+            if (gate.b != bb::stdlib::IS_CONSTANT) {
+                witness_indices.insert(gate.b);
+            }
+            if (gate.c != bb::stdlib::IS_CONSTANT) {
+                witness_indices.insert(gate.c);
+            }
+            if (gate.d != bb::stdlib::IS_CONSTANT) {
+                witness_indices.insert(gate.d);
+            }
+        }
         break;
     }
     case AcirConstraintType::BLOCK: {
@@ -313,6 +331,12 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::RANGE:
             result = process_range_constraints(constraint_info.ptr);
             break;
+        case AcirConstraintType::QUAD:
+            result = process_quad_constraints(constraint_info.ptr);
+            break;
+        case AcirConstraintType::BIG_QUAD:
+            result = process_big_quad_constraints(constraint_info.ptr);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -327,7 +351,7 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
  * @brief Recover a_chunk and b_chunk from lookup gates 1-5 (excluding gate 0)
  * @details This function reconstructs the original chunk values using ONLY gates 1-5.
  *          If gate 0's w_l or w_r is corrupted, the reconstructed values will differ
- *          from gate 0's values, allowing cor/ruption detection.
+ *          from gate 0's values, allowing corruption detection.
  *
  *          Structure of lookup gates for UINT32:
  *          - Gate 0: w_l = a_chunk, w_r = b_chunk (full 32-bit values)
@@ -382,6 +406,116 @@ std::pair<uint256_t, uint256_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::recover
     uint256_t b_reconstructed = b_high * step_size;
 
     return std::make_pair(a_reconstructed, b_reconstructed);
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_quad_constraints(const ConstraintPtr& ptr,
+                                                                       bool include_next_gate_w_4)
+{
+    const auto* constraint = std::get<const acir_format::QuadConstraint*>(ptr);
+    if (constraint->a == bb::stdlib::IS_CONSTANT) {
+        return false;
+    }
+    bool is_gate_created = false;
+    std::array<uint32_t, 4> constraint_variables{ constraint->a, constraint->b, constraint->c, constraint->d };
+    std::array<FF, 6> scalings{ constraint->mul_scaling, constraint->a_scaling, constraint->b_scaling,
+                                constraint->c_scaling,   constraint->d_scaling, constraint->const_scaling };
+
+    for (size_t i = 0; i < constraint_variables.size(); i++) {
+        if (constraint_variables[i] == bb::stdlib::IS_CONSTANT) {
+            constraint_variables[i] = builder.zero_idx();
+        } else {
+            constraint_variables[i] = analyzer.to_real(constraint_variables[i]);
+        }
+    }
+
+    auto zero = builder.zero_idx();
+    const auto var_it = std::find_if(constraint_variables.begin(),
+                                     constraint_variables.end(),
+                                     [zero](const uint32_t var_idx) { return var_idx != zero; });
+    if (var_it != constraint_variables.end()) {
+        auto& arith_block = builder.blocks.arithmetic;
+        std::vector<std::pair<size_t, size_t>> var_gates = analyzer.get_variable_gates(*var_it);
+        for (const auto& [blk_idx, gate_idx] : var_gates) {
+            if (&builder.blocks.get()[blk_idx] == &arith_block) {
+                std::vector<uint32_t> gate_indices{ builder.blocks.arithmetic.w_l()[gate_idx],
+                                                    builder.blocks.arithmetic.w_r()[gate_idx],
+                                                    builder.blocks.arithmetic.w_o()[gate_idx],
+                                                    builder.blocks.arithmetic.w_4()[gate_idx] };
+                gate_indices = analyzer.to_real(gate_indices);
+                if (include_next_gate_w_4) {
+                    // Non-last gate in BigQuadConstraint: q_arith=2, q_m is doubled, validates next w4
+                    bool correct_q_arith = builder.blocks.arithmetic.q_arith()[gate_idx] == FF(2);
+
+                    // For q_arith=2 gates, create_big_mul_add_gate doubles q_m
+                    std::array<FF, 6> expected_scalings = scalings;
+                    expected_scalings[0] = FF(2) * scalings[0];
+
+                    bool correct_selectors =
+                        expected_scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
+                                                                 builder.blocks.arithmetic.q_1()[gate_idx],
+                                                                 builder.blocks.arithmetic.q_2()[gate_idx],
+                                                                 builder.blocks.arithmetic.q_3()[gate_idx],
+                                                                 builder.blocks.arithmetic.q_4()[gate_idx],
+                                                                 builder.blocks.arithmetic.q_c()[gate_idx] });
+                    bool correct_variables = std::equal(constraint_variables.begin(),
+                                                        constraint_variables.end(),
+                                                        gate_indices.begin(),
+                                                        gate_indices.end());
+                    if (correct_q_arith && correct_selectors && correct_variables) {
+                        // Validate that the next gate's w_4 carries the correct accumulated value
+                        FF next_w4_wire_value = builder.get_variable(constraint_variables[0]) *
+                                                    builder.get_variable(constraint_variables[1]) *
+                                                    constraint->mul_scaling +
+                                                builder.get_variable(constraint_variables[0]) * constraint->a_scaling +
+                                                builder.get_variable(constraint_variables[1]) * constraint->b_scaling +
+                                                builder.get_variable(constraint_variables[2]) * constraint->c_scaling +
+                                                builder.get_variable(constraint_variables[3]) * constraint->d_scaling +
+                                                constraint->const_scaling;
+                        next_w4_wire_value = -next_w4_wire_value;
+                        bool correct_next_w4 =
+                            builder.get_variable(builder.blocks.arithmetic.w_4()[gate_idx + 1]) == next_w4_wire_value;
+                        bool correct_next_d_scaling = builder.blocks.arithmetic.q_4()[gate_idx + 1] == FF(-1);
+                        if (correct_next_w4 && correct_next_d_scaling) {
+                            is_gate_created = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // Standalone QUAD constraint or last gate in BigQuadConstraint: q_arith=1
+                    if (builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one() &&
+                        std::equal(constraint_variables.begin(),
+                                   constraint_variables.end(),
+                                   gate_indices.begin(),
+                                   gate_indices.end()) &&
+                        scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
+                                                        builder.blocks.arithmetic.q_1()[gate_idx],
+                                                        builder.blocks.arithmetic.q_2()[gate_idx],
+                                                        builder.blocks.arithmetic.q_3()[gate_idx],
+                                                        builder.blocks.arithmetic.q_4()[gate_idx],
+                                                        builder.blocks.arithmetic.q_c()[gate_idx] })) {
+                        is_gate_created = true;
+                        break;
+                    }
+                } // continue looking for a gate for the given constraint
+            }
+        }
+    }
+    return is_gate_created;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_big_quad_constraints(const ConstraintPtr& ptr)
+{
+    const auto* constraint = std::get<const acir_format::BigQuadConstraint*>(ptr);
+    for (size_t i = 0; i < constraint->size(); i++) {
+        bool is_last = (i == constraint->size() - 1);
+        ConstraintPtr gate_ptr = static_cast<const acir_format::QuadConstraint*>(&(*constraint)[i]);
+        if (!process_quad_constraints(gate_ptr, /*include_next_gate_w_4=*/!is_last)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -526,8 +660,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
             return false;
         }
     }
-    // if all chunks for lookup tables are correct => a_accumulated and b_accumulated should be equal to initial values
-    // of a and b
+    // if all chunks for lookup tables are correct => a_accumulated and b_accumulated should be equal to initial
+    // values of a and b
     uint256_t a_init = constraint->a.is_constant ? uint256_t(constraint->a.value)
                                                  : uint256_t(builder.get_variable(constraint->a.index));
     uint256_t b_init = constraint->b.is_constant ? uint256_t(constraint->b.value)
