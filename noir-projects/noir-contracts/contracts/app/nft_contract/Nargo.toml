@@ -7,4 +7,5 @@ type = "contract"
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
 compressed_string = { path = "../../../../aztec-nr/compressed-string" }
+generic_proxy = { path = "../../test/generic_proxy" }
 
