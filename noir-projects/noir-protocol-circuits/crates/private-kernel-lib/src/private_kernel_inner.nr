@@ -3,7 +3,7 @@ use crate::components::{
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData, private_kernel_data::PrivateKernelData,
@@ -58,7 +58,7 @@ unconstrained fn generate_output(
 /// VkIndex: PRIVATE_KERNEL_INNER_VK_INDEX
 pub fn execute(inputs: PrivateKernelInnerCircuitPrivateInputs) -> PrivateKernelCircuitPublicInputs {
     // Validate inputs - previous kernel
-    if !dep::std::runtime::is_unconstrained() {
+    if !std::runtime::is_unconstrained() {
         inputs.previous_kernel.verify(false);
     }
     inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
@@ -73,7 +73,7 @@ pub fn execute(inputs: PrivateKernelInnerCircuitPrivateInputs) -> PrivateKernelC
     let output = unsafe { generate_output(inputs) };
 
     // Validate output.
-    if dep::types::validate::should_validate_output() {
+    if types::validate::should_validate_output() {
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             inputs.previous_kernel.public_inputs,
             inputs.private_call,

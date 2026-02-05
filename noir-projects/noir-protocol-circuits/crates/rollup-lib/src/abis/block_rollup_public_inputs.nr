@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,

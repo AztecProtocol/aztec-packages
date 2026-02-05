@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, log_hash::LogHash,
         note_hash_leaf_preimage::NoteHashLeafPreimage, nullifier::Nullifier,

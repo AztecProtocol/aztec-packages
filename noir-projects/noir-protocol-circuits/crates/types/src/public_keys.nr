@@ -8,8 +8,8 @@ use crate::{
     traits::{Deserialize, Hash, Serialize},
 };
 
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use std::{default::Default, meta::derive};
+use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 pub trait ToPoint {
     fn to_point(self) -> Point;
@@ -124,7 +124,7 @@ mod test {
         public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
         traits::{Deserialize, Serialize},
     };
-    use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+    use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
     #[test]
     unconstrained fn compute_public_keys_hash() {

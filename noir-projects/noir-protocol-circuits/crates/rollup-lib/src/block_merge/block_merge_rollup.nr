@@ -5,7 +5,7 @@ use crate::{
         validate_consecutive_block_rollups::validate_consecutive_block_rollups,
     },
 };
-use dep::types::{
+use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
@@ -49,7 +49,7 @@ pub struct BlockMergeRollupPrivateInputs {
 /// VkIndex: BLOCK_MERGE_ROLLUP_VK_INDEX
 pub fn execute(inputs: BlockMergeRollupPrivateInputs) -> BlockRollupPublicInputs {
     // Verify the previous rollup proofs.
-    if !dep::std::runtime::is_unconstrained() {
+    if !std::runtime::is_unconstrained() {
         inputs.previous_rollups[0].verify_proof();
         inputs.previous_rollups[1].verify_proof();
     }

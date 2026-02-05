@@ -44,7 +44,7 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
     }
 
     fn validate_previous_rollup_proofs_and_vks(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !std::runtime::is_unconstrained() {
             for i in 0..NumPreviousRollups {
                 self.previous_rollups[i].verify_proof();
             }

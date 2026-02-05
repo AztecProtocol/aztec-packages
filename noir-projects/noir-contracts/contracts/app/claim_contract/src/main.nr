@@ -1,18 +1,18 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Claim {
     // docs:start:history_import
-    use dep::aztec::history::note::assert_note_existed_by;
+    use aztec::history::note::assert_note_existed_by;
     // docs:end:history_import
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::uint_note::UintNote;
     use token::Token;
+    use uint_note::UintNote;
 
     // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]

@@ -6,7 +6,7 @@ use crate::{
         tail_to_public_output_validator::TailToPublicOutputValidator,
     },
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData,
@@ -65,7 +65,7 @@ pub fn execute(
     inputs: PrivateKernelTailToPublicCircuitPrivateInputs,
 ) -> PrivateToPublicKernelCircuitPublicInputs {
     // Validate inputs.
-    if !dep::std::runtime::is_unconstrained() {
+    if !std::runtime::is_unconstrained() {
         inputs.previous_kernel.verify(true /* is_last_kernel */);
         inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
     }
@@ -79,7 +79,7 @@ pub fn execute(
     let output = unsafe { generate_output(inputs) };
 
     // Validate output.
-    if dep::types::validate::should_validate_output() {
+    if types::validate::should_validate_output() {
         TailToPublicOutputValidator::new(
             output,
             inputs.previous_kernel.public_inputs,

@@ -172,7 +172,7 @@ function updateConstants(code, name, value) {
   // Remove the constants:: import block (e.g., MAX_NOTE_HASH_READ_REQUESTS_PER_TX)
   // since we've replaced the constant references with literal values
   return code.replace(
-    /use dep::types::\{\s*constants::\{[^}]*?\},\s*([^}]*?)\};/,
+    /use types::\{\s*constants::\{[^}]*?\},\s*([^}]*?)\};/,
     (_, rest) => {
       const restVars = rest
         .split(",")
@@ -180,9 +180,9 @@ function updateConstants(code, name, value) {
         .filter((item) => item.length > 0);
 
       return restVars.length > 1
-        ? `use dep::types::{${restVars.join(", ")}};`
+        ? `use types::{${restVars.join(", ")}};`
         : restVars.length === 1
-        ? `use dep::types::${restVars[0]};`
+        ? `use types::${restVars[0]};`
         : "";
     }
   );

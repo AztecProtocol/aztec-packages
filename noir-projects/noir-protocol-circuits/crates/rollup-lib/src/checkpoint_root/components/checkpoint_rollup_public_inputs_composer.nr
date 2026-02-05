@@ -163,7 +163,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
         let sponge_blob_hash = end_sponge_blob.squeeze();
 
-        if !dep::std::runtime::is_unconstrained() {
+        if !std::runtime::is_unconstrained() {
             let end_blob_accumulator = evaluate_blobs_and_batch(
                 self.blobs_fields,
                 num_blob_fields,

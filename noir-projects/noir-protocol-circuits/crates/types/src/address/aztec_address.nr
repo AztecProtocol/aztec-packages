@@ -11,7 +11,7 @@ use crate::{
 };
 
 // We do below because `use crate::point::Point;` does not work
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
 use std::{

@@ -2,7 +2,7 @@ use crate::components::{
     previous_kernel_for_tail_validator::validate_previous_kernel_for_tail,
     tail_output_composer::TailOutputComposer, tail_output_validator::TailOutputValidator,
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData,
@@ -57,7 +57,7 @@ pub fn execute(
     inputs: PrivateKernelTailCircuitPrivateInputs,
 ) -> PrivateToRollupKernelCircuitPublicInputs {
     // Validate inputs.
-    if !dep::std::runtime::is_unconstrained() {
+    if !std::runtime::is_unconstrained() {
         inputs.previous_kernel.verify(true /* is_last_kernel */);
         inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
     }
@@ -72,7 +72,7 @@ pub fn execute(
     let output = unsafe { generate_output(inputs) };
 
     // Validate output.
-    if dep::types::validate::should_validate_output() {
+    if types::validate::should_validate_output() {
         TailOutputValidator::new(
             output,
             inputs.previous_kernel.public_inputs,
