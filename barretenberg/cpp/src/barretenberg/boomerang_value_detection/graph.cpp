@@ -76,6 +76,20 @@ std::vector<std::pair<size_t, size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_
     return result;
 }
 
+template <typename FF, typename CircuitBuilder>
+std::vector<std::pair<uint32_t, uint32_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_gates_by_filter_function(
+    uint32_t block_idx, const std::function<bool(size_t, size_t)>& filter_function) const
+{
+    std::vector<std::pair<uint32_t, uint32_t>> result;
+    auto& block = circuit_builder.blocks.get()[block_idx];
+    for (size_t gate_idx = 0; gate_idx < block.size(); gate_idx++) {
+        if (filter_function(block_idx, gate_idx)) {
+            result.emplace_back(block_idx, gate_idx);
+        }
+    }
+    return result;
+}
+
 /**
  * @brief Extract gate variables using a declarative pattern
  *

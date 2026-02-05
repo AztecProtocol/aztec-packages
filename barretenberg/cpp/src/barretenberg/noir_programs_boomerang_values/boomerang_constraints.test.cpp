@@ -154,7 +154,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
 
     WitnessVector witness = { fr(1), fr(0), fr(1) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -186,7 +186,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
 
     WitnessVector witness = { fr(171), fr(205), fr(137) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -224,7 +224,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(result_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -448,7 +448,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qm)
     // Build circuit normally
     WitnessVector witness = { fr(1) }; // Valid boolean value
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find the boolean gate in the arithmetic block and corrupt q_m selector
     auto& arith_block = builder.blocks.arithmetic;
@@ -486,7 +486,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qArith)
 
     WitnessVector witness = { fr(1) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find and corrupt q_arith selector
     auto& arith_block = builder.blocks.arithmetic;
@@ -522,7 +522,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_q1)
 
     WitnessVector witness = { fr(0) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     auto& arith_block = builder.blocks.arithmetic;
     bool found_gate = false;
@@ -557,7 +557,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedSmallRangeConstraint)
 
     WitnessVector witness = { fr(200) }; // Valid 8-bit value
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by clearing the range_lists entry for this range
     // Note: CircuitChecker::check won't detect range_list corruption since it only validates gate arithmetic
@@ -590,7 +590,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_DecomposeC
 
     WitnessVector witness = { fr(1000000) }; // Valid 32-bit value
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find and corrupt the decompose chain's q_1 selector in arithmetic block
     // The decompose chain uses big_add gates with specific selector patterns
@@ -637,7 +637,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_SublimbRan
 
     WitnessVector witness = { fr(1000000) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by clearing the default sublimb range_list (14-bit range)
     // Note: CircuitChecker::check won't detect range_list corruption since it only validates gate arithmetic
@@ -680,7 +680,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_LookupTableSelect
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by disabling the lookup gate (set q_lookup to 0)
     auto& lookup_block = builder.blocks.lookup;
@@ -724,7 +724,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedAndConstraint_LookupTableSelect
 
     WitnessVector witness = { fr(100), fr(200), fr(100 & 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by disabling the lookup gate (set q_lookup to 0)
     auto& lookup_block = builder.blocks.lookup;
@@ -768,7 +768,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_q3_TableIndex)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt q_3 (table index) by changing it to a different value
     // This should make the analyzer think it's using a different (wrong) lookup table
@@ -815,7 +815,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wl_InputWire)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt w_l in the lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -859,7 +859,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wr_InputWire)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt w_r in the lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -903,7 +903,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wo_OutputWire)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt w_o in the lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -949,7 +949,7 @@ TEST_F(BoomerangConstraintsTests, FindAccumulationGateFromResultWitness)
     uint64_t b_val = (2ULL << 32) + 200;
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // The ACIR witness index IS the builder variable index directly
     // (UltraCircuitBuilder constructor adds witnesses first, then zero_idx)
@@ -1021,7 +1021,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_64bit_Accumulatio
     uint64_t b_val = (2ULL << 32) + 200; // High bits: 2, Low bits: 200
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find the accumulation gate using the result witness index
     // The ACIR witness index IS the builder variable index directly
@@ -1077,7 +1077,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_LookupSele
     // Use smaller values that fit in fr
     WitnessVector witness = { fr(300), fr(400), fr(300 ^ 400) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt q_lookup selector
     auto& lookup_block = builder.blocks.lookup;
@@ -1118,7 +1118,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_ConstantOperand)
 
     WitnessVector witness = { fr(500), fr(500 ^ 66) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by disabling the lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -1163,7 +1163,7 @@ TEST_F(BoomerangConstraintsTests, DetectMultipleCorruptedConstraints)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(1) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt the XOR constraint's lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -1226,7 +1226,7 @@ TEST_F(BoomerangConstraintsTests, ValidCircuitPassesValidation)
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(300), fr(400), fr(300 & 400), fr(1), fr(150) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Don't corrupt anything - circuit should be valid
     AcirFormat constraint_system_copy = constraint_system;
@@ -1254,7 +1254,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_14Bit_BoundaryThreshold)
 
     WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1276,7 +1276,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_15Bit_DecomposeChain)
 
     WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1299,7 +1299,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_ZeroWitnessValue)
 
     WitnessVector witness = { fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1341,7 +1341,7 @@ TEST_F(BoomerangConstraintsTests, LogicConstraint_MaxValues_32Bit)
     // XOR: max ^ max = 0, AND: max & max = max
     WitnessVector witness = { fr(max_val), fr(max_val), fr(0), fr(max_val), fr(max_val), fr(max_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1362,7 +1362,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_MaxValue_8Bit)
 
     WitnessVector witness = { fr(255) }; // Max 8-bit value
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1390,7 +1390,7 @@ TEST_F(BoomerangConstraintsTests, LogicConstraint_BothOperandsConstant)
 
     WitnessVector witness = { fr(42 ^ 99) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1424,7 +1424,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_32BitXor)
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find the first lookup gate (where q_lookup == 1)
     auto& lookup_block = builder.blocks.lookup;
@@ -1477,7 +1477,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_8BitAnd)
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val & b_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     auto& lookup_block = builder.blocks.lookup;
     size_t first_lookup_gate = 0;
@@ -1541,7 +1541,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_Accumulati
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(result_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find the accumulation gate using the result witness index
     uint32_t result_var_idx = xor_constraint.result;
@@ -1603,7 +1603,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_Intermedia
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(result_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Trace the accumulation chain from the result (same way the analyzer does)
     // to find the actual logic accumulation gates, not decompose chain gates.
@@ -1668,7 +1668,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_MultipleLookupGat
     uint64_t b_val = (2ULL << 32) + 200;
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corruption 1: Disable the first lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -1725,7 +1725,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_14Bit_BoundaryThreshold_RangeL
 
     WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by clearing the range_lists entry for the 14-bit range.
     // Note: CircuitChecker won't detect range_list corruption since it only validates gate arithmetic
@@ -1757,7 +1757,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_15Bit_DecomposeChain)
 
     WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Find and corrupt the decompose chain's q_1 selector to break the power-of-two pattern
     auto& arith_block = builder.blocks.arithmetic;
@@ -1804,7 +1804,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_ZeroWitness_DecomposeChain)
 
     WitnessVector witness = { fr(0) }; // Zero witness — all sublimbs will be zero
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt the decompose chain selector to break the power-of-two pattern
     auto& arith_block = builder.blocks.arithmetic;
@@ -1865,7 +1865,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_MaxValues_XorResultZero)
     // XOR: max ^ max = 0 — all result chunks are zero
     WitnessVector witness = { fr(max_val), fr(max_val), fr(0) };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt by disabling the lookup gate
     auto& lookup_block = builder.blocks.lookup;
@@ -1909,7 +1909,7 @@ TEST_F(BoomerangConstraintsTests, ValidateROMConstraint)
 
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
@@ -1940,7 +1940,7 @@ TEST_F(BoomerangConstraintsTests, ValidateRAMConstraint)
     };
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();

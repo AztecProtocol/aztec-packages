@@ -162,6 +162,14 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     std::vector<std::pair<size_t, size_t>> get_variable_gates(uint32_t var_idx) const;
 
+    /**
+     * @brief
+     * @param block_idx The index of the block to get gates from
+     * @param filter_function The filter function to apply to the gates
+     * @return A vector of pairs of block index and gate index */
+    std::vector<std::pair<uint32_t, uint32_t>> get_gates_by_filter_function(
+        uint32_t block_idx, const std::function<bool(size_t, size_t)>& filter_function) const;
+
     void print_connected_components_info();
     void print_arithmetic_gate_info(size_t gate_idx, auto& block);
     void print_elliptic_gate_info(size_t gate_idx, auto& block);

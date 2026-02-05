@@ -115,6 +115,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     mutable bool opcode_constraint_map_built = false;
 };
 
-using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::MegaCircuitBuilder>;
+using StaticAnalyzerAcirMega = StaticAnalyzerAcir_<bb::fr, bb::MegaCircuitBuilder>;
+using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::UltraCircuitBuilder>;
 
 } // namespace cdg

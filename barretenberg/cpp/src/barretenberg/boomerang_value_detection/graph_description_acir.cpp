@@ -1,5 +1,6 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -76,6 +77,12 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_boolean_gate(size_t block_idx, 
 // Check if the gate is a RAM/ROM access gate.
 // The selectors are the same for RAM r/w and ROM r operations
 // see apply_memory_selectors in ultra_circuit_builder.cpp
+// | gate type | q_1 | q_2 | q_3 | q_4 | q_m | wires constrained |
+// |---------------------|-----|-----|-----|-----|-----|------------------------------|
+// | RAM/ROM access | 1 | 0 | 0 | 0 | 1 | w_l, w_r, w_o, w_4 |
+// | RAM timestamp check | 1 | 0 | 0 | 1 | 0 | w_l, w_r, w_o, w_l', w_r' |
+// | ROM consistency | 1 | 1 | 0 | 0 | 0 | w_l, w_l', w_4, w_4' |
+// | RAM consistency | 0 | 0 | 1 | 0 | 0 | all 8 wires |
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_ram_rom_access_gate(size_t block_idx, size_t gate_idx)
 {
@@ -96,30 +103,34 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_ram_rom_access_gate(size_t bloc
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_busread_gate(size_t block_idx, size_t gate_idx, const BusId bus_idx)
 {
-    auto& block = builder.blocks.get()[block_idx];
-    auto q_1 = block.q_1()[gate_idx];
-    auto q_2 = block.q_2()[gate_idx];
-    auto q_3 = block.q_3()[gate_idx];
-    auto q_4 = block.q_4()[gate_idx];
-    auto q_m = block.q_m()[gate_idx];
-    auto q_c = block.q_c()[gate_idx];
-    auto q_busread = block.q_busread()[gate_idx];
-
-    // see mega_circuit_builder.cpp::apply_databus_selectors
-    bool default_mask = (q_4 == FF::zero() && q_m == FF::zero() && q_c == FF::zero() && q_busread == FF::one());
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        return default_mask && q_1 == FF::one() && q_2 == FF::zero() && q_3 == FF::zero();
-    }
-    case BusId::SECONDARY_CALLDATA: {
-        return default_mask && q_1 == FF::zero() && q_2 == FF::one() && q_3 == FF::zero();
-    }
-    case BusId::RETURNDATA: {
-        return default_mask && q_1 == FF::zero() && q_2 == FF::zero() && q_3 == FF::one();
-    }
-    default: {
+    if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
         return false;
-    }
+    } else {
+        auto& block = builder.blocks.get()[block_idx];
+        auto q_1 = block.q_1()[gate_idx];
+        auto q_2 = block.q_2()[gate_idx];
+        auto q_3 = block.q_3()[gate_idx];
+        auto q_4 = block.q_4()[gate_idx];
+        auto q_m = block.q_m()[gate_idx];
+        auto q_c = block.q_c()[gate_idx];
+        auto q_busread = block.q_busread()[gate_idx];
+
+        // see mega_circuit_builder.cpp::apply_databus_selectors
+        bool default_mask = (q_4 == FF::zero() && q_m == FF::zero() && q_c == FF::zero() && q_busread == FF::one());
+        switch (bus_idx) {
+        case BusId::CALLDATA: {
+            return default_mask && q_1 == FF::one() && q_2 == FF::zero() && q_3 == FF::zero();
+        }
+        case BusId::SECONDARY_CALLDATA: {
+            return default_mask && q_1 == FF::zero() && q_2 == FF::one() && q_3 == FF::zero();
+        }
+        case BusId::RETURNDATA: {
+            return default_mask && q_1 == FF::zero() && q_2 == FF::zero() && q_3 == FF::one();
+        }
+        default: {
+            return false;
+        }
+        }
     }
 }
 
@@ -654,6 +665,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
 
 // Checks that the ROM constraint is valid.
 // Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
+// We intentionally ignore assert_equal gates during validation
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
@@ -671,6 +683,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
                 condition &= block.w_o()[gate_idx] == builder.zero_idx(); // w_o is always zero_idx for ROM access
                 condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
                 condition &= builder.get_variable(block.w_r()[gate_idx]) == value; // w_r = mem_op.value
+                condition &= builder.get_variable(block.w_4()[gate_idx]) ==
+                             FF::zero(); // w_4 = record_witness, which is zero during vkgen
                 return condition;
             });
     };
@@ -706,6 +720,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
 
 // Checks that the RAM constraint is valid.
 // Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
+// We intentionally ignore assert_equal gates during validation
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates)
@@ -727,6 +742,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
                 condition &= builder.get_variable(block.w_o()[gate_idx]) == value; // w_o is not zero_idx for RAM access
                 condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
                 condition &= builder.get_variable(block.w_r()[gate_idx]) == timestamp; // w_r = timestamp
+                condition &= builder.get_variable(block.w_4()[gate_idx]) ==
+                             FF::zero(); // w_4 = record_witness, which is zero during vkgen
                 return condition;
             });
     };
@@ -761,6 +778,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     return true;
 }
 
+// Checks that the block constraint is valid.
+// We intentionally ignore assert_equal gates during validation
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const ConstraintPtr& ptr)
 {
@@ -785,7 +804,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
 
     auto find_block_index = [this](const auto& block) {
         auto blocks_data = builder.blocks.get();
-        for (size_t i = 0; i < blocks_data.size(); i++) {
+        for (uint32_t i = 0; i < blocks_data.size(); i++) {
             if (std::addressof(blocks_data[i]) == std::addressof(block)) {
                 return i;
             }
@@ -793,28 +812,27 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
         throw std::runtime_error("Block not found");
     };
 
-    auto memory_block_idx = static_cast<uint32_t>(find_block_index(builder.blocks.memory));
-    [[maybe_unused]] auto databus_block_idx = static_cast<uint32_t>(find_block_index(builder.blocks.busread));
+    auto memory_block_idx = find_block_index(builder.blocks.memory);
+    [[maybe_unused]] uint32_t databus_block_idx = 0;
+    if constexpr (!std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+        databus_block_idx = find_block_index(builder.blocks.busread);
+    }
 
-    // Get gates from the given block index that satisfy the filter function
-    auto get_gates = [this](const uint32_t block_idx,
-                            const auto& filter_function) -> std::vector<std::pair<uint32_t, uint32_t>> {
-        auto& block = builder.blocks.get()[block_idx];
-        std::vector<std::pair<uint32_t, uint32_t>> gates;
-        for (uint32_t gate_idx = 0; gate_idx < block.size(); gate_idx++) {
-            if (filter_function(block_idx, gate_idx)) {
-                gates.push_back(std::make_pair(block_idx, gate_idx));
-            }
-        }
-
-        return gates;
-    };
     const auto* block_constraint = std::get<const acir_format::BlockConstraint*>(ptr);
     switch (block_constraint->type) {
     case BlockType::ROM:
-        return validate_rom_constraint(*block_constraint, get_gates(memory_block_idx, is_rom_gate));
+        return validate_rom_constraint(*block_constraint,
+                                       analyzer.get_gates_by_filter_function(memory_block_idx, is_rom_gate));
     case BlockType::RAM:
-        return validate_ram_constraint(*block_constraint, get_gates(memory_block_idx, is_ram_gate));
+        return validate_ram_constraint(*block_constraint,
+                                       analyzer.get_gates_by_filter_function(memory_block_idx, is_ram_gate));
+    case BlockType::CallData:
+    case BlockType::ReturnData:
+        if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+            // Ultra does not support the databus; skip validation to mirror builder behavior.
+            return true;
+        }
+        throw std::runtime_error("Databus constraint validation is not implemented");
     default:
         throw std::runtime_error("Unexpected block constraint type");
     }
@@ -822,4 +840,5 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
     return true;
 }
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;
+template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
 } // namespace cdg
