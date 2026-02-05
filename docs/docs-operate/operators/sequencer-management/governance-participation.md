@@ -11,10 +11,10 @@ This guide shows you how to participate in protocol governance as a sequencer. Y
 
 :::info Conceptual Background
 Before diving into the practical steps, you may want to understand the underlying concepts:
-- [Governance Overview](../../concepts/governance/index.md) - How the governance system works
-- [Proposal Lifecycle](../../concepts/governance/proposal-lifecycle.md) - The stages from signaling to execution
-- [Voting](../../concepts/governance/voting.md) - How voting power and delegation work
-- [GSE and Stake Mobility](../../concepts/governance/gse.md) - How your stake moves during upgrades
+- [Governance Overview](/participate/governance) - How the governance system works
+- [Proposal Lifecycle](/participate/governance/proposal-lifecycle) - The stages from signaling to execution
+- [Voting](/participate/governance/voting) - How voting power and delegation work
+- [GSE and Stake Mobility](/participate/governance/gse) - How your stake moves during upgrades
 :::
 
 ## Prerequisites
@@ -22,7 +22,7 @@ Before diving into the practical steps, you may want to understand the underlyin
 Before proceeding, you should:
 
 - Have a running sequencer node (see [Sequencer Setup Guide](../setup/sequencer-setup.md))
-- Understand [how governance works](../../concepts/governance/index.md)
+- Understand [how governance works](/participate/governance)
 
 ## Understanding Governance Components
 
@@ -348,7 +348,7 @@ After execution, the governance contract performs all actions defined in the pay
 Monitor proposals closely from the signaling stage through execution. When a vote passes, prepare to upgrade your node software during the execution delay period, so you're ready when the proposal becomes effective. In practice, this often means running multiple nodes, with one node being on the version upgraded from, and one being on the version being upgraded to.
 
 :::tip Stake Mobility
-If you deposited with `moveWithLatestRollup = true`, your stake automatically becomes available to the new rollup after an upgrade. If you used `false`, you'll need to manually exit and re-enter. See [GSE and Stake Mobility](../../concepts/governance/gse.md) for details.
+If you deposited with `moveWithLatestRollup = true`, your stake automatically becomes available to the new rollup after an upgrade. If you used `false`, you'll need to manually exit and re-enter. See [GSE and Stake Mobility](/participate/governance/gse) for details.
 :::
 
 ## Troubleshooting

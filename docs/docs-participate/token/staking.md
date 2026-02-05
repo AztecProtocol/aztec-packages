@@ -1,7 +1,7 @@
 ---
 title: Staking Tokens
 description: Learn how to stake tokens on the Aztec network to participate in network security and earn rewards.
-displayed_sidebar: usersSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Staking Tokens
@@ -12,10 +12,8 @@ Staking allows you to participate in securing the Aztec network while earning re
 
 Understanding these concepts will help you make informed decisions:
 
-- [How proof of stake works](../concepts/proof-of-stake/)
-- [Staking mechanism details](../concepts/proof-of-stake/#staking)
-- [Slashing conditions](../concepts/proof-of-stake/#slashing) - understand the risks
-- [Reward distribution](../concepts/proof-of-stake/#rewards)
+- [Blocks and Epochs](/participate/basics/blocks) - how block production works
+- [Economics & Rewards](/participate/token/economics) - how rewards are distributed
 
 ## Overview
 
@@ -39,13 +37,13 @@ If you have the technical expertise and infrastructure, you can run your own seq
 - Run and maintain sequencer infrastructure
 - Ensure high availability and proper operation
 
-See the [Sequencer Setup Guide](../operators/setup/sequencer_management) for details.
+See the [Sequencer Setup Guide](/operate/operators/setup/sequencer_management) for details.
 
 ### Option 2: Delegate to an Operator
 
 If you don't want to run infrastructure, you can delegate your stake to a professional operator.
 
-See [Delegating Stake](./delegation) for details.
+See [Delegating Stake](/participate/token/delegation) for details.
 
 ## Understanding Slashing Risk
 
@@ -54,17 +52,19 @@ Before staking, understand that your stake can be partially slashed if:
 - The validator is inactive for extended periods
 - The validator proposes or attests to invalid blocks
 
-See [Slashing Concepts](../concepts/proof-of-stake/#slashing) for detailed information.
+Slashing is managed through governance voting based on evidence collected both onchain and offchain.
 
 ## Unstaking
 
 When you want to withdraw your staked tokens, you must go through an unstaking process with a mandatory exit delay.
 
 #if(testnet)
-The exit delay for testnet is **2 days**. For a breakdown of how this is calculated, see [Unstaking Concepts](../concepts/proof-of-stake/#unstaking).
+The exit delay for testnet is **2 days**.
 #else
-The exit delay for mainnet is **14.6 days**. For a breakdown of how this is calculated, see [Unstaking Concepts](../concepts/proof-of-stake/#unstaking).
+The exit delay for mainnet is **4 days**.
 #endif
+
+The exit delay exists to allow time for pending slashing conditions to be detected and to prevent validators from quickly exiting after misbehaving.
 
 ### How to Unstake
 
@@ -83,6 +83,6 @@ If you've delegated stake, contact your operator or use the delegation interface
 
 ## Next Steps
 
-- [Delegate your stake](./delegation) if you prefer not to run infrastructure
-- [Learn about voting](./voting) to participate in governance with your staked tokens
-- [Understand governance](../concepts/governance/) to know how protocol decisions are made
+- [Delegate your stake](/participate/token/delegation) if you prefer not to run infrastructure
+- [Learn about voting](/participate/token/voting) to participate in governance with your staked tokens
+- [Understand governance](/participate/governance) to know how protocol decisions are made

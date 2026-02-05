@@ -1,7 +1,7 @@
 ---
 title: Governance Overview
 description: Learn how the Aztec network is governed through onchain voting, sequencer signaling, and stake-based voting power.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 import Image from "@theme/IdealImage";
@@ -20,7 +20,7 @@ If you're a token holder looking to participate in governance, here's what you n
 | **I want to vote differently than the default** | Delegate your voting power to yourself | You can cast your own votes on proposals |
 | **I have tokens but haven't staked** | Lock tokens in the Governance contract | You gain voting power without staking rewards or slashing risk |
 
-For step-by-step instructions, see [Voting on Proposals](../../users/voting.md).
+For step-by-step instructions, see [Voting on Proposals](/participate/token/voting).
 
 ## Design Goals
 
@@ -77,7 +77,7 @@ The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contrac
 - Enables stake to automatically move to new rollup versions
 - Allows validators to vote independently or delegate to the rollup
 
-See [GSE and Stake Mobility](governance/gse) for details.
+See [GSE and Stake Mobility](/participate/governance/gse) for details.
 
 ## Key Concepts
 
@@ -108,17 +108,18 @@ Voting power in Governance comes from depositing tokens. Key points:
 
 ## Topics in This Section
 
-- [Proposal Lifecycle](governance/proposal-lifecycle) - The complete journey from payload to execution
-- [Voting](governance/voting) - How voting power works and how votes are cast
-- [GSE and Stake Mobility](governance/gse) - How the GSE enables seamless rollup upgrades
-- [Upgrades](governance/upgrades) - The end-to-end process for network upgrades
+- [Proposal Lifecycle](/participate/governance/proposal-lifecycle) - The complete journey from payload to execution
+- [Voting](/participate/governance/voting) - How voting power works and how votes are cast
+- [GSE and Stake Mobility](/participate/governance/gse) - How the GSE enables seamless rollup upgrades
+- [Upgrades](/participate/governance/upgrades) - The end-to-end process for network upgrades
+- [L1 Contracts](/participate/governance/contracts) - Smart contracts that power governance
 
 ## Related Guides
 
 :::tip For Sequencer Operators
-To participate in governance as a sequencer (signaling and voting), see [Governance Participation](../operators/sequencer-management/creating_and_voting_on_proposals).
+To participate in governance as a sequencer (signaling and voting), see [Governance Participation](/operate/operators/sequencer-management/creating_and_voting_on_proposals).
 :::
 
 :::tip For Token Holders
-To vote on proposals with your staked tokens, see [Voting on Proposals](../users/voting).
+To vote on proposals with your staked tokens, see [Voting on Proposals](/participate/token/voting).
 :::

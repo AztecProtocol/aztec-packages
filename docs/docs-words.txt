@@ -389,3 +389,4 @@ finalise
 undelegation
 unbonding
 zkpassport
+tokenomics

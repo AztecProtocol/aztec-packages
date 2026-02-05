@@ -1,7 +1,7 @@
 ---
 title: Voting
 description: Learn how voting power works in Aztec governance, including deposits, withdrawals, delegation, and vote casting.
-displayed_sidebar: conceptsSidebar
+displayed_sidebar: participateSidebar
 ---
 
 # Voting
@@ -213,4 +213,4 @@ These parameters are configured in the Governance contract and can be changed th
 
 - [Proposal Lifecycle](./proposal-lifecycle) - When voting occurs in the proposal process
 - [GSE and Stake Mobility](./gse) - How validator stakes translate to voting power
-- [Voting on Proposals](../../users/voting) - Practical guide for token holders
+- [Voting on Proposals](/participate/token/voting) - Practical guide for token holders
