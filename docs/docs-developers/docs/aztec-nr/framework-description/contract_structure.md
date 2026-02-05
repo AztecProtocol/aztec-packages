@@ -3,6 +3,7 @@ title: Contract Structure
 sidebar_position: 1
 tags: [contracts]
 description: Learn the fundamental structure of Aztec smart contracts including the contract keyword, directory layout, and how contracts manage state and functions.
+references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 A contract is a collection of persistent [state variables](./how_to_define_storage.md) and [functions](./functions/index.md) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract.

@@ -9,7 +9,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type LogLevel, createLogger } from '@aztec/foundation/log';
+import { type LogLevel, type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -61,7 +61,7 @@ export class SideEffectArrayLengths {
  * Trace side effects for an enqueued public call's execution.
  */
 export class SideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createLogger('simulator:side_effect_trace');
+  public log: Logger;
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;
@@ -79,6 +79,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   constructor(
     /** The counter of this trace's first side effect. */
     public readonly startSideEffectCounter: number = 0,
+    bindings?: LoggerBindings,
     /** Track parent's (or previous kernel's) lengths so the AVM can properly enforce TX-wide limits,
      *  otherwise the public kernel can fail to prove because TX limits are breached.
      */
@@ -90,11 +91,13 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     private debugLogMemoryReads: number = 0,
   ) {
     this.sideEffectCounter = startSideEffectCounter;
+    this.log = createLogger('simulator:side_effect_trace', bindings);
   }
 
   public fork() {
     return new SideEffectTrace(
       this.sideEffectCounter,
+      this.log.getBindings(),
       new SideEffectArrayLengths(
         this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
         this.previousSideEffectArrayLengths.protocolPublicDataWrites + this.protocolPublicDataWritesLength,

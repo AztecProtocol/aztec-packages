@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 pub contract Auth {
     use dep::aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, PublicImmutable},
     };
 
@@ -31,7 +31,7 @@ pub contract Auth {
 
     #[external("public")]
     fn set_authorized(authorized: AztecAddress) {
-        assert_eq(self.storage.admin.read(), self.msg_sender().unwrap(), "caller is not admin");
+        assert_eq(self.storage.admin.read(), self.msg_sender(), "caller is not admin");
         self.storage.authorized.schedule_value_change(authorized);
     }
 
@@ -67,7 +67,7 @@ pub contract Auth {
         // the DelayedPublicMutable, which is as far as the circuit can guarantee the value will not change from some
         // historical value (due to CHANGE_AUTHORIZED_DELAY).
         let authorized = self.storage.authorized.get_current_value();
-        assert_eq(authorized, self.msg_sender().unwrap(), "caller is not authorized");
+        assert_eq(authorized, self.msg_sender(), "caller is not authorized");
     }
 
     #[external("private")]

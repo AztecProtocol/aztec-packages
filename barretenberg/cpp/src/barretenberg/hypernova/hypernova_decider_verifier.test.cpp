@@ -50,13 +50,14 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova decider
-     * @details Manifest tracking is enabled after folding (which uses 50 rounds), so only
-     * decider rounds are tracked. Round numbers continue from folding:
-     * - Round 50: rho challenge (batching for Gemini)
-     * - Round 51: Gemini FOLD commitments -> Gemini:r challenge
-     * - Round 52: Gemini evaluations -> Shplonk:nu challenge
-     * - Round 53: Shplonk:Q commitment -> Shplonk:z challenge
-     * - Round 54: KZG:W commitment -> KZG:masking_challenge
+     * @details Manifest tracking is enabled after folding (which uses 48 rounds, 0-47), so only
+     * decider rounds are tracked. Since folding ends with a challenge (claim_batching_challenge)
+     * at round 47, and the decider starts with a challenge (rho), they are in the same round:
+     * - Round 47: rho challenge (same round as folding's claim_batching_challenge)
+     * - Round 48: Gemini FOLD commitments -> Gemini:r challenge
+     * - Round 49: Gemini evaluations -> Shplonk:nu challenge
+     * - Round 50: Shplonk:Q commitment -> Shplonk:z challenge
+     * - Round 51: KZG:W commitment -> KZG:masking_challenge
      */
     static TranscriptManifest build_expected_decider_manifest()
     {
@@ -64,30 +65,32 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
         constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1; // 20
         constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;     // 21
-        constexpr size_t FOLDING_ROUNDS = 50;                                // Rounds used by folding verifier
+        // Folding uses 48 rounds (0-47). The last round (47) ends with claim_batching_challenge.
+        // Since rho is also a challenge with no data between, it stays in round 47.
+        constexpr size_t LAST_FOLDING_ROUND = 47;
 
-        // Round 50: rho challenge
-        manifest.add_challenge(FOLDING_ROUNDS, "rho");
+        // Round 47: rho challenge (same round as folding's claim_batching_challenge)
+        manifest.add_challenge(LAST_FOLDING_ROUND, "rho");
 
-        // Round 51: Gemini FOLD commitments -> Gemini:r
+        // Round 48: Gemini FOLD commitments -> Gemini:r
         for (size_t i = 1; i <= NUM_GEMINI_FOLDS; ++i) {
-            manifest.add_entry(FOLDING_ROUNDS + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+            manifest.add_entry(LAST_FOLDING_ROUND + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
-        manifest.add_challenge(FOLDING_ROUNDS + 1, "Gemini:r");
+        manifest.add_challenge(LAST_FOLDING_ROUND + 1, "Gemini:r");
 
-        // Round 52: Gemini evaluations -> Shplonk:nu
+        // Round 49: Gemini evaluations -> Shplonk:nu
         for (size_t i = 1; i <= NUM_GEMINI_EVALS; ++i) {
-            manifest.add_entry(FOLDING_ROUNDS + 2, "Gemini:a_" + std::to_string(i), 1);
+            manifest.add_entry(LAST_FOLDING_ROUND + 2, "Gemini:a_" + std::to_string(i), 1);
         }
-        manifest.add_challenge(FOLDING_ROUNDS + 2, "Shplonk:nu");
+        manifest.add_challenge(LAST_FOLDING_ROUND + 2, "Shplonk:nu");
 
-        // Round 53: Shplonk:Q -> Shplonk:z
-        manifest.add_entry(FOLDING_ROUNDS + 3, "Shplonk:Q", frs_per_G);
-        manifest.add_challenge(FOLDING_ROUNDS + 3, "Shplonk:z");
+        // Round 50: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(LAST_FOLDING_ROUND + 3, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(LAST_FOLDING_ROUND + 3, "Shplonk:z");
 
-        // Round 54: KZG:W -> KZG:masking_challenge
-        manifest.add_entry(FOLDING_ROUNDS + 4, "KZG:W", frs_per_G);
-        manifest.add_challenge(FOLDING_ROUNDS + 4, "KZG:masking_challenge");
+        // Round 51: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(LAST_FOLDING_ROUND + 4, "KZG:W", frs_per_G);
+        manifest.add_challenge(LAST_FOLDING_ROUND + 4, "KZG:masking_challenge");
 
         return manifest;
     }
@@ -247,7 +250,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(prover_transcript);
-        auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
+        auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
         tamper_with_accumulator(folded_accumulator, mode);
 
         // Construct Decider proof
@@ -286,10 +289,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             recursive_decider_verifier.verify_proof(folded_verifier_accumulator, stdlib_proof);
 
         // Natively verify pairing points
-        auto P0 = recursive_pairing_points.P0.get_value();
-        auto P1 = recursive_pairing_points.P1.get_value();
-        NativeHypernovaDeciderVerifier::PairingPoints pp(P0, P1);
-        auto recursive_verified = pp.check();
+        auto recursive_verified = recursive_pairing_points.check();
 
         // The circuit is valid if and only if we have not tampered or we have tampered the folded accumulator
         EXPECT_EQ(bb::CircuitChecker::check(builder),

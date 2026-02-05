@@ -17,6 +17,7 @@ mnemonic:
 attesters:
   attestersPerNode: 1
   nodeCount: 1
+  haCount: 0
   mnemonicStartIndex: 2000
   keyStoreSecret:
     create: true

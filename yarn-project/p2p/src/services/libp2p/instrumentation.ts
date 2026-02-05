@@ -8,6 +8,7 @@ import {
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
@@ -29,11 +30,23 @@ export class P2PInstrumentation {
 
     this.messageValidationDuration = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_VALIDATION_DURATION);
 
-    this.messagePrevalidationCount = meter.createUpDownCounter(Metrics.P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT);
+    this.messagePrevalidationCount = createUpDownCounterWithDefault(
+      meter,
+      Metrics.P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT,
+      {
+        [Attributes.TOPIC_NAME]: [
+          TopicType.tx,
+          TopicType.block_proposal,
+          TopicType.checkpoint_proposal,
+          TopicType.checkpoint_attestation,
+        ],
+        [Attributes.OK]: [true, false],
+      },
+    );
 
     this.messageLatency = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_LATENCY);
 
-    this.txReceivedCount = meter.createUpDownCounter(Metrics.P2P_GOSSIP_TX_RECEIVED_COUNT);
+    this.txReceivedCount = createUpDownCounterWithDefault(meter, Metrics.P2P_GOSSIP_TX_RECEIVED_COUNT);
 
     this.aggLatencyMetrics = {
       avg: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_AVG),
@@ -102,11 +115,11 @@ export class P2PInstrumentation {
           continue;
         }
 
-        res.observe(metrics.avg, histogram.mean, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.max, histogram.max, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.min, histogram.min, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p50, histogram.percentile(50), { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p90, histogram.percentile(90), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.avg, Math.ceil(histogram.mean), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.max, Math.ceil(histogram.max), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.min, Math.ceil(histogram.min), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p50, Math.ceil(histogram.percentile(50)), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p90, Math.ceil(histogram.percentile(90)), { [Attributes.TOPIC_NAME]: topicName });
       }
     }
   };

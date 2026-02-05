@@ -1,7 +1,7 @@
 use dep::aztec::{
-    authwit::entrypoint::function_call::FunctionCall,
+    authwit::entrypoint::FunctionCall,
     context::PrivateContext,
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::DOM_SEP__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,

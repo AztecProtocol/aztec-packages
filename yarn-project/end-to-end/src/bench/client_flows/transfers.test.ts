@@ -43,11 +43,11 @@ describe('Transfer benchmark', () => {
   const config = t.config.transfers;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeployCandyBarTokenSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setup();
+    await t.applyDeployBananaToken();
+    await t.applyFPCSetup();
+    await t.applyDeployCandyBarToken();
+    await t.applyDeploySponsoredFPC();
 
     ({
       adminWallet,
@@ -59,7 +59,7 @@ describe('Transfer benchmark', () => {
       candyBarCoin,
       candyBarCoinInstance,
       sponsoredFPCInstance,
-    } = await t.setup());
+    } = t);
   });
 
   afterAll(async () => {
@@ -126,7 +126,7 @@ describe('Transfer benchmark', () => {
               caller: adminAddress,
               action: interaction,
             });
-            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness], wait: { timeout: 120 } });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -161,7 +161,7 @@ describe('Transfer benchmark', () => {
 
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee
-              const tx = await transferInteraction.send(options).wait();
+              const tx = await transferInteraction.send(options);
               expect(tx.transactionFee!).toBeGreaterThan(0n);
 
               // Sanity checks

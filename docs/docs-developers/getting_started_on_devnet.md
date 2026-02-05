@@ -39,7 +39,7 @@ Before working with devnet, ensure you have:
 2. Aztec CLI with Devnet version installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network/#include_devnet_version/)
+bash -i <(curl -sL https://install.aztec.network/#include_devnet_version/)
 ```
 
 :::warning
@@ -119,7 +119,7 @@ If you have an existing app running on your local network, here's how to migrate
 Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://next.devnet.aztec-labs.com/
+export NODE_URL=https://devnet-6.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:

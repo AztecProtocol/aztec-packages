@@ -43,7 +43,7 @@ void ECCVMProver::execute_preamble_round()
 
     // Fiat-Shamir the vk hash
     VerificationKey vk;
-    typename Flavor::BF vk_hash = vk.hash();
+    typename Flavor::BF vk_hash = vk.get_hash();
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("ECCVM vk hash in prover: ", vk_hash);
 }

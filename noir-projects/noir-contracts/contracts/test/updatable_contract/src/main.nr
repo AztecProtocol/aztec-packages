@@ -6,14 +6,14 @@ contract Updatable {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::{
+        protocol::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,
         },
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
@@ -24,7 +24,7 @@ contract Updatable {
     #[initializer]
     #[external("private")]
     fn initialize(initial_value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
         self.storage.private_value.at(owner).initialize(note).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,

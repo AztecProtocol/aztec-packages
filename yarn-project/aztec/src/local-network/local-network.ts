@@ -51,7 +51,6 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   privateKey: Hex,
   opts: {
-    assumeProvenThroughBlockNumber?: number;
     genesisArchiveRoot?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
@@ -149,7 +148,6 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
       aztecNodeConfig,
       aztecNodeConfig.validatorPrivateKeys.getValue()[0],
       {
-        assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
         genesisArchiveRoot,
         feeJuicePortalInitialBalance: fundingNeeded,
       },
@@ -181,9 +179,13 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   let epochTestSettler: EpochTestSettler | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    epochTestSettler = new EpochTestSettler(cheatcodes!, rollupAddress!, node.getBlockSource(), {
-      pollingIntervalMs: 200,
-    });
+    epochTestSettler = new EpochTestSettler(
+      cheatcodes!,
+      rollupAddress!,
+      node.getBlockSource(),
+      logger.createChild('epoch-settler'),
+      { pollingIntervalMs: 200 },
+    );
     await epochTestSettler.start();
   }
 
@@ -192,7 +194,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     const wallet = await TestWallet.create(node, PXEConfig);
 
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccounts);
+    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
     const accountsWithSecrets = accountManagers.map((manager, i) => ({
       account: manager,
       secretKey: initialAccounts[i].secret,

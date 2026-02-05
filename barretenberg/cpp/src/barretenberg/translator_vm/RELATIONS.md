@@ -37,33 +37,33 @@ Lagrange selectors for activation:
 
 This table establishes all notation used in the relations:
 
-| Value                           | Description          | Binary Limbs                                                                         | Native $\mathbb{F}_r$ |
-| ------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------------- |
+| Value                           | Description          | Binary Limbs                                                                 | Native $\mathbb{F}_r$ |
+| ------------------------------- | -------------------- | ---------------------------------------------------------------------------- | --------------------- |
 | **Evaluation challenge**        |
-| $x$                             | Evaluation point     | $x_0, x_1, x_2, x_3$                                                                 | $x_4$                 |
+| $x$                             | Evaluation point     | $x_0, x_1, x_2, x_3$                                                         | $x_4$                 |
 | **Batching challenges**         |
-| $v$                             | Batching challenge   | $v_0, v_1, v_2, v_3$                                                                 | $v_4$                 |
-| $v^2$                           | v squared            | $(v^2)_0, (v^2)_1, (v^2)_2, (v^2)_3$                                                 | $(v^2)_4$             |
-| $v^3$                           | v cubed              | $(v^3)_0, (v^3)_1, (v^3)_2, (v^3)_3$                                                 | $(v^3)_4$             |
-| $v^4$                           | v to fourth          | $(v^4)_0, (v^4)_1, (v^4)_2, (v^4)_3$                                                 | $(v^4)_4$             |
+| $v$                             | Batching challenge   | $v_0, v_1, v_2, v_3$                                                         | $v_4$                 |
+| $v^2$                           | v squared            | $(v^2)_0, (v^2)_1, (v^2)_2, (v^2)_3$                                         | $(v^2)_4$             |
+| $v^3$                           | v cubed              | $(v^3)_0, (v^3)_1, (v^3)_2, (v^3)_3$                                         | $(v^3)_4$             |
+| $v^4$                           | v to fourth          | $(v^4)_0, (v^4)_1, (v^4)_2, (v^4)_3$                                         | $(v^4)_4$             |
 | **Point coordinates (witness)** |
-| $P_x$                           | Point x-coordinate   | $P_{x,0}^{\text{lo}}, P_{x,1}^{\text{lo}}, P_{x,0}^{\text{hi}}, P_{x,1}^{\text{hi}}$ | (reconstructed)       |
-| $P_y$                           | Point y-coordinate   | $P_{y,0}^{\text{lo}}, P_{y,1}^{\text{lo}}, P_{y,0}^{\text{hi}}, P_{y,1}^{\text{hi}}$ | (reconstructed)       |
+| $P_x$                           | Point x-coordinate   | $P_{x,0}, P_{x,1}, P_{x,2}, P_{x,3}$                                         | (reconstructed)       |
+| $P_y$                           | Point y-coordinate   | $P_{y,0}, P_{y,1}, P_{y,2}, P_{y,3}$                                         | (reconstructed)       |
 | **Z-values (witness, 128-bit)** |
-| $z_1$                           | 128-bit value        | $z_{1,0}, z_{1,1}$ (only 2 limbs)                                                    | (reconstructed)       |
-| $z_2$                           | 128-bit value        | $z_{2,0}, z_{2,1}$ (only 2 limbs)                                                    | (reconstructed)       |
+| $z_1$                           | 128-bit value        | $z_{1,0}, z_{1,1}$ (only 2 limbs)                                            | (reconstructed)       |
+| $z_2$                           | 128-bit value        | $z_{2,0}, z_{2,1}$ (only 2 limbs)                                            | (reconstructed)       |
 | **Accumulator (witness)**       |
-| $a^{\text{prev}}$               | Previous accumulator | $a_0^{\text{prev}}, a_1^{\text{prev}}, a_2^{\text{prev}}, a_3^{\text{prev}}$         | (reconstructed)       |
-| $a^{\text{curr}}$               | Current accumulator  | $a_0^{\text{curr}}, a_1^{\text{curr}}, a_2^{\text{curr}}, a_3^{\text{curr}}$         | (reconstructed)       |
+| $a^{\text{prev}}$               | Previous accumulator | $a_0^{\text{prev}}, a_1^{\text{prev}}, a_2^{\text{prev}}, a_3^{\text{prev}}$ | (reconstructed)       |
+| $a^{\text{curr}}$               | Current accumulator  | $a_0^{\text{curr}}, a_1^{\text{curr}}, a_2^{\text{curr}}, a_3^{\text{curr}}$ | (reconstructed)       |
 | **Quotient (witness)**          |
-| $\mathcal{Q}$                   | Division quotient    | $q_0, q_1, q_2, q_3$                                                                 | (reconstructed)       |
+| $\mathcal{Q}$                   | Division quotient    | $q_0, q_1, q_2, q_3$                                                         | (reconstructed)       |
 | **Negative $q$ constant**       |
-| $\bar{q}$                       | $-q \pmod{2^{272}}$  | $\bar{q}_0, \bar{q}_1, \bar{q}_2, \bar{q}_3$                                         | $\bar{q}_4$           |
+| $\bar{q}$                       | $-q \pmod{2^{272}}$  | $\bar{q}_0, \bar{q}_1, \bar{q}_2, \bar{q}_3$                                 | $\bar{q}_4$           |
 | **Carries (witness)**           |
-| $c^{\text{lo}}$                 | Lower carry          | (single 84-bit value)                                                                | -                     |
-| $c^{\text{hi}}$                 | Higher carry         | (single 84-bit value)                                                                | -                     |
+| $c^{\text{lo}}$                 | Lower carry          | (single 84-bit value)                                                        | -                     |
+| $c^{\text{hi}}$                 | Higher carry         | (single 84-bit value)                                                        | -                     |
 | **Opcode (witness, small)**     |
-| $\texttt{op}$                   | Operation code       | (no decomposition, ≤ 8)                                                              | $\texttt{op}$         |
+| $\texttt{op}$                   | Operation code       | (no decomposition, ≤ 8)                                                      | $\texttt{op}$         |
 
 #### Reconstruction Formula (General)
 
@@ -75,9 +75,9 @@ $$\boxed{\text{Value} = \ell_0 + 2^{68} \cdot \ell_1 + 2^{136} \cdot \ell_2 + 2^
 
 The coordinates $P_x$ and $P_y$ are reconstructed as:
 
-$$P_x = P_{x,0}^{\text{lo}} + 2^{68} \cdot P_{x,1}^{\text{lo}} + 2^{136} \cdot P_{x,0}^{\text{hi}} + 2^{204} \cdot P_{x,1}^{\text{hi}}$$
+$$P_x = P_{x,0} + 2^{68} \cdot P_{x,1} + 2^{136} \cdot P_{x,2} + 2^{204} \cdot P_{x,3}$$
 
-$$P_y = P_{y,0}^{\text{lo}} + 2^{68} \cdot P_{y,1}^{\text{lo}} + 2^{136} \cdot P_{y,0}^{\text{hi}} + 2^{204} \cdot P_{y,1}^{\text{hi}}$$
+$$P_y = P_{y,0} + 2^{68} \cdot P_{y,1} + 2^{136} \cdot P_{y,2} + 2^{204} \cdot P_{y,3}$$
 
 The scalars $z_1$ and $z_2$ (both 128-bit) are reconstructed as:
 
@@ -153,8 +153,8 @@ $$
     \begin{align*}
     T_0 := &\; a_0^{\text{prev}} \cdot x_0 & \\
     &+ \texttt{op} \\
-    &+ P_{x,0}^{\text{lo}} \cdot v_0 \\
-    &+ P_{y,0}^{\text{lo}} \cdot (v^2)_0 \\
+    &+ P_{x,0} \cdot v_0 \\
+    &+ P_{y,0} \cdot (v^2)_0 \\
     &+ z_{1,0} \cdot (v^3)_0 \\
     &+ z_{2,0} \cdot (v^4)_0 \\
     &+ q_0 \cdot \bar{q}_0 \\
@@ -168,8 +168,8 @@ The limb 1 contribution is:
 $$
 \boxed{\begin{align*}
 T_1 := &\; a_1^{\text{prev}} \cdot x_0 + a_0^{\text{prev}} \cdot x_1 & \\
-&+ P_{x,0}^{\text{lo}} \cdot v_1 + P_{x,1}^{\text{lo}} \cdot v_0 \\
-&+ P_{y,0}^{\text{lo}} \cdot (v^2)_1 + P_{y,1}^{\text{lo}} \cdot (v^2)_0 \\
+&+ P_{x,0} \cdot v_1 + P_{x,1} \cdot v_0 \\
+&+ P_{y,0} \cdot (v^2)_1 + P_{y,1} \cdot (v^2)_0 \\
 &+ z_{1,0} \cdot (v^3)_1 + z_{1,1} \cdot (v^3)_0 \\
 &+ z_{2,0} \cdot (v^4)_1 + z_{2,1} \cdot (v^4)_0 \\
 &+ q_0 \cdot \bar{q}_1 + q_1 \cdot \bar{q}_0 \\
@@ -210,8 +210,8 @@ $$
 \boxed{\begin{align*}
 T_2 := &\; c^{\text{lo}} \quad \textsf{(carry from subrelation 1)} & \\
 &+ a_2^{\text{prev}} \cdot x_0 + a_1^{\text{prev}} \cdot x_1 + a_0^{\text{prev}} \cdot x_2 \\
-&+ P_{x,0}^{\text{hi}} \cdot v_0 + P_{x,1}^{\text{lo}} \cdot v_1 + P_{x,0}^{\text{lo}} \cdot v_2 \\
-&+ P_{y,0}^{\text{hi}} \cdot (v^2)_0 + P_{y,1}^{\text{lo}} \cdot (v^2)_1 + P_{y,0}^{\text{lo}} \cdot (v^2)_2 \\
+&+ P_{x,2} \cdot v_0 + P_{x,1} \cdot v_1 + P_{x,0} \cdot v_2 \\
+&+ P_{y,2} \cdot (v^2)_0 + P_{y,1} \cdot (v^2)_1 + P_{y,0} \cdot (v^2)_2 \\
 &+ z_{1,1} \cdot (v^3)_1 + z_{1,0} \cdot (v^3)_2 \\
 &+ z_{2,1} \cdot (v^4)_1 + z_{2,0} \cdot (v^4)_2 \\
 &+ q_2 \cdot \bar{q}_0 + q_1 \cdot \bar{q}_1 + q_0 \cdot \bar{q}_2 \\
@@ -224,8 +224,8 @@ The limb 3 contribution is:
 $$
 \boxed{\begin{align*}
 T_3 := &\; a_3^{\text{prev}} \cdot x_0 + a_2^{\text{prev}} \cdot x_1 + a_1^{\text{prev}} \cdot x_2 + a_0^{\text{prev}} \cdot x_3 & \\
-&+ P_{x,1}^{\text{hi}} \cdot v_0 + P_{x,0}^{\text{hi}} \cdot v_1 + P_{x,1}^{\text{lo}} \cdot v_2 + P_{x,0}^{\text{lo}} \cdot v_3 \\
-&+ P_{y,1}^{\text{hi}} \cdot (v^2)_0 + P_{y,0}^{\text{hi}} \cdot (v^2)_1 + P_{y,1}^{\text{lo}} \cdot (v^2)_2 + P_{y,0}^{\text{lo}} \cdot (v^2)_3 \\
+&+ P_{x,3} \cdot v_0 + P_{x,2} \cdot v_1 + P_{x,1} \cdot v_2 + P_{x,0} \cdot v_3 \\
+&+ P_{y,3} \cdot (v^2)_0 + P_{y,2} \cdot (v^2)_1 + P_{y,1} \cdot (v^2)_2 + P_{y,0} \cdot (v^2)_3 \\
 &+ z_{1,1} \cdot (v^3)_2 + z_{1,0} \cdot (v^3)_3 \\
 &+ z_{2,1} \cdot (v^4)_2 + z_{2,0} \cdot (v^4)_3 \\
 &+ q_3 \cdot \bar{q}_0 + q_2 \cdot \bar{q}_1 + q_1 \cdot \bar{q}_2 + q_0 \cdot \bar{q}_3 \\
@@ -254,8 +254,8 @@ First, reconstruct all values from their limbs:
 
 $$
 \begin{align*}
-\tilde{P}_x &= P_{x,0}^{\text{lo}} + 2^{68} \cdot P_{x,1}^{\text{lo}} + 2^{136} \cdot P_{x,0}^{\text{hi}} + 2^{204} \cdot P_{x,1}^{\text{hi}} \pmod{r} \\
-\tilde{P}_y &= P_{y,0}^{\text{lo}} + 2^{68} \cdot P_{y,1}^{\text{lo}} + 2^{136} \cdot P_{y,0}^{\text{hi}} + 2^{204} \cdot P_{y,1}^{\text{hi}} \pmod{r} \\
+\tilde{P}_x &= P_{x,0} + 2^{68} \cdot P_{x,1} + 2^{136} \cdot P_{x,2} + 2^{204} \cdot P_{x,3} \pmod{r} \\
+\tilde{P}_y &= P_{y,0} + 2^{68} \cdot P_{y,1} + 2^{136} \cdot P_{y,2} + 2^{204} \cdot P_{y,3} \pmod{r} \\
 \tilde{z}_1 &= z_{1,0} + 2^{68} \cdot z_{1,1} \pmod{r} \\
 \tilde{z}_2 &= z_{2,0} + 2^{68} \cdot z_{2,1} \pmod{r} \\
 \tilde{a}^{\text{prev}} &= a_0^{\text{prev}} + 2^{68} \cdot a_1^{\text{prev}} + 2^{136} \cdot a_2^{\text{prev}} + 2^{204} \cdot a_3^{\text{prev}} \pmod{r} \\
@@ -342,13 +342,13 @@ where $k=4$ for 68/60-bit limbs and $k=3$ for 50/52-bit limbs.
 
 **Subrelations 4-19:** Point coordinates and scalars with selector $L_{\text{even}}$
 
-| Element       | Limbs decomposed                                                                           | Number of subrelations | Note                              |
-| ------------- | ------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------- |
-| $P_y$         | $P_{y,0}^{\text{lo}}, \ P_{y,1}^{\text{lo}}, \ P_{y,0}^{\text{hi}}, \ P_{y,1}^{\text{hi}}$ | 4                      | 68 + 68 + 68 + 50 bits            |
-| $z_1, z_2$    | $z_{1,0}, \ z_{2,0}, \ z_{1,1}, \ z_{2,1}$                                                 | 4                      | Each $z$ is 128-bit: 68 + 60 bits |
-| $P_x$         | $P_{x,0}^{\text{lo}}, \ P_{x,1}^{\text{lo}}, \ P_{x,0}^{\text{hi}}, \ P_{x,1}^{\text{hi}}$ | 4                      | 68 + 68 + 68 + 50 bits            |
-| $\mathcal{Q}$ | $q_0, q_1, q_2, q_3$                                                                       | 4                      | 68 + 68 + 68 + 52 bits            |
-|               |                                                                                            |                        |                                   |
+| Element       | Limbs decomposed                           | Number of subrelations | Note                              |
+| ------------- | ------------------------------------------ | ---------------------- | --------------------------------- |
+| $P_y$         | $P_{y,0}, \ P_{y,1}, \ P_{y,2}, \ P_{y,3}$ | 4                      | 68 + 68 + 68 + 50 bits            |
+| $z_1, z_2$    | $z_{1,0}, \ z_{2,0}, \ z_{1,1}, \ z_{2,1}$ | 4                      | Each $z$ is 128-bit: 68 + 60 bits |
+| $P_x$         | $P_{x,0}, \ P_{x,1}, \ P_{x,2}, \ P_{x,3}$ | 4                      | 68 + 68 + 68 + 50 bits            |
+| $\mathcal{Q}$ | $q_0, q_1, q_2, q_3$                       | 4                      | 68 + 68 + 68 + 52 bits            |
+|               |                                            |                        |                                   |
 
 ### Category 3: Wide Limb Decomposition (Subrelations 20-21)
 
@@ -389,15 +389,16 @@ Shift factors:
 
 Subrelations 22-41 apply this pattern to:
 
-| Elements    | No of subrelations | Tail bits           |
-| ----------- | ------------------ | ------------------- |
-| $P_x$ limbs | 4                  | 12, 12, 12, 8 bits  |
-| $P_y$ limbs | 4                  | 12, 12, 12, 8 bits  |
-| $z_1$ limbs | 2                  | 12, 4 bits          |
-| $z_2$ limbs | 2                  | 12, 4 bits          |
-| Accumulator | 4                  | 12, 12, 12, 8 bits  |
-| Quotient    | 4                  | 12, 12, 12, 10 bits |
-|             |                    |                     |
+| Elements    | No of subrelations | Tail bits           | Total bits constrained |
+| ----------- | ------------------ | ------------------- | ---------------------- |
+| $P_x$ limbs | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| $P_y$ limbs | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| $z_1$ limbs | 2                  | 12, 4 bits          | 128 bits               |
+| $z_2$ limbs | 2                  | 12, 4 bits          | 128 bits               |
+| Accumulator | 4                  | 12, 12, 12, 8 bits  | 254 bits               |
+| Quotient    | 4                  | 12, 12, 12, 10 bits | 256 bits (see note)    |
+
+> **Note:** The quotient is constrained to 256 bits (68 + 68 + 68 + 52), which is sufficient for the maximum quotient value of $< 2^{256}$.
 
 ### Category 5: Transcript Value Reconstruction (Subrelations 42-47)
 
@@ -407,12 +408,12 @@ $$\boxed{L_{\text{even}} \cdot \left( \ell_{\text{low}} + 2^{68} \cdot \ell_{\te
 
 Subrelations:
 
-| Column      | Even row                     | Odd row                      | No. of subrelations |
-| ----------- | ---------------------------- | ---------------------------- | ------------------- |
-| `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits) | $P_{y,\text{hi}}$ (118 bits) | 2                   |
-| `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits) | $z_1$ (128 bits)             | 2                   |
-| `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits) | $z_2$ (128 bits)             | 2                   |
-|             |                              |                              |                     |
+| Column      | Even row                                                        | Odd row                                                         | No. of subrelations |
+| ----------- | --------------------------------------------------------------- | --------------------------------------------------------------- | ------------------- |
+| `X_LO_Y_HI` | $P_{x,\text{lo}} = P_{x, 0} + 2^{68} \cdot P_{x, 1}$ (136 bits) | $P_{y,\text{hi}} = P_{y, 2} + 2^{68} \cdot P_{y, 3}$ (118 bits) | 2                   |
+| `X_HI_Z_1`  | $P_{x,\text{hi}} = P_{x, 2} + 2^{68} \cdot P_{x, 3}$ (118 bits) | $z_1 = z_{1, 0} + 2^{68} \cdot z_{1, 1}$ (128 bits)             | 2                   |
+| `Y_LO_Z_2`  | $P_{y,\text{lo}} = P_{y, 0} + 2^{68} \cdot P_{y, 1}$ (136 bits) | $z_2 = z_{2, 0} + 2^{68} \cdot z_{2, 1}$ (128 bits)             | 2                   |
+|             |                                                                 |                                                                 |                     |
 
 #### Interaction with Delta Range Constraint
 
@@ -535,7 +536,7 @@ Purpose: Enforce that each ordered wire is in non-descending order with maximum 
 
 For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
 
-$$\boxed{\left( L_{\text{real\_last}} - 1 \right) \cdot \left( L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
+$$\boxed{\left( L_{\text{real\_last}} + L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
 
 where:
 $$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i].$$
@@ -690,10 +691,10 @@ Due to interleaving, the full circuit is 16× larger than the mini-circuit:
 
 Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. All the range constraint microlimb wires and transcript wires should be zero outside the mini-circuit. Thus, for each such wire $w$, we enforce:
 
-$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} - 1 \right) \cdot (L_{\text{mini\_mask}} - 1) \cdot w = 0}$$
+$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} + L_{\text{mini\_mask}} - 1 \right) \cdot w = 0}$$
 
-Note that the Lagrange product is $0$ in the mini-circuit and $-1$ outside the mini-circuit, so this forces $w = 0$ there.
+Note that since $L_{\text{even}}$, $L_{\text{odd}}$, and $L_{\text{mini\_mask}}$ are mutually exclusive Lagrange polynomials that sum to 1 in the mini-circuit, the product is zero inside the mini-circuit and non-zero outside.
 
-Degree: 3 (Lagrange product × wire)
+Degree: 2 (Lagrange term × wire)
 
 ---

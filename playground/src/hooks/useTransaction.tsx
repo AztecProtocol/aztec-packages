@@ -1,21 +1,29 @@
 import { useContext } from 'react';
 import { AztecContext } from '../aztecContext';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { ContractFunctionInteraction, DeployMethod, DeployOptions, SendInteractionOptions } from '@aztec/aztec.js/contracts';
-import { TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import {
+  ContractFunctionInteraction,
+  DeployMethod,
+  type InteractionWaitOptions,
+  type SendInteractionOptions,
+  type DeployOptions,
+  NO_WAIT,
+} from '@aztec/aztec.js/contracts';
+import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { TX_TIMEOUT } from '../constants';
+import { waitForTx } from '@aztec/aztec.js/node';
 
 export function useTransaction() {
-  const { playgroundDB, currentTx, setCurrentTx } = useContext(AztecContext);
+  const { playgroundDB, currentTx, setCurrentTx, node } = useContext(AztecContext);
   const notifications = useNotifications();
 
-  async function sendTx(
+  async function sendTx<W extends InteractionWaitOptions>(
     name: string,
     interaction: ContractFunctionInteraction | DeployMethod,
     contractAddress: AztecAddress,
-    opts: SendInteractionOptions | DeployOptions,
+    opts: SendInteractionOptions<W> | DeployOptions<W>,
     displayOptions?: {
       showNotifications?: boolean;
     },
@@ -35,18 +43,25 @@ export function useTransaction() {
       notifications.show('Sending transaction...', {
         severity: 'info',
       });
-      const tx = await interaction.send(opts);
+      let txHash: TxHash;
 
-      txHash = await tx.getTxHash();
+      if (interaction instanceof DeployMethod) {
+        const { from, fee, ...deployOpts } = opts as DeployOptions<W>;
+        txHash = await interaction.send({ from, fee, ...deployOpts, wait: NO_WAIT });
+      } else {
+        const { from, fee, authWitnesses, capsules } = opts as SendInteractionOptions<W>;
+        txHash = await interaction.send({ from, fee, authWitnesses, capsules, wait: NO_WAIT });
+      }
+
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
 
       // TODO: Don't send the tx if the user has cancelled the transaction
-      receipt = await tx.wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
+      receipt = await waitForTx(node, txHash, { dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
 
-      if (showNotifications && receipt.status === TxStatus.SUCCESS) {
+      if (showNotifications && receipt.hasExecutionSucceeded()) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
           severity: 'success',
         });
@@ -63,14 +78,14 @@ export function useTransaction() {
         ...currentTx,
         ...{
           txHash,
-          status: receipt.status,
+          status: receipt.hasExecutionSucceeded() ? 'success' : receipt.status,
           receipt,
           error: receipt.error,
         },
       });
     } catch (e) {
       if (e instanceof TimeoutError) {
-        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, e.message);
+        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, e.message);
         await playgroundDB.storeTx({
           contractAddress,
           txHash,

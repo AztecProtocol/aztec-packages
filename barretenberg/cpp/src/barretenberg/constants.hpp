@@ -30,6 +30,11 @@ static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
 
+// IPA proof length: 4 * CONST_ECCVM_LOG_N (L and R commitments) + 2 (G_0) + 2 (a_0)
+// Note: Updating this requires updating noir protocol circuits (rollup-base-private,
+// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root)
+static constexpr size_t IPA_PROOF_LENGTH = (4 * CONST_ECCVM_LOG_N) + 4;
+
 // The number of last rows in ProverPolynomials that are randomized to mask
 // 1) witness commitments,
 // 2) multilinear evaluations of witness polynomials in Sumcheck
@@ -58,8 +63,6 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
 static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 
-// When we branch a transcript, we want to clearly distinguish between what happened before and after the branching. We
-// increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
-// round indices between what happened before and after the branching. This constant is arbitrary.
-static constexpr size_t BRANCHING_JUMP = 5;
+// The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
+static constexpr size_t NUM_ZERO_ROWS = 1;
 } // namespace bb

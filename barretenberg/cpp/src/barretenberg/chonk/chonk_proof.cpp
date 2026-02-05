@@ -52,7 +52,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     // ECCVM proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH);
     goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
 
     // IPA proof
@@ -62,7 +62,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     // Translator proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH);
     goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
 
     return ChonkProof_{ std::move(mega_proof), std::move(goblin_proof) };

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export BB=${BB:-../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-../avm-transpiler/target/release/avm-transpiler}
-export BB_HASH=${BB_HASH:-$(../barretenberg/cpp/bootstrap.sh hash)}
+repo_root=$(git rev-parse --show-toplevel)
+export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
+export TRANSPILER=${TRANSPILER:-$repo_root/avm-transpiler/target/release/avm-transpiler}
+export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
@@ -55,6 +56,17 @@ function check_references {
   ./scripts/check_doc_references.sh docs
 }
 
+function update_doc_references {
+  echo_header "Auto-update doc references"
+  # Only run if Claude Code CLI is available
+  if command -v claude &> /dev/null; then
+    ./scripts/update_doc_references.sh docs
+  else
+    echo "Claude Code CLI not available. Skipping automatic doc updates."
+    echo "To enable automatic doc updates, install Claude Code: npm install -g @anthropic-ai/claude-code"
+  fi
+}
+
 function build_examples {
   echo_header "Building examples"
   (cd examples && ./bootstrap.sh "$@")
@@ -66,6 +78,7 @@ case "$cmd" in
     build_docs
     test
     check_references
+    update_doc_references
     ;;
   "")
     build_examples

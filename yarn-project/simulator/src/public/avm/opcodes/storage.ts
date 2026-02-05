@@ -5,7 +5,9 @@ import { Opcode, OperandType } from '../serialization/instruction_serialization.
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
-abstract class BaseStorageInstruction extends Instruction {
+export class SStore extends Instruction {
+  static readonly type: string = 'SSTORE';
+  static readonly opcode = Opcode.SSTORE;
   // Informs (de)serialization. See Instruction.deserialize.
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
@@ -15,20 +17,11 @@ abstract class BaseStorageInstruction extends Instruction {
   ];
 
   constructor(
-    protected addressingMode: number,
-    protected aOffset: number,
-    protected bOffset: number,
+    private addressingMode: number,
+    private srcOffset: number,
+    private slotOffset: number,
   ) {
     super();
-  }
-}
-
-export class SStore extends BaseStorageInstruction {
-  static readonly type: string = 'SSTORE';
-  static readonly opcode = Opcode.SSTORE;
-
-  constructor(addressingMode: number, srcOffset: number, slotOffset: number) {
-    super(addressingMode, srcOffset, slotOffset);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -43,7 +36,7 @@ export class SStore extends BaseStorageInstruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [this.aOffset, this.bOffset];
+    const operands = [this.srcOffset, this.slotOffset];
     const [srcOffset, slotOffset] = addressing.resolve(operands, memory);
     // We read before tag checking since it's needed for gas cost calculation
     const slot = memory.get(slotOffset).toFr();
@@ -60,12 +53,25 @@ export class SStore extends BaseStorageInstruction {
   }
 }
 
-export class SLoad extends BaseStorageInstruction {
+export class SLoad extends Instruction {
   static readonly type: string = 'SLOAD';
   static readonly opcode = Opcode.SLOAD;
+  // Informs (de)serialization. See Instruction.deserialize.
+  public static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+  ];
 
-  constructor(addressingMode: number, slotOffset: number, dstOffset: number) {
-    super(addressingMode, slotOffset, dstOffset);
+  constructor(
+    private addressingMode: number,
+    private slotOffset: number,
+    private contractAddressOffset: number,
+    private dstOffset: number,
+  ) {
+    super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -76,12 +82,14 @@ export class SLoad extends BaseStorageInstruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [this.aOffset, this.bOffset];
-    const [slotOffset, dstOffset] = addressing.resolve(operands, memory);
+    const operands = [this.slotOffset, this.contractAddressOffset, this.dstOffset];
+    const [slotOffset, contractAddressOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
+    memory.checkTag(TypeTag.FIELD, contractAddressOffset);
 
     const slot = memory.get(slotOffset).toFr();
-    const value = await context.persistableState.readStorage(context.environment.address, slot);
+    const contractAddress = memory.get(contractAddressOffset).toAztecAddress();
+    const value = await context.persistableState.readStorage(contractAddress, slot);
     memory.set(dstOffset, new Field(value));
   }
 }

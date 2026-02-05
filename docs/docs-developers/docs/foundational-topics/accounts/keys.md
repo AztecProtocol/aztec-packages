@@ -2,6 +2,7 @@
 title: Keys
 tags: [accounts, keys]
 description: Understand the specialized key pairs used in Aztec accounts - nullifier keys, incoming viewing keys, and signing keys - and how they enable privacy, security, and flexible authentication.
+references: ["noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -42,8 +43,8 @@ Nullifier keys enable spending private notes. When using a note (like spending a
 
 **How it works:**
 
-1. Each account has a master nullifier key pair (`Npk_m`, `nsk_m`)
-2. For each application, an **app-siloed** key is derived: `nsk_app = hash(nsk_m, app_contract_address)`
+1. Each account has a master nullifier key pair (`Npk_m`, `nhk_m`)
+2. For each application, an **app-siloed** key is derived: `nhk_app = hash(nhk_m, app_contract_address)`
 3. To spend a note, compute its nullifier using the note hash and app-siloed key
 4. The protocol verifies the app-siloed key comes from your master key and that your master public key is in your address
 
@@ -149,7 +150,7 @@ Nullifier keys are **app-siloed** - scoped to each contract that uses them. This
 **How it works:**
 
 ```text
-nsk_app = hash(nsk_m, app_contract_address)
+nhk_app = hash(nhk_m, app_contract_address)
 ```
 
 **Security benefits:**

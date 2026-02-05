@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol::address::AztecAddress;
 
     use dep::aztec::{
         macros::{functions::external, storage::storage},
@@ -12,7 +12,7 @@ pub contract Child {
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
@@ -62,8 +62,8 @@ pub contract Child {
         let options = NoteGetterOptions::new()
             .select(FieldNote::properties().value, Comparator.EQ, amount)
             .set_limit(1);
-        let retrieved_notes = self.storage.private_values.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value
+        let hinted_notes = self.storage.private_values.at(owner).get_notes(options);
+        hinted_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`

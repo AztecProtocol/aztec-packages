@@ -1,8 +1,6 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS, FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
@@ -12,18 +10,25 @@ import {
   TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
   TX_ERROR_INSUFFICIENT_GAS_LIMIT,
   type Tx,
-  TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
 
+import { getFeePayerClaimAmount, getTxFeeLimit } from './fee_payer_balance.js';
+
 export class GasTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_gas');
+  #log: Logger;
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
 
-  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, gasFees: GasFees) {
+  constructor(
+    publicDataSource: PublicStateSource,
+    feeJuiceAddress: AztecAddress,
+    gasFees: GasFees,
+    bindings?: LoggerBindings,
+  ) {
+    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
     this.#gasFees = gasFees;
@@ -93,7 +98,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     const feePayer = tx.data.feePayer;
 
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
-    const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
+    const feeLimit = getTxFeeLimit(tx);
 
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(
@@ -102,30 +107,14 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
-    const increasePublicBalanceSelector = await FunctionSelector.fromSignature(
-      '_increase_public_balance((Field),u128)',
-    );
+    const claimAmount = await getFeePayerClaimAmount(tx, this.#feeJuiceAddress);
+    const balance = initialBalance.toBigInt() + claimAmount;
 
-    // Arguments of the claim function call:
-    // - args[0]: Amount recipient.
-    // - args[1]: Amount being claimed.
-    const claimFunctionCall = setupFns.find(
-      fn =>
-        fn.request.contractAddress.equals(this.#feeJuiceAddress) &&
-        fn.request.msgSender.equals(this.#feeJuiceAddress) &&
-        fn.calldata.length > 2 &&
-        fn.functionSelector.equals(increasePublicBalanceSelector) &&
-        fn.args[0].equals(feePayer.toField()) &&
-        !fn.request.isStaticCall,
-    );
-
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
-    if (balance.lt(feeLimit)) {
+    if (balance < feeLimit) {
       this.#log.verbose(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,
-        balance: balance.toBigInt(),
-        feeLimit: feeLimit.toBigInt(),
+        balance,
+        feeLimit,
       });
       return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE] };
     }

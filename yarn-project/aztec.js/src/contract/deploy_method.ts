@@ -9,27 +9,46 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type Capsule, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
+import { type Capsule, TxHash, type TxProfileResult, type TxReceipt, collectOffchainEffects } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
-import type { Wallet } from '../wallet/wallet.js';
+import type { SendOptions, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
-import { DeploySentTx } from './deploy_sent_tx.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_WAIT,
+  type NoWait,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
-  type SendInteractionOptions,
+  type SendInteractionOptionsWithoutWait,
   type SimulationInteractionFeeOptions,
   type SimulationReturn,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
 } from './interaction_options.js';
+import type { WaitOpts } from './wait_opts.js';
+
+/**
+ * Wait options specific to deployment transactions.
+ * Extends WaitOpts with a flag to return the full receipt instead of just the contract.
+ */
+export type DeployWaitOptions = WaitOpts & {
+  /** If true, return the full DeployTxReceipt instead of just the contract. Defaults to false. */
+  returnReceipt?: boolean;
+};
+
+/**
+ * Type for wait options in deployment interactions.
+ * - NO_WAIT symbol: Don't wait, return TxHash immediately
+ * - DeployWaitOptions: Wait with custom options
+ * - undefined: Wait with default options
+ */
+export type DeployInteractionWaitOptions = NoWait | DeployWaitOptions | undefined;
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -55,21 +74,34 @@ export type RequestDeployOptions = RequestInteractionOptions & {
 };
 
 /**
- * Extends the deployment options with the required parameters to send the transaction
+ * Base deployment options without wait parameter.
  */
-export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
+export type DeployOptionsWithoutWait = Omit<RequestDeployOptions, 'deployer'> & {
   /**
    * Set to true to *not* include the sender in the address computation. This option
    * is mutually exclusive with "deployer"
    */
   universalDeploy?: boolean;
-} & Pick<SendInteractionOptions, 'from' | 'fee'>;
+} & Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee'>;
+
+/**
+ * Extends the deployment options with the required parameters to send the transaction.
+ */
+export type DeployOptions<W extends DeployInteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
+  /**
+   * Options for waiting for the transaction to be mined.
+   * - undefined (default): wait with default options and return the contract instance
+   * - DeployWaitOptions: wait with custom options and return contract or receipt based on returnReceipt flag
+   * - NO_WAIT: return TxHash immediately without waiting
+   */
+  wait?: W;
+};
 
 /**
  * Options for simulating the deployment of a contract
  * Allows skipping certain validations and computing gas estimations
  */
-export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
+export type SimulateDeployOptions = Omit<DeployOptionsWithoutWait, 'fee'> & {
   /** The fee options for the transaction. */
   fee?: SimulationInteractionFeeOptions;
   /** Simulate without checking for the validity of the resulting transaction,
@@ -83,6 +115,29 @@ export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
   includeMetadata?: boolean;
 };
 
+/** Receipt for a deployment transaction with the deployed contract instance. */
+export type DeployTxReceipt<TContract extends ContractBase = ContractBase> = TxReceipt & {
+  /** Type-safe wrapper around the deployed contract instance, linked to the deployment wallet */
+  contract: TContract;
+  /** The deployed contract instance with address and metadata. */
+  instance: ContractInstanceWithAddress;
+};
+
+/**
+ * Represents the result type of deploying a contract.
+ * - If wait is NO_WAIT, returns TxHash immediately.
+ * - If wait has returnReceipt: true, returns DeployTxReceipt after waiting.
+ * - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
+ */
+export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
+  ? TxHash
+  : W extends {
+        // eslint-disable-next-line jsdoc/require-jsdoc
+        returnReceipt: true;
+      }
+    ? DeployTxReceipt<TContract>
+    : TContract;
+
 /**
  * Contract interaction for deployment.
  * Handles class publication, instance publication, and initialization of the contract.
@@ -92,8 +147,6 @@ export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
  * then technically the contract has already been "created", and all of the contract's
  * functions (private and utility) can be interacted-with immediately, without any
  * "deployment tx".
- *
- * Extends the BaseContractInteraction class.
  */
 export class DeployMethod<TContract extends ContractBase = ContractBase> extends BaseContractInteraction {
   /** The contract instance to be deployed. */
@@ -142,11 +195,28 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     return finalExecutionPayload;
   }
 
-  convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions {
+  convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait): RequestDeployOptions {
     return {
       ...options,
       deployer: !options?.universalDeploy ? options.from : undefined,
     };
+  }
+
+  /**
+   * Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
+   * @param options - Deploy options with wait parameter
+   * @returns Send options with wait parameter
+   */
+  private convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+    options: DeployOptions<W>,
+    // eslint-disable-next-line jsdoc/require-jsdoc
+  ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
+    return {
+      ...toSendOptions({
+        ...options,
+        wait: options.wait as any,
+      }),
+    } as any;
   }
 
   /**
@@ -232,20 +302,42 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
 
   /**
    * Send a contract deployment transaction (initialize and/or publish) using the provided options.
-   * This function extends the 'send' method from the ContractFunctionInteraction class,
-   * allowing us to send a transaction specifically for contract deployment.
+   * By default, waits for the transaction to be mined and returns the deployed contract instance.
    *
    * @param options - An object containing various deployment options such as contractAddressSalt and from.
-   * @returns A SentTx object that returns the receipt and the deployed contract instance.
+   * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
-  public override send(options: DeployOptions): DeploySentTx<TContract> {
-    const sendTx = async () => {
-      const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-      const sendOptions = toSendOptions(options);
-      return this.wallet.sendTx(executionPayload, sendOptions);
-    };
-    this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
-    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
+  // Overload for when wait is not specified at all - returns the contract
+  public override send(options: DeployOptionsWithoutWait): Promise<TContract>;
+  // Generic overload for explicit wait values
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override send<W extends DeployInteractionWaitOptions>(
+    options: DeployOptions<W>,
+  ): Promise<DeployReturn<TContract, W>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override async send(options: DeployOptions<DeployInteractionWaitOptions>): Promise<any> {
+    const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
+    const sendOptions = this.convertDeployOptionsToSendOptions(options);
+
+    if (options.wait === NO_WAIT) {
+      const txHash = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<NoWait>);
+      this.log.debug(`Sent deployment tx ${txHash.hash} of ${this.artifact.name} contract`);
+      return txHash;
+    }
+
+    const receipt = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<WaitOpts | undefined>);
+    this.log.debug(`Deployed ${this.artifact.name} contract in tx ${receipt.txHash}`);
+
+    // Attach contract instance
+    const instance = await this.getInstance(options);
+    const contract = this.postDeployCtor(instance, this.wallet) as TContract;
+
+    // Return full receipt if requested, otherwise just the contract
+    if (options.wait && typeof options.wait === 'object' && options.wait.returnReceipt) {
+      return { ...receipt, contract, instance };
+    }
+
+    return contract;
   }
 
   /**
@@ -296,7 +388,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(options: DeployOptions & ProfileInteractionOptions): Promise<TxProfileResult> {
+  public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     return await this.wallet.profileTx(executionPayload, {
       ...toProfileOptions(options),

@@ -17,6 +17,13 @@ import {CommitteeAttestations, Signature} from "@aztec/core/libraries/rollup/Att
  *      and uses escape hatch proposer selection when escape hatch is active.
  */
 contract proposeTest is EscapeHatchIntegrationBase {
+  // Storage variables to avoid stack-too-deep in fuzz tests
+  uint256 internal upperLimit;
+  address internal designatedProposer;
+  bytes32 internal archiveRoot;
+  ProposeArgs internal proposeArgs;
+  bytes internal blobsData;
+
   function test_GivenEscapeHatchIsNotConfigured() external setup(4, 4) progressEpochsToInclusion {
     // it should use normal validator selection verification
     full = load("mixed_checkpoint_1");
@@ -47,7 +54,7 @@ contract proposeTest is EscapeHatchIntegrationBase {
     // We're at an epoch that is NOT an escape hatch epoch
     Epoch currentEpoch = rollup.getCurrentEpoch();
 
-    uint256 upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
+    upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
     // Any time during the epoch should be acceptable
     vm.warp(bound(_ts, block.timestamp, upperLimit));
 
@@ -72,47 +79,46 @@ contract proposeTest is EscapeHatchIntegrationBase {
     _;
   }
 
-  function test_WhenCallerIsNotTheDesignatedProposer(uint256 _ts)
+  function test_WhenCallerIsNotTheDesignatedProposer(uint256 _ts, uint256 _validatorCount, address _wrongProposer)
     external
-    setup(4, 4)
+    setup(bound(_validatorCount, 0, 4), 4)
     progressEpochsToInclusion
     givenEscapeHatchIsConfigured
     whenEscapeHatchIsOpenForCurrentEpoch
   {
+    vm.assume(_wrongProposer != CANDIDATE1 && _wrongProposer != address(0));
     // it should revert with Rollup__InvalidEscapeHatchProposer
     full = load("empty_checkpoint_1");
 
-    uint256 upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
+    upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
     // Any time during the epoch should be acceptable
     vm.warp(bound(_ts, block.timestamp, upperLimit));
 
-    // Try to propose as the committee proposer (not the escape hatch proposer)
-    address committeeProposer = rollup.getCurrentProposer();
-    address escapeHatchProposer = escapeHatch.getDesignatedProposer(targetHatch);
+    designatedProposer = escapeHatch.getDesignatedProposer(targetHatch);
 
-    assertEq(escapeHatchProposer, CANDIDATE1, "CANDIDATE1 should be escape hatch proposer");
-    assertTrue(committeeProposer != escapeHatchProposer, "Committee proposer should differ from escape hatch proposer");
+    assertEq(designatedProposer, CANDIDATE1, "CANDIDATE1 should be escape hatch proposer");
+    assertTrue(_wrongProposer != designatedProposer, "Wrong proposer should differ from escape hatch proposer");
 
-    (ProposeArgs memory args, bytes memory blobs) = _buildProposeArgs(committeeProposer);
+    (proposeArgs, blobsData) = _buildProposeArgs(_wrongProposer);
     skipBlobCheck(address(rollup));
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidEscapeHatchProposer.selector, escapeHatchProposer, committeeProposer)
+      abi.encodeWithSelector(Errors.Rollup__InvalidEscapeHatchProposer.selector, designatedProposer, _wrongProposer)
     );
 
-    vm.prank(committeeProposer);
+    vm.prank(_wrongProposer);
     rollup.propose(
-      args,
+      proposeArgs,
       CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
       new address[](0),
       Signature({v: 0, r: 0, s: 0}),
-      blobs
+      blobsData
     );
   }
 
-  function test_WhenCallerIsTheDesignatedProposer(uint256 _ts)
+  function test_WhenCallerIsTheDesignatedProposer(uint256 _ts, uint256 _validatorCount)
     external
-    setup(4, 4)
+    setup(bound(_validatorCount, 0, 4), 4)
     progressEpochsToInclusion
     givenEscapeHatchIsConfigured
     whenEscapeHatchIsOpenForCurrentEpoch
@@ -122,20 +128,19 @@ contract proposeTest is EscapeHatchIntegrationBase {
     // it should record the checkpoint normally
     full = load("empty_checkpoint_1");
 
-    address escapeHatchProposer = escapeHatch.getDesignatedProposer(targetHatch);
-    assertEq(escapeHatchProposer, CANDIDATE1, "CANDIDATE1 should be escape hatch proposer");
+    assertEq(escapeHatch.getDesignatedProposer(targetHatch), CANDIDATE1, "CANDIDATE1 should be escape hatch proposer");
 
     // Verify candidate info before proposal
     CandidateInfo memory infoBefore = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(infoBefore.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0 before");
     assertEq(infoBefore.lastSubmittedArchive, bytes32(0), "lastSubmittedArchive should be 0 before");
 
-    uint256 upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
+    upperLimit = Timestamp.unwrap(rollup.getTimestampForEpoch(rollup.getCurrentEpoch() + Epoch.wrap(2))) - 1;
     // Any time during the epoch should be acceptable
     vm.warp(bound(_ts, block.timestamp, upperLimit));
 
     // Propose as the escape hatch proposer
-    bytes32 archiveRoot = _proposeWithHatch(CANDIDATE1);
+    archiveRoot = _proposeWithHatch(CANDIDATE1);
 
     // Verify checkpoint was recorded
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Checkpoint should be proposed");
@@ -145,18 +150,18 @@ contract proposeTest is EscapeHatchIntegrationBase {
     assertEq(infoAfter.lastCheckpointNumber, 1, "lastCheckpointNumber should be updated");
     assertEq(infoAfter.lastSubmittedArchive, archiveRoot, "lastSubmittedArchive should be updated");
 
-    //
+    // Verify proposing outside escape hatch window reverts
     vm.warp(upperLimit + 1);
-    (ProposeArgs memory args, bytes memory blobs) = _buildProposeArgs(CANDIDATE1);
+    (proposeArgs, blobsData) = _buildProposeArgs(CANDIDATE1);
 
     vm.expectRevert();
     vm.prank(CANDIDATE1);
     rollup.propose(
-      args,
+      proposeArgs,
       CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
       new address[](0),
       Signature({v: 0, r: 0, s: 0}),
-      blobs
+      blobsData
     );
   }
 }

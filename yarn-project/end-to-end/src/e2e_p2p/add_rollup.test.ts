@@ -84,13 +84,13 @@ describe('e2e_p2p_add_rollup', () => {
       startProverNode: false, // Start one later using p2p.
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
     await t.removeInitialNode();
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
 
-    t.ctx.watcher.setIsMarkingAsProven(false);
+    t.ctx.watcher!.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -177,6 +177,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
+        initialEthPerFeeAsset: t.ctx.aztecNodeConfig.initialEthPerFeeAsset,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
@@ -186,6 +187,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
+        governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
       },
     );
 
@@ -233,7 +235,7 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -249,7 +251,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
@@ -272,18 +274,20 @@ describe('e2e_p2p_add_rollup', () => {
     ) => {
       // Bridge assets into the rollup, and consume the message.
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
-      const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+      const wallet = await TestWallet.create(
+        node,
+        { ...getPXEConfig(), proverEnabled: false },
+        { loggerActorLabel: 'pxe-bridge' },
+      );
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
-      await aliceDeploymethod
-        .send({
-          from: AztecAddress.ZERO,
-        })
-        .wait();
+      await aliceDeploymethod.send({
+        from: AztecAddress.ZERO,
+      });
 
       const aliceAddress = aliceAccountManager.address;
 
-      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -304,13 +308,11 @@ describe('e2e_p2p_add_rollup', () => {
 
         const receipt = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send({ from: aliceAddress })
-          .wait();
+          .send({ from: aliceAddress });
 
         await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send({ from: aliceAddress })
-          .wait();
+          .send({ from: aliceAddress });
 
         return receipt;
       };
@@ -323,8 +325,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       await testContract.methods
         .consume_message_from_arbitrary_sender_private(message.content, secret, ethRecipient, message1Index)
-        .send({ from: aliceAddress })
-        .wait();
+        .send({ from: aliceAddress });
 
       // Then we consume the L2 -> L1 message
       {
@@ -357,7 +358,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!);
         await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
 
@@ -551,7 +552,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     nodes = await createNodes(
       newConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -566,7 +567,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),

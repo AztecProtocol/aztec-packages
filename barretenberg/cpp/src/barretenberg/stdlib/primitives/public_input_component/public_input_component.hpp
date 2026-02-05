@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,42 +8,40 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include <cstdint>
 namespace bb::stdlib {
 
 /**
- * @brief A concept defining requirements for types that are to be serialized to and from the public inputs of a circuit
- * via the PublicInputComponent class.
- *
- * @tparam ComponentType The type of the object to be serialized
+ * @brief A concept for types that can be serialized to public inputs
  */
 template <typename ComponentType>
-concept IsSerializableToAndFromPublicInputs = requires(
-    ComponentType component,
-    std::span<stdlib::field_t<typename ComponentType::Builder>, ComponentType::PUBLIC_INPUTS_SIZE> public_inputs) {
-    { // A method to set the limbs of the object to public and return the index of the first limb in public inputs
-        component.set_public()
-    } -> std::same_as<uint32_t>;
-    { // A method to reconstruct the object from the limbs stored in public inputs
-        ComponentType::reconstruct_from_public(public_inputs)
-    } -> std::same_as<ComponentType>;
-    { // A constant defining the number of limbs needed to represent the object in the public inputs
-        ComponentType::PUBLIC_INPUTS_SIZE
-    } -> std::convertible_to<size_t>;
+concept IsSerializableToPublicInputs = requires(ComponentType component) {
+    { component.set_public() } -> std::same_as<uint32_t>;
+    { ComponentType::PUBLIC_INPUTS_SIZE } -> std::convertible_to<size_t>;
+};
+
+/**
+ * @brief Check if a type has reconstruct_from_public method
+ */
+template <typename T, typename Fr>
+concept HasReconstructFromPublic = requires(std::span<Fr, T::PUBLIC_INPUTS_SIZE> limbs) {
+    { T::reconstruct_from_public(limbs) } -> std::same_as<T>;
 };
 
 /**
  * @brief A wrapper class for serializing objects to and from the public inputs of a circuit
  *
- * @tparam ComponentType A type that satisfies the IsSerializableToAndFromPublicInputs concept
+ * @tparam ComponentType A type that satisfies the IsSerializableToPublicInputs concept
  */
 template <typename ComponentType>
-    requires IsSerializableToAndFromPublicInputs<ComponentType>
+    requires IsSerializableToPublicInputs<ComponentType>
 class PublicInputComponent {
     using Builder = ComponentType::Builder;
-    using Fr = stdlib::field_t<Builder>; // type for native field elements in the circuit (i.e. the type for "limbs")
+    using Fr = stdlib::field_t<Builder>;
+    using Codec = StdlibCodec<Fr>;
 
-    static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
     using Key = PublicComponentKey;
@@ -65,11 +63,18 @@ class PublicInputComponent {
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
-        BB_ASSERT_LTE(key.start_idx + COMPONENT_SIZE,
-                      public_inputs.size(),
-                      "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
+        if (key.start_idx + COMPONENT_SIZE > public_inputs.size()) {
+            throw_or_abort("PublicInputComponent::reconstruct: public_inputs vector too small");
+        }
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
-        return ComponentType::reconstruct_from_public(limbs);
+
+        // Use reconstruct_from_public if available (for composite types like OpeningClaim),
+        // otherwise use Codec (for primitives and array-like types like PairingPoints)
+        if constexpr (HasReconstructFromPublic<ComponentType, Fr>) {
+            return ComponentType::reconstruct_from_public(limbs);
+        } else {
+            return Codec::template deserialize_from_fields<ComponentType>(limbs);
+        }
     }
 };
 

@@ -1,6 +1,7 @@
 import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -102,6 +103,7 @@ describe('public_processor', () => {
       publicTxSimulator,
       new TestDateProvider(),
       getTelemetryClient(),
+      createLogger('simulator:public-processor'),
     );
   });
 
@@ -199,13 +201,16 @@ describe('public_processor', () => {
       const maxBlobFields = actualBlobFields * 2;
 
       // Process all 3 transactions with the blob field limit
-      const [processed, failed] = await processor.process(txs, { maxBlobFields });
+      const [processed, failed, _usedTxs, _returns, usedTxBlobFields] = await processor.process(txs, { maxBlobFields });
 
       // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
+
+      const expectedBlobFields = actualBlobFields * 2;
+      expect(usedTxBlobFields).toBe(expectedBlobFields);
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {

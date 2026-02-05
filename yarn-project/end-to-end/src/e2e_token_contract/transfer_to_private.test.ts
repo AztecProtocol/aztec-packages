@@ -6,8 +6,8 @@ describe('e2e_token_contract transfer_to_private', () => {
   let { asset, adminAddress, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, adminAddress, account1Address, tokenSim } = t);
@@ -26,7 +26,7 @@ describe('e2e_token_contract transfer_to_private', () => {
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.transfer_to_private(adminAddress, amount).send({ from: adminAddress }).wait();
+    await asset.methods.transfer_to_private(adminAddress, amount).send({ from: adminAddress });
 
     // Check that the result matches token sim
     tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
@@ -38,7 +38,7 @@ describe('e2e_token_contract transfer_to_private', () => {
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.transfer_to_private(account1Address, amount).send({ from: adminAddress }).wait();
+    await asset.methods.transfer_to_private(account1Address, amount).send({ from: adminAddress });
 
     // Check that the result matches token sim
     tokenSim.transferToPrivate(adminAddress, account1Address, amount);

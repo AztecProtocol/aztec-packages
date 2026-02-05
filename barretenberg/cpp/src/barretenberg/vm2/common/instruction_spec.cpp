@@ -72,11 +72,11 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>>& 
         { WireOpCode::MOV_16, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 
         // World State
-        { WireOpCode::SLOAD, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { WireOpCode::SLOAD, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::SSTORE, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::NOTEHASHEXISTS, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::EMITNOTEHASH, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-        { WireOpCode::NULLIFIEREXISTS, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { WireOpCode::NULLIFIEREXISTS, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::EMITNULLIFIER, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::L1TOL2MSGEXISTS, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::GETCONTRACTINSTANCE, { 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
@@ -336,7 +336,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec>& get_wire_instruction_
         // World State
         { WireOpCode::SLOAD,
           { .exec_opcode = ExecutionOpCode::SLOAD,
-            .size_in_bytes = 6,
+            .size_in_bytes = 8,
             .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::SLOAD) } },
         { WireOpCode::SSTORE,
           { .exec_opcode = ExecutionOpCode::SSTORE,
@@ -352,7 +352,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec>& get_wire_instruction_
             .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::EMITNOTEHASH) } },
         { WireOpCode::NULLIFIEREXISTS,
           { .exec_opcode = ExecutionOpCode::NULLIFIEREXISTS,
-            .size_in_bytes = 8,
+            .size_in_bytes = 6,
             .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::NULLIFIEREXISTS) } },
         { WireOpCode::EMITNULLIFIER,
           { .exec_opcode = ExecutionOpCode::EMITNULLIFIER,
@@ -637,9 +637,11 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruc
             .gas_cost = { .opcode_gas = AVM_MOV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
             .register_info = RegisterInfo().add_input(/*src*/).add_output(/*dst*/) } },
         { ExecutionOpCode::SLOAD,
-          { .num_addresses = 2,
+          { .num_addresses = 3,
             .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-            .register_info = RegisterInfo().add_input(/*slot*/ ValueTag::FF).add_output(/*dst*/) } },
+            .register_info = RegisterInfo()
+                                 .add_inputs({ /*slot*/ ValueTag::FF, /*contract_address*/ ValueTag::FF })
+                                 .add_output(/*dst*/) } },
         { ExecutionOpCode::SSTORE,
           { .num_addresses = 2,
             .gas_cost = { .opcode_gas = AVM_SSTORE_BASE_L2_GAS,
@@ -662,12 +664,9 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruc
                           .dyn_da = 0 },
             .register_info = RegisterInfo().add_input(/*note_hash*/ ValueTag::FF) } },
         { ExecutionOpCode::NULLIFIEREXISTS,
-          { .num_addresses = 3,
+          { .num_addresses = 2,
             .gas_cost = { .opcode_gas = AVM_NULLIFIEREXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-            .register_info = RegisterInfo()
-                                 .add_inputs({ /*nullifier*/ ValueTag::FF,
-                                               /*address*/ ValueTag::FF })
-                                 .add_output(/*exists*/) } },
+            .register_info = RegisterInfo().add_input(/*siloed_nullifier*/ ValueTag::FF).add_output(/*exists*/) } },
         { ExecutionOpCode::EMITNULLIFIER,
           { .num_addresses = 1,
             .gas_cost = { .opcode_gas = AVM_EMITNULLIFIER_BASE_L2_GAS,

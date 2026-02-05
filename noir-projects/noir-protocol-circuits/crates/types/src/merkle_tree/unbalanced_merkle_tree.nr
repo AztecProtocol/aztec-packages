@@ -1,4 +1,4 @@
-use crate::hash::accumulate_sha256;
+use crate::merkle_tree::merkle_tree::sha_merkle_hash;
 
 pub struct UnbalancedMerkleTree {
     pub root: Field,
@@ -16,7 +16,7 @@ impl UnbalancedMerkleTree {
         let root = compute_unbalanced_merkle_root::<N, MAX_SUBTREES>(
             leaves,
             num_non_empty_leaves,
-            accumulate_sha256,
+            sha_merkle_hash,
         );
         UnbalancedMerkleTree { root }
     }
@@ -59,7 +59,7 @@ fn compute_subtree_sizes<let MAX_SUBTREES: u32>(num_non_empty_leaves: u32) -> [u
 ///
 /// But if we instead combine the size-4 and size-8 subtrees first (depth 4), and then merge with the size-2 subtree,
 /// the final tree has a depth of 5.
-pub fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
+fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
     leaves: [Field; N],
     num_non_empty_leaves: u32,
     hasher: fn(Field, Field) -> Field,
@@ -138,13 +138,8 @@ pub fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
 }
 
 pub mod tests {
-    use crate::{hash::accumulate_sha256, merkle_tree::merkle_tree::MerkleTree};
+    use crate::merkle_tree::{merkle_tree::sha_merkle_hash, root::compute_sha_tree_root};
     use super::UnbalancedMerkleTree;
-
-    fn compute_balanced_tree_root<let N: u32>(leaves: [Field; N]) -> Field {
-        let tree = MerkleTree::new_sha(leaves);
-        tree.get_root()
-    }
 
     global NUM_TEST_LEAVES: u32 = 100;
     global MAX_SUBTREES: u32 = 7; // ceil(log2(100))
@@ -186,18 +181,18 @@ pub mod tests {
         //  root
         //  /  \
         // 1   2
-        let expected_root = accumulate_sha256(1, 2);
+        let expected_root = sha_merkle_hash(1, 2);
         assert_eq_tree_root(2, expected_root);
     }
 
     #[test]
     fn test_pow_2_leaves() {
         let array_4: [Field; 4] = generate_full_array(1);
-        let size4_tree_root = compute_balanced_tree_root(array_4);
+        let size4_tree_root = compute_sha_tree_root(array_4);
         assert_eq_tree_root(4, size4_tree_root);
 
         let array_16: [Field; 16] = generate_full_array(1);
-        let size16_tree_root = compute_balanced_tree_root(array_16);
+        let size16_tree_root = compute_sha_tree_root(array_16);
         assert_eq_tree_root(16, size16_tree_root);
     }
 
@@ -211,8 +206,8 @@ pub mod tests {
         //  /  \
         // 1   2
 
-        let subtree_root = accumulate_sha256(1, 2);
-        let expected_root = accumulate_sha256(subtree_root, 3);
+        let subtree_root = sha_merkle_hash(1, 2);
+        let expected_root = sha_merkle_hash(subtree_root, 3);
         assert_eq_tree_root(3, expected_root);
     }
 
@@ -229,8 +224,8 @@ pub mod tests {
         // 1   2 3   4
 
         let array_1_to_4 = [1, 2, 3, 4];
-        let size4_tree_root = compute_balanced_tree_root(array_1_to_4);
-        let expected_root = accumulate_sha256(size4_tree_root, 5);
+        let size4_tree_root = compute_sha_tree_root(array_1_to_4);
+        let expected_root = sha_merkle_hash(size4_tree_root, 5);
         assert_eq_tree_root(5, expected_root);
     }
 
@@ -247,13 +242,13 @@ pub mod tests {
         // 1   2 3   4  5  6
 
         let array_5_to_6 = [5, 6];
-        let size2_tree_root = compute_balanced_tree_root(array_5_to_6);
-        let right_branch_root = accumulate_sha256(size2_tree_root, 7);
+        let size2_tree_root = compute_sha_tree_root(array_5_to_6);
+        let right_branch_root = sha_merkle_hash(size2_tree_root, 7);
 
         let array_1_to_4 = [1, 2, 3, 4];
-        let size4_tree_root = compute_balanced_tree_root(array_1_to_4);
+        let size4_tree_root = compute_sha_tree_root(array_1_to_4);
 
-        let expected_root = accumulate_sha256(size4_tree_root, right_branch_root);
+        let expected_root = sha_merkle_hash(size4_tree_root, right_branch_root);
 
         assert_eq_tree_root(7, expected_root);
     }
@@ -271,12 +266,12 @@ pub mod tests {
         // 1  ...  8
 
         let array_9_to_10 = [9, 10];
-        let size2_tree_root = compute_balanced_tree_root(array_9_to_10);
+        let size2_tree_root = compute_sha_tree_root(array_9_to_10);
 
         let array_1_to_8 = [1, 2, 3, 4, 5, 6, 7, 8];
-        let size8_tree_root = compute_balanced_tree_root(array_1_to_8);
+        let size8_tree_root = compute_sha_tree_root(array_1_to_8);
 
-        let expected_root = accumulate_sha256(size8_tree_root, size2_tree_root);
+        let expected_root = sha_merkle_hash(size8_tree_root, size2_tree_root);
 
         assert_eq_tree_root(10, expected_root);
     }
@@ -294,13 +289,13 @@ pub mod tests {
         // 1  ... 16  17...20
 
         let array_17_to_20 = [17, 18, 19, 20];
-        let size4_tree_root = compute_balanced_tree_root(array_17_to_20);
-        let right_branch_root = accumulate_sha256(size4_tree_root, 21);
+        let size4_tree_root = compute_sha_tree_root(array_17_to_20);
+        let right_branch_root = sha_merkle_hash(size4_tree_root, 21);
 
         let array_1_to_16: [Field; 16] = generate_full_array(1);
-        let size16_tree_root = compute_balanced_tree_root(array_1_to_16);
+        let size16_tree_root = compute_sha_tree_root(array_1_to_16);
 
-        let expected_root = accumulate_sha256(size16_tree_root, right_branch_root);
+        let expected_root = sha_merkle_hash(size16_tree_root, right_branch_root);
 
         assert_eq_tree_root(21, expected_root);
     }
@@ -311,23 +306,23 @@ pub mod tests {
 
         let mut offset = 1;
         let array_1_to_16: [Field; 16] = generate_full_array(offset);
-        let size16_tree_root = compute_balanced_tree_root(array_1_to_16);
+        let size16_tree_root = compute_sha_tree_root(array_1_to_16);
         offset += 16;
         let array_17_to_24: [Field; 8] = generate_full_array(offset);
-        let size8_tree_root = compute_balanced_tree_root(array_17_to_24);
+        let size8_tree_root = compute_sha_tree_root(array_17_to_24);
         offset += 8;
         let array_25_to_28: [Field; 4] = generate_full_array(offset);
-        let size4_tree_root = compute_balanced_tree_root(array_25_to_28);
+        let size4_tree_root = compute_sha_tree_root(array_25_to_28);
         offset += 4;
         let array_29_to_30: [Field; 2] = generate_full_array(offset);
-        let size2_tree_root = compute_balanced_tree_root(array_29_to_30);
+        let size2_tree_root = compute_sha_tree_root(array_29_to_30);
         offset += 2;
         assert_eq(offset, 31);
 
-        let subtree_0 = accumulate_sha256(size2_tree_root, 31);
-        let subtree_1 = accumulate_sha256(size4_tree_root, subtree_0);
-        let subtree_2 = accumulate_sha256(size8_tree_root, subtree_1);
-        let expected_root = accumulate_sha256(size16_tree_root, subtree_2);
+        let subtree_0 = sha_merkle_hash(size2_tree_root, 31);
+        let subtree_1 = sha_merkle_hash(size4_tree_root, subtree_0);
+        let subtree_2 = sha_merkle_hash(size8_tree_root, subtree_1);
+        let expected_root = sha_merkle_hash(size16_tree_root, subtree_2);
 
         assert_eq_tree_root(31, expected_root);
     }
@@ -337,9 +332,9 @@ pub mod tests {
         // 33 = 100001 = 32 + 1
 
         let array_1_to_32: [Field; 32] = generate_full_array(1);
-        let size32_tree_root = compute_balanced_tree_root(array_1_to_32);
+        let size32_tree_root = compute_sha_tree_root(array_1_to_32);
 
-        let expected_root = accumulate_sha256(size32_tree_root, 33);
+        let expected_root = sha_merkle_hash(size32_tree_root, 33);
 
         assert_eq_tree_root(33, expected_root);
     }
@@ -350,12 +345,12 @@ pub mod tests {
 
         let mut offset = 1;
         let array_1_to_64: [Field; 64] = generate_full_array(offset);
-        let size64_tree_root = compute_balanced_tree_root(array_1_to_64);
+        let size64_tree_root = compute_sha_tree_root(array_1_to_64);
         offset += 64;
         let array_65_to_66: [Field; 2] = generate_full_array(offset);
-        let size2_tree_root = compute_balanced_tree_root(array_65_to_66);
+        let size2_tree_root = compute_sha_tree_root(array_65_to_66);
 
-        let expected_root = accumulate_sha256(size64_tree_root, size2_tree_root);
+        let expected_root = sha_merkle_hash(size64_tree_root, size2_tree_root);
 
         assert_eq_tree_root(66, expected_root);
     }
@@ -366,19 +361,19 @@ pub mod tests {
 
         let mut offset = 1;
         let array_1_to_64: [Field; 64] = generate_full_array(offset);
-        let size64_tree_root = compute_balanced_tree_root(array_1_to_64);
+        let size64_tree_root = compute_sha_tree_root(array_1_to_64);
         offset += 64;
         let array_65_to_96: [Field; 32] = generate_full_array(offset);
-        let size32_tree_root = compute_balanced_tree_root(array_65_to_96);
+        let size32_tree_root = compute_sha_tree_root(array_65_to_96);
         offset += 32;
         let array_97_to_98: [Field; 2] = generate_full_array(offset);
-        let size2_tree_root = compute_balanced_tree_root(array_97_to_98);
+        let size2_tree_root = compute_sha_tree_root(array_97_to_98);
         offset += 2;
         assert_eq(offset, 99);
 
-        let subtree_0 = accumulate_sha256(size2_tree_root, 99);
-        let subtree_1 = accumulate_sha256(size32_tree_root, subtree_0);
-        let expected_root = accumulate_sha256(size64_tree_root, subtree_1);
+        let subtree_0 = sha_merkle_hash(size2_tree_root, 99);
+        let subtree_1 = sha_merkle_hash(size32_tree_root, subtree_0);
+        let expected_root = sha_merkle_hash(size64_tree_root, subtree_1);
 
         assert_eq_tree_root(99, expected_root);
     }
@@ -389,16 +384,16 @@ pub mod tests {
 
         let mut offset = 1;
         let array_1_to_64: [Field; 64] = generate_full_array(offset);
-        let size64_tree_root = compute_balanced_tree_root(array_1_to_64);
+        let size64_tree_root = compute_sha_tree_root(array_1_to_64);
         offset += 64;
         let array_65_to_96: [Field; 32] = generate_full_array(offset);
-        let size32_tree_root = compute_balanced_tree_root(array_65_to_96);
+        let size32_tree_root = compute_sha_tree_root(array_65_to_96);
         offset += 32;
         let array_97_to_100: [Field; 4] = generate_full_array(offset);
-        let size4_tree_root = compute_balanced_tree_root(array_97_to_100);
+        let size4_tree_root = compute_sha_tree_root(array_97_to_100);
 
-        let subtree_0 = accumulate_sha256(size32_tree_root, size4_tree_root);
-        let expected_root = accumulate_sha256(size64_tree_root, subtree_0);
+        let subtree_0 = sha_merkle_hash(size32_tree_root, size4_tree_root);
+        let expected_root = sha_merkle_hash(size64_tree_root, subtree_0);
 
         assert_eq_tree_root(NUM_TEST_LEAVES, expected_root);
     }
@@ -410,7 +405,7 @@ pub mod tests {
         let root = UnbalancedMerkleTree::new_sha::<8, 3>(leaves, 8).get_root();
 
         let array_1_to_8: [Field; 8] = generate_full_array(1);
-        let expected_root = compute_balanced_tree_root(array_1_to_8);
+        let expected_root = compute_sha_tree_root(array_1_to_8);
 
         assert_eq(root, expected_root);
     }
@@ -432,13 +427,13 @@ pub mod tests {
         // 1   2 3   4  5  6
 
         let array_5_to_6 = [5, 6];
-        let size2_tree_root = compute_balanced_tree_root(array_5_to_6);
-        let right_branch_root = accumulate_sha256(size2_tree_root, 7);
+        let size2_tree_root = compute_sha_tree_root(array_5_to_6);
+        let right_branch_root = sha_merkle_hash(size2_tree_root, 7);
 
         let array_1_to_4 = [1, 2, 3, 4];
-        let size4_tree_root = compute_balanced_tree_root(array_1_to_4);
+        let size4_tree_root = compute_sha_tree_root(array_1_to_4);
 
-        let expected_root = accumulate_sha256(size4_tree_root, right_branch_root);
+        let expected_root = sha_merkle_hash(size4_tree_root, right_branch_root);
 
         assert_eq(root, expected_root);
     }
@@ -462,10 +457,10 @@ pub mod tests {
         let root = UnbalancedMerkleTree::new_sha::<8, 2>(leaves, num_non_empty_leaves).get_root();
 
         let array_1_to_4 = [1, 2, 3, 4];
-        let size4_tree_root = compute_balanced_tree_root(array_1_to_4);
+        let size4_tree_root = compute_sha_tree_root(array_1_to_4);
         let array_5_to_6 = [5, 6];
-        let size2_tree_root = compute_balanced_tree_root(array_5_to_6);
-        let expected_root = accumulate_sha256(size4_tree_root, size2_tree_root);
+        let size2_tree_root = compute_sha_tree_root(array_5_to_6);
+        let expected_root = sha_merkle_hash(size4_tree_root, size2_tree_root);
         assert_eq(root, expected_root);
     }
 }

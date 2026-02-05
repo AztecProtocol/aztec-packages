@@ -2,7 +2,6 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -22,12 +21,10 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraKeccakFlavor,
                                      UltraStarknetFlavor,
                                      UltraStarknetZKFlavor,
-                                     UltraRollupFlavor,
                                      UltraZKFlavor,
                                      UltraKeccakZKFlavor>;
 #else
-using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+using FlavorTypes = ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
 #endif
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
@@ -39,7 +36,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using IO = DefaultIO; // Native IO for native flavors
     using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
 
@@ -84,8 +81,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "vk_hash", data_types_per_Frs);
 
         manifest_expected.add_entry(round, "public_input_0", data_types_per_Frs);
-        constexpr size_t PUBLIC_INPUTS_SIZE =
-            HasIPAAccumulator<Flavor> ? RollupIO::PUBLIC_INPUTS_SIZE : DefaultIO::PUBLIC_INPUTS_SIZE;
+        constexpr size_t PUBLIC_INPUTS_SIZE = IO::PUBLIC_INPUTS_SIZE;
         for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), data_types_per_Frs);
         }
@@ -97,7 +93,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
-        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
+        manifest_expected.add_challenge(round, "eta");
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
@@ -110,8 +106,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 
         manifest_expected.add_challenge(round, "alpha");
-        round++;
-
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 
@@ -176,11 +170,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-        }
+        IO::add_default(builder);
     }
 
     void generate_random_test_circuit(Builder& builder)
@@ -191,7 +181,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         builder.add_public_variable(a);
         builder.add_public_variable(b);
 
-        if constexpr (HasIPAAccumulator<Flavor>) {
+        if constexpr (IO::HasIPA) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
@@ -199,11 +189,11 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         }
     }
 
-    Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
+    Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs, const size_t log_n)
     {
         // reset internal variables needed for exporting the proof
         // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
-        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs);
+        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs, log_n);
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
@@ -294,7 +284,7 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
     using Flavor = TypeParam;
     using FF = Flavor::FF;
     // initialized with random value sent to verifier
-    auto transcript = TypeParam::Transcript::prover_init_empty();
+    auto transcript = TypeParam::Transcript::test_prover_init_empty();
     // test a bunch of challenges
     std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
     auto challenges = transcript->template get_challenges<FF>(challenge_labels);
@@ -340,7 +330,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
     proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
 
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // we have changed nothing so proof is still valid
     typename TestFixture::Verifier verifier2(vk_and_hash);
     EXPECT_TRUE(verifier2.verify_proof(proof).result);
@@ -348,13 +338,13 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // we have not serialized it back to the proof so it should still be fine
     typename TestFixture::Verifier verifier3(vk_and_hash);
     EXPECT_TRUE(verifier3.verify_proof(proof).result);
 
     proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
     // the proof is now wrong after serializing it
     typename TestFixture::Verifier verifier4(vk_and_hash);
     EXPECT_FALSE(verifier4.verify_proof(proof).result);

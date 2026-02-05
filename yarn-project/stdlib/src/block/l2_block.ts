@@ -1,44 +1,66 @@
-import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointNumberSchema,
+  IndexWithinCheckpoint,
+  IndexWithinCheckpointSchema,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
-import { Checkpoint } from '../checkpoint/checkpoint.js';
+import type { PrivateLog } from '../logs/private_log.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import type { BlockHeader } from '../tx/block_header.js';
+import { BlockHeader } from '../tx/block_header.js';
+import type { BlockHash } from './block_hash.js';
 import { Body } from './body.js';
-import { makeAppendOnlyTreeSnapshot, makeL2BlockHeader } from './l2_block_code_to_purge.js';
-import { L2BlockHeader } from './l2_block_header.js';
 import type { L2BlockInfo } from './l2_block_info.js';
-import { L2BlockNew } from './l2_block_new.js';
 
 /**
- * The data that makes up the rollup proof, with encoder decoder functions.
- *
- * @deprecated Use `L2BlockNew` instead.
+ * An L2 block with a header and a body.
  */
 export class L2Block {
   constructor(
     /** Snapshot of archive tree after the block is applied. */
     public archive: AppendOnlyTreeSnapshot,
-    /** L2 block header. */
-    public header: L2BlockHeader,
+    /** Header of the block. */
+    public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
-    private blockHash: Fr | undefined = undefined,
+    /** Number of the checkpoint that the block belongs to. */
+    public checkpointNumber: CheckpointNumber,
+    /** Index of the block within the checkpoint. */
+    public indexWithinCheckpoint: IndexWithinCheckpoint,
   ) {}
+
+  get number(): BlockNumber {
+    return this.header.globalVariables.blockNumber;
+  }
+
+  get slot(): SlotNumber {
+    return this.header.globalVariables.slotNumber;
+  }
+
+  get timestamp(): bigint {
+    return this.header.globalVariables.timestamp;
+  }
 
   static get schema() {
     return z
       .object({
         archive: AppendOnlyTreeSnapshot.schema,
-        header: L2BlockHeader.schema,
+        header: BlockHeader.schema,
         body: Body.schema,
+        checkpointNumber: CheckpointNumberSchema,
+        indexWithinCheckpoint: IndexWithinCheckpointSchema,
       })
-      .transform(({ archive, header, body }) => new L2Block(archive, header, body));
+      .transform(
+        ({ archive, header, body, checkpointNumber, indexWithinCheckpoint }) =>
+          new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint),
+      );
   }
 
   /**
@@ -47,11 +69,13 @@ export class L2Block {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const header = reader.readObject(L2BlockHeader);
+    const header = reader.readObject(BlockHeader);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
+    const checkpointNumber = CheckpointNumber(reader.readNumber());
+    const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
 
-    return new L2Block(archive, header, body);
+    return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**
@@ -59,142 +83,30 @@ export class L2Block {
    * @returns A serialized L2 block as a Buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.header, this.archive, this.body);
-  }
-
-  /**
-   * Deserializes L2 block from a buffer.
-   * @param str - A serialized L2 block.
-   * @returns Deserialized L2 block.
-   */
-  static fromString(str: string): L2Block {
-    return L2Block.fromBuffer(hexToBuffer(str));
-  }
-
-  /**
-   * Serializes a block to a string.
-   * @returns A serialized L2 block as a string.
-   */
-  toString(): string {
-    return bufferToHex(this.toBuffer());
-  }
-
-  /**
-   * Creates an L2 block containing random data.
-   * @param l2BlockNum - The number of the L2 block.
-   * @param txsPerBlock - The number of transactions to include in the block.
-   * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
-   * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
-   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
-   * @returns The L2 block.
-   */
-  static async random(
-    l2BlockNum: BlockNumber,
-    txsPerBlock = 4,
-    numPublicCallsPerTx = 3,
-    numPublicLogsPerCall = 1,
-    inHash: Fr | undefined = undefined,
-    slotNumber: number | undefined = undefined,
-    maxEffects: number | undefined = undefined,
-  ): Promise<L2Block> {
-    const body = await Body.random({ txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects });
-
-    return new L2Block(
-      makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeL2BlockHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, { inHash }),
-      body,
-    );
-  }
-
-  /**
-   * Creates an L2 block containing empty data.
-   * @returns The L2 block.
-   */
-  static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.empty(), L2BlockHeader.empty(), Body.empty());
-  }
-
-  get number(): BlockNumber {
-    return this.header.getBlockNumber();
-  }
-
-  get slot(): SlotNumber {
-    return this.header.getSlot();
-  }
-
-  get timestamp(): bigint {
-    return this.header.globalVariables.timestamp;
+    return serializeToBuffer(this.header, this.archive, this.body, this.checkpointNumber, this.indexWithinCheckpoint);
   }
 
   /**
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public async hash(): Promise<Fr> {
-    if (this.blockHash === undefined) {
-      this.blockHash = await this.getBlockHeader().hash();
-    }
-    return this.blockHash;
+  public hash(): Promise<BlockHash> {
+    return this.header.hash();
   }
 
   /**
-   * @deprecated
-   * This only works when there's one block per checkpoint.
-   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
+   * Checks if this block equals another block.
+   * @param other - The other block to compare with.
+   * @returns True if both blocks are equal.
    */
-  public getCheckpointHeader() {
-    return this.header.toCheckpointHeader();
-  }
-
-  // Temporary helper to get the actual block header.
-  public getBlockHeader(): BlockHeader {
-    return this.header.toBlockHeader();
-  }
-
-  public toL2Block(args: { checkpointNumber?: CheckpointNumber; indexWithinCheckpoint?: number } = {}): L2BlockNew {
-    return new L2BlockNew(
-      this.archive,
-      this.getBlockHeader(),
-      this.body,
-      args?.checkpointNumber ?? CheckpointNumber.fromBlockNumber(this.number),
-      args?.indexWithinCheckpoint ?? 0,
+  public equals(other: this): boolean {
+    return (
+      this.archive.equals(other.archive) &&
+      this.header.equals(other.header) &&
+      this.body.equals(other.body) &&
+      this.checkpointNumber === other.checkpointNumber &&
+      this.indexWithinCheckpoint === other.indexWithinCheckpoint
     );
-  }
-
-  public toCheckpoint() {
-    return new Checkpoint(
-      this.archive,
-      this.getCheckpointHeader(),
-      [this.toL2Block()],
-      CheckpointNumber.fromBlockNumber(this.number),
-    );
-  }
-
-  static fromCheckpoint(checkpoint: Checkpoint) {
-    const checkpointHeader = checkpoint.header;
-    const block = checkpoint.blocks.at(-1)!;
-    const header = new L2BlockHeader(
-      new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, block.number),
-      checkpointHeader.blobsHash,
-      checkpointHeader.inHash,
-      block.header.state,
-      block.header.globalVariables,
-      block.header.totalFees,
-      checkpointHeader.totalManaUsed,
-      block.header.spongeBlobHash,
-      checkpointHeader.blockHeadersHash,
-    );
-    return new L2Block(checkpoint.archive, header, block.body);
-  }
-
-  /**
-   * @deprecated
-   * This only works when there's one block per checkpoint.
-   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
-   */
-  public getCheckpointBlobFields() {
-    const blockBlobData = this.toBlockBlobData();
-    return encodeCheckpointBlobDataFromBlocks([blockBlobData]);
   }
 
   public toBlobFields(): Fr[] {
@@ -203,8 +115,7 @@ export class L2Block {
   }
 
   public toBlockBlobData(): BlockBlobData {
-    // There's only one L2Block per checkpoint, so it's always the first block in the checkpoint.
-    const isFirstBlock = true;
+    const isFirstBlock = this.indexWithinCheckpoint === 0;
     return {
       blockEndMarker: {
         numTxs: this.body.txEffects.length,
@@ -225,6 +136,48 @@ export class L2Block {
       l1ToL2MessageRoot: isFirstBlock ? this.header.state.l1ToL2MessageTree.root : undefined,
       txs: this.body.toTxBlobData(),
     };
+  }
+
+  static empty(header?: BlockHeader) {
+    return new L2Block(
+      AppendOnlyTreeSnapshot.empty(),
+      header ?? BlockHeader.empty(),
+      Body.empty(),
+      CheckpointNumber(0),
+      IndexWithinCheckpoint(0),
+    );
+  }
+
+  /**
+   * Creates an L2 block containing random data.
+   * @param l2BlockNum - The number of the L2 block.
+   * @param txsPerBlock - The number of transactions to include in the block.
+   * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
+   * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
+   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
+   * @returns The L2 block.
+   */
+  static async random(
+    blockNumber: BlockNumber,
+    {
+      checkpointNumber = CheckpointNumber(Number(blockNumber)),
+      indexWithinCheckpoint = IndexWithinCheckpoint(0),
+      txsPerBlock = 1,
+      txOptions = {},
+      makeTxOptions,
+      ...blockHeaderOverrides
+    }: {
+      checkpointNumber?: CheckpointNumber;
+      indexWithinCheckpoint?: IndexWithinCheckpoint;
+      txsPerBlock?: number;
+      txOptions?: Partial<Parameters<typeof Body.random>[0]>;
+      makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof Body.random>[0]>;
+    } & Partial<Parameters<typeof BlockHeader.random>[0]> = {},
+  ): Promise<L2Block> {
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
+    const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
+    const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
+    return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**
@@ -254,9 +207,12 @@ export class L2Block {
     };
   }
 
+  getPrivateLogs(): PrivateLog[] {
+    return this.body.txEffects.map(txEffect => txEffect.privateLogs).flat();
+  }
+
   toBlockInfo(): L2BlockInfo {
     return {
-      blockHash: this.blockHash,
       archive: this.archive.root,
       lastArchive: this.header.lastArchive.root,
       blockNumber: this.number,
@@ -264,9 +220,5 @@ export class L2Block {
       txCount: this.body.txEffects.length,
       timestamp: this.header.globalVariables.timestamp,
     };
-  }
-
-  equals(other: L2Block) {
-    return this.archive.equals(other.archive) && this.header.equals(other.header) && this.body.equals(other.body);
   }
 }

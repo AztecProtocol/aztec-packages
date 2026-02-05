@@ -59,6 +59,7 @@ locals {
     AZTEC_SLASHER_FLAVOR                     = var.AZTEC_SLASHER_FLAVOR
     AZTEC_GOVERNANCE_PROPOSER_QUORUM         = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
+    AZTEC_GOVERNANCE_VOTING_DURATION         = var.AZTEC_GOVERNANCE_VOTING_DURATION
     AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
     AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
     AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
@@ -101,7 +102,7 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
         container {
           name              = "deploy-rollup-contracts"
           image             = var.AZTEC_DOCKER_IMAGE
-          image_pull_policy = "Always"
+          image_pull_policy = can(regex("^kind-", var.K8S_CLUSTER_CONTEXT)) ? "IfNotPresent" : "Always"
           command           = ["/bin/sh"]
           args = concat(
             [

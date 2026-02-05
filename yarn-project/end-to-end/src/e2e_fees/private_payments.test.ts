@@ -25,11 +25,10 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
+    await t.setup();
+    await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
-      await t.setup());
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -108,11 +107,9 @@ describe('e2e_fees private_payment', () => {
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
-    const tx = localTx.send();
-    await tx.wait({ timeout: 300, interval: 10 });
+    const receipt = await localTx.send({ timeout: 300, interval: 10 });
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
-    const receipt = await tx.wait({ timeout: 300, interval: 10 });
     await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
@@ -158,15 +155,12 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const newlyMintedBananas = 10n;
-    const tx = await bananaCoin.methods
-      .mint_to_private(aliceAddress, newlyMintedBananas)
-      .send({
-        from: aliceAddress,
-        fee: {
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
-        },
-      })
-      .wait();
+    const tx = await bananaCoin.methods.mint_to_private(aliceAddress, newlyMintedBananas).send({
+      from: aliceAddress,
+      fee: {
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+      },
+    });
 
     const feeAmount = tx.transactionFee!;
 
@@ -206,15 +200,12 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const amountTransferredToPrivate = 1n;
-    const tx = await bananaCoin.methods
-      .transfer_to_private(aliceAddress, amountTransferredToPrivate)
-      .send({
-        from: aliceAddress,
-        fee: {
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
-        },
-      })
-      .wait();
+    const tx = await bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).send({
+      from: aliceAddress,
+      fee: {
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+      },
+    });
 
     const feeAmount = tx.transactionFee!;
 
@@ -261,14 +252,12 @@ describe('e2e_fees private_payment', () => {
     const tx = await new BatchCall(wallet, [
       bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate),
       bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate),
-    ])
-      .send({
-        from: aliceAddress,
-        fee: {
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
-        },
-      })
-      .wait();
+    ]).send({
+      from: aliceAddress,
+      fee: {
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+      },
+    });
 
     const feeAmount = tx.transactionFee!;
 
@@ -294,22 +283,19 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress)
-      .send({ from: aliceAddress })
-      .deployed();
+    const bankruptFPC = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress).send({
+      from: aliceAddress,
+    });
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 
     await expect(
-      bananaCoin.methods
-        .mint_to_private(aliceAddress, 10)
-        .send({
-          from: aliceAddress,
-          fee: {
-            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceAddress, wallet, gasSettings),
-          },
-        })
-        .wait(),
+      bananaCoin.methods.mint_to_private(aliceAddress, 10).send({
+        from: aliceAddress,
+        fee: {
+          paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceAddress, wallet, gasSettings),
+        },
+      }),
     ).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 

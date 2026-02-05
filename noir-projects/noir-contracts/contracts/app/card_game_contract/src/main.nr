@@ -5,8 +5,9 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract CardGame {
-    use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol::address::AztecAddress;
+    use dep::aztec::protocol::hash::poseidon2_hash;
+    use dep::aztec::state_vars::{Map, PublicMutable};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -14,7 +15,7 @@ pub contract CardGame {
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
     use dep::aztec::macros::{functions::{external, only_self}, storage::storage};
 
-    use dep::aztec::protocol_types::traits::{FromField, ToField};
+    use dep::aztec::protocol::traits::{FromField, ToField};
 
     #[storage]
     struct Storage<Context> {
@@ -27,7 +28,7 @@ pub contract CardGame {
     fn buy_pack(
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
-        let buyer = self.msg_sender().unwrap();
+        let buyer = self.msg_sender();
         let mut cards = get_pack_cards(seed, buyer, self.context);
 
         let mut collection = self.storage.collections;
@@ -38,7 +39,7 @@ pub contract CardGame {
     fn join_game(game: u32, cards_fields: [Field; 2]) {
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
 
         let mut collection = self.storage.collections;
         collection.remove_cards(cards, player);
@@ -73,7 +74,7 @@ pub contract CardGame {
 
     #[external("private")]
     fn play_card(game: u32, card: Card) {
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
 
         let mut game_deck = self.storage.game_decks.at(game as Field);
         game_deck.remove_cards([card], player);
@@ -98,12 +99,12 @@ pub contract CardGame {
 
     #[external("private")]
     fn claim_cards(game: u32, cards_fields: [Field; PLAYABLE_CARDS]) {
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
         let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, player);
-        self.enqueue_self.on_cards_claimed(game, player, pedersen_hash(cards_fields, 0));
+        self.enqueue_self.on_cards_claimed(game, player, poseidon2_hash(cards_fields));
     }
 
     #[external("public")]
@@ -117,7 +118,7 @@ pub contract CardGame {
 
         assert_eq(
             cards_hash,
-            pedersen_hash(game_data.rounds_cards.map(|card: Card| card.to_field()), 0),
+            poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())),
         );
 
         let winner = game_data.winner();

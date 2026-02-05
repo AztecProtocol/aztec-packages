@@ -1,13 +1,10 @@
 use crate::macros::{
-    internals_functions_generation::external::helpers::{
-        create_authorize_once_check, get_abi_relevant_attributes,
-    },
+    internals_functions_generation::external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view,
         module_has_initializer, module_has_storage,
     },
 };
-use std::meta::ctstring::AsCtString;
 
 pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
@@ -20,11 +17,12 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
         // If the function has no parameters, we set the args_len to 0.
         quote { 0 }
     } else {
-        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as
+        // Serialize>::N + ...
         original_params
             .map(|(_, param_type): (Quoted, Type)| {
                 quote {
-            <$param_type as $crate::protocol_types::traits::Serialize>::N
+            <$param_type as $crate::protocol::traits::Serialize>::N
         }
             })
             .join(quote {+})
@@ -47,17 +45,17 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = {
-            let context = dep::aztec::context::public_context::PublicContext::new(|| {
+            let context = aztec::context::PublicContext::new(|| {
             // We start from 1 because we skip the selector for the dispatch function.
-            let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
-            dep::aztec::hash::hash_args(serialized_args)
+            let serialized_args : [Field; $args_len_quote] = aztec::oracle::avm::calldata_copy(1, $args_len_quote);
+            aztec::hash::hash_args(serialized_args)
             });
             $storage_init
             let self_address = context.this_address();
-            let call_self: CallSelf<aztec::context::public_context::PublicContext> = CallSelf { address: self_address, context };
-            let call_self_static: CallSelfStatic<aztec::context::public_context::PublicContext> = CallSelfStatic { address: self_address, context };
-            let internal: CallInternal<aztec::context::public_context::PublicContext> = CallInternal { context };
-            aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
+            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
+            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
+            let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
+            aztec::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
         };
     };
 
@@ -65,17 +63,14 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_only_self(f) {
-        let assertion_message =
-            f"Function {original_function_name} can only be called by the same contract";
-        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
+        let assertion_message = f"Function {original_function_name} can only be called by the same contract";
+        quote { assert(self.msg_sender() == self.address, $assertion_message); }
     } else {
         quote {}
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message = f"Function {original_function_name} can only be called statically"
-            .as_ctstring()
-            .as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
         quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
@@ -122,9 +117,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let return_type = f.return_type();
 
     // New function parameters are the same as the original function's ones.
-    let params = original_params
-        .map(|(param_name, param_type)| quote { $param_name: $param_type })
-        .join(quote {, });
+    let params = original_params.map(|(param_name, param_type)| quote { $param_name: $param_type }).join(quote {, });
 
     // Preserve all attributes that are relevant to the function's ABI.
     let abi_relevant_attributes = get_abi_relevant_attributes(f);

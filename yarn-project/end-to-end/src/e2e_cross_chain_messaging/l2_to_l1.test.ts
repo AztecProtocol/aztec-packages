@@ -35,7 +35,6 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
 
     ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
@@ -44,7 +43,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     version = BigInt(await rollup.getVersion());
 
-    contract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: user1Address });
   });
 
   afterAll(async () => {
@@ -64,9 +63,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const txReceipt = await new BatchCall(wallet, [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(contents[1], recipient),
-    ])
-      .send({ from: user1Address })
-      .wait();
+    ]).send({ from: user1Address });
 
     const blockNumber = txReceipt.blockNumber!;
 
@@ -96,11 +93,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     // Send the 2 txs.
     const [noMessageReceipt, withMessageReceipt] = await Promise.all([
-      contract.methods.emit_nullifier(Fr.random()).send({ from: user1Address }).wait(),
+      contract.methods.emit_nullifier(Fr.random()).send({ from: user1Address }),
       contract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
-        .send({ from: user1Address })
-        .wait(),
+        .send({ from: user1Address }),
     ]);
 
     // Check that the 2 txs are in the same block.
@@ -113,7 +109,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await expectConsumeMessageToSucceed(epoch, message);
   });
 
-  it('2 txs (balanced), one with 3 messages (wonky), one with 4 messages (balanced)', async () => {
+  it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
 
@@ -124,8 +120,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
 
     const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([
-      call0.send({ from: user1Address }).wait(),
-      call1.send({ from: user1Address }).wait(),
+      call0.send({ from: user1Address }),
+      call1.send({ from: user1Address }),
     ]);
 
     // Check that the 2 txs are in the same block.
@@ -165,7 +161,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }
   });
 
-  it('3 txs (wonky), one with 3 messages (wonky), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
+  it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
 
@@ -178,9 +174,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const call2 = createBatchCall(wallet, tx2.recipients, tx2.contents);
 
     const [l2TxReceipt0, l2TxReceipt1, l2TxReceipt2] = await Promise.all([
-      call0.send({ from: user1Address }).wait(),
-      call1.send({ from: user1Address }).wait(),
-      call2.send({ from: user1Address }).wait(),
+      call0.send({ from: user1Address }),
+      call1.send({ from: user1Address }),
+      call2.send({ from: user1Address }),
     ]);
 
     // Check that all txs are in the same block.

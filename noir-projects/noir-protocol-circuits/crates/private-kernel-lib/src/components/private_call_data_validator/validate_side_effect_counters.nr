@@ -41,12 +41,18 @@ impl SideEffectCounter {
     /// Creates a "null" SideEffectCounter used as padding in the sorted array.
     /// Uses MAX_U32_VALUE for global_index since no real side effect can have this index, ensuring null entries cannot
     /// be incorrectly matched to actual side effects.
+    /// Note: no real side effect can have this global_index, because the array we're indexing is only
+    /// TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL in length (and a 2^32 = 4 billion-length array is not possible in noir).
     pub fn null() -> Self {
         Self { counter: 0, global_index: MAX_U32_VALUE }
     }
 
     pub fn is_null(self) -> bool {
         self.global_index == MAX_U32_VALUE
+    }
+
+    pub fn assert_null<let N: u32>(self, msg: str<N>) {
+        assert_eq(self.global_index, MAX_U32_VALUE, msg);
     }
 }
 
@@ -65,17 +71,17 @@ pub struct SideEffectUniquenessHints {
 
     // For each array below: indices[i] gives the position in sorted_side_effect_counters
     // where array[i]'s counter appears.
-    pub note_hash_read_request_indices: [u32; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    pub nullifier_read_request_indices: [u32; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-    pub note_hashes_indices: [u32; MAX_NOTE_HASHES_PER_CALL],
-    pub nullifiers_indices: [u32; MAX_NULLIFIERS_PER_CALL],
+    pub note_hash_read_request_sorted_indices: [u8; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub nullifier_read_request_sorted_indices: [u8; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+    pub note_hashes_sorted_indices: [u8; MAX_NOTE_HASHES_PER_CALL],
+    pub nullifiers_sorted_indices: [u8; MAX_NULLIFIERS_PER_CALL],
     /// For private calls, the index points to the start counter; end counter is at index+1.
-    pub private_call_requests_indices: [u32; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-    pub public_call_requests_indices: [u32; MAX_ENQUEUED_CALLS_PER_CALL],
-    pub l2_to_l1_msgs_indices: [u32; MAX_L2_TO_L1_MSGS_PER_CALL],
-    pub private_logs_indices: [u32; MAX_PRIVATE_LOGS_PER_CALL],
-    pub contract_class_logs_hashes_indices: [u32; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
-    pub min_revertible_side_effect_counter_index: u32,
+    pub private_call_requests_sorted_indices: [u8; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    pub public_call_requests_sorted_indices: [u8; MAX_ENQUEUED_CALLS_PER_CALL],
+    pub l2_to_l1_msgs_sorted_indices: [u8; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub private_logs_sorted_indices: [u8; MAX_PRIVATE_LOGS_PER_CALL],
+    pub contract_class_logs_hashes_sorted_indices: [u8; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+    pub min_revertible_side_effect_counter_sorted_index: u8,
 }
 
 /// # Side Effect Counter Validation
@@ -114,8 +120,8 @@ pub struct SideEffectUniquenessHints {
 /// 3. **Verify strict ordering**: Walk the sorted array and confirm counters are strictly increasing (no duplicates)
 ///    and all fall within (private_call_start_counter, private_call_end_counter).
 /// 4. **Handle nested calls specially**: Private call requests contribute TWO entries to the sorted array (start and
-///    end counters) which must be adjacent. This ensures no other side effect's counter falls within the nested call's
-///    "reserved" range.
+///    end counters) which must be adjacent in the sorted array. This ensures no other side effect's counter falls
+///    within the nested call's "reserved" range.
 pub fn validate_unique_and_within_bounds_side_effect_counters(
     public_inputs: PrivateCircuitPublicInputs,
 ) {
@@ -145,6 +151,8 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         + public_inputs.private_logs.length
         + public_inputs.contract_class_logs_hashes.length
         + if public_inputs.min_revertible_side_effect_counter == 0 {
+            // The min_revertible_side_effect_counter only gets added by the function that ends the
+            // setup phase (which might be a later fn in the tx which hasn't been processed by a kernel yet).
             0
         } else {
             1
@@ -152,79 +160,88 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
 
     // Verify padding: all entries beyond total_side_effects must be null.
     // This prevents a malicious prover from adding extra entries that could allow duplicate or unsorted counters.
-    let mut should_be_tailing = false;
+    let mut should_be_null = false;
     for i in 0..sorted_side_effect_counters.len() {
-        should_be_tailing |= i == total_side_effects;
-        if should_be_tailing {
-            assert_eq(
-                sorted_side_effect_counters[i].global_index,
-                MAX_U32_VALUE,
+        should_be_null |= i == total_side_effects;
+        if should_be_null {
+            sorted_side_effect_counters[i].assert_null(
                 "Sorted counter hints must have null trailing values",
             );
         }
     }
 
-    // Validate the one-to-one mapping for each side effect type.
-    // Each call verifies that side effects map to correct positions in the sorted array.
+    // Validate that the hinted `sorted_side_effect_counters` array is a permutation of the combined side-effect counters
+    // of the public input arrays.
+    // Each call below verifies that -- for a particular type of side-effect -- each non-null side-effect counter
+    // exists once (at least) in the sorted array.
+    // Combine that with the above assertion -- which ensures that all items after `total_side_effects` length
+    // are null -- and we also have that each non-null side-effect counter exists _at most_ once in the sorted array.
+    // Hence, only one of each item can possibly exist in the sorted_side_effect_counters array.
+    //
+    // (We will ensure that the side-effects are actually sorted in ascending order later in this function).
+    //
     validate_side_effect_counters_for_array(
         public_inputs.note_hash_read_requests,
-        side_effect_sorting_hints.note_hash_read_request_indices,
+        side_effect_sorting_hints.note_hash_read_request_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.nullifier_read_requests,
-        side_effect_sorting_hints.nullifier_read_request_indices,
+        side_effect_sorting_hints.nullifier_read_request_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.note_hashes,
-        side_effect_sorting_hints.note_hashes_indices,
+        side_effect_sorting_hints.note_hashes_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_NOTE_HASH_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.nullifiers,
-        side_effect_sorting_hints.nullifiers_indices,
+        side_effect_sorting_hints.nullifiers_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_NULLIFIER_OFFSET,
     );
-    validate_side_effect_ranges_for_call_request(
+
+    // Important logic:
+    validate_side_effect_ranges_for_call_requests(
         public_inputs.private_call_requests,
-        side_effect_sorting_hints.private_call_requests_indices,
+        side_effect_sorting_hints.private_call_requests_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
     );
+
     validate_side_effect_counters_for_array(
         public_inputs.public_call_requests,
-        side_effect_sorting_hints.public_call_requests_indices,
+        side_effect_sorting_hints.public_call_requests_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.l2_to_l1_msgs,
-        side_effect_sorting_hints.l2_to_l1_msgs_indices,
+        side_effect_sorting_hints.l2_to_l1_msgs_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.private_logs,
-        side_effect_sorting_hints.private_logs_indices,
+        side_effect_sorting_hints.private_logs_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
     );
     validate_side_effect_counters_for_array(
         public_inputs.contract_class_logs_hashes,
-        side_effect_sorting_hints.contract_class_logs_hashes_indices,
+        side_effect_sorting_hints.contract_class_logs_hashes_sorted_indices,
         sorted_side_effect_counters,
         GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
     );
 
     validate_side_effect_counter_for_single_value(
         public_inputs.min_revertible_side_effect_counter,
-        side_effect_sorting_hints.min_revertible_side_effect_counter_index,
+        side_effect_sorting_hints.min_revertible_side_effect_counter_sorted_index,
         sorted_side_effect_counters,
         GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
     );
@@ -244,35 +261,126 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     );
 }
 
-/// Validates that each side effect in an array maps to exactly one position in the sorted array, and that position maps
-/// back to this side effect (establishing a one-to-one correspondence).
+/// Validates that for an array of counters for a particular type of side-effect, each item appears
+/// somewhere in the larger, sorted array.
+/// We ultimately will want that each item appears exactly once, but this function alone doesn't
+/// guarantee that.
+/// Note: it does not validate that the claimed-to-be-sorted `sorted_side_effect_counters` are actually
+/// sorted in ascending order by counter; that happens later, in `validate_increasing_counters()`.
 fn validate_side_effect_counters_for_array<T, let N: u32>(
     items: ClaimedLengthArray<T, N>,
-    indices: [u32; N],
-    sorted_side_effect_counters: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    original_to_sorted_indices_hints: [u8; N],
+    sorted_side_effect_counters_hints: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
     global_index_offset: u32,
 )
 where
     T: Ordered,
 {
+    // Noddy illustration:
+    //
+    // `items` (for a particular type of side-effect):
+    //        counter:   15 10 13 |   ?   ?
+    // global_indices:    0  1  2 |   3   4
+    //                            ^
+    //                            length
+    //
+    // `original_to_sorted_indices_hints`:
+    //                    5  0  3 |   0   0
+    //                    ^           ^   ^
+    //    "Original index 0           Hints after the length are not allocated any meaningful value.
+    //     is at sorted               The unconstrained fn will output 0's, but the constrained
+    //     index 5."                  code does not constrain the values at these positions.
+    //
+    // Each iteration looks at the next element of the above arrays, and then
+    // accesses the claimed sorted array looking for a match:
+    //
+    // `sorted_side_effect_counters_hints`:                           Counters 11,12,14,16,17,18
+    //   counter:        10 11 12 13 14 15 16 17 18 |   ?   ?   ? <-- are from different types of side-effects.
+    //   global_index:    1  5  9  2 10  0  8  6  7 | Max Max Max
+    //                    ^        ^     ^    |         ^   ^     <-- arrows illustrating the sorted positions of the
+    //                                        |                       original items for this type of side-effect.
+    //                                        ^
+    //                                        total_side_effects length
+    //
+    // An example iteration, using the illustrative arrays above:
+    //
+    // Lookup original index i=0 ____________
+    //                                       |
+    //                                       v
+    // `original_to_sorted_indices_hints`:   5  0  3 |   0   0  <-- items after `.length` are ignored.
+    //                                       |
+    //                                       "It lives at sorted index 5"
+    //                                                       __________|
+    //                                                      |
+    // `sorted_side_effect_counters_hints`:                 v
+    // `counter`:                           10 11 12 13 14 15 16 17 18 |   ?   ?   ?
+    // `.global_index`:                      1  5  9  2 10  0  8  6  7 | Max Max Max
+    //                                                      |              ^   ^   ^
+    //                                                      |              These global index values are constrained
+    //                                                      |              to be Max (null), by the calling function.
+    //                                                      |
+    //                                        __assert_eq___| Does this entry (pair) match the entry
+    //                                       |                at original index i=0?
+    //                                       v
+    //  items.counter:                      15 10 13 | ?  ?
+    //  items.global_index:                  0  1  2 | 3  4
+    //                                       ^  ^  ^
+    //                                       These global_index values are constrained to be iteration index i.
+    //
+    // Consider an attempt at an attack:
+    //
+    // Lookup original index i=0 ____________
+    //                                       |
+    //                                       v
+    // `original_to_sorted_indices_hints`:   9  0  3 |   0   0
+    //                                       |
+    //                                       "It lives at sorted index 9"
+    //                                                                 |___
+    //                                                                     |
+    // `sorted_side_effect_counters_hints`:                                v
+    // `counter`:                           10 11 12 13 14 15 16 17 18 |   ?   ?   ?
+    // `.global_index`:                      1  5  9  2 10  0  8  6  7 | Max Max Max
+    //                                                                    |^   ^   ^
+    //                                                                    |    These global index values are constrained
+    //                                                                    |    to be Max (null), by the calling function.
+    // The assert_eq check would fail                                     |
+    // because global index 0 != Max          __assert_eq_________________| Does this entry (pair) match the entry
+    //                                       |                              at original index i=0?
+    //                                       v
+    //  items.counter:                       ? 10 13 | ?  ?
+    //  items.global_index:                  0  1  2 | 3  4
+    //                                       ^  ^  ^
+    //                                       These global_index values are constrained to be iteration index i.
+    //
     let mut should_check = true;
     for i in 0..N {
         let counter = items.array[i].counter();
         let global_index = global_index_offset + i;
+
+        // Notice: once we hit the `length` of the original array of items, we stop asserting.
+        // This means we never attempt to read `original_to_sorted_indices_hints` at the index of
+        // a nullish original item, which means we never fall afoul of the ugly scenario described
+        // in `build_uniqueness_hints()`, where a misleading `sorted_index_hint` of `0` could be
+        // returned.
         should_check &= i != items.length;
 
         // Look up where this side effect should appear in the sorted array.
-        let index = indices[i];
-        let hint = sorted_side_effect_counters[index];
+        let sorted_index_of_original_index_i = original_to_sorted_indices_hints[i];
+        let sorted_side_effect_counter_hint =
+            sorted_side_effect_counters_hints[sorted_index_of_original_index_i as u32];
 
         if should_check {
             // Verify counter matches (side effect -> sorted position).
-            assert_eq(counter, hint.counter, "Mismatch counter: side effect does not match hint");
+            assert_eq(
+                counter,
+                sorted_side_effect_counter_hint.counter,
+                "Mismatch counter: side effect does not match hint",
+            );
             // Verify global_index matches (sorted position -> side effect).
             // This bidirectional check ensures the mapping is one-to-one.
             assert_eq(
                 global_index,
-                hint.global_index,
+                sorted_side_effect_counter_hint.global_index,
                 "Mismatch global index: side effect does not match hint",
             );
         }
@@ -283,18 +391,27 @@ where
 /// Only validates if counter is non-zero (0 means not set).
 fn validate_side_effect_counter_for_single_value(
     counter: u32,
-    index: u32,
-    sorted_side_effect_counters: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    original_to_sorted_index_hint: u8,
+    sorted_side_effect_counters_hints: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
     global_index_offset: u32,
 ) {
-    let global_index = global_index_offset;
-    let hint = sorted_side_effect_counters[index];
+    let sorted_side_effect_counter_hint =
+        sorted_side_effect_counters_hints[original_to_sorted_index_hint as u32];
 
     if counter != 0 {
-        assert_eq(counter, hint.counter, "Mismatch counter: value does not match hint");
         assert_eq(
-            global_index,
-            hint.global_index,
+            counter,
+            sorted_side_effect_counter_hint.counter,
+            "Mismatch counter: value does not match hint",
+        );
+        assert_eq(
+            counter,
+            sorted_side_effect_counter_hint.counter,
+            "Mismatch counter: value does not match hint",
+        );
+        assert_eq(
+            global_index_offset,
+            sorted_side_effect_counter_hint.global_index,
             "Mismatch global index: value does not match hint",
         );
     }
@@ -309,10 +426,10 @@ fn validate_side_effect_counter_for_single_value(
 /// Example: If a nested call has start=10, end=20, the sorted array might look like:
 ///   [..., (counter=9, ...), (counter=10, start_idx), (counter=20, end_idx), (counter=21, ...), ...]
 /// The adjacency ensures no counter value 11-19 can exist.
-fn validate_side_effect_ranges_for_call_request<let N: u32>(
+fn validate_side_effect_ranges_for_call_requests<let N: u32>(
     private_call_requests: ClaimedLengthArray<PrivateCallRequest, N>,
-    indices: [u32; N],
-    sorted_side_effect_counters: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    original_to_sorted_indices_hints: [u8; N],
+    sorted_side_effect_counters_hints: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
     global_index_offset_for_range_start: u32,
     global_index_offset_for_range_end: u32,
 ) {
@@ -323,12 +440,13 @@ fn validate_side_effect_ranges_for_call_request<let N: u32>(
         let end_counter = item.end_side_effect_counter;
         let global_index_for_range_start = global_index_offset_for_range_start + i;
         let global_index_for_range_end = global_index_offset_for_range_end + i;
+
         should_check &= i != private_call_requests.length;
 
         // The index points to the start counter; end counter must be at index+1 (adjacent).
-        let index = indices[i];
-        let start_hint = sorted_side_effect_counters[index];
-        let end_hint = sorted_side_effect_counters[index + 1];
+        let sorted_index_hint = original_to_sorted_indices_hints[i] as u32;
+        let start_hint = sorted_side_effect_counters_hints[sorted_index_hint];
+        let end_hint = sorted_side_effect_counters_hints[sorted_index_hint + 1]; // the `+ 1` forces adjacency in the sorted array
 
         if should_check {
             // Verify counters match.
@@ -367,15 +485,16 @@ fn validate_side_effect_ranges_for_call_request<let N: u32>(
 /// Also verifies all counters fall within (private_call_counter_start, private_call_counter_end) - exclusive on both
 /// ends, meaning counters must be strictly greater than start and strictly less than end.
 fn validate_increasing_counters(
-    sorted_side_effect_counters: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    sorted_side_effect_counters_hints: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
     total_side_effects: u32,
     private_call_counter_start: u32,
     private_call_counter_end: u32,
 ) {
+    // Note: we assert that the start_counter of the first call of a tx is `> 1` within `validate_as_first_call()`.
     let mut prev_counter = private_call_counter_start;
     let mut should_check = true;
     for i in 0..TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL {
-        let hint = sorted_side_effect_counters[i];
+        let hint = sorted_side_effect_counters_hints[i];
         should_check &= i != total_side_effects;
 
         if should_check {
@@ -393,7 +512,7 @@ fn validate_increasing_counters(
 
 /// Creates two SideEffectCounter entries for a nested private call.
 /// Returns (start_counter_entry, end_counter_entry) which must be adjacent in sorted array.
-fn build_side_effect_counter_hints_for_private_call_request(
+unconstrained fn build_side_effect_counter_hints_for_private_call_request(
     item: PrivateCallRequest,
     index_in_array: u32,
 ) -> (SideEffectCounter, SideEffectCounter) {
@@ -422,6 +541,9 @@ unconstrained fn build_uniqueness_hints(
         0,
     );
 
+    // Notice: these are dynamic loop bounds: the `length` is a witness (as opposed to `.len()`).
+    // So it stops pushing when it reaches the claimed end of the array (i.e. when it reaches a `0`).
+    // (The claimed length is validated to be the actual length in the tail circuit).
     for i in 0..public_inputs.note_hash_read_requests.length {
         side_effect_counters.push(SideEffectCounter::new(
             public_inputs.note_hash_read_requests.array[i].counter(),
@@ -487,6 +609,9 @@ unconstrained fn build_uniqueness_hints(
         ));
     }
 
+    // Note: point of confusion: min_revertible_side_effect_counter is _not_ set to be equal to some
+    // other side-effect counter. min_revertible_side_effect_counter actually gets assigned its own unique
+    // side-effect counter; allocated in end_setup() within an app circuit.
     if public_inputs.min_revertible_side_effect_counter != 0 {
         side_effect_counters.push(SideEffectCounter::new(
             public_inputs.min_revertible_side_effect_counter,
@@ -494,7 +619,9 @@ unconstrained fn build_uniqueness_hints(
         ));
     }
 
-    // Sort by counter value. Null entries (padding) sort to the end.
+    // Sort by counter value in ascending order. Null entries (padding) sort to the end.
+    // See validate_increasing_counters for the constrained assertions that we have sorted in
+    // strictly ascending order.
     let sorted_side_effect_counters = side_effect_counters.storage().sort_via(|a, b| {
         if b.is_null() {
             true
@@ -504,42 +631,91 @@ unconstrained fn build_uniqueness_hints(
     });
 
     // Build reverse mapping: indices[global_index] = position in sorted array.
-    // This allows each side effect to look up its position.
-    let mut indices = [0; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
+    // This allows each side effect to look up its position in the `sorted_side_effect_counters`.
+    let mut original_to_sorted_indices = [0; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
+
+    // We will return `u8` counters as a minor constraint optimization: returning unsigned integers
+    // from an unconstrained fn results in range constraints, so the smaller the type the fewer constraints.
+    // It's safe to use u8's as long as the array's potential indices don't exceed 2^8 - 1.
+    std::static_assert(
+        TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL < 256,
+        "u8 is no longer appropriate for elements of original_to_sorted_indices",
+    );
+
     for i in 0..side_effect_counters.len() {
         let hint = sorted_side_effect_counters[i];
-        indices[hint.global_index] = i;
+
+        // Reminder: this is a dynamic loop over a bounded vec within an unconstrained function, so only indices for
+        // non-null counters get pushed here. That's good, because for null counters the `hint.global_index`
+        // would be 2^32-1 which is way out of bounds.
+
+        // Notice: `original_to_sorted_indices` is instantiated as all 0s.
+        // Consider what would happen if we try to lookup the sorted index for an original index that
+        // is beyond an original array `.length`.
+        // E.g.
+        // Query: "Give me "original_to_sorted_indices[length]" (accessing one beyond the length of one of
+        // the individual side-effect arrays).
+        // Response: "The corresponding sorted index is 0" (because it will be the default instantiated
+        // value of `0` -- a potentially confusing choice of default value),
+        // which could be mistakenly interpreted to mean "The original nullish item has been sorted
+        // to be at index 0 of the sorted array". This would be a bad interpretation. In actuality,
+        // no nullish items from the original array are mapped by this `for` loop at all: the response
+        // for such queries of these nullish items only happens to be `0` because this `for` loop _never iterated_
+        // over the global_index of the original nullish items.
+        // In actuality, the item at index 0 of the sorted list will be the smallest non-null counter.
+        // So how do we make sure we never try to access `original_to_sorted_indices` at indices that are
+        // beyond the lengths of the individual side-effect arrays? Within the validate_side_effect_counters_for_array
+        // function above, we stop trying to access items once we hit the `length`.
+
+        // Safety: it's safe to downcast because we know i < 256.
+        original_to_sorted_indices[hint.global_index] = i as u8;
     }
 
-    // Extract per-type index arrays from the global indices array.
+    // Extract per-type index arrays from the original_to_sorted_indices array.
     // subarray(indices, offset) extracts the slice starting at offset with the appropriate length.
     SideEffectUniquenessHints {
         sorted_side_effect_counters,
-        note_hash_read_request_indices: subarray(
-            indices,
+        note_hash_read_request_sorted_indices: subarray(
+            original_to_sorted_indices,
             GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
         ),
-        nullifier_read_request_indices: subarray(
-            indices,
+        nullifier_read_request_sorted_indices: subarray(
+            original_to_sorted_indices,
             GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
         ),
-        note_hashes_indices: subarray(indices, GLOBAL_INDEX_NOTE_HASH_OFFSET),
-        nullifiers_indices: subarray(indices, GLOBAL_INDEX_NULLIFIER_OFFSET),
-        private_call_requests_indices: subarray(
-            indices,
+        note_hashes_sorted_indices: subarray(
+            original_to_sorted_indices,
+            GLOBAL_INDEX_NOTE_HASH_OFFSET,
+        ),
+        nullifiers_sorted_indices: subarray(
+            original_to_sorted_indices,
+            GLOBAL_INDEX_NULLIFIER_OFFSET,
+        ),
+        private_call_requests_sorted_indices: subarray(
+            original_to_sorted_indices,
             GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
         ),
-        public_call_requests_indices: subarray(indices, GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET),
-        l2_to_l1_msgs_indices: subarray(indices, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET),
-        private_logs_indices: subarray(indices, GLOBAL_INDEX_PRIVATE_LOG_OFFSET),
-        contract_class_logs_hashes_indices: subarray(
-            indices,
+        public_call_requests_sorted_indices: subarray(
+            original_to_sorted_indices,
+            GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
+        ),
+        l2_to_l1_msgs_sorted_indices: subarray(
+            original_to_sorted_indices,
+            GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
+        ),
+        private_logs_sorted_indices: subarray(
+            original_to_sorted_indices,
+            GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
+        ),
+        contract_class_logs_hashes_sorted_indices: subarray(
+            original_to_sorted_indices,
             GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
         ),
-        min_revertible_side_effect_counter_index: indices[GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET],
+        min_revertible_side_effect_counter_sorted_index: original_to_sorted_indices[GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET],
     }
 }
 
+// See also: validate_side_effect_counters_tests.nr
 mod tests {
     use super::{
         build_uniqueness_hints, SideEffectUniquenessHints,
@@ -689,7 +865,7 @@ mod tests {
         // Try to sneak in an extra hint for the duplicate counter.
         let hint = builder.hints.sorted_side_effect_counters[1];
         builder.hints.sorted_side_effect_counters[2] = hint;
-        builder.hints.nullifiers_indices[1] = 2;
+        builder.hints.nullifiers_sorted_indices[1] = 2;
 
         // Make counters incrementing to avoid the duplicate counter check.
         builder.hints.sorted_side_effect_counters[1].counter += 1;
@@ -702,7 +878,7 @@ mod tests {
         let mut builder = TestBuilder::new_duplicate_counter();
 
         // Point both nullifiers to the same sorted position.
-        builder.hints.nullifiers_indices[1] = 0;
+        builder.hints.nullifiers_sorted_indices[1] = 0;
 
         // Make counters incrementing to avoid the duplicate counter check.
         builder.hints.sorted_side_effect_counters[1].counter += 1;
@@ -786,8 +962,8 @@ mod tests {
         builder.hints.sorted_side_effect_counters[0] = hint_1;
         builder.hints.sorted_side_effect_counters[1] = hint_0;
         // Also swap the indices so they point to the swapped hints.
-        builder.hints.nullifiers_indices[0] = 1;
-        builder.hints.nullifiers_indices[1] = 0;
+        builder.hints.nullifiers_sorted_indices[0] = 1;
+        builder.hints.nullifiers_sorted_indices[1] = 0;
 
         builder.validate();
     }
@@ -876,8 +1052,8 @@ mod tests {
         builder.hints.sorted_side_effect_counters[2] = end_hint;
 
         // Update indices to match new positions.
-        builder.hints.nullifiers_indices[0] = 1;
-        // private_call_requests_indices[0] stays at 0, but end is now at 2 not 1.
+        builder.hints.nullifiers_sorted_indices[0] = 1;
+        // private_call_requests_sorted_indices[0] stays at 0, but end is now at 2 not 1.
         // This will fail because index+1 (which is 1) won't have the end counter.
 
         builder.validate();
@@ -888,7 +1064,7 @@ mod tests {
         let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
 
         // Find the index of the min_revertible hint and corrupt it.
-        let index = builder.hints.min_revertible_side_effect_counter_index;
+        let index = builder.hints.min_revertible_side_effect_counter_sorted_index as u32;
         builder.hints.sorted_side_effect_counters[index].counter += 1;
 
         builder.validate();
@@ -899,8 +1075,139 @@ mod tests {
         let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
 
         // Corrupt the global index in the hint.
-        let index = builder.hints.min_revertible_side_effect_counter_index;
+        let index = builder.hints.min_revertible_side_effect_counter_sorted_index as u32;
         builder.hints.sorted_side_effect_counters[index].global_index += 1;
+
+        builder.validate();
+    }
+
+    // ==================== Additional coverage tests ====================
+
+    // 1. Test that min_revertible_side_effect_counter=0 skips validation
+    // This is a weird result: the hint in this case is ignored by the constrained code.
+    #[test]
+    fn min_revertible_counter_zero_is_not_validated() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_nullifiers(2);
+        builder.rebuild_hints();
+
+        // Ensure min_revertible_side_effect_counter is 0 (not set).
+        builder.private_call.min_revertible_side_effect_counter = 0;
+
+        // Point the min_revertible hint to the null padding area.
+        // If validation weren't skipped for counter=0, this would fail because
+        // the null entry has counter=0 and global_index=MAX_U32_VALUE (mismatched).
+        builder.hints.min_revertible_side_effect_counter_sorted_index =
+            (TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL - 1) as u8;
+
+        builder.validate();
+    }
+
+    // 2. Test pointing hint to null padding area
+
+    #[test(should_fail_with = "Mismatch counter: side effect does not match hint")]
+    fn hint_index_pointing_to_null_padding() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_nullifiers(1);
+        builder.rebuild_hints();
+
+        // Point the nullifier's hint to a position in the null padding area.
+        // This position contains a null entry with counter=0 and global_index=MAX_U32_VALUE.
+        builder.hints.nullifiers_sorted_indices[0] =
+            (TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL - 1) as u8;
+
+        builder.validate();
+    }
+
+    // 3. Single side effect boundary tests
+
+    #[test]
+    fn single_nullifier() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_nullifiers(1);
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test]
+    fn single_note_hash() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_note_hashes(1);
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test]
+    fn single_private_call_request() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_private_call_requests(1);
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test]
+    fn single_public_call_request() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_public_call_requests(1);
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test]
+    fn single_private_log() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_private_logs(1);
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    // 4. Positive boundary tests for nested private calls
+
+    #[test]
+    fn private_call_request_at_start_boundary() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_private_call_requests(1);
+
+        // Adjust the nested call's start to be parent_start + 1 (minimum valid).
+        let parent_start = builder.private_call.counter_start;
+        let mut call_request = builder.private_call.private_call_requests.get(0);
+        call_request.start_side_effect_counter = parent_start + 1;
+        call_request.end_side_effect_counter = parent_start + 2;
+        builder.private_call.private_call_requests.set(0, call_request);
+
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test]
+    fn private_call_request_at_end_boundary() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_private_call_requests(1);
+
+        // Adjust the nested call's end to be parent_end - 1 (maximum valid).
+        let parent_end = builder.private_call.counter;
+        let mut call_request = builder.private_call.private_call_requests.get(0);
+        call_request.start_side_effect_counter = parent_end - 2;
+        call_request.end_side_effect_counter = parent_end - 1;
+        builder.private_call.private_call_requests.set(0, call_request);
+
+        builder.rebuild_hints();
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Mismatch counter: side effect does not match hint")]
+    fn cross_type_hint_swap_attack() {
+        let mut builder = TestBuilder::new();
+        builder.private_call.append_nullifiers(1);
+        builder.private_call.append_note_hashes(1);
+        builder.rebuild_hints();
+
+        // Swap the hints: nullifier points to note_hash's position and vice versa.
+        // Both counters might match but global_indices will be wrong.
+        let nullifier_hint_idx = builder.hints.nullifiers_sorted_indices[0];
+        let note_hash_hint_idx = builder.hints.note_hashes_sorted_indices[0];
+        builder.hints.nullifiers_sorted_indices[0] = note_hash_hint_idx;
+        builder.hints.note_hashes_sorted_indices[0] = nullifier_hint_idx;
 
         builder.validate();
     }

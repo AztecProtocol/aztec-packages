@@ -26,6 +26,7 @@ enum class AcirConstraintType {
     HN_RECURSION,
     CHONK_RECURSION,
     QUAD,
+    BIG_QUAD,
     BLOCK,
 };
 
@@ -45,7 +46,8 @@ using ConstraintPtr = std::variant<const LogicConstraint*,
                                    const EcAdd*,
                                    const RecursionConstraint*,
                                    const BlockConstraint*,
-                                   const bb::mul_quad_<bb::fr>*>;
+                                   const QuadConstraint*,
+                                   const BigQuadConstraint*>;
 
 /**
  * @brief Holds constraint type, pointer, and processing status for easy access

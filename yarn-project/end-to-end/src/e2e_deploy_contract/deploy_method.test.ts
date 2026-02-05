@@ -31,7 +31,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = defaultAccountAddress;
     const opts = { skipClassPublication: true, from: defaultAccountAddress };
     logger.debug(`Trying to initialize a contract instance without publishing its contract class`);
-    await expect(StatefulTestContract.deploy(wallet, owner, 42).send(opts).wait()).rejects.toThrow(
+    await expect(StatefulTestContract.deploy(wallet, owner, 42).send(opts)).rejects.toThrow(
       /Cannot find the leaf for nullifier/,
     );
   });
@@ -40,13 +40,11 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = defaultAccountAddress;
     logger.debug(`Deploying stateful test contract`);
     // docs:start:deploy_basic
-    const contract = await StatefulTestContract.deploy(wallet, owner, 42)
-      .send({ from: defaultAccountAddress })
-      .deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send({ from: defaultAccountAddress });
     // docs:end:deploy_basic
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
-    await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress });
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
     // docs:start:verify_deployment
     const metadata = await wallet.getContractMetadata(contract.address);
@@ -60,19 +58,19 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = defaultAccountAddress;
     // docs:start:deploy_universal
     const opts = { universalDeploy: true, from: defaultAccountAddress };
-    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts);
     // docs:end:deploy_universal
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
-    await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress });
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
   });
 
   it('publicly deploys and calls a public function from the constructor', async () => {
     const owner = defaultAccountAddress;
     // docs:start:deploy_token
-    const token = await TokenContract.deploy(wallet, owner, 'TOKEN', 'TKN', 18)
-      .send({ from: defaultAccountAddress })
-      .deployed();
+    const token = await TokenContract.deploy(wallet, owner, 'TOKEN', 'TKN', 18).send({
+      from: defaultAccountAddress,
+    });
     // docs:end:deploy_token
     expect(await token.methods.is_minter(owner).simulate({ from: defaultAccountAddress })).toEqual(true);
   });
@@ -80,21 +78,27 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes via a public function', async () => {
     const owner = defaultAccountAddress;
     logger.debug(`Deploying contract via a public constructor`);
-    const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
-      .send({ from: defaultAccountAddress })
-      .deployed();
+    // docs:start:deploy_with_opts
+    const contract = await StatefulTestContract.deployWithOpts(
+      { wallet, method: 'public_constructor' },
+      owner,
+      42,
+    ).send({
+      from: defaultAccountAddress,
+    });
+    // docs:end:deploy_with_opts
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
-    await contract.methods.create_note(owner, 30).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.create_note(owner, 30).send({ from: defaultAccountAddress });
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(30n);
   });
 
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassPublication: true, skipInstancePublication: true, from: defaultAccountAddress };
-    const contract = await CounterContract.deploy(wallet, 10, defaultAccountAddress).send(opts).deployed();
+    const contract = await CounterContract.deploy(wallet, 10, defaultAccountAddress).send(opts);
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment_twice(defaultAccountAddress).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.increment_twice(defaultAccountAddress).send({ from: defaultAccountAddress });
     expect(await contract.methods.get_counter(defaultAccountAddress).simulate({ from: defaultAccountAddress })).toEqual(
       12n,
     );
@@ -102,10 +106,10 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
-    const contract = await NoConstructorContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    const contract = await NoConstructorContract.deploy(wallet).send({ from: defaultAccountAddress });
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const receipt = await contract.methods.emit_public(arbitraryValue).send({ from: defaultAccountAddress }).wait();
+    const receipt = await contract.methods.emit_public(arbitraryValue).send({ from: defaultAccountAddress });
     const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
     expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
   });
@@ -113,7 +117,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipInstancePublication: true, skipClassPublication: true, from: defaultAccountAddress };
-    await expect(NoConstructorContract.deploy(wallet).send(opts).wait()).rejects.toThrow(
+    await expect(NoConstructorContract.deploy(wallet).send(opts)).rejects.toThrow(
       'No transactions are needed to publish or initialize contract NoConstructor',
     );
   });
@@ -127,7 +131,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
     // Batch deployment and a public call into the same transaction
     const publicCall = contract.methods.increment_public_value(owner, 84);
-    await new BatchCall(wallet, [deployMethod, publicCall]).send({ from: defaultAccountAddress }).wait();
+    await new BatchCall(wallet, [deployMethod, publicCall]).send({ from: defaultAccountAddress });
     // docs:end:deploy_batch
   }, 300_000);
 
@@ -148,12 +152,14 @@ describe('e2e_deploy_contract deploy method', () => {
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
     const maxPriorityFeesPerGas = new GasFees(1n, 0n);
-    const deployTxPromise = deployTx
-      .send({ from: defaultAccountAddress, fee: { gasSettings: { maxPriorityFeesPerGas } } })
-      .wait({ timeout: 600 });
+    const deployTxPromise = deployTx.send({
+      from: defaultAccountAddress,
+      fee: { gasSettings: { maxPriorityFeesPerGas } },
+      wait: { timeout: 600 },
+    });
 
     // Then send the public call transaction
-    const publicCallTxPromise = publicCall.send({ from: defaultAccountAddress }).wait({ timeout: 600 });
+    const publicCallTxPromise = publicCall.send({ from: defaultAccountAddress, wait: { timeout: 600 } });
 
     logger.debug('Deploying a contract and calling a public function in the same block');
     const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);
@@ -169,9 +175,9 @@ describe('e2e_deploy_contract deploy method', () => {
       const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
       const retryingWallet = await TestWallet.create(aztecNode);
       await expect(
-        StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })
-          .send({ from: defaultAccountAddress })
-          .deployed(),
+        StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' }).send({
+          from: defaultAccountAddress,
+        }),
       ).rejects.toThrow(/Unknown function/);
     });
   });

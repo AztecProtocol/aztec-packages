@@ -8,10 +8,10 @@ contract OffchainEffect {
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
-        protocol_types::{address::AztecAddress, traits::Serialize},
+        protocol::{address::AztecAddress, traits::Serialize},
         state_vars::{Owned, PrivateSet},
     };
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[event]
     struct TestEvent {
@@ -50,10 +50,7 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        self.emit(TestEvent { a, b, c }).deliver_to(
-            self.msg_sender().unwrap(),
-            MessageDelivery.OFFCHAIN,
-        );
+        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
     }
 
     #[external("private")]
@@ -61,7 +58,7 @@ contract OffchainEffect {
         let note = UintNote { value };
 
         self.storage.balances.at(owner).insert(note).deliver_to(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             MessageDelivery.OFFCHAIN,
         );
     }

@@ -84,10 +84,11 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot =
+        poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash(
-        { DOM_SEP__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
+        { DOM_SEP__PUBLIC_LEAF_SLOT, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees;
     trees.public_data_tree.root = 42;
@@ -126,8 +127,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                        mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(
-        poseidon2, range_check, gt, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
+    const GlobalVariables globals = GlobalVariables{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, gt, merkle_db, update_check_event_emitter, globals);
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
@@ -177,7 +178,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_contract_class_id = update_post_class;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot =
+        poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, UPDATED_CLASS_IDS_SLOT, derived_address });
 
     TreeSnapshots trees;
     trees.public_data_tree.root = 42;
@@ -227,7 +229,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     update_leaf_values.push_back(update_hash);
     std::vector<FF> update_leaf_slots;
     for (size_t i = 0; i < update_leaf_values.size(); ++i) {
-        FF leaf_slot = poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_INDEX,
+        FF leaf_slot = poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT,
                                          CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
                                          delayed_public_mutable_slot + i });
         update_leaf_slots.push_back(leaf_slot);

@@ -6,7 +6,7 @@ import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/ab
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
@@ -18,10 +18,11 @@ import {
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
+import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 import type {
   Aliased,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
   ContractClassMetadata,
   ContractMetadata,
@@ -61,11 +62,6 @@ describe('WalletSchema', () => {
       chainId: expect.any(Fr),
       version: expect.any(Fr),
     });
-  });
-
-  it('getTxReceipt', async () => {
-    const result = await context.client.getTxReceipt(TxHash.random());
-    expect(result).toBeInstanceOf(TxReceipt);
   });
 
   it('getPrivateEvents', async () => {
@@ -206,16 +202,52 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
-    const opts: SendOptions = {
+
+    const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
-    };
-    const result = await context.client.sendTx(exec, opts);
-    expect(result).toBeInstanceOf(TxHash);
+    });
+    expect(resultWithWait).toBeInstanceOf(TxReceipt);
+    const resultWithoutWait = await context.client.sendTx(exec, {
+      from: await AztecAddress.random(),
+      wait: NO_WAIT,
+    });
+    expect(resultWithoutWait).toBeInstanceOf(TxHash);
   });
 
   it('createAuthWit', async () => {
-    const result = await context.client.createAuthWit(await AztecAddress.random(), Fr.random());
+    const result = await context.client.createAuthWit(await AztecAddress.random(), {
+      innerHash: Fr.random(),
+      consumer: await AztecAddress.random(),
+    });
     expect(result).toBeInstanceOf(AuthWitness);
+  });
+
+  it('requestCapabilities', async () => {
+    const manifest: AppCapabilities = {
+      version: '1.0',
+      metadata: {
+        name: 'TestApp',
+        version: '1.0.0',
+        description: 'Test application',
+      },
+      capabilities: [
+        {
+          type: 'accounts',
+          canGet: true,
+          canCreateAuthWit: true,
+        },
+      ],
+    };
+    const result = await context.client.requestCapabilities(manifest);
+    expect(result).toEqual({
+      version: '1.0',
+      granted: expect.any(Array),
+      wallet: {
+        name: expect.any(String),
+        version: expect.any(String),
+      },
+      expiresAt: undefined,
+    });
   });
 
   it('batch', async () => {
@@ -234,6 +266,10 @@ describe('WalletSchema', () => {
     };
     const simulateOpts: SimulateOptions = {
       from: await AztecAddress.random(),
+    };
+    const profileOpts: ProfileOptions = {
+      from: await AztecAddress.random(),
+      profileMode: 'gates',
     };
 
     const call = {
@@ -267,24 +303,55 @@ describe('WalletSchema', () => {
       storageLayout: {},
     };
 
-    const methods: BatchedMethod<keyof BatchableMethods>[] = [
+    const eventMetadata: EventMetadataDefinition = {
+      eventSelector: EventSelector.fromField(new Fr(1)),
+      abiType: { kind: 'field' },
+      fieldNames: ['field1'],
+    };
+
+    const methods: BatchedMethod[] = [
+      { name: 'getChainInfo', args: [] },
+      { name: 'getContractMetadata', args: [address1] },
+      { name: 'getContractClassMetadata', args: [Fr.random()] },
+      {
+        name: 'getPrivateEvents',
+        args: [eventMetadata, { contractAddress: address1, scopes: [address2], fromBlock: BlockNumber(1) }],
+      },
       { name: 'registerSender', args: [address1, 'alias1'] },
+      { name: 'getAddressBook', args: [] },
+      { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
-      { name: 'sendTx', args: [exec, opts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
+      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'profileTx', args: [exec, profileOpts] },
+      { name: 'sendTx', args: [exec, opts] },
+      { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
     ];
 
     const results = await context.client.batch(methods);
-    expect(results).toHaveLength(5);
-    expect(results[0]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
+    expect(results).toHaveLength(13);
+    expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
     expect(results[1]).toEqual({
+      name: 'getContractMetadata',
+      result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
+    });
+    expect(results[2]).toEqual({
+      name: 'getContractClassMetadata',
+      result: expect.objectContaining({ isArtifactRegistered: expect.any(Boolean) }),
+    });
+    expect(results[3]).toEqual({ name: 'getPrivateEvents', result: expect.any(Array) });
+    expect(results[4]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
+    expect(results[5]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
+    expect(results[6]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
+    expect(results[7]).toEqual({
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
-    expect(results[2]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
-    expect(results[3]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
-    expect(results[4]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[9]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
+    expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
+    expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
 
@@ -308,15 +375,11 @@ class MockWallet implements Wallet {
         },
         metadata: {
           l2BlockNumber: BlockNumber(1),
-          l2BlockHash: L2BlockHash.random(),
+          l2BlockHash: BlockHash.random(),
           txHash: TxHash.random(),
         },
       },
     ] as PrivateEvent<T>[]);
-  }
-
-  getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {
-    return Promise.resolve(TxReceipt.empty());
   }
 
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
@@ -373,15 +436,33 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxProfileResult.random());
   }
 
-  sendTx(_exec: ExecutionPayload, _opts: SendOptions): Promise<TxHash> {
-    return Promise.resolve(TxHash.random());
+  sendTx<W extends InteractionWaitOptions = undefined>(
+    _exec: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    if (opts.wait === NO_WAIT) {
+      return Promise.resolve(TxHash.random()) as Promise<SendReturn<W>>;
+    }
+    return Promise.resolve(TxReceipt.empty()) as Promise<SendReturn<W>>;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {
     return Promise.resolve(AuthWitness.random());
   }
 
-  async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>> {
+  requestCapabilities(_manifest: AppCapabilities): Promise<WalletCapabilities> {
+    return Promise.resolve({
+      version: '1.0' as const,
+      granted: [],
+      wallet: {
+        name: 'MockWallet',
+        version: '1.0.0',
+      },
+      expiresAt: undefined,
+    });
+  }
+
+  async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;
@@ -390,7 +471,7 @@ class MockWallet implements Wallet {
       // 2. `args` matches the parameter types of that specific method
       // 3. The return type is correctly mapped in BatchResults<T>
       // We use dynamic dispatch here for simplicity, but the types are enforced at the call site.
-      const fn = this[name] as (...args: any[]) => Promise<any>;
+      const fn = (this as any)[name] as (...args: any[]) => Promise<any>;
       const result = await fn.apply(this, args);
       // Wrap result with method name for discriminated union deserialization
       results.push({ name, result });

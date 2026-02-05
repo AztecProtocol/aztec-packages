@@ -1,11 +1,10 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { SentTx } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -32,11 +31,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       { minTxsPerBlock: 1 },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
     );
-    await t.applyBaseSnapshots();
     await t.setup();
 
     ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);
-    testContract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
+    testContract = await TestContract.deploy(wallet).send({ from: user1Address });
   }, 300_000);
 
   afterEach(async () => {
@@ -52,8 +50,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const advanceBlock = async () => {
     const block = await aztecNode.getBlockNumber();
     log.warn(`Sending noop tx at block ${block}`);
-    const sentTx = new SentTx(wallet, () => wallet.sendTx(ExecutionPayload.empty(), { from: user1Address }));
-    await sentTx.wait();
+    await wallet.sendTx(ExecutionPayload.empty(), { from: user1Address });
     const newBlock = await aztecNode.getBlockNumber();
     log.warn(`Advanced to block ${newBlock}`);
     if (newBlock === block) {
@@ -129,9 +126,12 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       }
 
       // We consume the L1 to L2 message using the test contract either from private or public
-      await getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, actualMessage1Index)
-        .send({ from: user1Address })
-        .wait();
+      await getConsumeMethod(scope)(
+        message.content,
+        secret,
+        crossChainTestHarness.ethAccount,
+        actualMessage1Index,
+      ).send({ from: user1Address });
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
       // non-nullified message
@@ -152,9 +152,12 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
-      await getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, actualMessage2Index)
-        .send({ from: user1Address })
-        .wait();
+      await getConsumeMethod(scope)(
+        message.content,
+        secret,
+        crossChainTestHarness.ethAccount,
+        actualMessage2Index,
+      ).send({ from: user1Address });
     },
     120_000,
   );
@@ -169,7 +172,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
       log.warn(`Stopping proof submission at block ${lastProven} to allow drift`);
-      t.ctx.watcher.setIsMarkingAsProven(false);
+      t.context.watcher!.setIsMarkingAsProven(false);
 
       // Mine several blocks to ensure drift
       log.warn(`Mining blocks to allow drift`);
@@ -211,14 +214,14 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
           await tryAdvanceBlock();
-          await t.ctx.watcher.markAsProven();
+          await t.context.watcher!.markAsProven();
         } else {
           // On public, we actually send the tx and check that it reverts due to the missing message.
           // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
           // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
-          const { status } = await consume().send({ from: user1Address }).wait({ dontThrowOnRevert: true });
-          expect(status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-          await t.ctx.watcher.markAsProven();
+          const receipt = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
+          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+          await t.context.watcher!.markAsProven();
         }
       });
 
@@ -229,7 +232,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       }
 
       // And consume the message
-      await consume().send({ from: user1Address }).wait();
+      await consume().send({ from: user1Address });
     },
   );
 });

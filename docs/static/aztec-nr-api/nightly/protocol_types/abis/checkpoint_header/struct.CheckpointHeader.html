@@ -23,6 +23,7 @@
 <li><a href="#structfield.blobs_hash">blobs_hash</a></li>
 <li><a href="#structfield.block_headers_hash">block_headers_hash</a></li>
 <li><a href="#structfield.coinbase">coinbase</a></li>
+<li><a href="#structfield.epoch_out_hash">epoch_out_hash</a></li>
 <li><a href="#structfield.fee_recipient">fee_recipient</a></li>
 <li><a href="#structfield.gas_fees">gas_fees</a></li>
 <li><a href="#structfield.in_hash">in_hash</a></li>
@@ -56,6 +57,7 @@
     pub block_headers_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub blobs_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub in_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub epoch_out_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub slot_number: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>,
     pub coinbase: <a href="../../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>,
@@ -69,6 +71,7 @@
 <div class="padded-description"></div><div id="structfield.block_headers_hash" class="struct-field"><code class="code-header">block_headers_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.blobs_hash" class="struct-field"><code class="code-header">blobs_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.in_hash" class="struct-field"><code class="code-header">in_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.epoch_out_hash" class="struct-field"><code class="code-header">epoch_out_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.slot_number" class="struct-field"><code class="code-header">slot_number: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.timestamp" class="struct-field"><code class="code-header">timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
 <div class="padded-description"></div><div id="structfield.coinbase" class="struct-field"><code class="code-header">coinbase: <a href="../../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></div>
@@ -78,12 +81,14 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
 
-<div class="padded-methods"><code id="to_be_bytes" class="code-header">pub fn <a href="#to_be_bytes"><span class="fn">to_be_bytes</span></a>(self) -> [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 284]</code>
+<div class="padded-methods"><code id="to_be_bytes" class="code-header">pub fn <a href="#to_be_bytes"><span class="fn">to_be_bytes</span></a>(self) -> [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 316]</code>
 
 </div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+<h3 id="impl-Deserialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 11]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 12]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Empty-for-CheckpointHeader"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
 
@@ -101,9 +106,11 @@
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div><h3 id="impl-Serialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+</div><h3 id="impl-Serialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 11]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 12]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

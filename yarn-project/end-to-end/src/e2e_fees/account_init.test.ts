@@ -25,10 +25,10 @@ describe('e2e_fees account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    await t.setup();
     await t.applyFundAliceWithBananas();
-    await t.applyFPCSetupSnapshot();
-    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = await t.setup());
+    await t.applyFPCSetup();
+    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = t);
   });
 
   afterAll(async () => {
@@ -89,7 +89,7 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO }).wait();
+      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -98,7 +98,11 @@ describe('e2e_fees account_init', () => {
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod },
+        wait: { returnReceipt: true },
+      });
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([claim.claimAmount - tx.transactionFee!]);
     });
@@ -114,7 +118,11 @@ describe('e2e_fees account_init', () => {
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod },
+        wait: { returnReceipt: true },
+      });
       const actualFee = tx.transactionFee!;
       expect(actualFee).toBeGreaterThan(0n);
 
@@ -132,20 +140,19 @@ describe('e2e_fees account_init', () => {
 
     it('pays publicly through an FPC', async () => {
       const mintedBananas = await t.feeJuiceBridgeTestHarness.l1TokenManager.getMintAmount();
-      await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send({ from: aliceAddress }).wait();
+      await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send({ from: aliceAddress });
 
       // The public fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
-      const tx = await bobsDeployMethod
-        .send({
-          from: AztecAddress.ZERO,
-          skipInstancePublication: false,
-          fee: { paymentMethod },
-        })
-        .wait();
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        skipInstancePublication: false,
+        fee: { paymentMethod },
+        wait: { returnReceipt: true },
+      });
 
       const actualFee = tx.transactionFee!;
       expect(actualFee).toBeGreaterThan(0n);
@@ -178,16 +185,15 @@ describe('e2e_fees account_init', () => {
         wallet,
         bobsSigningPubKey.x,
         bobsSigningPubKey.y,
-      )
-        .send({
-          from: aliceAddress,
-          contractAddressSalt: bobsInstance.salt,
-          skipClassPublication: true,
-          skipInstancePublication: true,
-          skipInitialization: false,
-          universalDeploy: true,
-        })
-        .wait();
+      ).send({
+        from: aliceAddress,
+        contractAddressSalt: bobsInstance.salt,
+        skipClassPublication: true,
+        skipInstancePublication: true,
+        skipInitialization: false,
+        universalDeploy: true,
+        wait: { returnReceipt: true },
+      });
 
       // alice paid in Fee Juice
       expect(tx.transactionFee!).toBeGreaterThan(0n);
@@ -200,8 +206,7 @@ describe('e2e_fees account_init', () => {
       const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       await bananaCoin.methods
         .transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
-        .send({ from: bobsAddress, fee: { paymentMethod: bobPaymentMethod } })
-        .wait();
+        .send({ from: bobsAddress, fee: { paymentMethod: bobPaymentMethod } });
     });
   });
 });

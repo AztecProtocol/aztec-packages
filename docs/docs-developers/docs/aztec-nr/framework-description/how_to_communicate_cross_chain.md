@@ -3,6 +3,7 @@ title: Communicating Cross-Chain
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
+references: ["l1-contracts/test/portals/TokenPortal.sol", "noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
 ---
 
 This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.

@@ -1,18 +1,16 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
-    state_vars::{owned_state_variable::OwnedStateVariable, private_set::PrivateSet},
+    state_vars::{OwnedStateVariable, private_set::PrivateSet},
 };
+use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
-use protocol_types::{address::AztecAddress, traits::FromField};
 
 global OWNER: AztecAddress = AztecAddress::from_field(50);
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
-unconstrained fn in_private(
-    context: &mut PrivateContext,
-) -> PrivateSet<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(context: &mut PrivateContext) -> PrivateSet<MockNote, &mut PrivateContext> {
     PrivateSet::new(context, STORAGE_SLOT, OWNER)
 }
 
@@ -83,10 +81,10 @@ unconstrained fn insert_and_get_pending() {
         assert_eq(state_var.context.note_hash_read_requests.len(), 1);
         assert_eq(state_var.context.nullifiers.len(), 0);
 
-        // Instead we get RetrievedNotes, which can be later used for nullification
-        let retrieved_note = notes.get(0);
-        assert(retrieved_note.metadata.is_pending_same_phase());
-        assert_eq(retrieved_note.note, note);
+        // Instead we get HintedNotes, which can be later used for nullification
+        let hinted_note = notes.get(0);
+        assert(hinted_note.metadata.is_pending_same_phase());
+        assert_eq(hinted_note.note, note);
     });
 }
 
@@ -115,10 +113,10 @@ unconstrained fn insert_and_get_settled() {
         assert_eq(state_var.context.note_hash_read_requests.len(), 1);
         assert_eq(state_var.context.nullifiers.len(), 0);
 
-        // Instead we get RetrievedNotes, which can be later used for nullification
-        let retrieved_note = notes.get(0);
-        assert(retrieved_note.metadata.is_settled());
-        assert_eq(retrieved_note.note, note);
+        // Instead we get HintedNotes, which can be later used for nullification
+        let hinted_note = notes.get(0);
+        assert(hinted_note.metadata.is_settled());
+        assert_eq(hinted_note.note, note);
     });
 }
 

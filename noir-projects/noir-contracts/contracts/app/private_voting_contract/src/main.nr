@@ -5,13 +5,8 @@ use dep::aztec::macros::aztec;
 pub contract PrivateVoting {
     // docs:start:imports
     use dep::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use dep::aztec::protocol_types::{
-        address::AztecAddress,
-        traits::{Deserialize, Serialize, ToField},
-    };
-    use dep::aztec::state_vars::{
-        Map, Owned, PublicImmutable, PublicMutable, single_use_claim::SingleUseClaim,
-    };
+    use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {
@@ -57,7 +52,7 @@ pub contract PrivateVoting {
 
     #[external("private")]
     fn cast_vote(election_id: ElectionId, candidate: Field) {
-        self.storage.vote_claims.at(election_id).at(self.msg_sender().unwrap()).claim();
+        self.storage.vote_claims.at(election_id).at(self.msg_sender()).claim();
         self.enqueue_self.add_to_tally_public(election_id, candidate);
     }
 
@@ -72,20 +67,14 @@ pub contract PrivateVoting {
 
     #[external("public")]
     fn start_vote(election_id: ElectionId) {
-        assert(
-            self.storage.admin.read().eq(self.msg_sender().unwrap()),
-            "Only admin can start votes",
-        ); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is admin
         self.storage.vote_ended.at(election_id).write(false);
         self.storage.active_at_block.at(election_id).initialize(self.context.block_number());
     }
 
     #[external("public")]
     fn end_vote(election_id: ElectionId) {
-        assert(
-            self.storage.admin.read().eq(self.msg_sender().unwrap()),
-            "Only admin can end votes",
-        ); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         self.storage.vote_ended.at(election_id).write(true);
     }
 

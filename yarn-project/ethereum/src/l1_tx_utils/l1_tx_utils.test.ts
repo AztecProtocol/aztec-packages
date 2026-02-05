@@ -4,7 +4,7 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
@@ -37,6 +37,7 @@ import {
   type L1TxRequest,
   type L1TxState,
   type L1TxUtilsConfig,
+  MAX_L1_TX_LIMIT,
   ReadOnlyL1TxUtils,
   TxUtilsState,
   UnknownMinedTxError,
@@ -1076,7 +1077,7 @@ describe('L1TxUtils', () => {
       await cheatCodes.evmMine();
       logger.warn('Block has been mined');
 
-      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'Waiting for mined status', 10, 0.1);
+      await retryFastUntil(() => gasUtils.state === TxUtilsState.MINED, 'Waiting for mined status');
       logger.warn('Tx is now mined according to monitor');
 
       // Although the monitoring threw that the tx timed out. Internally it should have recognized that the tx was mined
@@ -1287,7 +1288,7 @@ describe('L1TxUtils', () => {
 
       // But now yes
       await cheatCodes.mineEmptyBlock();
-      await retryUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up', 10, 0.1);
+      await retryFastUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up');
       expect(state.txHashes.length).toBeGreaterThan(1);
 
       // Wait for completion
@@ -1416,7 +1417,7 @@ describe('L1TxUtils', () => {
       expect(newState.receipt!.status).toBe('success');
     }, 10_000);
 
-    it('ensures block gas limit is set when using LARGE_GAS_LIMIT', async () => {
+    it('ensures block gas limit is set when using MAX_L1_TX_LIMIT', async () => {
       let capturedBlockOverrides: any = {};
       const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
 
@@ -1430,7 +1431,7 @@ describe('L1TxUtils', () => {
       try {
         // Test with ensureBlockGasLimit: true (default)
         await gasUtils.simulate(request, {}, [], undefined, { ignoreBlockGasLimit: false });
-        expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n);
+        expect(capturedBlockOverrides.gasLimit).toBe(MAX_L1_TX_LIMIT);
 
         // Test with ensureBlockGasLimit: false
         capturedBlockOverrides = {};
@@ -1446,7 +1447,7 @@ describe('L1TxUtils', () => {
       }
     });
 
-    it('ensures block gas limit is set when using LARGE_GAS_LIMIT with custom block overrides', async () => {
+    it('ensures block gas limit is set when using MAX_L1_TX_LIMIT with custom block overrides', async () => {
       let capturedBlockOverrides: any = {};
       const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
 
@@ -1463,7 +1464,7 @@ describe('L1TxUtils', () => {
         await gasUtils.simulate(request, myCustomBlockOverrides, [], undefined, { ignoreBlockGasLimit: false });
 
         // Verify that block gas limit is set while preserving custom overrides
-        expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n); // 12_000_000 * 2
+        expect(capturedBlockOverrides.gasLimit).toBe(MAX_L1_TX_LIMIT);
         expect(capturedBlockOverrides.baseFeePerGas).toBe(1000000000n);
       } finally {
         spy.mockRestore();

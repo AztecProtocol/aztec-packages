@@ -1,5 +1,11 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointNumberSchema,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -7,11 +13,14 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { L2BlockNew } from '../block/l2_block_new.js';
+import { L2Block } from '../block/l2_block.js';
 import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
+import { computeCheckpointOutHash } from '../messaging/out_hash.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { CheckpointInfo } from './checkpoint_info.js';
+
+type FieldsOfCheckpoint = Omit<FieldsOf<Checkpoint>, 'slot'>;
 
 export class Checkpoint {
   constructor(
@@ -20,27 +29,31 @@ export class Checkpoint {
     /** Header of the checkpoint. */
     public header: CheckpointHeader,
     /** L2 blocks in the checkpoint. */
-    public blocks: L2BlockNew[],
+    public blocks: L2Block[],
     /** Number of the checkpoint. */
     public number: CheckpointNumber,
   ) {}
+
+  get slot(): SlotNumber {
+    return this.header.slotNumber;
+  }
 
   static get schema() {
     return z
       .object({
         archive: AppendOnlyTreeSnapshot.schema,
         header: CheckpointHeader.schema,
-        blocks: z.array(L2BlockNew.schema),
+        blocks: z.array(L2Block.schema),
         number: CheckpointNumberSchema,
       })
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
   }
 
-  static from(fields: FieldsOf<Checkpoint>) {
+  static from(fields: FieldsOfCheckpoint) {
     return new Checkpoint(...Checkpoint.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<Checkpoint>) {
+  static getFields(fields: FieldsOfCheckpoint) {
     return [fields.archive, fields.header, fields.blocks, fields.number] as const;
   }
 
@@ -49,7 +62,7 @@ export class Checkpoint {
     return new Checkpoint(
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(CheckpointHeader),
-      reader.readVector(L2BlockNew, MAX_BLOCKS_PER_CHECKPOINT),
+      reader.readVector(L2Block, MAX_BLOCKS_PER_CHECKPOINT),
       CheckpointNumber(reader.readNumber()),
     );
   }
@@ -65,6 +78,14 @@ export class Checkpoint {
 
   public hash(): Fr {
     return this.header.hash();
+  }
+
+  // Returns the out hash computed from all l2-to-l1 messages in this checkpoint.
+  // Note: This value is different from the out hash in the header, which is the **accumulated** out hash over all
+  // checkpoints up to and including this one in the epoch.
+  public getCheckpointOutHash(): Fr {
+    const msgs = this.blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
+    return computeCheckpointOutHash(msgs);
   }
 
   public getState() {
@@ -114,17 +135,17 @@ export class Checkpoint {
       startBlockNumber?: number;
       previousArchive?: AppendOnlyTreeSnapshot;
     } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
-      Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
+      Partial<Parameters<typeof L2Block.random>[1]> = {},
   ) {
     const header = CheckpointHeader.random(options);
 
     // Create blocks sequentially to chain archive roots properly.
     // Each block's header.lastArchive must equal the previous block's archive.
-    const blocks: L2BlockNew[] = [];
+    const blocks: L2Block[] = [];
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
-      const block = await L2BlockNew.random(BlockNumber(startBlockNumber + i), {
-        indexWithinCheckpoint: i,
+      const block = await L2Block.random(BlockNumber(startBlockNumber + i), {
+        indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),
       });

@@ -3,7 +3,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { isProtocolContract } from '@aztec/protocol-contracts';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -43,10 +42,12 @@ export class ContractStore {
   /** Map from contract address to contract class id */
   #contractClassIdMap: Map<string, Fr> = new Map();
 
+  #store: AztecAsyncKVStore;
   #contractArtifacts: AztecAsyncMap<string, Buffer>;
   #contractInstances: AztecAsyncMap<string, Buffer>;
 
   constructor(store: AztecAsyncKVStore) {
+    this.#store = store;
     this.#contractArtifacts = store.openMap('contract_artifacts');
     this.#contractInstances = store.openMap('contracts_instances');
   }
@@ -54,6 +55,7 @@ export class ContractStore {
   // Setters
 
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
+    // Validation outside transactionAsync - these are not DB operations
     const privateFunctions = contract.functions.filter(
       functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
     );
@@ -70,7 +72,9 @@ export class ContractStore {
       throw new Error('Repeated function selectors of private functions');
     }
 
-    await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
+    await this.#store.transactionAsync(() =>
+      this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract)),
+    );
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
@@ -124,21 +128,27 @@ export class ContractStore {
 
   // Public getters
 
-  async getContractsAddresses(): Promise<AztecAddress[]> {
-    const keys = await toArray(this.#contractInstances.keysAsync());
-    return keys.map(AztecAddress.fromString);
+  getContractsAddresses(): Promise<AztecAddress[]> {
+    return this.#store.transactionAsync(async () => {
+      const keys = await toArray(this.#contractInstances.keysAsync());
+      return keys.map(AztecAddress.fromString);
+    });
   }
 
   /** Returns a contract instance for a given address. Throws if not found. */
-  public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = await this.#contractInstances.getAsync(contractAddress.toString());
-    return contract && SerializableContractInstance.fromBuffer(contract).withAddress(contractAddress);
+  public getContractInstance(contractAddress: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#store.transactionAsync(async () => {
+      const contract = await this.#contractInstances.getAsync(contractAddress.toString());
+      return contract && SerializableContractInstance.fromBuffer(contract).withAddress(contractAddress);
+    });
   }
 
-  public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact | undefined> {
-    const contract = await this.#contractArtifacts.getAsync(contractClassId.toString());
-    // TODO(@spalladino): AztecAsyncMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
-    return contract && contractArtifactFromBuffer(Buffer.from(contract));
+  public getContractArtifact(contractClassId: Fr): Promise<ContractArtifact | undefined> {
+    return this.#store.transactionAsync(async () => {
+      const contract = await this.#contractArtifacts.getAsync(contractClassId.toString());
+      // TODO(@spalladino): AztecAsyncMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
+      return contract && contractArtifactFromBuffer(Buffer.from(contract));
+    });
   }
 
   /** Returns a contract class for a given class id. Throws if not found. */
@@ -316,24 +326,5 @@ export class ContractStore {
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };
-  }
-
-  // Synchronize target contract data
-  public async syncPrivateState(
-    contractAddress: AztecAddress,
-    functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
-  ) {
-    // Protocol contracts don't have private state to sync
-    if (!isProtocolContract(contractAddress)) {
-      const syncPrivateStateFunctionCall = await this.getFunctionCall('sync_private_state', [], contractAddress);
-      if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncPrivateStateFunctionCall.selector)) {
-        throw new Error(
-          'Forbidden `sync_private_state` invocation. `sync_private_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
-        );
-      }
-
-      return utilityExecutor(syncPrivateStateFunctionCall);
-    }
   }
 }

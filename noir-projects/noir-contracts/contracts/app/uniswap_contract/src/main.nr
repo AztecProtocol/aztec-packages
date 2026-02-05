@@ -14,7 +14,7 @@ pub contract Uniswap {
             set_authorized,
         },
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             traits::ToField,
@@ -57,7 +57,7 @@ pub contract Uniswap {
         // nonce for someone to call swap on sender's behalf
         _nonce_for_swap_approval: Field,
     ) {
-        if (!sender.eq(self.msg_sender().unwrap())) {
+        if (!sender.eq(self.msg_sender())) {
             assert_current_call_valid_authwit_public(self.context, sender);
         }
 
@@ -138,7 +138,7 @@ pub contract Uniswap {
 
         // Transfer funds to this contract
         self.call(Token::at(input_asset).transfer_to_public(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             self.address,
             input_amount,
             nonce_for_transfer_to_public_approval,

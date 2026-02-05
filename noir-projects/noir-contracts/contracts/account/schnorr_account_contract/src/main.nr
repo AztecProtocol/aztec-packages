@@ -24,7 +24,7 @@ pub contract SchnorrAccount {
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
     };
 
@@ -150,7 +150,7 @@ pub contract SchnorrAccount {
         let nullifier = compute_authwit_nullifier(self.address, inner_hash);
         let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
         let lower_wit =
-            get_low_nullifier_membership_witness(self.context.block_number(), siloed_nullifier);
+            get_low_nullifier_membership_witness(self.context.block_header(), siloed_nullifier);
         let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private

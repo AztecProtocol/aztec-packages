@@ -6,7 +6,7 @@ describe('e2e_token_contract minting', () => {
   let { asset, tokenSim, adminAddress, account1Address } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
     ({ asset, tokenSim, adminAddress, account1Address } = t);
   });
@@ -22,7 +22,7 @@ describe('e2e_token_contract minting', () => {
   describe('Public', () => {
     it('as minter', async () => {
       const amount = 10000n;
-      await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress }).wait();
+      await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
 
       tokenSim.mintPublic(adminAddress, amount);
       expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(
@@ -58,7 +58,7 @@ describe('e2e_token_contract minting', () => {
   describe('Private', () => {
     it('as minter', async () => {
       const amount = 10000n;
-      await asset.methods.mint_to_private(adminAddress, amount).send({ from: adminAddress }).wait();
+      await asset.methods.mint_to_private(adminAddress, amount).send({ from: adminAddress });
 
       tokenSim.mintPrivate(adminAddress, amount);
       expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(

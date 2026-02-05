@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "blake3_constraint.hpp"
 #include "acir_format.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
@@ -39,10 +45,9 @@ template <class BuilderType, bool IsInputConstant> class Blake3TestingFunctions 
         case InvalidWitness::Target::Input: {
             // Tamper with the first input element
             if constexpr (IsInputConstant) {
-                constraint.inputs[0].blackbox_input =
-                    WitnessOrConstant<FF>::from_constant(constraint.inputs[0].blackbox_input.value + bb::fr(1));
+                constraint.inputs[0] = WitnessOrConstant<FF>::from_constant(constraint.inputs[0].value + bb::fr(1));
             } else {
-                witness_values[constraint.inputs[0].blackbox_input.index] += bb::fr(1);
+                witness_values[constraint.inputs[0].index] += bb::fr(1);
             }
             break;
         }
@@ -89,8 +94,7 @@ template <class BuilderType, bool IsInputConstant> class Blake3TestingFunctions 
         // Create the constraint
         blake3_constraint.inputs.reserve(input_state.size());
         for (const auto& state : construct_state(input_state, IsInputConstant)) {
-            Blake3Input input{ .blackbox_input = state, .num_bits = 8 };
-            blake3_constraint.inputs.push_back(input);
+            blake3_constraint.inputs.push_back(state);
         }
 
         // Add output state to witness

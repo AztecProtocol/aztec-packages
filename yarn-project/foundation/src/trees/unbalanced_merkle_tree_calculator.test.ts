@@ -1,4 +1,5 @@
-import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
+import { computeBalancedMerkleTreeRoot } from './balanced_merkle_tree_root.js';
+import { shaMerkleHash } from './hasher.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 import { SiblingPath } from './sibling_path.js';
 import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';

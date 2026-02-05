@@ -66,6 +66,7 @@ broker:
   node:
     env:
       OTEL_SERVICE_NAME: "prover-broker"
+      RPC_MAX_BODY_SIZE: "50mb"
     startCmd:
       - --prover-broker
 
@@ -95,6 +96,8 @@ agent:
       OTEL_SERVICE_NAME: "prover-agent"
     configMap:
       envEnabled: true
+    preStartScript: |
+      source /scripts/wait-for-broker.sh
     startCmd:
       - --prover-agent
 

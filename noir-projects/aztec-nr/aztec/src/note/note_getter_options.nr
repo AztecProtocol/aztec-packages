@@ -1,5 +1,5 @@
-use crate::note::{note_interface::NoteType, retrieved_note::RetrievedNote};
-use dep::protocol_types::{
+use crate::note::{HintedNote, note_interface::NoteType};
+use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},
@@ -57,9 +57,9 @@ pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
 
 // This is the default filter and preprocessor, which does nothing
 fn return_all_notes<Note>(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     notes
 }
 
@@ -71,30 +71,22 @@ pub struct NoteGetterOptions<Note, let N: u32, PreprocessorArgs, FilterArgs> {
     pub owner: Option<AztecAddress>,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
-    pub preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub preprocessor: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub preprocessor_args: PreprocessorArgs,
-    pub filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub filter: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub filter_args: FilterArgs,
     pub status: u8,
 }
 
 // When retrieving notes using the NoteGetterOptions, the configurations are applied in a specific sequence to ensure
-// precise and controlled data retrieval.
-// The database-level configurations are applied first:
-// `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap
-// the result size.
-// And finally, a custom preprocessor and filter to refine the outcome further.
+// precise and controlled data retrieval. The database-level configurations are applied first: `selects` to specify
+// fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap the result size. And
+// finally, a custom preprocessor and filter to refine the outcome further.
 impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, PreprocessorArgs, FilterArgs> {
-    // This method adds a `Select` criterion to the options.
-    // It takes a property_selector indicating which field to select,
-    // a value representing the specific value to match in that field, and
-    // a comparator (For possible values of comparators, please see the Comparator enum from `utils::comparison`)
-    pub fn select<T>(
-        &mut self,
-        property_selector: PropertySelector,
-        comparator: u8,
-        value: T,
-    ) -> Self
+    // This method adds a `Select` criterion to the options. It takes a property_selector indicating which field to
+    // select, a value representing the specific value to match in that field, and a comparator (For possible values of
+    // comparators, please see the Comparator enum from `utils::comparison`)
+    pub fn select<T>(&mut self, property_selector: PropertySelector, comparator: u8, value: T) -> Self
     where
         T: ToField,
     {
@@ -102,8 +94,8 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
         *self
     }
 
-    // This method adds a `Sort` criterion to the options.
-    // It takes a field_index indicating which field to sort by and an order (SortOrder) to determine the sorting direction.
+    // This method adds a `Sort` criterion to the options. It takes a field_index indicating which field to sort by and
+    // an order (SortOrder) to determine the sorting direction.
     pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
         self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
@@ -112,9 +104,9 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
     // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result.
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32);
-        if !dep::std::runtime::is_unconstrained() {
-            // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
-            // gate counts when a limit has been set.
+        if !std::runtime::is_unconstrained() {
+            // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it,
+            // reducing gate counts when a limit has been set.
             assert_constant(limit);
         }
 
@@ -134,8 +126,8 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
         *self
     }
 
-    // This method sets the owner value, which determines which owner's notes to retrieve.
-    // If None, notes from all owners will be retrieved.
+    // This method sets the owner value, which determines which owner's notes to retrieve. If None, notes from all
+    // owners will be retrieved.
     pub fn set_owner(&mut self, owner: AztecAddress) -> Self {
         self.owner = Option::some(owner);
         *self
@@ -167,11 +159,11 @@ impl<Note, let M: u32, PreprocessorArgs> NoteGetterOptions<Note, M, Preprocessor
 where
     Note: NoteType + Packable<N = M>,
 {
-    // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
-    // the database and preprocessor_args as its parameters.
-    // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
+    // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from the
+    // database and preprocessor_args as its parameters. `preprocessor_args` allows you to provide additional data or
+    // context to the custom preprocessor.
     pub fn with_preprocessor(
-        preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        preprocessor: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         preprocessor_args: PreprocessorArgs,
     ) -> Self {
         Self {
@@ -193,11 +185,11 @@ impl<Note, let M: u32, FilterArgs> NoteGetterOptions<Note, M, Field, FilterArgs>
 where
     Note: NoteType + Packable<N = M>,
 {
-    // This function initializes a NoteGetterOptions with a filter, which takes
-    // the notes returned from the database and filter_args as its parameters.
-    // `filter_args` allows you to provide additional data or context to the custom filter.
+    // This function initializes a NoteGetterOptions with a filter, which takes the notes returned from the database
+    // and filter_args as its parameters. `filter_args` allows you to provide additional data or context to the custom
+    // filter.
     pub fn with_filter(
-        filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        filter: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         filter_args: FilterArgs,
     ) -> Self {
         Self {

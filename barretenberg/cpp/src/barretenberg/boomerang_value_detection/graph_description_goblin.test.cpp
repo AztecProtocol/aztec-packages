@@ -19,7 +19,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
+    using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -46,7 +46,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 5);
 
         // Merge the ecc ops from the newly constructed circuit
-        auto goblin_proof = goblin.prove(MergeSettings::APPEND);
+        auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
@@ -91,9 +91,12 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     // Aggregate merge + translator pairing points
     output.translator_pairing_points.aggregate(output.merge_pairing_points);
 
-    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
+    inputs.ipa_claim = output.ipa_claim;
     inputs.set_public();
+
+    builder.ipa_proof = output.ipa_proof.get_value();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
@@ -117,8 +120,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
     // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
     // rather than relying solely on them being public outputs.
-    translator_pairing_points.P0.fix_witness();
-    translator_pairing_points.P1.fix_witness();
+    translator_pairing_points.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

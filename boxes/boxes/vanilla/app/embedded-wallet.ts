@@ -1,6 +1,9 @@
 import { Account, SignerlessAccount } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import {
+  getContractInstanceFromInstantiationParams,
+  InteractionWaitOptions,
+} from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -48,8 +51,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -123,9 +125,7 @@ export class EmbeddedWallet extends BaseWallet {
     const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXE(aztecNode, config, {
-      useLogSuffix: true,
-    });
+    const pxe = await createPXE(aztecNode, config, {});
 
     // Register Sponsored FPC Contract with PXE
     await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());
@@ -219,7 +219,7 @@ export class EmbeddedWallet extends BaseWallet {
     const deployMethod = await accountManager.getDeployMethod();
     const sponsoredPFCContract =
       await EmbeddedWallet.#getSponsoredPFCContract();
-    const deployOpts: DeployAccountOptions = {
+    const deployOpts: DeployAccountOptions<InteractionWaitOptions> = {
       from: AztecAddress.ZERO,
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
@@ -228,9 +228,10 @@ export class EmbeddedWallet extends BaseWallet {
       },
       skipClassPublication: true,
       skipInstancePublication: true,
+      wait: { timeout: 120 },
     };
 
-    const receipt = await deployMethod.send(deployOpts).wait({ timeout: 120 });
+    const receipt = await deployMethod.send(deployOpts);
 
     logger.info('Account deployed', receipt);
 
@@ -282,10 +283,23 @@ export class EmbeddedWallet extends BaseWallet {
     return this.connectedAccount;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(
+        `Cannot create fake account data for SignerlessAccount at address: ${address}`
+      );
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(
       originalAddress.address
     );
@@ -294,7 +308,7 @@ export class EmbeddedWallet extends BaseWallet {
         `No contract instance found for address: ${originalAddress.address}`
       );
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
@@ -337,9 +351,11 @@ export class EmbeddedWallet extends BaseWallet {
       instance,
       artifact,
     } = await this.getFakeAccountDataFor(opts.from);
+    const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions
     );
     const contractOverrides = {

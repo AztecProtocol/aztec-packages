@@ -25,10 +25,10 @@ describe('Deployment benchmark', () => {
   const config = t.config.deployments;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setup();
+    await t.applyDeploySponsoredFPC();
 
-    ({ aztecNode: node, userWallet, sponsoredFPCInstance } = await t.setup());
+    ({ aztecNode: node, userWallet, sponsoredFPCInstance } = t);
   });
 
   afterAll(async () => {
@@ -86,7 +86,7 @@ describe('Deployment benchmark', () => {
 
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee
-              const tx = await deploymentInteraction.send(options).wait();
+              const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
           });

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 54146acfe3568e22f80648f4092e10cb2c8702c2}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -9,6 +9,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include "barretenberg/constants.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -17,9 +18,9 @@
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
+#include "barretenberg/vm2/constraining/recursion/two_layer_avm_recursive_verifier.hpp"
 
 #include <cstddef>
 
@@ -27,114 +28,31 @@ namespace acir_format {
 
 using namespace bb;
 
-namespace {
-
-using Builder = bb::UltraCircuitBuilder;
-using field_ct = stdlib::field_t<Builder>;
-using bn254 = stdlib::bn254<Builder>;
-using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
-/**
- * @brief Creates a dummy vkey and proof object.
- * @details Populates the key and proof vectors with dummy values in the write_vk case when we do not have a valid
- * witness. The bulk of the logic is setting up certain values correctly like the circuit size, aggregation object, and
- * commitments.
- *
- * @param builder
- * @param proof_size Size of proof with NO public inputs
- * @param public_inputs_size Total size of public inputs including aggregation object
- * @param key_fields
- * @param proof_fields
- */
-void create_dummy_proof(Builder& builder, [[maybe_unused]] size_t proof_size, const std::vector<field_ct>& proof_fields)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1514): restructure this function to use functions from
-    // mock_verifier_inputs
-    using Flavor = avm2::AvmFlavor;
-
-    // a lambda that sets dummy commitments
-    auto set_dummy_commitment = [&builder](const std::vector<stdlib::field_t<Builder>>& fields, size_t& offset) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = FrCodec::serialize_to_fields(comm);
-        builder.set_variable(fields[offset].get_witness_index(), frs[0]);
-        builder.set_variable(fields[offset + 1].get_witness_index(), frs[1]);
-        builder.set_variable(fields[offset + 2].get_witness_index(), frs[2]);
-        builder.set_variable(fields[offset + 3].get_witness_index(), frs[3]);
-        offset += 4;
-    };
-    // a lambda that sets dummy evaluation in proof fields vector
-    auto set_dummy_evaluation_in_proof_fields = [&](size_t& offset) {
-        builder.set_variable(proof_fields[offset].get_witness_index(), fr::random_element());
-        offset++;
-    };
-
-    // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
-    size_t offset = 0;
-
-    // Witness Commitments
-    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        set_dummy_commitment(proof_fields, offset);
-    }
-
-    // now the univariates
-    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        set_dummy_evaluation_in_proof_fields(offset);
-    }
-
-    // now the sumcheck evaluations
-    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        set_dummy_evaluation_in_proof_fields(offset);
-    }
-
-    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
-    for (size_t i = 1; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
-        set_dummy_commitment(proof_fields, offset);
-    }
-
-    // the gemini fold evaluations which are CONST_PROOF_SIZE_LOG_N
-    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
-        set_dummy_evaluation_in_proof_fields(offset);
-    }
-
-    // lastly the shplonk batched quotient commitment and kzg quotient commitment
-    for (size_t i = 0; i < 2; i++) {
-        set_dummy_commitment(proof_fields, offset);
-    }
-
-    // TODO(#13390): Revive the following assertion once we freeze the number of colums in AVM.
-    // BB_ASSERT(offset == proof_size);
-}
-
-} // namespace
-
 /**
  * @brief Add constraints associated with recursive verification of an AVM2 proof using Goblin
  *
  * @param builder
  * @param input
- * @param input_points_accumulator_indices
- * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(Builder& builder,
-                                                                                const RecursionConstraint& input)
+HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constraints_goblin(
+    UltraCircuitBuilder& builder, const RecursionConstraint& input)
 {
-    using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
-
     BB_ASSERT_EQ(input.proof_type, AVM);
 
     // Construct in-circuit representations of the proof and public inputs
     const auto proof_fields = fields_from_witnesses(builder, input.proof);
     const auto public_inputs_flattened = fields_from_witnesses(builder, input.public_inputs);
 
-    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
+    // Populate the proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (builder.is_write_vk_mode()) {
-        create_dummy_proof(builder, input.proof.size(), proof_fields);
+        populate_fields(builder, proof_fields, create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true));
     }
 
-    // Execute the Goblin AVM2 recursive verifier
-    RecursiveVerifier verifier(builder);
+    // Execute the TwoLayerAvmRecursiveVerifier recursive verifier
+    avm2::TwoLayerAvmRecursiveVerifier verifier(builder);
 
-    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
+    bb::avm2::TwoLayerAvmRecursiveVerifier::TwoLayerAvmRecursiveVerifierOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output;

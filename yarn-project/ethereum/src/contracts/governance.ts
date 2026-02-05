@@ -174,6 +174,13 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     return this.governanceContract.read.powerAt([this.client.account.address, now.timestamp]);
   }
 
+  /** Returns the user's voting power for a specific proposal, checked at pendingThrough timestamp. */
+  public async getPowerForProposal(proposalId: bigint): Promise<bigint> {
+    const proposal = await this.getProposal(proposalId);
+    const pendingThrough = proposal.creation + proposal.config.votingDelay;
+    return this.governanceContract.read.powerAt([this.client.account.address, pendingThrough]);
+  }
+
   public async vote({
     proposalId,
     voteAmount,
@@ -190,7 +197,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, { logger });
     const retryDelaySeconds = 12;
 
-    voteAmount = voteAmount ?? (await this.getPower());
+    voteAmount = voteAmount ?? (await this.getPowerForProposal(proposalId));
 
     let success = false;
     for (let i = 0; i < retries; i++) {
@@ -204,6 +211,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
           to: this.governanceContract.address,
+          abi: GovernanceAbi,
           data: encodedVoteData,
         });
 
@@ -258,6 +266,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
           to: this.governanceContract.address,
+          abi: GovernanceAbi,
           data: encodedExecuteData,
         });
 

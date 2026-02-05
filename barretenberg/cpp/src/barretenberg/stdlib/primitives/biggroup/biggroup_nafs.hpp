@@ -496,13 +496,28 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
         } else {
             // If the number of rounds is ≤ (2 * Fr::NUM_LIMB_BITS), the high bits of the resulting Fr element are 0.
-            const field_ct zero = field_ct::from_witness_index(builder, builder->zero_idx());
+            field_ct zero = field_ct::from_witness_index(builder, builder->zero_idx());
+            // The zero_idx is a constant zero, so set the CONSTANT tag to allow merging with origin-tagged elements
+            auto const_tag = OriginTag::constant();
+            zero.set_origin_tag(const_tag);
             lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
             hi_accumulators = std::make_pair(zero, zero);
         }
 
-        // Add the skew bit to the low accumulator's negative part
-        lo_accumulators.second = lo_accumulators.second + field_ct(naf_entries[num_rounds]);
+        // Add the skew bit to the low accumulator's negative part.
+        // This addition can produce exactly 2^136 if negative accumulator is 2^136-1 and skew is 1.
+        // When this happens, we need to carry the overflow to the high bits.
+        field_ct lo_neg_with_skew = lo_accumulators.second + field_ct(naf_entries[num_rounds]);
+
+        // Detect if we hit exactly 2^136 (the only overflow case possible)
+        const uint256_t two_pow_136 = uint256_t(1) << (Fr::NUM_LIMB_BITS * 2);
+        field_ct overflow_check = lo_neg_with_skew - field_ct(two_pow_136);
+        bool_ct has_overflow = overflow_check.is_zero();
+
+        // If overflow: set lo to 0, carry 1 to hi_neg
+        // If no overflow: keep lo_neg_with_skew, hi_neg unchanged
+        lo_accumulators.second = lo_neg_with_skew * field_ct(!has_overflow);
+        hi_accumulators.second = hi_accumulators.second + field_ct(has_overflow);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
         Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);

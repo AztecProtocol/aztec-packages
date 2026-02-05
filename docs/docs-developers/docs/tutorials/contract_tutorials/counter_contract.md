@@ -2,13 +2,14 @@
 title: Counter Contract
 description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
+references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `bash -i <(curl -s https://install.aztec.network/#include_version_without_prefix/)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Prerequisites
 
@@ -78,7 +79,7 @@ pub contract Counter {
 - `oracle::debug_log::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
-- `protocol_types::{address::AztecAddress, traits::ToField}`
+- `protocol::{address::AztecAddress, traits::ToField}`
   Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to field elements, necessary for serialization and formatting inside Aztec.
 
 - `state_vars::Owned`
@@ -101,7 +102,7 @@ Let’s create a constructor method to run on deployment that assigns an initial
 
 #include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
-This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.CONSTRAINED_ONCHAIN)` to ensure the note is delivered onchain.
+This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.ONCHAIN_CONSTRAINED)` to ensure the note is delivered onchain.
 
 We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 

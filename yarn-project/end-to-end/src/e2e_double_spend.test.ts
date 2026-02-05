@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
@@ -25,7 +25,7 @@ describe('e2e_double_spend', () => {
       logger,
     } = await setup(1));
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
 
     logger.info(`Test contract deployed at ${contract.address}`);
   });
@@ -35,7 +35,7 @@ describe('e2e_double_spend', () => {
   describe('double spends', () => {
     it('emits a public nullifier and then tries to emit the same nullifier', async () => {
       const nullifier = new Fr(1);
-      await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait();
+      await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress });
 
       // We try emitting again, but our TX is dropped due to trying to emit a duplicate nullifier
       // first confirm that it fails simulation
@@ -45,8 +45,8 @@ describe('e2e_double_spend', () => {
       // if we skip simulation before submitting the tx,
       // tx will be included in a block but with app logic reverted
       await expect(
-        contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }).wait(),
-      ).rejects.toThrow(TxStatus.APP_LOGIC_REVERTED);
+        contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }),
+      ).rejects.toThrow(TxExecutionResult.APP_LOGIC_REVERTED);
     });
   });
 });

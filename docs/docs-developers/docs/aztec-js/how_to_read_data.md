@@ -9,18 +9,14 @@ This guide shows you how to read data from Aztec contracts in TypeScript, includ
 
 ## Prerequisites
 
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
 - A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
-- A wallet connection (see [How to Create an Account](./how_to_create_account.md))
 
 ## Simulating functions
 
 The `simulate` method executes a contract function locally and returns its result. It works with private, public, and utility functions. No transaction is created and no gas is spent.
 
-```typescript
-const result = await contract.methods
-  .myFunction(arg1, arg2)
-  .simulate({ from: callerAddress });
-```
+#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 The `from` option specifies which address context to use for the simulation. This is required for all simulations, though it only affects private function execution (public functions ignore this value).
 
@@ -33,6 +29,7 @@ The `from` option specifies which address context to use for the simulation. Thi
 For functions returning multiple values, destructure the result:
 
 ```typescript
+// contract and callerAddress are from the example above
 const [value1, value2] = await contract.methods
   .get_multiple_values()
   .simulate({ from: callerAddress });
@@ -43,6 +40,7 @@ const [value1, value2] = await contract.methods
 Set `includeMetadata: true` to get additional information about the simulation:
 
 ```typescript
+// contract and callerAddress are from the examples above
 const result = await contract.methods
   .balance_of_public(address)
   .simulate({ from: callerAddress, includeMetadata: true });
@@ -62,6 +60,7 @@ console.log("DA gas limit:", result.estimatedGas.gasLimits.daGas);
 When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
 ```typescript
+// contract and callerAddress are from the examples above
 // This works if callerAddress owns the notes
 const balance = await contract.methods
   .balance_of_private(callerAddress)
@@ -95,6 +94,8 @@ Contracts emit data in two forms you can read:
 Use `aztecNode.getPublicLogs()` to retrieve raw log data:
 
 ```typescript
+// aztecNode is from createAztecNodeClient() in the connection guide
+// receipt is from a transaction's send() call
 // Get logs for a specific transaction
 const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
 const rawFields = logs.logs[0].log.getEmittedFields(); // Fr[]
@@ -164,34 +165,7 @@ collectedEvents.forEach((ev) => {
 
 To continuously monitor for new events, poll at regular intervals while tracking the last processed block:
 
-```typescript
-import { BlockNumber } from "@aztec/foundation/branded-types";
-
-let lastProcessedBlock = startBlock; // BlockNumber type
-
-async function pollForEvents() {
-  const currentBlock = await aztecNode.getBlockNumber();
-
-  if (currentBlock > lastProcessedBlock) {
-    const events = await getDecodedPublicEvents<Transfer>(
-      aztecNode,
-      TokenContract.events.Transfer,
-      lastProcessedBlock + 1,
-      currentBlock - lastProcessedBlock
-    );
-
-    for (const event of events) {
-      // Process each event
-      console.log(`Transfer: ${event.amount} from ${event.from}`);
-    }
-
-    lastProcessedBlock = currentBlock;
-  }
-}
-
-// Poll every 10 seconds
-setInterval(pollForEvents, 10000);
-```
+#include_code poll_for_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 For private events, use the same pattern with `wallet.getPrivateEvents()` and update the `fromBlock` in your filter accordingly.
 

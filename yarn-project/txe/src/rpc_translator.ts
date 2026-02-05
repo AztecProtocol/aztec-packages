@@ -6,11 +6,11 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
-  packAsRetrievedNote,
+  packAsHintedNote,
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -346,34 +346,34 @@ export class RPCTranslator {
   }
 
   async utilityStorageRead(
+    foreignBlockHash: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
     foreignStartStorageSlot: ForeignCallSingle,
-    foreignBlockNumber: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
     const values = await this.handlerAsUtility().utilityStorageRead(
+      blockHash,
       contractAddress,
       startStorageSlot,
-      blockNumber,
       numberOfElements,
     );
 
     return toForeignCallResult([toArray(values)]);
   }
 
-  async utilityGetPublicDataWitness(foreignBlockNumber: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
+  async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const leafSlot = fromSingle(foreignLeafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockNumber, leafSlot);
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
 
     if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockNumber}.`);
+      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockHash.toString()}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -396,7 +396,7 @@ export class RPCTranslator {
     foreignOffset: ForeignCallSingle,
     foreignStatus: ForeignCallSingle,
     foreignMaxNotes: ForeignCallSingle,
-    foreignPackedRetrievedNoteLength: ForeignCallSingle,
+    foreignPackedHintedNoteLength: ForeignCallSingle,
   ) {
     // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
     const owner = fromSingle(foreignOwnerIsSome).toBool()
@@ -417,7 +417,7 @@ export class RPCTranslator {
     const offset = fromSingle(foreignOffset).toNumber();
     const status = fromSingle(foreignStatus).toNumber();
     const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
+    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
 
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
       owner,
@@ -438,13 +438,13 @@ export class RPCTranslator {
     );
 
     const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
-      packAsRetrievedNote({
+      packAsHintedNote({
         contractAddress: noteData.contractAddress,
         owner: noteData.owner,
         randomness: noteData.randomness,
         storageSlot: noteData.storageSlot,
         noteNonce: noteData.noteNonce,
-        index: noteData.index,
+        isPending: noteData.isPending,
         note: noteData.note,
       }),
     );
@@ -456,11 +456,7 @@ export class RPCTranslator {
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(
-        returnDataAsArrayOfForeignCallSingleArrays,
-        maxNotes,
-        packedRetrievedNoteLength,
-      ),
+      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
     );
   }
 
@@ -516,6 +512,15 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  async privateIsNullifierPending(foreignInnerNullifier: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
+    const innerNullifier = fromSingle(foreignInnerNullifier);
+    const contractAddress = addressFromSingle(foreignContractAddress);
+
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(innerNullifier, contractAddress);
+
+    return toForeignCallResult([toSingle(new Fr(isPending))]);
+  }
+
   async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
@@ -540,12 +545,23 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async utilityTryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(address);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(address);
 
-    return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return toForeignCallResult([
+        toSingle(new Fr(1)),
+        toArray([...result.publicKeys.toFields(), result.partialAddress]),
+      ]);
+    }
   }
 
   async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
@@ -568,17 +584,14 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
+  async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockNumber}.`);
+      throw new Error(`Nullifier membership witness not found at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -639,36 +652,49 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignTreeId: ForeignCallSingle,
-    foreignLeafValue: ForeignCallSingle,
+  async utilityGetNoteHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignNoteHash: ForeignCallSingle,
   ) {
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
-    const treeId = fromSingle(foreignTreeId).toNumber();
-    const leafValue = fromSingle(foreignLeafValue);
+    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const noteHash = fromSingle(foreignNoteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockNumber, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, noteHash);
+
+    if (!witness) {
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
+    }
+    return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  async utilityGetBlockHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
     if (!witness) {
       throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockNumber}.`,
+        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
       );
     }
-    return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetLowNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -681,7 +707,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -690,7 +716,7 @@ export class RPCTranslator {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
-    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -828,10 +854,11 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle) {
+  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
     const slot = fromSingle(foreignSlot);
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot)).value;
+    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot, contractAddress)).value;
 
     return toForeignCallResult([toSingle(new Fr(value))]);
   }
@@ -903,11 +930,10 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeNullifierExists(foreignInnerNullifier: ForeignCallSingle, foreignTargetAddress: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
+  async avmOpcodeNullifierExists(foreignSiloedNullifier: ForeignCallSingle) {
+    const siloedNullifier = fromSingle(foreignSiloedNullifier);
 
-    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(innerNullifier, targetAddress);
+    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(siloedNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }

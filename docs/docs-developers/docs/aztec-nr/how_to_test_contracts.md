@@ -2,7 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 3
+sidebar_position: 4
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
@@ -49,7 +49,7 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 ```rust
 use crate::MyContract;
 use aztec::{
-    protocol_types::address::AztecAddress,
+    protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
 };
 

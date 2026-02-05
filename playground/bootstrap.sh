@@ -38,7 +38,9 @@ function release {
 }
 
 function invalidate_cloudfront {
-  local id=$(cd terraform && terraform init &>/dev/null && terraform output -raw cloudfront_distribution_id)
+  local id=$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'play.aztec-labs.com')].Id | [0]" \
+    --output text)
   do_or_dryrun aws cloudfront create-invalidation --distribution-id $id --paths "/*"
 }
 

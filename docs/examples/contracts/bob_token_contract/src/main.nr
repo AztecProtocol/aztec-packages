@@ -8,9 +8,8 @@ pub contract BobToken {
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
-        state_vars::{Map, Owned},
-        state_vars::public_mutable::PublicMutable,
+        protocol::address::AztecAddress,
+        state_vars::{Map, Owned, PublicMutable},
     };
     // docs:end:imports
 
@@ -35,7 +34,7 @@ pub contract BobToken {
     #[external("public")]
     fn setup() {
         // Giggle becomes the owner who can mint mental health tokens
-        self.storage.owner.write(self.msg_sender().unwrap());
+        self.storage.owner.write(self.msg_sender());
     }
     // docs:end:setup
 
@@ -43,7 +42,7 @@ pub contract BobToken {
     #[external("public")]
     fn mint_public(employee: AztecAddress, amount: u64) {
         // Only Giggle can mint tokens
-        assert_eq(self.msg_sender().unwrap(), self.storage.owner.read(), "Only Giggle can mint BOB tokens");
+        assert_eq(self.msg_sender(), self.storage.owner.read(), "Only Giggle can mint BOB tokens");
 
         // Add tokens to employee's public balance
         let current_balance = self.storage.public_balances.at(employee).read();
@@ -54,7 +53,7 @@ pub contract BobToken {
     // docs:start:transfer_public
     #[external("public")]
     fn transfer_public(to: AztecAddress, amount: u64) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
         let sender_balance = self.storage.public_balances.at(sender).read();
         assert(sender_balance >= amount, "Insufficient BOB tokens");
 
@@ -70,7 +69,11 @@ pub contract BobToken {
     // docs:start:transfer_ownership
     #[external("public")]
     fn transfer_ownership(new_owner: AztecAddress) {
-        assert_eq(self.msg_sender().unwrap(), self.storage.owner.read(), "Only current admin can transfer ownership");
+        assert_eq(
+            self.msg_sender(),
+            self.storage.owner.read(),
+            "Only current admin can transfer ownership",
+        );
         self.storage.owner.write(new_owner);
     }
     // docs:end:transfer_ownership
@@ -78,7 +81,7 @@ pub contract BobToken {
     // docs:start:public_to_private
     #[external("private")]
     fn public_to_private(amount: u64) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
         // This will enqueue a public function to deduct from public balance
         self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
@@ -98,11 +101,10 @@ pub contract BobToken {
     }
     // docs:end:_deduct_public_balance
 
-
     // docs:start:transfer_private
     #[external("private")]
     fn transfer_private(to: AztecAddress, amount: u64) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
         // Spend sender's notes (consumes existing notes)
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,
@@ -138,7 +140,7 @@ pub contract BobToken {
     #[external("private")]
     fn mint_private(employee: AztecAddress, amount: u64) {
         // Enqueue ownership check (will revert if not Giggle)
-        self.enqueue_self._assert_is_owner(self.msg_sender().unwrap());
+        self.enqueue_self._assert_is_owner(self.msg_sender());
 
         // If check passes, mint tokens privately
         self.storage.private_balances.at(employee).add(amount as u128).deliver(
@@ -147,11 +149,10 @@ pub contract BobToken {
     }
     // docs:end:mint_private
 
-
     // docs:start:private_to_public
     #[external("private")]
     fn private_to_public(amount: u64) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
         // Remove from private balance
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,

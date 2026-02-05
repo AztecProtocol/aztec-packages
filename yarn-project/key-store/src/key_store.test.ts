@@ -12,14 +12,14 @@ describe('KeyStore', () => {
     // Arbitrary fixed values
     const sk = new Fr(8923n);
     const keys = await deriveKeys(sk);
-    const derivedMasterNullifierPublicKey = await derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
+    const derivedMasterNullifierPublicKey = await derivePublicKeyFromSecretKey(keys.masterNullifierHidingKey);
     const computedMasterNullifierPublicKeyHash = await derivedMasterNullifierPublicKey.hash();
 
     const partialAddress = new Fr(243523n);
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x13c731a2c339964488f847ca0dac49ac71dafc3f34bab6ec3e5d83e7468885ab"`,
+      `"0x0524874045d59753763a315d02910a5ecce0fc36955f174c39a2b6274940d3dc"`,
     );
 
     const { pkM: masterNullifierPublicKey } = await keyStore.getKeyValidationRequest(
@@ -27,61 +27,61 @@ describe('KeyStore', () => {
       await AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey.toString()).toMatchInlineSnapshot(
-      `"0x1c088f4e4a711f236a88b55da9ddf388de0bc00d56a5ceca96cea3a5cbe75bf32db0a333ba30c36b844d9fc6d2fb0de8d10e4371f0c5baebae452d90ff366798"`,
+      `"0x071c69785123d87f750ef7ee094862f4c3cc80ffe8a0aaed4c00ea3f16cb16a413d525e648aa0b2e23169d1764988cf4977842290e7bb47c27cf49b18c5f71df"`,
     );
 
     const masterIncomingViewingPublicKey = await keyStore.getMasterIncomingViewingPublicKey(accountAddress);
     expect(masterIncomingViewingPublicKey.toString()).toMatchInlineSnapshot(
-      `"0x232d0b445d097fbc2046012c3fc474f6a9beef97eda1d8d1f2487dbe501ee1e70e8db9a824531a14e8717dee54cbb7abfec29a88c550a49617258bd6fd858242"`,
+      `"0x287057dc27511b89cf59d836c62a4b807fe781a3a055885a04cfa3c1e9de0aeb14c46440ee0d56d6d20cc4b41a5641177b9e6771f8d9c32a782e5150c70d2572"`,
     );
 
     const masterOutgoingViewingPublicKey = await keyStore.getMasterOutgoingViewingPublicKey(accountAddress);
     expect(masterOutgoingViewingPublicKey.toString()).toMatchInlineSnapshot(
-      `"0x076429010fdebfa522b053267f654a4c5daf18589915d96f7e5001d63ea2033f27f915f254560c84450aa38e93c3162be52492d05b316e75f542e3b302117360"`,
+      `"0x1dca347bddbf9393477b9025933aad7d662247de5b8dfb626092b947f793aec02b8564965efcd0dd44b82df466d7d00f66a6ce151fa4ff1bc30d7720f7214c27"`,
     );
 
     const masterTaggingPublicKey = await keyStore.getMasterTaggingPublicKey(accountAddress);
     expect(masterTaggingPublicKey.toString()).toMatchInlineSnapshot(
-      `"0x07cec19d32f1cbaaacf16edc081021b696c86dff14160779373ffc77b04568e7076f25b0e7f0d02fd6433d788483e2262c1e45c5962790b40d1cd7efbd5253d3"`,
+      `"0x2ce7747ea2e81c17d7477bc35054e1925b8430e640871583b1b751d27753d8281047d83b66b62263ed483d02545d97551f13f3eafc4e4b88eb265bdf3e288bb1"`,
     );
 
     const masterIncomingViewingSecretKey = await keyStore.getMasterIncomingViewingSecretKey(accountAddress);
     expect(masterIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
+      `"0x0a57d767ba58dfd3c3deb4f96b0c30b051401bc5bd4e8b01ffca40754f45d40f"`,
     );
 
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
-    const { pkM: obtainedMasterNullifierPublicKey, skApp: appNullifierSecretKey } =
+    const { pkM: obtainedMasterNullifierPublicKey, skApp: appNullifierHidingKey } =
       await keyStore.getKeyValidationRequest(computedMasterNullifierPublicKeyHash, appAddress);
-    expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x0030e54eefa97f61f384e112dcf7859583494e0e1823a272d18ea93eb110c0a7"`,
+    expect(appNullifierHidingKey.toString()).toMatchInlineSnapshot(
+      `"0x2224595adef73358c40640c1bcd194e91e3116d4d2eb6c9ac1c2b13a6ee12941"`,
     );
     expect(obtainedMasterNullifierPublicKey).toEqual(masterNullifierPublicKey);
 
     const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x296c9931262d8b95b4cbbcc66ac4c97d2cc3fab4da5eedc08fcff80f1ce37e34"`,
+      `"0x1329a2ba3e38f72c8d7af23ccd06470e8c3b89307ae4eb947854b43f779af833"`,
     );
 
     // Returned accounts are as expected
     const accounts = await keyStore.getAccounts();
     expect(accounts.toString()).toMatchInlineSnapshot(
-      `"0x13c731a2c339964488f847ca0dac49ac71dafc3f34bab6ec3e5d83e7468885ab"`,
+      `"0x0524874045d59753763a315d02910a5ecce0fc36955f174c39a2b6274940d3dc"`,
     );
 
-    // Manages to find master nullifer secret key for pub key
-    const masterNullifierSecretKey = await keyStore.getMasterSecretKey(masterNullifierPublicKey);
-    expect(masterNullifierSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x1f1f43082427fed511393bbabf8a471eb87af09f0e95bb740dc33e1ced1a54c1"`,
+    // Manages to find master nullifier hiding key for pub key
+    const masterNullifierHidingKey = await keyStore.getMasterSecretKey(masterNullifierPublicKey);
+    expect(masterNullifierHidingKey.toString()).toMatchInlineSnapshot(
+      `"0x16259779b6c6231c88cd09d6ddc5afd97ee8868e9a4aea1cfb930fee185d53c0"`,
     );
 
     // Manages to find master incoming viewing secret key for pub key
     const masterIncomingViewingSecretKeyFromPublicKey =
       await keyStore.getMasterSecretKey(masterIncomingViewingPublicKey);
     expect(masterIncomingViewingSecretKeyFromPublicKey.toString()).toMatchInlineSnapshot(
-      `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
+      `"0x0a57d767ba58dfd3c3deb4f96b0c30b051401bc5bd4e8b01ffca40754f45d40f"`,
     );
   });
 });

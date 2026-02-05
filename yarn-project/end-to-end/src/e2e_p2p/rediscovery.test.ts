@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { sleep } from '@aztec/foundation/sleep';
 
 import fs from 'fs';
@@ -32,11 +33,12 @@ describe('e2e_p2p_rediscovery', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
       },
     });
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -49,10 +51,10 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   it('should re-discover stored peers without bootstrap node', async () => {
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -85,7 +87,7 @@ describe('e2e_p2p_rediscovery', () => {
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider,
+        t.ctx.dateProvider!,
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
@@ -108,18 +110,15 @@ describe('e2e_p2p_rediscovery', () => {
     // now ensure that all txs were successfully mined
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          const txHash = await tx.getTxHash();
-          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
-          return tx
-            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
-            .then(() => {
-              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
-            })
-            .catch(err => {
-              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
-              throw err;
-            });
+        txs.map(async (txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash: txHash.toString() });
+          try {
+            await waitForTx(newNodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
+            t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash: txHash.toString() });
+          } catch (err) {
+            t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash: txHash.toString() });
+            throw err;
+          }
         }),
       ),
     );

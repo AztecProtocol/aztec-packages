@@ -3,6 +3,7 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr", "yarn-project/end-to-end/src/composed/docs_examples.test.ts", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
 ---
 
 ## What is a Call
@@ -130,35 +131,38 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr rust
+#include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
-For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
+To prevent this you can enqueue a call to a public function using `self.enqueue_incognito` that behaves the same as `self.enqueue` but conceals the message sender.
 
-An example of how a deadline can be checked using the router contract follows:
+To address this, we have introduced a `PublicChecks` contract that can be used to perform common checks, such as verifying the timestamp or block number.
+By having these checks on a contract shared between apps the privacy set increases.
+
+An example of how a deadline can be checked using the `PublicChecks` contract follows:
 
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
-`privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
+`privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the `PublicChecks` contract:
 
-#include_code helper_router_functions /noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr rust
+#include_code helper_public_checks_functions /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/main.nr rust
 
 :::note
-The router contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
+The `PublicChecks` contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
 To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-router = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract" }
+public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/public_checks_contract" }
 ```
 
 :::
 
-Even with the router contract, achieving good privacy is hard.
+Even with the public checks contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
 For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/how_to_define_storage.md#delayed-public-mutable) state when possible.
 

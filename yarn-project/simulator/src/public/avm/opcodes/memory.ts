@@ -242,7 +242,7 @@ export class ReturndataSize extends Instruction {
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
 
-    memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
+    memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length()));
   }
 }
 

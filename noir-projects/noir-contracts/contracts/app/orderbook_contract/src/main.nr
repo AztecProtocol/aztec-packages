@@ -35,13 +35,13 @@ pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
-        oracle::notes::check_nullifier_exists,
-        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        oracle::nullifiers::check_nullifier_exists,
+        protocol::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
     };
 
     use token::Token;
-    use uint_note::uint_note::PartialUintNote;
+    use uint_note::PartialUintNote;
 
     // The event contains only the `order_id` as the order itself can be retrieved via the `get_order` function.
     #[event]
@@ -81,7 +81,7 @@ pub contract Orderbook {
         // Create the order (this validates the input tokens and amounts).
         let order = Order::new(config, bid_amount, ask_amount, bid_token, ask_token);
 
-        let maker = self.msg_sender().unwrap();
+        let maker = self.msg_sender();
 
         // Transfer tokens from maker to the public balance of this contract.
         self.call(Token::at(bid_token).transfer_to_public(
@@ -123,7 +123,7 @@ pub contract Orderbook {
     fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = self.storage.config.read();
         let order = self.storage.orders.at(order_id).read();
-        let taker = self.msg_sender().unwrap();
+        let taker = self.msg_sender();
 
         // Determine which tokens are being exchanged based on bid_token_is_zero flag
         let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);

@@ -16,6 +16,32 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 static auto& engine = numeric::get_debug_randomness();
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+TranslatorFlavor::VerificationKey create_vk_from_proving_key(
+    const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
+{
+    TranslatorFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+// Compute VK hash from fixed commitments (for test verification that vk_hash() is correct)
+TranslatorFlavor::FF compute_translator_vk_hash()
+{
+    std::vector<TranslatorFlavor::FF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : TranslatorHardcodedVKAndHash::get_all()) {
+        auto frs = TranslatorFlavor::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return TranslatorFlavor::HashFunction::hash(elements);
+}
+
 class TranslatorTests : public ::testing::Test {
     using G1 = g1::affine_element;
     using Fr = fr;
@@ -29,18 +55,17 @@ class TranslatorTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for Translator verification
-     * @details The manifest has 43 rounds total:
+     * @details The manifest has 26 rounds total:
      * - Round 0: vk_hash, Gemini masking, 82 wire commitments -> beta challenge
      * - Round 1: (empty) -> gamma challenge
-     * - Round 2: Z_PERM -> Sumcheck:alpha challenge
-     * - Rounds 3-19: Gate challenges (17 rounds)
-     * - Round 20: Libra:concatenation_commitment + Sum -> Libra:Challenge
-     * - Rounds 21-37: Sumcheck univariates (17 rounds)
-     * - Round 38: Sumcheck evaluations + Libra commitments -> rho
-     * - Round 39: Gemini fold commitments -> Gemini:r
-     * - Round 40: Gemini evaluations + Libra evals -> Shplonk:nu
-     * - Round 41: Shplonk:Q -> Shplonk:z
-     * - Round 42: KZG:W -> KZG:masking_challenge
+     * - Round 2: Z_PERM -> Sumcheck:alpha + all gate challenges
+     * - Round 3: Libra:concatenation_commitment + Sum -> Libra:Challenge
+     * - Rounds 4-20: Sumcheck univariates (17 rounds)
+     * - Round 21: Sumcheck evaluations + Libra commitments -> rho
+     * - Round 22: Gemini fold commitments -> Gemini:r
+     * - Round 23: Gemini evaluations + Libra evals -> Shplonk:nu
+     * - Round 24: Shplonk:Q -> Shplonk:z
+     * - Round 25: KZG:W -> KZG:masking_challenge
      */
     static TranscriptManifest build_expected_translator_manifest()
     {
@@ -101,63 +126,60 @@ class TranslatorTests : public ::testing::Test {
         for (const auto& label : wire_labels) {
             manifest.add_entry(0, label, frs_per_G);
         }
+        // beta and gamma are consecutive challenges (no data between), so both in round 0
         manifest.add_challenge(0, "beta");
+        manifest.add_challenge(0, "gamma");
 
-        // Round 1: gamma challenge (no entries)
-        manifest.add_challenge(1, "gamma");
-
-        // Round 2: Z_PERM -> Sumcheck:alpha
-        manifest.add_entry(2, "Z_PERM", frs_per_G);
-        manifest.add_challenge(2, "Sumcheck:alpha");
-
-        // Rounds 3-19: Gate challenges (17 rounds)
+        // Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges (same round, no data between them)
+        manifest.add_entry(1, "Z_PERM", frs_per_G);
+        manifest.add_challenge(1, "Sumcheck:alpha");
         for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_challenge(3 + i, "Sumcheck:gate_challenge_" + std::to_string(i));
+            manifest.add_challenge(1, "Sumcheck:gate_challenge_" + std::to_string(i));
         }
 
-        // Round 20: Libra concatenation commitment + Sum -> Libra:Challenge
-        manifest.add_entry(20, "Libra:concatenation_commitment", frs_per_G);
-        manifest.add_entry(20, "Libra:Sum", 1);
-        manifest.add_challenge(20, "Libra:Challenge");
+        // Round 2: Libra concatenation commitment + Sum -> Libra:Challenge
+        manifest.add_entry(2, "Libra:concatenation_commitment", frs_per_G);
+        manifest.add_entry(2, "Libra:Sum", 1);
+        manifest.add_challenge(2, "Libra:Challenge");
 
-        // Rounds 21-37: Sumcheck univariates (17 rounds)
+        // Rounds 3-19: Sumcheck univariates (17 rounds)
         for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_entry(21 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
-            manifest.add_challenge(21 + i, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 
-        // Round 38: Sumcheck evaluations + Libra commitments -> rho
-        manifest.add_entry(38, "Sumcheck:evaluations", 188);
-        manifest.add_entry(38, "Libra:claimed_evaluation", 1);
-        manifest.add_entry(38, "Libra:grand_sum_commitment", frs_per_G);
-        manifest.add_entry(38, "Libra:quotient_commitment", frs_per_G);
-        manifest.add_challenge(38, "rho");
+        // Round 20: Sumcheck evaluations + Libra commitments -> rho
+        manifest.add_entry(20, "Sumcheck:evaluations", 188);
+        manifest.add_entry(20, "Libra:claimed_evaluation", 1);
+        manifest.add_entry(20, "Libra:grand_sum_commitment", frs_per_G);
+        manifest.add_entry(20, "Libra:quotient_commitment", frs_per_G);
+        manifest.add_challenge(20, "rho");
 
-        // Round 39: Gemini fold commitments -> Gemini:r
+        // Round 21: Gemini fold commitments -> Gemini:r
         for (size_t i = 1; i <= 16; ++i) {
-            manifest.add_entry(39, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+            manifest.add_entry(21, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
-        manifest.add_challenge(39, "Gemini:r");
+        manifest.add_challenge(21, "Gemini:r");
 
-        // Round 40: Gemini evaluations + Libra evals -> Shplonk:nu
+        // Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
         for (size_t i = 1; i <= 17; ++i) {
-            manifest.add_entry(40, "Gemini:a_" + std::to_string(i), 1);
+            manifest.add_entry(22, "Gemini:a_" + std::to_string(i), 1);
         }
-        manifest.add_entry(40, "Gemini:P_pos", 1);
-        manifest.add_entry(40, "Gemini:P_neg", 1);
-        manifest.add_entry(40, "Libra:concatenation_eval", 1);
-        manifest.add_entry(40, "Libra:shifted_grand_sum_eval", 1);
-        manifest.add_entry(40, "Libra:grand_sum_eval", 1);
-        manifest.add_entry(40, "Libra:quotient_eval", 1);
-        manifest.add_challenge(40, "Shplonk:nu");
+        manifest.add_entry(22, "Gemini:P_pos", 1);
+        manifest.add_entry(22, "Gemini:P_neg", 1);
+        manifest.add_entry(22, "Libra:concatenation_eval", 1);
+        manifest.add_entry(22, "Libra:shifted_grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:quotient_eval", 1);
+        manifest.add_challenge(22, "Shplonk:nu");
 
-        // Round 41: Shplonk:Q -> Shplonk:z
-        manifest.add_entry(41, "Shplonk:Q", frs_per_G);
-        manifest.add_challenge(41, "Shplonk:z");
+        // Round 23: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(23, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(23, "Shplonk:z");
 
-        // Round 42: KZG:W -> KZG:masking_challenge
-        manifest.add_entry(42, "KZG:W", frs_per_G);
-        manifest.add_challenge(42, "KZG:masking_challenge");
+        // Round 24: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(24, "KZG:W", frs_per_G);
+        manifest.add_challenge(24, "KZG:masking_challenge");
 
         return manifest;
     }
@@ -276,7 +298,7 @@ TEST_F(TranslatorTests, ProofLengthCheck)
     // Generate proof
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 }
 
 /**
@@ -327,7 +349,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit
  * @note If this test fails, it may be because the constant CONST_TRANSLATOR_LOG_N has changed and the fixed VK
- * commitments in TranslatorFixedVKCommitments must be updated accordingly. Their values can be taken right from the
+ * commitments in TranslatorHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the
  * output of this test.
  *
  */
@@ -350,7 +372,7 @@ TEST_F(TranslatorTests, FixedVK)
             generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
-        TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
@@ -368,6 +390,15 @@ TEST_F(TranslatorTests, FixedVK)
 
     compare_computed_vk_against_fixed(circuit_size_parameter_1);
     compare_computed_vk_against_fixed(circuit_size_parameter_2);
+
+    // Verify that the hardcoded VK hash matches the computed hash
+    auto computed_hash = compute_translator_vk_hash();
+    auto hardcoded_hash = TranslatorHardcodedVKAndHash::vk_hash();
+    if (computed_hash != hardcoded_hash) {
+        info("VK hash mismatch! Update TranslatorHardcodedVKAndHash::vk_hash() with:");
+        info("0x", computed_hash);
+    }
+    EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
 }
 
 /**

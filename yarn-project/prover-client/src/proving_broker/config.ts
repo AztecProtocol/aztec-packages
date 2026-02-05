@@ -31,6 +31,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerBatchIntervalMs: z.number().int().nonnegative(),
   /** The maximum number of epochs to keep results for */
   proverBrokerMaxEpochsToKeepResultsFor: z.number().int().nonnegative(),
+  /** Enable debug replay mode for replaying proving jobs from stored inputs */
+  proverBrokerDebugReplayEnabled: z.boolean(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -74,6 +76,11 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: "The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.",
   },
+  proverBrokerDebugReplayEnabled: {
+    env: 'PROVER_BROKER_DEBUG_REPLAY_ENABLED',
+    description: 'Enable debug replay mode for replaying proving jobs from stored inputs',
+    ...booleanConfigHelper(false),
+  },
   ...dataConfigMappings,
   ...l1ReaderConfigMappings,
   ...pickConfigMappings(chainConfigMappings, ['rollupVersion']),
@@ -100,6 +107,10 @@ export const ProverAgentConfig = z.object({
   proverTestDelayFactor: z.number(),
   /** The delay (ms) to inject during fake proof verification */
   proverTestVerificationDelayMs: z.number().optional(),
+  /** Whether to abort pending proving jobs when the orchestrator is cancelled */
+  cancelJobsOnStop: z.boolean(),
+  /** Where to store proving results. Must be accessible to both prover node and agents. If not set will inline-encode the parameters */
+  proofStore: z.string().optional(),
 });
 
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
@@ -152,5 +163,16 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     env: 'PROVER_TEST_VERIFICATION_DELAY_MS',
     description: 'The delay (ms) to inject during fake proof verification',
     ...numberConfigHelper(10),
+  },
+  cancelJobsOnStop: {
+    env: 'PROVER_CANCEL_JOBS_ON_STOP',
+    description:
+      'Whether to abort pending proving jobs when the orchestrator is cancelled. ' +
+      'When false (default), jobs remain in the broker queue and can be reused on restart/reorg.',
+    ...booleanConfigHelper(false),
+  },
+  proofStore: {
+    env: 'PROVER_PROOF_STORE',
+    description: 'Optional proof input store for the prover',
   },
 };

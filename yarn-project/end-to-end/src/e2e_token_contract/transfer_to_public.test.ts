@@ -9,8 +9,8 @@ describe('e2e_token_contract transfer_to_public', () => {
   let { asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t);
@@ -29,7 +29,7 @@ describe('e2e_token_contract transfer_to_public', () => {
     const amount = balancePriv / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.transfer_to_public(adminAddress, adminAddress, amount, 0).send({ from: adminAddress }).wait();
+    await asset.methods.transfer_to_public(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
 
     tokenSim.transferToPublic(adminAddress, adminAddress, amount);
   });
@@ -47,14 +47,15 @@ describe('e2e_token_contract transfer_to_public', () => {
     // But doing it in two actions to show the flow.
     const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
-    await action.send({ from: account1Address, authWitnesses: [witness] }).wait();
+    await action.send({ from: account1Address, authWitnesses: [witness] });
     tokenSim.transferToPublic(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset.methods
-      .transfer_to_public(adminAddress, account1Address, amount, authwitNonce)
-      .send({ from: account1Address, authWitnesses: [witness] });
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(
+      asset.methods
+        .transfer_to_public(adminAddress, account1Address, amount, authwitNonce)
+        .send({ from: account1Address, authWitnesses: [witness] }),
+    ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
   describe('failure cases', () => {

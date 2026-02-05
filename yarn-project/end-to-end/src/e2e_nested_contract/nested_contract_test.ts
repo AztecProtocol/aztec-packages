@@ -6,17 +6,15 @@ import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
+  type EndToEndContext,
   deployAccounts,
   publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
-
-const { E2E_DATA_PATH: dataPath } = process.env;
+  setup,
+  teardown as teardownSubsystems,
+} from '../fixtures/setup.js';
 
 export class NestedContractTest {
-  private snapshotManager: ISnapshotManager;
+  context!: EndToEndContext;
   logger: Logger;
   wallet!: Wallet;
   defaultAccountAddress!: AztecAddress;
@@ -30,67 +28,46 @@ export class NestedContractTest {
     private numberOfAccounts = 1,
   ) {
     this.logger = createLogger(`e2e:e2e_nested_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}-${numberOfAccounts}`, dataPath);
   }
 
   /**
-   * Adds two state shifts to snapshot manager.
-   * 1. Add 3 accounts.
-   * 2. Publicly deploy accounts
+   * Applies base setup by deploying accounts and publicly deploying them.
    */
-  async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot(
-      'accounts',
-      deployAccounts(this.numberOfAccounts, this.logger),
-      ({ deployedAccounts }, { wallet, aztecNode }) => {
-        this.wallet = wallet;
-        [{ address: this.defaultAccountAddress }] = deployedAccounts;
-        this.aztecNode = aztecNode;
-        return Promise.resolve();
-      },
-    );
+  async applyBaseSetup() {
+    this.logger.info('Deploying accounts');
+    const { deployedAccounts } = await deployAccounts(
+      this.numberOfAccounts,
+      this.logger,
+    )({
+      wallet: this.context.wallet,
+      initialFundedAccounts: this.context.initialFundedAccounts,
+    });
+    this.wallet = this.context.wallet;
+    [{ address: this.defaultAccountAddress }] = deployedAccounts;
+    this.aztecNode = this.context.aztecNodeService!;
 
-    await this.snapshotManager.snapshot(
-      'public_deploy',
-      async () => {},
-      async () => {
-        this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
-      },
-    );
+    this.logger.info('Public deploy accounts');
+    await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
   }
 
   async setup() {
-    await this.snapshotManager.setup();
+    this.logger.info('Setting up fresh subsystems');
+    this.context = await setup(0, {
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
+    await this.applyBaseSetup();
   }
 
   async teardown() {
-    await this.snapshotManager.teardown();
+    await teardownSubsystems(this.context);
   }
 
-  snapshot = <T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
-
-  async applyManualSnapshots() {
-    await this.snapshotManager.snapshot(
-      'manual',
-      async () => {
-        const parentContract = await ParentContract.deploy(this.wallet)
-          .send({ from: this.defaultAccountAddress })
-          .deployed();
-        const childContract = await ChildContract.deploy(this.wallet)
-          .send({ from: this.defaultAccountAddress })
-          .deployed();
-        return { parentContractAddress: parentContract.address, childContractAddress: childContract.address };
-      },
-      ({ parentContractAddress, childContractAddress }) => {
-        this.parentContract = ParentContract.at(parentContractAddress, this.wallet);
-        this.childContract = ChildContract.at(childContractAddress, this.wallet);
-        return Promise.resolve();
-      },
-    );
+  async applyManual() {
+    this.logger.info('Deploying parent and child contracts');
+    const parentContract = await ParentContract.deploy(this.wallet).send({ from: this.defaultAccountAddress });
+    const childContract = await ChildContract.deploy(this.wallet).send({ from: this.defaultAccountAddress });
+    this.parentContract = parentContract;
+    this.childContract = childContract;
   }
 }

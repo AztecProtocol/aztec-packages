@@ -87,6 +87,11 @@ BlockNumber.isValid = function (value: unknown): value is BlockNumber {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
+/** Increments a BlockNumber by a given value. */
+BlockNumber.add = function (bn: BlockNumber, increment: number): BlockNumber {
+  return BlockNumber(bn + increment);
+};
+
 /**
  * The zero block value (genesis block).
  */

@@ -17,8 +17,9 @@ bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
 {
     bool res = a > b;
     const uint128_t abs_diff = res ? a - b - 1 : b - a;
-    const uint8_t num_bits_bound = static_cast<uint8_t>(uint256_t::from_uint128(abs_diff).get_msb() + 1);
-    const uint8_t num_bits_bound_16 = ((num_bits_bound - 1) / 16 + 1) * 16; // round up to multiple of 16
+    const uint8_t num_bits_bound = static_cast<uint8_t>(static_cast<uint256_t>(abs_diff).get_msb() + 1);
+    const uint8_t num_bits_bound_16 =
+        static_cast<uint8_t>(((num_bits_bound - 1) / 16 + 1) * 16); // round up to multiple of 16
     range_check.assert_range(abs_diff, num_bits_bound_16);
     events.emit({
         .a = a,

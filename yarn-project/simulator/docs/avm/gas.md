@@ -1,0 +1,108 @@
+# Gas Metering
+
+The AVM tracks gas consumption across two dimensions: **L2 gas** (execution costs, also called **mana**) and **DA gas** (data availability costs).
+
+## Gas Dimensions
+
+* **L2 Gas** (mana): roughly represents the computational cost of executing (and especially proving) operations.
+* **DA Gas**: represents the cost of publishing data to Layer 1 for data availability. This includes:
+  - State updates that must be published to L1
+  - Emitting logs
+  - Writing to public storage
+  - Emitting new nullifiers
+  - Emitting new note hashes
+  - Sending new l2 to l1 messages
+
+## Gas Cost Components
+
+Every opcode has an L2 base cost. The remaining cost components are present for some opcodes on a case-by-case basis:
+1. L2 base cost
+2. DA base cost
+3. Addressing cost
+4. L2 dynamic cost
+5. DA dynamic cost
+
+### Base Costs
+
+**Base costs** are fixed amounts charged for every execution of an opcode:
+- **L2 Base**: Fixed computational cost
+- **DA Base**: Fixed data availability cost (0 for most opcodes)
+
+Base costs are charged at the start of an instruction's execution.
+
+### Addressing Costs
+
+**Addressing costs** are L2 costs charged for non-direct memory addressing modes (see [Addressing Modes](addressing.md)):
+- **3 L2 gas** per indirect memory offset
+- **3 L2 gas** per relative memory offset
+
+These are statically determined by an instruction's addressing mode bitmask.
+
+Addressing costs are _also_ charged at the start of an instruction's execution.
+
+### Dynamic Costs
+
+**Dynamic costs** scale with runtime values, typically based on data sizes or operation complexity:
+- **L2 Dynamic**: Variable computational cost
+- **DA Dynamic**: Variable data availability cost
+
+Dynamic costs are charged after operands are resolved as they often scale with some resolved memory value. Most instructions do _not_ have dynamic costs.
+
+## Example
+Some instructions have gas costs that scale with runtime values (e.g., data sizes). Since these values often come from resolved memory offsets, dynamic gas must be charged **after** operand resolution.
+
+**Example**: `CALLDATACOPY` has dynamic L2 gas that scales with `M[copySizeOffset]`. The VM must:
+1. Charge base gas
+2. Charge L2 Addressing costs for the addressing modes
+3. Resolve `copySizeOffset` and access the actual memory value containing `copySize`
+4. Charge dynamic L2 gas: `base_dynamic_cost × M[copySizeOffset]`
+
+## Gas Cost Tables
+
+Each instruction in the [Instruction Set](avm-isa-quick-reference.md) includes a Gas Costs table with these columns:
+
+- **Component**: The type of gas cost (L2 Base, DA Base, L2 Addressing, L2 Dynamic, DA Dynamic)
+- **Value**: The amount of gas charged per unit
+- **Scales with**: What the cost scales with (for dynamic and addressing costs)
+
+### Example Gas Cost Table
+
+| Component | Value | Scales with |
+|-----------|-------|-------------|
+| L2 Base | 50 | - |
+| DA Base | 100 | - |
+| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
+| L2 Dynamic | 10 | `M[sizeOffset]` |
+
+This indicates:
+- 50 L2 gas - charged immediately (base)
+- 100 DA gas - charged immediately (base)
+- 3 L2 gas per indirect/relative addressing mode used - charged immediately
+- Additional L2 gas equal to `10 × M[sizeOffset]` - charged after operand resolution
+
+## Measuring Total Gas
+
+To calculate the total gas consumed by an instruction:
+
+```
+Total L2 Gas = L2_Base + L2_Addressing + L2_Dynamic
+Total DA Gas = DA_Base + DA_Dynamic
+
+Where:
+  L2_Addressing = 3 × (indirect_count + relative_count)
+  L2_Dynamic = dynamic_rate × resolved_scaling_value (if applicable)
+  DA_Dynamic = dynamic_rate × resolved_scaling_value (if applicable)
+```
+
+> Note that sometimes dynamic scaling is not as straightforward as just a single multiplication!
+
+## Gas Exhaustion
+
+If an instruction attempts to charge gas that exceeds the remaining available gas, this triggers an execution error.
+
+## Gas in External Calls
+
+When a contract makes an external call via `CALL` or `STATICCALL`, gas is explicitly allocated to the nested call. The caller specifies how much L2 and DA gas to pass, and any unused gas is refunded when the nested call returns. See [External Calls](./external-calls.md) for details on gas allocation, charging, and refunds during nested contract calls.
+
+---
+← Previous: [Execution Lifecycle](./execution-lifecycle.md) | Next: [Errors](./errors.md) →

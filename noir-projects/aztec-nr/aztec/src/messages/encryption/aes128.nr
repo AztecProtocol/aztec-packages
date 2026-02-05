@@ -1,4 +1,4 @@
-use dep::protocol_types::{
+use crate::protocol::{
     address::AztecAddress,
     constants::{DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
@@ -10,18 +10,15 @@ use crate::{
     keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_ephemeral_key_pair},
     messages::{
         encoding::{
-            EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
+            EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+            MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
         },
         encryption::message_encryption::MessageEncryption,
         logs::arithmetic_generics_utils::{
-            get_arr_of_size__message_bytes__from_PT,
-            get_arr_of_size__message_bytes_padding__from_PT,
+            get_arr_of_size__message_bytes__from_PT, get_arr_of_size__message_bytes_padding__from_PT,
         },
     },
-    oracle::{
-        aes128_decrypt::aes128_decrypt_oracle, random::random, shared_secret::get_shared_secret,
-    },
+    oracle::{aes128_decrypt::aes128_decrypt_oracle, random::random, shared_secret::get_shared_secret},
     utils::{
         array,
         conversion::{
@@ -35,78 +32,75 @@ use crate::{
 
 use std::aes128::aes128_encrypt;
 
-/**
- * Computes N close-to-uniformly-random 256 bits from a given ECDH shared_secret.
- *
- * NEVER re-use the same iv and sym_key.
- * DO NOT call this function more than once with the same shared_secret.
- *
- * This function is only known to be safe if shared_secret is computed by combining a 
- * random ephemeral key with an address point. See big comment within the body of the function.
- * See big comment within the body of the function.
- */
+/// Computes N close-to-uniformly-random 256 bits from a given ECDH shared_secret.
+///
+/// NEVER re-use the same iv and sym_key. DO NOT call this function more than once with the same shared_secret.
+///
+/// This function is only known to be safe if shared_secret is computed by combining a random ephemeral key with an
+/// address point. See big comment within the body of the function. See big comment within the body of the function.
 fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
 ) -> [[u8; 32]; N] {
     /*
-     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two paragraphs below it).
-     *
-     * If you call this function, you need to be careful and aware of how the arg
-     * `shared_secret` has been derived.
-     *
-     * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
-     * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the * two exponents x & y which multiply to the shared secret S:
-     *
-     * S = [x*y]*G.
-     *
-     * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
-     * which can be public and compute Hash(x) as poseidon(K,x)).
-     * In that lemma, k would be 2*254=508, and m would be the number of points on the * grumpkin curve (which is close to r according to the Hasse bound).
-     *
-     * Our shared secret S is [esk * address_sk] * G, and the question is: * Can we compute hash(S) using poseidon2 instead of sha256?
-     *
-     * Well, esk is random and not generated with poseidon2, so that's good.
-     * What about address_sk?
-     * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
-     * discussion about whether address_sk is independent of poseidon2.
-     * Given that ivsk is random and independent of poseidon2, the address_sk is also
-     * independent of poseidon2.
-     *
-     * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
-     * in order to derive a symmetric key.
-     *
-     * If you're calling this function for a differently-derived `shared_secret`, be
-     * careful.
-     *
-     */
+     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two
+    paragraphs below it).
+    *
+    * If you call this function, you need to be careful and aware of how the arg
+    * `shared_secret` has been derived.
+    *
+    * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
+    * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the * two
+    exponents x & y which multiply to the shared secret S:
+    *
+    * S = [x*y]*G.
+    *
+    * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
+    * which can be public and compute Hash(x) as poseidon(K,x)).
+    * In that lemma, k would be 2*254=508, and m would be the number of points on the * grumpkin
+    curve (which is close to r according to the Hasse bound).
+    *
+    * Our shared secret S is [esk * address_sk] * G, and the question is: * Can we compute hash(S)
+    using poseidon2 instead of sha256?
+    *
+    * Well, esk is random and not generated with poseidon2, so that's good.
+    * What about address_sk?
+    * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
+    * discussion about whether address_sk is independent of poseidon2.
+    * Given that ivsk is random and independent of poseidon2, the address_sk is also
+    * independent of poseidon2.
+    *
+    * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
+    * in order to derive a symmetric key.
+    *
+    * If you're calling this function for a differently-derived `shared_secret`, be
+    * careful.
+    *
+    */
+    
 
     /* The output of this function needs to be 32 random bytes.
      * A single field won't give us 32 bytes of entropy.
-     * So we compute two "random" fields, by poseidon-hashing with two different
-     * generators.
-     * We then extract the last 16 (big endian) bytes of each "random" field.
-     * Note: we use to_be_bytes because it's slightly more efficient. But we have to
-     * be careful not to take bytes from the "big end", because the "big" byte is
-     * not uniformly random over the byte: it only has < 6 bits of randomness, because
-     * it's the big end of a 254-bit field element.
-     */
+    * So we compute two "random" fields, by poseidon-hashing with two different
+    * generators.
+    * We then extract the last 16 (big endian) bytes of each "random" field.
+    * Note: we use to_be_bytes because it's slightly more efficient. But we have to
+    * be careful not to take bytes from the "big end", because the "big" byte is
+    * not uniformly random over the byte: it only has < 6 bits of randomness, because
+    * it's the big end of a 254-bit field element.
+    */
 
     let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
-    // We restrict N to be < 2^8, because of how we compute the domain separator
-    // from k below (where k <= N must be 8 bits). In practice, it's extremely
-    // unlikely that an app will want to compute >= 256 ciphertexts.
+    // We restrict N to be < 2^8, because of how we compute the domain separator from k below (where k <= N must be 8
+    // bits). In practice, it's extremely unlikely that an app will want to compute >= 256 ciphertexts.
     std::static_assert(N < 256, "N too large");
     for k in 0..N {
-        // We augment the domain separator with the loop index, so that we can
-        // generate N lots of randomness.
-        let k_shift = (k as u16 << 8);
-        let separator_1 = k_shift + DOM_SEP__SYMMETRIC_KEY as u16;
-        let separator_2 = k_shift + DOM_SEP__SYMMETRIC_KEY_2 as u16;
+        // We augment the domain separator with the loop index, so that we can generate N lots of randomness.
+        let k_shift = (k << 8);
+        let separator_1 = k_shift + DOM_SEP__SYMMETRIC_KEY;
+        let separator_2 = k_shift + DOM_SEP__SYMMETRIC_KEY_2;
 
-        let rand1: Field =
-            poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_1);
-        let rand2: Field =
-            poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_2);
+        let rand1: Field = poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_1);
+        let rand2: Field = poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_2);
 
         let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
         let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
@@ -147,9 +141,8 @@ fn derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits<let N: u32>(
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
 ) -> [([u8; 16], [u8; 16]); N] {
-    let many_random_256_bits: [[u8; 32]; N] = extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
-        shared_secret,
-    );
+    let many_random_256_bits: [[u8; 32]; N] =
+        extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(shared_secret);
 
     derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits(many_random_256_bits)
 }
@@ -161,21 +154,20 @@ impl MessageEncryption for AES128 {
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
-        // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
-        // (This process is then reversed when processing the message in `do_process_message`)
+        // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes. (This process is then
+        // reversed when processing the message in `process_message_ciphertext`)
         let plaintext_bytes = fields_to_bytes(plaintext);
 
-        // *****************************************************************************
-        // Compute the shared secret
+        // ***************************************************************************** Compute the shared secret
         // *****************************************************************************
 
         let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
         let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
 
-        // (not to be confused with the tagging shared secret)
-        // TODO (#17158): Currently we unwrap the Option returned by derive_ecdh_shared_secret.
-        // We need to handle the case where the ephemeral public key is invalid to prevent potential DoS vectors.
+        // (not to be confused with the tagging shared secret) TODO (#17158): Currently we unwrap the Option returned
+        // by derive_ecdh_shared_secret. We need to handle the case where the ephemeral public key is invalid to
+        // prevent potential DoS vectors.
         let ciphertext_shared_secret = derive_ecdh_shared_secret(
             eph_sk,
             recipient
@@ -184,33 +176,31 @@ impl MessageEncryption for AES128 {
                     // Safety: if the recipient is an invalid address, then it is not possible to encrypt a message for
                     // them because we cannot establish a shared secret. This is never expected to occur during normal
                     // operation. However, it is technically possible for us to receive an invalid address, and we must
-                    // therefore handle it.
-                    // We could simply fail, but that'd introduce a potential security issue in which an attacker forces
-                    // a contract to encrypt a message for an invalid address, resulting in an impossible transaction -
-                    // this is sometimes called a 'king of the hill' attack.
-                    // We choose instead to not fail and encrypt the plaintext regardless using the shared secret that
-                    // results from a random valid address. The sender is free to choose this address and hence shared
-                    // secret, but this has no security implications as they already know not only the full plaintext
-                    // but also the ephemeral private key anyway.
+                    // therefore handle it. We could simply fail, but that'd introduce a potential security issue in
+                    // which an attacker forces a contract to encrypt a message for an invalid address, resulting in an
+                    // impossible transaction - this is sometimes called a 'king of the hill' attack. We choose instead
+                    // to not fail and encrypt the plaintext regardless using the shared secret that results from a
+                    // random valid address. The sender is free to choose this address and hence shared secret, but
+                    // this has no security implications as they already know not only the full plaintext but also the
+                    // ephemeral private key anyway.
                     unsafe { random_address_point() },
                 )
                 .inner,
         );
         // TODO: also use this shared secret for deriving note randomness.
 
-        // *****************************************************************************
-        // Convert the plaintext into whatever format the encryption function expects
+        // ***************************************************************************** Convert the plaintext into
+        // whatever format the encryption function expects
         // *****************************************************************************
 
         // Already done for this strategy: AES expects bytes.
 
-        // *****************************************************************************
-        // Encrypt the plaintext
+        // ***************************************************************************** Encrypt the plaintext
         // *****************************************************************************
 
-        // It is safe to call the `unsafe` function here, because we know the `shared_secret`
-        // was derived using an AztecAddress (the recipient). See the block comment
-        // at the start of this unsafe target function for more info.
+        // It is safe to call the `unsafe` function here, because we know the `shared_secret` was derived using an
+        // AztecAddress (the recipient). See the block comment at the start of this unsafe target function for more
+        // info.
         let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
@@ -224,16 +214,14 @@ impl MessageEncryption for AES128 {
         // or... since a % b is the same as a - b * (a // b) (integer division), so:
         // |pt_aes_padding| = 16 - (|full_pt| - 16 * (|full_pt| // 16))
         // |ct| = |full_pt| + |pt_aes_padding|
-        //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16))
-        //      = 16 + 16 * (|full_pt| // 16)
-        //      = 16 * (1 + |full_pt| // 16)
+        //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16)) = 16 + 16 * (|full_pt| // 16) = 16 * (1 +
+        // |full_pt| // 16)
         std::static_assert(
             ciphertext_bytes.len() == 16 * (1 + (PlaintextLen * 32) / 16),
             "unexpected ciphertext length",
         );
 
-        // *****************************************************************************
-        // Compute the header ciphertext
+        // ***************************************************************************** Compute the header ciphertext
         // *****************************************************************************
 
         // Header contains only the length of the ciphertext stored in 2 bytes.
@@ -242,9 +230,8 @@ impl MessageEncryption for AES128 {
         header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
         header_plaintext[1] = ciphertext_bytes_length as u8;
 
-        // Note: the aes128_encrypt builtin fn automatically appends bytes to the
-        // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
-        // bytes larger than the input in this case.
+        // Note: the aes128_encrypt builtin fn automatically appends bytes to the input, according to pkcs#7; hence why
+        // the output `header_ciphertext_bytes` is 16 bytes larger than the input in this case.
         let header_ciphertext_bytes = aes128_encrypt(header_plaintext, header_iv, header_sym_key);
         // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
         std::static_assert(
@@ -252,15 +239,14 @@ impl MessageEncryption for AES128 {
             "unexpected ciphertext header length",
         );
 
-        // *****************************************************************************
-        // Prepend / append more bytes of data to the ciphertext, before converting back
-        // to fields.
+        // ***************************************************************************** Prepend / append more bytes of
+        // data to the ciphertext, before converting back to fields.
         // *****************************************************************************
 
         let mut message_bytes_padding_to_mult_31 =
             get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
-        // Safety: this randomness won't be constrained to be random. It's in the
-        // interest of the executor of this fn to encrypt with random bytes.
+        // Safety: this randomness won't be constrained to be random. It's in the interest of the executor of this fn
+        // to encrypt with random bytes.
         message_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
         let mut message_bytes = get_arr_of_size__message_bytes__from_PT::<PlaintextLen * 32>();
@@ -293,27 +279,22 @@ impl MessageEncryption for AES128 {
         // computation used to obtain the offset computes the expected value (which we _can_ do in a static check), and
         // then add a cheap runtime check to also validate that the offset matches this.
         std::static_assert(
-            1
-                + header_ciphertext_bytes.len()
-                + ciphertext_bytes.len()
-                + message_bytes_padding_to_mult_31.len()
+            1 + header_ciphertext_bytes.len() + ciphertext_bytes.len() + message_bytes_padding_to_mult_31.len()
                 == message_bytes.len(),
             "unexpected message length",
         );
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
-        // *****************************************************************************
-        // Convert bytes back to fields
+        // ***************************************************************************** Convert bytes back to fields
         // *****************************************************************************
 
         // TODO(#12749): As Mike pointed out, we need to make messages produced by different encryption schemes
-        // indistinguishable from each other and for this reason the output here and in the last for-loop of this function
-        // should cover a full field.
+        // indistinguishable from each other and for this reason the output here and in the last for-loop of this
+        // function should cover a full field.
         let message_bytes_as_fields = bytes_to_fields(message_bytes);
 
-        // *****************************************************************************
-        // Prepend / append fields, to create the final message
-        // *****************************************************************************
+        // ***************************************************************************** Prepend / append fields, to
+        // create the final message *****************************************************************************
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
@@ -326,12 +307,12 @@ impl MessageEncryption for AES128 {
         offset += message_bytes_as_fields.len();
 
         for i in offset..MESSAGE_CIPHERTEXT_LEN {
-            // We need to get a random value that fits in 31 bytes to not leak information about the size of the message
-            // (all the "real" message fields contain at most 31 bytes because of the way we convert the bytes to fields).
-            // TODO(#12749): Long term, this is not a good solution.
+            // We need to get a random value that fits in 31 bytes to not leak information about the size of the
+            // message (all the "real" message fields contain at most 31 bytes because of the way we convert the bytes
+            // to fields). TODO(#12749): Long term, this is not a good solution.
 
-            // Safety: we assume that the sender wants for the message to be private - a malicious one could simply reveal its
-            // contents publicly. It is therefore fine to trust the sender to provide random padding.
+            // Safety: we assume that the sender wants for the message to be private - a malicious one could simply
+            // reveal its contents publicly. It is therefore fine to trust the sender to provide random padding.
             let field_bytes = unsafe { get_random_bytes::<31>() };
             ciphertext[i] = Field::from_be_bytes::<31>(field_bytes);
         }
@@ -373,19 +354,17 @@ impl MessageEncryption for AES128 {
             let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
             let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
                 array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
-            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
-            // with messages with unknown length at compile time. This would not be necessary here as the header ciphertext length
-            // is fixed. But we do it anyway to not have to have duplicate oracles.
+            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
+            // work with messages with unknown length at compile time. This would not be necessary here as the header
+            // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
             let header_ciphertext_bvec =
                 BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
             // Decrypt header
-            let header_plaintext =
-                aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
+            let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
 
             // Extract ciphertext length from header (2 bytes, big-endian)
-            let ciphertext_length =
-                ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
+            let ciphertext_length = ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
 
             // Extract and decrypt main ciphertext
             let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
@@ -397,14 +376,15 @@ impl MessageEncryption for AES128 {
             // Decrypt main ciphertext and return it
             let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
-            // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to fields.
+            // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to
+            // fields.
             fields_from_bytes(plaintext_bytes)
         })
     }
 }
 
 /// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
-/// [AztecAddress::to_address_point] on a random valid address.
+/// [`AztecAddress::to_address_point`] on a random valid address.
 unconstrained fn random_address_point() -> AddressPoint {
     let mut result = std::mem::zeroed();
 
@@ -425,13 +405,11 @@ unconstrained fn random_address_point() -> AddressPoint {
 mod test {
     use crate::{
         keys::ecdh_shared_secret::derive_ecdh_shared_secret,
-        messages::{
-            encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption,
-        },
+        messages::{encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption},
         test::helpers::test_environment::TestEnvironment,
     };
+    use crate::protocol::{address::AztecAddress, traits::FromField};
     use super::{AES128, random_address_point};
-    use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
@@ -469,16 +447,12 @@ mod test {
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
 
-            // The decryption function spits out a BoundedVec because it's designed to work with messages with unknown length
-            // at compile time. For this reason we need to convert the original input to a BoundedVec.
+            // The decryption function spits out a BoundedVec because it's designed to work with messages with unknown
+            // length at compile time. For this reason we need to convert the original input to a BoundedVec.
             let plaintext_bvec = BoundedVec::<Field, MESSAGE_PLAINTEXT_LEN>::from_array(plaintext);
 
             // Verify decryption matches original plaintext
-            assert_eq(
-                decrypted,
-                plaintext_bvec,
-                "Decrypted bytes should match original plaintext",
-            );
+            assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
 
             // The following is a workaround of "struct is never constructed" Noir compilation error (we only ever use
             // static methods of the struct).

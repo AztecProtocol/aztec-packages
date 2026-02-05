@@ -388,7 +388,8 @@ namespace tx;
     // ordering of the public call requests prescribed by the public inputs. Note that a re-ordering of
     // enqueued calls in execution trace would be possible though, but it would not affect the security.
     // Such a re-ordering would consist of changing the row positions (clk) but not the temporal ordering
-    // determined by the context_id's.
+    // determined by the context_id's. Nevertheless, the constraint #[INCR_NEXT_CONTEXT_ID] in context.pil prevents
+    // such a re-ordering to happen.
     #[DISPATCH_EXEC_END]
     should_process_call_request {
        next_context_id,
@@ -651,12 +652,23 @@ namespace tx;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
     pol commit fee_juice_balances_slot_constant;
     is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot_constant) = 0;
+    pol commit dom_sep_public_storage_map_slot;
+    is_collect_fee * (constants.DOM_SEP__PUBLIC_STORAGE_MAP_SLOT - dom_sep_public_storage_map_slot) = 0;
 
     pol commit fee_juice_balance_slot;
 
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit const_three;
+    is_collect_fee * (const_three - 3) = 0;
+
     #[BALANCE_SLOT_POSEIDON2]
-    is_collect_fee { is_collect_fee, fee_juice_balances_slot_constant, fee_payer, precomputed.zero, fee_juice_balance_slot }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    is_collect_fee {
+         dom_sep_public_storage_map_slot, fee_juice_balances_slot_constant, fee_payer,
+         fee_juice_balance_slot, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     pol commit fee_payer_balance;
 

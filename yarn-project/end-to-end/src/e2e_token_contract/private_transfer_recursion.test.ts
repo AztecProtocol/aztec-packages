@@ -9,7 +9,7 @@ describe('e2e_token_contract private transfer recursion', () => {
   let { asset, wallet, adminAddress, account1Address, node } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
     ({ asset, wallet, adminAddress, account1Address, node } = t);
   });
@@ -23,8 +23,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
-    const tx = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress }).wait();
-    const txEffects = await node.getTxEffect(tx.txHash);
+    const txReceipt = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
     expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1 + 1);
@@ -33,8 +33,8 @@ describe('e2e_token_contract private transfer recursion', () => {
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
       contractAddress: asset.address,
-      fromBlock: BlockNumber(tx.blockNumber!),
-      toBlock: BlockNumber(tx.blockNumber! + 1),
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
       scopes: [account1Address],
     });
 
@@ -45,9 +45,9 @@ describe('e2e_token_contract private transfer recursion', () => {
         amount: totalBalance,
       },
       metadata: {
-        l2BlockNumber: BlockNumber(tx.blockNumber!),
-        l2BlockHash: tx.blockHash,
-        txHash: tx.txHash,
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
       },
     });
   });
@@ -59,8 +59,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
     const toSend = totalBalance - expectedChange;
 
-    const tx = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress }).wait();
-    const txEffects = await node.getTxEffect(tx.txHash);
+    const txReceipt = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
     expect(txEffects!.data.nullifiers.length).toBe(noteAmounts.length + 1 + 1);
@@ -72,8 +72,8 @@ describe('e2e_token_contract private transfer recursion', () => {
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
       contractAddress: asset.address,
-      fromBlock: BlockNumber(tx.blockNumber!),
-      toBlock: BlockNumber(tx.blockNumber! + 1),
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
       scopes: [account1Address],
     });
 
@@ -84,9 +84,9 @@ describe('e2e_token_contract private transfer recursion', () => {
         amount: toSend,
       },
       metadata: {
-        l2BlockNumber: BlockNumber(tx.blockNumber!),
-        l2BlockHash: tx.blockHash,
-        txHash: tx.txHash,
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
       },
     });
   });

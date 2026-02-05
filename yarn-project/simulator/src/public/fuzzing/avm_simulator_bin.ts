@@ -3,10 +3,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   AvmCircuitPublicInputs,
   type AvmTxHint,
+  PublicTxEffect,
   deserializeFromMessagePack,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
-import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
+import { GlobalVariables, ProtocolContracts, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { createInterface } from 'readline';
@@ -55,12 +56,23 @@ async function simulateWithFuzzer(
   globals: GlobalVariables,
   rawContractClasses: any[], // Replace these when we are moving contract classes to TS
   rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
-): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
+  rawPublicDataWrites: any[], // Public data tree writes to apply before simulation
+  rawNoteHashes: any[], // Note hashes to apply before simulation
+  protocolContracts: ProtocolContracts, // Protocol contracts mapping from C++
+): Promise<{
+  reverted: boolean;
+  output: Fr[];
+  revertReason?: string;
+  publicInputs: AvmCircuitPublicInputs;
+  publicTxEffect: PublicTxEffect;
+}> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
-  const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
+  const simulator = await AvmFuzzerSimulator.create(worldStateService, globals, protocolContracts);
 
-  // Register contract classes from C++
+  await simulator.applyNoteHashes(rawNoteHashes);
+
+  // Register contract classes from C++ (must happen before public data writes to match C++ order)
   for (const rawClass of rawContractClasses) {
     await simulator.addContractClassFromCpp(rawClass);
   }
@@ -69,6 +81,10 @@ async function simulateWithFuzzer(
   for (const [rawAddress, rawInstance] of rawContractInstances) {
     await simulator.addContractInstanceFromCpp(rawAddress, rawInstance);
   }
+
+  // Apply public data writes after contract registration (e.g., for bytecode upgrades)
+  // This must happen last to match C++ setup_fuzzer_state ordering
+  await simulator.applyPublicDataWrites(rawPublicDataWrites);
 
   const result = await simulator.simulate(txHint);
 
@@ -81,6 +97,7 @@ async function simulateWithFuzzer(
     output,
     revertReason: result.findRevertReason()?.message,
     publicInputs: result.publicInputs!,
+    publicTxEffect: result.publicTxEffect,
   };
 }
 
@@ -99,6 +116,9 @@ async function execute(base64Line: string): Promise<void> {
       request.globals,
       request.contractClasses,
       request.contractInstances,
+      request.publicDataWrites,
+      request.noteHashes,
+      request.protocolContracts,
     );
 
     // Serialize the result to msgpack and encode it in base64 for output
@@ -107,6 +127,7 @@ async function execute(base64Line: string): Promise<void> {
       output: result.output,
       revertReason: result.revertReason ?? '',
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
+      publicTxEffect: result.publicTxEffect,
     });
     const base64Response = resultBuffer.toString('base64') + '\n';
     await writeOutput(base64Response);
@@ -117,6 +138,7 @@ async function execute(base64Line: string): Promise<void> {
       output: [] as Fr[],
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
+      publicTxEffect: PublicTxEffect.empty(),
     });
     await writeOutput(errorResult.toString('base64') + '\n');
   }

@@ -9,10 +9,9 @@ describe('e2e_blacklist_token_contract burn', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    // Beware that we are adding the wallet as minter here, which is very slow because it needs multiple blocks.
-    await t.applyMintSnapshot();
     await t.setup();
+    // Beware that we are adding the wallet as minter here, which is very slow because it needs multiple blocks.
+    await t.applyMint();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
@@ -30,7 +29,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      await asset.methods.burn_public(adminAddress, amount, 0).send({ from: adminAddress }).wait();
+      await asset.methods.burn_public(adminAddress, amount, 0).send({ from: adminAddress });
 
       tokenSim.burnPublic(adminAddress, amount);
     });
@@ -48,9 +47,9 @@ describe('e2e_blacklist_token_contract burn', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send();
 
-      await action.send({ from: otherAddress }).wait();
+      await action.send({ from: otherAddress });
 
       tokenSim.burnPublic(adminAddress, amount);
 
@@ -103,7 +102,7 @@ describe('e2e_blacklist_token_contract burn', () => {
           { caller: otherAddress, action },
           true,
         );
-        await validateActionInteraction.send().wait();
+        await validateActionInteraction.send();
 
         await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -121,7 +120,7 @@ describe('e2e_blacklist_token_contract burn', () => {
           { caller: adminAddress, action },
           true,
         );
-        await validateActionInteraction.send().wait();
+        await validateActionInteraction.send();
 
         await expect(
           asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: otherAddress }),
@@ -141,7 +140,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      await asset.methods.burn(adminAddress, amount, 0).send({ from: adminAddress }).wait();
+      await asset.methods.burn(adminAddress, amount, 0).send({ from: adminAddress });
       tokenSim.burnPrivate(adminAddress, amount);
     });
 
@@ -160,15 +159,14 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       await asset.methods
         .burn(adminAddress, amount, authwitNonce)
-        .send({ from: otherAddress, authWitnesses: [witness] })
-        .wait();
+        .send({ from: otherAddress, authWitnesses: [witness] });
       tokenSim.burnPrivate(adminAddress, amount);
 
       // Perform the transfer again, should fail
       const txReplay = asset.methods
         .burn(adminAddress, amount, authwitNonce)
         .send({ from: otherAddress, authWitnesses: [witness] });
-      await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+      await expect(txReplay).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
     describe('failure cases', () => {

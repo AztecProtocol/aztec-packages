@@ -1,13 +1,9 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -99,7 +95,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
         HonkProof ipa_proof = ipa_transcript->export_proof();
 
-        auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
+        auto verification_key = std::make_shared<InnerFlavor::VerificationKey>();
 
         info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
@@ -138,11 +134,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
-        // Ensure verification key is the same
-        EXPECT_EQ(static_cast<uint64_t>(verifier.get_verification_key()->log_circuit_size.get_value()),
-                  verification_key->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(verifier.get_verification_key()->num_public_inputs.get_value()),
-                  verification_key->num_public_inputs);
+        // Ensure verification key commitments are the same
         for (auto [vk_poly, native_vk_poly] :
              zip_view(verifier.get_verification_key()->get_all(), verification_key->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
@@ -181,7 +173,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
         HonkProof ipa_proof = ipa_transcript->export_proof();
 
-        auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
+        auto verification_key = std::make_shared<InnerFlavor::VerificationKey>();
 
         OuterBuilder outer_circuit;
         auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);
@@ -211,7 +203,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             HonkProof ipa_proof_native = ipa_transcript_prover->export_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(proof, static_cast<bool>(idx));
+            tamper_with_proof<InnerFlavor>(proof, static_cast<bool>(idx));
 
             OuterBuilder outer_circuit;
             auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);

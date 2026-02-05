@@ -1,4 +1,4 @@
-use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
+use crate::protocol::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
@@ -11,8 +11,7 @@ use crate::{
         discovery::process_message::process_message_ciphertext,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, pending_tagged_log::PendingTaggedLog,
-            validate_enqueued_notes_and_events,
+            get_private_logs, pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -21,16 +20,17 @@ use crate::{
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
     pub note_hash: Field,
-    /// The result of NoteHash::compute_nullifier_unconstrained (since all of message discovery is unconstrained)
-    pub inner_nullifier: Field,
+    /// The result of NoteHash::compute_nullifier_unconstrained (since all of message discovery is unconstrained).
+    /// This is `None` if the nullifier cannot be computed (e.g., because the nullifier hiding key is not available).
+    pub inner_nullifier: Option<Field>,
 }
 
 /// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
 /// type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
 /// (not siloed by address).
 ///
-/// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in a
-/// contract. The `#[aztec]` macro automatically creates such a contract library method called
+/// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in
+/// a contract. The `#[aztec]` macro automatically creates such a contract library method called
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
 /// ```
@@ -42,7 +42,7 @@ pub struct NoteHashAndNullifier {
 ///
 ///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 ///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
+///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
 ///             storage_slot
 ///         );
 ///
@@ -60,22 +60,25 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+ owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
+randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
-/// Performs the message discovery process, in which private logs are downloaded and inspected to find new private
+/// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
 /// This is the mechanism via which a contract updates its knowledge of its private state.
 ///
-/// Note that the state is synchronized up to the latest block synchronized by PXE. That should be close to the chain
-/// tip as block synchronization is performed before contract function simulation is done.
+/// Note that the state is synchronized up to the latest block synchronized by PXE (referred to as "anchor block").
+/// That should be close to the chain tip as block synchronization is performed before contract function simulation is
+/// done.
 ///
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.
-pub unconstrained fn discover_new_messages<Env>(
+pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    debug_log("Performing message discovery");
+    debug_log("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
@@ -100,12 +103,9 @@ pub unconstrained fn discover_new_messages<Env>(
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_partial_note_completion_logs(
-        contract_address,
-        compute_note_hash_and_nullifier,
-    );
+    partial_notes::fetch_and_process_partial_note_completion_logs(contract_address, compute_note_hash_and_nullifier);
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
-    validate_enqueued_notes_and_events(contract_address);
+    validate_and_store_enqueued_notes_and_events(contract_address);
 }

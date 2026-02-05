@@ -5,7 +5,8 @@ pragma solidity >=0.8.27;
 import {
   MAGIC_CONGESTION_VALUE_MULTIPLIER,
   MAGIC_CONGESTION_VALUE_DIVISOR,
-  EthValue
+  EthValue,
+  EthPerFeeAssetE12
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeLibWrapper} from "./FeeLibWrapper.sol";
 import {TestBase} from "@test/base/Base.sol";
@@ -18,6 +19,7 @@ import {
 } from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
 contract InitializeTest is TestBase {
   using FeeStructsLib for CompressedL1FeeData;
@@ -31,7 +33,7 @@ contract InitializeTest is TestBase {
     emit log_named_uint("manaTarget", manaTarget);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidManaLimit.selector, type(uint32).max, manaTarget * 2));
-    feeLibWrapper.initialize(manaTarget);
+    feeLibWrapper.initialize(manaTarget, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   function test_WhenManaLimitLEUint32(uint256 _manaTarget) external {
@@ -40,7 +42,7 @@ contract InitializeTest is TestBase {
 
     uint256 manaTarget = bound(_manaTarget, 0, type(uint32).max / 2);
 
-    feeLibWrapper.initialize(manaTarget);
+    feeLibWrapper.initialize(manaTarget, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
 
     assertEq(feeLibWrapper.getManaTarget(), manaTarget);
     assertEq(feeLibWrapper.getManaLimit(), manaTarget * 2);

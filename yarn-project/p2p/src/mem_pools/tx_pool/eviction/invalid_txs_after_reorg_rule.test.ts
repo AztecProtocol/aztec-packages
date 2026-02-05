@@ -1,5 +1,6 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -16,7 +17,7 @@ import { InvalidTxsAfterReorgRule } from './invalid_txs_after_reorg_rule.js';
 
 describe('InvalidTxsAfterReorgRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
-  let worldState: MockProxy<ReadonlyWorldStateAccess>;
+  let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let rule: InvalidTxsAfterReorgRule;
 
@@ -30,6 +31,7 @@ describe('InvalidTxsAfterReorgRule', () => {
 
     worldState = mock();
     worldState.getSnapshot.mockReturnValue(db);
+    worldState.syncImmediate.mockResolvedValue(BlockNumber(1));
 
     rule = new InvalidTxsAfterReorgRule(worldState);
   });
@@ -40,6 +42,7 @@ describe('InvalidTxsAfterReorgRule', () => {
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
           newTxs: [],
+          feePayers: [],
         };
 
         const result = await rule.evict(context, txPool);
@@ -56,7 +59,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           event: EvictionEvent.BLOCK_MINED,
           block: BlockHeader.empty(),
           newNullifiers: [],
-          minedFeePayers: [],
+          feePayers: [],
         };
 
         const result = await rule.evict(context, txPool);
@@ -73,7 +76,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles no pending transactions', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         txPool.getPendingTxInfos.mockResolvedValue([]);
@@ -91,7 +94,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('evicts all transactions that reference pruned blocks', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const tx1Hash = TxHash.random();
@@ -112,12 +115,14 @@ describe('InvalidTxsAfterReorgRule', () => {
         // Both txs reference pruned blocks
         expect(result.txsEvicted).toContain(tx1Hash);
         expect(result.txsEvicted).toContain(tx2Hash);
+        // Ensure syncImmediate is called before accessing the world state snapshot
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(1));
       });
 
       it('respects non-evictable transactions', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const evictableTxHash = TxHash.random().toString();
@@ -142,7 +147,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles large number of transactions efficiently', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const largeTxBlockRefs: TxBlockReference[] = [];
@@ -172,7 +177,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles error from deleteTxs operation', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const txHash = TxHash.random().toString();
@@ -197,7 +202,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('evicts transactions with valid header hash format', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const txHash = TxHash.random().toString();
@@ -219,7 +224,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('deduplicates block hashes when multiple txs reference the same block', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const sharedBlockHash = Fr.random();
@@ -249,7 +254,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('only evicts txs referencing pruned blocks, keeps txs referencing valid blocks', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const validBlockHash = Fr.random();
@@ -282,7 +287,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles mix of shared and unique block hashes with some valid and some pruned', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          blockNumber: 1,
+          blockNumber: BlockNumber(1),
         };
 
         const validSharedHash = Fr.random();

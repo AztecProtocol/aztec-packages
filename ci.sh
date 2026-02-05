@@ -27,9 +27,12 @@ function print_usage {
   echo_cmd "grind"                 "Spin up multiple EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy"        "Spin up an EC2 instance to deploy a network."
+  echo_cmd "network-scenarios"      "Spin up EC2 instance(s) to run network scenario tests in parallel."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
+  echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
@@ -107,20 +110,49 @@ case "$cmd" in
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache-makefile' \
-      'run x4-full amd64 ci-full-no-test-cache-makefile' \
+      'run x3-full amd64 ci-full-no-test-cache' \
+      'run x4-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
+  network-scenarios)
+    # Args: <scenario> <namespace> [docker_image] [test_set]
+    # If test_set provided, run just that set. Otherwise run both in parallel.
+    scenario="${1:?scenario is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    test_set="${4:-}"
+
+    export CI_DASHBOARD="network"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
+    run() {
+      local set=$1
+      JOB_ID="x-${namespace}-${set}" INSTANCE_POSTFIX="n-deploy-${set}" \
+        bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
+    }
+    export -f run
+    export scenario namespace docker_image
+
+    if [[ -n "$test_set" ]]; then
+      run "$test_set"
+    else
+      parallel --jobs 2 --line-buffered ::: 'run 1' 'run 2'
+    fi
+    ;;
   network-deploy)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-deploy"
     export INSTANCE_POSTFIX="n-deploy"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   network-tests)
@@ -129,15 +161,29 @@ case "$cmd" in
     export JOB_ID="x-${2:?namespace is required}-network-tests"
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     export INSTANCE_POSTFIX="n-tests"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
     ;;
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
     export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-bench" CPUS=16
+    export JOB_ID="x-${2:?namespace is required}-network-bench"
     export INSTANCE_POSTFIX="n-bench"
+    # Enough for the build, which should have a lot of caching, and the test harness.
+    # Resources are on GCP.
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    ;;
+  network-proving-bench)
+    # Args: <scenario> <namespace> [docker_image]
+    # Deploys network and runs proving benchmarks.
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
+    export INSTANCE_POSTFIX="n-proving-bench"
+    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>
@@ -146,6 +192,24 @@ case "$cmd" in
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    ;;
+
+  network-tests-kind)
+    # Runs KIND-based spartan tests on a 192 CPU instance.
+    export CI_DASHBOARD="network"
+    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
+    export CPUS=192
+    export INSTANCE_POSTFIX="n-kind"
+    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
+    ;;
+  deploy-rollup-upgrade)
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address>
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-deploy-rollup-upgrade"
+    export CPUS=8
+    export INSTANCE_POSTFIX="rollup-upgrade"
+    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
   ############
@@ -164,11 +228,6 @@ case "$cmd" in
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-release amd64' \
       'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
-
-    # If we were triggered by a PR with ci-release-pr label, remove the label now we've succeeded.
-    if [ -n "${PR_NUMBER:-}" ]; then
-      gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
-    fi
     ;;
 
   ##################
@@ -215,7 +274,16 @@ case "$cmd" in
     fi
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
-    redis_getz $1 | $pager
+    key=$1
+    # Handle list/* URLs or history_* keys (Redis LISTs, not strings)
+    if [[ "$key" == list/* ]]; then
+      key=${key#list/}
+    fi
+    if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
+      redis_cli LRANGE "$key" 0 -1 | $pager
+    else
+      redis_getz "$key" | $pager
+    fi
     ;;
 
   #################
@@ -252,7 +320,7 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench|gh-deploy-bench|gh-spartan-bench)
+  gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 

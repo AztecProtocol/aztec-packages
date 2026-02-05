@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+set -euo pipefail
+
+cmd=${1:-}
+shift || true
 
 # To run bb we need a crs.
 # Download ignition up front to ensure no race conditions at runtime.
@@ -40,6 +43,6 @@ case "$cmd" in
     build
     ;;
   *)
-    default_cmd_handler "$@"
+    exit 1
     ;;
 esac

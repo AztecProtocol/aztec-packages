@@ -8,9 +8,15 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type CheckAndRecordParams, type DeleteDutyParams, DutyStatus, type RecordSuccessParams } from './db/types.js';
+import {
+  type CheckAndRecordParams,
+  type DeleteDutyParams,
+  DutyStatus,
+  type RecordSuccessParams,
+  getBlockIndexFromDutyIdentifier,
+} from './db/types.js';
 import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
-import type { SlashingProtectionConfig, SlashingProtectionDatabase } from './types.js';
+import type { SlashingProtectionDatabase, ValidatorHASignerConfig } from './types.js';
 
 /**
  * Slashing Protection Service
@@ -31,22 +37,22 @@ export class SlashingProtectionService {
   private readonly log: Logger;
   private readonly pollingIntervalMs: number;
   private readonly signingTimeoutMs: number;
+  private readonly maxStuckDutiesAgeMs: number;
 
   private cleanupRunningPromise: RunningPromise;
+  private lastOldDutiesCleanupAtMs?: number;
 
   constructor(
     private readonly db: SlashingProtectionDatabase,
-    private readonly config: SlashingProtectionConfig,
+    private readonly config: ValidatorHASignerConfig,
   ) {
     this.log = createLogger('slashing-protection');
     this.pollingIntervalMs = config.pollingIntervalMs;
     this.signingTimeoutMs = config.signingTimeoutMs;
+    // Default to 144s (2x 72s Aztec slot duration) if not explicitly configured
+    this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? 144_000;
 
-    this.cleanupRunningPromise = new RunningPromise(
-      this.cleanupStuckDuties.bind(this),
-      this.log,
-      this.config.maxStuckDutiesAgeMs,
-    );
+    this.cleanupRunningPromise = new RunningPromise(this.cleanup.bind(this), this.log, this.maxStuckDutiesAgeMs);
   }
 
   /**
@@ -58,7 +64,6 @@ export class SlashingProtectionService {
    * 2. If insert succeeds, we acquired the lock - return the lockToken
    * 3. If a record exists, handle based on status:
    *    - SIGNED: Throw appropriate error (already signed or slashing protection)
-   *    - FAILED: Delete the failed record
    *    - SIGNING: Wait and poll until status changes, then handle result
    *
    * @returns The lockToken that must be used for recordSuccess/deleteDuty
@@ -98,9 +103,16 @@ export class SlashingProtectionService {
             existingNodeId: record.nodeId,
             attemptingNodeId: nodeId,
           });
-          throw new SlashingProtectionError(slot, dutyType, record.messageHash, messageHash);
+          throw new SlashingProtectionError(
+            slot,
+            dutyType,
+            record.blockIndexWithinCheckpoint,
+            record.messageHash,
+            messageHash,
+            record.nodeId,
+          );
         }
-        throw new DutyAlreadySignedError(slot, dutyType, record.nodeId);
+        throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, record.nodeId);
       } else if (record.status === DutyStatus.SIGNING) {
         // Another node is currently signing - check for timeout
         if (Date.now() - startTime > this.signingTimeoutMs) {
@@ -109,7 +121,7 @@ export class SlashingProtectionService {
             timeoutMs: this.signingTimeoutMs,
             signingNodeId: record.nodeId,
           });
-          throw new DutyAlreadySignedError(slot, dutyType, 'unknown (timeout)');
+          throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, 'unknown (timeout)');
         }
 
         // Wait and poll
@@ -133,9 +145,18 @@ export class SlashingProtectionService {
    * @returns true if the update succeeded, false if token didn't match
    */
   async recordSuccess(params: RecordSuccessParams): Promise<boolean> {
-    const { validatorAddress, slot, dutyType, signature, nodeId, lockToken } = params;
+    const { rollupAddress, validatorAddress, slot, dutyType, signature, nodeId, lockToken } = params;
+    const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
-    const success = await this.db.updateDutySigned(validatorAddress, slot, dutyType, signature.toString(), lockToken);
+    const success = await this.db.updateDutySigned(
+      rollupAddress,
+      validatorAddress,
+      slot,
+      dutyType,
+      signature.toString(),
+      lockToken,
+      blockIndexWithinCheckpoint,
+    );
 
     if (success) {
       this.log.info(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
@@ -160,9 +181,17 @@ export class SlashingProtectionService {
    * @returns true if the delete succeeded, false if token didn't match
    */
   async deleteDuty(params: DeleteDutyParams): Promise<boolean> {
-    const { validatorAddress, slot, dutyType, lockToken } = params;
+    const { rollupAddress, validatorAddress, slot, dutyType, lockToken } = params;
+    const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
-    const success = await this.db.deleteDuty(validatorAddress, slot, dutyType, lockToken);
+    const success = await this.db.deleteDuty(
+      rollupAddress,
+      validatorAddress,
+      slot,
+      dutyType,
+      lockToken,
+      blockIndexWithinCheckpoint,
+    );
 
     if (success) {
       this.log.info(`Deleted duty ${dutyType} at slot ${slot} to allow retry`, {
@@ -188,7 +217,19 @@ export class SlashingProtectionService {
    * Start running tasks.
    * Cleanup runs immediately on start to recover from any previous crashes.
    */
-  start() {
+  /**
+   * Start the background cleanup task.
+   * Also performs one-time cleanup of duties with outdated rollup addresses.
+   */
+  async start() {
+    // One-time cleanup at startup: remove duties from previous rollup versions
+    const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.l1Contracts.rollupAddress);
+    if (numOutdatedRollupDuties > 0) {
+      this.log.info(`Cleaned up ${numOutdatedRollupDuties} duties with outdated rollup address at startup`, {
+        currentRollupAddress: this.config.l1Contracts.rollupAddress.toString(),
+      });
+    }
+
     this.cleanupRunningPromise.start();
     this.log.info('Slashing protection service started', { nodeId: this.config.nodeId });
   }
@@ -202,15 +243,45 @@ export class SlashingProtectionService {
   }
 
   /**
-   * Cleanup own stuck duties
+   * Close the database connection.
+   * Should be called after stop() during graceful shutdown.
    */
-  private async cleanupStuckDuties() {
-    const numDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.config.maxStuckDutiesAgeMs);
-    if (numDuties > 0) {
-      this.log.info(`Cleaned up ${numDuties} stuck duties`, {
+  async close() {
+    await this.db.close();
+    this.log.info('Slashing protection database connection closed');
+  }
+
+  /**
+   * Periodic cleanup of stuck duties and optionally old signed duties.
+   * Runs in the background via RunningPromise.
+   */
+  private async cleanup() {
+    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status)
+    const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs);
+    if (numStuckDuties > 0) {
+      this.log.verbose(`Cleaned up ${numStuckDuties} stuck duties`, {
         nodeId: this.config.nodeId,
-        maxStuckDutiesAgeMs: this.config.maxStuckDutiesAgeMs,
+        maxStuckDutiesAgeMs: this.maxStuckDutiesAgeMs,
       });
+    }
+
+    // 2. Clean up old signed duties if configured
+    // we shouldn't run this as often as stuck duty cleanup.
+    if (this.config.cleanupOldDutiesAfterHours !== undefined) {
+      const maxAgeMs = this.config.cleanupOldDutiesAfterHours * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      const shouldRun =
+        this.lastOldDutiesCleanupAtMs === undefined || nowMs - this.lastOldDutiesCleanupAtMs >= maxAgeMs;
+      if (shouldRun) {
+        const numOldDuties = await this.db.cleanupOldDuties(maxAgeMs);
+        this.lastOldDutiesCleanupAtMs = nowMs;
+        if (numOldDuties > 0) {
+          this.log.verbose(`Cleaned up ${numOldDuties} old signed duties`, {
+            cleanupOldDutiesAfterHours: this.config.cleanupOldDutiesAfterHours,
+            maxAgeMs,
+          });
+        }
+      }
     }
   }
 }

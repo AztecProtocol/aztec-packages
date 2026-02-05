@@ -10,12 +10,12 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -141,11 +141,14 @@ function cleanupDeployDir() {
  */
 export function prepareL1ContractsForDeployment(): string {
   if (preparedDeployDir && existsSync(preparedDeployDir)) {
+    logger.verbose(`Using cached deployment directory: ${preparedDeployDir}`);
     return preparedDeployDir;
   }
 
   const basePath = getL1ContractsPath();
+  logger.verbose(`Preparing L1 contracts from: ${basePath}`);
   const tempDir = mkdtempSync(join(tmpdir(), '.foundry-deploy-'));
+  logger.verbose(`Created temp directory for deployment: ${tempDir}`);
   preparedDeployDir = tempDir;
   process.on('exit', cleanupDeployDir);
 
@@ -157,13 +160,24 @@ export function prepareL1ContractsForDeployment(): string {
   cpSync(join(basePath, 'src'), join(tempDir, 'src'), copyOpts);
   cpSync(join(basePath, 'script'), join(tempDir, 'script'), copyOpts);
   cpSync(join(basePath, 'generated'), join(tempDir, 'generated'), copyOpts);
-  cpSync(join(basePath, 'foundry.toml'), join(tempDir, 'foundry.toml'));
+  // Kludge: copy test/ to appease forge cache which references test/shouting.t.sol
+  cpSync(join(basePath, 'test'), join(tempDir, 'test'), copyOpts);
   cpSync(join(basePath, 'foundry.lock'), join(tempDir, 'foundry.lock'));
-  for (const file of readdirSync(basePath)) {
-    if (file.startsWith('solc-')) {
-      cpSync(join(basePath, file), join(tempDir, file));
-    }
+
+  // Update foundry.toml to use absolute path to solc binary (avoids copying to noexec tmpfs)
+  const foundryTomlPath = join(basePath, 'foundry.toml');
+  let foundryToml = readFileSync(foundryTomlPath, 'utf-8');
+  const solcPathMatch = foundryToml.match(/solc\s*=\s*"\.\/solc-([^"]+)"/);
+  // Did we find a hardcoded solc path that we need to make absolute?
+  // This code path happens in CI currently as we bundle solc there to avoid race conditions when
+  // downloading solc.
+  if (solcPathMatch) {
+    const solcVersion = solcPathMatch[1];
+    const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
+    foundryToml = foundryToml.replace(/solc\s*=\s*"\.\/solc-[^"]+"/, `solc = "${absoluteSolcPath}"`);
+    logger.verbose(`Updated solc path in foundry.toml to: ${absoluteSolcPath}`);
   }
+  writeFileSync(join(tempDir, 'foundry.toml'), foundryToml);
 
   mkdirSync(join(tempDir, 'broadcast'));
   return tempDir;
@@ -320,7 +334,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    '--batch-size',
+    MAGIC_ANVIL_BATCH_SIZE.toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
@@ -497,6 +512,7 @@ export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArg
     AZTEC_EJECTION_THRESHOLD: args.ejectionThreshold?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: args.governanceProposerRoundSize?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_QUORUM: args.governanceProposerQuorum?.toString(),
+    AZTEC_GOVERNANCE_VOTING_DURATION: args.governanceVotingDuration?.toString(),
     ZKPASSPORT_DOMAIN: args.zkPassportArgs?.zkPassportDomain,
     ZKPASSPORT_SCOPE: args.zkPassportArgs?.zkPassportScope,
   } as const;
@@ -537,6 +553,7 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_MANA_TARGET: args.manaTarget.toString(),
     AZTEC_EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
     AZTEC_PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
+    AZTEC_INITIAL_ETH_PER_FEE_ASSET: args.initialEthPerFeeAsset.toString(),
     AZTEC_SLASHER_FLAVOR: args.slasherFlavor,
     AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
     AZTEC_SLASHING_QUORUM: args.slashingQuorum?.toString(),

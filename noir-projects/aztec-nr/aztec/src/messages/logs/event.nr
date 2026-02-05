@@ -1,30 +1,29 @@
 use crate::{
-    event::{event_interface::EventInterface, event_selector::EventSelector},
+    event::{event_interface::EventInterface, EventSelector},
     messages::{
         encoding::{encode_message, MAX_MESSAGE_CONTENT_LEN, MESSAGE_EXPANDED_METADATA_LEN},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     utils::array,
 };
-use protocol_types::traits::{FromField, Serialize, ToField};
+use crate::protocol::traits::{FromField, Serialize, ToField};
 
-/// The number of fields in a private event message content that are not the event's serialized representation
-/// (1 field for randomness).
+/// The number of fields in a private event message content that are not the event's serialized representation (1 field
+/// for randomness).
 pub(crate) global PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN: u32 = 1;
 pub(crate) global PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 0;
 
 /// The maximum length of the packed representation of an event's contents. This is limited by private log size,
 /// encryption overhead and extra fields in the message (e.g. message type id, randomness, etc.).
-pub global MAX_EVENT_SERIALIZED_LEN: u32 =
-    MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
+pub global MAX_EVENT_SERIALIZED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a private event message (i.e. one of type [PRIVATE_EVENT_MSG_TYPE_ID]).
+/// Creates the plaintext for a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to be decoded via [decode_private_event_message].
+/// This plaintext is meant to be decoded via [`decode_private_event_message`].
 pub fn encode_private_event_message<Event>(
     event: Event,
     randomness: Field,
-    ) -> [Field; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N + MESSAGE_EXPANDED_METADATA_LEN]
+) -> [Field; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
     Event: EventInterface + Serialize,
 {
@@ -41,8 +40,7 @@ where
         "unexpected value for PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
     );
 
-    let mut msg_plaintext =
-        [0; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N];
+    let mut msg_plaintext = [0; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N];
     msg_plaintext[PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX] = randomness;
 
     for i in 0..serialized_event.len() {
@@ -57,13 +55,13 @@ where
     )
 }
 
-/// Decodes the plaintext from a private event message (i.e. one of type [PRIVATE_EVENT_MSG_TYPE_ID]).
+/// Decodes the plaintext from a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to have originated from [encode_private_event_message].
+/// This plaintext is meant to have originated from [`encode_private_event_message`].
 ///
-/// Note that while [encode_private_event_message] returns a fixed-size array, this function takes a [BoundedVec]
-/// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically, those
-/// that originate from [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
+/// Note that while [`encode_private_event_message`] returns a fixed-size array, this function takes a [`BoundedVec`]
+/// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
+/// those that originate from [`crate::messages::encryption::message_encryption::MessageEncryption::decrypt`].
 pub(crate) unconstrained fn decode_private_event_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
@@ -84,8 +82,7 @@ pub(crate) unconstrained fn decode_private_event_message(
     );
 
     let randomness = msg_content.get(PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX);
-    let serialized_event =
-        array::subbvec(msg_content, PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN);
+    let serialized_event = array::subbvec(msg_content, PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN);
 
     (event_type_id, randomness, serialized_event)
 }
@@ -99,8 +96,8 @@ mod test {
             msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
         },
     };
+    use crate::protocol::traits::Serialize;
     use crate::test::mocks::mock_event::MockEvent;
-    use protocol_types::traits::Serialize;
 
     global VALUE: Field = 7;
     global RANDOMNESS: Field = 10;
@@ -111,13 +108,11 @@ mod test {
 
         let message_plaintext = encode_private_event_message(event, RANDOMNESS);
 
-        let (msg_type_id, msg_metadata, msg_content) =
-            decode_message(BoundedVec::from_array(message_plaintext));
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(message_plaintext));
 
         assert_eq(msg_type_id, PRIVATE_EVENT_MSG_TYPE_ID);
 
-        let (event_type_id, randomness, serialized_event) =
-            decode_private_event_message(msg_metadata, msg_content);
+        let (event_type_id, randomness, serialized_event) = decode_private_event_message(msg_metadata, msg_content);
 
         assert_eq(event_type_id, MockEvent::get_event_type_id());
         assert_eq(randomness, RANDOMNESS);

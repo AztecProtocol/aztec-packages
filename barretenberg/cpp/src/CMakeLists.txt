@@ -96,6 +96,7 @@ add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
+add_subdirectory(barretenberg/goblin_avm)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/noir_programs_boomerang_values)
@@ -126,8 +127,11 @@ if(NOT FUZZING AND NOT WASM)
 endif()
 
 if(FUZZING_AVM)
-    add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
+    if(FUZZING)
+        # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
+        add_subdirectory(barretenberg/world_state)
+        add_subdirectory(barretenberg/vm2)
+    endif()
     add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
@@ -168,6 +172,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:goblin_avm_objects>
     $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>
@@ -205,6 +210,19 @@ add_library(
     STATIC
     ${BARRETENBERG_TARGET_OBJECTS}
 )
+
+# bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
+# Includes everything from libbarretenberg.a plus env and vm2_stub.
+# This provides a single library file that external bindings can link against.
+if(NOT WASM)
+    add_library(
+        bb-external
+        STATIC
+        ${BARRETENBERG_TARGET_OBJECTS}
+        $<TARGET_OBJECTS:env_objects>
+        $<TARGET_OBJECTS:vm2_stub>
+    )
+endif()
 
 if(WASM)
     # When building this wasm "executable", we include the wasi module but exclude the env module.

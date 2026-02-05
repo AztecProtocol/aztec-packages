@@ -36,6 +36,11 @@ Run specific test:
 - `../boomerang_value_detection/opcode_constraint_map.cpp` - Builds mapping from opcode index to constraint
 - `../dsl/acir_format/` - Directory with all ACIR constraints implementation
 - `../stdlib/primitives/logic/logic.cpp` - Logic constraint implementation using plookup tables
+<<<<<<< HEAD
+=======
+- `../dsl/README.md` - description file how Noir communicates with Barretenberg using ACIR
+- `../dsl/acir_format/test_class.hpp` - helper functions to create ACIR constraint system for tests
+>>>>>>> origin/dk/acir_arithmetic_constraints_PR
 
 ## Architecture
 
@@ -89,6 +94,35 @@ Constraint: q_1·w_l + q_2·w_r + q_3·w_o = w_4
 Selector property: q_2² == q_1 * q_3
 ```
 
+#### `process_quad_constraints(ptr, include_next_gate_w_4)`
+Validates a single width-4 arithmetic gate (QuadConstraint / `mul_quad_<FF>`). Algorithm:
+1. Resolve wire indices: replace `IS_CONSTANT` with `builder.zero_idx()`, others via `analyzer.to_real()`
+2. Find a non-zero variable and locate it in the arithmetic block
+3. If `include_next_gate_w_4 = true` (non-last gate in BigQuadConstraint):
+   - Check `q_arith == 2`
+   - Verify selectors with `q_m` doubled (`2 * mul_scaling`)
+   - Validate next gate's `w_4` carries the correct accumulated value
+   - Validate next gate's `q_4 == -1`
+4. If `include_next_gate_w_4 = false` (default, standalone QUAD or last gate):
+   - Check `q_arith == 1`
+   - Verify selectors match constraint scalings directly
+
+#### `process_big_quad_constraints(ptr)`
+Validates a BigQuadConstraint (chain of linked width-4 arithmetic gates).
+
+**Important**: The analyzer must receive the **mutated** constraint_system (via `std::move(program.constraints)`)
+after `create_circuit` has been called. `create_big_quad_constraint` mutates gates 1..N-1 in-place
+(setting `d = intermediate_wire_idx`, `d_scaling = -1`), and the analyzer relies on these mutated values.
+
+Algorithm:
+1. Loop over each gate in the BigQuadConstraint
+2. For non-last gates: call `process_quad_constraints(gate, true)` — validates q_arith=2, doubled q_m, next w_4 accumulation
+3. For the last gate: call `process_quad_constraints(gate, false)` — validates q_arith=1, original q_m
+
+Note: q_m doubling is handled inside `process_quad_constraints` when `include_next_gate_w_4=true`.
+The constraint's `mul_scaling` is never modified (`create_big_mul_add_gate` takes it as `const`),
+but `process_quad_constraints` knows the circuit gate has `2 * mul_scaling` and compares accordingly.
+
 ### Helper Functions
 
 - `witness_from_index(uint32_t idx)` - Creates `WitnessOrConstant<fr>` from witness index
@@ -97,11 +131,47 @@ Selector property: q_2² == q_1 * q_3
 
 ## Adding New Test Cases
 
-1. Create `AcirFormat` constraint system with proper constraints and `original_opcode_indices`
+
+```cpp
+// Variadic helper: accepts any number of individual constraints
+template <typename... Constraints>
+AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints);
+```
+
+**Flow**: constraints → `constraint_to_acir_opcode` → `build_acir_circuit` → `circuit_serde_to_acir_format` → `AcirFormat`
+
+**Usage examples**:
+```cpp
+// Single constraint type (range-only)
+auto cs = build_acir_format(0, range_1bit);
+
+// Mixed types (logic + range)
+auto cs = build_acir_format(2, xor_constraint, range_0, range_1);
+
+// Multiple mixed types
+auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+```
+
+**Key points**:
+- `max_witness_index` is the highest witness index used across all constraints
+- Opcode indices are assigned sequentially in the order constraints are passed
+- `num_acir_opcodes` and `original_opcode_indices` are set automatically by the serde flow
+- **Do NOT manually construct `AcirFormat{...}` structs** — always use `build_acir_format`
+- Supported constraint types: `LogicConstraint`, `RangeConstraint`, `AES128Constraint`, `QuadConstraint`, `BigQuadConstraint`, `BlockConstraint`, `Sha256Compression`, `EcdsaConstraint`, `Blake2sConstraint`, `Blake3Constraint`, `Keccakf1600`, `Poseidon2Constraint`, `MultiScalarMul`, `EcAdd`, `RecursionConstraint`
+
+### Test structure
+
+1. Create constraints and build `AcirFormat` via `build_acir_format`
 2. Create `StaticAnalyzerAcir` for this constraint system
 3. Check that all opcodes were saved correctly in opcode constraint map
-4. Verify `get_incorrect_opcodes()` returns empty set for valid circuits
 5. For corruption tests: modify circuit after building, verify analyzer detects the corruption
+
+### Test design criteria
+
+- **Test ACIR-specific behavior, not generic circuit mechanics.** Tests that reconstruct from `AcirFormat` must validate the analyzer's ACIR-level processing (opcode mapping, constraint type dispatch, witness tracking across opcodes), not merely that a low-level circuit primitive like a range constraint succeeds or fails. If a test only proves that the circuit builder rejects bad inputs, it belongs in the circuit builder's own test suite, not here.
+- **Include failure/corruption cases for every constraint type.** Every constraint type should have tests where the circuit is corrupted after construction and the analyzer is expected to detect the corruption. This validates the analyzer's purpose — identifying tampered or incorrect constraints.
+- **Corruption tests should target the analyzer's validation logic.** When corrupting a circuit, choose corruptions that the analyzer is designed to detect (e.g., wrong lookup table type, broken accumulation chain, mismatched witness values). Corruptions that only break low-level gate arithmetic (caught by `CircuitChecker`) without exercising the analyzer's constraint-specific checks are less valuable.
+- **Use `CircuitChecker::check(builder)` in corruption tests when applicable.** If the corruption is also detectable by `CircuitChecker` (e.g., wire value changes, certain selector changes), add `EXPECT_FALSE(CircuitChecker::check(builder))` before the analyzer check to confirm the corruption actually broke the circuit. If `CircuitChecker` cannot detect the corruption type (e.g., `q_arith=0` disabling a gate, `q_lookup=0`, range list clearing), add a comment explaining why.
 
 ## Development Rules
 
@@ -145,7 +215,8 @@ Selector property: q_2² == q_1 * q_3
 | ⬜ TODO | HN_RECURSION | Not implemented | No |
 | ⬜ TODO | CHONK_RECURSION | Not implemented | No |
 | ⬜ TODO | KECCAK_PERMUTATION | Not implemented | No |
-| ⬜ TODO | QUAD | Not implemented | No |
+| ✅ Done | QUAD | `process_quad_constraints` | Yes |
+| ✅ Done | BIG_QUAD | `process_big_quad_constraints` | Yes |
 | ⬜ TODO | BLOCK | Not implemented | No |
 
 ### Implementation Checklist for Each Constraint Type

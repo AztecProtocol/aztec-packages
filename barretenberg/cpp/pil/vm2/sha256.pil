@@ -105,6 +105,28 @@ namespace sha256;
     pol commit h;
     start * (1 - err) * (h - init_h) = 0;
 
+    // Propagate initial state values across all rounds.
+    // Initial states must be propagated correctly becuse they are used in the `last` row
+    // when adding to the compression output. `last` is mutually exclusive to `perform_round` but
+    // these constraints don't need to use `last`  because on the 64th row of `perform_round` we
+    // will constrain the next row (i.e. the `last` row) to be correct.
+    #[PROPAGATE_INIT_A]
+    perform_round * (init_a' - init_a) = 0;
+    #[PROPAGATE_INIT_B]
+    perform_round * (init_b' - init_b) = 0;
+    #[PROPAGATE_INIT_C]
+    perform_round * (init_c' - init_c) = 0;
+    #[PROPAGATE_INIT_D]
+    perform_round * (init_d' - init_d) = 0;
+    #[PROPAGATE_INIT_E]
+    perform_round * (init_e' - init_e) = 0;
+    #[PROPAGATE_INIT_F]
+    perform_round * (init_f' - init_f) = 0;
+    #[PROPAGATE_INIT_G]
+    perform_round * (init_g' - init_g) = 0;
+    #[PROPAGATE_INIT_H]
+    perform_round * (init_h' - init_h) = 0;
+
     // ========== COMPUTE W =============
     // w is only computed on the 16th round (as 0-15 are populated from the input)
     // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift  3)
@@ -267,9 +289,9 @@ namespace sha256;
 
     pol commit w_s_1;
     #[W_S_1_XOR_1]
-    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel, u32_tag, u32_tag }
+    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ========== START OF COMPRESSION BLOCK ==================
 

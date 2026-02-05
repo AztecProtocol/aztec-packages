@@ -23,6 +23,9 @@ except ImportError:
 class MarkdownGenerator:
     """Generates markdown documentation from structured CLI data."""
 
+    # Maximum depth for rendering nested subcommands (should match CLIScanner.MAX_DEPTH)
+    MAX_DEPTH = 5
+
     def __init__(self, data: Dict[str, Any], config: Dict[str, Any] = None):
         self.data = data
         # Merge provided config with defaults
@@ -40,7 +43,7 @@ class MarkdownGenerator:
             "heading_prefix": "#",
             "show_usage": True,
             "show_env_vars": True,
-            "max_depth": 5,
+            "max_depth": self.MAX_DEPTH,
             "option_table_format": "list",  # or "table"
         }
 
@@ -71,7 +74,11 @@ class MarkdownGenerator:
             depth=1
         ))
 
-        return "\n".join(sections)
+        # Join sections and normalize multiple blank lines to single blank lines
+        result = "\n".join(sections)
+        while "\n\n\n" in result:
+            result = result.replace("\n\n\n", "\n\n")
+        return result
 
     def generate_toc(self, cmd_data: Dict[str, Any], cmd_name: str, depth: int = 0) -> str:
         """Generate table of contents."""
@@ -86,7 +93,7 @@ class MarkdownGenerator:
         lines.append(f"{indent}- [{cmd_name}](#{slug})")
 
         # Add subcommands
-        if cmd_data.get("format") == "commander" and "subcommands" in cmd_data:
+        if cmd_data.get("format") in ("commander", "cli11") and "subcommands" in cmd_data:
             for sub_name, sub_data in cmd_data["subcommands"].items():
                 # Include all commands in TOC, even ones with errors
                 full_name = f"{cmd_name} {sub_name}"
@@ -101,9 +108,12 @@ class MarkdownGenerator:
         return text.lower().replace(' ', '-').replace('/', '-')
 
     def escape_html_entities(self, text: str) -> str:
-        """Escape HTML-like syntax (angle brackets) to prevent MDX parsing errors."""
+        """Escape HTML-like syntax and MDX special characters to prevent parsing errors."""
         # Replace < and > with their HTML entities to prevent MDX from treating them as tags
-        return text.replace('<', '&lt;').replace('>', '&gt;')
+        text = text.replace('<', '&lt;').replace('>', '&gt;')
+        # Escape curly braces to prevent MDX from treating them as JSX expressions
+        text = text.replace('{', '\\{').replace('}', '\\}')
+        return text
 
     def generate_command_docs(self, cmd_name: str, cmd_data: Dict[str, Any], depth: int = 1) -> str:
         """Generate documentation for a single command."""
@@ -138,6 +148,16 @@ class MarkdownGenerator:
         # Format-specific rendering
         if cmd_data.get("format") == "commander":
             sections.append(self.render_commander_command(cmd_data, depth))
+
+            # Recursively render subcommands
+            if "subcommands" in cmd_data:
+                sections.append(f"\n{heading}# Subcommands\n")
+                for sub_name, sub_data in cmd_data["subcommands"].items():
+                    full_name = f"{cmd_name} {sub_name}"
+                    sections.append(self.generate_command_docs(full_name, sub_data, depth + 1))
+
+        elif cmd_data.get("format") == "cli11":
+            sections.append(self.render_cli11_command(cmd_data, depth))
 
             # Recursively render subcommands
             if "subcommands" in cmd_data:
@@ -188,6 +208,58 @@ class MarkdownGenerator:
             sections.append("")
 
         return "\n".join(sections)
+
+    def render_cli11_command(self, cmd_data: Dict[str, Any], depth: int) -> str:
+        """Render a CLI11 style command (C++ CLI library, used by bb)."""
+        sections = []
+
+        # Description
+        if cmd_data.get("description"):
+            sections.append(self.escape_html_entities(cmd_data["description"]) + "\n")
+
+        # Usage
+        if self.config.get("show_usage") and cmd_data.get("usage"):
+            sections.append("**Usage:**")
+            sections.append("```bash")
+            sections.append(cmd_data["usage"])
+            sections.append("```\n")
+
+        # Commands list (subcommands) - use same header as Commander.js for consistency
+        if cmd_data.get("commands"):
+            sections.append("**Available Commands:**\n")
+            for cmd in cmd_data["commands"]:
+                # Use signature if available (like Commander.js), fall back to name
+                signature = cmd.get('signature', cmd['name'])
+                sections.append(f"- `{signature}` - {self.escape_html_entities(cmd['description'])}")
+            sections.append("")
+
+        # Options
+        if cmd_data.get("options"):
+            sections.append("**Options:**\n")
+            sections.append(self.render_cli11_options(cmd_data["options"]))
+            sections.append("")
+
+        return "\n".join(sections)
+
+    def render_cli11_options(self, options: List[Dict[str, Any]]) -> str:
+        """Render CLI11 options as a bulleted list."""
+        lines = []
+
+        for opt in options:
+            flags = opt.get('flags', '')
+            desc = self.escape_html_entities(opt.get('description', ''))
+            env = opt.get('env')
+
+            line = f"- `{flags}`"
+            if desc:
+                line += f" - {desc}"
+            lines.append(line)
+
+            # Show environment variable if available
+            if self.config.get("show_env_vars") and env:
+                lines.append(f"  *Environment: `{env}`*")
+
+        return "\n".join(lines)
 
     def render_custom_command(self, cmd_data: Dict[str, Any], depth: int) -> str:
         """Render a custom formatted command (like 'aztec start')."""

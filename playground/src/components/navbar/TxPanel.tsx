@@ -16,13 +16,7 @@ import { useLocalStorage } from '@uidotdev/usehooks';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
 import { colors, commonStyles } from '../../global.styles';
 
-const TX_ERRORS = [
-  'error',
-  TxStatus.APP_LOGIC_REVERTED,
-  TxStatus.TEARDOWN_REVERTED,
-  TxStatus.BOTH_REVERTED,
-  TxStatus.DROPPED,
-];
+const TX_ERRORS = ['error', TxStatus.DROPPED];
 
 const container = css({
   width: '320px',
@@ -167,7 +161,7 @@ const transactionsList = css({
 });
 
 export function TxPanel() {
-  const { currentTx, playgroundDB, logs, wallet, setPendingTxUpdateCounter, pendingTxUpdateCounter } =
+  const { currentTx, playgroundDB, logs, node, setPendingTxUpdateCounter, pendingTxUpdateCounter } =
     useContext(AztecContext);
 
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
@@ -214,7 +208,7 @@ export function TxPanel() {
   // Update pending transactions status
   useEffect(() => {
     const refreshPendingTx = async () => {
-      if (!wallet || !playgroundDB) {
+      if (!node || !playgroundDB) {
         return;
       }
 
@@ -222,7 +216,7 @@ export function TxPanel() {
       const pendingTxs = transactions.filter(tx => tx.status === 'pending' && tx.date + buffer < Date.now());
 
       for (const tx of pendingTxs) {
-        const txReceipt = await queryTxReceipt(tx, wallet);
+        const txReceipt = await queryTxReceipt(tx, node);
         if (txReceipt && txReceipt.status !== 'pending') {
           await playgroundDB.updateTxStatus(tx.txHash, txReceipt.status);
           setPendingTxUpdateCounter(pendingTxUpdateCounter + 1);
@@ -230,7 +224,7 @@ export function TxPanel() {
       }
     };
 
-    if (playgroundDB && wallet) {
+    if (playgroundDB && node) {
       refreshPendingTx();
     }
 
@@ -238,7 +232,7 @@ export function TxPanel() {
     return () => clearInterval(interval);
 
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [transactions, playgroundDB, wallet]);
+  }, [transactions, playgroundDB, node]);
 
   useEffect(() => {
     if (currentTx?.status === 'success') {
@@ -253,7 +247,7 @@ export function TxPanel() {
     lastLog = lastLog.slice(0, 100) + '...';
   }
 
-  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status);
+  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status) || pendingTx?.receipt?.hasExecutionReverted();
   const errorMessage = pendingTx?.error;
 
   let subtitle;

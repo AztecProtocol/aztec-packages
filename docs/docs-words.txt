@@ -77,6 +77,8 @@ Danksharding
 databus
 defiexit
 defn
+deflatten
+deflattenFields
 delegatecall
 DELEGATECALL
 delegatecalls
@@ -319,6 +321,8 @@ timelock
 Timelock
 timelocked
 tonelli
+townhall
+townhalls
 TORADIXLE
 Tpkm
 transactionfee
@@ -376,3 +380,12 @@ fusaka
 healthcheck
 supernode
 supernodes
+Garaga
+satisfiability
+nullptr
+favo
+supermajority
+finalise
+undelegation
+unbonding
+zkpassport

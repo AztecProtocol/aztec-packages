@@ -3,6 +3,7 @@ title: Private Token Contract
 sidebar_position: 1
 tags: [privacy, tokens, intermediate]
 description: Build a privacy-preserving token for employee mental health benefits that keeps spending habits confidential.
+references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/ts/bob_token_contract/index.ts"]
 ---
 
 ## The Privacy Challenge: Mental Health Benefits at Giggle
@@ -22,7 +23,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`bash -i <(curl -s https://install.aztec.network/#include_version_without_prefix/)`)
+- Aztec toolchain installed (`bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 

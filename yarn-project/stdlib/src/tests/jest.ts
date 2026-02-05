@@ -20,7 +20,7 @@ export function equalL2Blocks(a: any, b: any) {
     // use a custom comparator because the blockHash property is lazily computed and one instance might not have it
     return aAsL2Block.toBuffer().equals(bAsL2Block.toBuffer());
   } else if (aAsL2Block || bAsL2Block) {
-    // one value is an L2block and the other isn't. Definitely not equal.
+    // one value is an L2Block and the other isn't. Definitely not equal.
     return false;
   } else {
     // we don't know what they are, tell Jest to keep looking

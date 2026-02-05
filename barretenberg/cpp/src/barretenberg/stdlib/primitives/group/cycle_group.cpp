@@ -819,6 +819,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
 
+    // Set CONSTANT tag on accumulator to avoid tag conflicts during intermediate operations
+    // The final tag will be set in batch_mul from result_tag
+    accumulator.set_origin_tag(OriginTag::constant());
+
     // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
     // We don't subtract it off yet as we may be able to combine it with other constant terms in `batch_mul` before
     // performing the subtraction.
@@ -907,6 +911,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Perform the in-circuit point additions sequentially. Each addition costs 1 gate iff additions are chained such
     // that the output of each addition is the input to the next. Otherwise, each addition costs 2 gates.
+    // Set all lookup_points to have CONSTANT tags to avoid tag conflicts during intermediate operations
+    // The final tag will be set in batch_mul from result_tag
+    auto const_tag = OriginTag::constant();
+    for (auto& point : lookup_points) {
+        point.set_origin_tag(const_tag);
+    }
     cycle_group accumulator = lookup_points[0];
     for (size_t i = 1; i < lookup_points.size(); ++i) {
         accumulator = accumulator.unconditional_add(lookup_points[i], operation_hints[i - 1]);
@@ -972,7 +982,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     std::vector<AffineElement> fixed_base_points;
 
     // Merge all tags
-    OriginTag result_tag;
+    OriginTag result_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (auto [point, scalar] : zip_view(base_points, scalars)) {
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
     }

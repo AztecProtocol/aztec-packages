@@ -56,6 +56,7 @@ library Errors {
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
+  error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
@@ -108,6 +109,7 @@ library Errors {
   error EscapeHatch__InvalidConfiguration();
   error EscapeHatch__SetUnstable(Hatch hatch);
   error EscapeHatch__AlreadyValidated(Hatch hatch);
+  error EscapeHatch__HatchTooEarly(Hatch hatch);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -183,6 +185,7 @@ library Errors {
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
+  error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c

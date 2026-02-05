@@ -1,48 +1,87 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
-import type { ExecutionPayload } from '@aztec/stdlib/tx';
+import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { EncodedAppEntrypointCalls } from './encoding.js';
-import type { EntrypointInterface } from './interfaces.js';
+import type { ChainInfo, EntrypointInterface } from './interfaces.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
  */
 export class DefaultMultiCallEntrypoint implements EntrypointInterface {
-  constructor(
-    private chainId: number,
-    private version: number,
-    private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
-  ) {}
+  constructor(private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint) {}
 
-  async createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings): Promise<TxExecutionRequest> {
-    // Initial request with calls, authWitnesses and capsules
-    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
+  async createTxExecutionRequest(
+    exec: ExecutionPayload,
+    gasSettings: GasSettings,
+    chainInfo: ChainInfo,
+  ): Promise<TxExecutionRequest> {
+    const { authWitnesses, capsules, extraHashedArgs } = exec;
+    const callData = await this.#buildEntrypointCallData(exec);
 
-    // Encode the calls for the app
-    const encodedCalls = await EncodedAppEntrypointCalls.create(calls);
-
-    // Obtain the entrypoint hashed args, built from the encoded calls
-    const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedCalls]));
-
-    // Assemble the tx request
+    const entrypointHashedArgs = await HashedValues.fromArgs(callData.encodedArgs);
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
-      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
-      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
+      functionSelector: callData.functionSelector,
+      txContext: new TxContext(chainInfo.chainId.toNumber(), chainInfo.version.toNumber(), gasSettings),
+      argsOfCalls: [...callData.encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
       authWitnesses,
       capsules,
       salt: Fr.random(),
     });
 
     return Promise.resolve(txRequest);
+  }
+
+  async wrapExecutionPayload(exec: ExecutionPayload, _options?: any): Promise<ExecutionPayload> {
+    const { authWitnesses, capsules, extraHashedArgs } = exec;
+    const callData = await this.#buildEntrypointCallData(exec);
+    const entrypointCall = new FunctionCall(
+      callData.abi.name,
+      this.address,
+      callData.functionSelector,
+      callData.abi.functionType,
+      false,
+      callData.abi.isStatic,
+      callData.encodedArgs,
+      callData.abi.returnTypes,
+    );
+
+    return new ExecutionPayload(
+      [entrypointCall],
+      authWitnesses,
+      capsules,
+      [...callData.encodedCalls.hashedArguments, ...extraHashedArgs],
+      exec.feePayer,
+    );
+  }
+
+  /**
+   * Builds the shared data needed for both creating a tx execution request and wrapping an execution payload.
+   * This includes encoding calls and building entrypoint arguments.
+   * @param exec - The execution payload containing calls to encode
+   * @returns Encoded call data, ABI, encoded arguments, and function selector
+   */
+  async #buildEntrypointCallData(exec: ExecutionPayload) {
+    const { calls } = exec;
+
+    const encodedCalls = await EncodedAppEntrypointCalls.create(calls);
+
+    const abi = this.getEntrypointAbi();
+    const encodedArgs = encodeArguments(abi, [encodedCalls]);
+
+    const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
+
+    return {
+      encodedCalls,
+      abi,
+      encodedArgs,
+      functionSelector,
+    };
   }
 
   private getEntrypointAbi() {

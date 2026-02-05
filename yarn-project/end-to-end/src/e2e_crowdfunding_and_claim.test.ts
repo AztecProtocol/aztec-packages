@@ -68,9 +68,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       donationTokenMetadata.name,
       donationTokenMetadata.symbol,
       donationTokenMetadata.decimals,
-    )
-      .send({ from: operatorAddress })
-      .deployed();
+    ).send({ from: operatorAddress });
     logger.info(`Donation Token deployed to ${donationToken.address}`);
 
     rewardToken = await TokenContract.deploy(
@@ -79,9 +77,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       rewardTokenMetadata.name,
       rewardTokenMetadata.symbol,
       rewardTokenMetadata.decimals,
-    )
-      .send({ from: operatorAddress })
-      .deployed();
+    ).send({ from: operatorAddress });
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     // We deploy the Crowdfunding contract as an escrow contract (i.e. with populated public keys that make it
@@ -98,15 +94,15 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
-    crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress }).deployed();
+    crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress });
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
-    claimContract = await ClaimContract.deploy(wallet, crowdfundingContract.address, rewardToken.address)
-      .send({ from: operatorAddress })
-      .deployed();
+    claimContract = await ClaimContract.deploy(wallet, crowdfundingContract.address, rewardToken.address).send({
+      from: operatorAddress,
+    });
     logger.info(`Claim contract deployed at ${claimContract.address}`);
 
-    await rewardToken.methods.set_minter(claimContract.address, true).send({ from: operatorAddress }).wait();
+    await rewardToken.methods.set_minter(claimContract.address, true).send({ from: operatorAddress });
 
     // Now we mint DNT to donors
     await mintTokensToPrivate(donationToken, operatorAddress, donor1Address, 1234n);
@@ -129,10 +125,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         0,
       );
       const witness = await wallet.createAuthWit(donor1Address, { caller: crowdfundingContract.address, action });
-      await crowdfundingContract.methods
-        .donate(donationAmount)
-        .send({ from: donor1Address, authWitnesses: [witness] })
-        .wait();
+      await crowdfundingContract.methods.donate(donationAmount).send({ from: donor1Address, authWitnesses: [witness] });
 
       // The donor should have exactly one note
       const pageIndex = 0;
@@ -145,7 +138,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 2) We claim the reward token via the Claim contract
     {
-      await claimContract.methods.claim(uintNote, donor1Address).send({ from: donor1Address }).wait();
+      await claimContract.methods.claim(uintNote, donor1Address).send({ from: donor1Address });
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
@@ -158,7 +151,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
-    await crowdfundingContract.methods.withdraw(donationAmount).send({ from: operatorAddress }).wait();
+    await crowdfundingContract.methods.withdraw(donationAmount).send({ from: operatorAddress });
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
       .balance_of_private(operatorAddress)
@@ -170,9 +163,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   it('cannot claim twice', async () => {
     // The first claim was executed in the previous test
-    await expect(
-      claimContract.methods.claim(uintNote, donor1Address).send({ from: donor1Address }).wait(),
-    ).rejects.toThrow();
+    await expect(claimContract.methods.claim(uintNote, donor1Address).send({ from: donor1Address })).rejects.toThrow();
   });
 
   it('cannot claim with a different address than the one that donated', async () => {
@@ -189,10 +180,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       0,
     );
     const witness = await wallet.createAuthWit(donorAddress, { caller: crowdfundingContract.address, action });
-    await crowdfundingContract.methods
-      .donate(donationAmount)
-      .send({ from: donorAddress, authWitnesses: [witness] })
-      .wait();
+    await crowdfundingContract.methods.donate(donationAmount).send({ from: donorAddress, authWitnesses: [witness] });
 
     // The donor should have exactly one note
     const pageIndex = 0;
@@ -206,8 +194,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     // should fail because the msg_sender is not the note owner.
     // docs:start:local-tx-fails
     await expect(
-      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
-    ).rejects.toThrow('proof_retrieved_note.owner == self.msg_sender().unwrap()');
+      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }),
+    ).rejects.toThrow('hinted_note.owner == self.msg_sender()');
     // docs:end:local-tx-fails
   });
 
@@ -217,7 +205,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     nonExistentNote.randomness = Fr.random();
 
     await expect(
-      claimContract.methods.claim(nonExistentNote, donor1Address).send({ from: donor1Address }).wait(),
+      claimContract.methods.claim(nonExistentNote, donor1Address).send({ from: donor1Address }),
     ).rejects.toThrow();
   });
 
@@ -233,7 +221,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         deadline,
       );
 
-      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({ from: operatorAddress }).deployed();
+      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({ from: operatorAddress });
       logger.info(`Crowdfunding contract deployed at ${otherCrowdfundingContract.address}`);
     }
 
@@ -249,8 +237,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor1Address, { caller: otherCrowdfundingContract.address, action });
     await otherCrowdfundingContract.methods
       .donate(donationAmount)
-      .send({ from: donor1Address, authWitnesses: [witness] })
-      .wait();
+      .send({ from: donor1Address, authWitnesses: [witness] });
 
     // 3) Get the donation note
     const pageIndex = 0;
@@ -262,7 +249,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 4) Try to claim rewards using note from other contract
     await expect(
-      claimContract.methods.claim(otherContractNote, donor1Address).send({ from: donor1Address }).wait(),
+      claimContract.methods.claim(otherContractNote, donor1Address).send({ from: donor1Address }),
     ).rejects.toThrow();
   });
 
@@ -279,15 +266,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
     // 2) We donate to the crowdfunding contract
-    await crowdfundingContract.methods
-      .donate(donationAmount)
-      .send({ from: donor2Address, authWitnesses: [witness] })
-      .wait();
+    await crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] });
 
     // The following should fail as msg_sender != operator
-    await expect(
-      crowdfundingContract.methods.withdraw(donationAmount).send({ from: donor2Address }).wait(),
-    ).rejects.toThrow('Assertion failed: Not an operator');
+    await expect(crowdfundingContract.methods.withdraw(donationAmount).send({ from: donor2Address })).rejects.toThrow(
+      'Assertion failed: Not an operator',
+    );
   });
 
   it('cannot donate after a deadline', async () => {
@@ -308,10 +292,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) We donate to the crowdfunding contract
     await expect(
-      crowdfundingContract.methods
-        .donate(donationAmount)
-        .send({ from: donor2Address, authWitnesses: [witness] })
-        .wait(),
+      crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] }),
     ).rejects.toThrow();
   });
 });

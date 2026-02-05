@@ -4,7 +4,6 @@ import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -138,18 +137,17 @@ describe('End-to-end tests for devnet', () => {
 
     const l2AccountDeployMethod = await l2AccountManager.getDeployMethod();
 
-    const txReceipt = await l2AccountDeployMethod
-      .send({
-        from: AztecAddress.ZERO,
-        fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
-            claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
-            claimSecret: Fr.fromHexString(claimSecret.value),
-            messageLeafIndex: BigInt(messageLeafIndex),
-          }),
-        },
-      })
-      .wait(waitOpts);
+    const txReceipt = await l2AccountDeployMethod.send({
+      from: AztecAddress.ZERO,
+      fee: {
+        paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
+          claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
+          claimSecret: Fr.fromHexString(claimSecret.value),
+          messageLeafIndex: BigInt(messageLeafIndex),
+        }),
+      },
+      wait: { ...waitOpts, returnReceipt: true },
+    });
 
     // disabled because the CLI process doesn't exit
     // const { txHash, address } = await cli<{ txHash: string; address: { value: string } }>('create-account', {
@@ -171,7 +169,7 @@ describe('End-to-end tests for devnet', () => {
     //   waitOpts.interval,
     // );
 
-    expect(txReceipt.status).toBe(TxStatus.SUCCESS);
+    expect(txReceipt.isMined() && txReceipt.hasExecutionSucceeded()).toBe(true);
     const feeJuice = FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
@@ -254,13 +252,15 @@ describe('End-to-end tests for devnet', () => {
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
     const [fundedAccountAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
-    const test = await TestContract.deploy(wallet)
-      .send({ from: fundedAccountAddress, universalDeploy: true, skipClassPublication: true })
-      .deployed();
+    const test = await TestContract.deploy(wallet).send({
+      from: fundedAccountAddress,
+      universalDeploy: true,
+      skipClassPublication: true,
+    });
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send({ from: fundedAccountAddress }).wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccountAddress, wait: waitOpts });
     }
   }
 });

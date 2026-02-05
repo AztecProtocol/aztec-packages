@@ -7,7 +7,6 @@ use types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
-    blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH},
     proof::proof_data::UltraHonkProofData,
 };
@@ -47,14 +46,10 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
 pub fn execute(inputs: BlockRootEmptyTxFirstRollupPrivateInputs) -> BlockRollupPublicInputs {
     validate_parity_root(inputs.parity_root, inputs.constants.vk_tree_root);
 
-    // Since it's the first block in a checkpoint, the start sponge blob is empty.
-    let start_sponge_blob = SpongeBlob::init();
-
     BlockRollupPublicInputsComposer::new_from_no_rollups(
         inputs.previous_archive,
         inputs.previous_state,
         inputs.constants,
-        start_sponge_blob,
         inputs.timestamp,
     )
         .with_new_l1_to_l2_messages(

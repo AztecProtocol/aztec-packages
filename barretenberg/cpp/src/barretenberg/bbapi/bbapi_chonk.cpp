@@ -62,6 +62,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         precomputed_vk = nullptr;
     } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
         if (!request.loaded_circuit_vk.empty()) {
+            validate_vk_size<Chonk::MegaVerificationKey>(request.loaded_circuit_vk);
             precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(request.loaded_circuit_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
@@ -107,9 +108,9 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     bool verification_passed = false;
 
     info("ChonkProve - using Chonk");
-    auto sumcheck_ivc = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
-    auto proof = sumcheck_ivc->prove();
-    auto vk_and_hash = sumcheck_ivc->get_hiding_kernel_vk_and_hash();
+    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
+    auto proof = chonk->prove();
+    auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
@@ -132,8 +133,20 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+    validate_vk_size<VerificationKey>(vk);
+
     // Deserialize the hiding kernel verification key directly from buffer
-    auto hiding_kernel_vk = std::make_shared<Chonk::MegaVerificationKey>(from_buffer<Chonk::MegaVerificationKey>(vk));
+    auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
+
+    // Validate proof size using VK's num_public_inputs before expensive verification
+    const size_t expected_proof_size =
+        static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+    if (proof.size() != expected_proof_size) {
+        throw_or_abort("proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
+                       std::to_string(proof.size()));
+    }
 
     // Verify the proof using ChonkNativeVerifier
     auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
@@ -151,10 +164,10 @@ static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(a
     return std::make_shared<Chonk::ProverInstance>(builder);
 }
 
-ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unused]] const BBApiRequest& request) &&
+ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
+    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
@@ -162,26 +175,9 @@ ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unu
     std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
     auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
+    info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
+
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
-}
-
-ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
-
-    auto standalone_vk_response = bbapi::ChonkComputeStandaloneVk{
-        .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
-    }.execute();
-
-    // The hiding kernel VK is just the MegaZK verification key
-    auto hiding_kernel_vk = from_buffer<Chonk::MegaVerificationKey>(standalone_vk_response.bytes);
-    Response response;
-    response.bytes = to_buffer(hiding_kernel_vk);
-
-    info("ChonkComputeIvcVk - hiding kernel VK derived, size: ", response.bytes.size(), " bytes");
-
-    return response;
 }
 
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
@@ -197,6 +193,8 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
         info("FAIL: Expected precomputed vk for function ", circuit.name);
         throw_or_abort("Missing precomputed VK");
     }
+
+    validate_vk_size<Chonk::MegaVerificationKey>(circuit.verification_key);
 
     // Deserialize directly from buffer
     auto precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(circuit.verification_key);

@@ -28,7 +28,7 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
-  const mockTxHash = { type: 'TxHash' } as any as TxHash;
+  const _mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
   const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
@@ -136,21 +136,16 @@ describe('Contract Class', () => {
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
-    wallet.sendTx.mockResolvedValue(mockTxHash);
+    wallet.sendTx.mockResolvedValue(mockTxReceipt);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
-    wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
-    wallet.sendTx.mockResolvedValue(mockTxHash);
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
-    const txHash = await sentTx.getTxHash();
-    const receipt = await sentTx.getReceipt();
+    const receipt = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
 
-    expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
   });

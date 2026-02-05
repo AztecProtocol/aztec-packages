@@ -1,9 +1,128 @@
 // @ts-check
-// Sidebar configuration for Network (node operators) documentation
+// Sidebar configuration for Network documentation
+// Supports three sections: Concepts, Users, and Operators
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
-  sidebar: [
+  // ============================================
+  // CONCEPTS SIDEBAR
+  // ============================================
+  conceptsSidebar: [
+    {
+      type: "html",
+      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
+      className: "sidebar-back-link-wrapper",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-title">Concepts</span>',
+      className: "sidebar-title",
+    },
+    {
+      type: "doc",
+      id: "concepts/index",
+      label: "Overview",
+    },
+    {
+      type: "category",
+      label: "Network Architecture",
+      link: {
+        type: "doc",
+        id: "concepts/architecture/index",
+      },
+      items: [
+        "concepts/architecture/block-production",
+      ],
+    },
+    {
+      type: "doc",
+      id: "concepts/proof-of-stake/index",
+      label: "Proof of Stake",
+    },
+    {
+      type: "doc",
+      id: "concepts/economics/index",
+      label: "Economics & Rewards",
+    },
+    {
+      type: "category",
+      label: "Governance",
+      link: {
+        type: "doc",
+        id: "concepts/governance/index",
+      },
+      items: [
+        "concepts/governance/proposal-lifecycle",
+        "concepts/governance/voting",
+        "concepts/governance/gse",
+        "concepts/governance/upgrades",
+      ],
+    },
+    {
+      type: "doc",
+      id: "concepts/contracts/deployment-architecture",
+      label: "L1 Contracts",
+    },
+  ],
+
+  // ============================================
+  // USERS SIDEBAR
+  // ============================================
+  usersSidebar: [
+    {
+      type: "html",
+      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
+      className: "sidebar-back-link-wrapper",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-title">User Guides</span>',
+      className: "sidebar-title",
+    },
+    {
+      type: "doc",
+      id: "users/index",
+      label: "Overview",
+    },
+    {
+      type: "doc",
+      id: "users/staking",
+      label: "Staking Tokens",
+    },
+    {
+      type: "doc",
+      id: "users/delegation",
+      label: "Delegating Stake",
+    },
+    {
+      type: "doc",
+      id: "users/voting",
+      label: "Voting on Proposals",
+    },
+  ],
+
+  // ============================================
+  // OPERATORS SIDEBAR
+  // IDs match actual doc IDs (mix of underscores from frontmatter and dashes from file paths)
+  // ============================================
+  operatorsSidebar: [
+    {
+      type: "html",
+      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
+      className: "sidebar-back-link-wrapper",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
     {
       type: "html",
       value: '<span class="sidebar-title">Getting Started</span>',
@@ -11,11 +130,12 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "index",
+      id: "operators/index",
+      label: "Operator Overview",
     },
     {
       type: "doc",
-      id: "prerequisites",
+      id: "operators/prerequisites",
     },
     {
       type: "html",
@@ -28,37 +148,40 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "setup/running_a_node",
+      id: "operators/setup/running_a_node",
     },
     {
       type: "category",
       label: "Running a Sequencer",
       link: {
         type: "doc",
-        id: "setup/sequencer_management",
+        id: "operators/setup/sequencer_management",
       },
       items: [
-        {
-          type: "doc",
-          id: "setup/high_availability_sequencers",
-        },
+        "operators/setup/registering_sequencer",
+        "operators/setup/become_a_staking_provider",
+        "operators/setup/high_availability_sequencers",
       ],
     },
     {
       type: "doc",
-      id: "setup/running_a_prover",
+      id: "operators/setup/running_a_prover",
     },
     {
       type: "doc",
-      id: "setup/building_from_source",
+      id: "operators/setup/building_from_source",
     },
     {
       type: "doc",
-      id: "setup/bootnode_operation",
+      id: "operators/setup/bootnode_operation",
     },
     {
       type: "doc",
-      id: "setup/syncing_best_practices",
+      id: "operators/setup/syncing_best_practices",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
     },
     {
       type: "html",
@@ -70,61 +193,35 @@ const sidebars = {
       label: "Monitoring",
       link: {
         type: "doc",
-        id: "operation/monitoring",
+        id: "operators/monitoring/monitoring",
       },
       items: [
         {
           type: "category",
           label: "Setup Guides",
           items: [
-            {
-              type: "doc",
-              id: "operation/otel_setup",
-            },
-            {
-              type: "doc",
-              id: "operation/prometheus_setup",
-            },
-            {
-              type: "doc",
-              id: "operation/grafana_setup",
-            },
+            "operators/monitoring/otel-setup",
+            "operators/monitoring/prometheus-setup",
+            "operators/monitoring/grafana-setup",
           ],
         },
-        {
-          type: "doc",
-          id: "operation/metrics_reference",
-        },
-        {
-          type: "doc",
-          id: "operation/monitoring_example_troubleshooting",
-        },
+        "operators/monitoring/metrics-reference",
+        "operators/monitoring/troubleshooting",
       ],
     },
     {
       type: "category",
-      label: "Keystore Usage",
+      label: "Keystore Management",
       link: {
         type: "doc",
-        id: "operation/keystore/advanced_keystore_guide",
+        id: "operators/keystore/advanced_keystore_guide",
       },
       items: [
-        {
-          type: "doc",
-          id: "operation/keystore/creating_keystores",
-        },
-        {
-          type: "doc",
-          id: "operation/keystore/storage_methods",
-        },
-        {
-          type: "doc",
-          id: "operation/keystore/advanced_patterns",
-        },
-        {
-          type: "doc",
-          id: "operation/keystore/troubleshooting",
-        },
+        "operators/keystore/creating_keystores",
+        "operators/keystore/storage-methods",
+        "operators/keystore/advanced-patterns",
+        "operators/keystore/examples",
+        "operators/keystore/troubleshooting",
       ],
     },
     {
@@ -132,34 +229,18 @@ const sidebars = {
       label: "Sequencer Management",
       link: {
         type: "doc",
-        id: "operation/sequencer_management/sequencer_management_overview",
+        id: "operators/sequencer-management/sequencer_management_overview",
       },
       items: [
-        {
-          type: "doc",
-          id: "operation/sequencer_management/creating_and_voting_on_proposals",
-        },
-        {
-          type: "doc",
-          id: "operation/sequencer_management/slashing_and_offenses",
-        },
-        {
-          type: "doc",
-          id: "operation/sequencer_management/become_a_staking_provider",
-        },
-        {
-          type: "doc",
-          id: "operation/sequencer_management/claiming_rewards",
-        },
-        {
-          type: "doc",
-          id: "operation/sequencer_management/useful_commands",
-        },
+        "operators/sequencer-management/creating_and_voting_on_proposals",
+        "operators/sequencer-management/slashing_and_offenses",
+        "operators/sequencer-management/claiming-rewards",
+        "operators/sequencer-management/useful-commands",
       ],
     },
     {
       type: "doc",
-      id: "operation/operator_faq",
+      id: "operators/operator-faq",
     },
     {
       type: "html",
@@ -175,30 +256,25 @@ const sidebars = {
       label: "Changelog",
       link: {
         type: "doc",
-        id: "reference/changelog/changelog",
+        id: "operators/reference/changelog/changelog",
       },
-      items: [
-        {
-          type: "doc",
-          id: "reference/changelog/v2.0.2",
-        },
-      ],
+      items: ["operators/reference/changelog/v2.0.2"],
     },
     {
       type: "doc",
-      id: "reference/cli_reference",
+      id: "operators/reference/cli-reference",
     },
     {
       type: "doc",
-      id: "reference/node_api_reference",
+      id: "operators/reference/node_api_reference",
     },
     {
       type: "doc",
-      id: "reference/ethereum_rpc_reference",
+      id: "operators/reference/ethereum_rpc_reference",
     },
     {
       type: "doc",
-      id: "reference/glossary",
+      id: "operators/reference/glossary",
     },
   ],
 };

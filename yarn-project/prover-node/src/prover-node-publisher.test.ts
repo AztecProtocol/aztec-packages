@@ -146,11 +146,12 @@ describe('prover-node-publisher', () => {
           payloadDigest: Buffer32.ZERO, // unused,
           headerHash: Buffer32.ZERO, // unused,
           blobCommitmentsHash: Buffer32.ZERO, // unused,
+          outHash: '0x', // unused,
           slotNumber: SlotNumber(0), // unused,
           feeHeader: {
             excessMana: 0n, // unused
             manaUsed: 0n, // unused
-            feeAssetPriceNumerator: 0n, // unused
+            ethPerFeeAsset: 0n, // unused
             congestionCost: 0n, // unused
             proverCost: 0n, // unused
           },
@@ -215,11 +216,12 @@ describe('prover-node-publisher', () => {
         payloadDigest: Buffer32.ZERO, // unused,
         headerHash: Buffer32.ZERO, // unused,
         blobCommitmentsHash: Buffer32.ZERO, // unused,
+        outHash: '0x', // unused,
         slotNumber: SlotNumber(0), // unused,
         feeHeader: {
           excessMana: 0n, // unused
           manaUsed: 0n, // unused
-          feeAssetPriceNumerator: 0n, // unused
+          ethPerFeeAsset: 0n, // unused
           congestionCost: 0n, // unused
           proverCost: 0n, // unused
         },

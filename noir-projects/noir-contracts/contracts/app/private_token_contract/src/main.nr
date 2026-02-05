@@ -6,13 +6,13 @@ pub contract PrivateToken {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, SinglePrivateMutable},
     };
 
-    use address_note::address_note::AddressNote;
+    use address_note::AddressNote;
     use balance_set::BalanceSet;
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[storage]
     struct Storage<Context> {
@@ -54,7 +54,7 @@ pub contract PrivateToken {
     fn mint(amount: u128, recipient: AztecAddress) {
         let replacement_note_message = self.storage.admin.get_note();
         let admin = replacement_note_message.get_note().address;
-        assert(admin == self.msg_sender().unwrap(), "Only admin can mint");
+        assert(admin == self.msg_sender(), "Only admin can mint");
 
         // We deliver the new note message to the admin using unconstrained delivery, since the admin is motivated to
         // deliver the message to themselves (hence no need to constrain it).
@@ -81,7 +81,7 @@ pub contract PrivateToken {
             .replace(
                 |old| {
                     assert(
-                        old.address == self.msg_sender().unwrap(),
+                        old.address == self.msg_sender(),
                         "Only admin can transfer admin privileges",
                     );
                     AddressNote { address: new_admin }

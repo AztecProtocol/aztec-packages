@@ -1,7 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { waitForTx } from '@aztec/aztec.js/node';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -21,12 +23,13 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 
-// We send 8 txs total, each taking 1s to process (see sequencerFakeDelayPerTxMs), with a total
-// L2 slot time of 16s, with l1PublishingTime set to the full L1 slot duration and attestationPropagationTime of 0.5.
-// This leaves us with roughly 2s for executing txs. This test will check that proposers honor the timetable
-// and do not try to include more than 2 txs per block. Should we ever implement preemptive block building,
+// We send 8 txs total, each taking several seconds to process (see sequencerFakeDelayPerTxMs), with a total
+// L2 slot time of 24s, with l1PublishingTime set to the full 8s L1 slot duration and attestationPropagationTime of 1s.
+// This leaves us with a few seconds for executing txs. This test will check that proposers honor the timetable
+// and do not try to include more than N txs per block. Should we ever implement preemptive block building,
 // sequencers will end up with more time, so we'll need to bump the EXPECTED_MAX_TXS_PER_BLOCK value.
 const TX_COUNT = 8;
+const TX_DURATION_MS = 2500;
 const EXPECTED_MAX_TXS_PER_BLOCK = 3;
 
 // Test that sequencers and validators can handle a large backlog of transactions.
@@ -62,9 +65,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       enforceTimeTable: true,
       ethereumSlotDuration: 8,
       l1PublishingTime: 8,
-      aztecSlotDuration: 16,
-      fakeProcessingDelayPerTxMs: 850,
-      attestationPropagationTime: 0.5,
+      aztecSlotDuration: 24,
+      fakeProcessingDelayPerTxMs: TX_DURATION_MS,
+      attestationPropagationTime: 1,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
     });
@@ -99,9 +102,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
     );
-    const sentTxs = await Promise.all(txs.map(tx => tx.send()));
-    logger.warn(`Sent ${sentTxs.length} transactions`, {
-      txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, {
+      txs: txHashes,
     });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -113,11 +116,11 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT + 3);
-    await Promise.all(sentTxs.map(tx => tx.wait({ timeout })));
+    await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All txs have been mined`);
 
     // Check all blocks mined by the sequencers have under the expected max number of transactions.
-    const blocks = await nodes[0].getPublishedBlocks(BlockNumber(1), 50);
+    const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
     for (const block of blocks) {
       logger.warn(
         `Block ${block.block.number} was mined at L1 ${block.l1.blockNumber} with ${block.block.body.txEffects.length} transactions`,

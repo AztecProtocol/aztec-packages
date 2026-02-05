@@ -3,17 +3,17 @@ use aztec::{
     keys::getters::get_public_keys,
     messages::message_delivery::MessageDelivery,
     note::{
-        constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
-        note_viewer_options::NoteViewerOptions, retrieved_note::RetrievedNote,
+        constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
+        note_viewer_options::NoteViewerOptions,
     },
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
-use field_note::field_note::FieldNote;
+use field_note::FieldNote;
 use std::meta::derive;
 
 #[derive(Packable, Serialize)]
@@ -81,22 +81,22 @@ impl<Context> StateVariable<1, Context> for Deck<Context> {
 }
 
 pub fn filter_cards<let N: u32>(
-    retrieved_notes: [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    hinted_notes: [Option<HintedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N],
-) -> [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<HintedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 
-    for i in 0..retrieved_notes.len() {
-        let retrieved_note = retrieved_notes[i];
-        if retrieved_note.is_some() {
-            let card_note = CardNote::from_note(retrieved_note.unwrap_unchecked().note);
+    for i in 0..hinted_notes.len() {
+        let hinted_note = hinted_notes[i];
+        if hinted_note.is_some() {
+            let card_note = CardNote::from_note(hinted_note.unwrap_unchecked().note);
             for j in 0..N {
                 if !found[j]
                     & (card_note.card.strength == desired_cards[j].strength)
                     & (card_note.card.points == desired_cards[j].points) {
-                    selected[i] = retrieved_note;
+                    selected[i] = hinted_note;
                     found[j] = true;
                 }
             }
@@ -157,7 +157,7 @@ pub fn get_pack_cards(
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_nsk_app(owner_npk_m_hash);
+    let secret = context.request_nhk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes();
     let random_bytes = sha256::digest(mix_bytes);

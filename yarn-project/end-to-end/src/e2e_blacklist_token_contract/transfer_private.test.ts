@@ -9,10 +9,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
-    await t.applyMintSnapshot();
     await t.setup();
+    // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
+    await t.applyMint();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
@@ -30,7 +29,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     const tokenTransferInteraction = asset.methods.transfer(adminAddress, otherAddress, amount, 0);
-    await tokenTransferInteraction.send({ from: adminAddress }).wait();
+    await tokenTransferInteraction.send({ from: adminAddress });
     tokenSim.transferPrivate(adminAddress, otherAddress, amount);
   });
 
@@ -39,7 +38,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.transfer(adminAddress, adminAddress, amount, 0).send({ from: adminAddress }).wait();
+    await asset.methods.transfer(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
     tokenSim.transferPrivate(adminAddress, adminAddress, amount);
   });
 
@@ -55,14 +54,14 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
     // Perform the transfer
 
-    await action.send({ from: otherAddress, authWitnesses: [witness] }).wait();
+    await action.send({ from: otherAddress, authWitnesses: [witness] });
     tokenSim.transferPrivate(adminAddress, otherAddress, amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset.methods
       .transfer(adminAddress, otherAddress, amount, authwitNonce)
       .send({ from: otherAddress, authWitnesses: [witness] });
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(txReplay).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
   describe('failure cases', () => {

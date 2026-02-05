@@ -31,6 +31,9 @@ export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
 export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
 export const TX_ERROR_INCORRECT_HASH = 'Incorrect tx hash';
 
+// Size
+export const TX_ERROR_SIZE_ABOVE_LIMIT = 'Transaction size above size limit';
+
 // Block header
 export const TX_ERROR_BLOCK_HEADER = 'Block header not found';
 

@@ -99,7 +99,7 @@ export async function createPrivateFunctionMembershipProof(
  * contract_class = db.get_contract_class(contract_class_id)
  *
  * // Compute function leaf and assert it belongs to the private functions tree
- * function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__FUNCTION_LEAF)
+ * function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF)
  * computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path)
  * assert computed_private_function_tree_root == contract_class.private_functions_root
  *

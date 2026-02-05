@@ -50,6 +50,15 @@
     },
     {
       "path": "../telemetry-client"
+    },
+    {
+      "path": "../validator-ha-signer"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

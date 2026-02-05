@@ -4,8 +4,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
-import { type L2BlockId, type L2BlockPruneReason, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+
+/** Maximum number of checkpoints to prefetch at once during sync. Matches MAX_RPC_CHECKPOINTS_LEN. */
+export const CHECKPOINT_PREFETCH_LIMIT = 50;
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
@@ -16,13 +19,12 @@ export class L2BlockStream {
   constructor(
     private l2BlockSource: Pick<
       L2BlockSource,
-      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
+      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
     >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
     private opts: {
-      proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
       startingBlock?: number;
@@ -30,6 +32,8 @@ export class L2BlockStream {
       skipFinalized?: boolean;
       /** When true, checkpoint events will not be emitted. Blocks are still fetched via checkpoints but only blocks-added events are emitted. */
       ignoreCheckpoints?: boolean;
+      /** Maximum number of checkpoints to prefetch at once during sync. Defaults to CHECKPOINT_PREFETCH_LIMIT (50). */
+      checkpointPrefetchLimit?: number;
     } = {},
   ) {
     // Note that RunningPromise is in stopped state by default. This promise won't run until someone invokes `start`,
@@ -85,18 +89,9 @@ export class L2BlockStream {
         this.log.verbose(
           `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.proposed.number}.`,
         );
-        // This check is not 100% accurate
-        // If the local tips are sufficiently behind the source tips, such that we are missing at least one checkpoint
-        // that has now been re-orged due to a proof failure then this will indicate a failure to checkpoint rather than a failure to prove
-        // TODO: (mbps/PhilWindle): Improve re-org detection accuracy when we come to do re-orgs
-        let reason: L2BlockPruneReason = 'unproven';
-        if (latestBlockNumber === localTips.checkpointed.block.number && !this.opts.ignoreCheckpoints) {
-          reason = 'uncheckpointed';
-        }
         await this.emitEvent({
           type: 'chain-pruned',
           block: makeL2BlockId(latestBlockNumber, hash),
-          reason,
           checkpoint: sourceTips.checkpointed.checkpoint,
         });
       }
@@ -133,7 +128,7 @@ export class L2BlockStream {
       if (!this.opts.ignoreCheckpoints) {
         let loop1Iterations = 0;
         while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
-          const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(nextCheckpointToEmit, 1);
+          const checkpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointToEmit, 1);
           if (checkpoints.length === 0) {
             break;
           }
@@ -159,27 +154,36 @@ export class L2BlockStream {
         }
       }
 
-      // Loop 2: Fetch new checkpointed blocks. For each block, get its checkpoint, emit all blocks
+      // Loop 2: Fetch new checkpointed blocks. For each checkpoint, emit all blocks
       // from that checkpoint that we need, then emit the checkpoint event.
-      // We cache the current checkpoint to avoid redundant fetches when batchSize < checkpoint size.
-      let checkpoint: PublishedCheckpoint | undefined;
-      while (nextBlockNumber <= sourceTips.checkpointed.block.number) {
-        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.checkpointed.block.number - nextBlockNumber + 1);
+      // We prefetch multiple checkpoints, then process them one by one.
+      let prefetchedCheckpoints: PublishedCheckpoint[] = [];
+      let prefetchIdx = 0;
+      let nextCheckpointNumber: CheckpointNumber | undefined;
 
-        // Check if we need to fetch a new checkpoint (nextBlockNumber is beyond the cached one)
-        if (!checkpoint || nextBlockNumber > checkpoint.checkpoint.blocks.at(-1)!.number) {
-          const blocks = await this.l2BlockSource.getCheckpointedBlocks(BlockNumber(nextBlockNumber), 1);
-          if (blocks.length === 0) {
+      // Find the starting checkpoint number
+      if (nextBlockNumber <= sourceTips.checkpointed.block.number) {
+        const blocks = await this.l2BlockSource.getCheckpointedBlocks(BlockNumber(nextBlockNumber), 1);
+        if (blocks.length > 0) {
+          nextCheckpointNumber = blocks[0].checkpointNumber;
+        }
+      }
+
+      while (nextBlockNumber <= sourceTips.checkpointed.block.number && nextCheckpointNumber !== undefined) {
+        // Refill the prefetch buffer when exhausted
+        if (prefetchIdx >= prefetchedCheckpoints.length) {
+          const prefetchLimit = this.opts.checkpointPrefetchLimit ?? CHECKPOINT_PREFETCH_LIMIT;
+          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointNumber, prefetchLimit);
+          prefetchIdx = 0;
+          if (prefetchedCheckpoints.length === 0) {
             break;
           }
-          const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(blocks[0].checkpointNumber, 1);
-          if (checkpoints.length === 0) {
-            break;
-          }
-          checkpoint = checkpoints[0];
         }
 
+        const checkpoint = prefetchedCheckpoints[prefetchIdx]!;
+
         // Get all blocks from this checkpoint that we need, respecting batchSize
+        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.checkpointed.block.number - nextBlockNumber + 1);
         const blocksForCheckpoint = checkpoint.checkpoint.blocks
           .filter(b => b.number >= nextBlockNumber)
           .slice(0, limit);
@@ -189,23 +193,27 @@ export class L2BlockStream {
         await this.emitEvent({ type: 'blocks-added', blocks: blocksForCheckpoint });
         nextBlockNumber = blocksForCheckpoint.at(-1)!.number + 1;
 
-        // If we've reached the end of this checkpoint, emit the checkpoint event
+        // If we've reached the end of this checkpoint, emit the checkpoint event and move to next
         const lastBlockInCheckpoint = checkpoint.checkpoint.blocks.at(-1)!;
-        if (!this.opts.ignoreCheckpoints && nextBlockNumber > lastBlockInCheckpoint.number) {
-          const lastBlockHash = await lastBlockInCheckpoint.hash();
-          await this.emitEvent({
-            type: 'chain-checkpointed',
-            checkpoint,
-            block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
-          });
+        if (nextBlockNumber > lastBlockInCheckpoint.number) {
+          if (!this.opts.ignoreCheckpoints) {
+            const lastBlockHash = await lastBlockInCheckpoint.hash();
+            await this.emitEvent({
+              type: 'chain-checkpointed',
+              checkpoint,
+              block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
+            });
+          }
+          prefetchIdx++;
+          nextCheckpointNumber = CheckpointNumber(nextCheckpointNumber + 1);
         }
       }
 
       // Loop 3: Fetch any remaining uncheckpointed (proposed) blocks.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
-        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit, this.opts.proven);
+        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
+        const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
         if (blocks.length === 0) {
           break;
         }

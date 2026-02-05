@@ -23,11 +23,10 @@ describe('e2e_fees fee settings', () => {
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    await t.setup();
+    ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = t);
 
-    ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
-
-    testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
+    testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
   });
 
@@ -63,7 +62,7 @@ describe('e2e_fees fee settings', () => {
         fee: { gasSettings },
       });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
-      t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
+      t.logger.info(`Tx with hash ${tx.txHash.toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
     };
 
@@ -77,11 +76,8 @@ describe('e2e_fees fee settings', () => {
 
       // And check that the no-padding does not get mined, but the default padding is good enough
       t.logger.info(`Sendings txs`);
-      const sentWithNoPadding = txWithNoPadding.send();
-      const sentWithDefaultPadding = txWithDefaultPadding.send();
-      t.logger.info(`Awaiting txs`);
-      await expect(sentWithNoPadding.wait({ timeout: 30 })).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
-      await sentWithDefaultPadding.wait({ timeout: 30 });
+      await expect(txWithNoPadding.send()).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
+      await expect(txWithDefaultPadding.send()).resolves.toBeDefined();
     });
   });
 });

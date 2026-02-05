@@ -1,8 +1,8 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { SentTx } from '@aztec/aztec.js/contracts';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxHash, type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -12,26 +12,20 @@ export const submitTxsTo = async (
   submitter: AztecAddress,
   numTxs: number,
   logger: Logger,
-): Promise<SentTx[]> => {
-  const txs: SentTx[] = [];
+): Promise<TxHash[]> => {
+  const txHashes: TxHash[] = [];
   await Promise.all(
     times(numTxs, async () => {
       const accountManager = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
       const deployMethod = await accountManager.getDeployMethod();
-      const tx = deployMethod.send({ from: submitter });
-      const txHash = await tx.getTxHash();
+      const txHash = await deployMethod.send({ from: submitter, wait: NO_WAIT });
 
       logger.info(`Tx sent with hash ${txHash}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
+      const receipt: TxReceipt = await wallet.getTxReceipt(txHash);
+      expect(receipt.status).toBe(TxStatus.PENDING);
       logger.info(`Receipt received for ${txHash}`);
-      txs.push(tx);
+      txHashes.push(txHash);
     }),
   );
-  return txs;
+  return txHashes;
 };

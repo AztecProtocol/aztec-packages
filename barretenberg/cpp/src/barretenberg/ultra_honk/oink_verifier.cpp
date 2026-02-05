@@ -11,7 +11,6 @@
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -59,16 +58,22 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 
     // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
     if constexpr (IsRecursiveFlavor<Flavor>) {
+        const bool is_write_vk_mode = vk_hash.get_context()->is_write_vk_mode();
         const bool vk_hash_consistency = verifier_instance->vk_and_hash->hash.get_value() == vk_hash.get_value();
-        if (!vk_hash_consistency) {
+        if (!vk_hash_consistency && !is_write_vk_mode) {
             info("Recursive Ultra Verifier: VK Hash Mismatch");
         }
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
+
+        // Assert that the provided num_public_inputs matches VK's value (in-circuit constraint)
+        vk->num_public_inputs.assert_equal(FF(num_public_inputs), "OinkVerifier: num_public_inputs mismatch with VK");
     } else {
         BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native Ultra Verifier: VK Hash Mismatch");
+        // Assert that the provided num_public_inputs matches VK's value
+        BB_ASSERT_EQ(num_public_inputs,
+                     static_cast<size_t>(vk->num_public_inputs),
+                     "OinkVerifier: num_public_inputs mismatch with VK");
     };
-
-    size_t num_public_inputs = get_num_public_inputs();
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -112,12 +117,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_r
  */
 template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
-    // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
-    relation_parameters.eta = eta;
-    relation_parameters.eta_two = eta_two;
-    relation_parameters.eta_three = eta_three;
+    // Get eta challenge and compute powers (eta, eta², eta³)
+    relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     // Get commitments to lookup argument polynomials and fourth wire
     witness_comms.lookup_read_counts =
@@ -133,10 +134,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
  */
 template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
-    // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
-    relation_parameters.beta = beta;
+    relation_parameters.compute_beta_powers(beta);
     relation_parameters.gamma = gamma;
 
     witness_comms.lookup_inverses =
@@ -184,7 +184,6 @@ template class OinkVerifier<UltraStarknetFlavor>;
 template class OinkVerifier<UltraStarknetZKFlavor>;
 #endif
 template class OinkVerifier<UltraKeccakZKFlavor>;
-template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
 
@@ -196,7 +195,6 @@ template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 

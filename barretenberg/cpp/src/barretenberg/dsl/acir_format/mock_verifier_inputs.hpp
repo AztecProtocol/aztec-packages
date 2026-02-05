@@ -6,10 +6,7 @@
 
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-#include "barretenberg/ultra_honk/verifier_instance.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -83,13 +80,21 @@ template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size = 0);
 
 /**
- * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to match
- * num_public_inputs provided.
+ * @brief Create a mock AVM proof without public inputs that has the correct structure but is not in general valid
  *
+ */
+bb::HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding);
+
+/**
+ * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to
+ * match num_public_inputs provided.
+ *
+ * @tparam Flavor The proving flavor
+ * @tparam IO The IO type that determines public inputs handling and whether IPA proof is included
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  * @param make_proof_invalid If true, the proof is an invalid proof
  */
-template <typename Flavor>
+template <typename Flavor, typename IO>
 std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     size_t acir_public_inputs_size);
 
@@ -131,12 +136,10 @@ template <typename Builder> bb::HonkProof create_mock_chonk_proof(const size_t a
  * @brief Create a mock VK that has the correct structure
  *
  * @param dyadic_size Dyadic size of the circuit for which we generate a vk
- * @param pub_inputs_offest Indicating whether the circuit has a first zero row
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t pub_inputs_offset,
                                                                       const size_t acir_public_inputs_size = 0);
 
 } // namespace acir_format

@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
@@ -165,10 +165,12 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
   });
   // Pad to AZTEC_MAX_EPOCH_DURATION with zeros.
   checkpointOutHashes = checkpointOutHashes.concat(
-    Array.from({ length: AZTEC_MAX_EPOCH_DURATION - messagesInEpoch.length }, () => Buffer.alloc(32)),
+    Array.from({ length: OUT_HASH_TREE_LEAF_COUNT - messagesInEpoch.length }, () => Buffer.alloc(32)),
   );
 
-  // Build the epoch tree with all the checkpoint out hashes, including the padded zeros
+  // Build the epoch tree with all the checkpoint out hashes, including the padded zeros.
+  // Note: The epoch tree is actually a balanced tree, but we use an unbalanced tree calculator here to avoid turning
+  // this function into async.
   const epochTree = UnbalancedMerkleTreeCalculator.create(checkpointOutHashes);
   // Get the sibling path of the checkpoint out hash in the epoch tree.
   const pathToCheckpointOutHashInEpochTree = epochTree.getSiblingPathByLeafIndex(checkpointIndex);

@@ -1,5 +1,5 @@
 import { Body } from '@aztec/aztec.js/block';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -7,7 +7,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
@@ -30,9 +30,9 @@ export async function makeTx(seed?: number, chainId?: Fr): Promise<Tx> {
 }
 
 /**
- * Creates an L2BlockNew from transactions and global variables
+ * Creates an L2Block from transactions and global variables
  */
-export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Promise<L2BlockNew> {
+export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Promise<L2Block> {
   const processedTxs = await Promise.all(
     txs.map(tx =>
       makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
@@ -41,7 +41,13 @@ export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Pr
   const body = new Body(processedTxs.map(tx => tx.txEffect));
   const header = BlockHeader.empty({ globalVariables });
   const archive = makeAppendOnlyTreeSnapshot(globalVariables.blockNumber + 1);
-  return new L2BlockNew(archive, header, body, CheckpointNumber(globalVariables.blockNumber), 0);
+  return new L2Block(
+    archive,
+    header,
+    body,
+    CheckpointNumber.fromBlockNumber(globalVariables.blockNumber),
+    IndexWithinCheckpoint(0),
+  );
 }
 
 /**
@@ -70,16 +76,17 @@ export function createMockSignatures(signer: Secp256k1Signer): CommitteeAttestat
 }
 
 /**
- * Creates a CheckpointHeader from an L2BlockNew for testing purposes.
- * Uses mock values for blockHeadersHash, blobsHash and inHash since L2BlockNew doesn't have these fields.
+ * Creates a CheckpointHeader from an L2Block for testing purposes.
+ * Uses mock values for blockHeadersHash, blobsHash and inHash since L2Block doesn't have these fields.
  */
-function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
+function createCheckpointHeaderFromBlock(block: L2Block): CheckpointHeader {
   const gv = block.header.globalVariables;
   return new CheckpointHeader(
     block.header.lastArchive.root,
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
     Fr.random(), // inHash - mock value for testing
+    Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
     gv.coinbase,
@@ -92,7 +99,7 @@ function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
 /**
  * Creates a block proposal from a block and signature
  */
-export function createBlockProposal(block: L2BlockNew, signature: Signature): BlockProposal {
+export function createBlockProposal(block: L2Block, signature: Signature): BlockProposal {
   const txHashes = block.body.txEffects.map(tx => tx.txHash);
   return new BlockProposal(
     block.header,
@@ -108,7 +115,7 @@ export function createBlockProposal(block: L2BlockNew, signature: Signature): Bl
  * Creates a checkpoint proposal from a block and signature
  */
 export function createCheckpointProposal(
-  block: L2BlockNew,
+  block: L2Block,
   checkpointSignature: Signature,
   blockSignature?: Signature,
 ): CheckpointProposal {
@@ -128,7 +135,7 @@ export function createCheckpointProposal(
  * In production, the sender is recovered from the signature.
  */
 export function createCheckpointAttestation(
-  block: L2BlockNew,
+  block: L2Block,
   signature: Signature,
   sender: EthAddress,
 ): CheckpointAttestation {
@@ -149,7 +156,7 @@ export async function setupTxsAndBlock(
   globalVariables: GlobalVariables,
   txCount: number,
   chainId: Fr,
-): Promise<{ txs: Tx[]; block: L2BlockNew }> {
+): Promise<{ txs: Tx[]; block: L2Block }> {
   const txs = await Promise.all(times(txCount, i => makeTx(i + 1, chainId)));
   const block = await makeBlock(txs, globalVariables);
   mockPendingTxs(p2p, txs);

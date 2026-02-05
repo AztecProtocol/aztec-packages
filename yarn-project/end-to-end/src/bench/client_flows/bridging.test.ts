@@ -23,11 +23,11 @@ describe('Bridging benchmark', () => {
   const config = t.config.bridging;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
-    ({ userWallet, adminAddress } = await t.setup());
+    await t.setup();
+    await t.applyDeployBananaToken();
+    await t.applyFPCSetup();
+    await t.applyDeploySponsoredFPC();
+    ({ userWallet, adminAddress } = t);
   });
 
   afterAll(async () => {
@@ -106,7 +106,7 @@ describe('Bridging benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await claimInteraction.send(options).wait();
+            const tx = await claimInteraction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
 
             // 4. Check the balance

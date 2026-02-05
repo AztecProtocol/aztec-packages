@@ -9,6 +9,37 @@
 
 namespace bb {
 
+/**
+ * @brief Expression for the Ultra (width-4) Arithmetic gate.
+ * @details This relation contains two subrelations and encapsulates several identities, toggled by the value of
+ * q_arith in [0, 1, 2, 3].
+ *
+ * Subrelation 1:
+ *      q_arith *
+ *         [ (-1/2) * (q_arith - 3) * (q_m * w_1 * w_2) + \sum_{i=1..4} q_i * w_i + q_c + (q_arith - 1) * w_4_shift]
+ *
+ * Subrelation 2:
+ *      q_arith * (q_arith - 1) * (q_arith - 2) * (w_1 + w_4 - w_1_shift + q_m)
+ *
+ * These formulas result in several cases depending on q_arith:
+ *
+ * CASE q_arith == 0: Arithmetic gate is completely disabled
+ *
+ * CASE q_arith == 1: Conventional 4-wire Ultra arithmetic relation
+ *      Subrelation 1: q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c
+ *      Subrelation 2: Disabled
+ *
+ * CASE q_arith == 2: Same as above but with an additional linear term: +w_4_shift
+ *      Subrelation 1: q_m * w_1 * w_2 + [ \sum_{i=1..4} q_i * w_i + q_c + w_4_shift ] * 2
+ *      Subrelation 2: Disabled
+ *      Note: Factor of 2 on the linear term must be accounted for when constructing inputs to the relation.
+ *
+ * CASE q_arith == 3:
+ *      Subrelation 1: [ \sum_{i=1..4} q_i * w_i + q_c + (2 * w_4_shift) ] * 3
+ *      Subrelation 2: [ w_1 + w_4 - w_1_shift + q_m ] * 6
+ *      Note: We are repurposing q_m here as an additive term in the second subrelation.
+ *      Note: Factor of 2 on the w_4_shift term must be accounted for when constructing inputs to the relation.
+ */
 template <typename FF_> class ArithmeticRelationImpl {
   public:
     using FF = FF_;
@@ -25,36 +56,6 @@ template <typename FF_> class ArithmeticRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_arith.is_zero(); }
 
     /**
-     * @brief Expression for the Ultra (width-4) Arithmetic gate.
-     * @details This relation contains two subrelations and encapsulates several identities, toggled by the value of
-     * q_arith in [0, 1, 2, 3].
-     *
-     * Subrelation 1:
-     *      q_arith *
-     *         [ (-1/2) * (q_arith - 3) * (q_m * w_1 * w_2) + \sum_{i=1..4} q_i * w_i + q_c + (q_arith - 1) * w_4_shift]
-     *
-     * Subrelation 2:
-     *      q_arith * (q_arith - 1) * (q_arith - 2) * (w_1 + w_4 - w_1_shift + q_m)
-     *
-     * These formulas result in several cases depending on q_arith:
-     *
-     * CASE q_arith == 0: Arithmetic gate is completely disabled
-     *
-     * CASE q_arith == 1: Conventional 4-wire Ultra arithmetic relation
-     *      Subrelation 1: q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c
-     *      Subrelation 2: Disabled
-     *
-     * CASE q_arith == 2: Same as above but with an additional linear term: +w_4_shift
-     *      Subrelation 1: q_m * w_1 * w_2 + [ \sum_{i=1..4} q_i * w_i + q_c + w_4_shift ] * 2
-     *      Subrelation 2: Disabled
-     *      Note: Factor of 2 on the linear term must be accounted for when constructing inputs to the relation.
-     *
-     * CASE q_arith == 3:
-     *      Subrelation 1: [ \sum_{i=1..4} q_i * w_i + q_c + (2 * w_4_shift) ] * 3
-     *      Subrelation 2: [ w_1 + w_4 - w_1_shift + q_m ] * 6
-     *      Note: We are repurposing q_m here as an additive term in the second subrelation.
-     *      Note: Factor of 2 on the w_4_shift term must be accounted for when constructing inputs to the relation.
-     *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in Inputs to the relation algebra
      * @param parameters Unused in this relation

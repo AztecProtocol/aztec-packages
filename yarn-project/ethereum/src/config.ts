@@ -69,10 +69,14 @@ export type L1ContractsConfig = {
   governanceProposerQuorum?: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
+  /** Governance voting duration in seconds (only for local/devnet/next-net, default 3600) */
+  governanceVotingDuration?: number;
   /** The mana target for the rollup */
   manaTarget: bigint;
   /** The proving cost per mana */
   provingCostPerMana: bigint;
+  /** The initial ETH per fee asset price (with 1e12 precision) */
+  initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
 } & L1TxUtilsConfig;
@@ -209,6 +213,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The governance proposing round size',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE),
   },
+  governanceVotingDuration: {
+    env: 'AZTEC_GOVERNANCE_VOTING_DURATION',
+    description: 'Governance voting duration in seconds (only for local/devnet/next-net)',
+    ...numberConfigHelper(3600), // 1 hour default, not in generated defaults as it's deployment-time only
+  },
   manaTarget: {
     env: 'AZTEC_MANA_TARGET',
     description: 'The mana target for the rollup',
@@ -218,6 +227,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
     ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_PROVING_COST_PER_MANA)),
+  },
+  initialEthPerFeeAsset: {
+    env: 'AZTEC_INITIAL_ETH_PER_FEE_ASSET',
+    description: 'The initial ETH per fee asset price (with 1e12 precision)',
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_INITIAL_ETH_PER_FEE_ASSET)),
   },
   exitDelaySeconds: {
     env: 'AZTEC_EXIT_DELAY_SECONDS',

@@ -67,19 +67,23 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, this.boundHandleInvalidCheckpoint);
-    return Promise.resolve();
-  }
-
-  public stop() {
-    this.l2BlockSource.removeListener(
+    this.l2BlockSource.events.on(
       L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
       this.boundHandleInvalidCheckpoint,
     );
     return Promise.resolve();
   }
 
-  private handleInvalidCheckpoint(event: InvalidCheckpointDetectedEvent): void {
+  public stop() {
+    this.l2BlockSource.events.removeListener(
+      L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
+      this.boundHandleInvalidCheckpoint,
+    );
+    return Promise.resolve();
+  }
+
+  /** Event handler for invalid checkpoints as reported by the archiver. Public for testing purposes. */
+  public handleInvalidCheckpoint(event: InvalidCheckpointDetectedEvent): void {
     const { validationResult } = event;
     const checkpoint = validationResult.checkpoint;
 
@@ -139,6 +143,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       committee: validationResult.committee,
       seed: validationResult.seed,
       epoch: validationResult.epoch,
+      isEscapeHatchOpen: false,
     };
     const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, slot);
 

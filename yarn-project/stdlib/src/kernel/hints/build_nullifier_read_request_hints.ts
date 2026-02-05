@@ -6,7 +6,6 @@ import {
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
-import { siloNullifier } from '../../hash/hash.js';
 import type { NullifierLeafPreimage } from '../../trees/nullifier_leaf.js';
 import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNullifier } from '../nullifier.js';
@@ -74,7 +73,6 @@ export async function buildNullifierReadRequestHintsFromResetActions<PENDING ext
   resetActions: ReadRequestResetActions<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
-  siloed = false,
 ) {
   const builder = new NullifierReadRequestHintsBuilder(maxPending, maxSettled);
 
@@ -82,19 +80,26 @@ export async function buildNullifierReadRequestHintsFromResetActions<PENDING ext
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
   });
 
+  // Collect all settled read requests
+  const settledRequests: { index: number; readRequest: ScopedReadRequest }[] = [];
   for (let i = 0; i < resetActions.actions.length; i++) {
     if (resetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
-      const readRequest = nullifierReadRequests.array[i];
-      const siloedValue = siloed
-        ? readRequest.value
-        : await siloNullifier(readRequest.contractAddress, readRequest.value);
-      const membershipWitnessWithPreimage = await oracle.getNullifierMembershipWitness(siloedValue);
-      builder.addSettledReadRequest(
-        i,
-        membershipWitnessWithPreimage.membershipWitness,
-        membershipWitnessWithPreimage.leafPreimage,
-      );
+      settledRequests.push({ index: i, readRequest: nullifierReadRequests.array[i] });
     }
+  }
+
+  const siloedValues = settledRequests.map(({ readRequest }) => readRequest.value);
+
+  // Fetch all membership witnesses in parallel
+  const membershipWitnesses = await Promise.all(siloedValues.map(value => oracle.getNullifierMembershipWitness(value)));
+
+  // Add settled read requests to builder
+  for (let i = 0; i < settledRequests.length; i++) {
+    builder.addSettledReadRequest(
+      settledRequests[i].index,
+      membershipWitnesses[i].membershipWitness,
+      membershipWitnesses[i].leafPreimage,
+    );
   }
 
   return builder.toHints();
@@ -109,7 +114,6 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   futureNullifiers: ScopedNullifier[],
   maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
-  siloed = false,
 ) {
   const resetActions = getNullifierReadRequestResetActions(nullifierReadRequests, nullifiers, futureNullifiers);
   return await buildNullifierReadRequestHintsFromResetActions(
@@ -118,6 +122,5 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
     resetActions,
     maxPending,
     maxSettled,
-    siloed,
   );
 }

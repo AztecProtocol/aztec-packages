@@ -1,5 +1,5 @@
-use crate::{authwit::entrypoint::function_call::FunctionCall, context::PrivateContext};
-use dep::protocol_types::{
+use crate::{authwit::entrypoint::FunctionCall, context::PrivateContext};
+use crate::protocol::{
     constants::DOM_SEP__SIGNATURE_PAYLOAD,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},

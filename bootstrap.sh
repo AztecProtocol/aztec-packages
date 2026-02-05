@@ -130,21 +130,13 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="24.12.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
-    # This can be removed once the AMI is updated.
-    echo -e "${bold}${yellow}WARN: Node.js $node_min_version not found (got $node_installed_version). Installing temporarily...${reset}"
-    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    node_installed_version=$(node --version | cut -d 'v' -f 2)
-    if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-      encourage_dev_container
-      echo "Failed to install Node.js $node_min_version."
-      exit 1
-    fi
-    echo -e "${bold}${green}Node.js $(node --version) installed successfully.${reset}"
+    encourage_dev_container
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
+    exit 1
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
@@ -158,19 +150,23 @@ function check_toolchains {
 }
 
 function versions {
-  if semver check $REF_NAME; then
-    echo "aztec: ${REF_NAME#v}"
-  else
-    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
-  fi
-  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
-  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
-  echo "node: $(node --version | cut -d 'v' -f 2)"
-  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
-  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
-  echo "zig: $(zig version)"
-  echo "rustc: $(rustc --version | cut -d' ' -f2)"
-  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
 }
 
 # Install pre-commit git hooks.
@@ -225,6 +221,9 @@ function test_cmds {
 }
 
 function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
   # Starting txe servers with incrementing port numbers.
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -366,6 +365,7 @@ function build {
   )
   # These projects can be built in parallel.
   parallel_cmds=(
+    yarn-project/end-to-end/bootstrap.sh
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
@@ -556,6 +556,7 @@ case "$cmd" in
     install_hooks
     build
   ;;
+
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
@@ -589,15 +590,17 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
   "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image]
+    # Args: <env_file> <namespace> [docker_image] [test_set]
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="${3:-}"
+    test_set="${4:-}"
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "$docker_image" ]; then
@@ -608,7 +611,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
@@ -625,6 +628,16 @@ case "$cmd" in
     # Set up environment for tests
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
+    ;;
+  "ci-network-kind-tests")
+    export CI=1
+    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
+    # Set the docker image to the locally built image and load it into KIND
+    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
+    spartan/bootstrap.sh kind
+    kind load docker-image "$AZTEC_DOCKER_IMAGE"
+    # Just one test for now
+    spartan/bootstrap.sh test-kind-upgrade-rollup
     ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
@@ -650,6 +663,30 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-proving-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs proving benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run proving benchmarks
+    spartan/bootstrap.sh proving_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.
@@ -660,6 +697,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     denoise "spartan/bootstrap.sh network_teardown ${env_file}"
     ;;
+
   ############
   # RELEASES #
   ############
@@ -689,11 +727,13 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-"ci-barretenberg-full")
+  "ci-barretenberg-full")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    pull_submodules
+    noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
     ;;
 
@@ -716,6 +756,17 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+  ##########################################
+  # ROLLUP UPGRADE DEPLOYMENT              #
+  ##########################################
+  "ci-deploy-rollup-upgrade")
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address> [KEY=VALUE...]
+    export CI=1
+    build
+    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
+
   ##############################################
   # Default handler, calls our above functions #
   ##############################################

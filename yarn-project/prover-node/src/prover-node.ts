@@ -288,6 +288,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
+      this.log.getBindings(),
     );
 
     // Set deadline for this job to run. It will abort if it takes too long.
@@ -311,7 +312,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const l1ToL2Messages = await this.gatherMessages(epochNumber, checkpoints);
     const [firstBlock] = checkpoints[0].blocks;
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, firstBlock.number - 1);
-    const [lastPublishedCheckpoint] = await this.l2BlockSource.getPublishedCheckpoints(checkpoints.at(-1)!.number, 1);
+    const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
     const attestations = lastPublishedCheckpoint?.attestations ?? [];
 
     return { checkpoints, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
@@ -384,6 +385,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.jobMetrics,
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+      this.log.getBindings(),
     );
   }
 

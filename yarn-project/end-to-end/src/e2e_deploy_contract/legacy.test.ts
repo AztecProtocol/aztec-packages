@@ -3,7 +3,7 @@ import { type DeployOptions, getContractInstanceFromInstantiationParams } from '
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -38,8 +38,7 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
     const receipt = await deployer
       .deploy()
-      .send({ from: defaultAccountAddress, contractAddressSalt: salt })
-      .wait({ wallet });
+      .send({ from: defaultAccountAddress, contractAddressSalt: salt, wait: { returnReceipt: true } });
     expect(receipt.contract.address).toEqual(deploymentData.address);
     const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
     expect(instance).toBeDefined();
@@ -54,7 +53,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() }).wait({ wallet });
+      await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() });
     }
   });
 
@@ -68,13 +67,11 @@ describe('e2e_deploy_contract legacy', () => {
       logger.info(`Deploying contract ${index + 1}...`);
       const receipt = await deployer
         .deploy()
-        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() })
-        .wait({ wallet });
+        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random(), wait: { returnReceipt: true } });
       logger.info(`Sending TX to contract ${index + 1}...`);
       await receipt.contract.methods
         .get_master_incoming_viewing_public_key(defaultAccountAddress)
-        .send({ from: defaultAccountAddress })
-        .wait();
+        .send({ from: defaultAccountAddress });
     }
   });
 
@@ -86,8 +83,8 @@ describe('e2e_deploy_contract legacy', () => {
     const contractAddressSalt = Fr.random();
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
-    await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt }).wait({ wallet });
-    await expect(deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt }).wait()).rejects.toThrow(
+    await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt });
+    await expect(deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt })).rejects.toThrow(
       TX_ERROR_EXISTING_NULLIFIER,
     );
   });
@@ -108,22 +105,24 @@ describe('e2e_deploy_contract legacy', () => {
       from: defaultAccountAddress,
     };
 
-    const [goodTx, badTx] = await Promise.all([goodDeploy.send(firstOpts), badDeploy.send(secondOpts)]);
     const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
-      goodTx.wait(),
-      badTx.wait({ dontThrowOnRevert: true }),
+      goodDeploy.send({ ...firstOpts, wait: { returnReceipt: true } }),
+      badDeploy.send({ ...secondOpts, wait: { dontThrowOnRevert: true, returnReceipt: true } }),
     ]);
 
     expect(goodTxPromiseResult.status).toBe('fulfilled');
     expect(badTxReceiptResult.status).toBe('fulfilled'); // but reverted
 
-    const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
+    const goodTxReceipt = goodTxPromiseResult.status === 'fulfilled' ? goodTxPromiseResult.value : null;
+    const badTxReceipt = badTxReceiptResult.status === 'fulfilled' ? badTxReceiptResult.value : null;
 
     // Both the good and bad transactions are included
-    expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
-    expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
+    expect(goodTxReceipt).toBeDefined();
+    expect(badTxReceipt).toBeDefined();
+    expect(goodTxReceipt!.blockNumber).toEqual(expect.any(Number));
+    expect(badTxReceipt!.blockNumber).toEqual(expect.any(Number));
 
-    expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+    expect(badTxReceipt!.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
 
     const badInstance = await badDeploy.getInstance();
     // But the bad tx did not deploy the class

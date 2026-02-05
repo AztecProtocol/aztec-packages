@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
@@ -796,6 +797,54 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     check_relation<ecc>(trace);
 }
 
+TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(inf_bb, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+    result = ecc_simulator.scalar_mul(inf_alt, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    auto scalar_mul_events = scalar_mul_event_emitter.dump_events();
+    // Infinity points should be normalised to (0, 0) for any lookups into ecc.pil
+    for (auto& event : scalar_mul_events) {
+        EXPECT_EQ(event.point.x(), inf.x());
+        EXPECT_EQ(event.point.y(), inf.y());
+    }
+
+    builder.process_scalar_mul(scalar_mul_events, trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
+
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+}
+
 TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 {
     EccTraceBuilder builder;
@@ -922,7 +971,8 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START), "SELECTOR_ON_START");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
@@ -1293,6 +1343,96 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
 
     check_all_interactions<EccTraceBuilder>(trace);
     check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
+{
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+    MemoryAddress dst_address = 5;
+
+    // Point P is infinity
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+    TestTraceContainer trace;
+
+    // Internal add() expects normalized points:
+    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
+
+    // Coordinates are normalized in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
+    // correctly assigns double_op = true when doubling inf:
+    ecc_simulator.add(memory, inf, inf_alt, dst_address);
+    // As above for the noir (0, 0) and bb (x, 0) inf reps:
+    ecc_simulator.add(memory, inf, inf_bb, dst_address + 3);
+
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    check_relation<ecc>(trace);
+    EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
+
+    // Set memory reads:
+    trace.set(0,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_alt.x() },
+                  { C::execution_register_4_, inf_alt.y() },
+                  { C::execution_register_5_, inf_alt.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+    trace.set(1,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address + 3 },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_bb.x() },
+                  { C::execution_register_4_, inf_bb.y() },
+                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 5 },
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    // The original coordinates are stored in memory for the read...
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
+    // ...but normalised coordinates are sent to the ecc subtrace:
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
+    check_relation<mem_aware_ecc>(trace);
+    check_relation<ecc>(trace);
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace

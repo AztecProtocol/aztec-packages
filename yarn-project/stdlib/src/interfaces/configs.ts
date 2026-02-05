@@ -67,9 +67,7 @@ export interface SequencerConfig {
   blockDurationMs?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
-
-  // TODO(palla/mbps): Change default to false once block sync is stable
-  /** Skip pushing proposed blocks to archiver (default: true) */
+  /** Skip pushing proposed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
 }
 

@@ -6,6 +6,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
   getTelemetryClient,
 } from '@aztec/telemetry-client';
 
@@ -52,7 +53,9 @@ export class PeerScoring {
 
     const meter = telemetry.getMeter('PeerScoring');
 
-    this.peerStateCounter = meter.createUpDownCounter(Metrics.P2P_PEER_STATE_COUNT);
+    this.peerStateCounter = createUpDownCounterWithDefault(meter, Metrics.P2P_PEER_STATE_COUNT, {
+      [Attributes.P2P_PEER_SCORE_STATE]: ['Healthy', 'Disconnect', 'Banned'],
+    });
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {

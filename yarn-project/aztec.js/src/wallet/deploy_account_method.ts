@@ -5,30 +5,58 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
   DeployMethod,
-  type DeployOptions,
+  type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
+import type { FeePaymentMethodOption, InteractionWaitOptions } from '../contract/interaction_options.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
 import type { Wallet } from './index.js';
 
 /**
+ * Extended fee payment method option for account deployments that includes entrypoint wrapping options
+ */
+export type DeployAccountFeePaymentMethodOption = FeePaymentMethodOption & {
+  /** Optional entrypoint-specific options for wrapping execution payloads */
+  feeEntrypointOptions?: unknown;
+};
+
+/**
  * The configuration options for the request method. Omits the contractAddressSalt, since
  * for account contracts that is fixed in the constructor
  */
-export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt'>;
+export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt' | 'fee'> & {
+  /** Fee options specific to account deployment */
+  fee?: DeployAccountFeePaymentMethodOption;
+};
+
+/**
+ * Base configuration options for the send/prove methods without wait parameter. Omits:
+ * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
+ * - UniversalDeployment flag, since account contracts are always deployed with it set to true
+ */
+export type DeployAccountOptionsWithoutWait = Omit<DeployOptionsWithoutWait, 'contractAddressSalt' | 'universalDeploy'>;
 
 /**
  * The configuration options for the send/prove methods. Omits:
  * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
  * - UniversalDeployment flag, since account contracts are always deployed with it set to true
  */
-export type DeployAccountOptions = Omit<DeployOptions, 'contractAddressSalt' | 'universalDeploy'>;
+export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployAccountOptionsWithoutWait & {
+  /**
+   * Whether to wait for the transaction to be mined.
+   * - undefined (default): wait with default options and return TxReceipt
+   * - WaitOpts object: wait with custom options and return TxReceipt
+   * - false: return txHash immediately without waiting
+   */
+  wait?: W;
+};
 
 /**
  * The configuration options for the simulate method. Omits the contractAddressSalt, since
@@ -47,6 +75,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     private salt: Fr,
+    private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
   ) {
@@ -61,19 +90,14 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * For more details on how the fee payment routing works see documentation of AccountEntrypointMetaPaymentMethod class.
    *
    * @param originalPaymentMethod - originalPaymentMethod The original payment method to be wrapped.
+   * @param feeEntrypointOptions - Optional entrypoint-specific options for wrapping. If not provided, will be auto-computed based on the payment method.
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
-  private getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod) {
+  private getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
     if (!this.address) {
       throw new Error('Instance is not yet constructed. This is a bug!');
     }
-    return new AccountEntrypointMetaPaymentMethod(
-      this.wallet,
-      this.artifact,
-      'entrypoint',
-      this.address,
-      originalPaymentMethod,
-    );
+    return new AccountEntrypointMetaPaymentMethod(this.account, originalPaymentMethod, feeEntrypointOptions);
   }
 
   /**
@@ -97,7 +121,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
     if (opts?.deployer?.equals(AztecAddress.ZERO)) {
-      const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod);
+      const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod, opts?.fee?.feeEntrypointOptions);
       const feeExecutionPayload = await feePaymentMethod.getExecutionPayload();
       // Notice they are reversed (fee payment usually goes first):
       // this is because we need to construct the contract BEFORE it can pay for its own fee
@@ -113,7 +137,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     return mergeExecutionPayloads(executionPayloads);
   }
 
-  override convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions {
+  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployOptions {
     return {
       ...options,
       // Deployer is handled in the request method and forcibly set to undefined,

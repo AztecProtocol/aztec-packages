@@ -6,10 +6,10 @@ pub contract TestLog {
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
-        protocol_types::{address::AztecAddress, traits::FromField},
+        protocol::{address::AztecAddress, traits::FromField},
         state_vars::{Owned, PrivateSet},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[event]
     struct ExampleEvent0 {
@@ -32,7 +32,7 @@ pub contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0).deliver_to(self.msg_sender().unwrap(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
 
         // We duplicate the emission, but swapping the sender and recipient:
         self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
@@ -42,7 +42,7 @@ pub contract TestLog {
             value3: preimages[3] as u8,
         };
 
-        self.emit(event1).deliver_to(self.msg_sender().unwrap(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("public")]

@@ -12,14 +12,16 @@ export class MockEpochCache implements EpochCacheInterface {
       committee: undefined,
       seed: 0n,
       epoch: EpochNumber.ZERO,
+      isEscapeHatchOpen: false,
     });
   }
 
-  getEpochAndSlotNow(): EpochAndSlot {
+  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     return {
       epoch: EpochNumber.ZERO,
       slot: SlotNumber(0),
       ts: 0n,
+      nowMs: 0n,
     };
   }
 
@@ -40,18 +42,11 @@ export class MockEpochCache implements EpochCacheInterface {
     return 0n;
   }
 
-  getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress | undefined;
-    nextProposer: EthAddress | undefined;
-    currentSlot: SlotNumber;
-    nextSlot: SlotNumber;
-  }> {
-    return Promise.resolve({
-      currentProposer: undefined,
-      nextProposer: undefined,
+  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
+    return {
       currentSlot: SlotNumber(0),
       nextSlot: SlotNumber(0),
-    });
+    };
   }
 
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {

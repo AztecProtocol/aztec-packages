@@ -57,6 +57,18 @@ variable "BOT_RESOURCE_PROFILE" {
   default     = "prod"
 }
 
+variable "ARCHIVE_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the archive node"
+  type        = string
+  default     = "prod"
+}
+
+variable "BLOB_SINK_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the blob sink"
+  type        = string
+  default     = "prod"
+}
+
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
   description = "Whether to enable debug instrumentation of P2P messages"
   type        = bool
@@ -169,19 +181,19 @@ variable "VALIDATOR_MNEMONIC_START_INDEX" {
 
 variable "VALIDATORS_PER_NODE" {
   description = "The number of validators per node"
-  type        = string
+  type        = number
   default     = 12
 }
 
 variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
   description = "Number of publisher EOAs per validator key"
-  type        = string
+  type        = number
   default     = 1
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic start index for validator publishers"
-  type        = string
+  type        = number
   default     = 5000
 }
 
@@ -203,6 +215,12 @@ variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
   default     = 4
+}
+
+variable "VALIDATOR_HA_REPLICAS" {
+  description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
+  type        = number
+  default     = 0
 }
 
 variable "PROVER_MNEMONIC" {
@@ -317,6 +335,20 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   description = "Maximum number of sequencer transactions per block"
   type        = string
   default     = "8"
+}
+
+variable "SEQ_BLOCK_DURATION_MS" {
+  description = "Duration per block in milliseconds when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
+  description = "Have sequencer build and publish an empty checkpoint if there are no txs"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "SENTINEL_ENABLED" {
@@ -519,10 +551,10 @@ variable "RPC_INGRESS_ENABLED" {
   default     = false
 }
 
-variable "RPC_INGRESS_HOST" {
-  description = "Hostname for RPC ingress"
-  type        = string
-  default     = ""
+variable "RPC_INGRESS_HOSTS" {
+  description = "Hostnames for RPC ingress"
+  type        = list(string)
+  default     = []
 }
 
 variable "RPC_INGRESS_STATIC_IP_NAME" {
@@ -531,10 +563,10 @@ variable "RPC_INGRESS_STATIC_IP_NAME" {
   default     = ""
 }
 
-variable "RPC_INGRESS_SSL_CERT_NAME" {
-  description = "Name of the GCP managed SSL certificate for the ingress"
-  type        = string
-  default     = ""
+variable "RPC_INGRESS_SSL_CERT_NAMES" {
+  description = "Names of the GCP managed SSL certificates for the ingress"
+  type        = list(string)
+  default     = []
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {
@@ -542,6 +574,19 @@ variable "PROVER_FAILED_PROOF_STORE" {
   type        = string
   nullable    = false
   default     = ""
+}
+
+variable "PROVER_PROOF_STORE" {
+  description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "PROVER_BROKER_DEBUG_REPLAY_ENABLED" {
+  description = "Enable debug replay mode for the prover broker to replay proving jobs from stored inputs"
+  type        = bool
+  default     = false
 }
 
 variable "RPC_REPLICAS" {
@@ -572,6 +617,13 @@ variable "BLOB_ALLOW_EMPTY_SOURCES" {
   description = "Whether to allow starting without any consensus client URLs"
   type        = bool
   default     = false
+}
+
+variable "BLOB_FILE_STORE_UPLOAD_URL" {
+  description = "URL for uploading blobs (e.g., gs://bucket/path/, s3://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
@@ -623,9 +675,9 @@ variable "P2P_DROP_TX" {
 }
 
 variable "P2P_DROP_TX_CHANCE" {
-  description = "The chance (0-100) of dropping an incoming transaction in the P2P layer (for testing)"
-  type        = string
-  default     = "0"
+  description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
+  type        = number
+  default     = 0
 }
 
 variable "WS_NUM_HISTORIC_BLOCKS" {

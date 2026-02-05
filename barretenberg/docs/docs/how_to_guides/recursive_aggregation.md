@@ -3,19 +3,19 @@ title: Recursive Aggregation
 description: Learn how to implement recursion with bb.js, a powerful tool for creating smart contracts on the EVM blockchain. This guide assumes familiarity with NoirJS, solidity verifiers, and the Barretenberg proving backend. Discover how to generate both final and intermediate proofs using `noir_js` and `bb.js`.
 keywords:
   [
-    "NoirJS",
-    "EVM blockchain",
-    "smart contracts",
-    "recursion",
-    "solidity verifiers",
-    "Barretenberg backend",
-    "noir_js",
-    "intermediate proofs",
-    "final proofs",
-    "nargo compile",
-    "json import",
-    "recursive circuit",
-    "recursive app"
+    'NoirJS',
+    'EVM blockchain',
+    'smart contracts',
+    'recursion',
+    'solidity verifiers',
+    'Barretenberg backend',
+    'noir_js',
+    'intermediate proofs',
+    'final proofs',
+    'nargo compile',
+    'json import',
+    'recursive circuit',
+    'recursive app',
   ]
 ---
 
@@ -47,21 +47,26 @@ Then we need to load our circuit bytecode and set up the Noir instances:
 The first program can be anything, so we should focus on the second one. The circuit could be something like so:
 
 ```rust
-global HONK_VK_SIZE: u32 = 112;
-global HONK_PROOF_SIZE: u32 = 456;
-global HONK_IDENTIFIER: u32 = 1;
+// Add to your Nargo.toml:
+// [dependencies]
+// bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "vX.XX.X", directory = "barretenberg/noir/bb_proof_verification" }
+
+use bb_proof_verification::{
+    verify_honk_proof,
+    UltraHonkVerificationKey,
+    UltraHonkZKProof,
+};
 
 fn main(
-    verification_key: [Field; HONK_VK_SIZE],
-    proof: [Field; HONK_PROOF_SIZE],
+    verification_key: UltraHonkVerificationKey,
+    proof: UltraHonkZKProof,
     public_inputs: pub [Field; 1],
 ) {
-    std::verify_proof_with_type(
+    verify_honk_proof(
         verification_key,
         proof,
         public_inputs,
-        0x0,
-        HONK_IDENTIFIER,
+        0x0, // key_hash
     );
 }
 ```
@@ -70,9 +75,13 @@ A common scenario is one where you want to create a proof of multiple proof veri
 
 :::info Proof Types
 
-Different proof systems can have different proof and VK sizes and types. You need to plan this in advance depending on your proof.
+The `bb_proof_verification` library provides typed wrappers for different proof systems:
 
-In this case we're using the default HONK proof.
+- `verify_honk_proof` - for zero-knowledge UltraHonk proofs (recommended default)
+- `verify_honk_proof_non_zk` - for non-ZK UltraHonk proofs
+- `verify_rolluphonk_proof` - for Rollup UltraHonk proofs with IPA
+
+Each has corresponding types for verification keys and proofs (e.g., `UltraHonkVerificationKey`, `UltraHonkZKProof`).
 
 :::
 
@@ -96,7 +105,7 @@ Always keep in mind what is actually happening on your development process, othe
 
 In this case, you can imagine that Alice (running the `main` circuit) is proving something to Bob (running the `recursive` circuit), and Bob is verifying her proof within his proof.
 
-With this in mind, it becomes clear that our intermediate proof is the one *meant to be verified within another circuit*, so it must be Alice's. Actually, the only final proof in this theoretical scenario would be the last one, sent onchain.
+With this in mind, it becomes clear that our intermediate proof is the one _meant to be verified within another circuit_, so it must be Alice's. Actually, the only final proof in this theoretical scenario would be the last one, sent onchain.
 
 :::
 
@@ -120,7 +129,7 @@ We can now generate the proof and the verification key (VK), for example:
 
 :::info
 
-One common mistake is to forget *who* generates the verification key.
+One common mistake is to forget _who_ generates the verification key.
 
 In a situation where Alice and Bob are playing a battleships game and Alice is proving to Bob that he shot an aircraft carrier, **Bob** should generate the verification key himself. If Bob just accepts the proof and the VK from Alice, this means Alice could prove any circuit (i.e. 1 != 2) instead of the actual "proof that Bob sank my ship"
 

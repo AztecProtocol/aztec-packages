@@ -4,6 +4,7 @@ description: Learn how to create and use custom note types for specialized priva
 sidebar_position: 6
 tags: [smart contracts, notes, privacy]
 keywords: [implementing note, note, custom note]
+references: ["docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/*", "noir-projects/noir-contracts/contracts/app/nft_contract/*"]
 ---
 
 This guide shows you how to create custom note types for storing specialized private data in your Aztec contracts.
@@ -51,7 +52,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 Define your custom note with the `#[note]` macro:
 
-#include_code nft_note_struct /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
+#include_code nft_note_struct /docs/examples/contracts/nft/src/nft.nr rust
 
 The `#[note]` macro generates the following for your struct:
 
@@ -98,13 +99,13 @@ struct Storage<Context> {
 
 ### Inserting notes
 
-#include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code mint /docs/examples/contracts/nft/src/main.nr rust
 
 ### Reading and removing notes
 
 Use `pop_notes` to read and nullify notes atomically. This is the recommended pattern for most use cases:
 
-#include_code burn /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code burn /docs/examples/contracts/nft/src/main.nr rust
 
 :::warning
 There's also a `get_notes` function that reads without nullifying, but use it with caution - the returned notes may have already been spent in another transaction.
@@ -125,7 +126,7 @@ use aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
     note::note_interface::NoteHash,
-    protocol_types::{
+    protocol::{
         address::AztecAddress,
         constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
@@ -159,9 +160,9 @@ impl NoteHash for CustomHashNote {
         owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        // Standard nullifier using owner's nullifier secret key
+        // Standard nullifier using owner's nullifier hiding key
         let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-        let secret = context.request_nsk_app(owner_npk_m.hash());
+        let secret = context.request_nhk_app(owner_npk_m.hash());
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
             DOM_SEP__NOTE_NULLIFIER,
@@ -174,7 +175,7 @@ impl NoteHash for CustomHashNote {
         note_hash_for_nullification: Field,
     ) -> Field {
         let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-        let secret = aztec::keys::getters::get_nsk_app(owner_npk_m.hash());
+        let secret = aztec::keys::getters::get_nhk_app(owner_npk_m.hash());
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
             DOM_SEP__NOTE_NULLIFIER,

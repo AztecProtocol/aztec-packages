@@ -105,13 +105,9 @@ struct VariableRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(tag, index, pointer_address_seed, mode);
 };
 
 struct AddressRef {
@@ -121,12 +117,8 @@ struct AddressRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(address, pointer_address_seed, mode);
 };
 
 using ParamRef = std::variant<VariableRef, AddressRef>;
@@ -138,9 +130,20 @@ using ParamRef = std::variant<VariableRef, AddressRef>;
 struct ResolvedAddress {
     uint32_t absolute_address = 0;
     uint32_t operand_address = 0;
-    std::optional<uint32_t> base_pointer = std::nullopt;
     std::optional<uint32_t> pointer_address = std::nullopt;
+    bool via_relative = false;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const ResolvedAddress& address)
+{
+    os << "ResolvedAddress {\n";
+    os << "  absolute_address: " << address.absolute_address << ",\n";
+    os << "  operand_address: " << address.operand_address << ",\n";
+    os << "  pointer_address: " << address.pointer_address.value() << ",\n";
+    os << "  via_relative: " << address.via_relative << ",\n";
+    os << "}";
+    return os;
+}
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
@@ -453,10 +456,11 @@ struct SSTORE_Instruction {
 
 /// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
 struct SLOAD_Instruction {
-    uint16_t slot_index;     // index of the slot in memory_manager.storage_addresses
-    AddressRef slot_address; // address where we set slot value
+    uint16_t slot_index;               // index of the slot in memory_manager.storage_addresses
+    AddressRef slot_address;           // address where we set slot value
+    ParamRef contract_address_address; // address where the contract address will be stored
     AddressRef result_address;
-    MSGPACK_FIELDS(slot_index, slot_address, result_address);
+    MSGPACK_FIELDS(slot_index, slot_address, contract_address_address, result_address);
 };
 
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
@@ -472,14 +476,12 @@ struct EMITNULLIFIER_Instruction {
     MSGPACK_FIELDS(nullifier_address);
 };
 
-/// @brief NULLIFIEREXISTS: checks if nullifier exists in the nullifier tree
-/// Gets contract's address by GETENVVAR(0)
-/// M[result_offset] = NULLIFIEREXISTS(M[nullifier_offset_index], GETENVVAR(0))
+/// @brief NULLIFIEREXISTS: checks if a siloed nullifier exists in the nullifier tree
+/// M[result_address] = NULLIFIEREXISTS(M[siloed_nullifier_address])
 struct NULLIFIEREXISTS_Instruction {
-    ParamRef nullifier_address;
-    AddressRef contract_address_address; // absolute address where the contract address will be stored
+    ParamRef siloed_nullifier_address; // The already-siloed nullifier to check
     AddressRef result_address;
-    MSGPACK_FIELDS(nullifier_address, contract_address_address, result_address);
+    MSGPACK_FIELDS(siloed_nullifier_address, result_address);
 };
 
 /// @brief L1TOL2MSGEXISTS: Check if a L1 to L2 message exists
@@ -498,40 +500,24 @@ struct EMITNOTEHASH_Instruction {
     MSGPACK_FIELDS(note_hash_address, note_hash);
 };
 
-/// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
-/// len = length(memory_manager.emitted_note_hashes);
-/// M[notehash_offset] = unique_note_hash(CONTRACT_ADDRESS, memory_manager.emitted_note_hashes[notehash_index % len]);
-/// M[leaf_index_offset] = notehash_index % len;
-/// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
 struct NOTEHASHEXISTS_Instruction {
-    // index of the note hash in the memory_manager.emitted_note_hashes
-    uint16_t notehash_index;
-    // absolute address where the note hash will be stored
-    AddressRef notehash_address;
-    // absolute address where the leaf index will be stored
-    AddressRef leaf_index_address;
-    // absolute address where the result will be stored
+    ParamRef notehash_address;
+    ParamRef leaf_index_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(notehash_index, notehash_address, leaf_index_address, result_address);
+    MSGPACK_FIELDS(notehash_address, leaf_index_address, result_address);
 };
 
-/// @brief CALLDATACOPY: M[dstOffset:dstOffset+M[copySizeOffset]] =
-/// calldata[M[cdStartOffset]:M[cdStartOffset]+M[copySizeOffset]]
 struct CALLDATACOPY_Instruction {
+    ParamRef copy_size_address;
+    ParamRef cd_offset_address;
     AddressRef dst_address;
-    uint8_t copy_size;
-    AddressRef copy_size_address; // where copy size will be stored
-    uint16_t cd_start;
-    AddressRef cd_start_address; // where cd start will be stored
-    MSGPACK_FIELDS(dst_address, copy_size, copy_size_address, cd_start, cd_start_address);
+    MSGPACK_FIELDS(copy_size_address, cd_offset_address, dst_address);
 };
 
 struct SENDL2TOL1MSG_Instruction {
-    bb::avm2::FF recipient;
-    AddressRef recipient_address;
-    bb::avm2::FF content;
-    AddressRef content_address;
-    MSGPACK_FIELDS(recipient, recipient_address, content, content_address);
+    ParamRef recipient_address;
+    ParamRef content_address;
+    MSGPACK_FIELDS(recipient_address, content_address);
 };
 
 struct EMITUNENCRYPTEDLOG_Instruction {
@@ -559,17 +545,17 @@ struct CALL_Instruction {
                    is_static_call);
 };
 
-/// @brief: RETURNDATASIZE + RETURNDATACOPY:
-// M[copySizeOffset] = nestedReturndata.size()
-// M[dstOffset:dstOffset+M[copySizeOffset]] =
-/// nestedReturndata[M[rdStartOffset]:M[rdStartOffset]+M[copySizeOffset]]
-/// All addresses are DIRECT
-struct RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction {
-    uint16_t copy_size_offset;
-    uint16_t dst_address;
-    uint32_t rd_start;
-    uint16_t rd_start_offset;
-    MSGPACK_FIELDS(copy_size_offset, dst_address, rd_start, rd_start_offset);
+struct RETURNDATASIZE_Instruction {
+    AddressRef dst_address;
+    MSGPACK_FIELDS(dst_address);
+};
+
+struct RETURNDATACOPY_Instruction {
+    ParamRef copy_size_address;
+    ParamRef rd_offset_address;
+    AddressRef dst_address;
+
+    MSGPACK_FIELDS(copy_size_address, rd_offset_address, dst_address);
 };
 
 struct GETCONTRACTINSTANCE_Instruction {
@@ -692,7 +678,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SENDL2TOL1MSG_Instruction,
                                      EMITUNENCRYPTEDLOG_Instruction,
                                      CALL_Instruction,
-                                     RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction,
+                                     RETURNDATASIZE_Instruction,
+                                     RETURNDATACOPY_Instruction,
                                      GETCONTRACTINSTANCE_Instruction,
                                      SUCCESSCOPY_Instruction,
                                      ECADD_Instruction,
@@ -715,7 +702,7 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTagWrapper& tag)
 
 inline std::ostream& operator<<(std::ostream& os, const VariableRef& variable)
 {
-    os << "VariableRef " << variable.tag << " " << variable.index << " " << variable.base_offset_seed << " "
+    os << "VariableRef " << variable.tag << " " << variable.index << " "
        << static_cast<int>(static_cast<AddressingMode>(variable.mode));
     return os;
 }
@@ -859,8 +846,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             },
             [&](EMITNULLIFIER_Instruction arg) { os << "EMITNULIFIER_Instruction " << arg.nullifier_address; },
             [&](NULLIFIEREXISTS_Instruction arg) {
-                os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_address << " " << arg.contract_address_address
-                   << " " << arg.result_address;
+                os << "NULLIFIEREXISTS_Instruction " << arg.siloed_nullifier_address << " " << arg.result_address;
             },
             [&](L1TOL2MSGEXISTS_Instruction arg) {
                 os << "L1TOL2MSGEXISTS_Instruction " << arg.msg_hash_address << " " << arg.leaf_index_address << " "
@@ -874,12 +860,11 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.leaf_index_address << " " << arg.result_address;
             },
             [&](CALLDATACOPY_Instruction arg) {
-                os << "CALLDATACOPY_Instruction " << arg.dst_address << " " << static_cast<int>(arg.copy_size) << " "
-                   << arg.copy_size_address << " " << arg.cd_start_address << " " << arg.cd_start_address;
+                os << "CALLDATACOPY_Instruction " << arg.copy_size_address << " " << arg.cd_offset_address << " "
+                   << arg.dst_address;
             },
             [&](SENDL2TOL1MSG_Instruction arg) {
-                os << "SENDL2TOL1MSG_Instruction " << arg.recipient << " " << arg.recipient_address << " "
-                   << arg.content << " " << arg.content_address;
+                os << "SENDL2TOL1MSG_Instruction " << arg.recipient_address << " " << arg.content_address;
             },
             [&](EMITUNENCRYPTEDLOG_Instruction arg) {
                 os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
@@ -889,9 +874,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.contract_address_address << " " << arg.calldata_size_address << " " << arg.calldata_address
                    << " " << arg.is_static_call;
             },
-            [&](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction arg) {
-                os << "RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction " << arg.copy_size_offset << " "
-                   << arg.dst_address << " " << arg.rd_start_offset;
+            [&](RETURNDATASIZE_Instruction arg) { os << "RETURNDATASIZE_Instruction " << arg.dst_address; },
+            [&](RETURNDATACOPY_Instruction arg) {
+                os << "RETURNDATACOPY_Instruction " << arg.copy_size_address << " " << arg.rd_offset_address << " "
+                   << arg.dst_address;
             },
             [&](ECADD_Instruction arg) {
                 os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p1_infinite << " " << arg.p2_x

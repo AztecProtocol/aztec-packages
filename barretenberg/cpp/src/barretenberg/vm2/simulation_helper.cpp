@@ -41,7 +41,6 @@
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
@@ -63,13 +62,13 @@
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
-#include "barretenberg/vm2/simulation/gadgets/siloing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 #include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
@@ -148,7 +147,6 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
     DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
     DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
-    DefaultEventEmitter<SiloingEvent> siloing_emitter;
     DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
     DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
@@ -239,7 +237,6 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
-    Siloing siloing(siloing_emitter);
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
@@ -342,7 +339,6 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         instruction_fetching_emitter.dump_events(),
         address_derivation_emitter.dump_events(),
         class_id_derivation_emitter.dump_events(),
-        siloing_emitter.dump_events(),
         sha256_compression_emitter.dump_events(),
         ecc_add_emitter.dump_events(),
         scalar_mul_emitter.dump_events(),

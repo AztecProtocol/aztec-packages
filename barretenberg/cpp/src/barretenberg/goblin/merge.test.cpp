@@ -40,7 +40,6 @@ template <typename Curve> class MergeTests : public testing::Test {
     using TableCommitments = typename MergeVerifierType::TableCommitments;
     using InputCommitments = typename MergeVerifierType::InputCommitments;
     using Proof = typename MergeVerifierType::Proof;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
@@ -156,7 +155,8 @@ template <typename Curve> class MergeTests : public testing::Test {
                                        const bool expected = true)
     {
         // Create native merge proof
-        MergeProver merge_prover{ op_queue, settings };
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript, settings };
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
@@ -197,9 +197,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
-        VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
-                                                                   to_native(result.pairing_points.P1));
+        bool pairing_verified = result.pairing_points.check();
         bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 
@@ -231,7 +229,8 @@ template <typename Curve> class MergeTests : public testing::Test {
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct a merge proof and ensure its size matches expectation
-        MergeProver merge_prover{ builder.op_queue };
+        auto transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ builder.op_queue, transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -440,13 +439,15 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     auto op_queue_1 = std::make_shared<ECCOpQueue>();
     InnerBuilder circuit_1{ op_queue_1 };
     GoblinMockCircuits::construct_simple_circuit(circuit_1);
-    MergeProver prover_1{ op_queue_1 };
+    auto prover_transcript_1 = std::make_shared<NativeTranscript>();
+    MergeProver prover_1{ op_queue_1, prover_transcript_1 };
     auto proof_1 = prover_1.construct_proof();
 
     auto op_queue_2 = std::make_shared<ECCOpQueue>();
     InnerBuilder circuit_2{ op_queue_2 };
     GoblinMockCircuits::construct_simple_circuit(circuit_2);
-    MergeProver prover_2{ op_queue_2 };
+    auto prover_transcript_2 = std::make_shared<NativeTranscript>();
+    MergeProver prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (will be used with verifier 1's transcript)
@@ -511,7 +512,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // Catch the exception and verify it's the expected cross-transcript error
 #ifndef NDEBUG
     EXPECT_THROW_WITH_MESSAGE([[maybe_unused]] auto result =
-                                  verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
+                                  verifier_2.reduce_to_pairing_check(proof_2_recursive, input_commitments_1),
                               "Tags from different transcripts were involved in the same computation");
 #endif
 }
@@ -542,29 +543,25 @@ class MergeTranscriptTests : public ::testing::Test {
 
         size_t round = 0;
 
-        // Round 0: Prover sends shift_size and merged table commitments
+        // Round 0: Prover sends shift_size and merged table commitments, gets degree check challenges
         manifest_expected.add_entry(round, "shift_size", frs_per_uint32);
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             manifest_expected.add_entry(round, "MERGED_TABLE_" + std::to_string(idx), frs_per_G);
         }
-        // Verifier generates degree check challenges
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_0");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_1");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_2");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_3");
 
-        // Round 1: Verifier generates Shplonk batching challenges, Prover sends degree check polynomial commitment
+        // Round 1: Batching challenges + kappa, then send batched polynomial commitment
         round++;
         for (size_t idx = 0; idx < 13; ++idx) {
             manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
         }
+        manifest_expected.add_challenge(round, "kappa");
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES", frs_per_G);
 
-        // Round 2: Verifier generates evaluation challenge kappa
-        round++;
-        manifest_expected.add_challenge(round, "kappa");
-
-        // Round 3: Verifier generates Shplonk opening challenge, Prover sends all evaluations and quotient
+        // Round 2: Shplonk opening challenge, then send all evaluations and quotient
         round++;
         manifest_expected.add_challenge(round, "shplonk_opening_challenge");
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -579,7 +576,7 @@ class MergeTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
         manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
 
-        // Round 4: KZG opening proof with masking challenge
+        // Round 3: KZG masking challenge, then send W commitment
         round++;
         manifest_expected.add_challenge(round, "KZG:masking_challenge");
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
@@ -604,13 +601,12 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
     // Construct merge proof with manifest enabled
     auto transcript = std::make_shared<NativeTranscript>();
     transcript->enable_manifest();
-    CommitmentKey<curve::BN254> commitment_key;
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
     auto manifest_expected = construct_merge_manifest();
-    auto prover_manifest = merge_prover.transcript->get_manifest();
+    auto prover_manifest = transcript->get_manifest();
 
     ASSERT_GT(manifest_expected.size(), 0);
     ASSERT_EQ(prover_manifest.size(), manifest_expected.size())
@@ -637,8 +633,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     // Generate merge proof with prover manifest enabled
     auto prover_transcript = std::make_shared<NativeTranscript>();
     prover_transcript->enable_manifest();
-    CommitmentKey<curve::BN254> commitment_key;
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, prover_transcript };
+    MergeProver merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier
@@ -660,7 +655,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     ASSERT_TRUE(result.pairing_points.check() && result.reduction_succeeded);
 
     // Check prover and verifier manifests match
-    auto prover_manifest = merge_prover.transcript->get_manifest();
+    auto prover_manifest = prover_transcript->get_manifest();
     auto verifier_manifest = verifier_transcript->get_manifest();
 
     ASSERT_GT(prover_manifest.size(), 0);

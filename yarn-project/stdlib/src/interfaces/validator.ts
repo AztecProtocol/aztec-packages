@@ -1,3 +1,4 @@
+import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,6 +15,7 @@ import type {
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
+import { type ValidatorHASignerConfig, ValidatorHASignerConfigSchema } from '@aztec/validator-ha-signer/config';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
@@ -24,7 +26,7 @@ import { AllowedElementSchema } from './allowed_element.js';
 /**
  * Validator client configuration
  */
-export interface ValidatorClientConfig {
+export type ValidatorClientConfig = ValidatorHASignerConfig & {
   /** The private keys of the validators participating in attestation duties */
   validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
@@ -43,23 +45,18 @@ export interface ValidatorClientConfig {
   /** Whether to re-execute transactions in a block proposal before attesting */
   validatorReexecute: boolean;
 
-  /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
-
   /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode?: boolean;
 
-  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
-  /** Skip checkpoint proposal validation and always attest (default: true) */
+  /** Skip checkpoint proposal validation and always attest (default: false) */
   skipCheckpointProposalValidation?: boolean;
 
-  // TODO(palla/mbps): Change default to false once block sync is stable
-  /** Skip pushing re-executed blocks to archiver (default: true) */
+  /** Skip pushing re-executed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
-}
+};
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
@@ -72,13 +69,12 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   };
 
 export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
-  z.object({
+  ValidatorHASignerConfigSchema.extend({
     validatorAddresses: z.array(schemas.EthAddress).optional(),
     disableValidator: z.boolean(),
     disabledValidators: z.array(schemas.EthAddress),
     attestationPollingIntervalMs: z.number().min(0),
     validatorReexecute: z.boolean(),
-    validatorReexecuteDeadlineMs: z.number().min(0),
     alwaysReexecuteBlockProposals: z.boolean().optional(),
     fishermanMode: z.boolean().optional(),
     skipCheckpointProposalValidation: z.boolean().optional(),
@@ -148,5 +144,7 @@ export interface Validator {
   signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
+    slot: SlotNumber,
+    blockNumber: BlockNumber | CheckpointNumber,
   ): Promise<Signature>;
 }

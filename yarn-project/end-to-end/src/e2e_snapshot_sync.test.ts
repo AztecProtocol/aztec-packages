@@ -7,7 +7,8 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { logger, withLogNameSuffix } from '@aztec/foundation/log';
+import { logger } from '@aztec/foundation/log';
+import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
@@ -55,9 +56,9 @@ describe('e2e_snapshot_sync', () => {
   });
 
   // Adapted from epochs-test
-  const createNonValidatorNode = async (suffix: string, config: Partial<AztecNodeConfig> = {}) => {
+  const createNonValidatorNode = async (name: string, config: Partial<AztecNodeConfig> = {}) => {
     log.warn('Creating and syncing a node without a validator...');
-    return await withLogNameSuffix(suffix, () =>
+    return await withLoggerBindings({ actor: `node-${name}` }, () =>
       AztecNodeService.createAndSync({
         ...context.config,
         disableValidator: true,
@@ -75,6 +76,7 @@ describe('e2e_snapshot_sync', () => {
       context.config,
       { ...config, realProofs: false, dataDirectory },
       context.aztecNode,
+      context.prefilledPublicData ?? [],
     );
   };
 
@@ -111,7 +113,9 @@ describe('e2e_snapshot_sync', () => {
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node
+        .findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash.toFr()])
+        .then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
@@ -226,7 +230,9 @@ describe('e2e_snapshot_sync', () => {
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node
+        .findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash.toFr()])
+        .then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 

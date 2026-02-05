@@ -38,7 +38,7 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">authwit</a>::<a href="index.html">auth</a></div>
 <h1>Function <span class="fn">set_authorized</span></h1>
 <pre><code>pub unconstrained fn set_authorized(
-    context: <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>,
+    context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
     message_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     authorize: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
 )</code></pre>
@@ -46,8 +46,8 @@
 <div class="comments">
 <p>Helper function to set the authorization status of a message hash</p>
 <p>Wraps a public call to the authentication registry to set the authorization status of a <code>message_hash</code></p>
-<p>@param message_hash The hash of the message to authorize
-@param authorize True if the message should be authorized, false if it should be revoked</p>
+<p>@param message_hash The hash of the message to authorize @param authorize True if the message should be authorized,
+false if it should be revoked</p>
 </div>
 </main>
 </span>

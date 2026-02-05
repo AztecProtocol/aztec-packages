@@ -31,12 +31,9 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     using vec_out_buf = uint8_t**;
 
     /**
-     * Number of bb::fr elements required to represent an affine_element in the public inputs
-     * @note In contrast to biggroup and biggroup_goblin this value cannot be computed for all instances of Fq because
-     * Fq::PUBLIC_INPUTS_SIZE depends on Fq, while bigfield and bigfield_goblin are always represented using 4 public
-     * inputs
+     * Number of bb::fr elements required to represent an affine_element in the public inputs (2 frs per coordinate)
      */
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE + Fq::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 2 * Fq::PUBLIC_INPUTS_SIZE;
 
     affine_element() noexcept = default;
     ~affine_element() noexcept = default;
@@ -180,25 +177,28 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         return buffer;
     }
 
-    static affine_element reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> x_limbs(limbs.data(), Fq::PUBLIC_INPUTS_SIZE);
-        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> y_limbs(limbs.data() + Fq::PUBLIC_INPUTS_SIZE,
-                                                                      Fq::PUBLIC_INPUTS_SIZE);
-
-        affine_element result;
-        result.x = Fq::reconstruct_from_public(x_limbs);
-        result.y = Fq::reconstruct_from_public(y_limbs);
-
-        BB_ASSERT(result.on_curve());
-        return result;
-    }
-
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)
     {
         os << "{ " << a.x << ", " << a.y << " }";
         return os;
     }
+
+    /**
+     * @brief Multi-scalar multiplication: compute sum_i(scalars[i] * points[i])
+     * @details Interface matches stdlib::biggroup::element::batch_mul for unified native/stdlib usage.
+     *          Delegates to Pippenger MSM algorithm.
+     * @param points Span of affine points
+     * @param scalars Span of scalar field elements (same length as points)
+     * @param max_num_bits Ignored for native (circuit optimization hint in stdlib)
+     * @param with_edgecases If true, uses Jacobian Pippenger (safe); if false, uses affine (faster)
+     * @param masking_scalar Ignored for native (needed for safe offset generators in stdlib)
+     */
+    static affine_element batch_mul(std::span<const affine_element> points,
+                                    std::span<const Fr> scalars,
+                                    size_t max_num_bits = 0,
+                                    bool with_edgecases = true,
+                                    const Fr& masking_scalar = Fr(1)) noexcept;
+
     Fq x;
     Fq y;
 

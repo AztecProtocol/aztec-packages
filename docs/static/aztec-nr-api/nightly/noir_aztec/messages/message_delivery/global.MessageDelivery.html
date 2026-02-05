@@ -30,6 +30,20 @@
 <h1>Global <span class="global">MessageDelivery</span></h1>
 <pre><code>pub global MessageDelivery: <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html" class="struct">MessageDeliveryEnum</a>;</code></pre>
 
+<div class="comments">
+<p>Specifies how to deliver a message to a recipient.</p>
+<p>All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+read their contents. This enum instead configures which <strong>guarantees</strong> exist regarding delivery.</p>
+<p>There are two aspects to delivery guarantees:</p>
+<ul>
+<li>the medium on which the message is sent (off-chain or on-chain)</li>
+<li>whether the contract constrains the message to be constructed correctly</li>
+</ul>
+<p>For scenarios where the sender is incentivized to deliver the message correctly, use
+<a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.OFFCHAIN"><code>MessageDeliveryEnum::OFFCHAIN</code></a> (the cheapest delivery option, but requiring that sender and recipient can
+communicate off-chain) or <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_UNCONSTRAINED"><code>MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED</code></a>. If the sender cannot be trusted to send
+the
+message to the recipient, use <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED"><code>MessageDeliveryEnum::ONCHAIN_CONSTRAINED</code></a>.</p></div>
 </main>
 </span>
 </body>

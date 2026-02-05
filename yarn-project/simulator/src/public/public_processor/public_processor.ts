@@ -1,7 +1,7 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -62,11 +62,15 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
+  private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('simulator:public-processor-factory', bindings);
+  }
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -79,7 +83,8 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     config: PublicSimulatorConfig,
   ): PublicProcessor {
-    const contractsDB = new PublicContractsDB(this.contractDataSource);
+    const bindings = this.log.getBindings();
+    const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
@@ -91,6 +96,7 @@ export class PublicProcessorFactory {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
+      createLogger('simulator:public-processor', bindings),
     );
   }
 
@@ -100,7 +106,14 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
-    return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
+    return new TelemetryCppPublicTxSimulator(
+      merkleTree,
+      contractsDB,
+      globalVariables,
+      this.telemetryClient,
+      config,
+      this.log.getBindings(),
+    );
   }
 }
 
@@ -125,7 +138,7 @@ export class PublicProcessor implements Traceable {
     protected publicTxSimulator: PublicTxSimulatorInterface,
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('simulator:public-processor'),
+    private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
@@ -146,7 +159,7 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
@@ -254,6 +267,7 @@ export class PublicProcessor implements Traceable {
         }
 
         // If the actual blob fields of this tx would exceed the limit, skip it
+        // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
             `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
@@ -349,7 +363,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, usedTxs, returns];
+    return [result, failed, usedTxs, returns, totalBlobFields];
   }
 
   private async checkWorldStateUnchanged(

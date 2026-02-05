@@ -23,25 +23,24 @@ import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
+  type EndToEndContext,
+  type SetupOptions,
   deployAccounts,
   publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
-import type { SetupOptions } from '../fixtures/utils.js';
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
-
 export class CrossChainMessagingTest {
-  private snapshotManager: ISnapshotManager;
   private requireEpochProven: boolean;
+  private setupOptions: SetupOptions;
+  private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   logger: Logger;
+  context!: EndToEndContext;
   aztecNode!: AztecNode;
   aztecNodeConfig!: AztecNodeConfig;
   aztecNodeAdmin!: AztecNodeAdmin;
-  ctx!: SubsystemsContext;
 
   l1Client!: ExtendedViemWalletClient | undefined;
 
@@ -67,26 +66,23 @@ export class CrossChainMessagingTest {
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath, opts, {
+    this.setupOptions = opts;
+    this.deployL1ContractsArgs = {
       initialValidators: [],
       ...deployL1ContractsArgs,
-    });
+    };
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
   async setup() {
-    this.ctx = await this.snapshotManager.setup();
-    this.aztecNode = this.ctx.aztecNode;
-    this.wallet = this.ctx.wallet;
-    this.aztecNodeConfig = this.ctx.aztecNodeConfig;
-    this.cheatCodes = this.ctx.cheatCodes;
-    this.deployL1ContractsValues = this.ctx.deployL1ContractsValues;
-    this.aztecNodeAdmin = this.ctx.aztecNode;
-
-    if (this.requireEpochProven) {
-      // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.ctx.watcher.setIsMarkingAsProven(false);
-    }
+    this.logger.info('Setting up cross chain messaging test');
+    this.context = await setup(0, {
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      l1ContractsArgs: this.deployL1ContractsArgs,
+    });
+    await this.applyBaseSetup();
   }
 
   async advanceToEpochProven(l2TxReceipt: TxReceipt): Promise<EpochNumber> {
@@ -108,94 +104,91 @@ export class CrossChainMessagingTest {
     }
   }
 
-  snapshot = <T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
-
   async teardown() {
-    await this.snapshotManager.teardown();
+    await teardown(this.context);
   }
 
-  async applyBaseSnapshots() {
-    // Note that we are using the same `wallet`, `aztecNodeConfig` and `aztecNode` across all snapshots.
-    // This is to not have issues with different networks.
+  async applyBaseSetup() {
+    // Set up base context fields
+    this.aztecNode = this.context.aztecNodeService!;
+    this.wallet = this.context.wallet;
+    this.aztecNodeConfig = this.context.config;
+    this.cheatCodes = this.context.cheatCodes;
+    this.deployL1ContractsValues = this.context.deployL1ContractsValues;
+    this.aztecNodeAdmin = this.context.aztecNodeService!;
 
-    await this.snapshotManager.snapshot(
-      '3_accounts',
-      deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { wallet, aztecNodeConfig, aztecNode }) => {
-        [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
-        this.wallet = wallet;
-        this.aztecNode = aztecNode;
-        this.aztecNodeConfig = aztecNodeConfig;
-        return Promise.resolve();
-      },
+    if (this.requireEpochProven) {
+      // Turn off the watcher to prevent it from keep marking blocks as proven.
+      this.context.watcher!.setIsMarkingAsProven(false);
+    }
+
+    // Deploy 3 accounts
+    this.logger.info('Applying 3_accounts setup');
+    const { deployedAccounts } = await deployAccounts(
+      3,
+      this.logger,
+    )({
+      wallet: this.context.wallet,
+      initialFundedAccounts: this.context.initialFundedAccounts,
+    });
+    [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
+
+    // Set up cross chain messaging
+    this.logger.info('Applying e2e_cross_chain_messaging setup');
+
+    // Create the token contract state.
+    this.logger.verbose(`Public deploy accounts...`);
+    await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
+
+    this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+
+    const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
+      'Underlying',
+      'UND',
+      this.l1Client.account.address,
+    ]).then(({ address }) => address);
+
+    this.logger.verbose(`Setting up cross chain harness...`);
+    this.crossChainTestHarness = await CrossChainTestHarness.new(
+      this.aztecNode,
+      this.l1Client,
+      this.wallet,
+      this.ownerAddress,
+      this.logger,
+      underlyingERC20Address,
     );
 
-    await this.snapshotManager.snapshot(
-      'e2e_cross_chain_messaging',
-      async () => {
-        // Create the token contract state.
-        // Move this account thing to addAccounts above?
-        this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
+    this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
 
-        this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    const crossChainContext = this.crossChainTestHarness.toCrossChainContext();
 
-        const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
-          'Underlying',
-          'UND',
-          this.l1Client.account.address,
-        ]).then(({ address }) => address);
+    this.l2Token = TokenContract.at(crossChainContext.l2Token, this.wallet);
+    this.l2Bridge = TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
 
-        this.logger.verbose(`Setting up cross chain harness...`);
-        this.crossChainTestHarness = await CrossChainTestHarness.new(
-          this.aztecNode,
-          this.l1Client,
-          this.wallet,
-          this.ownerAddress,
-          this.logger,
-          underlyingERC20Address,
-        );
+    // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
+    this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
+    const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
+    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    this.l1Client = l1Client;
 
-        return this.crossChainTestHarness.toCrossChainContext();
-      },
-      crossChainContext => {
-        this.l2Token = TokenContract.at(crossChainContext.l2Token, this.wallet);
-        this.l2Bridge = TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
+    const l1Contracts = this.aztecNodeConfig.l1Contracts;
+    this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
+    this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
+    this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
 
-        // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
-        this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
-        const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
-
-        const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-        this.l1Client = l1Client;
-
-        const l1Contracts = this.aztecNodeConfig.l1Contracts;
-        this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
-        this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
-        this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
-
-        this.crossChainTestHarness = new CrossChainTestHarness(
-          this.aztecNode,
-          this.logger,
-          this.l2Token,
-          this.l2Bridge,
-          this.ethAccount,
-          tokenPortalAddress,
-          crossChainContext.underlying,
-          l1Client,
-          this.aztecNodeConfig.l1Contracts,
-          this.wallet,
-          this.ownerAddress,
-        );
-
-        return Promise.resolve();
-      },
+    this.crossChainTestHarness = new CrossChainTestHarness(
+      this.aztecNode,
+      this.logger,
+      this.l2Token,
+      this.l2Bridge,
+      this.ethAccount,
+      tokenPortalAddress,
+      crossChainContext.underlying,
+      l1Client,
+      this.aztecNodeConfig.l1Contracts,
+      this.wallet,
+      this.ownerAddress,
     );
   }
 }

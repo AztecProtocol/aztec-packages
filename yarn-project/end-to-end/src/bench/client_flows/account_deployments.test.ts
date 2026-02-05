@@ -27,14 +27,14 @@ describe('Deployment benchmark', () => {
   let userWallet: TestWallet;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = await t.setup());
+    await t.setup();
+    await t.applyDeploySponsoredFPC();
+    ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = t);
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
     const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send({ from: adminAddress }).wait();
+    await publishContractClassInteraction.send({ from: adminAddress });
   });
 
   afterAll(async () => {
@@ -91,7 +91,7 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await deploymentInteraction.send(options).wait();
+            const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
             expect(tx.transactionFee!).toBeGreaterThan(0n);
           }
         });

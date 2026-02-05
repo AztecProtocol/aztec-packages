@@ -92,8 +92,10 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
   /**
    * @notice Have a candidate join the escape hatch set
+   * @dev Automatically ensures we're at a safe epoch to avoid HatchTooEarly errors
    */
   function _joinCandidateSet(address _candidate) internal {
+    _warpToSafeEpoch();
     vm.prank(testERC20.owner());
     testERC20.mint(_candidate, DEFAULT_BOND_SIZE);
     vm.prank(_candidate);
@@ -103,14 +105,14 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
   }
 
   /**
-   * @notice Warp to safe epoch and select candidates with randomness
-   * @dev Sets random prevrandao before warping to ensure varied candidate selection
+   * @notice Warp forward and select candidates with randomness
+   * @dev Sets random prevrandao before warping to ensure varied candidate selection.
+   *      Warps forward by DEFAULT_FREQUENCY epochs to ensure candidates are in the snapshot.
    * @return The prepared hatch number
    */
   function _selectCandidateForHatch() internal returns (Hatch) {
     _setRandomPrevrandao();
-    _warpToEpoch(DEFAULT_FREQUENCY);
-    _warpForwardEpochs(3);
+    _warpForwardEpochs(DEFAULT_FREQUENCY);
     escapeHatch.selectCandidates();
 
     Hatch currentHatch = escapeHatch.getHatch(rollup.getCurrentEpoch());
@@ -128,18 +130,19 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    * @dev Uses:
    *   - archive: GENESIS_ARCHIVE_ROOT
    *   - oracleInput: zero
-   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash, rest overridden
+   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash/outHash, rest overridden
    */
   function _buildProposeArgs(address _proposer) internal view returns (ProposeArgs memory args, bytes memory blobs) {
     bytes32 archive = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
     Slot slotNumber = rollup.getCurrentSlot();
 
-    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash from fixture
+    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash/outHash from fixture
     ProposedHeader memory header = ProposedHeader({
       lastArchiveRoot: archive,
       blockHeadersHash: full.checkpoint.header.blockHeadersHash,
       blobsHash: full.checkpoint.header.blobsHash,
       inHash: full.checkpoint.header.inHash,
+      outHash: full.checkpoint.header.outHash,
       slotNumber: slotNumber,
       timestamp: rollup.getTimestampForSlot(slotNumber),
       coinbase: _proposer,
@@ -266,6 +269,17 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
   // ============ Time Helpers ============
 
+  /**
+   * @notice Ensures we're at a safe epoch where joinCandidateSet won't revert with HatchTooEarly
+   * @dev Only warps forward if needed - never goes backwards in time
+   */
+  function _warpToSafeEpoch() internal {
+    uint256 safeEpoch = DEFAULT_LAG_IN_HATCHES * DEFAULT_FREQUENCY;
+    if (Epoch.unwrap(rollup.getCurrentEpoch()) < safeEpoch) {
+      _warpToEpoch(safeEpoch);
+    }
+  }
+
   function _warpToEpoch(uint256 _epochNumber) internal {
     Timestamp ts = rollup.getTimestampForEpoch(Epoch.wrap(_epochNumber));
     vm.warp(Timestamp.unwrap(ts));
@@ -301,7 +315,10 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     bytes32 endArchive = rollup.archiveAt(_end);
 
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: previousArchive, endArchive: endArchive, outHash: bytes32(0), proverId: _prover
+      previousArchive: previousArchive,
+      endArchive: endArchive,
+      outHash: endFull.checkpoint.header.outHash,
+      proverId: _prover
     });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);

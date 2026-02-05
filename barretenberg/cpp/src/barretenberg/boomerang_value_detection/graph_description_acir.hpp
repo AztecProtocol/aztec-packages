@@ -22,9 +22,11 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_boolean_gate(size_t block_idx, size_t gate_idx);
     bool is_ram_rom_access_gate(size_t block_idx, size_t gate_idx);
     bool is_busread_gate(size_t block_idx, size_t gate_idx, const BusId bus_idx);
+
     void process_constraint_system();
     std::unordered_set<size_t> get_incorrect_opcodes();
-    bool process_quad_constraints(const ConstraintPtr& ptr);
+    bool process_quad_constraints(const ConstraintPtr& ptr, bool include_next_gate_w_4 = false);
+    bool process_big_quad_constraints(const ConstraintPtr& ptr);
     bool process_logic_constraints(const ConstraintPtr& ptr);
     bool process_aes128_constraints(const ConstraintPtr& ptr,
                                     const std::unordered_set<uint32_t>& next_constraint_witnesses);
@@ -117,5 +119,4 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
 };
 
 using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::MegaCircuitBuilder>;
-
 } // namespace cdg

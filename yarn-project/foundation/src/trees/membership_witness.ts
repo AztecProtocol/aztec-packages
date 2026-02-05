@@ -38,6 +38,14 @@ export class MembershipWitness<N extends number> {
     return [new Fr(this.leafIndex), ...this.siblingPath];
   }
 
+  /**
+   * Returns a representation of the membership witness as expected by intrinsic Noir deserialization.
+   */
+  public toNoirRepresentation(): (string | string[])[] {
+    // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
+    return [new Fr(this.leafIndex).toString() as string, this.siblingPath.map(fr => fr.toString()) as string[]];
+  }
+
   static schemaFor<N extends number>(size: N) {
     return schemas.Buffer.transform(b => MembershipWitness.fromBuffer(b, size));
   }

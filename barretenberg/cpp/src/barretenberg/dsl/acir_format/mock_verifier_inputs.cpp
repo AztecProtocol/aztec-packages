@@ -1,14 +1,10 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "recursion_constraint.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 
 namespace acir_format {
 
@@ -79,14 +75,14 @@ HonkProof create_mock_multilinear_batch_proof()
     using FF = typename Flavor::FF;
     HonkProof proof;
 
-    // Populate mock witness accumulator commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
+    // Populate mock accumulator commitments (non_shifted + shifted)
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_ACCUMULATOR_COMMITMENTS);
 
     // Accumulator multivariate challenges
     populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
-    // Witness accumulator polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
+    // Accumulator polynomial evaluations (non_shifted + shifted)
+    populate_field_elements<FF>(proof, Flavor::NUM_ACCUMULATOR_EVALUATIONS);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
@@ -155,7 +151,13 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     using Curve = Flavor::Curve;
     HonkProof proof;
 
-    constexpr size_t const_proof_log_n = Flavor::VIRTUAL_LOG_N;
+    constexpr size_t const_proof_log_n = []() {
+        if constexpr (std::is_same_v<Flavor, bb::avm2::AvmFlavor>) {
+            return MEGA_AVM_LOG_N;
+        } else {
+            return Flavor::VIRTUAL_LOG_N;
+        }
+    }();
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
@@ -222,14 +224,38 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    if constexpr (HasIPAAccumulator<Flavor>) {
+    if constexpr (PublicInputs::HasIPA) {
         HonkProof ipa_proof = create_mock_ipa_proof();
         proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
     }
     return proof;
 }
 
-template <typename Flavor>
+HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
+{
+    size_t proof_length =
+        add_padding ? AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED : bb::avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
+    // Construct an AVM proof as the padded concatenation of an Oink proof and a Decider proof
+    HonkProof oink_proof =
+        create_mock_oink_proof<bb::avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+            /*acir_public_inputs_size=*/0);
+    HonkProof decider_proof = create_mock_decider_proof<avm2::AvmFlavor>();
+
+    HonkProof proof;
+    proof.reserve(proof_length);
+    proof.insert(proof.end(),
+                 oink_proof.begin() +
+                     bb::DefaultIO::PUBLIC_INPUTS_SIZE, // Skip the Oink public inputs as they are not needed
+                 oink_proof.end());
+    proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
+
+    BB_ASSERT_LTE(proof.size(), proof_length); // Sanity check
+    proof.resize(proof_length, 0);             // Pad the proof to the required length (if needed)
+
+    return proof;
+}
+
+template <typename Flavor, typename IO>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
     const size_t acir_public_inputs_size)
 {
@@ -258,12 +284,7 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points and IPA claim
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        stdlib::recursion::honk::RollupIO::add_default(builder);
-    } else {
-        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-    }
+    IO::add_default(builder);
 
     // prove the circuit constructed above
     // Create the decider proving key
@@ -397,7 +418,7 @@ HonkProof create_mock_eccvm_proof()
     // 27. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
 
     return proof;
 }
@@ -437,7 +458,7 @@ HonkProof create_mock_translator_proof()
     HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 
     return proof;
 }
@@ -461,14 +482,13 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
 
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t pub_inputs_offset,
                                                                       const size_t acir_public_inputs_size)
 {
     // Set relevant VK metadata and commitments
     auto honk_verification_key = std::make_shared<typename Flavor::VerificationKey>();
     honk_verification_key->log_circuit_size = bb::numeric::get_msb(dyadic_size);
     honk_verification_key->num_public_inputs = acir_public_inputs_size + PublicInputs::PUBLIC_INPUTS_SIZE;
-    honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
+    honk_verification_key->pub_inputs_offset = NUM_ZERO_ROWS;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
@@ -491,15 +511,18 @@ template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::
     const size_t);
 template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
-template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+
+template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
 
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
-template HonkProof create_mock_decider_proof<UltraRollupFlavor>();
 template HonkProof create_mock_decider_proof<TranslatorFlavor>();
+template HonkProof create_mock_decider_proof<avm2::AvmFlavor>();
 
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);
@@ -514,14 +537,16 @@ template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::
     const size_t);
 template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
-template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
 template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor>(const size_t);
-template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraRollupFlavor>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
@@ -530,31 +555,31 @@ template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
-    const size_t, const size_t, const size_t);
+    const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
                                                                           stdlib::recursion::honk::KernelIO>(
-    const size_t, const size_t, const size_t);
+    const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
-    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
     MegaZKFlavor,
-    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
     UltraZKFlavor,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
     UltraZKFlavor,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
-template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk<UltraRollupFlavor,
-                                                                                 stdlib::recursion::honk::RollupIO>(
-    const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t);
+template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<UltraFlavor,
+                                                                           stdlib::recursion::honk::RollupIO>(
+    const size_t, const size_t);
 
 } // namespace acir_format

@@ -210,19 +210,19 @@ describe('LibP2PService', () => {
       service.createRequestedTxValidator = () => stubValidator;
     });
 
-    function makeRequest(blockHash: Fr, length: number, indices: number[]): BlockTxsRequest {
+    function makeRequest(archiveRoot: Fr, length: number, indices: number[]): BlockTxsRequest {
       return {
-        blockHash,
+        archiveRoot,
         txIndices: BitVector.init(length, indices),
       } as BlockTxsRequest;
     }
 
-    function makeResponse(blockHash: Fr, length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
+    function makeResponse(archiveRoot: Fr, length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
       const txs = txHashes.map(h => ({
         getTxHash: () => ({ toString: () => h }),
       })) as any[];
       return {
-        blockHash,
+        archiveRoot,
         txs,
         txIndices: BitVector.init(length, indices),
       } as BlockTxsResponse;
@@ -248,7 +248,7 @@ describe('LibP2PService', () => {
       };
     }
 
-    it('should penalize and reject on block hash mismatch', async () => {
+    it('should penalize and reject on archive root mismatch', async () => {
       const reqHash = Fr.random();
       const otherHash = Fr.random();
       const request = makeRequest(reqHash, 5, [0, 2]);

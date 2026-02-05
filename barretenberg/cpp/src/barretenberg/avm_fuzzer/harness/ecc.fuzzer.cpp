@@ -12,7 +12,6 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/standard_affine_point.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/scalar_mul.hpp"
@@ -41,7 +40,6 @@ using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
 using avm2::AffinePoint;
-using StandardAffinePoint = avm2::StandardAffinePoint<AffinePoint>;
 using bb::avm2::EmbeddedCurvePoint;
 using bb::avm2::FF;
 using bb::avm2::MemoryAddress;
@@ -169,7 +167,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     }
     case 2: {
         // Set P to point at infinity
-        input.p.set_infinity();
+        // Note: using input.p.set_infinity() did not work here (input.p.is_point_at_infinity() == 0 afterwards)
+        input.p = AffinePoint::infinity();
         break;
     }
     case 3: {
@@ -227,10 +226,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     const EccFuzzerInput input = EccFuzzerInput::from_buffer(data);
     bool error = false;
 
-    EmbeddedCurvePoint point_p =
-        input.p.is_point_at_infinity() ? EmbeddedCurvePoint::infinity() : EmbeddedCurvePoint(input.p);
-    EmbeddedCurvePoint point_q =
-        input.q.is_point_at_infinity() ? EmbeddedCurvePoint::infinity() : EmbeddedCurvePoint(input.q);
+    EmbeddedCurvePoint point_p = EmbeddedCurvePoint(input.p);
+    EmbeddedCurvePoint point_q = EmbeddedCurvePoint(input.q);
 
     // Set up gadgets and event emitters
     DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
@@ -263,15 +260,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     EmbeddedCurvePoint scalar_mul_result;
 
     try {
-        ecc.add(*mem, input.p, input.q, /* output_addr */ input.addresses[6]);
+        ecc.add(*mem, point_p, point_q, /* output_addr */ input.addresses[6]);
         scalar_mul_result = ecc.scalar_mul(input.p, FF(uint256_t(input.scalar)));
     } catch (std::exception& e) {
         // info("Caught exception during ECC add: {}", e.what());
         error = true;
     }
     if (!error) {
-        // StandardAffinePoint, unlike AffinePoint, normalises infinity to (0, 0) to match EmbeddedCurvePoint
-        StandardAffinePoint expected_result = StandardAffinePoint(input.p) + StandardAffinePoint(input.q);
+        EmbeddedCurvePoint expected_result = point_p + point_q;
 
         // Verify output in memory
         MemoryValue res_x = mem->get(input.addresses[6]);
@@ -285,7 +281,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         BB_ASSERT(result_point.is_infinity() == expected_result.is_infinity(), "Result infinity flag mismatch");
 
         // Non mem-aware ecmul result:
-        expected_result = StandardAffinePoint(input.p) * input.scalar;
+        expected_result = point_p * input.scalar;
 
         BB_ASSERT(scalar_mul_result.x() == expected_result.x(), "Mul result x-coordinate mismatch");
         BB_ASSERT(scalar_mul_result.y() == expected_result.y(), "Mul result y-coordinate mismatch");

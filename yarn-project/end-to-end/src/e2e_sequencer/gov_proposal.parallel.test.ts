@@ -1,4 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { HttpBlobClient } from '@aztec/blob-client/client';
@@ -7,7 +9,7 @@ import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-az
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
@@ -110,7 +112,7 @@ describe('e2e_gov_proposal', () => {
 
     // Deploy a test contract to send msgs via the outbox, since this increases
     // gas cost of a proposal, which has triggered oog errors in the past.
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
     logger.warn(`Deployed test contract at ${testContract.address}`);
 
     await cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
@@ -167,15 +169,15 @@ describe('e2e_gov_proposal', () => {
     // since we wait for the txs to be mined, and do so `roundDuration` times.
     // Simultaneously, we should be voting for the proposal in every slot.
     for (let i = 0; i < roundDuration; i++) {
-      const txs = times(TXS_PER_BLOCK, () =>
+      const txHashes = await timesAsync(TXS_PER_BLOCK, () =>
         testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-          .send({ from: defaultAccountAddress }),
+          .send({ from: defaultAccountAddress, wait: NO_WAIT }),
       );
       await Promise.all(
-        txs.map(async (tx, j) => {
-          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: 2 * AZTEC_SLOT_DURATION + 2 });
+        txHashes.map((hash, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${hash} to be mined`);
+          return waitForTx(aztecNode!, hash, { timeout: AZTEC_SLOT_DURATION + 10 });
         }),
       );
     }
@@ -197,8 +199,7 @@ describe('e2e_gov_proposal', () => {
     await expect(() =>
       testContract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-        .send({ from: defaultAccountAddress })
-        .wait({ timeout: AZTEC_SLOT_DURATION + 2 }),
+        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION + 2 } }),
     ).rejects.toThrow(TimeoutError);
     logger.warn(`Test tx timed out as expected`);
 

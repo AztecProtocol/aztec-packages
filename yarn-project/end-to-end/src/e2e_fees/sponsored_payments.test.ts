@@ -20,11 +20,10 @@ describe('e2e_fees sponsored_public_payment', () => {
   const t = new FeesTest('sponsored_payment');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applySponsoredFPCSetupSnapshot();
+    await t.setup();
+    await t.applySponsoredFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ aztecNode, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } =
-      await t.setup());
+    ({ aztecNode, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } = t);
   });
 
   afterAll(async () => {
@@ -57,16 +56,13 @@ describe('e2e_fees sponsored_public_payment', () => {
   it('pays fees for tx that makes a public transfer', async () => {
     // docs:start:sponsored_fpc_simple
     const bananasToSendToBob = 10n;
-    const tx = await bananaCoin.methods
-      .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
-      .send({
-        from: aliceAddress,
-        fee: {
-          gasSettings,
-          paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
-        },
-      })
-      .wait();
+    const tx = await bananaCoin.methods.transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0).send({
+      from: aliceAddress,
+      fee: {
+        gasSettings,
+        paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
+      },
+    });
     // docs:end:sponsored_fpc_simple
 
     const feeAmount = tx.transactionFee!;

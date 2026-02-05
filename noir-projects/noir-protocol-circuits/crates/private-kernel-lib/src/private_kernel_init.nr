@@ -1,7 +1,6 @@
 use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
-    private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
 };
 use dep::types::abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -26,32 +25,26 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     // Whether this tx only makes private calls. `false` if at least one public call will be made throughout the tx.
     // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
     pub is_private_only: bool,
-    // A hint to what will be the first nullifier of the transaction.
-    // @dev: This hint should be set to 0 if no nullifiers will be emitted by any private call. The Init circuit will
-    // create a protocol nullifier if the hint is 0.
+    // A hint indicating what the first nullifier of the transaction will be.
+    // If no private call emits a nullifier, this should be set to the protocol nullifier. (For how the protocol
+    // nullifier is computed, see: types/src/hash.nr > create_protocol_nullifier)
+    // If this value equals the protocol nullifier, the Init circuit inserts the protocol nullifier at index 0.
+    // This hint is used in the Reset circuit to compute nonces for the note hashes (to prevent Faerie-Gold attacks). It
+    // is necessary to avoid cases where a Reset circuit silos note hashes before the first nullifier has been emitted.
+    // This value remains constant throughout private execution and is verified in the Tail(-to-Public) circuit.
+    //
+    // Note: Since this value is used as the nonce generator, it is not recommended to set it to a **revertible**
+    // nullifier. The PXE uses the first nullifier to recover note hash preimages. If the original first nullifier is
+    // reverted, access to the note contents would be lost.
     pub first_nullifier_hint: Field,
-    // A hint for the revertible counter of the transaction. The revertible counter separates non-revertible side
-    // effects (which persist even if the tx reverts) from revertible ones. This hint is necessary to avoid using a
-    // Reset circuit before the counter is set. It also enables private functions to check whether they're in the
-    // revertible or non-revertible phase. The value is propagated through private execution and verified in the
-    // Tail(-to-Public) circuit.
+    // A hint indicating what the `min_revertible_side_effect_counter` will be.
+    // The revertible counter separates non-revertible side effects (which persist even if the tx reverts) from
+    // revertible ones.
+    // This hint is used in the Reset circuit to squash transient data. It is necessary to avoid using a Reset circuit
+    // before the counter is set.
+    // It also enables private functions to check whether they're in the revertible or non-revertible phase.
+    // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
     pub revertible_counter_hint: u32,
-}
-
-unconstrained fn generate_output(
-    inputs: PrivateKernelInitCircuitPrivateInputs,
-) -> PrivateKernelCircuitPublicInputs {
-    PrivateKernelCircuitOutputComposer::new_from_tx_request(
-        inputs.tx_request,
-        inputs.private_call.public_inputs,
-        inputs.vk_tree_root,
-        inputs.protocol_contracts,
-        inputs.is_private_only,
-        inputs.first_nullifier_hint,
-        inputs.revertible_counter_hint,
-    )
-        .with_private_call(inputs.private_call)
-        .finish()
 }
 
 /// The Private Kernel Init circuit is the entry point for executing a private transaction.
@@ -60,8 +53,8 @@ unconstrained fn generate_output(
 /// This circuit:
 /// - Validates the initial private call data (proof verification, contract address validation, etc.)
 /// - Verifies the call matches the `tx_request` provided by the user
-/// - Creates the protocol nullifier from the `tx_request` hash if no nullifiers will be emitted throughout the
-///   private execution (i.e. `first_nullifier_hint` is 0)
+/// - Creates the protocol nullifier from the `tx_request` hash if the `first_nullifier_hint` indicates that it should
+///   be injected
 /// - Establishes the `tx_context` (chain ID, version, protocol contracts, etc.)
 /// - Initializes the accumulated data arrays for note hashes, nullifiers, read requests, and other side effects from
 ///   the private call
@@ -77,25 +70,10 @@ pub fn execute(inputs: PrivateKernelInitCircuitPrivateInputs) -> PrivateKernelCi
     PrivateCallDataValidator::new(inputs.private_call).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
+        inputs.first_nullifier_hint,
         inputs.revertible_counter_hint,
     );
 
     // Generate output.
-    // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
-    let output = unsafe { generate_output(inputs) };
-
-    // Validate output.
-    if dep::types::validate::should_validate_output() {
-        PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
-            inputs.tx_request,
-            inputs.private_call,
-            inputs.vk_tree_root,
-            inputs.protocol_contracts,
-            inputs.is_private_only,
-            inputs.first_nullifier_hint,
-            inputs.revertible_counter_hint,
-        );
-    }
-
-    output
+    PrivateKernelCircuitOutputComposer::compose_output_for_init(inputs)
 }

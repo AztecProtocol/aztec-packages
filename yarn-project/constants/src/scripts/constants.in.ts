@@ -11,6 +11,8 @@ const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/Con
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
 const CPP_CONSTANTS = [
+  'MAX_ETH_ADDRESS_BIT_SIZE',
+  'MAX_ETH_ADDRESS_VALUE',
   'GENESIS_BLOCK_HEADER_HASH',
   'GENESIS_ARCHIVE_ROOT',
   'MEM_TAG_U1',
@@ -26,7 +28,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'ROUTER_ADDRESS',
+  'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN',
@@ -114,6 +116,7 @@ const CPP_CONSTANTS = [
 ];
 
 const CPP_GENERATORS: string[] = [
+  'BLOCK_HEADER_HASH',
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
   'CONTRACT_CLASS_ID',
@@ -121,13 +124,15 @@ const CPP_GENERATORS: string[] = [
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
-  'OUTER_NULLIFIER',
-  'PUBLIC_LEAF_INDEX',
+  'SILOED_NULLIFIER',
+  'PUBLIC_LEAF_SLOT',
+  'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
 ];
 
 const PIL_CONSTANTS = [
+  'MAX_ETH_ADDRESS_VALUE',
   'MEM_TAG_U1',
   'MEM_TAG_U8',
   'MEM_TAG_U16',
@@ -163,7 +168,7 @@ const PIL_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'ROUTER_ADDRESS',
+  'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE',
@@ -307,8 +312,9 @@ const PIL_GENERATORS: string[] = [
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
-  'OUTER_NULLIFIER',
-  'PUBLIC_LEAF_INDEX',
+  'SILOED_NULLIFIER',
+  'PUBLIC_LEAF_SLOT',
+  'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
 ];
@@ -316,6 +322,7 @@ const PIL_GENERATORS: string[] = [
 const SOLIDITY_CONSTANTS = [
   'MAX_FIELD_VALUE',
   'MAX_L2_TO_L1_MSGS_PER_TX',
+  'EMPTY_EPOCH_OUT_HASH',
   'L1_TO_L2_MSG_SUBTREE_HEIGHT',
   'NUM_MSGS_PER_BASE_PARITY',
   'NUM_BASE_PARITY_PER_ROOT_PARITY',
@@ -380,7 +387,7 @@ function processConstantsCpp(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (CPP_GENERATORS.includes(key)) {
-      code.push(`#define DOM_SEP__${key} ${value}`);
+      code.push(`#define DOM_SEP__${key} ${value}UL`);
     }
   });
   return code.join('\n');

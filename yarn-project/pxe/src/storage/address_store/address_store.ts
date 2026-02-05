@@ -43,23 +43,23 @@ export class AddressStore {
     });
   }
 
-  async #getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const index = await this.#completeAddressIndex.getAsync(address.toString());
-    if (index === undefined) {
-      return undefined;
-    }
-
-    const value = await this.#completeAddresses.atAsync(index);
-    return value ? await CompleteAddress.fromBuffer(value) : undefined;
-  }
-
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.#getCompleteAddress(account);
+    return this.#store.transactionAsync(async () => {
+      const index = await this.#completeAddressIndex.getAsync(account.toString());
+      if (index === undefined) {
+        return undefined;
+      }
+
+      const value = await this.#completeAddresses.atAsync(index);
+      return value ? await CompleteAddress.fromBuffer(value) : undefined;
+    });
   }
 
-  async getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return await Promise.all(
-      (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
-    );
+  getCompleteAddresses(): Promise<CompleteAddress[]> {
+    return this.#store.transactionAsync(async () => {
+      return await Promise.all(
+        (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
+      );
+    });
   }
 }

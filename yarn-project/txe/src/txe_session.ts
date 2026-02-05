@@ -7,6 +7,7 @@ import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressStore,
   CapsuleStore,
+  JobCoordinator,
   NoteService,
   NoteStore,
   PrivateEventStore,
@@ -43,7 +44,7 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS, TXE_JOB_ID } from './constants.js';
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -74,7 +75,6 @@ type SessionState =
   | {
       name: 'PRIVATE';
       nextBlockGlobalVariables: GlobalVariables;
-      protocolNullifier: Fr;
       noteCache: ExecutionNoteCache;
       taggingIndexCache: ExecutionTaggingIndexCache;
     }
@@ -139,6 +139,8 @@ export class TXESession implements TXESessionStateHandler {
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
+    private jobCoordinator: JobCoordinator,
+    private currentJobId: string,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
@@ -150,13 +152,23 @@ export class TXESession implements TXESessionStateHandler {
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new TXEContractStore(store);
-    const noteStore = await NoteStore.create(store);
+    const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
+
+    // Create job coordinator and register staged stores
+    const jobCoordinator = new JobCoordinator(store);
+    jobCoordinator.registerStores([
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+    ]);
 
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
@@ -170,6 +182,8 @@ export class TXESession implements TXESessionStateHandler {
     const version = new Fr(await stateMachine.node.getVersion());
     const chainId = new Fr(await stateMachine.node.getChainId());
 
+    const initialJobId = jobCoordinator.beginJob();
+
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractStore,
@@ -182,6 +196,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      initialJobId,
       nextBlockTimestamp,
       version,
       chainId,
@@ -203,6 +218,8 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      jobCoordinator,
+      initialJobId,
       version,
       chainId,
       nextBlockTimestamp,
@@ -262,6 +279,10 @@ export class TXESession implements TXESessionStateHandler {
       }
     }
 
+    // Commit all staged stores from the job that was just completed, then begin a new job
+    await this.jobCoordinator.commitJob(this.currentJobId);
+    this.currentJobId = this.jobCoordinator.beginJob();
+
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
       this.contractStore,
@@ -274,6 +295,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.currentJobId,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
@@ -290,16 +312,14 @@ export class TXESession implements TXESessionStateHandler {
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
-    await new NoteService(
-      this.noteStore,
-      this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
-    ).syncNoteNullifiers(contractAddress);
-
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
     const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+
+    await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
+      contractAddress,
+    );
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
@@ -331,13 +351,12 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      TXE_JOB_ID,
+      this.currentJobId,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -345,7 +364,7 @@ export class TXESession implements TXESessionStateHandler {
     // difference resides in that the simulator has all information needed in order to run the simulation, while ours
     // will be ongoing as the different oracles will be invoked from the Noir test, until eventually the private
     // execution finishes.
-    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, protocolNullifier, noteCache, taggingIndexCache };
+    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
@@ -378,6 +397,8 @@ export class TXESession implements TXESessionStateHandler {
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
     this.exitTopLevelState();
 
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+
     // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
     // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
@@ -386,10 +407,9 @@ export class TXESession implements TXESessionStateHandler {
     await new NoteService(
       this.noteStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
+      anchorBlockHeader,
+      this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
-
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     this.oracleHandler = new UtilityExecutionOracle(
       contractAddress,
@@ -401,12 +421,11 @@ export class TXESession implements TXESessionStateHandler {
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      TXE_JOB_ID,
+      this.currentJobId,
     );
 
     this.state = { name: 'UTILITY' };
@@ -442,11 +461,7 @@ export class TXESession implements TXESessionStateHandler {
     // We rely on the note cache to determine the effects of the transaction. This is incomplete as it doesn't private
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
 
-    const txEffect = await makeTxEffect(
-      this.state.noteCache,
-      this.state.protocolNullifier,
-      this.state.nextBlockGlobalVariables.blockNumber,
-    );
+    const txEffect = await makeTxEffect(this.state.noteCache, this.state.nextBlockGlobalVariables.blockNumber);
 
     // We build a block holding just this transaction
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
@@ -496,12 +511,11 @@ export class TXESession implements TXESessionStateHandler {
           this.keyStore,
           this.addressStore,
           this.stateMachine.node,
-          this.stateMachine.anchorBlockStore,
           this.recipientTaggingStore,
           this.senderAddressBookStore,
           this.capsuleStore,
           this.privateEventStore,
-          TXE_JOB_ID,
+          this.currentJobId,
         );
         await new WASMSimulator()
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

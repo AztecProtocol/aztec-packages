@@ -2,10 +2,10 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
-  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
@@ -15,13 +15,23 @@ import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
+import {
+  type BatchTxRequesterConfig,
+  batchTxRequesterConfigMappings,
+} from './services/reqresp/batch-tx-requester/config.js';
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
+import { type TxFileStoreConfig, txFileStoreConfigMappings } from './services/tx_file_store/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionConfig {
+export interface P2PConfig
+  extends P2PReqRespConfig,
+    BatchTxRequesterConfig,
+    ChainConfig,
+    TxCollectionConfig,
+    TxFileStoreConfig {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -407,7 +417,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
     description: 'The probability that a transaction is discarded (0 - 1). - For testing purposes only',
-    ...floatConfigHelper(0),
+    ...percentageConfigHelper(0),
   },
   disableTransactions: {
     env: 'TRANSACTIONS_DISABLED',
@@ -432,8 +442,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,
+  ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
+  ...txFileStoreConfigMappings,
 };
 
 /**

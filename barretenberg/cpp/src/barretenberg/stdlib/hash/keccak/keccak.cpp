@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 89a12920681072efff1eed881589aad16347e0d6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -317,35 +317,9 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
 
         // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide KECCAK_LANE_SIZE=64,
         // we need an additional range constraint to ensure that mid < 11^64
-        if constexpr (KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS == 0) {
-            // N.B. we could optimize out 5 gates per round here but it's very fiddly...
-            // In previous section, D[i] = X + Y (non shifted equiv and shifted equiv)
-            // We also want to validate D[i] == hi' + mid' + lo (where hi', mid' are hi, mid scaled by constants)
-            // We *could* create a big addition gate to validate the previous logic w. following structure:
-            // | w1 | w2  | w3 | w4 |
-            // | -- | --- | -- | -- |
-            // | hi | mid | lo | X  |
-            // | P0 | P1  | P2 | Y  |
-            // To save a gate, we would need to place the wires for the first KECCAK_THETA_OUTPUT plookup gate
-            // at P0, P1, P2. This is fiddly builder logic that is circuit-width-dependent
-            // (this would save 120 gates per hash block... not worth making the code less readable for that)
-            D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
-        } else {
-            const auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_THETA_OUTPUT, D[i]);
-            D[i] = accumulators[ColumnIdx::C2][0];
-
-            // Ensure input to lookup is < 11^{KECCAK_LANE_SIZE},
-            // by validating most significant input slice is < 11^{KECCAK_LANE_SIZE mod slice_bits}
-            const field_ct most_significant_slice = accumulators[ColumnIdx::C1][accumulators[ColumnIdx::C1].size() - 1];
-
-            // N.B. cheaper to validate (11^{KECCAK_LANE_SIZE mod slice_bits} - slice < 2^14) as this
-            // prevents an extra range table from being created
-            constexpr uint256_t maximum = BASE.pow(KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS);
-            const field_ct target = -most_significant_slice + maximum;
-            BB_ASSERT_GT((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1, maximum);
-            target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                           "input to KECCAK_THETA_OUTPUT too large!");
-        }
+        static_assert(KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS == 0,
+                      "KECCAK_THETA_OUTPUT TABLE_BITS must divide KECCAK_LANE_SIZE.");
+        D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
     }
 
     // compute state[j * 5 + i] XOR D[i] in base-11 representation

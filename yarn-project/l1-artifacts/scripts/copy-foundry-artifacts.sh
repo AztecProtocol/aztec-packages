@@ -19,6 +19,10 @@ mkdir -p "l1-contracts/script" "l1-contracts/lib" "l1-contracts/broadcast"
 # Copy build artifacts, cache, sources, and config (preserving timestamps for cache validity)
 cp -rp "$src"/{out,cache,src,generated} "l1-contracts/"
 cp -rp "$src/script/deploy" "l1-contracts/script/"  # only deploy/, other scripts depend on test files
+# Kludge: copy test files that forge cache references to avoid stale artifact warnings
+mkdir -p "l1-contracts/test/script"
+cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
+cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
 cp -p "$src"/{foundry.toml,foundry.lock,solc-*} "l1-contracts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib

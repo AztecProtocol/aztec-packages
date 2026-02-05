@@ -76,15 +76,26 @@ export async function buildNoteHashReadRequestHintsFromResetActions<PENDING exte
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
   });
 
+  // Collect all settled read requests
+  const settledRequests: { index: number; readRequest: ScopedReadRequest }[] = [];
   for (let i = 0; i < resetActions.actions.length; i++) {
     if (resetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
-      const readRequest = noteHashReadRequests.array[i];
-      const membershipWitness = await oracle.getNoteHashMembershipWitness(readRequest.value);
-      if (!membershipWitness) {
-        throw new Error('Read request is reading an unknown note hash.');
-      }
-      builder.addSettledReadRequest(i, membershipWitness, readRequest.value);
+      settledRequests.push({ index: i, readRequest: noteHashReadRequests.array[i] });
     }
+  }
+
+  // Fetch all membership witnesses in parallel
+  const membershipWitnesses = await Promise.all(
+    settledRequests.map(({ readRequest }) => oracle.getNoteHashMembershipWitness(readRequest.value)),
+  );
+
+  // Add settled read requests to builder
+  for (let i = 0; i < settledRequests.length; i++) {
+    const membershipWitness = membershipWitnesses[i];
+    if (!membershipWitness) {
+      throw new Error('Read request is reading an unknown note hash.');
+    }
+    builder.addSettledReadRequest(settledRequests[i].index, membershipWitness, settledRequests[i].readRequest.value);
   }
 
   const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();

@@ -11,6 +11,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { type Hex, formatUnits } from 'viem';
@@ -67,7 +68,9 @@ export class SequencerMetrics {
     this.meter = client.getMeter(name);
     this.tracer = client.getTracer(name);
 
-    this.blockCounter = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_COUNT);
+    this.blockCounter = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_BLOCK_COUNT, {
+      [Attributes.STATUS]: ['failed', 'built'],
+    });
 
     this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION);
 
@@ -77,23 +80,15 @@ export class SequencerMetrics {
 
     this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
 
-    // Init gauges and counters
-    this.blockCounter.add(0, {
-      [Attributes.STATUS]: 'failed',
-    });
-    this.blockCounter.add(0, {
-      [Attributes.STATUS]: 'built',
-    });
-
     this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS);
 
-    this.slots = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLOT_COUNT);
+    this.slots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLOT_COUNT);
 
     /**
      * NOTE: we do not track missed slots as a separate metric. That would be difficult to determine
      * Instead, use a computed metric, `slots - filledSlots` to get the number of slots a sequencer has missed.
      */
-    this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT);
+    this.filledSlots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_FILLED_SLOT_COUNT);
 
     this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION);
 
@@ -103,20 +98,41 @@ export class SequencerMetrics {
 
     this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT);
 
-    this.blockProposalFailed = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT);
-
-    this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT);
-
-    this.checkpointSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
-
-    this.blockProposalPrecheckFailed = this.meter.createUpDownCounter(
-      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
+    this.blockProposalFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT,
     );
 
-    this.slashingAttempts = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
+    this.blockProposalSuccess = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT,
+    );
+
+    this.checkpointSuccess = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
+
+    this.blockProposalPrecheckFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
+      {
+        [Attributes.ERROR_TYPE]: [
+          'slot_already_taken',
+          'rollup_contract_check_failed',
+          'slot_mismatch',
+          'block_number_mismatch',
+        ],
+      },
+    );
+
+    this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
     // Fisherman fee analysis metrics
-    this.fishermanWouldBeIncluded = this.meter.createUpDownCounter(Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED);
+    this.fishermanWouldBeIncluded = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED,
+      {
+        [Attributes.OK]: [true, false],
+      },
+    );
 
     this.fishermanTimeBeforeBlock = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK);
 
@@ -231,7 +247,9 @@ export class SequencerMetrics {
     this.blockProposalSuccess.add(1);
   }
 
-  recordBlockProposalPrecheckFailed(checkType: string) {
+  recordBlockProposalPrecheckFailed(
+    checkType: 'slot_already_taken' | 'rollup_contract_check_failed' | 'slot_mismatch' | 'block_number_mismatch',
+  ) {
     this.blockProposalPrecheckFailed.add(1, {
       [Attributes.ERROR_TYPE]: checkType,
     });

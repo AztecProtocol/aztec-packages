@@ -15,7 +15,7 @@ describe('ContractClass', () => {
       };
       const contractClassId = await computeContractClassId(contractClass);
       expect(contractClassId.toString()).toMatchInlineSnapshot(
-        `"0x1f2b3a3c438e4097567cc90ecf43929930b7244f7d2fbcca61ae172d1df3c75c"`,
+        `"0x0742c9f7451738d4f6e6ac731aff289de85dec6f7f4daae0f73bcfd5fe7fca3e"`,
       );
     });
   });

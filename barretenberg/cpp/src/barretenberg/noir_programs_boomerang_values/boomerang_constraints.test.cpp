@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -14,7 +15,7 @@ using namespace cdg;
 /**
  * @brief Test suite for verification of ACIR constraint system for class UltraCircuitBuilder
  * @details Every test creates ACIR constraint system. Then it runs
- * StaticAnalyzerAcir tool that tries to find incorrect opcodes. Some tests corrupt the created by
+ * StaticAnalyzerAcir tool that tries to find incorrect opcodes. Some tests corrupt the created
  * ACIR constraint system circuit in order to check analyzer's ability to detect issues in the circuit
  */
 
@@ -33,6 +34,20 @@ WitnessOrConstant<fr> witness_from_index(uint32_t idx)
 WitnessOrConstant<fr> constant_from_value(uint8_t val)
 {
     return WitnessOrConstant<fr>::from_constant(fr(val));
+}
+
+// Helper to build AcirFormat from individual constraints through the full ACIR serde flow
+template <typename... Constraints>
+AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+{
+    std::vector<Acir::Opcode> opcodes;
+    auto collect = [&opcodes](const auto& constraint) {
+        auto ops = constraint_to_acir_opcode(constraint);
+        opcodes.insert(opcodes.end(), ops.begin(), ops.end());
+    };
+    (collect(constraints), ...);
+    (void)max_witness_index; // No longer needed by build_acir_circuit
+    return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
 /**
@@ -61,15 +76,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 5,
-        .num_acir_opcodes = 6,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint, and_constraint },
-        .range_constraints = { range_0, range_1, range_3, range_4 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1 }, .range_constraints = { 2, 3, 4, 5 } },
-    };
+    auto constraint_system = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -116,15 +123,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -215,15 +214,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(1), fr(0), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -255,15 +246,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { and_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(171), fr(205), fr(137) };
     AcirProgram program{ constraint_system, witness };
@@ -295,15 +278,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
                       uint256_t(0xAABBCCDD);
@@ -361,15 +336,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
     RangeConstraint range_6{ .witness = 6, .num_bits = 64 };
     RangeConstraint range_7{ .witness = 7, .num_bits = 64 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 8,
-        .num_acir_opcodes = 9,
-        .public_inputs = {},
-        .logic_constraints = { xor_8, and_32, xor_64 },
-        .range_constraints = { range_0, range_1, range_3, range_4, range_6, range_7 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1, 2 },
-                                                                    .range_constraints = { 3, 4, 5, 6, 7, 8 } },
-    };
+    auto constraint_system =
+        build_acir_format(8, xor_8, and_32, xor_64, range_0, range_1, range_3, range_4, range_6, range_7);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -408,15 +376,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -442,15 +402,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -476,15 +428,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { and_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, and_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -510,15 +454,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -544,15 +480,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { and_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, and_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -579,13 +507,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qm)
     // Create a simple 1-bit range constraint
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_1bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_1bit);
 
     // Build circuit normally
     WitnessVector witness = { fr(1) }; // Valid boolean value
@@ -596,14 +518,10 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qm)
     auto& arith_block = builder.blocks.arithmetic;
     bool found_gate = false;
     for (size_t i = 0; i < arith_block.size(); i++) {
-        if (arith_block.q_m()[i] == fr::one() && arith_block.q_1()[i] == fr(-1)) {
-            // Found the boolean gate, corrupt q_m
-            arith_block.q_m().set(i, fr::zero()); // Change from 1 to 0
-            found_gate = true;
-            break;
-        }
+        // Found the boolean gate, corrupt q_m
     }
     ASSERT_TRUE(found_gate) << "Could not find boolean gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     // Create analyzer with corrupted builder - need a copy of constraint_system
     AcirFormat constraint_system_copy = constraint_system;
@@ -623,13 +541,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qArith)
 {
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_1bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_1bit);
 
     WitnessVector witness = { fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -646,6 +558,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qArith)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find boolean gate to corrupt";
+    // Note: CircuitChecker still passes because disabling q_arith makes the gate trivially satisfied
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -663,13 +576,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_q1)
 {
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_1bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_1bit);
 
     WitnessVector witness = { fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -685,6 +592,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_q1)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find boolean gate to corrupt";
+    // Note: CircuitChecker still passes because w=0 satisfies w^2=0 (the corrupted relation)
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -702,19 +610,14 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedSmallRangeConstraint)
 {
     RangeConstraint range_8bit{ .witness = 0, .num_bits = 8 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_8bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_8bit);
 
     WitnessVector witness = { fr(200) }; // Valid 8-bit value
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
 
     // Corrupt by clearing the range_lists entry for this range
+    // Note: CircuitChecker::check won't detect range_list corruption since it only validates gate arithmetic
     uint64_t target_range = (1ULL << 8) - 1; // 255
     auto it = builder.range_lists.find(target_range);
     if (it != builder.range_lists.end()) {
@@ -740,13 +643,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_DecomposeC
     // 32-bit range requires decompose chain (> 14 bits)
     RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_32bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_32bit);
 
     WitnessVector witness = { fr(1000000) }; // Valid 32-bit value
     AcirProgram program{ constraint_system, witness };
@@ -775,6 +672,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_DecomposeC
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find decompose chain gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -792,19 +690,14 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_SublimbRan
 {
     RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 0,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_32bit },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    auto constraint_system = build_acir_format(0, range_32bit);
 
     WitnessVector witness = { fr(1000000) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
 
     // Corrupt by clearing the default sublimb range_list (14-bit range)
+    // Note: CircuitChecker::check won't detect range_list corruption since it only validates gate arithmetic
     constexpr uint64_t default_sublimb_range = (1ULL << 14) - 1; // 16383
     auto it = builder.range_lists.find(default_sublimb_range);
     if (it != builder.range_lists.end()) {
@@ -840,15 +733,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_LookupTableSelect
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -866,6 +751,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_LookupTableSelect
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    // Note: CircuitChecker still passes because disabling q_lookup makes the lookup trivially satisfied
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -890,15 +776,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedAndConstraint_LookupTableSelect
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { and_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 & 200) };
     AcirProgram program{ constraint_system, witness };
@@ -915,6 +793,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedAndConstraint_LookupTableSelect
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    // Note: CircuitChecker still passes because disabling q_lookup makes the lookup trivially satisfied
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -941,15 +820,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_q3_TableIndex)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -969,6 +840,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_q3_TableIndex)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -995,15 +867,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wl_InputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -1020,6 +884,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wl_InputWire)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1046,15 +911,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wr_InputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -1098,15 +955,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wo_OutputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -1150,15 +999,7 @@ TEST_F(BoomerangConstraintsTests, FindAccumulationGateFromResultWitness)
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     uint64_t a_val = (1ULL << 32) + 100;
     uint64_t b_val = (2ULL << 32) + 200;
@@ -1191,13 +1032,24 @@ TEST_F(BoomerangConstraintsTests, FindAccumulationGateFromResultWitness)
     EXPECT_TRUE(found_gate) << "Should find accumulation gate for result witness";
 
     // Verify the gate has the expected structure for accumulation: result = chunk * scale + prev
-    // w_o = result, w_l = prev_result (or first chunk), w_r = current_chunk
+    // Gate equation: q_1 * w_l + q_2 * w_r + q_3 * w_o + q_4 * w_4 + q_c = 0
+    // For accumulation: w_o = w_l + scale * w_r, so q_1 and q_2 should be non-zero
     if (found_gate) {
         uint32_t w_l = arith_block.w_l()[found_gate_idx];
         uint32_t w_r = arith_block.w_r()[found_gate_idx];
+        fr q_1 = arith_block.q_1()[found_gate_idx];
+        fr q_2 = arith_block.q_2()[found_gate_idx];
+        fr q_3 = arith_block.q_3()[found_gate_idx];
+
         // The gate should have non-trivial wires (not just constants)
         EXPECT_NE(w_l, builder.zero_idx());
         EXPECT_NE(w_r, builder.zero_idx());
+
+        // Accumulation gate selectors: q_1 and q_2 must be non-zero for the linear combination
+        EXPECT_NE(q_1, fr::zero()) << "q_1 should be non-zero for accumulation gate";
+        EXPECT_NE(q_2, fr::zero()) << "q_2 should be non-zero for accumulation gate";
+        // q_3 should be the negative output selector (typically -1)
+        EXPECT_EQ(q_3, fr(-1)) << "q_3 should be -1 for the output wire in accumulation gate";
     }
 }
 
@@ -1218,15 +1070,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_64bit_Accumulatio
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     // Use actual 64-bit values that span both 32-bit chunks
     uint64_t a_val = (1ULL << 32) + 100; // High bits: 1, Low bits: 100
@@ -1258,6 +1102,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_64bit_Accumulatio
 
     ASSERT_TRUE(found_gate) << "Could not find accumulation gate for result variable";
     arith_block.w_o()[gate_to_corrupt] = builder.zero_idx();
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1283,15 +1128,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_LookupSele
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     // Use smaller values that fit in fr
     WitnessVector witness = { fr(300), fr(400), fr(300 ^ 400) };
@@ -1309,6 +1146,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_LookupSele
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    // Note: CircuitChecker still passes because disabling q_lookup makes the lookup trivially satisfied
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1332,15 +1170,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_ConstantOperand)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
-    };
+    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
 
     WitnessVector witness = { fr(500), fr(500 ^ 66) };
     AcirProgram program{ constraint_system, witness };
@@ -1357,6 +1187,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_ConstantOperand)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    // Note: CircuitChecker still passes because disabling q_lookup makes the lookup trivially satisfied
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1384,15 +1215,7 @@ TEST_F(BoomerangConstraintsTests, DetectMultipleCorruptedConstraints)
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
     RangeConstraint range_bool{ .witness = 3, .num_bits = 1 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 3,
-        .num_acir_opcodes = 4,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1, range_bool },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2, 3 } },
-    };
+    auto constraint_system = build_acir_format(3, xor_constraint, range_0, range_1, range_bool);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -1415,6 +1238,7 @@ TEST_F(BoomerangConstraintsTests, DetectMultipleCorruptedConstraints)
             break;
         }
     }
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
@@ -1453,15 +1277,8 @@ TEST_F(BoomerangConstraintsTests, ValidCircuitPassesValidation)
     RangeConstraint range_bool{ .witness = 6, .num_bits = 1 };
     RangeConstraint range_8bit{ .witness = 7, .num_bits = 8 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 7,
-        .num_acir_opcodes = 8,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint, and_constraint },
-        .range_constraints = { range_0, range_1, range_3, range_4, range_bool, range_8bit },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1 }, .range_constraints = { 2, 3, 4, 5, 6, 7 } },
-    };
+    auto constraint_system = build_acir_format(
+        7, xor_constraint, and_constraint, range_0, range_1, range_3, range_4, range_bool, range_8bit);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(300), fr(400), fr(300 & 400), fr(1), fr(150) };
     AcirProgram program{ constraint_system, witness };
@@ -1473,6 +1290,168 @@ TEST_F(BoomerangConstraintsTests, ValidCircuitPassesValidation)
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
     // All constraints should pass validation
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+// =====================================================================================
+// Edge case tests
+// =====================================================================================
+
+/**
+ * @brief Test 14-bit range constraint (exact boundary for range_lists vs decompose_chain)
+ * @details DEFAULT_PLOOKUP_RANGE_BITNUM = 14, so 14-bit range uses the range_lists path.
+ *          This is the largest bit width handled by the small range path.
+ */
+TEST_F(BoomerangConstraintsTests, RangeConstraint_14Bit_BoundaryThreshold)
+{
+    RangeConstraint range_14bit{ .witness = 0, .num_bits = 14 };
+
+    auto constraint_system = build_acir_format(0, range_14bit);
+
+    WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test 15-bit range constraint (just over the boundary, uses decompose_chain)
+ * @details 15 bits > DEFAULT_PLOOKUP_RANGE_BITNUM (14), so this triggers the decompose chain path.
+ *          This is the smallest bit width that requires decomposition.
+ */
+TEST_F(BoomerangConstraintsTests, RangeConstraint_15Bit_DecomposeChain)
+{
+    RangeConstraint range_15bit{ .witness = 0, .num_bits = 15 };
+
+    auto constraint_system = build_acir_format(0, range_15bit);
+
+    WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test range constraints with zero witness value across multiple bit widths
+ * @details Zero is always a valid value for any range constraint. Tests 1-bit, 8-bit, and 32-bit.
+ */
+TEST_F(BoomerangConstraintsTests, RangeConstraint_ZeroWitnessValue)
+{
+    RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
+    RangeConstraint range_8bit{ .witness = 1, .num_bits = 8 };
+    RangeConstraint range_32bit{ .witness = 2, .num_bits = 32 };
+
+    auto constraint_system = build_acir_format(2, range_1bit, range_8bit, range_32bit);
+
+    WitnessVector witness = { fr(0), fr(0), fr(0) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test 32-bit logic constraint with maximum values (0xFFFFFFFF)
+ * @details XOR of max values yields 0, AND of max values yields max.
+ *          Tests that the analyzer handles boundary values correctly.
+ */
+TEST_F(BoomerangConstraintsTests, LogicConstraint_MaxValues_32Bit)
+{
+    uint32_t max_val = 0xFFFFFFFF;
+
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 32,
+        .is_xor_gate = 1,
+    };
+    LogicConstraint and_constraint{
+        .a = witness_from_index(3),
+        .b = witness_from_index(4),
+        .result = 5,
+        .num_bits = 32,
+        .is_xor_gate = 0,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
+    RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
+    RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
+
+    auto constraint_system = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+
+    // XOR: max ^ max = 0, AND: max & max = max
+    WitnessVector witness = { fr(max_val), fr(max_val), fr(0), fr(max_val), fr(max_val), fr(max_val) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test 8-bit range constraint with maximum value (255)
+ * @details Verifies the analyzer handles the maximum valid value at the upper boundary.
+ */
+TEST_F(BoomerangConstraintsTests, RangeConstraint_MaxValue_8Bit)
+{
+    RangeConstraint range_8bit{ .witness = 0, .num_bits = 8 };
+
+    auto constraint_system = build_acir_format(0, range_8bit);
+
+    WitnessVector witness = { fr(255) }; // Max 8-bit value
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test logic constraint with both operands as constants
+ * @details When both a and b are constants, create_logic_constraint computes the result
+ *          directly without creating lookup gates. The analyzer should handle this gracefully.
+ */
+TEST_F(BoomerangConstraintsTests, LogicConstraint_BothOperandsConstant)
+{
+    LogicConstraint xor_constraint{
+        .a = constant_from_value(42),
+        .b = constant_from_value(99),
+        .result = 0,
+        .num_bits = 32,
+        .is_xor_gate = 1,
+    };
+
+    auto constraint_system = build_acir_format(0, xor_constraint);
+
+    WitnessVector witness = { fr(42 ^ 99) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
     EXPECT_TRUE(incorrect_opcodes.empty());
 }
 
@@ -1497,15 +1476,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_32BitXor)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { xor_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
@@ -1533,8 +1504,8 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_32BitXor)
 
     auto [recovered_a, recovered_b] = analyzer.recover_chunks_from_lookups(multi_table, first_lookup_gate);
 
-    // The function recovers from gates 1-5, so the bottom 6 bits are lost
-    // Compare with original values masked to clear bottom 6 bits
+    // Recovery from gates 1-5 always loses the bottom 6 bits (gate 0 has full values but is skipped).
+    // For 32-bit values this preserves 26 of 32 bits, providing strong verification.
     constexpr uint256_t mask = ~uint256_t(0x3F);
     EXPECT_EQ(recovered_a, uint256_t(a_val) & mask) << "Recovered a_chunk doesn't match original (masked)";
     EXPECT_EQ(recovered_b, uint256_t(b_val) & mask) << "Recovered b_chunk doesn't match original (masked)";
@@ -1558,15 +1529,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_8BitAnd)
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = 2,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { and_constraint },
-        .range_constraints = { range_0, range_1 },
-        .original_opcode_indices =
-            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
-    };
+    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val & b_val) };
     AcirProgram program{ constraint_system, witness };
@@ -1591,9 +1554,392 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_8BitAnd)
 
     auto [recovered_a, recovered_b] = analyzer.recover_chunks_from_lookups(multi_table, first_lookup_gate);
 
-    // The function recovers from gates 1-5, so the bottom 6 bits are lost
-    // Compare with original values masked to clear bottom 6 bits
+    // Recovery from gates 1-5 always loses the bottom 6 bits (gate 0 has full values but is skipped).
+    // For 8-bit values, this leaves only the top 2 bits, making the comparison weaker:
+    //   0xAB (10101011) & ~0x3F = 0x80 (10000000)
+    //   0xCD (11001101) & ~0x3F = 0xC0 (11000000)
+    // This is inherent to the UINT32 lookup gate structure (6 gates: gate 0 = full, gates 1-5 = sliced).
     constexpr uint256_t mask = ~uint256_t(0x3F);
-    EXPECT_EQ(recovered_a, uint256_t(a_val) & mask) << "Recovered a_chunk doesn't match original (masked)";
-    EXPECT_EQ(recovered_b, uint256_t(b_val) & mask) << "Recovered b_chunk doesn't match original (masked)";
+    EXPECT_EQ(recovered_a, uint256_t(0x80)) << "Recovered a_chunk should be 0xAB with bottom 6 bits cleared";
+    EXPECT_EQ(recovered_b, uint256_t(0xC0)) << "Recovered b_chunk should be 0xCD with bottom 6 bits cleared";
+    EXPECT_EQ(recovered_a, uint256_t(a_val) & mask);
+    EXPECT_EQ(recovered_b, uint256_t(b_val) & mask);
+}
+
+// =====================================================================================
+// Additional corruption tests
+// =====================================================================================
+
+/**
+ * @brief Test that corrupting a 128-bit XOR constraint's accumulation chain is detected
+ * @details 128-bit logic requires 4 chunks with a longer accumulation chain.
+ *          Corrupting the accumulation gate's w_o wire should break the chain tracing.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_AccumulationChain)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 128,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
+
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+
+    uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
+                      uint256_t(0xAABBCCDD);
+    uint256_t b_val = (uint256_t(0x12345678) << 96) | (uint256_t(0x87654321) << 64) | (uint256_t(0xDEADBEEF) << 32) |
+                      uint256_t(0x11223344);
+    uint256_t result_val = a_val ^ b_val;
+
+    WitnessVector witness = { fr(a_val), fr(b_val), fr(result_val) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Find the accumulation gate using the result witness index
+    uint32_t result_var_idx = xor_constraint.result;
+    uint32_t real_result_idx = builder.real_variable_index[result_var_idx];
+
+    auto& arith_block = builder.blocks.arithmetic;
+    bool found_gate = false;
+    size_t gate_to_corrupt = 0;
+
+    for (size_t i = 0; i < arith_block.size(); i++) {
+        if (arith_block.q_arith()[i] == fr::one() && arith_block.q_m()[i] == fr::zero()) {
+            uint32_t w_o_idx = arith_block.w_o()[i];
+            if (builder.real_variable_index[w_o_idx] == real_result_idx) {
+                gate_to_corrupt = i;
+                found_gate = true;
+                break;
+            }
+        }
+    }
+
+    ASSERT_TRUE(found_gate) << "Could not find accumulation gate for 128-bit result variable";
+    arith_block.w_o()[gate_to_corrupt] = builder.zero_idx();
+    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corrupting an intermediate accumulation gate (not the final one) is detected
+ * @details For 128-bit logic with 4 chunks, the accumulation chain has 3 gates.
+ *          We trace the chain from the result (same as the analyzer does) to find
+ *          an intermediate gate, then corrupt it and verify the analyzer detects it.
+ *          Note: 64-bit (2 chunks) only has a single accumulation gate, so we need 128-bit.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_IntermediateAccumGate)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 128,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
+
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+
+    uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
+                      uint256_t(0xAABBCCDD);
+    uint256_t b_val = (uint256_t(0x12345678) << 96) | (uint256_t(0x87654321) << 64) | (uint256_t(0xDEADBEEF) << 32) |
+                      uint256_t(0x11223344);
+    uint256_t result_val = a_val ^ b_val;
+
+    WitnessVector witness = { fr(a_val), fr(b_val), fr(result_val) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Trace the accumulation chain from the result (same way the analyzer does)
+    // to find the actual logic accumulation gates, not decompose chain gates.
+    // For 128-bit (4 chunks), there are 3 accumulation gates in the chain.
+    uint32_t current_res = builder.real_variable_index[xor_constraint.result];
+    auto& arith_block = builder.blocks.arithmetic;
+    std::vector<size_t> chain_gate_indices;
+
+    for (size_t step = 0; step < 3; step++) { // 4 chunks = 3 accumulation gates
+        bool found = false;
+        for (size_t i = 0; i < arith_block.size(); i++) {
+            if (arith_block.q_arith()[i] == fr::one() && arith_block.q_m()[i] == fr::zero()) {
+                if (builder.real_variable_index[arith_block.w_o()[i]] == current_res) {
+                    chain_gate_indices.push_back(i);
+                    current_res = builder.real_variable_index[arith_block.w_l()[i]];
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            break;
+        }
+    }
+
+    // We need at least 2 gates: the final one and at least one intermediate
+    ASSERT_GE(chain_gate_indices.size(), 2u) << "Need at least 2 accumulation gates in the chain";
+
+    // Corrupt the second gate in the chain (an intermediate gate, not the final result gate)
+    size_t gate_to_corrupt = chain_gate_indices[1];
+    arith_block.w_o()[gate_to_corrupt] = builder.zero_idx();
+    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corrupting both a lookup gate and an accumulation gate is detected
+ * @details Corrupts two different types of gates within the same constraint to verify
+ *          the analyzer detects at least one corruption (early termination is acceptable).
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_MultipleLookupGatesCorrupted)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 64,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
+
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+
+    uint64_t a_val = (1ULL << 32) + 100;
+    uint64_t b_val = (2ULL << 32) + 200;
+    WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Corruption 1: Disable the first lookup gate
+    auto& lookup_block = builder.blocks.lookup;
+    bool found_lookup = false;
+    for (size_t i = 0; i < lookup_block.size(); i++) {
+        if (lookup_block.q_lookup()[i] == fr::one()) {
+            lookup_block.q_lookup().set(i, fr::zero());
+            found_lookup = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_lookup) << "Could not find lookup gate to corrupt";
+
+    // Corruption 2: Corrupt the accumulation gate's output wire
+    uint32_t result_var_idx = xor_constraint.result;
+    uint32_t real_result_idx = builder.real_variable_index[result_var_idx];
+
+    auto& arith_block = builder.blocks.arithmetic;
+    bool found_accum = false;
+    for (size_t i = 0; i < arith_block.size(); i++) {
+        if (arith_block.q_arith()[i] == fr::one() && arith_block.q_m()[i] == fr::zero()) {
+            uint32_t w_o_idx = arith_block.w_o()[i];
+            if (builder.real_variable_index[w_o_idx] == real_result_idx) {
+                arith_block.w_o()[i] = builder.zero_idx();
+                found_accum = true;
+                break;
+            }
+        }
+    }
+    ASSERT_TRUE(found_accum) << "Could not find accumulation gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    // The XOR constraint (opcode 0) should be detected as incorrect
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corrupting a 14-bit range constraint's range_list is detected at the exact boundary
+ * @details 14-bit is exactly DEFAULT_PLOOKUP_RANGE_BITNUM, the threshold between range_lists and
+ *          decompose_chain paths in the analyzer's process_range_constraints. This verifies
+ *          the analyzer correctly validates range_list membership at the threshold boundary,
+ *          where a off-by-one error could route the constraint to the wrong validation path.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorrupted_14Bit_BoundaryThreshold_RangeList)
+{
+    RangeConstraint range_14bit{ .witness = 0, .num_bits = 14 };
+
+    auto constraint_system = build_acir_format(0, range_14bit);
+
+    WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Corrupt by clearing the range_lists entry for the 14-bit range.
+    // Note: CircuitChecker won't detect range_list corruption since it only validates gate arithmetic
+    uint64_t target_range = (1ULL << 14) - 1; // 16383
+    auto it = builder.range_lists.find(target_range);
+    ASSERT_NE(it, builder.range_lists.end()) << "14-bit range_list should exist";
+    it->second.variable_indices.clear();
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corrupting a 15-bit range constraint's decompose chain is detected
+ * @details 15 bits is just over DEFAULT_PLOOKUP_RANGE_BITNUM (14), triggering the decompose chain
+ *          path with the minimal chain length (2 limbs: one 14-bit, one 1-bit). This verifies
+ *          the analyzer's validate_decompose_chain works for the shortest possible chain, where
+ *          the structure (num_limbs, num_limb_triples) is at its minimum.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorrupted_15Bit_DecomposeChain)
+{
+    RangeConstraint range_15bit{ .witness = 0, .num_bits = 15 };
+
+    auto constraint_system = build_acir_format(0, range_15bit);
+
+    WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Find and corrupt the decompose chain's q_1 selector to break the power-of-two pattern
+    auto& arith_block = builder.blocks.arithmetic;
+    bool found_gate = false;
+
+    auto is_power_two = [](const fr& val) {
+        uint256_t num = val;
+        return num > 0 && ((num & (num - 1)) == 0);
+    };
+
+    for (size_t i = 0; i < arith_block.size(); i++) {
+        auto q_1 = arith_block.q_1()[i];
+        auto q_2 = arith_block.q_2()[i];
+        auto q_3 = arith_block.q_3()[i];
+        if (is_power_two(q_1) && is_power_two(q_2) && is_power_two(q_3) && (q_2 * q_2 == q_1 * q_3)) {
+            arith_block.q_1().set(i, fr(3)); // 3 is not a power of 2
+            found_gate = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_gate) << "Could not find decompose chain gate to corrupt";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corruption is detected when witness value is zero in a decompose chain
+ * @details When witness=0, all decompose chain sublimbs are zero. This tests that the analyzer's
+ *          validate_decompose_chain correctly validates sublimb range_list membership even when
+ *          all sublimb values are zero — an edge case where the sublimb variable indices could
+ *          alias with zero_idx, potentially confusing the range_list lookup.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorrupted_ZeroWitness_DecomposeChain)
+{
+    RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
+
+    auto constraint_system = build_acir_format(0, range_32bit);
+
+    WitnessVector witness = { fr(0) }; // Zero witness — all sublimbs will be zero
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Corrupt the decompose chain selector to break the power-of-two pattern
+    auto& arith_block = builder.blocks.arithmetic;
+    bool found_gate = false;
+
+    auto is_power_two = [](const fr& val) {
+        uint256_t num = val;
+        return num > 0 && ((num & (num - 1)) == 0);
+    };
+
+    for (size_t i = 0; i < arith_block.size(); i++) {
+        auto q_1 = arith_block.q_1()[i];
+        auto q_2 = arith_block.q_2()[i];
+        auto q_3 = arith_block.q_3()[i];
+        if (is_power_two(q_1) && is_power_two(q_2) && is_power_two(q_3) && (q_2 * q_2 == q_1 * q_3)) {
+            arith_block.q_1().set(i, fr(3));
+            found_gate = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_gate) << "Could not find decompose chain gate to corrupt";
+    // Note: CircuitChecker won't catch this corruption because when witness=0, all sublimb wire values
+    // are zero, so the gate equation q_1*0 + q_2*0 + q_3*0 = 0 is trivially satisfied regardless of
+    // selector values. This makes the test especially valuable — it's a corruption only the analyzer detects.
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corruption is detected with max 32-bit XOR values where result is zero
+ * @details When a = b = 0xFFFFFFFF, XOR result = 0 and all result chunks are zero.
+ *          This tests that the analyzer correctly validates lookup gates and the accumulation chain
+ *          when the result variable holds zero — an edge case where result_chunk values could
+ *          alias with zero_idx in the builder's variable mapping, potentially confusing the
+ *          accumulation chain tracing in process_logic_constraints.
+ */
+TEST_F(BoomerangConstraintsTests, DetectCorrupted_MaxValues_XorResultZero)
+{
+    uint32_t max_val = 0xFFFFFFFF;
+
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 32,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
+
+    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+
+    // XOR: max ^ max = 0 — all result chunks are zero
+    WitnessVector witness = { fr(max_val), fr(max_val), fr(0) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    // Corrupt by disabling the lookup gate
+    auto& lookup_block = builder.blocks.lookup;
+    bool found_gate = false;
+    for (size_t i = 0; i < lookup_block.size(); i++) {
+        if (lookup_block.q_lookup()[i] == fr::one()) {
+            lookup_block.q_lookup().set(i, fr::zero());
+            found_gate = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_gate) << "Could not find lookup gate to corrupt";
+    // Note: CircuitChecker won't catch q_lookup=0 corruption (only validates arithmetic relations)
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
 }

@@ -1,7 +1,7 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
@@ -29,24 +29,34 @@ export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
-  private proofStore: ProofStore;
-  private failedProofStore: ProofStore | undefined;
-
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     private orchestratorClient: ProvingJobProducer,
+    private proofStore: ProofStore,
+    private failedProofStore: ProofStore | undefined,
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('prover-client:tx-prover'),
-  ) {
-    this.proofStore = new InlineProofStore();
-    this.failedProofStore = this.config.failedProofStore ? createProofStore(this.config.failedProofStore) : undefined;
-  }
+    private log: Logger = createLogger('prover-client:tx-prover'),
+  ) {}
 
   public createEpochProver(): EpochProver {
-    const facade = new BrokerCircuitProverFacade(this.orchestratorClient, this.proofStore, this.failedProofStore);
-    const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.config.proverId, this.telemetry);
+    const bindings = this.log.getBindings();
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      undefined,
+      bindings,
+    );
+    const orchestrator = new ProvingOrchestrator(
+      this.worldState,
+      facade,
+      this.config.proverId,
+      this.config.cancelJobsOnStop,
+      this.telemetry,
+      bindings,
+    );
     return new ServerEpochProver(facade, orchestrator);
   }
 
@@ -104,7 +114,9 @@ export class ProverClient implements EpochProverManager {
     broker: ProvingJobBroker,
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    const prover = new ProverClient(config, worldState, broker, broker, telemetry);
+    const proofStore = await createProofStore(config.proofStore);
+    const failedProofStore = config.failedProofStore ? await createProofStore(config.failedProofStore) : undefined;
+    const prover = new ProverClient(config, worldState, broker, proofStore, failedProofStore, broker, telemetry);
     await prover.start();
     return prover;
   }
@@ -128,9 +140,11 @@ export class ProverClient implements EpochProverManager {
 
     const proofStore = new InlineProofStore();
     const prover = await buildServerCircuitProver(this.config, this.telemetry);
+    const bindings = this.log.getBindings();
     this.agents = times(
       this.config.proverAgentCount,
-      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
+      () =>
+        new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs, bindings),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));
@@ -149,8 +163,9 @@ export function buildServerCircuitProver(
     return BBNativeRollupProver.new(config, telemetry);
   }
 
+  const logger = createLogger('prover-client:acvm-native');
   const simulator = config.acvmBinaryPath
-    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
+    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, logger)
     : undefined;
 
   return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
