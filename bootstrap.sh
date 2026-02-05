@@ -597,9 +597,11 @@ case "$cmd" in
 
     full_cmd="${1:?full_cmd required}"
     timeout="${2:-}"
-    commit="${3:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
 
-    grind_test "$full_cmd" "$timeout" "$commit"
+    grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
 
   ##########################################

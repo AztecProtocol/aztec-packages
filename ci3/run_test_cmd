@@ -142,8 +142,7 @@ function live_publish_log {
 log_key=$(uuid)
 log_info=" ($(ci_term_link $log_key))"
 grind_link=$(term_link "/grind?cmd=$(urlencode "$cmd")" "grind")
-# We append this after the PASSED/FAILED/FLAKED for test tracking.
-track_line_postfix="${log_info:-} (${grind_link}): $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+fail_links="($grind_link)"
 
 # Create a temporary file for the test log.
 tmp_file=/tmp/$key
@@ -243,7 +242,7 @@ function pass {
   echo -e "$line"
 
   if [ "$track_test_history" -eq 1 ]; then
-    local track_line="${green}PASSED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+    local track_line="${green}PASSED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
     track_test_history "$track_line"
   fi
 
@@ -260,7 +259,7 @@ function fail {
     echo -e "$line"
   fi
 
-  local track_line="${red}FAILED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local track_line="${red}FAILED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "failed"
@@ -281,7 +280,7 @@ function flake {
   local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
   echo -e "$line"
 
-  local track_line="${purple}FLAKED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local track_line="${purple}FLAKED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "flaked"
