@@ -22,7 +22,7 @@ struct lookup_to_radix_limb_range_settings_ {
     static constexpr Column COUNTS = Column::lookup_to_radix_limb_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_limb_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::to_radix_limb };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_to_radix_limb_range_settings = lookup_settings<lookup_to_radix_limb_range_settings_>;
@@ -42,7 +42,7 @@ struct lookup_to_radix_limb_less_than_radix_range_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_limb_radix_diff
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_to_radix_limb_less_than_radix_range_settings =
@@ -65,7 +65,7 @@ struct lookup_to_radix_fetch_safe_limbs_settings_ {
         ColumnAndShifts::to_radix_radix, ColumnAndShifts::to_radix_safe_limbs
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_safe_limbs
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_to_radix_safe_limbs
     };
 };
 
@@ -110,7 +110,7 @@ struct lookup_to_radix_limb_p_diff_range_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_limb_p_diff
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_to_radix_limb_p_diff_range_settings = lookup_settings<lookup_to_radix_limb_p_diff_range_settings_>;

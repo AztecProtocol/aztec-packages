@@ -166,12 +166,28 @@
     to = "/developers/docs/resources/considerations/limitations"
 
 # =============================================================================
-# ACTIVE REDIRECTS: Network Paths
-# Redirects for node operation and network documentation
+# ACTIVE REDIRECTS: Section Renames
+# Redirects for renamed documentation sections
+# =============================================================================
+# Learn → Participate redirect
+[[redirects]]
+    from = "/learn/*"
+    to = "/participate/:splat"
+    status = 301
+
+# Network → Operate redirect
+[[redirects]]
+    from = "/network/*"
+    to = "/operate/:splat"
+    status = 301
+
+# =============================================================================
+# ACTIVE REDIRECTS: Operate Paths (formerly Network)
+# Redirects for node operation and operator documentation
 # =============================================================================
 [[redirects]]
     from = "/run_node/*"
-    to = "/network/setup/running_a_node"
+    to = "/operate/setup/running_a_node"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
@@ -371,6 +387,208 @@
     from = "/ignition/the_aztec_network/*"
     to = "/network/:splat"
     status = 301
+
+# =============================================================================
+# PENDING REDIRECTS: Network → Participate Migration
+# TODO: Uncomment these redirects AFTER cutting a new network docs version
+# that removes concepts/ and users/ sections from all versioned docs.
+#
+# These redirect old network docs concepts/users paths to new Participate section.
+# Content like governance, proof of stake, staking/delegation/voting has been
+# consolidated into the Participate section for non-versioned educational content.
+# Specific paths MUST come before wildcards.
+# =============================================================================
+
+# --- Production paths (ignition version at root /network/) ---
+
+# Governance specific pages
+# [[redirects]]
+#     from = "/network/concepts/governance/governance"
+#     to = "/participate/governance"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/concepts/governance/putting_forward_proposals"
+#     to = "/participate/governance/proposal-lifecycle"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/concepts/governance/voting"
+#     to = "/participate/governance/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/concepts/governance/upgrades"
+#     to = "/participate/governance/upgrades"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/concepts/governance/*"
+#     to = "/participate/governance"
+#     status = 301
+
+# Proof of stake → token/staking
+# [[redirects]]
+#     from = "/network/concepts/proof_of_stake/*"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/concepts/proof_of_stake"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# Users section → token section
+# [[redirects]]
+#     from = "/network/users/staking"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/users/delegation"
+#     to = "/participate/token/delegation"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/users/voting"
+#     to = "/participate/token/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/users/*"
+#     to = "/participate/token"
+#     status = 301
+
+# --- Testnet version paths (/network/testnet/) ---
+
+# Governance
+# [[redirects]]
+#     from = "/network/testnet/concepts/governance/proposal-lifecycle"
+#     to = "/participate/governance/proposal-lifecycle"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/governance/voting"
+#     to = "/participate/governance/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/governance/gse"
+#     to = "/participate/governance/gse"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/governance/upgrades"
+#     to = "/participate/governance/upgrades"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/governance/*"
+#     to = "/participate/governance"
+#     status = 301
+
+# Contracts → governance/contracts
+# [[redirects]]
+#     from = "/network/testnet/concepts/contracts/deployment-architecture"
+#     to = "/participate/governance/contracts"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/contracts/*"
+#     to = "/participate/governance/contracts"
+#     status = 301
+
+# Proof of stake
+# [[redirects]]
+#     from = "/network/testnet/concepts/proof-of-stake/*"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/concepts/proof-of-stake"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# Users
+# [[redirects]]
+#     from = "/network/testnet/users/staking"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/users/delegation"
+#     to = "/participate/token/delegation"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/users/voting"
+#     to = "/participate/token/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/testnet/users/*"
+#     to = "/participate/token"
+#     status = 301
+
+# --- Ignition version paths (for dev environments at /network/ignition/) ---
+
+# Governance
+# [[redirects]]
+#     from = "/network/ignition/concepts/governance/governance"
+#     to = "/participate/governance"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/concepts/governance/putting_forward_proposals"
+#     to = "/participate/governance/proposal-lifecycle"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/concepts/governance/voting"
+#     to = "/participate/governance/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/concepts/governance/upgrades"
+#     to = "/participate/governance/upgrades"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/concepts/governance/*"
+#     to = "/participate/governance"
+#     status = 301
+
+# Proof of stake
+# [[redirects]]
+#     from = "/network/ignition/concepts/proof_of_stake/*"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/concepts/proof_of_stake"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# Users
+# [[redirects]]
+#     from = "/network/ignition/users/staking"
+#     to = "/participate/token/staking"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/users/delegation"
+#     to = "/participate/token/delegation"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/users/voting"
+#     to = "/participate/token/voting"
+#     status = 301
+
+# [[redirects]]
+#     from = "/network/ignition/users/*"
+#     to = "/participate/token"
+#     status = 301
 
 # =============================================================================
 # ACTIVE REDIRECTS: devnet.5 → devnet.20251212 Structure Migration
