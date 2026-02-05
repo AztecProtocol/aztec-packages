@@ -375,8 +375,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 
-  public addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
-    return this.attestationPool.addCheckpointAttestations(attestations);
+  public addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+    return this.attestationPool.addOwnCheckpointAttestations(attestations);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
