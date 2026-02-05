@@ -55,7 +55,7 @@ struct lookup_contract_instance_retrieval_read_derived_address_from_public_input
         ColumnAndShifts::contract_instance_retrieval_derived_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 

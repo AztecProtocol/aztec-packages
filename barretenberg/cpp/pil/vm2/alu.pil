@@ -254,7 +254,7 @@ pol commit max_bits;
 pol commit max_value;
 
 #[TAG_MAX_BITS_VALUE]
-sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
+sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_max_bits, precomputed.tag_max_value };
 
 // OUTPUT TAG CHECKING
 
@@ -576,7 +576,7 @@ shift_lo_bits = (1 - sel_err) * (
 pol SHIFT_HI_BITS = (1 - sel_err) * (max_bits - sel_shift_ops_no_overflow * shift_lo_bits);
 
 #[SHIFTS_TWO_POW]
-sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
+sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.idx, precomputed.power_of_2 };
 
 // Note on why sel_shift_ops_no_overflow is correctly constrained:
 // 1) If ib < max_bits and we maliciously set sel_shift_ops_no_overflow == 0,
