@@ -30,7 +30,7 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 }
 
 /**
- * TODO: check with Luke if we can remove other constructors?
+ * @brief Construct a point from the coordinates. Auto-detects infinity flag if x = y = 0.
  *
  * @param x The x coordinate
  * @param y The y coordinate
@@ -339,7 +339,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl_internal(const std::optional<Affi
     // Construct the doubled point based on whether this is a constant or witness
     cycle_group result;
     if (is_constant()) {
-        result = cycle_group(field_t(x3), field_t(y3), is_point_at_infinity(), /*assert_on_curve=*/false);
+        result = cycle_group(x3, y3, is_point_at_infinity(), /*assert_on_curve=*/false);
         // Propagate the origin tag as-is
         result.set_origin_tag(get_origin_tag());
     } else {
