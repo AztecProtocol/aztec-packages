@@ -53,8 +53,8 @@ The preprocessing system uses these environment variables:
 | `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly` |
 | `NIGHTLY_TAG` | Version for nightly builds (falls back to `COMMIT_TAG`) | `0.0.0-nightly.0` |
 | `DEVNET_TAG` | Version for devnet builds | `3.0.0-devnet.5` |
-| `TESTNET_TAG` | Version for testnet builds | `2.1.9` |
-| `MAINNET_TAG` | Version for mainnet/ignition builds | `2.1.9` |
+| `TESTNET_TAG` | Version for testnet builds | `2.1.11` |
+| `MAINNET_TAG` | Version for mainnet/ignition builds | `2.1.11` |
 | `COMMIT_TAG` | Legacy variable, used as fallback for `NIGHTLY_TAG` | `next` |
 
 ### Preprocessing Macros

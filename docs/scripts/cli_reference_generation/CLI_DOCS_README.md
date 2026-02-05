@@ -105,16 +105,16 @@ For easy generation and deployment, use the provided shell scripts:
 
 #### Version Check
 
-When generating docs for a specific version (e.g., `v2.1.9`), the script verifies that your installed CLI version matches. If there's a mismatch, you'll see a warning:
+When generating docs for a specific version (e.g., `v2.1.11`), the script verifies that your installed CLI version matches. If there's a mismatch, you'll see a warning:
 
 ```text
 ╔════════════════════════════════════════════════════════════════╗
 ║                     VERSION MISMATCH                          ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Installed aztec version: 2.1.8
-║  Target documentation version: 2.1.9
+║  Installed aztec version: 2.1.10
+║  Target documentation version: 2.1.11
 ╠════════════════════════════════════════════════════════════════╣
-║  To fix, run:  aztec-up 2.1.9
+║  To fix, run:  aztec-up 2.1.11
 ╚════════════════════════════════════════════════════════════════╝
 
 Continue anyway? (y/N):
@@ -323,7 +323,7 @@ python scan_cli.py --command "npm" --output npm_docs.json
 ./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh current
 
 # Update both for a specific version to a custom directory (run from repo root)
-./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh v2.1.9 docs/versioned_docs/version-v2.1.9-ignition/developers/docs/reference/
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh v2.1.11 docs/versioned_docs/version-v2.1.11-ignition/developers/docs/reference/
 ```
 
 ## Troubleshooting
