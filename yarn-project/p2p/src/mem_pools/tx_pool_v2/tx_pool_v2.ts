@@ -52,6 +52,9 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
       },
       onTxsRemoved: (txHashes: string[] | bigint[]) => {
         this.#metrics?.transactionsRemoved(txHashes);
+        // Convert to TxHash objects for the event
+        const hashes = txHashes.map(h => (typeof h === 'string' ? TxHash.fromString(h) : TxHash.fromBigInt(h)));
+        this.emit('txs-removed', { txHashes: hashes });
       },
     };
 

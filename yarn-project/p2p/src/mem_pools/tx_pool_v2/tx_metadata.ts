@@ -145,7 +145,8 @@ export function checkNullifierConflict(
 
     // If incoming tx has strictly higher priority, mark for eviction
     // Otherwise, ignore incoming tx (ties go to existing tx)
-    if (incomingMeta.priorityFee > conflictingMeta.priorityFee) {
+    // Use comparePriority for deterministic ordering (includes txHash as tiebreaker)
+    if (comparePriority(incomingMeta, conflictingMeta) > 0) {
       txHashesToEvict.push(conflictingHashStr);
     } else {
       return {
