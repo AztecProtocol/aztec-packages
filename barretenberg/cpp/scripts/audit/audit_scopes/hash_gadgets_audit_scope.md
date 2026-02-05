@@ -201,15 +201,16 @@ NIST FIPS 202: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.202.pdf
 
 ---
 
-## 5. Poseidon2 (Native Only)
+## 5. Poseidon2
 
 ### Summary
 
-Poseidon2 is a cryptographic hash function optimized for use in zero-knowledge proof systems. The implementation uses a sponge construction with a permutation function based on substitution-permutation networks (SPNs).
+Poseidon2 is a cryptographic hash function optimized for use in zero-knowledge proof systems. The implementation uses a sponge construction with a permutation function based on substitution-permutation networks (SPNs). Uses custom gates for efficient in-circuit verification.
 
 ### Documentation
 
-Poseidon2 paper: https://eprint.iacr.org/2023/323
+- Poseidon2 paper: https://eprint.iacr.org/2023/323
+- Stdlib docs: `barretenberg/cpp/src/barretenberg/stdlib/hash/poseidon2/README.md`
 
 ### Files to Audit
 
@@ -220,9 +221,26 @@ Poseidon2 paper: https://eprint.iacr.org/2023/323
 4. `crypto/poseidon2/poseidon2_params.hpp`
 5. `crypto/poseidon2/sponge/sponge.hpp`
 
+#### Stdlib Circuit Implementation
+6. `stdlib/hash/poseidon2/poseidon2.hpp`
+7. `stdlib/hash/poseidon2/poseidon2.cpp`
+8. `stdlib/hash/poseidon2/poseidon2_permutation.hpp`
+9. `stdlib/hash/poseidon2/poseidon2_permutation.cpp`
+10. `stdlib/hash/poseidon2/sponge/sponge.hpp`
+
+#### Custom Gate Relations
+11. `relations/poseidon2_external_relation.hpp`
+12. `relations/poseidon2_internal_relation.hpp`
+
+#### DSL/ACIR Format
+13. `dsl/acir_format/poseidon2_constraint.hpp`
+14. `dsl/acir_format/poseidon2_constraint.cpp`
+
 ### Test Files
 1. `crypto/poseidon2/poseidon2.test.cpp`
 2. `crypto/poseidon2/poseidon2_permutation.test.cpp`
+3. `stdlib/hash/poseidon2/poseidon2.test.cpp`
+4. `dsl/acir_format/poseidon2_constraint.test.cpp`
 
 ### Security Mechanisms
 1. `boomerang_value_detection/graph_description_poseidon2s_permutation.test.cpp`
