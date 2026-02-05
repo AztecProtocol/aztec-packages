@@ -60,21 +60,21 @@ import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
 import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
-import type { MemPools } from '../../mem_pools/interface.js';
+import type { MemPools } from '../../mem_pools/index.js';
 import {
   BlockProposalValidator,
   CheckpointAttestationValidator,
   CheckpointProposalValidator,
+  DoubleSpendTxValidator,
   FishermanAttestationValidator,
+  getDefaultAllowedSetupFunctions,
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
-import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import {
   type MessageValidator,
   createTxMessageValidators,
   createTxReqRespValidator,
 } from '../../msg_validators/tx_validator/factory.js';
-import { DoubleSpendTxValidator } from '../../msg_validators/tx_validator/index.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -97,19 +97,19 @@ import {
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
-} from '../reqresp/interface.js';
-import { reqRespBlockTxsHandler } from '../reqresp/protocols/block_txs/block_txs_handler.js';
-import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
+} from '../reqresp/index.js';
 import {
   AuthRequest,
   BlockTxsRequest,
   BlockTxsResponse,
   StatusMessage,
   pingHandler,
+  reqGoodbyeHandler,
   reqRespBlockHandler,
+  reqRespBlockTxsHandler,
   reqRespStatusHandler,
   reqRespTxHandler,
-} from '../reqresp/protocols/index.js';
+} from '../reqresp/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
@@ -524,7 +524,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
 
     if (!this.config.disableTransactions) {
-      const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+      const blockTxsHandler = reqRespBlockTxsHandler(
+        this.mempools.attestationPool,
+        this.archiver,
+        this.mempools.txPool,
+      );
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
     }
 

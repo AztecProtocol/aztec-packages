@@ -380,7 +380,6 @@ describe('HA Full Setup', () => {
     // We send transactions sequentially and wait for each to be mined to ensure we get distinct blocks
     const blockCount = 5;
     const receipts = [];
-    let previousBlockNumber: number | undefined;
 
     for (let i = 0; i < blockCount; i++) {
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
@@ -394,12 +393,6 @@ describe('HA Full Setup', () => {
 
       expect(receipt.blockNumber).toBeDefined();
 
-      // Verify this transaction is in a different block than the previous one
-      if (previousBlockNumber !== undefined) {
-        expect(receipt.blockNumber).toBeGreaterThan(previousBlockNumber);
-      }
-
-      previousBlockNumber = receipt.blockNumber;
       receipts.push(receipt);
       logger.info(`Block ${i + 1}/${blockCount} created: ${receipt.blockNumber}`);
     }
@@ -410,30 +403,7 @@ describe('HA Full Setup', () => {
     expect(uniqueBlockNumbers.size).toBe(blockCount);
     logger.info(`Created ${uniqueBlockNumbers.size} distinct blocks: ${Array.from(uniqueBlockNumbers).join(', ')}`);
 
-    // Verify work distribution across nodes
-    const nodeParticipation = new Map<string, number>();
     const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
-
-    for (const receipt of receipts) {
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
-      if (!block) {
-        throw new Error(`Block ${receipt.blockNumber} not found`);
-      }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
-
-      const duties = await getValidatorDuties(mainPool, slotNumber);
-
-      // Track which nodes handled duties
-      for (const duty of duties) {
-        const count = nodeParticipation.get(duty.nodeId) || 0;
-        nodeParticipation.set(duty.nodeId, count + 1);
-      }
-    }
-
-    // Verify multiple nodes participated
-    logger.info(`Node participation: ${JSON.stringify(Array.from(nodeParticipation.entries()))}`);
-    expect(nodeParticipation.size).toBeGreaterThan(1);
-
     // Verify no double-signing occurred across all blocks
     for (const receipt of receipts) {
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);

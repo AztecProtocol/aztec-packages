@@ -54,7 +54,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1], allTxHashes[3]];
 
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, true);
 
     expect(request).toBeDefined();
     expect(request!.archiveRoot).toEqual(blockProposal.archive);
@@ -69,7 +69,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[0], allTxHashes[2], allTxHashes[4]];
 
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, false);
 
     expect(request).toBeDefined();
     expect(request!.archiveRoot).toEqual(blockProposal.archive);
@@ -83,7 +83,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1]];
 
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes);
 
     expect(request).toBeDefined();
     expect(request!.archiveRoot).toEqual(blockProposal.archive);
@@ -95,10 +95,10 @@ describe('BlockTxRequest', () => {
     const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
     const blockProposal = await createBlockProposal(allTxHashes);
 
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, [], true);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, [], true);
     expect(request).toBeUndefined();
 
-    const requestDefault = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, []);
+    const requestDefault = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, []);
     expect(requestDefault).toBeUndefined();
   });
 
@@ -107,7 +107,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const nonMatchingHashes = Array.from({ length: 2 }, () => TxHash.random());
 
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, nonMatchingHashes, true);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, nonMatchingHashes, true);
     expect(request).toBeUndefined();
   });
 
@@ -116,7 +116,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[0], allTxHashes[3]];
 
-    const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true)!;
+    const original = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, true)!;
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
@@ -130,7 +130,7 @@ describe('BlockTxRequest', () => {
     const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1], allTxHashes[2]];
 
-    const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false)!;
+    const original = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, false)!;
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
