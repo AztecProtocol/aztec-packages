@@ -1,24 +1,37 @@
 use crate::note::note_getter_options::PropertySelector;
+use crate::utils::cmap::CHashMap;
 use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
 /// Maximum number of note types within 1 contract.
 comptime global MAX_NOTE_TYPES: u32 = 128;
 
-/// A BoundedVec containing all the note types within this contract.
-pub comptime mut global NOTES: BoundedVec<Type, MAX_NOTE_TYPES> = BoundedVec::new();
+/// A map from module to a BoundedVec containing all the note types within that module's contract.
+comptime mut global NOTES: CHashMap<Module, BoundedVec<Type, MAX_NOTE_TYPES>> = CHashMap::new();
 
-comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
+/// A map from module to the note type id counter for that module.
+comptime mut global NOTE_TYPE_ID_COUNTER: CHashMap<Module, u32> = CHashMap::new();
 
-/// The note type id is set by enumerating the note types.
-comptime fn get_next_note_type_id() -> Field {
+/// Returns the notes registered for a specific module.
+pub comptime fn get_notes(m: Module) -> BoundedVec<Type, MAX_NOTE_TYPES> {
+    NOTES.get(m).unwrap_or(BoundedVec::new())
+}
+
+/// Registers a note type for a specific module.
+comptime fn register_note(m: Module, note_type: Type) {
+    let mut module_notes = NOTES.get(m).unwrap_or(BoundedVec::new());
+    module_notes.push(note_type);
+    NOTES.insert(m, module_notes);
+}
+
+/// The note type id is set by enumerating the note types within a module.
+comptime fn get_next_note_type_id(m: Module) -> Field {
+    let current_counter = NOTE_TYPE_ID_COUNTER.get(m).unwrap_or(0);
+
     // We assert that the note type id fits within 7 bits
-    assert(
-        NOTE_TYPE_ID_COUNTER < MAX_NOTE_TYPES,
-        f"A contract can contain at most {MAX_NOTE_TYPES} different note types",
-    );
+    assert(current_counter < MAX_NOTE_TYPES, f"A contract can contain at most {MAX_NOTE_TYPES} different note types");
 
-    let note_type_id = NOTE_TYPE_ID_COUNTER as Field;
-    NOTE_TYPE_ID_COUNTER += 1;
+    let note_type_id = current_counter as Field;
+    NOTE_TYPE_ID_COUNTER.insert(m, current_counter + 1);
     note_type_id
 }
 
@@ -206,12 +219,13 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
-    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
-    // to generate note processing functionality.
-    NOTES.push(s.as_type());
+    // We register the note in the module-specific `NOTES` map because we need that information inside the #[aztec]
+    // macro to generate note processing functionality.
+    let m = s.module();
+    register_note(m, s.as_type());
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = get_next_note_type_id();
+    let note_type_id = get_next_note_type_id(m);
     let note_type_impl = generate_note_type_impl(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
 
@@ -266,11 +280,12 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
-    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
-    // to generate note processing functionality.
-    NOTES.push(s.as_type());
+    // We register the note in the module-specific `NOTES` map because we need that information inside the #[aztec]
+    // macro to generate note processing functionality.
+    let m = s.module();
+    register_note(m, s.as_type());
 
-    let note_type_id = get_next_note_type_id();
+    let note_type_id = get_next_note_type_id(m);
     let note_properties = generate_note_properties(s);
     let note_type_impl = generate_note_type_impl(s, note_type_id);
 

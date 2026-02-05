@@ -5,7 +5,7 @@ use crate::macros::{
     },
     dispatch::generate_public_dispatch,
     internals_functions_generation::{create_fn_abi_exports, process_functions},
-    notes::NOTES,
+    notes::get_notes,
     storage::STORAGE_LAYOUT_NAME,
     utils::{
         get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
@@ -38,7 +38,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
         f.name() == quote { _compute_note_hash_and_nullifier }
     }) {
-        generate_contract_library_method_compute_note_hash_and_nullifier()
+        generate_contract_library_method_compute_note_hash_and_nullifier(m)
     } else {
         quote {}
     };
@@ -135,16 +135,17 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 /// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note discovery (to
 /// create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
-comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
-    if NOTES.len() > 0 {
+comptime fn generate_contract_library_method_compute_note_hash_and_nullifier(m: Module) -> Quoted {
+    let module_notes = get_notes(m);
+    if module_notes.len() > 0 {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed) and inner nullifier (also non-siloed).
 
         let mut if_note_type_id_match_statements_list = @[];
-        for i in 0..NOTES.len() {
-            let typ = NOTES.get(i);
+        for i in 0..module_notes.len() {
+            let typ = module_notes.get(i);
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
