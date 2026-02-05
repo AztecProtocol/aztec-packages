@@ -877,7 +877,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
         return is_busread_gate(block_idx, gate_idx, BusId::CALLDATA) ||
                is_busread_gate(block_idx, gate_idx, BusId::SECONDARY_CALLDATA);
     };
-    [[maybe_unused]] auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
         return is_busread_gate(block_idx, gate_idx, BusId::RETURNDATA);
     };
 
