@@ -141,7 +141,7 @@ function network_bench_cmds {
 function proving_bench_cmds {
   local tps=1
   local timeout=9000  # 2.5h
-  echo "$hash:TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/prove_n_tps.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple prove_n_tps.test.ts"
+  echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
 }
 
 function network_bench {
