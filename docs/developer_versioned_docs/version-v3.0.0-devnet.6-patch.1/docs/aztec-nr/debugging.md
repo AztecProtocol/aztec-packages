@@ -27,6 +27,29 @@ LOG_LEVEL=debug aztec start --local-network
 LOG_LEVEL="verbose;info:sequencer" aztec start --local-network
 ```
 
+## Viewing contract debug_log output
+
+**Important:** Setting `LOG_LEVEL=debug` alone will NOT show your contract's `debug_log()` output. Contract debug logs use specific logger modules that must be explicitly enabled.
+
+To see debug logs from your contracts, use module-specific filtering:
+
+```bash
+# For private function debug logs:
+LOG_LEVEL="info;debug:aztec-nr:debug_log" aztec start --local-network
+
+# For public function debug logs:
+LOG_LEVEL="info;debug:simulator:avm:debug_log" aztec start --local-network
+
+# For both private and public:
+LOG_LEVEL="info;debug:aztec-nr:debug_log;debug:simulator:avm:debug_log" aztec start --local-network
+```
+
+The same applies when running scripts or tests:
+
+```bash
+LOG_LEVEL="info;debug:aztec-nr:debug_log" npx tsx index.ts
+```
+
 ## Logging in Aztec.nr contracts
 
 Log values from your contract using `debug_log`:
@@ -48,14 +71,26 @@ debug_log_format("my_field: {0}", [my_field]);
 debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
 ```
 
-:::note
-Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
+:::warning Public function debug logs
+Debug logs from **public functions** only appear when you **simulate locally**. They will NOT appear when transactions execute onchain.
+
+To see public function debug logs, use:
+
+- `.simulate()` in TypeScript
+- `.prove()` in TypeScript
+- `env.simulate_public_function()` in TXE tests
+
+If you're sending transactions to a running network and not seeing logs, this is likely why.
 :::
 
-To see debug logs from your tests, set `LOG_LEVEL` when running:
+To see debug logs from your contracts in tests, enable the debug log modules:
 
 ```bash
-LOG_LEVEL="debug" yarn run test
+# See private function debug logs:
+LOG_LEVEL="info;debug:aztec-nr:debug_log" yarn run test
+
+# See public function debug logs:
+LOG_LEVEL="info;debug:simulator:avm:debug_log" yarn run test
 ```
 
 To filter specific modules, use a semicolon-delimited list:
