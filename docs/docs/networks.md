@@ -15,7 +15,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 | Parameter | Ignition (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
-| **Version** | `2.1.9` | `3.0.2` | `3.0.0-devnet.6-patch.1` |
+| **Version** | `2.1.11` | `3.0.3` | `3.0.0-devnet.6-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
 | **Rollup Version** | `0` | `2500495677` | `1647720761` |
 | **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://devnet-6.aztec-labs.com/` |
@@ -43,7 +43,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Governance Proposer** | [`0x06ef1dcf87e419c48b94a331b252819fadbd63ef`](https://etherscan.io/address/0x06ef1dcf87e419c48b94a331b252819fadbd63ef) | [`0x01c7d4ca153748d2377968fef22894cb162e9480`](https://sepolia.etherscan.io/address/0x01c7d4ca153748d2377968fef22894cb162e9480) | [`0x7c5f4cec86ef9a920a8fd03d5a01059e32fccb9a`](https://sepolia.etherscan.io/address/0x7c5f4cec86ef9a920a8fd03d5a01059e32fccb9a) |
 | **Governance** | [`0x1102471eb3378fee427121c9efcea452e4b6b75e`](https://etherscan.io/address/0x1102471eb3378fee427121c9efcea452e4b6b75e) | [`0xcaf7447721447b22cd0076ac7c63877c3afd329f`](https://sepolia.etherscan.io/address/0xcaf7447721447b22cd0076ac7c63877c3afd329f) | [`0x26af139c092172e5a4ab9a9d7ddeed41c1d68bc7`](https://sepolia.etherscan.io/address/0x26af139c092172e5a4ab9a9d7ddeed41c1d68bc7) |
 | **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) | [`0xc5cb82799169bb08a20ede20e5b57f337c735ac4`](https://sepolia.etherscan.io/address/0xc5cb82799169bb08a20ede20e5b57f337c735ac4) |
-| **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xc3860c45e5F0b1eF3000dbF93149756f16928ADB`](https://sepolia.etherscan.io/address/0xc3860c45e5F0b1eF3000dbF93149756f16928ADB) | TBD |
+| **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) | TBD |
 | **Slash Factory** | N/A | [`0xaa34b2929dbf3f0a9f1df015cd26798d5fc55764`](https://sepolia.etherscan.io/address/0xaa34b2929dbf3f0a9f1df015cd26798d5fc55764) | |
 | **Slasher** | [`0x91a3745c685c220595b997e53311ebf660144889`](https://etherscan.io/address/0x91a3745c685c220595b997e53311ebf660144889) | [`0x89684502e6a5fd3f1e4b3c610429f6e2c181c6ba`](https://sepolia.etherscan.io/address/0x89684502e6a5fd3f1e4b3c610429f6e2c181c6ba) | [`0x70634448a9ea7e4534112c2bba5d1c3010d826e9`](https://sepolia.etherscan.io/address/0x70634448a9ea7e4534112c2bba5d1c3010d826e9) |
 | **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0xca49e32bc2926c3f2ef67e1647fa14a8ebf34065`](https://sepolia.etherscan.io/address/0xca49e32bc2926c3f2ef67e1647fa14a8ebf34065) | [`0xdb5117871c8759afe34c7946991cb47f465f5f69`](https://sepolia.etherscan.io/address/0xdb5117871c8759afe34c7946991cb47f465f5f69) |
