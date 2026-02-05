@@ -365,3 +365,8 @@ tests:
     error_regex: "should remove notes that have been nullified"
     owners:
       - *martin
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
+    owners:
+      - *alex
