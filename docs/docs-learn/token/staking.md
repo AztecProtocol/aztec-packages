@@ -1,7 +1,7 @@
 ---
 title: Staking Tokens
 description: Learn how to stake tokens on the Aztec network to participate in network security and earn rewards.
-displayed_sidebar: usersSidebar
+displayed_sidebar: sidebar
 ---
 
 # Staking Tokens
@@ -23,14 +23,14 @@ When you stake tokens on the Aztec network, your tokens are locked in a smart co
 
 ### Key Concepts
 
-- **Activation Threshold**: The minimum amount required to become an active validator
+- **Activation Threshold**: The minimum amount required to become an active sequencer
 - **Staking Period**: Tokens must remain staked for a minimum period before withdrawal
 - **Rewards**: Earned based on your stake proportion and network activity
-- **Slashing Risk**: Validators who misbehave may have a portion of their stake slashed
+- **Slashing Risk**: Sequencers who misbehave may have a portion of their stake slashed
 
 ## Staking Options
 
-### Option 1: Run Your Own Validator
+### Option 1: Run Your Own Sequencer
 
 If you have the technical expertise and infrastructure, you can run your own sequencer node and stake directly.
 
@@ -50,9 +50,9 @@ See [Delegating Stake](./delegation) for details.
 ## Understanding Slashing Risk
 
 Before staking, understand that your stake can be partially slashed if:
-- The validator you stake with (or delegate to) commits protocol violations
-- The validator is inactive for extended periods
-- The validator proposes or attests to invalid blocks
+- The provider you stake with (or delegate to) commits protocol violations
+- The provider is inactive for extended periods
+- The provider proposes or attests to invalid blocks
 
 See [Slashing Concepts](../concepts/proof-of-stake/#slashing) for detailed information.
 

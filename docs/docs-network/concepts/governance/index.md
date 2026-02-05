@@ -20,7 +20,7 @@ If you're a token holder looking to participate in governance, here's what you n
 | **I want to vote differently than the default** | Delegate your voting power to yourself | You can cast your own votes on proposals |
 | **I have tokens but haven't staked** | Lock tokens in the Governance contract | You gain voting power without staking rewards or slashing risk |
 
-For step-by-step instructions, see [Voting on Proposals](../../users/voting.md).
+<!-- For step-by-step instructions, see [Voting on Proposals](../../users/voting.md). -->
 
 ## Design Goals
 
@@ -120,5 +120,5 @@ To participate in governance as a sequencer (signaling and voting), see [Governa
 :::
 
 :::tip For Token Holders
-To vote on proposals with your staked tokens, see [Voting on Proposals](../users/voting).
+<!-- To vote on proposals with your staked tokens, see [Voting on Proposals](../users/voting). -->
 :::

@@ -15,6 +15,7 @@
     "spellcheck": "yarn cspell",
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
     "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}",
+    "local": "docusaurus start --host ${HOST:-localhost}",
     "test": "node --test src/preprocess/__tests__/*.test.js",
     "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
@@ -91,5 +92,5 @@
     "ws@npm:8.13.0": "npm:8.17.1",
     "path-to-regexp@npm:^1.7.0": "npm:1.9.0"
   },
-  "packageManager": "yarn@4.5.2"
+  "packageManager": "yarn@4.12.0"
 }

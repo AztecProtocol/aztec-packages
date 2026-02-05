@@ -70,46 +70,6 @@ const sidebars = {
   ],
 
   // ============================================
-  // USERS SIDEBAR
-  // ============================================
-  usersSidebar: [
-    {
-      type: "html",
-      value: '<a class="sidebar-back-link" href="/network/dev/">← Back to Network</a>',
-      className: "sidebar-back-link-wrapper",
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-title">User Guides</span>',
-      className: "sidebar-title",
-    },
-    {
-      type: "doc",
-      id: "users/index",
-      label: "Overview",
-    },
-    {
-      type: "doc",
-      id: "users/staking",
-      label: "Staking Tokens",
-    },
-    {
-      type: "doc",
-      id: "users/delegation",
-      label: "Delegating Stake",
-    },
-    {
-      type: "doc",
-      id: "users/voting",
-      label: "Voting on Proposals",
-    },
-  ],
-
-  // ============================================
   // OPERATORS SIDEBAR
   // IDs match actual doc IDs (mix of underscores from frontmatter and dashes from file paths)
   // ============================================
