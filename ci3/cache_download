@@ -38,7 +38,7 @@ if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
   aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" | extract_tar
 elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
   # Run S3 download on remote host via SSH jump and pipe back
-  if ! ssh "$CACHE_SSH_HOST" "aws s3 cp '$s3_uri' -" | extract_tar; then
+  if ! ssh "$CACHE_SSH_HOST" "curl -s -f \"$S3_ENDPOINT/build-cache/$tar_file\"" | extract_tar; then
     echo_stderr "SSH cache download of $tar_file via $CACHE_SSH_HOST failed."
     exit 1
   fi
