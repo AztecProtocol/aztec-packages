@@ -3,47 +3,47 @@
     "NOTE_HASH_PENDING_READ": {
       "variants": [32],
       "standalone": [64],
-      "cost": 100
+      "cost": 85
     },
     "NOTE_HASH_SETTLED_READ": {
-      "variants": [4, 16],
+      "variants": [4, 8, 16, 32],
       "standalone": [64],
-      "cost": 3000
+      "cost": 3600
     },
     "NULLIFIER_PENDING_READ": {
       "variants": [32],
       "standalone": [64],
-      "cost": 100
+      "cost": 90
     },
     "NULLIFIER_SETTLED_READ": {
-      "variants": [4, 16],
+      "variants": [4, 8, 16, 32],
       "standalone": [64],
-      "cost": 3000
+      "cost": 3760
     },
     "KEY_VALIDATION": {
-      "variants": [4],
+      "variants": [4, 64],
       "standalone": [64],
-      "cost": 2500
+      "cost": 765
     },
     "TRANSIENT_DATA_SQUASHING": {
-      "variants": [4],
+      "variants": [4, 32],
       "standalone": [64],
-      "cost": 100
+      "cost": 680
     },
     "NOTE_HASH_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 250
+      "cost": 290
     },
     "NULLIFIER_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 150
+      "cost": 140
     },
     "PRIVATE_LOG_SILOING": {
       "variants": [4, 64],
       "standalone": [],
-      "cost": 150
+      "cost": 300
     }
   },
   "specialCases": [
