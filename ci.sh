@@ -115,10 +115,39 @@ case "$cmd" in
       'run x4-full amd64 ci-full-no-test-cache-makefile' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
+  merge-queue-heavy)
+    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    else
+      export CI_DASHBOARD="prs"
+    fi
+    export DENOISE=1
+    export DENOISE_WIDTH=32
+    run() {
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    }
+    export -f run
+
+    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x1-full amd64 ci-full-no-test-cache' \
+      'run x2-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache' \
+      'run x4-full amd64 ci-full-no-test-cache' \
+      'run x5-full amd64 ci-full-no-test-cache' \
+      'run x6-full amd64 ci-full-no-test-cache' \
+      'run x7-full amd64 ci-full-no-test-cache' \
+      'run x8-full amd64 ci-full-no-test-cache' \
+      'run x9-full amd64 ci-full-no-test-cache' \
+      'run x10-full amd64 ci-full-no-test-cache' \
+      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue heavy CI run" $RUN_ID
+    ;;
   grind-test)
     full_cmd="$1"
     timeout="${2:-}"
-    commit="${3:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
     # Extract test command (strip rebuild hash prefix) and hash it
     # Uses same hash as run_test_cmd's test_hash for consistency
     test_cmd="${full_cmd#* }"
@@ -126,9 +155,9 @@ case "$cmd" in
     export CI_DASHBOARD="deflake"
     export JOB_ID="grind-test-$test_hash"
     export INSTANCE_POSTFIX=$JOB_ID
-    bootstrap_ec2 "./bootstrap.sh ci-grind-test '$full_cmd' $timeout $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
+    export CPUS=${CPUS:-192}
+    bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
-
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################

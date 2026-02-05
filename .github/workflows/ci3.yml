@@ -58,6 +58,7 @@ jobs:
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
 
       - name: Run
@@ -129,10 +130,9 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
-    # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
+    # We run after a nextnet-nightly release (from merge-train/spartan), or when the ci-network-scenario label is present in a PR.
     needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nextnet-nightly.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
     steps:
       - name: Remove label (one-time use)
         if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
@@ -179,8 +179,8 @@ jobs:
           ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
-        # Clean up if this is a CI label or nightly.
-        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nightly.'))
+        # Clean up if this is a CI label or nextnet-nightly.
+        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nextnet-nightly.'))
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -260,3 +260,48 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
+
+  # iOS cross-compilation build for barretenberg.
+  # Runs in parallel with the main CI job on every PR (~9 min per target).
+  # This builds the bb-external static library for iOS devices and simulators.
+  # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
+  build-bb-ios:
+    name: Build iOS static libraries
+    runs-on: macos-14
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: ios-arm64
+            label: arm64-ios
+          - preset: ios-sim-arm64
+            label: arm64-ios-sim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Create Build Environment
+        run: |
+          brew install cmake ninja
+
+      - name: Compile bb-external for iOS
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --target bb-external
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\": \"#honk-team\", \"text\": \"iOS build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
+          fi

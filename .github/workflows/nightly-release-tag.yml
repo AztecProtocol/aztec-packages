@@ -33,3 +33,23 @@ jobs:
           # Tag and push.
           git tag -a "$nightly_tag" -m "$nightly_tag"
           git push origin "$nightly_tag"
+
+  nightly-release-tag-nextnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: merge-train/spartan
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Create Nextnet Nightly Tag
+        run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          echo "Current version: $current_version"
+          nightly_tag="v${current_version}-nextnet-nightly.$(date -u +%Y%m%d)"
+          echo "Nextnet nightly tag: $nightly_tag"
+          # Tag and push.
+          git tag -a "$nightly_tag" -m "$nightly_tag"
+          git push origin "$nightly_tag"
