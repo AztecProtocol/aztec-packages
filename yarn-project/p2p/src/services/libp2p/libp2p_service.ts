@@ -113,6 +113,7 @@ import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
+  P2PDuplicateAttestationCallback,
   P2PService,
   PeerDiscoveryService,
 } from '../service.js';
@@ -154,6 +155,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     proposer: EthAddress;
     type: 'checkpoint' | 'block';
   }) => void;
+
+  /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
+  private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
 
   /**
    * Callback for when a block is received from a peer.
@@ -686,6 +690,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
+   * Registers a callback to be invoked when a duplicate attestation is detected.
+   * A validator signing attestations for different proposals at the same slot.
+   * This callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
+    this.duplicateAttestationCallback = callback;
+  }
+
+  /**
    * Subscribes to a topic.
    * @param topic - The topic to subscribe to.
    */
@@ -991,40 +1004,53 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Get committee size for the attestation's slot
-    const slot = attestation.payload.header.slotNumber;
-    const { committee } = await this.epochCache.getCommittee(slot);
-    const committeeSize = committee?.length ?? 0;
-
     // Try to add the attestation: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists } = await this.mempools.attestationPool.tryAddCheckpointAttestation(
-      attestation,
-      committeeSize,
-    );
+    // count is the number of attestations by this signer for this slot (for duplicate detection)
+    const slot = attestation.payload.header.slotNumber;
+    const { added, alreadyExists, count } =
+      await this.mempools.attestationPool.tryAddCheckpointAttestation(attestation);
 
     this.logger.trace(`Validate propagated checkpoint attestation`, {
       added,
       alreadyExists,
+      count,
       [Attributes.SLOT_NUMBER]: slot.toString(),
       [Attributes.P2P_ID]: peerId.toString(),
     });
 
-    // Duplicate attestation received, no need to re-broadcast
+    // Exact same attestation received, no need to re-broadcast
     if (alreadyExists) {
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Could not add (cap reached), no need to re-broadcast
+    // Could not add (cap reached for signer), no need to re-broadcast
     if (!added) {
-      this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
+      this.logger.warn(`Dropping checkpoint attestation due to cap`, {
         slot: slot.toString(),
         archive: attestation.archive.toString(),
         source: peerId.toString(),
+        attester: attestation.getSender()?.toString(),
+        count,
       });
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Attestation was added successfully
+    // Check if this is a duplicate attestation (signer attested to a different proposal at the same slot)
+    // count is the number of attestations by this signer for this slot
+    if (count === 2) {
+      const attester = attestation.getSender();
+      if (attester) {
+        this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
+          slot: slot.toString(),
+          archive: attestation.archive.toString(),
+          source: peerId.toString(),
+          attester: attester.toString(),
+        });
+        this.duplicateAttestationCallback?.({ slot, attester });
+      }
+    }
+
+    // Attestation was added successfully - accept it so other nodes can also detect the equivocation
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1070,8 +1096,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Try to add the proposal: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists, totalForPosition } = await this.mempools.attestationPool.tryAddBlockProposal(block);
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = await this.mempools.attestationPool.tryAddBlockProposal(block);
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, no need to re-broadcast
     if (alreadyExists) {
@@ -1090,7 +1116,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.logger.warn(`Penalizing peer for block proposal exceeding per-position cap`, {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
-        totalForPosition,
+        count,
         proposer: block.getSender()?.toString(),
         source: peerId.toString(),
       });
@@ -1107,7 +1133,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: block.slotNumber, proposer, type: 'block' });
       }
       return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
@@ -1224,8 +1250,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Try to add the checkpoint proposal core: this handles existence check, cap check, and adding in one call
     const checkpointCore = checkpoint.toCore();
     const tryAddResult = await this.mempools.attestationPool.tryAddCheckpointProposal(checkpointCore);
-    const { added, alreadyExists, totalForPosition } = tryAddResult;
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = tryAddResult;
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, do not re-broadcast
     if (alreadyExists) {
@@ -1246,7 +1272,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
         ...checkpoint.toCheckpointInfo(),
-        totalForPosition,
+        count,
         source: peerId.toString(),
       });
       return { result: TopicValidatorResult.Reject, obj: checkpoint, metadata: { isEquivocated, processBlock } };
@@ -1262,7 +1288,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
       }
       return {

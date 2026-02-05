@@ -78,6 +78,7 @@ These rules must always hold:
 3. **inHash is constant**: All blocks in a checkpoint share the same L1-to-L2 messages hash
 4. **Sequential indexWithinCheckpoint**: Block N must have `indexWithinCheckpoint = parent.indexWithinCheckpoint + 1`
 5. **One proposer per slot**: Each slot has exactly one designated proposer. Sending multiple proposals for the same position (slot, indexWithinCheckpoint) with different content is equivocation and slashable
+6. **One attestation per slot**: Validators should only attest to one checkpoint per slot. Attesting to different proposals (different archives) for the same slot is equivocation and slashable
 
 ## Validation Flow
 
@@ -155,16 +156,17 @@ Time | Proposer                     | Validator
 
 ## Configuration
 
-| Flag                                  | Purpose                                                               |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| `validatorReexecute`                  | Re-execute transactions to verify proposals                           |
-| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only) |
-| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                         |
-| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                   |
-| `slashDuplicateProposalPenalty`       | Penalty amount for duplicate proposals (0 = disabled)                 |
-| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing               |
-| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                    |
-| `disabledValidators`                  | Validator addresses to exclude from duties                            |
+| Flag                                  | Purpose                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `validatorReexecute`                  | Re-execute transactions to verify proposals                                            |
+| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only)                  |
+| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                                          |
+| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                                    |
+| `slashDuplicateProposalPenalty`       | Penalty amount for duplicate proposals (0 = disabled)                                  |
+| `slashDuplicateAttestationPenalty`    | Penalty amount for duplicate attestations (0 = disabled)                               |
+| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing                                |
+| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                                     |
+| `disabledValidators`                  | Validator addresses to exclude from duties                                             |
 
 ### High Availability (HA) Keystore
 
