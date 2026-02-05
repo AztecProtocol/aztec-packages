@@ -134,8 +134,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
-  public addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "addCheckpointAttestations"');
+  public addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {

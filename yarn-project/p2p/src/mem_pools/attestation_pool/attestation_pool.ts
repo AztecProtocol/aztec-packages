@@ -34,7 +34,7 @@ export type AttestationPoolApi = Pick<
   | 'getBlockProposal'
   | 'tryAddCheckpointProposal'
   | 'getCheckpointProposal'
-  | 'addCheckpointAttestations'
+  | 'addOwnCheckpointAttestations'
   | 'tryAddCheckpointAttestation'
   | 'deleteOlderThan'
   | 'getCheckpointAttestationsForSlot'
@@ -160,32 +160,43 @@ export class AttestationPool {
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
   public async tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
-    const proposalId = blockProposal.archive.toString();
+    return await this.store.transactionAsync(async () => {
+      const proposalId = blockProposal.archive.toString();
 
-    // Check if already exists
-    const alreadyExists = await this.blockProposals.hasAsync(proposalId);
-    if (alreadyExists) {
+      // Check if already exists
+      const alreadyExists = await this.blockProposals.hasAsync(proposalId);
+      if (alreadyExists) {
+        const totalForPosition = await this.getBlockProposalCountForPosition(
+          blockProposal.slotNumber,
+          blockProposal.indexWithinCheckpoint,
+        );
+        return { added: false, alreadyExists: true, totalForPosition };
+      }
+
+      // Get current count for position and check cap, do not add if exceeded
       const totalForPosition = await this.getBlockProposalCountForPosition(
         blockProposal.slotNumber,
         blockProposal.indexWithinCheckpoint,
       );
-      return { added: false, alreadyExists: true, totalForPosition };
-    }
 
-    // Get current count for position and check cap, do not add if exceeded
-    const totalForPosition = await this.getBlockProposalCountForPosition(
-      blockProposal.slotNumber,
-      blockProposal.indexWithinCheckpoint,
-    );
+      if (totalForPosition >= MAX_PROPOSALS_PER_POSITION) {
+        return { added: false, alreadyExists: false, totalForPosition };
+      }
 
-    if (totalForPosition >= MAX_PROPOSALS_PER_POSITION) {
-      return { added: false, alreadyExists: false, totalForPosition };
-    }
+      // Add the proposal
+      await this.addBlockProposal(blockProposal);
 
-    // Add the proposal
-    await this.addBlockProposal(blockProposal);
+      this.log.debug(
+        `Added block proposal for slot ${blockProposal.slotNumber} and index ${blockProposal.indexWithinCheckpoint}`,
+        {
+          proposalId,
+          slotNumber: blockProposal.slotNumber,
+          indexWithinCheckpoint: blockProposal.indexWithinCheckpoint,
+        },
+      );
 
-    return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
+      return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
+    });
   }
 
   /** Gets the count of block proposals for a given position (slot, indexWithinCheckpoint). */
@@ -197,16 +208,15 @@ export class AttestationPool {
     return this.blockProposalsForSlotAndIndex.getValueCountAsync(positionKey);
   }
 
+  /** Internal method - must be called within a transaction. */
   private async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    await this.store.transactionAsync(async () => {
-      const proposalId = blockProposal.archive.toString();
-      // Strip signedTxs before storing to avoid persisting full tx data
-      await this.blockProposals.set(proposalId, blockProposal.withoutSignedTxs().toBuffer());
+    const proposalId = blockProposal.archive.toString();
+    // Strip signedTxs before storing to avoid persisting full tx data
+    await this.blockProposals.set(proposalId, blockProposal.withoutSignedTxs().toBuffer());
 
-      // Index by slot and position for duplicate detection
-      const positionKey = this.getBlockPositionKey(blockProposal.slotNumber, blockProposal.indexWithinCheckpoint);
-      await this.blockProposalsForSlotAndIndex.set(positionKey, proposalId);
-    });
+    // Index by slot and position for duplicate detection
+    const positionKey = this.getBlockPositionKey(blockProposal.slotNumber, blockProposal.indexWithinCheckpoint);
+    await this.blockProposalsForSlotAndIndex.set(positionKey, proposalId);
   }
 
   /**
@@ -245,35 +255,41 @@ export class AttestationPool {
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
   public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
-    const proposalId = proposal.archive.toString();
-
-    // Check if already exists
-    const alreadyExists = await this.checkpointProposals.hasAsync(proposalId);
-    if (alreadyExists) {
-      const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
-      return { added: false, alreadyExists: true, totalForPosition };
-    }
-
-    // Get current count for slot and check cap
-    const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
-    if (totalForPosition >= MAX_PROPOSALS_PER_SLOT) {
-      return { added: false, alreadyExists: false, totalForPosition };
-    }
-
-    // Add the proposal if cap not exceeded
-    await this.addCheckpointProposal(proposal);
-
-    return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
-  }
-
-  private async addCheckpointProposal(proposal: CheckpointProposalCore): Promise<void> {
-    await this.store.transactionAsync(async () => {
-      const slotKey = proposal.slotNumber;
+    return await this.store.transactionAsync(async () => {
       const proposalId = proposal.archive.toString();
 
-      await this.checkpointProposalsForSlot.set(slotKey, proposalId);
-      await this.checkpointProposals.set(proposalId, proposal.toBuffer());
+      // Check if already exists
+      const alreadyExists = await this.checkpointProposals.hasAsync(proposalId);
+      if (alreadyExists) {
+        const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+        return { added: false, alreadyExists: true, totalForPosition };
+      }
+
+      // Get current count for slot and check cap
+      const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+      if (totalForPosition >= MAX_PROPOSALS_PER_SLOT) {
+        return { added: false, alreadyExists: false, totalForPosition };
+      }
+
+      // Add the proposal if cap not exceeded
+      await this.addCheckpointProposal(proposal);
+
+      this.log.debug(`Added checkpoint proposal for slot ${proposal.slotNumber}`, {
+        proposalId,
+        slotNumber: proposal.slotNumber,
+      });
+
+      return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
     });
+  }
+
+  /** Internal method - must be called within a transaction. */
+  private async addCheckpointProposal(proposal: CheckpointProposalCore): Promise<void> {
+    const slotKey = proposal.slotNumber;
+    const proposalId = proposal.archive.toString();
+
+    await this.checkpointProposalsForSlot.set(slotKey, proposalId);
+    await this.checkpointProposals.set(proposalId, proposal.toBuffer());
   }
 
   /**
@@ -299,11 +315,10 @@ export class AttestationPool {
   }
 
   /**
-   * Add checkpoint attestations to the pool.
-   *
-   * @param attestations - Checkpoint attestations to add into the pool
+   * Adds own checkpoint attestations to the pool.
+   * Skips validations on number of checkpoint attestations stored for the given slot.
    */
-  public async addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+  public async addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
@@ -312,7 +327,7 @@ export class AttestationPool {
 
         // Skip attestations with invalid signatures
         if (!sender) {
-          this.log.warn(`Skipping checkpoint attestation with invalid signature for slot ${slotNumber}`, {
+          this.log.warn(`Skipping own checkpoint attestation with invalid signature for slot ${slotNumber}`, {
             signature: attestation.signature.toString(),
             slotNumber,
             proposalId,
@@ -327,7 +342,7 @@ export class AttestationPool {
           attestation.toBuffer(),
         );
 
-        this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${address}`, {
+        this.log.debug(`Added own checkpoint attestation for slot ${slotNumber} from ${address}`, {
           signature: attestation.signature.toString(),
           slotNumber,
           address,
@@ -383,7 +398,7 @@ export class AttestationPool {
   public async deleteOlderThan(oldestSlot: SlotNumber): Promise<void> {
     let numberOfAttestations = 0;
     let numberOfCheckpointProposals = 0;
-    let numberOfBlockPositions = 0;
+    let numberOfBlockProposals = 0;
 
     await this.store.transactionAsync(async () => {
       // Delete checkpoint attestations with slot < oldestSlot
@@ -404,12 +419,16 @@ export class AttestationPool {
         await this.checkpointProposalsForSlot.delete(slot);
       }
 
-      // Delete block proposal position index for slots < oldestSlot
+      // Delete block proposals for slots < oldestSlot, using blockProposalsForSlotAndIndex as index
       // Key format: (slot << INDEX_BITS) | indexWithinCheckpoint
       const blockPositionEndKey = oldestSlot << AttestationPool.INDEX_BITS;
       for await (const positionKey of this.blockProposalsForSlotAndIndex.keysAsync({ end: blockPositionEndKey })) {
+        const proposalIds = await toArray(this.blockProposalsForSlotAndIndex.getValuesAsync(positionKey));
+        for (const proposalId of proposalIds) {
+          await this.blockProposals.delete(proposalId);
+          numberOfBlockProposals++;
+        }
         await this.blockProposalsForSlotAndIndex.delete(positionKey);
-        numberOfBlockPositions++;
       }
     });
 
@@ -417,7 +436,7 @@ export class AttestationPool {
       oldestSlot,
       numberOfAttestations,
       numberOfCheckpointProposals,
-      numberOfBlockPositions,
+      numberOfBlockProposals,
     });
   }
 
@@ -445,31 +464,32 @@ export class AttestationPool {
       return { added: false, alreadyExists: false, totalForPosition: 0 };
     }
 
-    const key = this.getAttestationKey(slotNumber, proposalId, sender.toString());
-    const alreadyExists = await this.checkpointAttestations.hasAsync(key);
+    return await this.store.transactionAsync(async () => {
+      const key = this.getAttestationKey(slotNumber, proposalId, sender.toString());
+      const alreadyExists = await this.checkpointAttestations.hasAsync(key);
 
-    if (alreadyExists) {
-      const total = await this.getAttestationCount(slotNumber, proposalId);
-      return { added: false, alreadyExists: true, totalForPosition: total };
-    }
+      if (alreadyExists) {
+        const total = await this.getAttestationCount(slotNumber, proposalId);
+        return { added: false, alreadyExists: true, totalForPosition: total };
+      }
 
-    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
-    const currentCount = await this.getAttestationCount(slotNumber, proposalId);
+      const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+      const currentCount = await this.getAttestationCount(slotNumber, proposalId);
 
-    if (currentCount >= limit) {
-      return { added: false, alreadyExists: false, totalForPosition: currentCount };
-    }
+      if (currentCount >= limit) {
+        return { added: false, alreadyExists: false, totalForPosition: currentCount };
+      }
 
-    await this.checkpointAttestations.set(key, attestation.toBuffer());
+      await this.checkpointAttestations.set(key, attestation.toBuffer());
 
-    this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${sender.toString()}`, {
-      signature: attestation.signature.toString(),
-      slotNumber,
-      address: sender.toString(),
-      proposalId,
+      this.log.debug(`Added checkpoint attestation for slot ${slotNumber} from ${sender.toString()}`, {
+        signature: attestation.signature.toString(),
+        slotNumber,
+        address: sender.toString(),
+        proposalId,
+      });
+      return { added: true, alreadyExists: false, totalForPosition: currentCount + 1 };
     });
-
-    return { added: true, alreadyExists: false, totalForPosition: currentCount + 1 };
   }
 
   /** Gets the count of attestations for a given (slot, proposalId). */
