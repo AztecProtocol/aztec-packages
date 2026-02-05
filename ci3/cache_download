@@ -30,6 +30,7 @@ function extract_tar {
 
 mkdir -p "$out_dir"
 
+S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
 s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
 
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
@@ -44,7 +45,6 @@ elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
   fi
 else
   # Default to AWS S3 URL via curl
-  S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
   # Attempt to download and extract the cache file
   if ! curl -s -f "$S3_ENDPOINT/build-cache/$tar_file" | extract_tar; then
     echo_stderr "Cache download of $tar_file failed."
