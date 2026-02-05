@@ -29,7 +29,7 @@ pub struct UtilityFunction {
 pub struct ClassUtilityFunctionBroadcasted {
     pub contract_class_id: ContractClassId,
     pub artifact_metadata_hash: Field,
-    pub private_functions_artifact_tree_root: Field,
+    pub utility_functions_artifact_tree_root: Field,
     pub artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
     pub artifact_function_tree_leaf_index: Field,
     pub function: UtilityFunction,
@@ -47,7 +47,7 @@ impl ClassUtilityFunctionBroadcasted {
         packed[0] = CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE;
         packed[1] = self.contract_class_id.to_field();
         packed[2] = self.artifact_metadata_hash;
-        packed[3] = self.private_functions_artifact_tree_root;
+        packed[3] = self.utility_functions_artifact_tree_root;
         for i in 0..ARTIFACT_FUNCTION_TREE_MAX_HEIGHT {
             packed[i + 4] = self.artifact_function_tree_sibling_path[i];
         }
