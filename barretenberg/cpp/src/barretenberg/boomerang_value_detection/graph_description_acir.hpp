@@ -19,6 +19,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
 
     bool is_inverse_gate(size_t block_idx, size_t gate_idx);
     bool is_boolean_gate(size_t block_idx, size_t gate_idx);
+    bool is_ram_rom_access_gate(size_t block_idx, size_t gate_idx);
+    bool is_busread_gate(size_t block_idx, size_t gate_idx, const BusId bus_idx);
+
     void process_constraint_system();
     std::unordered_set<size_t> get_incorrect_opcodes();
     bool process_logic_constraints(const ConstraintPtr& ptr);
@@ -42,6 +45,11 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                    const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_embedded_curve_add_constraints(const ConstraintPtr& ptr,
                                                 const std::unordered_set<uint32_t>& next_constraint_witnesses);
+    bool process_block_constraint(const ConstraintPtr& ptr);
+    bool validate_rom_constraint(const BlockConstraint& constraint,
+                                 const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates);
+    bool validate_ram_constraint(const BlockConstraint& constraint,
+                                 const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates);
 
     void add_witness_if_not_constant(const WitnessOrConstant<FF>& woc, std::unordered_set<uint32_t>& witness_indices);
 
@@ -101,12 +109,12 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
   private:
     acir_format::AcirFormat constraint_system;
     acir_format::AcirProgram program;
-    bb::UltraCircuitBuilder builder;
-    UltraStaticAnalyzer analyzer;
+    CircuitBuilder builder;
+    StaticAnalyzer_<FF, CircuitBuilder> analyzer;
     mutable OpcodeConstraintMap opcode_constraint_map;
     mutable bool opcode_constraint_map_built = false;
 };
 
-using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::UltraCircuitBuilder>;
+using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::MegaCircuitBuilder>;
 
 } // namespace cdg
