@@ -81,7 +81,7 @@ describe('ValidatorClient HA Integration', () => {
     // Set up mocks
     p2pClient = mock<P2P>();
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
-    p2pClient.addCheckpointAttestations.mockResolvedValue();
+    p2pClient.addOwnCheckpointAttestations.mockResolvedValue();
     p2pClient.broadcastCheckpointAttestations.mockResolvedValue();
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({

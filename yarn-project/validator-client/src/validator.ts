@@ -523,7 +523,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     attestors: EthAddress[] = [],
   ): Promise<CheckpointAttestation[]> {
     const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors);
-    await this.p2pClient.addCheckpointAttestations(attestations);
+    await this.p2pClient.addOwnCheckpointAttestations(attestations);
     return attestations;
   }
 

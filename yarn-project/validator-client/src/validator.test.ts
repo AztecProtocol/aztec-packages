@@ -231,7 +231,7 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValueOnce(
         validatorAccounts.map(account => EthAddress.fromString(account.address)),
       );
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
       // collectAttestations still throws as we don't have a real p2pClient
       await expect(
@@ -388,7 +388,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not attest to a checkpoint proposal if we did not validate a block for that slot', async () => {
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       const checkpointProposal = await makeCheckpointProposal({
         archiveRoot: proposal.archive,
@@ -406,7 +406,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -705,8 +705,8 @@ describe('ValidatorClient', () => {
       // Set up so validator is NOT in the committee
       epochCache.filterInCommittee.mockResolvedValueOnce([]);
 
-      // Spy on addCheckpointAttestations to verify attestations are NOT added to the pool
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      // Spy on addOwnCheckpointAttestations to verify attestations are NOT added to the pool
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       // In the new model, validateBlockProposal returns a boolean
       // Fisherman mode re-executes to validate but doesn't attest (that's for checkpoint proposals)

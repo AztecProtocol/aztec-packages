@@ -956,8 +956,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
-    this.logger.debug(
-      `Received checkpoint attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
+    this.logger.verbose(
+      `Received valid checkpoint attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
         slot: attestation.slotNumber,
@@ -1295,7 +1295,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const attestations = await this.checkpointReceivedCallback(checkpoint, sender);
     if (attestations && attestations.length > 0) {
       // If the callback returned attestations, add them to the pool and propagate them
-      await this.mempools.attestationPool.addCheckpointAttestations(attestations);
+      await this.mempools.attestationPool.addOwnCheckpointAttestations(attestations);
       for (const attestation of attestations) {
         await this.propagate(attestation);
       }

@@ -173,7 +173,7 @@ export class InMemoryAttestationPool {
     return Promise.resolve(undefined);
   }
 
-  async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
+  async addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
 
   async deleteOlderThan(_slot: SlotNumber): Promise<void> {}
 
