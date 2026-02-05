@@ -1,5 +1,7 @@
 mod events;
 
+// This contract stores the contract class information, including the public bytecode and the roots of the private and utility function trees. It also provides functions to broadcast private and utility functions, which are necessary for function execution but cannot be included in the public bytecode due to their size and privacy requirements.
+
 pub contract ContractClassRegistry {
     use crate::events::{
         class_published::ContractClassPublished,
@@ -100,7 +102,7 @@ pub contract ContractClassRegistry {
         inputs: aztec::context::inputs::PrivateContextInputs,
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
-        utility_functions_artifact_tree_root: Field,
+        public_functions_artifact_tree_root: Field,
         private_function_tree_sibling_path: [Field; 7],
         private_function_tree_leaf_index: Field,
         artifact_function_tree_sibling_path: [Field; 7],
@@ -115,7 +117,7 @@ pub contract ContractClassRegistry {
         let serialized_params: [Field; 22] = [
             contract_class_id.to_field(),
             artifact_metadata_hash,
-            utility_functions_artifact_tree_root,
+            public_functions_artifact_tree_root,
         ]
             .concat(private_function_tree_sibling_path)
             .concat([private_function_tree_leaf_index])
@@ -142,7 +144,7 @@ pub contract ContractClassRegistry {
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
-            utility_functions_artifact_tree_root,
+            public_functions_artifact_tree_root,
             private_function_tree_sibling_path,
             private_function_tree_leaf_index,
             artifact_function_tree_sibling_path,
@@ -159,7 +161,7 @@ pub contract ContractClassRegistry {
             [
                 contract_class_id.to_field(),
                 artifact_metadata_hash,
-                utility_functions_artifact_tree_root,
+                public_functions_artifact_tree_root,
                 function_data.selector.to_field(),
                 function_data.vk_hash,
                 function_data.metadata_hash,
@@ -177,7 +179,7 @@ pub contract ContractClassRegistry {
         inputs: aztec::context::inputs::PrivateContextInputs,
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
-        private_functions_artifact_tree_root: Field,
+        utility_functions_artifact_tree_root: Field,
         artifact_function_tree_sibling_path: [Field; 7],
         artifact_function_tree_leaf_index: Field,
         function_data: InnerUtilityFunction,
@@ -190,7 +192,7 @@ pub contract ContractClassRegistry {
         let serialized_params: [Field; 13] = [
             contract_class_id.to_field(),
             artifact_metadata_hash,
-            private_functions_artifact_tree_root,
+            utility_functions_artifact_tree_root,
         ]
             .concat(artifact_function_tree_sibling_path)
             .concat([artifact_function_tree_leaf_index])
@@ -214,7 +216,7 @@ pub contract ContractClassRegistry {
         let event = ClassUtilityFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
-            private_functions_artifact_tree_root,
+            utility_functions_artifact_tree_root,
             artifact_function_tree_sibling_path,
             artifact_function_tree_leaf_index,
             function: UtilityFunction {
@@ -228,7 +230,7 @@ pub contract ContractClassRegistry {
             [
                 contract_class_id.to_field(),
                 artifact_metadata_hash,
-                private_functions_artifact_tree_root,
+                utility_functions_artifact_tree_root,
                 function_data.selector.to_field(),
                 function_data.metadata_hash,
             ],
@@ -245,7 +247,7 @@ pub contract ContractClassRegistry {
     pub struct broadcast_private_function_parameters {
         pub _contract_class_id: ContractClassId,
         pub _artifact_metadata_hash: Field,
-        pub _utility_functions_artifact_tree_root: Field,
+        pub _private_functions_artifact_tree_root: Field,
         pub _private_function_tree_sibling_path: [Field; 7],
         pub _private_function_tree_leaf_index: Field,
         pub _artifact_function_tree_sibling_path: [Field; 7],
@@ -256,7 +258,7 @@ pub contract ContractClassRegistry {
     pub struct broadcast_utility_function_parameters {
         pub _contract_class_id: ContractClassId,
         pub _artifact_metadata_hash: Field,
-        pub _private_functions_artifact_tree_root: Field,
+        pub _utility_functions_artifact_tree_root: Field,
         pub _artifact_function_tree_sibling_path: [Field; 7],
         pub _artifact_function_tree_leaf_index: Field,
         pub _function_data: InnerUtilityFunction,
