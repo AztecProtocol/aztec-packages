@@ -49,6 +49,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool process_block_constraint(const ConstraintPtr& ptr);
     bool validate_rom_constraint(const BlockConstraint& constraint,
                                  const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates);
+    bool validate_ram_constraint(const BlockConstraint& constraint,
+                                 const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates);
 
     void add_witness_if_not_constant(const WitnessOrConstant<FF>& woc, std::unordered_set<uint32_t>& witness_indices);
 

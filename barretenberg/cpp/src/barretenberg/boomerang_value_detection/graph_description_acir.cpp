@@ -697,14 +697,16 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
     return validate_range_constraint(constraint->witness, constraint->num_bits);
 }
 
+// Checks that the ROM constraint is valid.
+// Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
 {
     // Helper: For the given index and value, count the number of corresponding ROM gatess
-    auto find_corresponding_mem_op_gate = [this, rom_gates, constraint](uint32_t w_l, uint32_t w_r) {
+    auto find_corresponding_mem_op_gate = [this, rom_gates, constraint](uint32_t index, uint32_t value) {
         return std::count_if(
-            rom_gates.begin(), rom_gates.end(), [this, w_l, w_r](const std::pair<uint32_t, uint32_t>& gate) {
+            rom_gates.begin(), rom_gates.end(), [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
                 auto block_idx = gate.first;
                 auto gate_idx = gate.second;
                 auto& block = builder.blocks.get()[block_idx];
@@ -712,8 +714,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
                 // all other conditions are checked in is_rom_gate lamda
                 condition &= block.q_c()[gate_idx] == FF::zero();         // q_c is always zero for ROM access
                 condition &= block.w_o()[gate_idx] == builder.zero_idx(); // w_o is always zero_idx for ROM access
-                condition &= builder.get_variable(block.w_l()[gate_idx]) == w_l; // w_l = mem_op.index
-                condition &= builder.get_variable(block.w_r()[gate_idx]) == w_r; // w_r = mem_op.value
+                condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
+                condition &= builder.get_variable(block.w_r()[gate_idx]) == value; // w_r = mem_op.value
                 return condition;
             });
     };
@@ -721,7 +723,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
         auto corresponding_gate_count = find_corresponding_mem_op_gate(init_idx, constraint.init[init_idx]);
         if (corresponding_gate_count == 0) {
-            std::cout << "No corresponding gate found for init " << init_idx << std::endl;
+            log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
         } else if (corresponding_gate_count > 1) {
             throw std::runtime_error("Found multiple gates for the same init");
@@ -738,7 +740,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
             find_corresponding_mem_op_gate(analyzer.to_real(constraint.trace[mem_op_idx].index.index),
                                            analyzer.to_real(constraint.trace[mem_op_idx].value.index));
         if (corresponding_gate_count == 0) {
-            std::cout << "No corresponding gate found for mem_op " << mem_op_idx << std::endl;
+            log_error("No corresponding gate found for mem_op", mem_op_idx);
             return false; // no corresponding gate found
         } else if (corresponding_gate_count > 1) {
             throw std::runtime_error("Found multiple gates for the same mem_op");
@@ -747,6 +749,62 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     return true;
 }
 
+// Checks that the RAM constraint is valid.
+// Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding RAM gatess
+    auto find_corresponding_mem_op_gate = [this, ram_gates, constraint](
+                                              uint32_t index, uint32_t value, bool is_write, uint32_t timestamp) {
+        return std::count_if(
+            ram_gates.begin(),
+            ram_gates.end(),
+            [this, index, value, is_write, timestamp](const std::pair<uint32_t, uint32_t>& gate) {
+                auto block_idx = gate.first;
+                auto gate_idx = gate.second;
+                auto& block = builder.blocks.get()[block_idx];
+                bool condition = true;
+                // all other conditions are checked in is_ram_gate lamda
+                condition &= block.q_c()[gate_idx] ==
+                             (is_write ? FF::one() : FF::zero()); // q_c is one for write and zero for read
+                condition &= builder.get_variable(block.w_o()[gate_idx]) == value; // w_o is not zero_idx for RAM access
+                condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
+                condition &= builder.get_variable(block.w_r()[gate_idx]) == timestamp; // w_r = timestamp
+                return condition;
+            });
+    };
+
+    // Process init.
+    // see rom_ram_logic.cpp:init_RAM_element, it is just WRITE ram gate for each init element
+    uint32_t timestamp = 0;
+    for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
+        auto corresponding_gate_count =
+            find_corresponding_mem_op_gate(init_idx, constraint.init[init_idx], /*is_write=*/true, timestamp);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for init", init_idx);
+            return false; // no corresponding gate found
+        } else if (corresponding_gate_count > 1) {
+            throw std::runtime_error("Found multiple gates for the same init");
+        }
+        timestamp++;
+    }
+
+    // Process trace.
+    for (auto mem_op : constraint.trace) {
+        auto corresponding_gate_count = find_corresponding_mem_op_gate(analyzer.to_real(mem_op.index.index),
+                                                                       analyzer.to_real(mem_op.value.index),
+                                                                       mem_op.access_type == AccessType::Write,
+                                                                       timestamp);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op at timestamp", timestamp);
+            return false; // no corresponding gate found
+        }
+        timestamp++;
+    }
+    return true;
+}
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const ConstraintPtr& ptr)
 {
@@ -757,11 +815,13 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
     [[maybe_unused]] auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_busread_gate(block_idx, gate_idx, BusId::RETURNDATA);
     };
+    // RAM/ROM access gates have the same selectors, but for ROM w_o is always zero_idx and for RAM w_o is
+    // not zero_idx
     auto is_rom_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] == builder.zero_idx();
     };
-    [[maybe_unused]] auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
+    auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) -> bool {
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] != builder.zero_idx();
     };
@@ -786,6 +846,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
     switch (block_constraint->type) {
     case BlockType::ROM:
         return validate_rom_constraint(*block_constraint, get_gates(memory_block_idx, is_rom_gate));
+    case BlockType::RAM:
+        return validate_ram_constraint(*block_constraint, get_gates(memory_block_idx, is_ram_gate));
     default:
         throw std::runtime_error("Unexpected block constraint type");
     }
