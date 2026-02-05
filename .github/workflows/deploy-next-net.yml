@@ -1,6 +1,6 @@
-# Deploy next-net environment
+# Deploy next-net environment from merge-train/spartan
 # This workflow deploys the next-net environment with a specified version
-# Runs nightly with the latest nightly tag, or can be manually triggered with any image
+# Runs nightly with the latest nextnet nightly tag, or can be manually triggered with any image
 name: Deploy Next Net
 
 on:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Docker image tag (e.g., 2.3.4, 3.0.0-nightly.20251004-amd64, or leave empty for latest nightly)'
+        description: 'Docker image tag (e.g., 2.3.4, 3.0.0-nextnet-nightly.20251004-amd64, or leave empty for latest nextnet nightly)'
         required: false
         type: string
 
@@ -27,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: merge-train/spartan
 
       - name: Determine image tag
         id: determine_tag
@@ -36,22 +38,22 @@ jobs:
             TAG="${{ inputs.image_tag }}"
             echo "Using manually specified tag: $TAG"
 
-            # Extract semver (remove -amd64 suffix if present, remove -nightly.YYYYMMDD if present)
-            SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-nightly\.[0-9]\{8\}//')
+            # Extract semver (remove -amd64 suffix if present, remove -nextnet-nightly.YYYYMMDD if present)
+            SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-nextnet-nightly\.[0-9]\{8\}//')
           else
-            # Scheduled nightly run - get latest nightly tag
+            # Scheduled nightly run - get latest nextnet nightly tag
             current_version=$(jq -r '."."' .release-please-manifest.json)
             echo "Current version: $current_version"
 
-            # Format the tag as: <current_version>-nightly.<YYYYMMDD>-amd64
-            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)-amd64"
+            # Format the tag as: <current_version>-nextnet-nightly.<YYYYMMDD>-amd64
+            nightly_tag="${current_version}-nextnet-nightly.$(date -u +%Y%m%d)-amd64"
 
             # Check if the tag exists on docker hub
             TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag)
             if [[ "$TAGS" != *"not found"* ]]; then
               TAG="$nightly_tag"
               SEMVER="$current_version"
-              echo "Using nightly tag: $TAG"
+              echo "Using nextnet nightly tag: $TAG"
             else
               echo "Error: Tag $nightly_tag not published to docker hub"
               exit 1
@@ -68,5 +70,5 @@ jobs:
       network: next-net
       semver: ${{ needs.get-image-tag.outputs.semver }}
       docker_image_tag: ${{ needs.get-image-tag.outputs.tag }}
-      ref: ${{ github.ref }}
+      ref: merge-train/spartan
     secrets: inherit
