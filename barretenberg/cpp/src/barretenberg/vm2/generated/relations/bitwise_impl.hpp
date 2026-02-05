@@ -16,6 +16,9 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_MEM_TAG_FF = FF(0);
+    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
+    const auto constants_AVM_BITWISE_OR_OP_ID = FF(2);
+    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
     const auto bitwise_TAG_A_DIFF = (in.get(C::bitwise_tag_a) - constants_MEM_TAG_FF);
     const auto bitwise_TAG_AB_DIFF = (in.get(C::bitwise_tag_a) - in.get(C::bitwise_tag_b));
 
@@ -187,6 +190,33 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = (static_cast<View>(in.get(C::bitwise_sel_get_ctr)) -
                     static_cast<View>(in.get(C::bitwise_start)) * (FF(1) - static_cast<View>(in.get(C::bitwise_err))));
         std::get<24>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_and)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_and)));
+        std::get<25>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_or)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_or)));
+        std::get<26>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_xor)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_xor)));
+        std::get<27>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bitwise_sel)) *
+                   (((static_cast<View>(in.get(C::bitwise_op_id)) -
+                      static_cast<View>(in.get(C::bitwise_sel_and)) * CView(constants_AVM_BITWISE_AND_OP_ID)) -
+                     static_cast<View>(in.get(C::bitwise_sel_or)) * CView(constants_AVM_BITWISE_OR_OP_ID)) -
+                    static_cast<View>(in.get(C::bitwise_sel_xor)) * CView(constants_AVM_BITWISE_XOR_OP_ID));
+        std::get<28>(evals) += (tmp * scaling_factor);
     }
 }
 

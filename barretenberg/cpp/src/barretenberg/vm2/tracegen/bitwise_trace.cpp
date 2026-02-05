@@ -30,6 +30,20 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
     std::array<FF, 17> precomputed_inverses = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
     FF::batch_invert(precomputed_inverses);
 
+    // Lambda to map the column selector of the op_id.
+    const auto get_op_id_column_selector = [](BitwiseOperation op_id) {
+        switch (op_id) {
+        case BitwiseOperation::AND:
+            return C::bitwise_sel_and;
+        case BitwiseOperation::OR:
+            return C::bitwise_sel_or;
+        case BitwiseOperation::XOR:
+            return C::bitwise_sel_xor;
+        default:
+            __builtin_unreachable();
+        }
+    };
+
     uint32_t row = 1;
     for (const auto& event : events) {
         auto tag = event.a.get_tag();
@@ -100,7 +114,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         for (int ctr = start_ctr; ctr > 0; ctr--) {
             bool is_start = (ctr == start_ctr);
             trace.set(row,
-                      { { { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
+                      { { { C::bitwise_sel, 1 },
+                          { get_op_id_column_selector(event.operation), 1 },
+                          { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           // It is fine to use the truncated input_a/b here instead of event.a/b because if event.a/b
                           // were FF values we would have taken the error branch above.
                           { C::bitwise_acc_ia, input_a },
@@ -116,7 +132,6 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_ctr_inv, precomputed_inverses[static_cast<uint8_t>(ctr)] },
                           { C::bitwise_ctr_min_one_inv, precomputed_inverses[static_cast<uint8_t>(ctr - 1)] },
                           { C::bitwise_last, ctr == 1 ? 1 : 0 },
-                          { C::bitwise_sel, ctr != 0 ? 1 : 0 },
                           { C::bitwise_start, is_start ? 1 : 0 },
                           { C::bitwise_sel_get_ctr, is_start ? 1 : 0 }, // Same as bitwise_start but in non-error case
                           // Err Helpers, in the happy path we still need to prove we would not have errored
@@ -133,7 +148,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
 const InteractionDefinition BitwiseTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_bitwise_byte_operations_settings, InteractionType::LookupIntoBitwise>()
+        .add<lookup_bitwise_and_byte_operations_settings, InteractionType::LookupIntoBitwise>()
+        .add<lookup_bitwise_or_byte_operations_settings, InteractionType::LookupIntoBitwise>()
+        .add<lookup_bitwise_xor_byte_operations_settings, InteractionType::LookupIntoBitwise>()
         .add<lookup_bitwise_integral_tag_length_settings, InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen
