@@ -239,6 +239,68 @@ for (size_t i = 0; i < chunk_size; i++) {
 return MSM::msm(points, interleaved_scalars, false);
 ```
 
+### Shplemini Prover Benchmark Results (Remote Machine)
+
+Shplemini + KZG proving with 1 unshifted + 1 shifted polynomial (both random dense):
+
+| Size | Time (ms) | CPU (ms) |
+|------|-----------|----------|
+| $2^{18}$ | 585 | 574 |
+| $2^{19}$ | 1069 | 1053 |
+| $2^{20}$ | 2087 | 2064 |
+| $2^{21}$ | 3949 | 3918 |
+
+**Observations:**
+- Time roughly doubles per doubling of polynomial size (expected linear scaling)
+- Baseline for evaluating +2 Gemini rounds cost with interleaving
+
+### ECCVM Prover Benchmark Results (Remote Machine)
+
+ECCVM proving time with different fixed circuit sizes (trace fills circuit):
+
+| Fixed Size | Prove (ms) | CPU (ms) |
+|------------|------------|----------|
+| $2^{14}$ | 742 | 664 |
+| $2^{15}$ | 1284 | 1131 |
+
+**Observations:**
+- **42% faster** (1.73× speedup) when halving fixed circuit size
+- Validates benefit of reducing ECCVM fixed size from $2^{15}$ to $2^{14}$
+
+### MultilinearBatching Prover Benchmark Results (Remote Machine)
+
+MultilinearBatching prover combines two claims (accumulator + instance) via sumcheck:
+
+| Size | Time (ms) | CPU (ms) |
+|------|-----------|----------|
+| $2^{18}$ | 47 | 34 |
+| $2^{19}$ | 89 | 64 |
+| $2^{20}$ | 218 | 169 |
+| $2^{21}$ | 462 | 369 |
+
+**BB_BENCH Breakdown** (averaged across all sizes):
+
+```
+construct_proof                              61.07 ms (100%)
+└─ execute_relation_check_rounds             61.06 ms (100%)
+   ├─ sumcheck loop                          24.6 ms  (40.3%)
+   │  └─ compute_univariate_with_row_skipping  12.0 ms  (48.6% of loop)
+   ├─ eq polynomial allocation               13.3 ms  (21.8%)
+   ├─ compute_univariate (first round)       10.5 ms  (17.2%)
+   └─ (other)                                12.6 ms  (20.7%)
+
+compute_new_claim                            16.62 ms
+├─ Polynomial allocation                     12.0 ms  (72%)
+└─ compute_new_polynomials (math)            4.5 ms   (27%)
+```
+
+**Observations:**
+- Time roughly doubles per doubling of polynomial size (expected linear scaling)
+- eq polynomial allocation is significant overhead (~22% in sumcheck)
+- Polynomial allocation dominates `compute_new_claim` (~72%)
+- Actual sumcheck math (`compute_univariate`) is ~40% of relation check time
+- Baseline for understanding batching sumcheck cost in IVC
+
 ---
 
 ## 11. Implementation Changes

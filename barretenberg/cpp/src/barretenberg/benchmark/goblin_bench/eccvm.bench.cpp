@@ -2,7 +2,9 @@
 
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -40,13 +42,16 @@ Builder generate_trace(size_t target_num_gates)
         op_queue->merge();
     }
 
+    // Add hiding op (required before creating the builder)
+    eccvm_test_utils::add_hiding_op_for_test(op_queue);
+
     Builder builder{ op_queue };
     return builder;
 }
 
 void eccvm_generate_prover(State& state) noexcept
 {
-
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         Builder builder = generate_trace(target_num_gates);
@@ -57,7 +62,7 @@ void eccvm_generate_prover(State& state) noexcept
 
 void eccvm_prove(State& state) noexcept
 {
-
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();

@@ -18,14 +18,14 @@ MultilinearBatchingProver::MultilinearBatchingProver(MultilinearBatchingProverCl
 
 void MultilinearBatchingProver::execute_commitments_round()
 {
-    BB_BENCH();
+    BB_BENCH_NAME("MultilinearBatching::execute_commitments_round");
     transcript->send_to_verifier("non_shifted_accumulator_commitment", key.non_shifted_accumulator_commitment);
     transcript->send_to_verifier("shifted_accumulator_commitment", key.shifted_accumulator_commitment);
 }
 
 void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 {
-    BB_BENCH();
+    BB_BENCH_NAME("MultilinearBatching::execute_challenges_and_evaluations_round");
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i), key.accumulator_challenge[i]);
     }
@@ -36,7 +36,7 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 
 void MultilinearBatchingProver::execute_relation_check_rounds()
 {
-    BB_BENCH();
+    BB_BENCH_NAME("MultilinearBatching::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
@@ -58,7 +58,7 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
 
 MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 {
-    BB_BENCH();
+    BB_BENCH_NAME("MultilinearBatching::compute_new_claim");
 
     // Batching challenge: the new claim is computed as instance + challenge * accumulator
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
@@ -66,12 +66,15 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
     // New polynomials
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1604): Optimize new claim computation
     bb::Polynomial<FF> new_non_shifted_polynomial(key.circuit_size);
-    new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
-    new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
-
     bb::Polynomial<FF> new_shifted_polynomial(bb::Polynomial<FF>::shiftable(key.circuit_size));
-    new_shifted_polynomial += key.preshifted_instance;
-    new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    {
+        BB_BENCH_NAME("MultilinearBatching::compute_new_polynomials");
+        new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
+        new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
+
+        new_shifted_polynomial += key.preshifted_instance;
+        new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    }
 
     // New commitments
     auto new_non_shifted_commitment =
