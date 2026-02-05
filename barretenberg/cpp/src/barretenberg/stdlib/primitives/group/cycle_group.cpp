@@ -344,10 +344,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl_internal(const std::optional<Affi
         result.set_origin_tag(get_origin_tag());
     } else {
         // Create result witness and construct ECC double constraint
-        result = cycle_group(field_t(witness_t(context, x3)),
-                             field_t(witness_t(context, y3)),
-                             is_point_at_infinity(),
-                             /*assert_on_curve=*/false);
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
             .x1 = _x.get_witness_index(),
@@ -442,13 +440,11 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     // auto-detection gates that the 2-arg constructor would add.
     cycle_group result;
     if (lhs_constant && rhs_constant) {
-        result = cycle_group(field_t(x3), field_t(y3), /*is_infinity=*/bool_t(false), /*assert_on_curve=*/false);
+        result = cycle_group(x3, y3, /*is_infinity=*/bool_t(false), /*assert_on_curve=*/false);
     } else {
         // Both points are witnesses - create result witness and construct ECC add constraint
-        result = cycle_group(field_t(witness_t(context, x3)),
-                             field_t(witness_t(context, y3)),
-                             /*is_infinity=*/bool_t(context, false),
-                             /*assert_on_curve=*/false);
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
         context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
             .x1 = _x.get_witness_index(),
@@ -1290,7 +1286,8 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
 
-    return cycle_group<Builder>(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
+    cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
+    return result;
 };
 
 template class cycle_group<bb::UltraCircuitBuilder>;
