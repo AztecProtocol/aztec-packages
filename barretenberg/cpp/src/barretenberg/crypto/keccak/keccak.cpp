@@ -113,7 +113,7 @@ struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT
 
 struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 {
-    uint8_t input_buffer[num_elements * KECCAK256_OUTPUT_BYTES];
+    std::vector<uint8_t> input_buffer(num_elements * KECCAK256_OUTPUT_BYTES);
 
     for (size_t i = 0; i < num_elements; ++i) {
         for (size_t j = 0; j < KECCAK256_OUTPUT_WORDS; ++j) {
@@ -130,7 +130,7 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
         }
     }
 
-    return ethash_keccak256(input_buffer, num_elements * KECCAK256_OUTPUT_BYTES);
+    return ethash_keccak256(input_buffer.data(), num_elements * KECCAK256_OUTPUT_BYTES);
 }
 
 struct keccak256 hash_field_element(const uint64_t* limb)
