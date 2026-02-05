@@ -5,12 +5,37 @@
 // =====================
 
 #pragma once
+#include <type_traits>
+
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
+
+// Helper to get InterleavedCommitments type if it exists, otherwise an empty struct
+template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedCommitmentsHelper {
+    struct Empty {};
+    using type = Empty;
+};
+
+template <typename Flavor> struct InterleavedCommitmentsHelper<Flavor, true> {
+    using type = typename Flavor::InterleavedCommitments;
+};
+
+// Helper to get InterleavedPrecomputedCommitments type if it exists, otherwise an empty struct
+template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedPrecomputedHelper {
+    struct Empty {};
+    using type = Empty;
+};
+
+template <typename Flavor> struct InterleavedPrecomputedHelper<Flavor, true> {
+    using type = typename Flavor::InterleavedPrecomputed;
+};
+
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
@@ -38,6 +63,15 @@ template <typename Flavor_> class VerifierInstance_ {
     std::vector<FF> gate_challenges;
 
     WitnessCommitments witness_commitments;
+
+    // For MultiMegaFlavor: store interleaved commitments
+    // This is only used when Flavor has InterleavedCommitments
+    using InterleavedCommitmentsType = typename InterleavedCommitmentsHelper<Flavor>::type;
+    InterleavedCommitmentsType interleaved_commitments;
+
+    // For MultiMegaFlavor: store interleaved precomputed commitments
+    using InterleavedPrecomputedType = typename InterleavedPrecomputedHelper<Flavor>::type;
+    InterleavedPrecomputedType interleaved_precomputed;
 
     // For ZK flavors: store Gemini masking polynomial commitment
     Commitment gemini_masking_commitment;

@@ -63,9 +63,10 @@ template <typename Curve> struct ClaimBatcher_ {
      * @details Computes scalars s_0, s_1 given by
      * \f[
      * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
-     * - s_1 = \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+     * - s_1 = \frac{1}{r^k} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
      * \f]
-     * where the scalars used to batch the claims are given by
+     * where k is the shift_exponent (1 for standard shifts, 4 for interleaved polynomials with batch_size=4),
+     * and the scalars used to batch the claims are given by
      * \f[
      * \left(
      * - s_0,
@@ -80,10 +81,13 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param inverse_vanishing_evals 1/(z-r), 1/(z+r), 1/(z-r²), 1/(z+r²), ..., 1/(z-r^{2^{d-1}}), 1/(z+r^{2^{d-1}})
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
+     * @param shift_exponent The exponent k such that shifted polys are divided by X^k (default=1, use 4 for
+     * interleaved)
      */
     void compute_scalars_for_each_batch(std::span<const Fr> inverted_vanishing_evals,
                                         const Fr& nu_challenge,
-                                        const Fr& r_challenge)
+                                        const Fr& r_challenge,
+                                        size_t shift_exponent = 1)
     {
         const Fr& inverse_vanishing_eval_pos = inverted_vanishing_evals[0];
         const Fr& inverse_vanishing_eval_neg = inverted_vanishing_evals[1];
@@ -93,9 +97,20 @@ template <typename Curve> struct ClaimBatcher_ {
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
         }
         if (shifted) {
-            // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
-            shifted->scalar =
-                r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
+            // r⁻ᵏ ⋅ (1/(z−r) − ν/(z+r)) where k is the shift_exponent
+            // For standard shifts k=1, for interleaved polynomials k=batch_size (e.g., 4)
+            Fr r_inv_shift;
+            if (shift_exponent == 1) {
+                r_inv_shift = r_challenge.invert();
+            } else {
+                // Compute r^(-k) = (r^k)^(-1)
+                Fr r_power = r_challenge;
+                for (size_t i = 1; i < shift_exponent; ++i) {
+                    r_power *= r_challenge;
+                }
+                r_inv_shift = r_power.invert();
+            }
+            shifted->scalar = r_inv_shift * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
         }
 
         if (interleaved) {

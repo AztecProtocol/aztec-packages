@@ -134,6 +134,10 @@ template <typename Curve> class GeminiProver_ {
         // linearly combining the i-th polynomial in each group
         std::vector<Polynomial> batched_group;
 
+        // Pre-computed batched polynomial (for interleaved flows)
+        std::optional<Polynomial> precomputed_batched;
+        std::optional<Polynomial> precomputed_batched_shifted;
+
       public:
         RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
@@ -149,10 +153,23 @@ template <typename Curve> class GeminiProver_ {
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
         bool has_interleaved() const { return interleaved.size() > 0; }
+        bool has_precomputed_batched() const { return precomputed_batched.has_value(); }
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
+
+        /**
+         * @brief Set pre-computed batched polynomials (for interleaved flows).
+         * @details When set, compute_batched() will use these instead of computing from individual polynomials.
+         * @param batched_unshifted_poly Pre-computed batched unshifted polynomial
+         * @param batched_shifted_poly Pre-computed batched shifted polynomial (before division by X^k)
+         */
+        void set_precomputed_batched(Polynomial&& batched_unshifted_poly, Polynomial&& batched_shifted_poly)
+        {
+            precomputed_batched = std::move(batched_unshifted_poly);
+            precomputed_batched_shifted = std::move(batched_shifted_poly);
+        }
 
         void set_interleaved(RefVector<Polynomial> results, std::vector<RefVector<Polynomial>> groups)
         {
@@ -174,8 +191,9 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge)
         {
-            Fr running_scalar(1);
             BB_BENCH_NAME("compute_batched");
+
+            Fr running_scalar(1);
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
@@ -186,65 +204,98 @@ template <typename Curve> class GeminiProver_ {
 
             Polynomial full_batched(full_batched_size);
 
-            // compute the linear combination F of the unshifted polynomials
-            if (has_unshifted()) {
-                batch(batched_unshifted, unshifted);
-                full_batched += batched_unshifted; // A₀ += F
-            }
-
-            // compute the linear combination G of the to-be-shifted polynomials
-            if (has_to_be_shifted_by_one()) {
-                batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
-                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ += G/X
-            }
-
-            // compute the linear combination of the interleaved polynomials and groups
-            if (has_interleaved()) {
-                batched_interleaved = Polynomial(full_batched_size);
-                for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
-                    batched_group.push_back(Polynomial(full_batched_size));
+            // If precomputed batched polynomials are set, use them
+            if (has_precomputed_batched()) {
+                full_batched += *precomputed_batched;
+                // The shifted part will be handled in compute_partially_evaluated_batch_polynomials
+                // using the precomputed_batched_shifted polynomial
+            } else {
+                // compute the linear combination F of the unshifted polynomials
+                if (has_unshifted()) {
+                    batch(batched_unshifted, unshifted);
+                    full_batched += batched_unshifted; // A₀ += F
                 }
 
-                for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
-                    batched_interleaved.add_scaled(interleaved[i], running_scalar);
-                    // Use parallel chunking for the batching operations
-                    parallel_for([this, running_scalar, i](const ThreadChunk& chunk) {
-                        for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
-                            batched_group[j].add_scaled_chunk(chunk, groups_to_be_interleaved[i][j], running_scalar);
-                        }
-                    });
-                    running_scalar *= challenge;
+                // compute the linear combination G of the to-be-shifted polynomials
+                if (has_to_be_shifted_by_one()) {
+                    batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
+                    full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ += G/X
                 }
 
-                full_batched += batched_interleaved;
+                // compute the linear combination of the interleaved polynomials and groups
+                if (has_interleaved()) {
+                    batched_interleaved = Polynomial(full_batched_size);
+                    for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
+                        batched_group.push_back(Polynomial(full_batched_size));
+                    }
+
+                    for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
+                        batched_interleaved.add_scaled(interleaved[i], running_scalar);
+                        // Use parallel chunking for the batching operations
+                        parallel_for([this, running_scalar, i](const ThreadChunk& chunk) {
+                            for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
+                                batched_group[j].add_scaled_chunk(
+                                    chunk, groups_to_be_interleaved[i][j], running_scalar);
+                            }
+                        });
+                        running_scalar *= challenge;
+                    }
+
+                    full_batched += batched_interleaved;
+                }
             }
 
             return full_batched;
         }
 
         /**
-         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F - G/r
+         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r^k, A₀(X, -r) = A₀₋ = F -
+         * G/r^k
          *
          * @param r_challenge partial evaluation challenge
+         * @param shift_exponent k such that shifted polys are divided by X^k (default=1, use batch_size for
+         * interleaved)
          * @return std::pair<Polynomial, Polynomial> {A₀₊, A₀₋}
          */
-        std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
+        std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge,
+                                                                                        size_t shift_exponent = 1)
         {
             // Initialize A₀₊ and compute A₀₊ += F as necessary
             Polynomial A_0_pos(full_batched_size); // A₀₊
 
-            if (has_unshifted()) {
+            // Use precomputed batched if available, otherwise use the computed batched_unshifted
+            if (has_precomputed_batched()) {
+                A_0_pos += *precomputed_batched;
+            } else if (has_unshifted()) {
                 A_0_pos += batched_unshifted; // A₀₊ += F
             }
 
             Polynomial A_0_neg = A_0_pos;
 
-            if (has_to_be_shifted_by_one()) {
-                Fr r_inv = r_challenge.invert();       // r⁻¹
-                batched_to_be_shifted_by_one *= r_inv; // G = G/r
+            // Handle shifted polynomials
+            Polynomial* shifted_poly = nullptr;
+            if (has_precomputed_batched() && precomputed_batched_shifted.has_value()) {
+                shifted_poly = &(*precomputed_batched_shifted);
+            } else if (has_to_be_shifted_by_one()) {
+                shifted_poly = &batched_to_be_shifted_by_one;
+            }
 
-                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ += G/r
-                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ -= G/r
+            if (shifted_poly != nullptr) {
+                // Compute r^(-k) = (r^k)^(-1)
+                Fr r_inv_shift;
+                if (shift_exponent == 1) {
+                    r_inv_shift = r_challenge.invert();
+                } else {
+                    Fr r_power = r_challenge;
+                    for (size_t i = 1; i < shift_exponent; ++i) {
+                        r_power *= r_challenge;
+                    }
+                    r_inv_shift = r_power.invert();
+                }
+                *shifted_poly *= r_inv_shift; // G = G/r^k
+
+                A_0_pos += *shifted_poly; // A₀₊ += G/r^k
+                A_0_neg -= *shifted_poly; // A₀₋ -= G/r^k
             }
 
             return { A_0_pos, A_0_neg };
@@ -306,7 +357,8 @@ template <typename Curve> class GeminiProver_ {
                                     std::span<Fr> multilinear_challenge,
                                     const CommitmentKey<Curve>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
-                                    bool has_zk = false);
+                                    bool has_zk = false,
+                                    size_t shift_exponent = 1);
 
 }; // namespace bb
 

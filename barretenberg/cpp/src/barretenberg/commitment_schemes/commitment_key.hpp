@@ -165,16 +165,18 @@ template <class Curve> class CommitmentKey {
      * @brief Commit to an interleaved group of polynomials using pippenger_interleaved
      * @details Computes [F] where F(X) = Σⱼ fⱼ(X^{batch_size}) · X^j for j=0..batch_size-1
      *          This allows committing to the interleaved polynomial without materializing it.
+     *          If fewer than BATCH_SIZE chunks are provided, zeros are used for missing slots
+     *          (the MSM efficiently skips zero contributions).
      *
-     * @param chunks Span of polynomial spans representing the chunks to be interleaved
-     * @param batch_size Number of chunks (template parameter)
+     * @param chunks Span of polynomial spans representing the chunks to be interleaved (can be < BATCH_SIZE)
+     * @param batch_size Number of slots in the interleaved polynomial (template parameter)
      * @return Commitment to the interleaved polynomial
      */
     template <size_t BATCH_SIZE> Commitment commit_interleaved(std::span<const PolynomialSpan<const Fr>> chunks) const
     {
         BB_BENCH_NAME("CommitmentKey::commit_interleaved");
-        if (chunks.size() != BATCH_SIZE) {
-            throw_or_abort("commit_interleaved: chunks.size() must equal BATCH_SIZE");
+        if (chunks.size() > BATCH_SIZE) {
+            throw_or_abort("commit_interleaved: chunks.size() must be <= BATCH_SIZE");
         }
         std::span<const Commitment> point_table = get_monomial_points();
         const size_t chunk_size = chunks[0].size();

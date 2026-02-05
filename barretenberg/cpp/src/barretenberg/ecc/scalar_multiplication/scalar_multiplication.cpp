@@ -550,15 +550,21 @@ typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<con
     // Get chunk size (all chunks must be same size)
     const size_t chunk_size = chunks[0].size();
     const size_t total_size = chunk_size * batch_size;
+    const size_t num_chunks = chunks.size();
 
     // Build interleaved array directly (MSM will handle Montgomery transformation)
+    // If num_chunks < batch_size, push zeros for missing chunks (MSM skips zeros efficiently)
     std::vector<Fr> interleaved_scalars;
     {
         BB_BENCH_NAME("InterleavedPip_BuildInterleaved");
         interleaved_scalars.reserve(total_size);
         for (size_t i = 0; i < chunk_size; i++) {
             for (size_t j = 0; j < batch_size; j++) {
-                interleaved_scalars.push_back(chunks[j][i]);
+                if (j < num_chunks) {
+                    interleaved_scalars.push_back(chunks[j][i]);
+                } else {
+                    interleaved_scalars.push_back(Fr::zero());
+                }
             }
         }
     }

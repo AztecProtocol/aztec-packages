@@ -25,6 +25,7 @@ class UltraZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class MegaAvmFlavor;
+class MultiMegaFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class ECCVMFlavor;

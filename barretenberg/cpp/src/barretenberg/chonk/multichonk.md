@@ -117,6 +117,11 @@ Batch=4: Round 1 (16) and Round 3 (4) divide exactly. Memory acceptable.
 
 ## 5. Batching Layout
 
+**Key constraint:** All polynomials in a batch must have the same shift property (all shiftable OR all unshiftable).
+
+**Shiftable (5):** w_l, w_r, w_o, w_4, z_perm
+**Unshiftable (19):** ecc_op_wires(4), databus(9), lookup_read_counts/tags(2), inverses(4)
+
 ```
 PRECOMPUTED (8 commits):
   VK₁: [q_m, q_c, q_l, q_r]
@@ -128,17 +133,24 @@ PRECOMPUTED (8 commits):
   VK₇: [table_2, table_3, table_4, lagrange_first]
   VK₈: [lagrange_last, lagrange_ecc_op, databus_id, ZERO]
 
-ROUND 1 (4 commits):
-  W₁: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
-  W₂: [w_l, w_r, w_o, calldata]
-  W₃: [calldata_read_counts, calldata_read_tags, secondary_calldata, secondary_calldata_read_counts]
-  W₄: [secondary_calldata_read_tags, return_data, return_data_read_counts, return_data_read_tags]
+ROUND 1 (5 commits):
+  W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
+  W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
+  W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
+  W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
+  W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
 
-ROUND 2: W₅: [w_4, lookup_read_counts, lookup_read_tags, ZERO]
-ROUND 3: W₆: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-ROUND 4: W₇: [z_perm, ZERO, ZERO, ZERO]
+ROUND 2 (2 commits):
+  W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
+  W₇ (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
 
-TOTAL: 15 commits
+ROUND 3 (1 commit):
+  W₈ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
+
+ROUND 4 (1 commit):
+  W₉ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
+
+TOTAL: 9 interleaved witness commits (vs 24 individual) - 62.5% reduction
 ```
 
 ---

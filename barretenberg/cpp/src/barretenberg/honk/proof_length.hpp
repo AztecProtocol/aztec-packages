@@ -9,6 +9,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include <cstddef>
 
 namespace bb::ProofLength {
@@ -38,6 +39,18 @@ template <typename Flavor> struct Oink : CodecConstants<Flavor> {
     using CodecConstants<Flavor>::num_frs_in_comm;
 
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm;
+};
+
+/**
+ * @brief Specialization for MultiMegaFlavor which uses interleaved commitments.
+ * @details MultiMegaFlavor batches polynomials into 9 interleaved commitments instead of 24 individual ones.
+ */
+template <> struct Oink<MultiMegaFlavor> : CodecConstants<MultiMegaFlavor> {
+    using CodecConstants<MultiMegaFlavor>::num_frs_in_comm;
+
+    // MultiMega uses 9 interleaved witness commitments instead of NUM_WITNESS_ENTITIES
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
+        MultiMegaFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
 };
 
 /**
