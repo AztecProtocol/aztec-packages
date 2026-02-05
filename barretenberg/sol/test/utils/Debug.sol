@@ -1,5 +1,9 @@
-pragma solidity >=0.8.21;
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
+import "forge-std/console2.sol";
+import {Fr} from "src/honk/Fr.sol";
 import {
     Honk,
     NUMBER_OF_ALPHAS,
@@ -7,40 +11,43 @@ import {
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
     PAIRING_POINTS_SIZE
-} from "./HonkTypes.sol";
+} from "src/honk/HonkTypes.sol";
+import {Transcript} from "src/honk/Transcript.sol";
 
-import {bytes32ToString} from "./utils.sol";
-import {Fr} from "./Fr.sol";
-import {Transcript} from "./Transcript.sol";
+function bytes32ToString(bytes32 value) pure returns (string memory result) {
+    bytes memory alphabet = "0123456789abcdef";
 
-import "forge-std/console2.sol";
+    bytes memory str = new bytes(66);
+    str[0] = "0";
+    str[1] = "x";
+    for (uint256 i = 0; i < 32; i++) {
+        str[2 + i * 2] = alphabet[uint8(value[i] >> 4)];
+        str[3 + i * 2] = alphabet[uint8(value[i] & 0x0f)];
+    }
+    result = string(str);
+}
 
 function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
 
     string memory message = string(abi.encodePacked(" x: ", x, " y: ", y));
-    console2.log(name, i, message);
 }
 
 function logUint(string memory name, uint256 value) pure {
     string memory as_hex = bytes32ToString(bytes32(value));
-    console2.log(name, as_hex);
 }
 
 function logUint(string memory name, uint256 i, uint256 value) pure {
     string memory as_hex = bytes32ToString(bytes32(value));
-    console2.log(name, i, as_hex);
 }
 
 function logFr(string memory name, Fr value) pure {
     string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
-    console2.log(name, as_hex);
 }
 
 function logFr(string memory name, uint256 i, Fr value) pure {
     string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
-    console2.log(name, i, as_hex);
 }
 
 function print_transcript(Transcript memory t) pure {
