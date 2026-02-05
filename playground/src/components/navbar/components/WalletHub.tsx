@@ -130,11 +130,7 @@ export function WalletHub() {
       type: 'embedded',
       name: 'Embedded wallet',
       icon: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
-      directConnect: () =>
-        EmbeddedWallet.create({
-          chainId: new Fr(network.chainId),
-          version: new Fr(network.version),
-        }),
+      directConnect: () => EmbeddedWallet.create(network.nodeURL),
       establishSecureChannel: async () => {
         throw new Error('Embedded wallet should use directConnect');
       },
