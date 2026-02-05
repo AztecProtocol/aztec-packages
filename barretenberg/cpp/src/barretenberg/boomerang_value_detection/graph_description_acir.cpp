@@ -671,7 +671,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
 {
     // Helper: For the given index and value, count the number of corresponding ROM gatess
-    auto find_corresponding_mem_op_gate = [this, rom_gates, constraint](uint32_t index, uint32_t value) {
+    auto find_corresponding_rom_gates_count = [this, rom_gates, constraint](uint32_t index, uint32_t value) {
         return std::count_if(
             rom_gates.begin(), rom_gates.end(), [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
                 auto block_idx = gate.first;
@@ -690,7 +690,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     };
     // Validate init
     for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
-        auto corresponding_gate_count = find_corresponding_mem_op_gate(init_idx, constraint.init[init_idx]);
+        auto corresponding_gate_count = find_corresponding_rom_gates_count(init_idx, constraint.init[init_idx]);
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
@@ -706,8 +706,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
         }
 
         auto corresponding_gate_count =
-            find_corresponding_mem_op_gate(analyzer.to_real(constraint.trace[mem_op_idx].index.index),
-                                           analyzer.to_real(constraint.trace[mem_op_idx].value.index));
+            find_corresponding_rom_gates_count(analyzer.to_real(constraint.trace[mem_op_idx].index.index),
+                                               analyzer.to_real(constraint.trace[mem_op_idx].value.index));
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for mem_op", mem_op_idx);
             return false; // no corresponding gate found
@@ -726,8 +726,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates)
 {
     // Helper: For the given index and value, count the number of corresponding RAM gatess
-    auto find_corresponding_mem_op_gate = [this, ram_gates, constraint](
-                                              uint32_t index, uint32_t value, bool is_write, uint32_t timestamp) {
+    auto find_corresponding_ram_gates_count = [this, ram_gates, constraint](
+                                                  uint32_t index, uint32_t value, bool is_write, uint32_t timestamp) {
         return std::count_if(
             ram_gates.begin(),
             ram_gates.end(),
@@ -753,7 +753,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     uint32_t timestamp = 0;
     for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
         auto corresponding_gate_count =
-            find_corresponding_mem_op_gate(init_idx, constraint.init[init_idx], /*is_write=*/true, timestamp);
+            find_corresponding_ram_gates_count(init_idx, constraint.init[init_idx], /*is_write=*/true, timestamp);
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
@@ -765,10 +765,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
 
     // Process trace.
     for (auto mem_op : constraint.trace) {
-        auto corresponding_gate_count = find_corresponding_mem_op_gate(analyzer.to_real(mem_op.index.index),
-                                                                       analyzer.to_real(mem_op.value.index),
-                                                                       mem_op.access_type == AccessType::Write,
-                                                                       timestamp);
+        auto corresponding_gate_count = find_corresponding_ram_gates_count(analyzer.to_real(mem_op.index.index),
+                                                                           analyzer.to_real(mem_op.value.index),
+                                                                           mem_op.access_type == AccessType::Write,
+                                                                           timestamp);
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for mem_op at timestamp", timestamp);
             return false; // no corresponding gate found
@@ -778,12 +778,102 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     return true;
 }
 
+// Checks that the calldata constraint is valid.
+// Checks that for every element in the trace there is a corresponding calldata databus read gate
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_calldata_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& calldata_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding calldata databus read gates
+    auto find_corresponding_calldata_gates_count =
+        [this, calldata_gates, constraint](const FF& index, const FF& value, bool is_primary) {
+            return std::count_if(
+                calldata_gates.begin(),
+                calldata_gates.end(),
+                [this, index, value, is_primary](const std::pair<uint32_t, uint32_t>& gate) {
+                    auto block_idx = gate.first;
+                    auto gate_idx = gate.second;
+                    auto& block = builder.blocks.get()[block_idx];
+                    bool condition = true;
+                    // Databus read gate wires: w_l = value, w_r = index, w_o = 0, w_4 = 0
+                    condition &= builder.get_variable(block.w_l()[gate_idx]) == value;
+                    condition &= builder.get_variable(block.w_r()[gate_idx]) == index;
+                    condition &= builder.get_variable(block.w_o()[gate_idx]) == FF::zero();
+                    condition &= builder.get_variable(block.w_4()[gate_idx]) == FF::zero();
+                    if (is_primary) {
+                        condition &= block.q_1()[gate_idx] == FF::one();  // q_1 is one for primary calldata
+                        condition &= block.q_2()[gate_idx] == FF::zero(); // q_2 is zero for primary calldata
+                        condition &= block.q_3()[gate_idx] == FF::zero(); // q_3 is zero for primary calldata
+                    } else {
+                        condition &= block.q_1()[gate_idx] == FF::zero(); // q_1 is zero for secondary calldata
+                        condition &= block.q_2()[gate_idx] == FF::one();  // q_2 is one for secondary calldata
+                        condition &= block.q_3()[gate_idx] == FF::zero(); // q_3 is zero for secondary calldata
+                    }
+                    return condition;
+                });
+        };
+
+    // Process trace.
+    for (auto mem_op : constraint.trace) {
+        auto corresponding_gate_count = find_corresponding_calldata_gates_count(
+            mem_op.index.index, mem_op.value.index, constraint.calldata_id == CallDataType::Primary);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op", analyzer.to_real(mem_op.index.index));
+            return false; // no corresponding gate found
+        } else if (corresponding_gate_count > 1) {
+            throw std::runtime_error("Found multiple gates for the same mem_op");
+        }
+    }
+    return true;
+}
+
+// Checks that the returndata constraint is valid.
+// Checks that for every element in the trace there is a corresponding returndata databus read gate
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_returndata_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& returndata_gates)
+{
+    auto resolve_woc_value = [this](const WitnessOrConstant<FF>& woc) {
+        return woc.is_constant ? woc.value : builder.get_variable(analyzer.to_real(woc.index));
+    };
+    // Helper: For the given index and value, count the number of corresponding returndata databus read gates
+    auto find_corresponding_returndata_gates_count = [this, returndata_gates, constraint](const FF& index,
+                                                                                          const FF& value) {
+        return std::count_if(returndata_gates.begin(),
+                             returndata_gates.end(),
+                             [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
+                                 auto block_idx = gate.first;
+                                 auto gate_idx = gate.second;
+                                 auto& block = builder.blocks.get()[block_idx];
+                                 bool condition = true;
+                                 // Databus read gate wires: w_l = value, w_r = index, w_o = 0, w_4 = 0
+                                 condition &= builder.get_variable(block.w_l()[gate_idx]) == value;
+                                 condition &= builder.get_variable(block.w_r()[gate_idx]) == index;
+                                 condition &= builder.get_variable(block.w_o()[gate_idx]) == FF::zero();
+                                 condition &= builder.get_variable(block.w_4()[gate_idx]) == FF::zero();
+                                 // selectors are checked in is_returndata_gate lambda
+                                 return condition;
+                             });
+    };
+
+    for (auto mem_op : constraint.trace) {
+        auto corresponding_gate_count =
+            find_corresponding_returndata_gates_count(resolve_woc_value(mem_op.index), resolve_woc_value(mem_op.value));
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op", analyzer.to_real(mem_op.index.index));
+            return false; // no corresponding gate found
+        }
+    }
+    return true;
+}
 // Checks that the block constraint is valid.
 // We intentionally ignore assert_equal gates during validation
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const ConstraintPtr& ptr)
 {
-    [[maybe_unused]] auto is_calldata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    auto is_calldata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
         return is_busread_gate(block_idx, gate_idx, BusId::CALLDATA) ||
                is_busread_gate(block_idx, gate_idx, BusId::SECONDARY_CALLDATA);
     };
@@ -797,7 +887,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] == builder.zero_idx();
     };
-    [[maybe_unused]] auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+    auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
         return is_ram_rom_access_gate(block_idx, gate_idx) &&
                builder.blocks.get()[block_idx].w_o()[gate_idx] != builder.zero_idx();
     };
@@ -813,7 +903,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
     };
 
     auto memory_block_idx = find_block_index(builder.blocks.memory);
-    [[maybe_unused]] uint32_t databus_block_idx = 0;
+    uint32_t databus_block_idx = 0;
     if constexpr (!std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
         databus_block_idx = find_block_index(builder.blocks.busread);
     }
@@ -827,12 +917,19 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
         return validate_ram_constraint(*block_constraint,
                                        analyzer.get_gates_by_filter_function(memory_block_idx, is_ram_gate));
     case BlockType::CallData:
+        if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+            // Ultra does not support the databus; skip validation to mirror builder behavior.
+            return true;
+        }
+        return validate_calldata_constraint(*block_constraint,
+                                            analyzer.get_gates_by_filter_function(databus_block_idx, is_calldata_gate));
     case BlockType::ReturnData:
         if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
             // Ultra does not support the databus; skip validation to mirror builder behavior.
             return true;
         }
-        throw std::runtime_error("Databus constraint validation is not implemented");
+        return validate_returndata_constraint(
+            *block_constraint, analyzer.get_gates_by_filter_function(databus_block_idx, is_returndata_gate));
     default:
         throw std::runtime_error("Unexpected block constraint type");
     }

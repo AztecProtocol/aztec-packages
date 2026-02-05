@@ -1951,3 +1951,63 @@ TEST_F(BoomerangConstraintsTests, ValidateRAMConstraint)
 
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
+
+TEST_F(BoomerangConstraintsTests, ValidateCallDataConstraint)
+{
+    BlockConstraint block_constraint{
+        .init = { 0, 1, 2, 3, 4, 5, 6 },
+        .trace = { { AccessType::Read, witness_from_index(0), witness_from_index(1) },
+                   { AccessType::Read, witness_from_index(2), witness_from_index(3) },
+                   { AccessType::Read, witness_from_index(4), witness_from_index(5) },
+                   { AccessType::Read, witness_from_index(6), witness_from_index(7) } },
+        .type = BlockType::CallData,
+        .calldata_id = CallDataType::Primary,
+    };
+    AcirFormat constraint_system{
+        .max_witness_index = 7,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
+    };
+    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    StaticAnalyzerAcirMega analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+    EXPECT_EQ(opcode_map.size(), 1U);
+    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
+
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(BoomerangConstraintsTests, ValidateReturnDataConstraint)
+{
+    BlockConstraint block_constraint{
+        .init = { 0, 1, 2, 3, 4, 5, 6 },
+        .trace = {}, // trace must be empty for return data
+        .type = BlockType::ReturnData,
+    };
+    AcirFormat constraint_system{
+        .max_witness_index = 7,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
+    };
+    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<MegaCircuitBuilder>(program);
+
+    StaticAnalyzerAcirMega analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+    EXPECT_EQ(opcode_map.size(), 1U);
+    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
+
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
