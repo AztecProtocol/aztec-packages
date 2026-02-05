@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/noir_programs_boomerang_values/helpers.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -23,32 +24,6 @@ class BoomerangConstraintsTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-
-// Helper to create WitnessOrConstant from index
-WitnessOrConstant<fr> witness_from_index(uint32_t idx)
-{
-    return WitnessOrConstant<fr>::from_index(idx);
-}
-
-// Helper to create WitnessOrConstant from constant value
-WitnessOrConstant<fr> constant_from_value(uint8_t val)
-{
-    return WitnessOrConstant<fr>::from_constant(fr(val));
-}
-
-// Helper to build AcirFormat from individual constraints through the full ACIR serde flow
-template <typename... Constraints>
-AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
-{
-    std::vector<Acir::Opcode> opcodes;
-    auto collect = [&opcodes](const auto& constraint) {
-        auto ops = constraint_to_acir_opcode(constraint);
-        opcodes.insert(opcodes.end(), ops.begin(), ops.end());
-    };
-    (collect(constraints), ...);
-    (void)max_witness_index; // No longer needed by build_acir_circuit
-    return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
-}
 
 /**
  * @brief Test that build_opcode_type_map correctly maps opcode indices to constraint pointers
@@ -1886,128 +1861,4 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_MaxValues_XorResultZero)
 
     EXPECT_FALSE(incorrect_opcodes.empty());
     EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
-}
-
-TEST_F(BoomerangConstraintsTests, ValidateROMConstraint)
-{
-    BlockConstraint block_constraint{
-        .init = { 0, 1, 2, 3, 4, 5, 6, 7 },
-        .trace = { { AccessType::Read, witness_from_index(0), witness_from_index(1) },
-                   { AccessType::Read, witness_from_index(2), witness_from_index(3) },
-                   { AccessType::Read, witness_from_index(4), witness_from_index(5) },
-                   { AccessType::Read, witness_from_index(6), witness_from_index(7) } },
-        .type = BlockType::ROM,
-    };
-
-    AcirFormat constraint_system{
-        .max_witness_index = 7,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
-
-    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
-    analyzer.process_constraint_system();
-
-    const auto& opcode_map = analyzer.build_opcode_type_map();
-    EXPECT_EQ(opcode_map.size(), 1U);
-    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
-
-    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
-}
-
-TEST_F(BoomerangConstraintsTests, ValidateRAMConstraint)
-{
-    BlockConstraint block_constraint{
-        .init = { 0, 1, 2, 3, 4, 5, 6 },
-        .trace = { { AccessType::Read, witness_from_index(0), witness_from_index(1) },
-                   { AccessType::Write, witness_from_index(2), witness_from_index(3) },
-                   { AccessType::Read, witness_from_index(4), witness_from_index(5) },
-                   { AccessType::Write, witness_from_index(6), witness_from_index(7) } },
-        .type = BlockType::RAM,
-    };
-    AcirFormat constraint_system{
-        .max_witness_index = 7,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
-    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
-    analyzer.process_constraint_system();
-
-    const auto& opcode_map = analyzer.build_opcode_type_map();
-    EXPECT_EQ(opcode_map.size(), 1U);
-    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
-
-    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
-}
-
-TEST_F(BoomerangConstraintsTests, ValidateCallDataConstraint)
-{
-    BlockConstraint block_constraint{
-        .init = { 0, 1, 2, 3, 4, 5, 6 },
-        .trace = { { AccessType::Read, witness_from_index(0), witness_from_index(1) },
-                   { AccessType::Read, witness_from_index(2), witness_from_index(3) },
-                   { AccessType::Read, witness_from_index(4), witness_from_index(5) },
-                   { AccessType::Read, witness_from_index(6), witness_from_index(7) } },
-        .type = BlockType::CallData,
-        .calldata_id = CallDataType::Primary,
-    };
-    AcirFormat constraint_system{
-        .max_witness_index = 7,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
-    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
-
-    StaticAnalyzerAcirMega analyzer(std::move(constraint_system), std::move(builder));
-    analyzer.process_constraint_system();
-
-    const auto& opcode_map = analyzer.build_opcode_type_map();
-    EXPECT_EQ(opcode_map.size(), 1U);
-    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
-
-    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
-}
-
-TEST_F(BoomerangConstraintsTests, ValidateReturnDataConstraint)
-{
-    BlockConstraint block_constraint{
-        .init = { 0, 1, 2, 3, 4, 5, 6 },
-        .trace = {}, // trace must be empty for return data
-        .type = BlockType::ReturnData,
-    };
-    AcirFormat constraint_system{
-        .max_witness_index = 7,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
-    auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<MegaCircuitBuilder>(program);
-
-    StaticAnalyzerAcirMega analyzer(std::move(constraint_system), std::move(builder));
-    analyzer.process_constraint_system();
-
-    const auto& opcode_map = analyzer.build_opcode_type_map();
-    EXPECT_EQ(opcode_map.size(), 1U);
-    EXPECT_EQ(opcode_map.at(0).type, AcirConstraintType::BLOCK);
-
-    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }

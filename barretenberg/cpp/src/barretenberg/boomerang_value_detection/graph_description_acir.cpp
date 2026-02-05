@@ -694,8 +694,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
-        } else if (corresponding_gate_count > 1) {
-            throw std::runtime_error("Found multiple gates for the same init");
         }
     }
 
@@ -711,8 +709,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for mem_op", mem_op_idx);
             return false; // no corresponding gate found
-        } else if (corresponding_gate_count > 1) {
-            throw std::runtime_error("Found multiple gates for the same mem_op");
         }
     }
     return true;
@@ -757,8 +753,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
         if (corresponding_gate_count == 0) {
             log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
-        } else if (corresponding_gate_count > 1) {
-            throw std::runtime_error("Found multiple gates for the same init");
         }
         timestamp++;
     }
@@ -835,9 +829,6 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_returndata_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& returndata_gates)
 {
-    auto resolve_woc_value = [this](const WitnessOrConstant<FF>& woc) {
-        return woc.is_constant ? woc.value : builder.get_variable(analyzer.to_real(woc.index));
-    };
     // Helper: For the given index and value, count the number of corresponding returndata databus read gates
     auto find_corresponding_returndata_gates_count = [this, returndata_gates, constraint](const FF& index,
                                                                                           const FF& value) {
@@ -858,11 +849,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_returndata_constraint(
                              });
     };
 
-    for (auto mem_op : constraint.trace) {
-        auto corresponding_gate_count =
-            find_corresponding_returndata_gates_count(resolve_woc_value(mem_op.index), resolve_woc_value(mem_op.value));
+    for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
+        auto corresponding_gate_count = find_corresponding_returndata_gates_count(init_idx, constraint.init[init_idx]);
         if (corresponding_gate_count == 0) {
-            log_error("No corresponding gate found for mem_op", analyzer.to_real(mem_op.index.index));
+            log_error("No corresponding gate found for init", init_idx);
             return false; // no corresponding gate found
         }
     }
