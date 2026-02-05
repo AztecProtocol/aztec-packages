@@ -73,6 +73,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { ForeignNoteStore } from './storage/foreign_note_store/foreign_note_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
@@ -95,6 +96,7 @@ export class PXE {
     private keyStore: KeyStore,
     private contractStore: ContractStore,
     private noteStore: NoteStore,
+    private foreignNoteStore: ForeignNoteStore,
     private capsuleStore: CapsuleStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
@@ -142,6 +144,7 @@ export class PXE {
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
     const noteStore = new NoteStore(store);
+    const foreignNoteStore = new ForeignNoteStore(store);
     const anchorBlockStore = new AnchorBlockStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -167,6 +170,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      foreignNoteStore,
     ]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore, synchronizer, anchorBlockStore);
@@ -179,6 +183,7 @@ export class PXE {
       keyStore,
       contractStore,
       noteStore,
+      foreignNoteStore,
       capsuleStore,
       anchorBlockStore,
       senderTaggingStore,
@@ -214,6 +219,7 @@ export class PXE {
     return new ContractFunctionSimulator(
       proxyContractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       BenchmarkedNodeFactory.create(this.node),
@@ -304,6 +310,7 @@ export class PXE {
         this.node,
         this.contractStore,
         this.noteStore,
+        this.foreignNoteStore,
         anchorBlockHeader,
         jobId,
       );
@@ -979,6 +986,7 @@ export class PXE {
           this.node,
           this.contractStore,
           this.noteStore,
+          this.foreignNoteStore,
           anchorBlockHeader,
           jobId,
         );
@@ -1052,6 +1060,7 @@ export class PXE {
         this.node,
         this.contractStore,
         this.noteStore,
+        this.foreignNoteStore,
         anchorBlockHeader,
         jobId,
       );

@@ -16,7 +16,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
-import type { NoteStatus } from '@aztec/stdlib/note';
+import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
@@ -27,11 +27,13 @@ import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { ForeignNoteValidationRequest } from '../noir-structs/foreign_note_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
@@ -57,6 +59,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly anchorBlockHeader: BlockHeader,
     protected readonly contractStore: ContractStore,
     protected readonly noteStore: NoteStore,
+    protected readonly foreignNoteStore: ForeignNoteStore,
     protected readonly keyStore: KeyStore,
     protected readonly addressStore: AddressStore,
     protected readonly aztecNode: AztecNode,
@@ -216,6 +219,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return instance;
   }
 
+  /** Creates a NoteService instance for note operations. */
+  protected createNoteService(): NoteService {
+    return new NoteService(this.noteStore, this.foreignNoteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+  }
+
   /**
    * Returns an auth witness for the given message hash. Checks on the list of transient witnesses
    * for this transaction first, and falls back to the local database if not found.
@@ -265,9 +273,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-
-    const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
+    const dbNotes = await this.createNoteService().getNotes(
+      this.contractAddress,
+      owner,
+      storageSlot,
+      status,
+      this.scopes,
+    );
     return pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
@@ -281,6 +293,60 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       limit,
       offset,
     });
+  }
+
+  /**
+   * Gets a foreign note for a given owner and storage slot.
+   *
+   * This checks both stores:
+   * - For the owner: the note will be in the regular noteStore (since owners can compute nullifiers)
+   * - For non-owners: the note will be in foreignNoteStore (for shared notes)
+   */
+  public async utilityGetForeignNote(owner: AztecAddress, storageSlot: Fr): Promise<NoteData | undefined> {
+    const filter = {
+      contractAddress: this.contractAddress,
+      owner,
+      storageSlot,
+      scopes: this.scopes,
+    };
+
+    // First check the regular note store (for when the caller is the owner)
+    const regularNotes = await this.noteStore.getNotes({ ...filter, status: NoteStatus.ACTIVE }, this.jobId);
+
+    if (regularNotes.length > 0) {
+      const note = regularNotes[0];
+      return {
+        contractAddress: note.contractAddress,
+        owner: note.owner,
+        storageSlot: note.storageSlot,
+        randomness: note.randomness,
+        noteNonce: note.noteNonce,
+        note: note.note,
+        noteHash: note.noteHash,
+        isPending: false,
+        siloedNullifier: note.siloedNullifier,
+      };
+    }
+
+    // Then check the foreign note store (for shared notes)
+    const foreignNotes = await this.foreignNoteStore.getNotes(filter, this.jobId);
+
+    if (foreignNotes.length > 0) {
+      const note = foreignNotes[0];
+      return {
+        contractAddress: note.contractAddress,
+        owner: note.owner,
+        storageSlot: note.storageSlot,
+        randomness: note.randomness,
+        noteNonce: note.noteNonce,
+        note: note.note,
+        noteHash: note.noteHash,
+        isPending: false,
+        siloedNullifier: note.siloedNullifier,
+      };
+    }
+
+    return undefined;
   }
 
   /**
@@ -366,18 +432,21 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-   * queryable via `get_notes` and `getPrivateEvents`.
+   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation`,
+   * `enqueue_foreign_note_for_validation`, and `enqueue_event_for_validation`, inserting them into the
+   * note database and event store respectively, making them queryable via `get_notes` and `getPrivateEvents`.
    *
-   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
+   * This automatically clears all validation request queues, so no further work needs to be done by the caller.
    * @param contractAddress - The address of the contract that the logs are tagged for.
    * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
+   * @param foreignNoteValidationRequestsArrayBaseSlot - The base slot of capsule array containing private
+   * immutable note validation requests.
    * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
   public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
+    foreignNoteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ) {
     // TODO(#10727): allow other contracts to store notes
@@ -391,11 +460,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
     ).map(NoteValidationRequest.fromFields);
 
+    const foreignNoteValidationRequests = (
+      await this.capsuleStore.readCapsuleArray(contractAddress, foreignNoteValidationRequestsArrayBaseSlot, this.jobId)
+    ).map(ForeignNoteValidationRequest.fromFields);
+
     const eventValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+    const noteService = this.createNoteService();
+
     const noteStorePromises = noteValidationRequests.map(request =>
       noteService.validateAndStoreNote(
         request.contractAddress,
@@ -406,6 +480,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         request.content,
         request.noteHash,
         request.nullifier,
+        request.txHash,
+        request.recipient,
+      ),
+    );
+
+    const foreignNoteStorePromises = foreignNoteValidationRequests.map(request =>
+      noteService.validateAndStoreForeignNote(
+        request.contractAddress,
+        request.owner,
+        request.storageSlot,
+        request.randomness,
+        request.noteNonce,
+        request.content,
+        request.noteHash,
         request.txHash,
         request.recipient,
       ),
@@ -424,10 +512,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ),
     );
 
-    await Promise.all([...noteStorePromises, ...eventStorePromises]);
+    await Promise.all([...noteStorePromises, ...foreignNoteStorePromises, ...eventStorePromises]);
 
     // Requests are cleared once we're done.
     await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      foreignNoteValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+    );
     await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
 

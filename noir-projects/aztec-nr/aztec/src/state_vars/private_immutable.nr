@@ -3,7 +3,7 @@ use crate::{
     keys::getters::{get_nhk_app, get_public_keys},
     note::{
         lifecycle::create_note,
-        note_getter::{get_note, view_note},
+        note_getter::{get_foreign_note, view_foreign_note},
         note_interface::{NoteHash, NoteType},
         NoteMessage,
     },
@@ -119,10 +119,10 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + Packable,
     {
-        let storage_slot = self.storage_slot;
-        let confirmed_note = get_note(self.context, Option::some(self.owner), storage_slot);
+        let confirmed_note = get_foreign_note(self.context, self.owner, self.storage_slot);
 
-        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_foreign_note(...)
+        // function
         // has already constrained the note (by pushing a read request to the context), we can return just the note and
         // skip the additional data in HintedNote.
         confirmed_note.note
@@ -158,6 +158,6 @@ where
     where
         Note: Packable,
     {
-        view_note(Option::some(self.owner), self.storage_slot).note
+        view_foreign_note(self.owner, self.storage_slot).note
     }
 }

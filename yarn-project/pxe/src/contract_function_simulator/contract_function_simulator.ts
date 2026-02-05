@@ -75,6 +75,7 @@ import {
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -98,6 +99,7 @@ export class ContractFunctionSimulator {
   constructor(
     private contractStore: ContractStore,
     private noteStore: NoteStore,
+    private foreignNoteStore: ForeignNoteStore,
     private keyStore: KeyStore,
     private addressStore: AddressStore,
     private aztecNode: AztecNode,
@@ -178,6 +180,7 @@ export class ContractFunctionSimulator {
       taggingIndexCache,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.aztecNode,
@@ -273,6 +276,7 @@ export class ContractFunctionSimulator {
       anchorBlockHeader,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.aztecNode,

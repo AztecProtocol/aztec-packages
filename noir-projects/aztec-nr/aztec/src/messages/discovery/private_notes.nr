@@ -2,7 +2,7 @@ use crate::messages::{
     discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
     encoding::MAX_MESSAGE_CONTENT_LEN,
     logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
-    processing::enqueue_note_for_validation,
+    processing::{enqueue_foreign_note_for_validation, enqueue_note_for_validation},
 };
 use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format};
 
@@ -49,7 +49,7 @@ pub unconstrained fn attempt_note_discovery<Env>(
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) {
-    let discovered_notes = attempt_note_nonce_discovery(
+    let discovery_result = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
         first_nullifier_in_tx,
         compute_note_hash_and_nullifier,
@@ -62,11 +62,16 @@ pub unconstrained fn attempt_note_discovery<Env>(
     );
 
     debug_log_format(
-        "Discovered {0} notes from a private message",
-        [discovered_notes.len() as Field],
+        "Discovered {0} notes from a private message ({1} regular, {2} foreign)",
+        [
+            (discovery_result.discovered_notes.len() + discovery_result.foreign_notes.len()) as Field,
+            discovery_result.discovered_notes.len() as Field,
+            discovery_result.foreign_notes.len() as Field,
+        ],
     );
 
-    discovered_notes.for_each(|discovered_note| {
+    // Enqueue regular notes (with nullifiers) for validation
+    discovery_result.discovered_notes.for_each(|discovered_note| {
         enqueue_note_for_validation(
             contract_address,
             owner,
@@ -76,6 +81,21 @@ pub unconstrained fn attempt_note_discovery<Env>(
             packed_note,
             discovered_note.note_hash,
             discovered_note.inner_nullifier,
+            tx_hash,
+            recipient,
+        );
+    });
+
+    // Enqueue private immutable notes (without nullifiers) for validation
+    discovery_result.foreign_notes.for_each(|discovered_note| {
+        enqueue_foreign_note_for_validation(
+            contract_address,
+            owner,
+            storage_slot,
+            randomness,
+            discovered_note.note_nonce,
+            packed_note,
+            discovered_note.note_hash,
             tx_hash,
             recipient,
         );

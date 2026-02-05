@@ -8,6 +8,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
@@ -44,6 +45,7 @@ export async function syncState(
   functionToInvokeAfterSync: FunctionSelector | null,
   utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
   noteStore: NoteStore,
+  foreignNoteStore: ForeignNoteStore,
   aztecNode: AztecNode,
   header: BlockHeader,
   jobId: string,
@@ -57,7 +59,7 @@ export async function syncState(
       );
     }
 
-    const noteService = new NoteService(noteStore, aztecNode, header, jobId);
+    const noteService = new NoteService(noteStore, foreignNoteStore, aztecNode, header, jobId);
 
     // Both sync_state and syncNoteNullifiers interact with the note store, but running them in parallel is safe
     // because note store is designed to handle concurrent operations.
@@ -100,6 +102,7 @@ export async function ensureContractSynced(
   aztecNode: AztecNode,
   contractStore: ContractStore,
   noteStore: NoteStore,
+  foreignNoteStore: ForeignNoteStore,
   header: BlockHeader,
   jobId: string,
 ): Promise<void> {
@@ -110,6 +113,7 @@ export async function ensureContractSynced(
       functionToInvokeAfterSync,
       utilityExecutor,
       noteStore,
+      foreignNoteStore,
       aztecNode,
       header,
       jobId,

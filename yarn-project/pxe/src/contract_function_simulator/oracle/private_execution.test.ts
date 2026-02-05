@@ -67,6 +67,7 @@ import { toFunctionSelector } from 'viem';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -112,6 +113,7 @@ describe('Private Execution test suite', () => {
 
   let contractStore: MockProxy<ContractStore>;
   let noteStore: MockProxy<NoteStore>;
+  let foreignNoteStore: MockProxy<ForeignNoteStore>;
   let addressStore: MockProxy<AddressStore>;
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingStore: MockProxy<SenderTaggingStore>;
@@ -312,6 +314,8 @@ describe('Private Execution test suite', () => {
     contractStore = mock<ContractStore>();
     noteStore = mock<NoteStore>();
     noteStore.getNotes.mockResolvedValue([]);
+    foreignNoteStore = mock<ForeignNoteStore>();
+    foreignNoteStore.getNotes.mockResolvedValue([]);
     addressStore = mock<AddressStore>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
@@ -461,6 +465,7 @@ describe('Private Execution test suite', () => {
     acirSimulator = new ContractFunctionSimulator(
       contractStore,
       noteStore,
+      foreignNoteStore,
       keyStore,
       addressStore,
       aztecNode,

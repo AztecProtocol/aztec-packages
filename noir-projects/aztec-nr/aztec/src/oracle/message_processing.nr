@@ -14,11 +14,13 @@ unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Fi
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
+    foreign_note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
 ) {
     validate_and_store_enqueued_notes_and_events_oracle(
         contract_address,
         note_validation_requests_array_base_slot,
+        foreign_note_validation_requests_array_base_slot,
         event_validation_requests_array_base_slot,
     );
 }
@@ -27,6 +29,7 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
+    foreign_note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
 ) {}
 

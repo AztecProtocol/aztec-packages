@@ -1,0 +1,70 @@
+use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
+use crate::protocol::{address::AztecAddress, traits::Serialize};
+
+/// Intermediate struct used to perform batch validation of foreign notes by PXE.
+/// These are notes that were shared with a non-owner recipient, who cannot compute the nullifier.
+/// The `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `CapsuleArray`.
+#[derive(Serialize)]
+pub(crate) struct ForeignNoteValidationRequest {
+    pub contract_address: AztecAddress,
+    pub owner: AztecAddress,
+    pub storage_slot: Field,
+    pub randomness: Field,
+    pub note_nonce: Field,
+    pub packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    pub note_hash: Field,
+    // No nullifier field - recipient can't compute it
+    pub tx_hash: Field,
+    pub recipient: AztecAddress,
+}
+
+mod test {
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
+    use super::ForeignNoteValidationRequest;
+
+    #[test]
+    fn serialization_matches_typescript() {
+        let request = ForeignNoteValidationRequest {
+            contract_address: AztecAddress::from_field(1),
+            owner: AztecAddress::from_field(50),
+            storage_slot: 2,
+            randomness: 42,
+            note_nonce: 3,
+            packed_note: BoundedVec::from_array([4, 5]),
+            note_hash: 6,
+            // No nullifier field
+            tx_hash: 8,
+            recipient: AztecAddress::from_field(9),
+        };
+
+        // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
+        // snapshot value below, then foreign_note_validation_request.test.ts must be updated with the same
+        // value. Ideally we'd autogenerate this, but for now we only have single-sided snapshot generation, from TS
+        // to Noir, which is not what we need here.
+        let expected_serialization = [
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x0000000000000000000000000000000000000000000000000000000000000032,
+            0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x000000000000000000000000000000000000000000000000000000000000002a,
+            0x0000000000000000000000000000000000000000000000000000000000000003,
+            0x0000000000000000000000000000000000000000000000000000000000000004,
+            0x0000000000000000000000000000000000000000000000000000000000000005,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x0000000000000000000000000000000000000000000000000000000000000006,
+            // No nullifier (0x07) compared to NoteValidationRequest
+            0x0000000000000000000000000000000000000000000000000000000000000008,
+            0x0000000000000000000000000000000000000000000000000000000000000009,
+        ];
+
+        assert_eq(request.serialize(), expected_serialization);
+    }
+}

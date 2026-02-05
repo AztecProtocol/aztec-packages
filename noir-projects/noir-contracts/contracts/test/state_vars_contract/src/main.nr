@@ -106,6 +106,16 @@ pub contract StateVars {
     }
 
     #[external("private")]
+    fn initialize_private_immutable_and_share_with(value: Field, recipient: AztecAddress) {
+        let owner = self.msg_sender();
+        let new_note = FieldNote { value };
+        let note_message = self.storage.private_immutable.at(owner).initialize(new_note);
+
+        note_message.deliver_to(owner, MessageDelivery.ONCHAIN_CONSTRAINED);
+        note_message.deliver_to(recipient, MessageDelivery.ONCHAIN_CONSTRAINED);
+    }
+
+    #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         let private_mutable = FieldNote { value };

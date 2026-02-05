@@ -460,6 +460,35 @@ export class RPCTranslator {
     );
   }
 
+  async utilityGetForeignNote(
+    foreignOwner: ForeignCallSingle,
+    foreignStorageSlot: ForeignCallSingle,
+    foreignPackedHintedNoteLength: ForeignCallSingle,
+  ) {
+    const owner = AztecAddress.fromField(fromSingle(foreignOwner));
+    const storageSlot = fromSingle(foreignStorageSlot);
+    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
+
+    const noteData = await this.handlerAsUtility().utilityGetForeignNote(owner, storageSlot);
+
+    if (noteData === undefined) {
+      // None: some=0, value is zero-padded array
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(packedHintedNoteLength).fill(new Fr(0)))]);
+    } else {
+      // Some: some=1, value is packed hinted note
+      const packedNote = packAsHintedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        isPending: noteData.isPending,
+        note: noteData.note,
+      });
+      return toForeignCallResult([toSingle(new Fr(1)), packedNote.map(toSingle)]);
+    }
+  }
+
   privateNotifyCreatedNote(
     foreignOwner: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
@@ -710,15 +739,18 @@ export class RPCTranslator {
   public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignForeignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
+    const foreignNoteValidationRequestsSlot = fromSingle(foreignForeignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
     await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
+      foreignNoteValidationRequestsSlot,
       eventValidationRequestsArrayBaseSlot,
     );
 

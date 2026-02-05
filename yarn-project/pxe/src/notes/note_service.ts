@@ -7,11 +7,13 @@ import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
+import type { ForeignNoteStore } from '../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
   constructor(
     private readonly noteStore: NoteStore,
+    private readonly foreignNoteStore: ForeignNoteStore,
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
     private readonly jobId: string,
@@ -191,5 +193,66 @@ export class NoteService {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }], this.jobId);
     }
+  }
+
+  /**
+   * Validates and stores a foreign note that was shared with a non-owner recipient.
+   * These notes are keyed by siloedNoteHash instead of siloedNullifier since the recipient
+   * cannot compute the nullifier (they don't have the nullifier secret key).
+   *
+   * Unlike regular notes, we don't check for nullification since the recipient can't nullify these notes.
+   */
+  public async validateAndStoreForeignNote(
+    contractAddress: AztecAddress,
+    owner: AztecAddress,
+    storageSlot: Fr,
+    randomness: Fr,
+    noteNonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    // No nullifier parameter - recipient can't compute it
+    txHash: TxHash,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
+
+    // Compute siloed and unique note hashes
+    const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
+    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > anchorBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
+    }
+
+    // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
+    const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
+    if (noteIndexInTx === -1) {
+      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+    }
+
+    // Use Fr.ZERO as a placeholder for siloedNullifier since we can't compute it
+    const noteDao = new NoteDao(
+      new Note(content),
+      contractAddress,
+      owner,
+      storageSlot,
+      randomness,
+      noteNonce,
+      noteHash,
+      Fr.ZERO, // Placeholder - recipient can't compute nullifier
+      txHash,
+      txEffect.l2BlockNumber,
+      txEffect.l2BlockHash.toString(),
+      txEffect.txIndexInBlock,
+      noteIndexInTx,
+    );
+
+    // Store in the foreign note store, keyed by siloedNoteHash
+    await this.foreignNoteStore.addNotes([{ note: noteDao, siloedNoteHash }], recipient, this.jobId);
   }
 }

@@ -20,6 +20,7 @@ import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -33,6 +34,7 @@ describe('Utility Execution test suite', () => {
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
+  let foreignNoteStore: ReturnType<typeof mock<ForeignNoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
@@ -54,6 +56,7 @@ describe('Utility Execution test suite', () => {
   beforeEach(async () => {
     contractStore = mock<ContractStore>();
     noteStore = mock<NoteStore>();
+    foreignNoteStore = mock<ForeignNoteStore>();
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
     aztecNode = mock<AztecNode>();
@@ -90,6 +93,7 @@ describe('Utility Execution test suite', () => {
     acirSimulator = new ContractFunctionSimulator(
       contractStore,
       noteStore,
+      foreignNoteStore,
       keyStore,
       addressStore,
       aztecNode,
@@ -208,6 +212,7 @@ describe('Utility Execution test suite', () => {
         anchorBlockHeader,
         contractStore,
         noteStore,
+        foreignNoteStore,
         keyStore,
         addressStore,
         aztecNode,

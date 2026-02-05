@@ -324,6 +324,34 @@ export class Oracle {
     return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedHintedNoteLength);
   }
 
+  async utilityGetForeignNote(
+    [owner]: ACVMField[],
+    [storageSlot]: ACVMField[],
+    [packedHintedNoteLength]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const noteData = await this.handlerAsUtility().utilityGetForeignNote(
+      AztecAddress.fromString(owner),
+      Fr.fromString(storageSlot),
+    );
+
+    if (noteData === undefined) {
+      // None: some=0, value is zero-padded array
+      return [toACVMField(0), Array(+packedHintedNoteLength).fill(toACVMField(0))];
+    } else {
+      // Some: some=1, value is packed hinted note
+      const packedNote = packAsHintedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        isPending: noteData.isPending,
+        note: noteData.note,
+      });
+      return [toACVMField(1), packedNote.map(toACVMField)];
+    }
+  }
+
   privateNotifyCreatedNote(
     [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
@@ -511,11 +539,13 @@ export class Oracle {
   async utilityValidateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [foreignNoteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(foreignNoteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
     );
 

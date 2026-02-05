@@ -15,11 +15,13 @@ import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
+import type { ForeignNoteStore } from '../storage/foreign_note_store/foreign_note_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { NoteService } from './note_service.js';
 
 describe('NoteService', () => {
   let noteStore: NoteStore;
+  let foreignNoteStore: ReturnType<typeof mock<ForeignNoteStore>>;
   let keyStore: KeyStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   const syncedBlockNumber = 42;
@@ -30,13 +32,14 @@ describe('NoteService', () => {
 
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
     const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
-    noteService = new NoteService(noteStore, aztecNode, anchorBlockHeader, 'test');
+    noteService = new NoteService(noteStore, foreignNoteStore, aztecNode, anchorBlockHeader, 'test');
   };
 
   beforeEach(async () => {
     const store = await openTmpStore('test');
     keyStore = new KeyStore(store);
     noteStore = new NoteStore(store);
+    foreignNoteStore = mock<ForeignNoteStore>();
     aztecNode = mock<AztecNode>();
 
     contractAddress = await AztecAddress.random();

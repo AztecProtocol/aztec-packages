@@ -31,10 +31,10 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { ensureContractSynced } from '../../contract_sync/index.js';
-import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { ForeignNoteStore } from '../../storage/foreign_note_store/foreign_note_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -85,6 +85,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     contractStore: ContractStore,
     noteStore: NoteStore,
+    foreignNoteStore: ForeignNoteStore,
     keyStore: KeyStore,
     addressStore: AddressStore,
     aztecNode: AztecNode,
@@ -108,6 +109,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       anchorBlockHeader,
       contractStore,
       noteStore,
+      foreignNoteStore,
       keyStore,
       addressStore,
       aztecNode,
@@ -361,8 +363,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const dbNotes = await noteService.getNotes(
+    const dbNotes = await this.createNoteService().getNotes(
       this.callContext.contractAddress,
       owner,
       storageSlot,
@@ -544,6 +545,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.aztecNode,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.anchorBlockHeader,
       this.jobId,
     );
@@ -570,6 +572,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.taggingIndexCache,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.aztecNode,

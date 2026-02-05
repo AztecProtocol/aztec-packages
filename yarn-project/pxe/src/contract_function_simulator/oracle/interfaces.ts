@@ -104,6 +104,7 @@ export interface IUtilityExecutionOracle {
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]>;
+  utilityGetForeignNote(owner: AztecAddress, storageSlot: Fr): Promise<NoteData | undefined>;
   utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean>;
   utilityGetL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
@@ -120,6 +121,7 @@ export interface IUtilityExecutionOracle {
   utilityValidateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
+    foreignNoteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void>;
   utilityBulkRetrieveLogs(

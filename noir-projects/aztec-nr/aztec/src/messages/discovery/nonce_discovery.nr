@@ -16,6 +16,21 @@ pub struct DiscoveredNoteInfo {
     pub inner_nullifier: Field,
 }
 
+/// Information about a foreign note that was shared with the recipient (owner != recipient).
+/// These notes cannot have their nullifier computed by the recipient since they don't have the nullifier secret key.
+pub struct ForeignDiscoveredNoteInfo {
+    pub note_nonce: Field,
+    pub note_hash: Field,
+    // No inner_nullifier field - recipient can't compute it
+}
+
+/// Result of attempting nonce discovery, which can produce either regular notes (with nullifier) or foreign
+/// notes (without nullifier, for notes shared with non-owners).
+pub struct NoteDiscoveryResult {
+    pub discovered_notes: BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX>,
+    pub foreign_notes: BoundedVec<ForeignDiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX>,
+}
+
 /// Searches for note nonces that will result in a note that was emitted in a transaction. While rare, it is possible
 /// for multiple notes to have the exact same packed content and storage slot but different nonces, resulting in
 /// different unique note hashes. Because of this this function returns a *vector* of discovered notes, though in most
@@ -23,6 +38,9 @@ pub struct DiscoveredNoteInfo {
 ///
 /// Due to how nonces are computed, this function requires knowledge of the transaction in which the note was created,
 /// more specifically the list of all unique note hashes in it plus the value of its first nullifier.
+///
+/// Returns a `NoteDiscoveryResult` containing both regular notes (with nullifiers) and foreign notes
+/// (without nullifiers, for notes shared with non-owners who cannot compute nullifiers).
 pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
@@ -33,8 +51,9 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     randomness: Field,
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
+) -> NoteDiscoveryResult {
     let discovered_notes = &mut BoundedVec::new();
+    let foreign_notes = &mut BoundedVec::new();
 
     debug_log_format(
         "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
@@ -72,17 +91,23 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
             // fail to realize that a given note has been nullified already, and calls to the application could result
             // in invalid transactions (with duplicate nullifiers). This is not a concern because an application
             // already has more direct means of making a call to it fail the transaction.
-            discovered_notes.push(
-                DiscoveredNoteInfo {
-                    note_nonce: candidate_nonce,
-                    note_hash: hashes.note_hash,
-                    // TODO: The None case will be handled in a followup PR.
-                    // https://linear.app/aztec-labs/issue/F-265/store-external-notes
-                    inner_nullifier: hashes.inner_nullifier.expect(
-                        f"Failed to compute nullifier for note type {note_type_id}",
-                    ),
-                },
-            );
+            if hashes.inner_nullifier.is_some() {
+                // Regular note with nullifier - the recipient can compute the nullifier (typically because they are
+                // the owner)
+                discovered_notes.push(
+                    DiscoveredNoteInfo {
+                        note_nonce: candidate_nonce,
+                        note_hash: hashes.note_hash,
+                        inner_nullifier: hashes.inner_nullifier.unwrap(),
+                    },
+                );
+            } else {
+                // Foreign note - the recipient cannot compute the nullifier (they are not the owner)
+                // These notes are stored separately and keyed by note hash instead of nullifier
+                foreign_notes.push(
+                    ForeignDiscoveredNoteInfo { note_nonce: candidate_nonce, note_hash: hashes.note_hash },
+                );
+            }
 
             // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
             // multiple times in the same transaction with different nonces. This typically doesn't happen due to notes
@@ -91,11 +116,15 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     });
 
     debug_log_format(
-        "Found valid nonces for a total of {0} notes",
-        [discovered_notes.len() as Field],
+        "Found valid nonces for a total of {0} notes ({1} regular, {2} foreign)",
+        [
+            (discovered_notes.len() + foreign_notes.len()) as Field,
+            discovered_notes.len() as Field,
+            foreign_notes.len() as Field,
+        ],
     );
 
-    *discovered_notes
+    NoteDiscoveryResult { discovered_notes: *discovered_notes, foreign_notes: *foreign_notes }
 }
 
 mod test {
@@ -166,7 +195,7 @@ mod test {
         let unique_note_hashes_in_tx = BoundedVec::new();
         let packed_note = BoundedVec::new();
 
-        let discovered_notes = attempt_note_nonce_discovery(
+        let discovery_result = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash_and_nullifier,
@@ -178,7 +207,8 @@ mod test {
             packed_note,
         );
 
-        assert_eq(discovered_notes.len(), 0);
+        assert_eq(discovery_result.discovered_notes.len(), 0);
+        assert_eq(discovery_result.foreign_notes.len(), 0);
     }
 
     #[test(should_fail_with = "Failed to compute a note hash")]
@@ -187,7 +217,7 @@ mod test {
         let packed_note = BoundedVec::new();
         let note_type_id = 0; // This note type id is unknown to compute_note_hash_and_nullifier
 
-        let discovered_notes = attempt_note_nonce_discovery(
+        let discovery_result = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash_and_nullifier,
@@ -199,7 +229,7 @@ mod test {
             packed_note,
         );
 
-        assert_eq(discovered_notes.len(), 0);
+        assert_eq(discovery_result.discovered_notes.len(), 0);
     }
 
     struct NoteAndData {
@@ -244,7 +274,7 @@ mod test {
         ]);
         unique_note_hashes_in_tx.set(note_index_in_tx, note_and_data.unique_note_hash);
 
-        let discovered_notes = attempt_note_nonce_discovery(
+        let discovery_result = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash_and_nullifier,
@@ -256,6 +286,7 @@ mod test {
             BoundedVec::from_array(note_and_data.note.pack()),
         );
 
+        let discovered_notes = discovery_result.discovered_notes;
         assert_eq(discovered_notes.len(), 1);
         let discovered_note = discovered_notes.get(0);
 
@@ -283,7 +314,7 @@ mod test {
         unique_note_hashes_in_tx.set(first_note_index_in_tx, first_note_and_data.unique_note_hash);
         unique_note_hashes_in_tx.set(second_note_index_in_tx, second_note_and_data.unique_note_hash);
 
-        let discovered_notes = attempt_note_nonce_discovery(
+        let discovery_result = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash_and_nullifier,
@@ -295,6 +326,7 @@ mod test {
             BoundedVec::from_array(packed_note),
         );
 
+        let discovered_notes = discovery_result.discovered_notes;
         assert_eq(discovered_notes.len(), 2);
 
         assert(discovered_notes.any(|discovered_note| {

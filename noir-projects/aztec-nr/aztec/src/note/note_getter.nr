@@ -8,7 +8,7 @@ use crate::{
         note_viewer_options::NoteViewerOptions,
         utils::compute_note_existence_request,
     },
-    oracle,
+    oracle::{self, foreign_notes},
     utils::{array, comparison::compare},
 };
 
@@ -77,6 +77,39 @@ where
     let hinted_note = unsafe { view_note::<Note>(owner, storage_slot) };
 
     confirm_hinted_note(context, hinted_note, owner, storage_slot)
+}
+
+/// Constrained version for retrieving a foreign note.
+///
+/// Foreign notes can be shared with non-owners who cannot compute nullifiers for them.
+/// These notes are stored in a separate ForeignNoteStore keyed by note hash (not
+/// nullifier), and retrieved via a dedicated oracle to avoid mixing nullifiable and
+/// non-nullifiable notes in `get_notes` results.
+pub fn get_foreign_note<Note>(
+    context: &mut PrivateContext,
+    owner: AztecAddress,
+    storage_slot: Field,
+) -> ConfirmedNote<Note>
+where
+    Note: NoteType + NoteHash + Packable,
+{
+    // Safety: Constraining that we got a valid note from the oracle is done by confirm_hinted_note.
+    let hinted_note = unsafe { view_foreign_note::<Note>(owner, storage_slot) };
+
+    confirm_hinted_note(context, hinted_note, Option::some(owner), storage_slot)
+}
+
+/// Unconstrained version for viewing a foreign note.
+///
+/// Foreign notes can be shared with non-owners who cannot compute nullifiers for them.
+/// These notes are stored in a separate ForeignNoteStore keyed by note hash (not
+/// nullifier), and retrieved via a dedicated oracle to avoid mixing nullifiable and
+/// non-nullifiable notes in `get_notes` results.
+pub unconstrained fn view_foreign_note<Note>(owner: AztecAddress, storage_slot: Field) -> HintedNote<Note>
+where
+    Note: NoteType + Packable,
+{
+    foreign_notes::get_foreign_note(owner, storage_slot).expect(f"Failed to get foreign note")
 }
 
 fn confirm_hinted_note<Note>(

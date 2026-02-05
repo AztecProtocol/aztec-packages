@@ -4,6 +4,7 @@ mod message_context;
 pub use message_context::MessageContext;
 
 pub(crate) mod note_validation_request;
+pub(crate) mod foreign_note_validation_request;
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
 pub(crate) mod pending_tagged_log;
@@ -15,8 +16,9 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
-            log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
-            note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+            foreign_note_validation_request::ForeignNoteValidationRequest, log_retrieval_request::LogRetrievalRequest,
+            log_retrieval_response::LogRetrievalResponse, note_validation_request::NoteValidationRequest,
+            pending_tagged_log::PendingTaggedLog,
         },
     },
     oracle,
@@ -30,6 +32,10 @@ global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
 
 global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
+);
+
+global FOREIGN_NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::FOREIGN_NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
 global EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
@@ -105,6 +111,47 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
     )
 }
 
+/// Enqueues a foreign note for validation by PXE. This is used for notes that were shared with a non-owner
+/// recipient who cannot compute the nullifier (e.g., PrivateImmutable notes delivered via `deliver_to`).
+///
+/// These notes are stored separately from regular notes and keyed by their siloed note hash instead of nullifier.
+/// They cannot be nullified by the recipient since they don't have the nullifier secret key.
+///
+/// In order for the note validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
+/// later called.
+pub(crate) unconstrained fn enqueue_foreign_note_for_validation(
+    contract_address: AztecAddress,
+    owner: AztecAddress,
+    storage_slot: Field,
+    randomness: Field,
+    note_nonce: Field,
+    packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    note_hash: Field,
+    // No nullifier - recipient can't compute it
+    tx_hash: Field,
+    recipient: AztecAddress,
+) {
+    // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
+    // Noir `ForeignNoteValidationRequest`
+    CapsuleArray::at(
+        contract_address,
+        FOREIGN_NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+    )
+        .push(
+            ForeignNoteValidationRequest {
+                contract_address,
+                owner,
+                storage_slot,
+                randomness,
+                note_nonce,
+                packed_note,
+                note_hash,
+                tx_hash,
+                recipient,
+            },
+        )
+}
+
 /// Enqueues an event for validation by PXE, so that it can be efficiently validated and then inserted into the event
 /// store.
 ///
@@ -135,15 +182,17 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
     )
 }
 
-/// Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-/// `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-/// queryable via `get_notes` oracle and our TS API (PXE::getPrivateEvents).
+/// Validates all note and event validation requests enqueued via `enqueue_note_for_validation`,
+/// `enqueue_foreign_note_for_validation`, and `enqueue_event_for_validation`, inserting them into the note
+/// database and event store respectively, making them queryable via `get_notes` oracle and our TS API
+/// (PXE::getPrivateEvents).
 ///
-/// This automatically clears both validation request queues, so no further work needs to be done by the caller.
+/// This automatically clears all validation request queues, so no further work needs to be done by the caller.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
     oracle::message_processing::validate_and_store_enqueued_notes_and_events(
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        FOREIGN_NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
     );
 }

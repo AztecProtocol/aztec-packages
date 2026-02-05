@@ -122,7 +122,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 log.log_payload,
             );
 
-            let discovered_notes = attempt_note_nonce_discovery(
+            let discovery_result = attempt_note_nonce_discovery(
                 log.unique_note_hashes_in_tx,
                 log.first_nullifier_in_tx,
                 compute_note_hash_and_nullifier,
@@ -133,6 +133,9 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 pending_partial_note.note_type_id,
                 complete_packed_note,
             );
+
+            // For partial notes, we only expect regular notes with nullifiers (since partial notes are owned notes)
+            let discovered_notes = discovery_result.discovered_notes;
 
             // TODO(#11627): is there anything reasonable we can do if we get a log but it doesn't result in a note
             // being found?

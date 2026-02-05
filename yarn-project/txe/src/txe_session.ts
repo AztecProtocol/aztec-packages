@@ -7,6 +7,7 @@ import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressStore,
   CapsuleStore,
+  ForeignNoteStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -131,6 +132,7 @@ export class TXESession implements TXESessionStateHandler {
       | ITxeExecutionOracle,
     private contractStore: TXEContractStore,
     private noteStore: NoteStore,
+    private foreignNoteStore: ForeignNoteStore,
     private keyStore: KeyStore,
     private addressStore: AddressStore,
     private accountStore: TXEAccountStore,
@@ -153,6 +155,7 @@ export class TXESession implements TXESessionStateHandler {
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new TXEContractStore(store);
     const noteStore = new NoteStore(store);
+    const foreignNoteStore = new ForeignNoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -168,6 +171,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      foreignNoteStore,
     ]);
 
     // Register protocol contracts.
@@ -188,6 +192,7 @@ export class TXESession implements TXESessionStateHandler {
       stateMachine,
       contractStore,
       noteStore,
+      foreignNoteStore,
       keyStore,
       addressStore,
       accountStore,
@@ -210,6 +215,7 @@ export class TXESession implements TXESessionStateHandler {
       topLevelOracleHandler,
       contractStore,
       noteStore,
+      foreignNoteStore,
       keyStore,
       addressStore,
       accountStore,
@@ -287,6 +293,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.accountStore,
@@ -317,9 +324,13 @@ export class TXESession implements TXESessionStateHandler {
     // a single transaction with the effects of what was done in the test.
     const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
 
-    await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
-      contractAddress,
-    );
+    await new NoteService(
+      this.noteStore,
+      this.foreignNoteStore,
+      this.stateMachine.node,
+      anchorBlock!,
+      this.currentJobId,
+    ).syncNoteNullifiers(contractAddress);
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
@@ -348,6 +359,7 @@ export class TXESession implements TXESessionStateHandler {
       taggingIndexCache,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
@@ -406,6 +418,7 @@ export class TXESession implements TXESessionStateHandler {
     // TODO(#12553): make the synchronizer sync here instead and remove this
     await new NoteService(
       this.noteStore,
+      this.foreignNoteStore,
       this.stateMachine.node,
       anchorBlockHeader,
       this.currentJobId,
@@ -418,6 +431,7 @@ export class TXESession implements TXESessionStateHandler {
       anchorBlockHeader,
       this.contractStore,
       this.noteStore,
+      this.foreignNoteStore,
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
@@ -508,6 +522,7 @@ export class TXESession implements TXESessionStateHandler {
           anchorBlock!,
           this.contractStore,
           this.noteStore,
+          this.foreignNoteStore,
           this.keyStore,
           this.addressStore,
           this.stateMachine.node,
