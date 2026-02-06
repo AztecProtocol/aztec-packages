@@ -2,9 +2,12 @@ use crate::{
     abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
     block_merge::merge_block_rollups,
 };
+use bignum::BLS12_381_Fr;
 use blob::{
     abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges},
     blob_batching::evaluate_blobs_and_batch,
+    compute_factor,
+    compute_fracs,
 };
 use types::{
     abis::{
@@ -163,6 +166,12 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
         let sponge_blob_hash = end_sponge_blob.squeeze();
 
+        // Compute fracs and factor once from the shared challenge z.
+        // These are reused for all blob evaluations in this checkpoint.
+        let challenge_z = BLS12_381_Fr::from(self.final_blob_challenges.z);
+        let fracs = compute_fracs(challenge_z);
+        let factor = compute_factor(challenge_z);
+
         if !dep::std::runtime::is_unconstrained() {
             let end_blob_accumulator = evaluate_blobs_and_batch(
                 self.blobs_fields,
@@ -171,6 +180,8 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
                 self.blob_commitments,
                 self.final_blob_challenges,
                 self.start_blob_accumulator,
+                fracs,
+                factor,
             );
 
             end_blob_accumulator
@@ -186,6 +197,8 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
                     self.blob_commitments,
                     self.final_blob_challenges,
                     self.start_blob_accumulator,
+                    fracs,
+                    factor,
                 )
             }
         }
