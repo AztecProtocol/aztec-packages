@@ -11,7 +11,6 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -590,11 +589,8 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
 // ============================================================================
 
 // Ultra flavors (non-ZK)
-// Note: UltraRollupFlavor's IPA proof is handled separately by prover_instance->ipa_proof,
-// so StructuredProof only needs to handle the Ultra portion from the transcript.
 template <> struct StructuredProof<UltraFlavor> : UltraStructuredProofBase<UltraFlavor> {};
 template <> struct StructuredProof<UltraKeccakFlavor> : UltraStructuredProofBase<UltraKeccakFlavor> {};
-template <> struct StructuredProof<UltraRollupFlavor> : UltraStructuredProofBase<UltraRollupFlavor> {};
 
 // Ultra ZK flavors
 template <> struct StructuredProof<UltraZKFlavor> : UltraZKStructuredProofBase<UltraZKFlavor> {};

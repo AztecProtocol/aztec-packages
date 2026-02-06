@@ -25,12 +25,13 @@ pub contract TokenBlacklist {
         },
         messages::{
             discovery::private_notes::attempt_note_discovery, message_delivery::MessageDelivery,
+            processing::validate_and_store_enqueued_notes_and_events,
         },
         note::{
             note_getter_options::NoteGetterOptions,
             note_interface::{NoteHash, NoteProperties, NoteType},
         },
-        protocol_types::traits::ToField,
+        protocol::traits::ToField,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
         utils::comparison::Comparator,
     };
@@ -38,7 +39,7 @@ pub contract TokenBlacklist {
     use std::ops::{Add, Sub};
 
     use crate::types::{roles::UserFlags, transparent_note::TransparentNote};
-    use aztec::protocol_types::{
+    use aztec::protocol::{
         address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
     use balance_set::BalanceSet;
@@ -298,5 +299,9 @@ pub contract TokenBlacklist {
             note_type_id,
             packed_note,
         );
+
+        // At this point, the note is pending validation and storage in the database. We must call
+        // validate_and_store_enqueued_notes_and_events to complete that process.
+        validate_and_store_enqueued_notes_and_events(contract_address);
     }
 }

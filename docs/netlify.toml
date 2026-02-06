@@ -33,6 +33,10 @@
     from = "/developers/reference/smart_contract_reference/storage/*"
     to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
 
+[[redirects]]
+    from = "/developers/guides/smart_contracts/how_to_define_storage"
+    to = "/developers/docs/guides/smart_contracts/state_variables"
+
 # [[redirects]]
 #     from = "/developers/docs/aztec-cli/cli_reference"
 #     to = "/developers/docs/cli/aztec_cli_reference"
@@ -162,12 +166,28 @@
     to = "/developers/docs/resources/considerations/limitations"
 
 # =============================================================================
-# ACTIVE REDIRECTS: Network Paths
-# Redirects for node operation and network documentation
+# ACTIVE REDIRECTS: Section Renames
+# Redirects for renamed documentation sections
+# =============================================================================
+# Learn → Participate redirect
+[[redirects]]
+    from = "/learn/*"
+    to = "/participate/:splat"
+    status = 301
+
+# Network → Operate redirect
+[[redirects]]
+    from = "/network/*"
+    to = "/operate/:splat"
+    status = 301
+
+# =============================================================================
+# ACTIVE REDIRECTS: Operate Paths (formerly Network)
+# Redirects for node operation and operator documentation
 # =============================================================================
 [[redirects]]
     from = "/run_node/*"
-    to = "/network/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
@@ -324,31 +344,31 @@
 # (Netlify processes redirects top-to-bottom, first match wins)
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
-    to = "/network/setup/sequencer_management"
+    to = "/operate/operators/setup/sequencer_management"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
-    to = "/network/setup/running_a_prover"
+    to = "/operate/operators/setup/running_a_prover"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
-    to = "/network/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes"
-    to = "/network/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/reference/operator_faq"
-    to = "/network/operation/operator_faq"
+    to = "/operate/operators/operator-faq"
 
 [[redirects]]
     from = "/the_aztec_network/reference/useful_commands"
-    to = "/network/operation/sequencer_management/useful_commands"
+    to = "/operate/operators/sequencer-management/useful-commands"
 
 [[redirects]]
     from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
-    to = "/network/operation/sequencer_management/become_a_staking_provider"
+    to = "/operate/operators/setup/staking-provider"
 
 # Network docs wildcard redirect - catches remaining /the_aztec_network paths
 # This MUST come AFTER specific path redirects above
@@ -366,6 +386,99 @@
 [[redirects]]
     from = "/ignition/the_aztec_network/*"
     to = "/network/:splat"
+    status = 301
+
+# =============================================================================
+# ACTIVE REDIRECTS: Old Operate paths → Participate & new structure
+# The /network/* → /operate/:splat redirect above handles the first hop,
+# so these catch /operate/concepts/*, /operate/users/*, and old flat paths.
+# Specific paths MUST come before wildcards.
+# =============================================================================
+
+# --- Concepts → Participate ---
+
+# Governance specific pages
+[[redirects]]
+    from = "/operate/concepts/governance/governance"
+    to = "/participate/governance"
+    status = 301
+
+[[redirects]]
+    from = "/operate/concepts/governance/putting_forward_proposals"
+    to = "/participate/governance/proposal-lifecycle"
+    status = 301
+
+[[redirects]]
+    from = "/operate/concepts/governance/voting"
+    to = "/participate/governance/voting"
+    status = 301
+
+[[redirects]]
+    from = "/operate/concepts/governance/upgrades"
+    to = "/participate/governance/upgrades"
+    status = 301
+
+[[redirects]]
+    from = "/operate/concepts/governance/*"
+    to = "/participate/governance"
+    status = 301
+
+# Proof of stake → token/staking
+[[redirects]]
+    from = "/operate/concepts/proof_of_stake/*"
+    to = "/participate/token/staking"
+    status = 301
+
+[[redirects]]
+    from = "/operate/concepts/proof_of_stake"
+    to = "/participate/token/staking"
+    status = 301
+
+# Catch-all for remaining concepts
+[[redirects]]
+    from = "/operate/concepts/*"
+    to = "/participate"
+    status = 301
+
+# --- Users → Participate/Token ---
+
+[[redirects]]
+    from = "/operate/users/staking"
+    to = "/participate/token/staking"
+    status = 301
+
+[[redirects]]
+    from = "/operate/users/delegation"
+    to = "/participate/token/delegation"
+    status = 301
+
+[[redirects]]
+    from = "/operate/users/voting"
+    to = "/participate/token/voting"
+    status = 301
+
+[[redirects]]
+    from = "/operate/users/*"
+    to = "/participate/token"
+    status = 301
+
+# --- Old flat paths → new operators/ prefix ---
+# Old ignition had setup/, operation/, prerequisites at root level.
+# New structure nests everything under operators/.
+
+[[redirects]]
+    from = "/operate/setup/*"
+    to = "/operate/operators/setup/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/operation/*"
+    to = "/operate/operators/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/prerequisites"
+    to = "/operate/operators/prerequisites"
     status = 301
 
 # =============================================================================

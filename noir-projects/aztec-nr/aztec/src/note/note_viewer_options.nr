@@ -1,7 +1,7 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteType;
-use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
+use crate::protocol::{address::AztecAddress, traits::{Packable, ToField}};
 use std::option::Option;
 
 pub struct NoteViewerOptions<Note, let M: u32> {
@@ -28,16 +28,10 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
         }
     }
 
-    // This method adds a `Select` criterion to the options.
-    // It takes a field_index indicating which field to select,
-    // a value representing the specific value to match in that field, and
-    // a comparator (For possible values of comparators, please see the Comparator enum from note_getter_options)
-    pub fn select<T>(
-        &mut self,
-        property_selector: PropertySelector,
-        comparator: u8,
-        value: T,
-    ) -> Self
+    // This method adds a `Select` criterion to the options. It takes a field_index indicating which field to select, a
+    // value representing the specific value to match in that field, and a comparator (For possible values of
+    // comparators, please see the Comparator enum from note_getter_options)
+    pub fn select<T>(&mut self, property_selector: PropertySelector, comparator: u8, value: T) -> Self
     where
         T: ToField,
     {
@@ -54,7 +48,7 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
         assert(limit <= MAX_NOTES_PER_PAGE as u32);
         // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
         // gate counts when a limit has been set.
-        if !dep::std::runtime::is_unconstrained() {
+        if !std::runtime::is_unconstrained() {
             assert_constant(limit);
         }
         self.limit = limit;
@@ -72,8 +66,8 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
         *self
     }
 
-    // This method sets the owner value, which determines which owner's notes to retrieve.
-    // If None, notes from all owners will be retrieved.
+    // This method sets the owner value, which determines which owner's notes to retrieve. If None, notes from all
+    // owners will be retrieved.
     pub fn set_owner(&mut self, owner: AztecAddress) -> Self {
         self.owner = Option::some(owner);
         *self

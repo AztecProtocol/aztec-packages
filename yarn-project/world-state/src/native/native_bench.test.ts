@@ -4,7 +4,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 
 import { jest } from '@jest/globals';
@@ -91,7 +91,10 @@ describe('Native World State: benchmarks', () => {
   ) => {
     const leaves: (Buffer | Fr)[][] = [];
     for (let i = 0; i < numBlocks; i++) {
-      const l2Block = await L2BlockNew.random(BlockNumber(1), { txsPerBlock: 1 });
+      const l2Block = await L2Block.random(BlockNumber(1), {
+        txsPerBlock: 1,
+        makeTxOptions: () => ({ maxEffects: numLeaves }),
+      });
       if (treeId === MerkleTreeId.PUBLIC_DATA_TREE) {
         leaves.push(
           l2Block.body.txEffects[0].publicDataWrites.filter(x => !x.isEmpty()).map(write => write.toBuffer()),

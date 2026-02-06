@@ -74,9 +74,11 @@
 <div class="padded-methods"><code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-GlobalVariables"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
+<h3 id="impl-Deserialize-for-GlobalVariables"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 9]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 9]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Empty-for-GlobalVariables"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
 
@@ -90,9 +92,11 @@
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div><h3 id="impl-Serialize-for-GlobalVariables"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
+</div><h3 id="impl-Serialize-for-GlobalVariables"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 9]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

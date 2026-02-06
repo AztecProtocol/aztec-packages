@@ -62,6 +62,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::note_hash_tree_check_sel, 1 },
+                      { C::note_hash_tree_check_const_three, 3 },
                       { C::note_hash_tree_check_write, write },
                       { C::note_hash_tree_check_exists, exists },
                       { C::note_hash_tree_check_note_hash, note_hash },
@@ -105,6 +106,6 @@ const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
         .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

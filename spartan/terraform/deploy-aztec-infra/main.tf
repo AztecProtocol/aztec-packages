@@ -96,6 +96,7 @@ locals {
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
+    "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
@@ -192,6 +193,8 @@ locals {
     "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
+    "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
@@ -288,13 +291,19 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = [yamlencode({
+      inline_values = concat([yamlencode({
         node = {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
         }
-      })]
+      })], local.is_kind ? [yamlencode({
+        agent = {
+          nodeSelector = null
+          affinity     = null
+          tolerations  = null
+        }
+      })] : [])
       custom_settings = merge(
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
@@ -302,6 +311,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
@@ -315,6 +325,7 @@ locals {
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
+          "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -322,6 +333,7 @@ locals {
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
           "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
+          "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE

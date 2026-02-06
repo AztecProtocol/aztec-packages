@@ -71,6 +71,7 @@ void MerkleCheckTraceBuilder::process(
             // Read and Write
             trace.set(row,
                       { { { C::merkle_check_sel, 1 },
+                          { C::merkle_check_const_two, 2 },
                           { C::merkle_check_read_node, read_node },
                           { C::merkle_check_index, current_index_in_layer },
                           { C::merkle_check_path_len, path_len },

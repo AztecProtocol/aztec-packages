@@ -6,8 +6,8 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2Block,
   type L2BlockId,
-  type L2BlockNew,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -101,11 +101,7 @@ export class ServerWorldStateSynchronizer
     }
 
     // Get the current latest block number
-    this.latestBlockNumberAtStart = BlockNumber(
-      await (this.config.worldStateProvenBlocksOnly
-        ? this.l2BlockSource.getProvenBlockNumber()
-        : this.l2BlockSource.getBlockNumber()),
-    );
+    this.latestBlockNumberAtStart = BlockNumber(await this.l2BlockSource.getBlockNumber());
 
     const blockToDownloadFrom = (await this.getLatestBlockNumber()) + 1;
 
@@ -129,7 +125,6 @@ export class ServerWorldStateSynchronizer
   protected createBlockStream(): L2BlockStream {
     const logger = createLogger('world-state:block_stream');
     return new L2BlockStream(this.l2BlockSource, this, this, logger, {
-      proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,
       ignoreCheckpoints: true,
@@ -304,8 +299,8 @@ export class ServerWorldStateSynchronizer
    * @param l2Blocks - The L2 blocks to handle.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Blocks(l2Blocks: L2BlockNew[]) {
-    this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
+  private async handleL2Blocks(l2Blocks: L2Block[]) {
+    this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
     // Fetch the L1->L2 messages for the first block in a checkpoint.
     const messagesForBlocks = new Map<BlockNumber, Fr[]>();
@@ -345,11 +340,13 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
+  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+    this.log.debug(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
+      blockHeader: l2Block.header.toInspect(),
+      blockStats: l2Block.getStats(),
     });
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 

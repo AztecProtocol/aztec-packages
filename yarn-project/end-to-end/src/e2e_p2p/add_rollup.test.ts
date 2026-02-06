@@ -177,6 +177,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
+        initialEthPerFeeAsset: t.ctx.aztecNodeConfig.initialEthPerFeeAsset,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
@@ -273,18 +274,20 @@ describe('e2e_p2p_add_rollup', () => {
     ) => {
       // Bridge assets into the rollup, and consume the message.
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
-      const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+      const wallet = await TestWallet.create(
+        node,
+        { ...getPXEConfig(), proverEnabled: false },
+        { loggerActorLabel: 'pxe-bridge' },
+      );
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
-      await aliceDeploymethod
-        .send({
-          from: AztecAddress.ZERO,
-        })
-        .wait();
+      await aliceDeploymethod.send({
+        from: AztecAddress.ZERO,
+      });
 
       const aliceAddress = aliceAccountManager.address;
 
-      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -305,13 +308,11 @@ describe('e2e_p2p_add_rollup', () => {
 
         const receipt = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send({ from: aliceAddress })
-          .wait();
+          .send({ from: aliceAddress });
 
         await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send({ from: aliceAddress })
-          .wait();
+          .send({ from: aliceAddress });
 
         return receipt;
       };
@@ -324,8 +325,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       await testContract.methods
         .consume_message_from_arbitrary_sender_private(message.content, secret, ethRecipient, message1Index)
-        .send({ from: aliceAddress })
-        .wait();
+        .send({ from: aliceAddress });
 
       // Then we consume the L2 -> L1 message
       {
@@ -350,9 +350,8 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
-        const epoch = await rollup.getEpochNumberForCheckpoint(
-          CheckpointNumber.fromBlockNumber(l2OutgoingReceipt.blockNumber!),
-        );
+        const block = await node.getBlock(l2OutgoingReceipt.blockNumber!);
+        const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
         const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, leaf))!;
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);

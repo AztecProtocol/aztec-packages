@@ -1,4 +1,5 @@
 #include "ultra_honk.test.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 
 #include <gtest/gtest.h>
@@ -12,12 +13,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
-                                   UltraRollupFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 /**
@@ -33,9 +32,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
-                                  stdlib::recursion::honk::RollupIO,
-                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    using IO = typename TestFixture::IO;
     using Proof = typename Flavor::Transcript::Proof;
 
     auto builder = Builder{};
@@ -46,7 +43,8 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     UltraProver_<Flavor> prover(prover_instance, verification_key);
     Proof ultra_proof = prover.construct_proof();
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
+    size_t expected_proof_length =
+        ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
@@ -301,7 +299,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
 TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
 {
     using Flavor = TypeParam;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using IO = typename TestFixture::IO;
     using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;

@@ -5,5 +5,6 @@
 {{- define "aztec-postgres.labels" -}}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: {{ .Values.component | default .Chart.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}

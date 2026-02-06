@@ -1,10 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -63,7 +62,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
+        aztecSlotDuration: 36,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
@@ -104,7 +103,7 @@ describe('e2e_p2p_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -144,8 +143,8 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    t.logger.info('Waiting for nodes to connect');
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -177,18 +176,20 @@ describe('e2e_p2p_network', () => {
     // now ensure that all txs were successfully mined
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
+    const receipt = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]);
+    const blockNumber = receipt.blockNumber!;
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getPublishedCheckpoints(CheckpointNumber(blockNumber), 1);
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

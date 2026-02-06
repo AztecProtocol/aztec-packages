@@ -2,25 +2,25 @@
 
 # NULLIFIEREXISTS
 
-Check existence of nullifier
+Check existence of an already siloed nullifier.
 
 Opcode `0x33`
 
 ```javascript
-M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0
+M[existsOffset] = nullifierTree.exists(M[siloedNullifierOffset]) ? 1 : 0
 ```
 
 ## Details
 
-Performs a read of the Nullifier Tree to query whether the specified nullifier exists for the given contract address. Any contract address can be specified, not just the currently executing contract. Both address and nullifier must be FIELD. Result is Uint1.
+Performs a read of the Nullifier Tree to query whether the specified siloed nullifier exists. The nullifier must already be siloed (caller is responsible for computing the siloed nullifier before calling this opcode). The nullifier must be FIELD. Result is Uint1.
 
 ## Gas Costs
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 924 | - |
+| L2 Base | 903 | - |
 | DA Base | 0 | - |
-| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
+| L2 Addressing | 2 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
 \* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
@@ -28,8 +28,7 @@ Performs a read of the Nullifier Tree to query whether the specified nullifier e
 
 | Name | Type | Description |
 |------|------|-------------|
-| `nullifierOffset` | Memory offset | Memory offset of the nullifier to check |
-| `addressOffset` | Memory offset | Memory offset of the contract address |
+| `siloedNullifierOffset` | Memory offset | Memory offset of the siloed nullifier to check |
 | `existsOffset` | Memory offset | Memory offset where the result (0 or 1) will be written |
 
 ## Wire Formats
@@ -42,14 +41,13 @@ See [Wire Format](../wire-format.md) page for an explanation of wire format vari
 title: "NULLIFIEREXISTS"
 config:
   packet:
-    bitsPerRow: 64
+    bitsPerRow: 48
 ---
 packet-beta
 0-7: "Opcode (0x33)"
 8-15: "Addressing modes"
-16-31: "Operand: nullifierOffset"
-32-47: "Operand: addressOffset"
-48-63: "Operand: existsOffset"
+16-31: "Operand: siloedNullifierOffset"
+32-47: "Operand: existsOffset"
 ```
 
 ## Addressing Modes
@@ -57,7 +55,7 @@ See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
-Memory offset operands (`nullifierOffset`, `addressOffset`, `existsOffset`) are encoded as follows:
+Memory offset operands (`siloedNullifierOffset`, `existsOffset`) are encoded as follows:
 
 ```mermaid
 ---
@@ -68,20 +66,19 @@ config:
     bitsPerRow: 8
 ---
 packet-beta
-  0: "nullifierOffset is indirect"
-  1: "nullifierOffset is relative"
-  2: "addressOffset is indirect"
-  3: "addressOffset is relative"
-  4: "existsOffset is indirect"
-  5: "existsOffset is relative"
+  0: "siloedNullifierOffset is indirect"
+  1: "siloedNullifierOffset is relative"
+  2: "existsOffset is indirect"
+  3: "existsOffset is relative"
+  4: "Unused"
+  5: "Unused"
   6: "Unused"
   7: "Unused"
 ```
 
 ## Tag Checks
 
-- `T[addressOffset] == FIELD`
-- `T[nullifierOffset] == FIELD`
+- `T[siloedNullifierOffset] == FIELD`
 
 ## Tag Updates
 
@@ -89,7 +86,7 @@ packet-beta
 
 ## Error Conditions
 
-- **INVALID_TAG**: Address or nullifier is not FIELD
+- **INVALID_TAG**: Siloed Nullifier is not FIELD
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---

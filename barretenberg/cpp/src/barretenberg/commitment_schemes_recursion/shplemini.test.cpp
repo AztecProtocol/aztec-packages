@@ -118,7 +118,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
         MockClaimGen mock_claims(N, num_polys, num_shifted, u_challenge, commitment_key);
-        auto prover_transcript = NativeTranscript::prover_init_empty();
+        auto prover_transcript = NativeTranscript::test_prover_init_empty();
         // Initialize polys outside of `if` as they are used inside RefVector ClaimBatcher members.
         Polynomial<NativeFr> squashed_unshifted(N);
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));
@@ -259,8 +259,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(opening_claim), stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        VerifierCommitmentKey<NativeCurve> vk;
-        EXPECT_EQ(vk.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value()), true);
+        EXPECT_TRUE(pairing_points.check());
 
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             validate_num_eccvm_rows(num_polys, num_shifted, short_scalars, &builder);

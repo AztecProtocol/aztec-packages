@@ -4,7 +4,6 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -196,13 +195,6 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     this.roundMonitor.stop();
     await this.offensesCollector.stop();
 
-    // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
-    // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
-    // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
-    // is already stopped. We add a sleep here to give the uninstallation some time to complete, but the proper fix is for
-    // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
-    // See https://github.com/wevm/viem/issues/3714.
-    await sleep(2000);
     this.log.info('Empire Slasher client stopped');
   }
 

@@ -443,7 +443,9 @@ std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEv
         { C::tx_fee, event.fee },
         { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
         { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
+        { C::tx_dom_sep_public_storage_map_slot, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT },
         { C::tx_fee_juice_balance_slot, event.fee_juice_balance_slot },
+        { C::tx_const_three, 3 },
         { C::tx_fee_payer_balance, event.fee_payer_balance },
         { C::tx_fee_payer_new_balance, event.fee_payer_balance - event.fee },
         { C::tx_uint32_max, UINT32_MAX },
@@ -710,38 +712,38 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
 const InteractionDefinition TxTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_phase_length_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_phase_length_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<perm_tx_read_calldata_hash_settings, InteractionType::Permutation>()
-        .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<perm_tx_dispatch_exec_start_settings, InteractionType::Permutation>()
         .add<perm_tx_dispatch_exec_end_settings, InteractionType::Permutation>()
-        .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupSequential>()
         // Cannot be sequential (sorting happens in public data tree trace)
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupSequential>()
         // Lookups from tx_context.pil
-        .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_nullifier_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_public_data_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_nullifier_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_public_data_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
-             InteractionType::LookupIntoIndexedByClk>()
+             InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
-             InteractionType::LookupIntoIndexedByClk>()
+             InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_restore_state_on_revert_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

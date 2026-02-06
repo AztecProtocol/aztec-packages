@@ -130,7 +130,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="24.12.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -151,7 +151,7 @@ function check_toolchains {
 
 function versions {
   local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
-  noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
   cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
@@ -281,10 +281,11 @@ function build_and_test {
   # Start the test engine.
   rm -f $test_cmds_file
   touch $test_cmds_file
-  # put it in it's own process group via background subshell, we can terminate on cleanup.
-  (color_prefix "test-engine" "denoise test_engine_start") &
+  # put it in it's own process group, we can terminate on cleanup.
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
 
   # Start the build.
   if [ -z "$target" ]; then
@@ -590,16 +591,29 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+  "ci-grind-test")
+    export CI=1
+    export USE_TEST_CACHE=0
+
+    full_cmd="${1:?full_cmd required}"
+    timeout="${2:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
+
+    grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
+    ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
   "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image]
+    # Args: <env_file> <namespace> [docker_image] [test_set]
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="${3:-}"
+    test_set="${4:-}"
     build
     # If no docker image provided, build and push to aztecdev
     if [ -z "$docker_image" ]; then
@@ -610,7 +624,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"
     deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" || deploy_exit_code=$?
+    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
@@ -627,6 +641,16 @@ case "$cmd" in
     # Set up environment for tests
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
+    ;;
+  "ci-network-kind-tests")
+    export CI=1
+    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
+    # Set the docker image to the locally built image and load it into KIND
+    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
+    spartan/bootstrap.sh kind
+    kind load docker-image "$AZTEC_DOCKER_IMAGE"
+    # Just one test for now
+    spartan/bootstrap.sh test-kind-upgrade-rollup
     ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
@@ -651,6 +675,30 @@ case "$cmd" in
     mkdir -p bench-out
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
+  "ci-network-proving-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs proving benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run proving benchmarks
+    spartan/bootstrap.sh proving_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
@@ -692,7 +740,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-"ci-barretenberg-full")
+  "ci-barretenberg-full")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
@@ -728,6 +776,7 @@ case "$cmd" in
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
     # Args: <registry_address> [KEY=VALUE...]
     export CI=1
+    build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 

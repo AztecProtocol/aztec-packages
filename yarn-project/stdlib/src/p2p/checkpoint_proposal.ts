@@ -32,8 +32,15 @@ export class CheckpointProposalHash extends Buffer32 {
 }
 
 export type CheckpointProposalOptions = {
-  publishFullTxs: boolean;
-  /** Whether to generate an invalid checkpoint proposal for broadcasting. Use only for testing. */
+  /**
+   * Whether to include the tx objects along with the block proposal.
+   * Dramatically increases size of the payload but eliminates failed reexecutions due to missing txs.
+   */
+  publishFullTxs?: boolean;
+  /**
+   * Whether to generate an invalid checkpoint proposal for broadcasting.
+   * Use only for testing.
+   */
   broadcastInvalidCheckpointProposal?: boolean;
 };
 

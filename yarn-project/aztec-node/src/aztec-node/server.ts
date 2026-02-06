@@ -1,13 +1,7 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
-import {
-  ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -41,14 +35,7 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type BlockParameter,
-  type CheckpointedL2Block,
-  type DataInBlock,
-  L2BlockHash,
-  L2BlockNew,
-  type L2BlockSource,
-} from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -126,7 +113,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
-  private initialHeaderHashPromise: Promise<L2BlockHash> | undefined = undefined;
+  private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -576,15 +563,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param block - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
    */
-  public async getBlock(block: BlockParameter): Promise<L2BlockNew | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
-      return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
+  public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
+    if (BlockHash.isBlockHash(block)) {
+      return this.getBlockByHash(block);
     }
     const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
     if (blockNumber === BlockNumber.ZERO) {
       return this.buildInitialBlock();
     }
-    return await this.blockSource.getL2BlockNew(blockNumber);
+    return await this.blockSource.getL2Block(blockNumber);
   }
 
   /**
@@ -592,17 +579,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  public async getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  public async getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(Fr.fromBuffer(initialBlockHash.toBuffer()))) {
+    if (blockHash.equals(initialBlockHash)) {
       return this.buildInitialBlock();
     }
-    return await this.blockSource.getL2BlockNewByHash(blockHash);
+    return await this.blockSource.getL2BlockByHash(blockHash);
   }
 
-  private buildInitialBlock(): L2BlockNew {
+  private buildInitialBlock(): L2Block {
     const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
-    return L2BlockNew.empty(initialHeader);
+    return L2Block.empty(initialHeader);
   }
 
   /**
@@ -610,8 +597,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param archive - The archive root being requested.
    * @returns The requested block.
    */
-  public async getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
-    return await this.blockSource.getL2BlockNewByArchive(archive);
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    return await this.blockSource.getL2BlockByArchive(archive);
   }
 
   /**
@@ -620,24 +607,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param limit - The maximum number of blocks to obtain.
    * @returns The blocks requested.
    */
-  public async getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+  public async getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
+    return (await this.blockSource.getBlocks(from, BlockNumber(limit))) ?? [];
   }
 
-  public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
-    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  public async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getCheckpoints(from, limit)) ?? [];
   }
 
-  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
-  }
-
-  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
-  }
-
-  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
-    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -666,6 +645,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getProvenBlockNumber(): Promise<BlockNumber> {
     return await this.blockSource.getProvenBlockNumber();
+  }
+
+  public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getCheckpointedL2BlockNumber();
   }
 
   /**
@@ -700,15 +683,42 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+  public async getPrivateLogsByTags(
+    tags: SiloedTag[],
+    page?: number,
+    referenceBlock?: BlockHash,
+  ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPrivateLogsByTags(tags, page);
   }
 
-  public getPublicLogsByTagsFromContract(
+  public async getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
@@ -756,11 +766,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const txStatus = await this.p2pClient.getTxStatus(txHash);
-    const isKnownToPool = txStatus === 'pending' || txStatus === 'mined';
+    // Check the tx pool status first. If the tx is known to the pool (pending or mined), we'll use that
+    // as a fallback if we don't find a settled receipt in the archiver.
+    const txPoolStatus = await this.p2pClient.getTxStatus(txHash);
+    const isKnownToPool = txPoolStatus === 'pending' || txPoolStatus === 'mined';
 
     // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
@@ -842,11 +851,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async findLeavesIndexes(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    const committedDb = await this.#getWorldState(block);
+    const committedDb = await this.#getWorldState(referenceBlock);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
@@ -898,44 +907,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
       return {
         l2BlockNumber: BlockNumber(Number(blockNumber)),
-        l2BlockHash: L2BlockHash.fromField(blockHash),
+        l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
     });
   }
 
-  public async getNullifierSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
-  }
-
-  public async getNoteHashSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-  }
-
-  public async getArchiveMembershipWitness(
-    block: BlockParameter,
-    archive: Fr,
+  public async getBlockHashMembershipWitness(
+    referenceBlock: BlockParameter,
+    blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(block);
-    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [archive]);
+    const committedDb = await this.#getWorldState(referenceBlock);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
       : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
   public async getNoteHashMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(block);
+    const committedDb = await this.#getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
       [noteHash],
@@ -946,10 +939,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getL1ToL2MessageMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const db = await this.#getWorldState(block);
+    const db = await this.#getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
     if (!witness) {
       return undefined;
@@ -982,12 +975,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The L2 to L1 messages (empty array if the epoch is not found).
    */
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
-    // Assumes `getBlocksForEpoch` returns blocks in ascending order of block number.
-    const blocks = await this.blockSource.getBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2BlockNew[][] = [];
+    // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
+    const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
+    const blocksInCheckpoints: L2Block[][] = [];
     let previousSlotNumber = SlotNumber.ZERO;
     let checkpointIndex = -1;
-    for (const block of blocks) {
+    for (const checkpointedBlock of checkpointedBlocks) {
+      const block = checkpointedBlock.block;
       const slotNumber = block.header.globalVariables.slotNumber;
       if (slotNumber !== previousSlotNumber) {
         checkpointIndex++;
@@ -1001,27 +995,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
   }
 
-  public async getArchiveSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
-  }
-
-  public async getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(block);
-    return committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
-  }
-
   public async getNullifierMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const db = await this.#getWorldState(block);
+    const db = await this.#getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     if (!witness) {
       return undefined;
@@ -1038,7 +1016,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data
+   * (which contains the root of the nullifier tree in which we are searching for the nullifier).
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
@@ -1051,10 +1030,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * TODO: This is a confusing behavior and we should eventually address that.
    */
   public async getLowNullifierMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = await this.#getWorldState(block);
+    const committedDb = await this.#getWorldState(referenceBlock);
     const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!findResult) {
       return undefined;
@@ -1069,8 +1048,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
-  async getPublicDataWitness(block: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = await this.#getWorldState(block);
+  async getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const committedDb = await this.#getWorldState(referenceBlock);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
@@ -1084,8 +1063,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  public async getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState(block);
+  public async getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const committedDb = await this.#getWorldState(referenceBlock);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -1100,14 +1079,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getCommitted().getInitialHeader();
       }
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      return this.blockSource.getBlockHeaderByHash(blockHashFr);
+      return this.blockSource.getBlockHeaderByHash(block);
     } else {
       // Block source doesn't handle initial header so we need to handle the case separately.
       const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
@@ -1165,6 +1143,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.contractDataSource,
       new DateProvider(),
       this.telemetry,
+      this.log.getBindings(),
     );
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
@@ -1218,16 +1197,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
-      timestamp: nextSlotTimestamp,
-      blockNumber,
-      l1ChainId: this.l1ChainId,
-      rollupVersion: this.version,
-      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentMinFees(),
-      skipFeeEnforcement,
-      txsPermitted: !this.config.disableTransactions,
-    });
+    const validator = createValidatorForAcceptingTxs(
+      db,
+      this.contractDataSource,
+      verifier,
+      {
+        timestamp: nextSlotTimestamp,
+        blockNumber,
+        l1ChainId: this.l1ChainId,
+        rollupVersion: this.version,
+        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        gasFees: await this.getCurrentMinFees(),
+        skipFeeEnforcement,
+        txsPermitted: !this.config.disableTransactions,
+      },
+      this.log.getBindings(),
+    );
 
     return await validator.validateTx(tx);
   }
@@ -1391,13 +1376,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  #getInitialHeaderHash(): Promise<L2BlockHash> {
+  #getInitialHeaderHash(): Promise<BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer
-        .getCommitted()
-        .getInitialHeader()
-        .hash()
-        .then(hash => L2BlockHash.fromField(hash));
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
     }
     return this.initialHeaderHashPromise;
   }
@@ -1421,15 +1402,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    if (L2BlockHash.isL2BlockHash(block)) {
+    if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
         return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
       }
 
-      const blockHashFr = Fr.fromBuffer(block.toBuffer());
-      const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+      const header = await this.blockSource.getBlockHeaderByHash(block);
       if (!header) {
         throw new Error(
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,

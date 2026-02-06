@@ -6,7 +6,7 @@ pub contract PrivateToken {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, SinglePrivateMutable},
     };
 
@@ -14,6 +14,7 @@ pub contract PrivateToken {
     use balance_set::BalanceSet;
     use uint_note::UintNote;
 
+    // docs:start_single_private_mutable
     #[storage]
     struct Storage<Context> {
         balances: Owned<BalanceSet<Context>, Context>,
@@ -24,6 +25,7 @@ pub contract PrivateToken {
         // mutable.
         total_supply: SinglePrivateMutable<UintNote, Context>,
     }
+    // docs:end_single_private_mutable
 
     /**
      * initialize the contract's initial state variables.
@@ -50,8 +52,10 @@ pub contract PrivateToken {
     }
 
     // Mints `amount` of tokens to `owner`.
+    // docs:start:note_delivery
     #[external("private")]
     fn mint(amount: u128, recipient: AztecAddress) {
+        // docs:start:owned_single_private_mutable_get_note
         let replacement_note_message = self.storage.admin.get_note();
         let admin = replacement_note_message.get_note().address;
         assert(admin == self.msg_sender(), "Only admin can mint");
@@ -59,7 +63,7 @@ pub contract PrivateToken {
         // We deliver the new note message to the admin using unconstrained delivery, since the admin is motivated to
         // deliver the message to themselves (hence no need to constrain it).
         replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-
+        // docs:end:owned_single_private_mutable_get_note
         // We increase the total supply and once again use unconstrained delivery, since the admin is motivated to
         // deliver the message (he's the owner of the new note as well).
         self
@@ -71,8 +75,10 @@ pub contract PrivateToken {
         // At last we mint the tokens to the recipient.
         self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
+    // docs:end:note_delivery
 
     // Transfers admin privileges to a `new_admin`.
+    // docs:start:owned_single_private_mutable_replace
     #[external("private")]
     fn transfer_admin(new_admin: AztecAddress) {
         self
@@ -90,6 +96,7 @@ pub contract PrivateToken {
             )
             .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
+    // docs:end:owned_single_private_mutable_replace
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]

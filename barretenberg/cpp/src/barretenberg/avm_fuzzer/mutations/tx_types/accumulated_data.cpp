@@ -1,6 +1,7 @@
 #include "barretenberg/avm_fuzzer/mutations/tx_types/accumulated_data.hpp"
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/eth_address.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
@@ -45,7 +46,8 @@ void mutate_nullifier(FF& nullifier, std::mt19937_64& rng)
 ScopedL2ToL1Message generate_l2_to_l1_message(std::mt19937_64& rng)
 {
     return ScopedL2ToL1Message{
-        .message = L2ToL1Message{ .recipient = generate_random_field(rng), .content = generate_random_field(rng) },
+        .message =
+            L2ToL1Message{ .recipient = generate_random_eth_address(rng), .content = generate_random_field(rng) },
         .contract_address = generate_random_field(rng),
     };
 }
@@ -57,7 +59,7 @@ void mutate_l2_to_l1_msg(ScopedL2ToL1Message& msg, std::mt19937_64& rng)
     switch (choice) {
     case 0:
         // Mutate recipient
-        msg.message.recipient = generate_random_field(rng);
+        msg.message.recipient = generate_random_eth_address(rng);
         break;
     case 1:
         // Mutate content

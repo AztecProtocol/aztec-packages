@@ -26,7 +26,7 @@ The core Aztec library required for every Aztec.nr smart contract.
 ### Protocol Types
 
 ```toml
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-protocol-circuits/crates/types"}
+protocol = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-protocol-circuits/crates/types"}
 ```
 
 Contains types used in the Aztec protocol (addresses, constants, hashes, etc.).

@@ -64,14 +64,10 @@ fn extra_read_request_beyond_claimed_length() {
     let index_22 = builder.add_read_request(22);
     let read_request_22 = builder.read_requests.array[index_22];
 
-    // Change the claimed length to be 1, making the last read request irrelevant.
-    // But it will be propagated, to the same index as the rest of the empty read requests, which should fail.
+    // Change the claimed length to be 1, making the second read request (22) irrelevant.
     builder.read_requests.length = 1;
-
-    builder.build_propagated_read_requests();
-
-    assert_eq(builder.propagated_read_requests.length, 0);
-    assert_array_eq(builder.propagated_read_requests.array, [read_request_22]);
+    // Propagate it to the output at the new claimed length, where all un-validated read requests will be compared to.
+    builder.propagated_read_requests.array[0] = read_request_22;
 
     builder.validate();
 }
@@ -82,33 +78,25 @@ fn extra_identical_read_requests_beyond_claimed_length() {
 
     builder.add_pending_read(1);
 
-    let index_11 = builder.add_read_request(11);
-    let read_request_11 = builder.read_requests.array[index_11];
+    // Add a read request without hints.
+    let index_22 = builder.add_read_request(22);
+    let read_request_22 = builder.read_requests.array[index_22];
 
-    builder.add_settled_read(2);
-
-    let claimed_length = builder.read_requests.length;
-
-    // Fill the read requests array with the same dummy read request.
-    let mut dummy_read_request = read_request_11;
-    dummy_read_request.inner.inner = 9999;
-    for i in claimed_length..builder.read_requests.array.len() {
-        builder.read_requests.array[i] = dummy_read_request;
+    // Fill the read requests array with the same read request.
+    for i in 2..builder.read_requests.array.len() {
+        builder.read_requests.array[i] = read_request_22;
     }
 
-    // The claimed length doesn't change, making all dummy read requests irrelevant.
-    assert_eq(builder.read_requests.length, claimed_length);
-
-    builder.build_propagated_read_requests();
+    // Change the claimed length to be 1, making all read requests except the first one irrelevant.
+    builder.read_requests.length = 1;
+    // Propagate it to the output at the new claimed length, where the un-validated read requests will be compared to.
+    builder.propagated_read_requests.array[0] = read_request_22;
 
     builder.validate();
 
-    // The dummy read request is propagated. But the claimed length is correctly set to 1.
-    assert_eq(builder.propagated_read_requests.length, 1);
-    assert_array_eq(
-        builder.propagated_read_requests.array,
-        [read_request_11, dummy_read_request],
-    );
+    // The dummy read request is propagated. But the claimed length is correctly set to 0.
+    assert_eq(builder.propagated_read_requests.length, 0);
+    assert_array_eq(builder.propagated_read_requests.array, [read_request_22]);
 }
 
 #[test(should_fail_with = "Incorrect propagated read requests length")]

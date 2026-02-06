@@ -1,13 +1,11 @@
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 
 import type { Hex } from 'viem';
 import type { ZodSchema } from 'zod';
 
 import { callTraceSchema } from './debug_tx.js';
 import { traceTransactionResponseSchema } from './trace_tx.js';
-
-const logger = createLogger('aztec:archiver:validate_trace');
 
 /**
  * Helper function to test a trace method with validation
@@ -17,6 +15,7 @@ const logger = createLogger('aztec:archiver:validate_trace');
  * @param schema - Zod schema to validate the response
  * @param method - Name of the RPC method ('debug_traceTransaction' or 'trace_transaction')
  * @param blockType - Type of block being tested ('recent' or 'old')
+ * @param logger - Logger instance
  * @returns true if the method works and validation passes, false otherwise
  */
 async function testTraceMethod(
@@ -25,6 +24,7 @@ async function testTraceMethod(
   schema: ZodSchema,
   method: 'debug_traceTransaction' | 'trace_transaction',
   blockType: string,
+  logger: Logger,
 ): Promise<boolean> {
   try {
     // Make request with appropriate params based on method name
@@ -59,9 +59,14 @@ export interface TraceAvailability {
  * Validates the availability of debug/trace methods on the Ethereum client.
  *
  * @param client - The Viem public debug client
+ * @param bindings - Optional logger bindings for context
  * @returns Object indicating which trace methods are available for recent and old blocks
  */
-export async function validateTraceAvailability(client: ViemPublicDebugClient): Promise<TraceAvailability> {
+export async function validateTraceAvailability(
+  client: ViemPublicDebugClient,
+  bindings?: LoggerBindings,
+): Promise<TraceAvailability> {
+  const logger = createLogger('archiver:validate_trace', bindings);
   const result: TraceAvailability = {
     debugTraceRecent: false,
     traceTransactionRecent: false,
@@ -95,6 +100,7 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
       callTraceSchema,
       'debug_traceTransaction',
       'recent',
+      logger,
     );
 
     // Test trace_transaction with recent block
@@ -104,6 +110,7 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
       traceTransactionResponseSchema,
       'trace_transaction',
       'recent',
+      logger,
     );
 
     // Get a block from 512 blocks ago
@@ -132,7 +139,14 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
     const oldTxHash = oldBlock.transactions[0] as Hex;
 
     // Test debug_traceTransaction with old block
-    result.debugTraceOld = await testTraceMethod(client, oldTxHash, callTraceSchema, 'debug_traceTransaction', 'old');
+    result.debugTraceOld = await testTraceMethod(
+      client,
+      oldTxHash,
+      callTraceSchema,
+      'debug_traceTransaction',
+      'old',
+      logger,
+    );
 
     // Test trace_transaction with old block
     result.traceTransactionOld = await testTraceMethod(
@@ -141,6 +155,7 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
       traceTransactionResponseSchema,
       'trace_transaction',
       'old',
+      logger,
     );
   } catch (error) {
     logger.warn(`Error validating debug_traceTransaction and trace_transaction availability: ${error}`);
@@ -159,15 +174,18 @@ function hasTxs(block: { transactions?: Hex[] }): boolean {
  *
  * @param client - The Viem public debug client
  * @param ethereumAllowNoDebugHosts - If false, throws an error when no trace methods are available
+ * @param bindings - Optional logger bindings for context
  * @throws Error if ethereumAllowNoDebugHosts is false and no trace methods are available
  */
 export async function validateAndLogTraceAvailability(
   client: ViemPublicDebugClient,
   ethereumAllowNoDebugHosts: boolean,
+  bindings?: LoggerBindings,
 ): Promise<void> {
+  const logger = createLogger('archiver:validate_trace', bindings);
   logger.debug('Validating trace/debug method availability...');
 
-  const availability = await validateTraceAvailability(client);
+  const availability = await validateTraceAvailability(client, bindings);
 
   // Check if we have support for old blocks (either debug or trace)
   const hasOldBlockSupport = availability.debugTraceOld || availability.traceTransactionOld;

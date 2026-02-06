@@ -326,6 +326,7 @@ void ExecutionTraceBuilder::process(
             row,
             { {
                 { C::execution_sel, 1 },
+                { C::execution_clk, row },
                 // Selectors that indicate "dispatch" from tx trace
                 // Note: Enqueued Call End is determined during the opcode execution temporality group
                 { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
@@ -660,10 +661,16 @@ void ExecutionTraceBuilder::process(
                 uint32_t remaining_l2_to_l1_msgs =
                     MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
 
+                FF recipient = registers[0].as<FF>();
+                bool sel_too_large_recipient_error =
+                    static_cast<uint256_t>(recipient) > static_cast<uint256_t>(MAX_ETH_ADDRESS_VALUE);
+
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
                                 remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
+                              { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
+                              { C::execution_sel_too_large_recipient_error, sel_too_large_recipient_error },
                               { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !is_discarding() },
                               {
                                   C::execution_public_inputs_index,
@@ -1124,7 +1131,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution specification (precomputed)
-        .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByRow>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
@@ -1142,13 +1149,13 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<perm_internal_call_push_call_stack_settings, InteractionType::Permutation>()
         .add<lookup_internal_call_unwind_call_stack_settings, InteractionType::LookupGeneric>()
         // Gas
-        .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupIntoIndexedByRow>()
         // Gas - ToRadix BE
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Dynamic Gas - SStore
         .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
@@ -1160,9 +1167,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_external_call_is_l2_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_external_call_is_da_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // GetEnvVar opcode
-        .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByRow>()
         // Sload opcode (cannot be sequential as public data tree check trace is sorted in tracegen)
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
         // Sstore opcode
@@ -1181,7 +1188,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             C::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
         // SendL2ToL1Msg
-        .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_send_l2_to_l1_msg_recipient_check_settings, InteractionType::LookupGeneric>()
+        .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
         // Dispatching to other sub-traces
         .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dispatch_to_bitwise_settings, InteractionType::LookupGeneric>()

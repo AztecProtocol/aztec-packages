@@ -46,10 +46,14 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
 
         if (constraint.proof_type == HONK_ZK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
+                                                                                                          constraint);
         } else if (constraint.proof_type == HONK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
+                                                                                                          constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
         } else {
@@ -101,14 +105,19 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
 
         if (constraint.proof_type == HONK_ZK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == HONK) {
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
+            // Use UltraRecursiveFlavor with RollupIO for rollup proofs (IO determines IPA handling)
             honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(builder,
-                                                                                                    constraint);
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                  stdlib::recursion::honk::RollupIO>(builder, constraint);
         } else {
             bb::assert_failure("Invalid Honk proof type");
         }

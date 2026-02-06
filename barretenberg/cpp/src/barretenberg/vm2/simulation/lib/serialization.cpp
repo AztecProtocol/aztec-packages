@@ -131,7 +131,8 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
         { WireOpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
         // Side Effects - Public Storage
-        { WireOpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::SLOAD,
+          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
         { WireOpCode::SSTORE, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
         // Side Effects - Notes, Nullfiers, Logs, Messages
         { WireOpCode::NOTEHASHEXISTS,
@@ -142,8 +143,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
               OperandType::INDIRECT8,
               OperandType::UINT16,
           } },
-        { WireOpCode::NULLIFIEREXISTS,
-          { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+        { WireOpCode::NULLIFIEREXISTS, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
         { WireOpCode::EMITNULLIFIER,
           {
               OperandType::INDIRECT8,

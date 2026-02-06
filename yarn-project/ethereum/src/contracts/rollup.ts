@@ -108,7 +108,7 @@ export enum AttesterStatus {
 export type FeeHeader = {
   excessMana: bigint;
   manaUsed: bigint;
-  feeAssetPriceNumerator: bigint;
+  ethPerFeeAsset: bigint;
   congestionCost: bigint;
   proverCost: bigint;
 };
@@ -515,8 +515,8 @@ export class RollupContract {
     };
   }
 
-  getFeeAssetPerEth(): Promise<bigint> {
-    return this.rollup.read.getFeeAssetPerEth();
+  getEthPerFeeAsset(): Promise<bigint> {
+    return this.rollup.read.getEthPerFeeAsset();
   }
 
   async getCommitteeAt(timestamp: bigint): Promise<EthAddress[] | undefined> {
@@ -601,7 +601,7 @@ export class RollupContract {
       feeHeader: {
         excessMana: result.feeHeader.excessMana,
         manaUsed: result.feeHeader.manaUsed,
-        feeAssetPriceNumerator: result.feeHeader.feeAssetPriceNumerator,
+        ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
         congestionCost: result.feeHeader.congestionCost,
         proverCost: result.feeHeader.proverCost,
       },
@@ -805,6 +805,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateBadAttestation',
@@ -826,6 +827,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateInsufficientAttestations',
@@ -959,6 +961,7 @@ export class RollupContract {
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'setupEpoch',
@@ -970,6 +973,7 @@ export class RollupContract {
   vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'vote',

@@ -49,7 +49,7 @@ import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  L2BlockNew,
+  L2Block,
   type L2Tips,
   Signature,
 } from '@aztec/stdlib/block';
@@ -122,7 +122,7 @@ describe('L1Publisher integration', () => {
   let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiverDataSource>;
-  let blocks: L2BlockNew[] = [];
+  let blocks: L2Block[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
 
@@ -186,31 +186,18 @@ describe('L1Publisher integration', () => {
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
     blockSource = mock<ArchiverDataSource>({
-      getBlocks(from, limit, _proven) {
+      getBlocks(from, limit) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
-      getPublishedBlocks(from, limit, _proven) {
-        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
-        return Promise.all(
-          slicedBlocks.map(async block =>
-            CheckpointedL2Block.fromFields({
-              checkpointNumber: CheckpointNumber(block.number),
-              attestations: [],
-              block,
-              // Use L2 block number and hash for faking the L1 info
-              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
-            }),
-          ),
-        );
-      },
       // Methods needed by L2BlockStream for world state sync
-      getCheckpointedBlocks(from, limit, _proven) {
+      getCheckpointedBlocks(from, limit) {
         const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
         return Promise.all(
           slicedBlocks.map(
             async block =>
               new CheckpointedL2Block(
-                CheckpointNumber(block.number),
+                // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
+                CheckpointNumber.fromBlockNumber(block.number),
                 block,
                 new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
                 [],
@@ -218,7 +205,8 @@ describe('L1Publisher integration', () => {
           ),
         );
       },
-      async getPublishedCheckpoints(checkpointNumber, _limit) {
+      async getCheckpoints(checkpointNumber, _limit) {
+        // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);
@@ -227,7 +215,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          CheckpointNumber(block.number),
+          checkpointNumber,
         );
         return [
           new PublishedCheckpoint(
@@ -242,9 +230,10 @@ describe('L1Publisher integration', () => {
         const blockId = latestBlock
           ? { number: latestBlock.number, hash: (await latestBlock.hash()).toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+        // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
         const tipId = {
           block: blockId,
-          checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+          checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
         return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
@@ -259,7 +248,6 @@ describe('L1Publisher integration', () => {
 
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
-      worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
@@ -367,6 +355,7 @@ describe('L1Publisher integration', () => {
       gasFees: globalVariables.gasFees,
     };
 
+    // Test uses 1-block-per-checkpoint
     const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
@@ -480,6 +469,7 @@ describe('L1Publisher integration', () => {
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
+          checkpoint.header,
           block,
           l1ToL2Content,
           blockBlobs,
@@ -505,7 +495,7 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
-        const thisCheckpointNumber = CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber);
+        const thisCheckpointNumber = checkpoint.number;
         const prevCheckpointNumber = CheckpointNumber(thisCheckpointNumber - 1);
         const isFirstCheckpointOfEpoch =
           thisCheckpointNumber == CheckpointNumber(1) ||
@@ -909,7 +899,6 @@ describe('L1Publisher integration', () => {
 
     it(`speeds up block proposal if not mined`, async () => {
       const { checkpoint } = await buildSingleCheckpoint();
-      const block = checkpoint.blocks[0];
       await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
@@ -939,7 +928,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint.number);
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -992,8 +981,8 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
-      const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint2.number);
+      const rollupBlock = await rollup.getCheckpoint(checkpoint2.number);
       expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });

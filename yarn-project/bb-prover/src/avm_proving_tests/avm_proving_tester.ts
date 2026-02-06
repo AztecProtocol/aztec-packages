@@ -44,6 +44,10 @@ class InterceptingLogger implements Logger {
     throw new Error('Not implemented');
   }
 
+  getBindings() {
+    return this.logger.getBindings();
+  }
+
   private intercept(level: LogLevel, msg: string, ...args: any[]) {
     this.logs.push(...msg.split('\n'));
     // Forward to the wrapped logger

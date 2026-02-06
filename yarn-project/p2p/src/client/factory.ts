@@ -21,6 +21,7 @@ import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
@@ -62,15 +63,11 @@ export async function createP2PClient<T extends P2PClientType>(
     );
   }
 
-  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
-  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
-  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));
-  const attestationStore = await createStore(
-    P2P_ATTESTATION_STORE_NAME,
-    1,
-    config,
-    createLogger('p2p-attestation:lmdb-v2'),
-  );
+  const bindings = logger.getBindings();
+  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
+  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
+  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
+  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
   const mempools: MemPools = {
@@ -110,7 +107,7 @@ export async function createP2PClient<T extends P2PClientType>(
   }
 
   const txCollection = new TxCollection(
-    p2pService,
+    p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,
@@ -120,6 +117,8 @@ export async function createP2PClient<T extends P2PClientType>(
     logger.createChild('tx-collection'),
   );
 
+  const txFileStore = await TxFileStore.create(mempools.txPool, config, logger.createChild('tx-file-store'), telemetry);
+
   return new P2PClient(
     clientType,
     store,
@@ -127,6 +126,7 @@ export async function createP2PClient<T extends P2PClientType>(
     mempools,
     p2pService,
     txCollection,
+    txFileStore,
     config,
     dateProvider,
     telemetry,

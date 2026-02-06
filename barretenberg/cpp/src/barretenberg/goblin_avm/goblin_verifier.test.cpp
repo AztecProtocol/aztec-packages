@@ -16,13 +16,13 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = GoblinAvm::ECCVMVerificationKey;
     using TranslatorVK = GoblinAvm::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraRollupFlavor;
+    using OuterFlavor = UltraFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
+    using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using Commitment = UltraRollupFlavor::Commitment;
+    using Commitment = UltraFlavor::Commitment;
     using RecursiveCommitment = bb::GoblinAvmRecursiveVerifier::Commitment;
 
     using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;
@@ -223,10 +223,7 @@ TEST_F(GoblinAvmRecursiveVerifierTests, TranslatorFailure)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that the pairing fails natively
-        bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
-            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
-        bool pairing_result = native_pairing_points.check();
+        bool pairing_result = goblin_rec_verifier_output.translator_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }
     // Tamper with the Translator proof non - preamble values

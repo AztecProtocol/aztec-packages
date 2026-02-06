@@ -1,5 +1,12 @@
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  enumConfigHelper,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/api-limit';
+
+export type MissingTxsCollectorType = 'new' | 'old';
 
 export type TxCollectionConfig = {
   /** How long to wait before starting reqresp for fast collection  */
@@ -22,6 +29,8 @@ export type TxCollectionConfig = {
   txCollectionFastMaxParallelRequestsPerNode: number;
   /** Maximum number of transactions to request from a node in a single batch */
   txCollectionNodeRpcMaxBatchSize: number;
+  /** Which collector implementation to use for missing txs collection */
+  txCollectionMissingTxsCollectorType: MissingTxsCollectorType;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -80,5 +89,10 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     env: 'TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE',
     description: 'Maximum number of transactions to request from a node in a single batch',
     ...numberConfigHelper(MAX_RPC_TXS_LEN),
+  },
+  txCollectionMissingTxsCollectorType: {
+    env: 'TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE',
+    description: 'Which collector implementation to use for missing txs collection (new or old)',
+    ...enumConfigHelper(['new', 'old'] as const, 'new'),
   },
 };

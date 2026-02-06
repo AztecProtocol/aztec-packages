@@ -87,7 +87,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       this.packageVersion,
     ));
 
-    const metricsRegistry = new OtelMetricsAdapter(telemetry);
+    const metricsRegistry = new OtelMetricsAdapter(telemetry, this.logger.getBindings());
     this.discv5 = Discv5.create({
       enr: this.enr,
       peerId,

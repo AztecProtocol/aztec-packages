@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BatchedBlob, Blob, getEthBlobEvaluationInputs, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { writeFile } from 'fs/promises';
@@ -15,7 +15,8 @@ const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
  */
 export async function writeJson(
   fileName: string,
-  block: L2BlockNew,
+  checkpointHeader: CheckpointHeader,
+  block: L2Block,
   l1ToL2Content: Fr[],
   blobs: Blob[],
   batchedBlob: BatchedBlob,
@@ -32,12 +33,6 @@ export async function writeJson(
     const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
     return `0x${buffer.toString('hex').padStart(size, '0')}`;
   };
-
-  // Create a checkpoint header for this block
-  const checkpointHeader = CheckpointHeader.random({
-    slotNumber: block.slot,
-    timestamp: block.timestamp,
-  });
 
   const jsonObject = {
     populate: {

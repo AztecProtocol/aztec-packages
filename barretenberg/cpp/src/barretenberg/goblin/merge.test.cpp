@@ -40,7 +40,6 @@ template <typename Curve> class MergeTests : public testing::Test {
     using TableCommitments = typename MergeVerifierType::TableCommitments;
     using InputCommitments = typename MergeVerifierType::InputCommitments;
     using Proof = typename MergeVerifierType::Proof;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
@@ -198,9 +197,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
-        VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
-                                                                   to_native(result.pairing_points.P1));
+        bool pairing_verified = result.pairing_points.check();
         bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 
@@ -515,7 +512,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // Catch the exception and verify it's the expected cross-transcript error
 #ifndef NDEBUG
     EXPECT_THROW_WITH_MESSAGE([[maybe_unused]] auto result =
-                                  verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
+                                  verifier_2.reduce_to_pairing_check(proof_2_recursive, input_commitments_1),
                               "Tags from different transcripts were involved in the same computation");
 #endif
 }
@@ -546,29 +543,25 @@ class MergeTranscriptTests : public ::testing::Test {
 
         size_t round = 0;
 
-        // Round 0: Prover sends shift_size and merged table commitments
+        // Round 0: Prover sends shift_size and merged table commitments, gets degree check challenges
         manifest_expected.add_entry(round, "shift_size", frs_per_uint32);
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             manifest_expected.add_entry(round, "MERGED_TABLE_" + std::to_string(idx), frs_per_G);
         }
-        // Verifier generates degree check challenges
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_0");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_1");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_2");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_3");
 
-        // Round 1: Verifier generates Shplonk batching challenges, Prover sends degree check polynomial commitment
+        // Round 1: Batching challenges + kappa, then send batched polynomial commitment
         round++;
         for (size_t idx = 0; idx < 13; ++idx) {
             manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
         }
+        manifest_expected.add_challenge(round, "kappa");
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES", frs_per_G);
 
-        // Round 2: Verifier generates evaluation challenge kappa
-        round++;
-        manifest_expected.add_challenge(round, "kappa");
-
-        // Round 3: Verifier generates Shplonk opening challenge, Prover sends all evaluations and quotient
+        // Round 2: Shplonk opening challenge, then send all evaluations and quotient
         round++;
         manifest_expected.add_challenge(round, "shplonk_opening_challenge");
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -583,7 +576,7 @@ class MergeTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
         manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
 
-        // Round 4: KZG opening proof with masking challenge
+        // Round 3: KZG masking challenge, then send W commitment
         round++;
         manifest_expected.add_challenge(round, "KZG:masking_challenge");
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);

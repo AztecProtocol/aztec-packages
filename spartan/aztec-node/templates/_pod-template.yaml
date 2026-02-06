@@ -1,4 +1,7 @@
 {{- define "chart.podTemplate" }}
+{{- $repo := .Values.global.aztecImage.repository | required ".Values.global.aztecImage.repository is required" }}
+{{- $tag := .Values.global.aztecImage.tag | required ".Values.global.aztecImage.tag is required" }}
+{{- $image := printf "%s:%s" $repo $tag }}
 metadata:
   labels:
     {{- include "chart.selectorLabels" . | nindent 4 }}
@@ -71,7 +74,7 @@ spec:
   {{- end }}
   containers:
     - name: aztec
-      image: "{{ .Values.global.aztecImage.repository }}:{{ .Values.global.aztecImage.tag | default .Chart.AppVersion }}"
+      image: {{ $image }}
       imagePullPolicy: {{ .Values.global.aztecImage.pullPolicy }}
       command:
         - /bin/bash

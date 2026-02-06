@@ -2,7 +2,7 @@ import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } f
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import type { L2BlockNew } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ForkMerkleTreeOperations,
   MerkleTreeReadOperations,
@@ -45,7 +45,7 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, Reado
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state

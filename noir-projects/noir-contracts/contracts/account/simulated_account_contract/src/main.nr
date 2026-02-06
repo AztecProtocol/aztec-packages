@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 // in a simulation. This avoids the need of generating real signatures during simulation.
 // It will also consider all authwits sent to it as valid and emit the hash in an offchain effect
 // for later verification. In order to properly mimic our account contract it imports the PublickKeyNote
-// struct so the #[aztec] macro can generate a `sync_private_state` implementation that can process the *real*
+// struct so the #[aztec] macro can generate a `sync_state` implementation that can process the *real*
 // public key of the overridden contract
 #[aztec]
 pub contract SimulatedAccount {
@@ -39,9 +39,14 @@ pub contract SimulatedAccount {
         true
     }
 
-    /// Since this contract normally emulates an account that uses a note to store the public key,
-    /// we completely bypass message discovery here to avoid losing time on useless processing
-    /// and also enabling the emulation of different accounts with differently sized public key notes.
+    // This contract override exists solely to enable simulation without requiring users to sign anything. Therefore,
+    // this function should never be called - this contract should never be used to sync the state of the original
+    // contract! Doing so could result in an undefined behavior.
     #[external("utility")]
-    unconstrained fn sync_private_state() {}
+    unconstrained fn sync_state() {
+        assert(
+            false,
+            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
+        );
+    }
 }

@@ -337,6 +337,20 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_BLOCK_DURATION_MS" {
+  description = "Duration per block in milliseconds when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
+  description = "Have sequencer build and publish an empty checkpoint if there are no txs"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
@@ -560,6 +574,19 @@ variable "PROVER_FAILED_PROOF_STORE" {
   type        = string
   nullable    = false
   default     = ""
+}
+
+variable "PROVER_PROOF_STORE" {
+  description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "PROVER_BROKER_DEBUG_REPLAY_ENABLED" {
+  description = "Enable debug replay mode for the prover broker to replay proving jobs from stored inputs"
+  type        = bool
+  default     = false
 }
 
 variable "RPC_REPLICAS" {

@@ -84,7 +84,7 @@ describe('e2e_local_network_example', () => {
     // We will now transfer tokens from ALice to Bob
     const transferQuantity = 543n;
     logger.info(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-    await tokenContract.methods.transfer(bob, transferQuantity).send({ from: alice }).wait();
+    await tokenContract.methods.transfer(bob, transferQuantity).send({ from: alice });
 
     // Check the new balances
     aliceBalance = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice });
@@ -101,7 +101,7 @@ describe('e2e_local_network_example', () => {
     // Now mint some further funds for Bob
 
     // Alice is nice and she adds Bob as a minter
-    await tokenContract.methods.set_minter(bob, true).send({ from: alice }).wait();
+    await tokenContract.methods.set_minter(bob, true).send({ from: alice });
 
     const mintQuantity = 10_000n;
     await mintTokensToPrivate(tokenContract, bob, bob, mintQuantity);
@@ -144,7 +144,7 @@ describe('e2e_local_network_example', () => {
       return await Promise.all(
         accountManagers.map(async x => {
           const deployMethod = await x.getDeployMethod();
-          await deployMethod.send({ from: fundedAccount }).wait();
+          await deployMethod.send({ from: fundedAccount });
           return x;
         }),
       );
@@ -176,7 +176,7 @@ describe('e2e_local_network_example', () => {
     const bananaCoinAddress = await registerDeployedBananaCoinInWalletAndGetAddress(wallet);
     const bananaCoin = TokenContract.at(bananaCoinAddress, wallet);
     const mintAmount = 10n ** 20n;
-    await bananaCoin.methods.mint_to_private(alice, mintAmount).send({ from: fundedAccount }).wait();
+    await bananaCoin.methods.mint_to_private(alice, mintAmount).send({ from: fundedAccount });
 
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
@@ -189,8 +189,7 @@ describe('e2e_local_network_example', () => {
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const receiptForAlice = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)
-      .send({ from: alice, fee: { paymentMethod } })
-      .wait();
+      .send({ from: alice, fee: { paymentMethod } });
     // docs:end:private_fpc_payment
     const transactionFee = receiptForAlice.transactionFee!;
     logger.info(`Transaction fee: ${transactionFee}`);
@@ -216,8 +215,7 @@ describe('e2e_local_network_example', () => {
 
     const receiptForBob = await bananaCoin.methods
       .transfer(alice, amountTransferToAlice)
-      .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } })
-      .wait();
+      .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } });
     // docs:end:sponsored_fpc_payment
     // Check the balances
     const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });

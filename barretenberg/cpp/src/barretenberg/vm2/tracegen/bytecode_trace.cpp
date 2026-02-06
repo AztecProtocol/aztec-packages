@@ -162,6 +162,7 @@ void BytecodeTraceBuilder::process_hashing(
         const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
         std::vector<FF> fields = { DOM_SEP__PUBLIC_BYTECODE };
+        fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
         FF output_hash = Poseidon2::hash(fields);
@@ -445,7 +446,7 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
-        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<InteractionType::MultiPermutation,
              perm_bc_hashing_get_packed_field_0_settings,
              perm_bc_hashing_get_packed_field_1_settings,
@@ -453,9 +454,9 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

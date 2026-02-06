@@ -460,7 +460,7 @@ TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
-                  { C::precomputed_clk, ghost_row },
+                  { C::execution_clk, ghost_row },
                   { C::get_contract_instance_sel, 0 },
                   { C::get_contract_instance_is_valid_member_enum, 1 },
                   { C::get_contract_instance_is_valid_writes_in_bounds, 1 },

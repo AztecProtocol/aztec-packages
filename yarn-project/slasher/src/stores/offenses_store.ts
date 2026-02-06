@@ -76,9 +76,11 @@ export class SlasherOffensesStore {
   /** Adds a new offense (defaults to pending, but will be slashed if markAsSlashed had been called for it) */
   public async addPendingOffense(offense: Offense): Promise<void> {
     const key = this.getOffenseKey(offense);
-    await this.offenses.set(key, serializeOffense(offense));
     const round = getRoundForOffense(offense, this.settings);
-    await this.roundsOffenses.set(this.getRoundKey(round), key);
+    await this.kvStore.transactionAsync(async () => {
+      await this.offenses.set(key, serializeOffense(offense));
+      await this.roundsOffenses.set(this.getRoundKey(round), key);
+    });
     this.log.trace(`Adding pending offense ${key} for round ${round}`);
   }
 

@@ -28,7 +28,7 @@ pub contract Test {
             PublicImmutable,
         },
         // Protocol types and constants
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -36,10 +36,8 @@ pub contract Test {
         },
         // Event related
         messages::message_delivery::MessageDelivery,
-        // Hashing
-        hash::pedersen_hash,
         // History and inclusion proofs
-        history::note_inclusion::ProveNoteInclusion,
+        history::note::assert_note_existed_by,
         // Key management
         keys::getters::get_public_keys,
         // Macros
@@ -51,6 +49,7 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
+    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -83,7 +82,9 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
+        // docs:start:private_immutable
         note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        // docs:end:private_immutable
         struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
         note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
         struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
@@ -262,7 +263,7 @@ pub contract Test {
         };
 
         let header = self.context.get_anchor_block_header();
-        let _ = header.prove_note_inclusion(hinted_note);
+        let _ = assert_note_existed_by(header, hinted_note);
     }
 
     #[external("private")]
@@ -427,7 +428,7 @@ pub contract Test {
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash], 0)
+            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
         }
     }
 

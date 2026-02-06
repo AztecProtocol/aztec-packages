@@ -14,6 +14,7 @@ function run {
   echo "Running test $name..."
   docker run --rm ${args:-} \
     -e FORCE_COLOR=1 \
+    -e CI=1 \
     --name $name \
     --tmpfs /home/ubuntu/.nvm:exec,size=4g \
     --tmpfs /home/ubuntu/.npm:exec,size=2g \

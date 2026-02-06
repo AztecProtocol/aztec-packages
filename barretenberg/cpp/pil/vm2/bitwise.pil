@@ -2,6 +2,44 @@ include "precomputed.pil";
 include "constants_gen.pil";
 
 /**
+ * ==============================
+ * INVOCATION WITH ERROR HANDLING
+ * ==============================
+ * Used by execution dispatch #[DISPATCH_TO_BITWISE] in execution.pil for bitwise opcodes
+ * and reads back the tag error flag.
+ *
+ * sel_exec_dispatch_bitwise {
+ *    subtrace_operation_id, sel_opcode_error,
+ *    register[0], mem_tag_reg[0],
+ *    register[1], mem_tag_reg[1],
+ *    register[2], mem_tag_reg[2]
+ * } in bitwise.start {
+ *    bitwise.op_id, bitwise.err,
+ *    bitwise.acc_ia, bitwise.tag_a,
+ *    bitwise.acc_ib, bitwise.tag_b,
+ *    bitwise.acc_ic, bitwise.tag_c
+ * };
+ *
+ * =================================
+ * INVOCATION WITHOUT ERROR HANDLING
+ * =================================
+ *
+ * Used by both `keccakf1600.pil` and `sha256.pil` sub-traces using their respective selectors:
+ * `start_keccak` and `start_sha256`. It assumes that the bitwise operation is always performed
+ * as tags of both inputs are known to be valid. Therefore, there is no error handling. However,
+ * tracegen still needs to populate the trace to satisfy the constraints related to error handling.
+ *
+ * Usage is of the form:
+ *
+ * sel_XXX { a, b, c, xor_sel, tag_a }
+ * in
+ * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+ *
+ * where start_XXX is either start_keccak or start_sha256.
+ * Note that the order of the tuple columns might differ though. As long as the correct columns
+ * are passed, the usage is sound.
+ *
+ *
  * The bitwise trace performs AND/OR/XOR operations on non-FF types. It does
  * this by decomposing the inputs into 8-bit chunks and looks up the resulting
  * chunk of the operation in the precomputed bitwise table. The final output is
@@ -60,6 +98,14 @@ start_keccak * (1 - start_keccak) = 0;
 start_sha256 * (1 - start_sha256) = 0;
 // If any of the above selectors is 1, then start must be 1.
 (start_keccak + start_sha256) * (1 - start) = 0;
+
+// Crucial constraint to prevent the vulnerability described in PR #19875 consisting
+// of maliciously setting start=1 on inactive rows (sel=0) by toggling an error
+// and forging in any bitwise operation result.
+#[BITW_START_ONLY_WHEN_SEL]
+(start_keccak + start_sha256) * (1 - sel) = 0;
+// Note: the more general `start * (1 - sel) = 0` would be too aggressive since error rows
+// legitimately need start=1 with sel=0 for the execution dispatch (#[DISPATCH_TO_BITWISE]).
 
 // To support dynamically sized memory operands we use a counter against a lookup
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
@@ -176,7 +222,7 @@ sel_get_ctr = start * (1 - err);
 #[INTEGRAL_TAG_LENGTH]
 sel_get_ctr { tag_a, ctr }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
 #[BYTE_OPERATIONS]
 sel { op_id, ia_byte, ib_byte, ic_byte }

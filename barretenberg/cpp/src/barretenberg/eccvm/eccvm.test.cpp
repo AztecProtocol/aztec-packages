@@ -144,7 +144,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
 
     const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
+    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation, ECCVMFlavor::ProverPolynomials, true>(
         pk->polynomials, relation_parameters, unmasked_witness_size);
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
 
@@ -278,7 +278,7 @@ TEST_F(ECCVMTests, ProofLengthCheck)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     auto [proof, opening_claim] = prover.construct_proof();
-    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
 }
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)

@@ -28,53 +28,83 @@ function get_projects {
 
 function format {
   local arg="-w"
-  local package=""
-  local pattern="./*/src"
+  local packages=()
 
-  # Check if first arg is a format option
-  if [ "${1:-}" == "--check" ]; then
-    arg="--check"
-    shift 1
-  elif [ "${1:-}" == "-w" ] || [ "${1:-}" == "--write" ]; then
-    arg="-w"
-    shift 1
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg="--check"
+        ;;
+      -w|--write)
+        arg="-w"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Build the paths array to search
+  local paths=()
+  if [ ${#packages[@]} -eq 0 ]; then
+    paths=(./*/src)
+  else
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+      paths+=("./$pkg/src")
+    done
   fi
 
-  # Check if next arg is a package name (doesn't start with -)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    pattern="./$package/src"
-  fi
-
-  find $pattern -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' 2>/dev/null | \
+  find "${paths[@]}" -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
     parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {
   local arg="--fix"
-  local package=""
+  local packages=()
 
-  # Check if first arg is a lint option
-  if [ "${1-}" == "--check" ]; then
-    arg=""
-    shift 1
-  elif [ "${1-}" == "--fix" ]; then
-    arg="--fix"
-    shift 1
-  fi
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg=""
+        ;;
+      --fix)
+        arg="--fix"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
 
-  # Check if next arg is a package name (and not empty)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    shift 1
-  fi
-
-  if [ -n "$package" ]; then
-    # Lint single package
-    cd "$package" && ../node_modules/.bin/eslint "$@" --cache $arg ./src
+  if [ ${#packages[@]} -gt 0 ]; then
+    # Validate packages exist
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+    done
+    # Lint specified packages in parallel (use at most half of CPU cores)
+    printf '%s\n' "${packages[@]}" | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   else
-    # Lint all packages
-    get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+    # Lint all packages in parallel (use at most half of CPU cores)
+    get_projects | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   fi
 }
 
@@ -191,9 +221,6 @@ function test_cmds {
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
 
-  # Test the tsc.sh build script
-  echo "$hash yarn-project/scripts/tsc.test.sh"
-
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
@@ -211,6 +238,8 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
@@ -219,6 +248,14 @@ function bench_cmds {
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
+
+  # Strip platform-specific solc binary from l1-artifacts before npm publish.
+  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
+  # the correct binary via SVM on the end-user's machine.
+  local l1_artifacts="l1-artifacts/l1-contracts"
+  rm -f "$l1_artifacts"/solc-*
+  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1 $2")

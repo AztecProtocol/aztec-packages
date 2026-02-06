@@ -20,7 +20,7 @@ import { IndexedDBAztecSingleton } from './singleton.js';
 export type StoredData<V extends Value> = {
   value: V;
   container: string;
-  key: string;
+  key: (string | number | Uint8Array)[];
   keyCount: number;
   slot: string;
   hash: string;
@@ -30,7 +30,12 @@ export interface AztecIDBSchema extends DBSchema {
   data: {
     value: StoredData<any>;
     key: string;
-    indexes: { container: string; key: string; keyCount: number; hash: string };
+    indexes: {
+      container: string;
+      key: any; // Runtime: (string | number | Uint8Array)[] - idb types don't support arrays
+      keyCount: number;
+      hash: string;
+    };
   };
 }
 
@@ -187,18 +192,20 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /** Deletes this store and removes the database */
-  delete() {
+  async delete() {
     this.#containers.clear();
+    await this.#txQueue.end();
     this.#rootDB.close();
-    return deleteDB(this.#name);
+    await deleteDB(this.#name);
   }
 
   estimateSize(): Promise<StoreSize> {
     return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
   }
 
-  close(): Promise<void> {
-    return Promise.resolve();
+  async close(): Promise<void> {
+    await this.#txQueue.end();
+    this.#rootDB.close();
   }
 
   backupTo(_dstPath: string, _compact?: boolean): Promise<void> {

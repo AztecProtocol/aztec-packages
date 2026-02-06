@@ -190,4 +190,14 @@ void parallel_for(const Func& func)
     });
 }
 
+// Overload that allows specifying the number of threads explicitly while still using ThreadChunk
+template <typename Func>
+    requires std::invocable<Func, ThreadChunk>
+void parallel_for(size_t num_threads, const Func& func)
+{
+    parallel_for(num_threads, [&](size_t thread_index) {
+        func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_threads });
+    });
+}
+
 } // namespace bb

@@ -85,7 +85,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
     {
         uint32_t row = 0;
         // Prepended first row:
-        trace.set(row++, { { { C::precomputed_clk, 0 }, { C::precomputed_first_row, 1 } } });
+        trace.set(row++, { { { C::execution_clk, 0 }, { C::precomputed_first_row, 1 } } });
         // Nullifer, note, and message insertion:
         trace.set(
             row++,
@@ -301,7 +301,9 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
                       { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
                       { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
+                      { C::tx_dom_sep_public_storage_map_slot, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT },
                       { C::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
+                      { C::tx_const_three, 3 },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
                       { C::tx_uint32_max, 0xffffffff },
@@ -445,7 +447,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     auto pub_inputs_col = test_public_inputs.to_columns();
     TestTraceContainer trace({
         // Row 0
-        { { C::precomputed_clk, 0 }, { C::precomputed_first_row, 1 } },
+        { { C::execution_clk, 0 }, { C::precomputed_first_row, 1 } },
 
         // Row 1
         { { C::tx_sel, 1 },

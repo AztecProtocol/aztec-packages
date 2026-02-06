@@ -28,6 +28,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { ReturnDataArray } from '../avm/calldata.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { CheckedPublicExecutionError } from '../public_errors.js';
@@ -152,7 +153,7 @@ describe('public_tx_simulator', () => {
             return Promise.resolve(
               new AvmFinalizedCallResult(
                 /*reverted=*/ false,
-                /*output=*/ [],
+                /*output=*/ new ReturnDataArray([]),
                 /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
               ),
             );
@@ -160,7 +161,7 @@ describe('public_tx_simulator', () => {
             return Promise.resolve(
               new AvmFinalizedCallResult(
                 /*reverted=*/ true,
-                /*output=*/ [],
+                /*output=*/ new ReturnDataArray([]),
                 /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
                 revertReason,
               ),
@@ -242,7 +243,7 @@ describe('public_tx_simulator', () => {
         return Promise.resolve(
           new AvmFinalizedCallResult(
             /*reverted=*/ false,
-            /*output=*/ [],
+            /*output=*/ new ReturnDataArray([]),
             /*gasLeft=*/ allocatedGas.sub(enqueuedCallGasUsed),
             /*revertReason=*/ undefined,
           ),
@@ -483,7 +484,7 @@ describe('public_tx_simulator', () => {
     simulateInternal.mockResolvedValueOnce(
       new AvmFinalizedCallResult(
         /*reverted=*/ true,
-        /*output=*/ [],
+        /*output=*/ new ReturnDataArray([]),
         /*gasLeft=*/ Gas.empty(),
         /*revertReason=*/ setupFailure,
       ),

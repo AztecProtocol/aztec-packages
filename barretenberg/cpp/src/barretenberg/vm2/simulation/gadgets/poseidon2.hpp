@@ -1,14 +1,16 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
 #include <vector>
 
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 
 namespace bb::avm2::simulation {
 

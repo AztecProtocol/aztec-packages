@@ -16,7 +16,7 @@ PRESET=${3:-clang20}
 BUILD_DIR=${4:-build}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
-BASELINE_BRANCH="master"
+BASELINE_BRANCH="${BASELINE_BRANCH:-merge-train/barretenberg}"
 BENCH_TOOLS_DIR="$BUILD_DIR/_deps/benchmark-src/tools"
 
 if [ ! -z "$(git status --untracked-files=no --porcelain)" ]; then

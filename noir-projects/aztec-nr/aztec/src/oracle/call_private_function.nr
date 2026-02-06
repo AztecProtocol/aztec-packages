@@ -1,6 +1,4 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader,
-};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader};
 
 #[oracle(privateCallPrivateFunction)]
 unconstrained fn call_private_function_oracle(

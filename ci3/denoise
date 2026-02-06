@@ -59,7 +59,7 @@ function format_log_output {
   if [ -n "${PARENT_LOG_ID:-}" ]; then
     echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
   fi
-  echo "Command: $cmd"
+  echo "Command: ${DENOISE_DISPLAY_NAME:-$cmd}"
   echo "Date: $(date)"
   echo "Status: $status"
   echo "Took: ${time}"
@@ -94,7 +94,8 @@ fi
 
 # Dot logging.
 set +e
-echo -e "Executing: $cmd ${log_info:-}"
+display_cmd="${DENOISE_DISPLAY_NAME:-$cmd}"
+echo -e "Executing: $display_cmd ${log_info:-}"
 echo -n "   0 "
 tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
   while IFS= read -r line; do

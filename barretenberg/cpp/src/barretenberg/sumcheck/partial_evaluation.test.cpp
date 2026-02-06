@@ -61,7 +61,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
 
     typename Flavor::ProverPolynomials full_polynomials;
     full_polynomials.q_m = f0;
-    auto transcript = Transcript::prover_init_empty();
+    auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1 };
 
@@ -104,7 +104,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     Polynomial f0(4);
     f0.template copy_vector<FF>({ v00, v10, v01, v11 });
 
-    auto transcript = Transcript::prover_init_empty();
+    auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     typename Flavor::ProverPolynomials full_polynomials;
     full_polynomials.q_m = f0;
@@ -175,7 +175,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
 
     typename Flavor::ProverPolynomials full_polynomials;
     full_polynomials.q_m = f0;
-    auto transcript = Transcript::prover_init_empty();
+    auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
 
     std::vector<FF> gate_challenges{ 1, 1, 1 };
@@ -236,7 +236,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     typename Flavor::ProverPolynomials full_polynomials;
     full_polynomials.q_m = f0;
 
-    auto transcript = Transcript::prover_init_empty();
+    auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1, 1 };
 
@@ -309,7 +309,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     full_polynomials.q_m = f0;
     full_polynomials.q_c = f1;
     full_polynomials.q_l = f2;
-    auto transcript = Transcript::prover_init_empty();
+    auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1, 1 };
 

@@ -1,6 +1,6 @@
 use crate::{Orderbook, test::utils::setup};
 use aztec::{
-    protocol_types::{address::AztecAddress, traits::FromField},
+    protocol::{address::AztecAddress, traits::FromField},
     test::helpers::authwit::add_private_authwit_from_call,
 };
 use token::Token;

@@ -23,7 +23,7 @@ class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
     using AvmProver = bb::avm2::AvmProvingHelper;
     using FF = Builder::FF;
 
-    using ProverInstance = ProverInstance_<UltraRollupFlavor>;
+    using ProverInstance = ProverInstance_<UltraFlavor>;
     using IO = bb::stdlib::recursion::honk::RollupIO;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -94,9 +94,9 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     {
         auto prover_instance = std::make_shared<ProverInstance>(builder);
         auto verification_key =
-            std::make_shared<typename UltraRollupFlavor::VerificationKey>(prover_instance->get_precomputed());
-        auto vk_and_hash = std::make_shared<typename UltraRollupFlavor::VKAndHash>(verification_key);
-        UltraProver_<UltraRollupFlavor> prover(prover_instance, verification_key);
+            std::make_shared<typename UltraFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename UltraFlavor::VKAndHash>(verification_key);
+        UltraProver_<UltraFlavor> prover(prover_instance, verification_key);
         UltraRollupVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof).result;
@@ -110,8 +110,7 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
     // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
     // rather than relying solely on them being public outputs.
-    output.points_accumulator.P0.fix_witness();
-    output.points_accumulator.P1.fix_witness();
+    output.points_accumulator.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

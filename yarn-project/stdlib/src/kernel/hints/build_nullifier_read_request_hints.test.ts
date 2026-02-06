@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../../aztec-address/index.js';
+import { siloNullifier } from '../../hash/hash.js';
 import { ClaimedLengthArray } from '../claimed_length_array.js';
 import { Nullifier, type ScopedNullifier } from '../nullifier.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
@@ -20,8 +21,11 @@ describe('buildNullifierReadRequestHints', () => {
 
   const innerNullifier = (index: number) => index + 1;
 
-  const makeReadRequest = (value: number, counter = 2) =>
+  const makePendingReadRequest = (value: number, counter = 2) =>
     new ReadRequest(new Fr(value), counter).scope(contractAddress);
+
+  const makeSettledReadRequest = async (value: number, counter = 2) =>
+    new ReadRequest(await siloNullifier(contractAddress, new Fr(value)), counter).scope(AztecAddress.ZERO);
 
   const makeNullifier = (value: number, counter = 1) =>
     new Nullifier(new Fr(value), Fr.ZERO, counter).scope(contractAddress);
@@ -61,21 +65,21 @@ describe('buildNullifierReadRequestHints', () => {
     readRequestIndex?: number;
     hintIndex?: number;
   }) => {
-    nullifierReadRequests[readRequestIndex] = makeReadRequest(innerNullifier(nullifierIndex));
+    nullifierReadRequests[readRequestIndex] = makePendingReadRequest(innerNullifier(nullifierIndex));
     expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsPending(hintIndex);
     expectedHints.pendingReadHints[hintIndex] = new PendingReadHint(readRequestIndex, nullifierIndex);
     numReadRequests++;
     numPendingReads++;
   };
 
-  const readSettledNullifier = ({
+  const readSettledNullifier = async ({
     readRequestIndex = numReadRequests,
     hintIndex = numSettledReads,
   }: {
     readRequestIndex?: number;
     hintIndex?: number;
   } = {}) => {
-    nullifierReadRequests[readRequestIndex] = makeReadRequest(settledNullifierInnerValue);
+    nullifierReadRequests[readRequestIndex] = await makeSettledReadRequest(settledNullifierInnerValue);
     expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsSettled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, {} as any);
     numReadRequests++;
@@ -84,7 +88,7 @@ describe('buildNullifierReadRequestHints', () => {
 
   const readFutureNullifier = (nullifierIndex: number) => {
     const readRequestIndex = numReadRequests;
-    nullifierReadRequests[readRequestIndex] = makeReadRequest(futureNullifiers[nullifierIndex].value.toNumber());
+    nullifierReadRequests[readRequestIndex] = makePendingReadRequest(futureNullifiers[nullifierIndex].value.toNumber());
     numReadRequests++;
   };
 
@@ -120,17 +124,17 @@ describe('buildNullifierReadRequestHints', () => {
   });
 
   it('builds hints for settled nullifier read requests', async () => {
-    readSettledNullifier();
-    readSettledNullifier();
+    await readSettledNullifier();
+    await readSettledNullifier();
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);
   });
 
   it('builds hints for mixed pending and settled and future nullifier read requests', async () => {
     readPendingNullifier({ nullifierIndex: 2 });
-    readSettledNullifier();
+    await readSettledNullifier();
     readFutureNullifier(0);
-    readSettledNullifier();
+    await readSettledNullifier();
     readPendingNullifier({ nullifierIndex: 1 });
     readFutureNullifier(BlockNumber(1));
     readPendingNullifier({ nullifierIndex: 1 });

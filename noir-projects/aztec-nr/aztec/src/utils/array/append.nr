@@ -1,5 +1,6 @@
-/// Appends the elements of the second `BoundedVec` to the end of the first one. The resulting `BoundedVec` can have any arbitrary maximum length, but it must be
-/// large enough to fit all of the elements of both the first and second vectors.
+/// Appends the elements of the second `BoundedVec` to the end of the first one. The resulting `BoundedVec` can have
+/// any arbitrary maximum length, but it must be large enough to fit all of the elements of both the first and second
+/// vectors.
 pub fn append<T, let ALen: u32, let BLen: u32, let DstLen: u32>(
     a: BoundedVec<T, ALen>,
     b: BoundedVec<T, BLen>,

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 89a12920681072efff1eed881589aad16347e0d6 }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -113,7 +113,7 @@ struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT
 
 struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 {
-    uint8_t input_buffer[num_elements * KECCAK256_OUTPUT_BYTES];
+    std::vector<uint8_t> input_buffer(num_elements * KECCAK256_OUTPUT_BYTES);
 
     for (size_t i = 0; i < num_elements; ++i) {
         for (size_t j = 0; j < KECCAK256_OUTPUT_WORDS; ++j) {
@@ -130,7 +130,7 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
         }
     }
 
-    return ethash_keccak256(input_buffer, num_elements * KECCAK256_OUTPUT_BYTES);
+    return ethash_keccak256(input_buffer.data(), num_elements * KECCAK256_OUTPUT_BYTES);
 }
 
 struct keccak256 hash_field_element(const uint64_t* limb)

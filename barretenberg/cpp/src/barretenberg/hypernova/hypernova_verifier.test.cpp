@@ -155,12 +155,13 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova folding
-     * @details The manifest has 50 rounds total:
+     * @details The manifest has 48 rounds total:
      * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
-     * - Main sumcheck (rounds 3-25): gate_challenge, univariates, evaluations + batching challenges
-     * - Batching challenges (round 26): shifted challenges
-     * - MLB data (round 27): accumulator commitments/challenges/evaluations
-     * - MLB sumcheck (rounds 28-49): univariates, final evaluations + claim_batching_challenge
+     * - Main sumcheck (rounds 3-23): gate_challenge, univariates
+     * - Main sumcheck batching (round 24): unshifted/shifted batching challenges + evaluations
+     * - MLB data (round 25): accumulator commitments/challenges/evaluations
+     * - MLB sumcheck (rounds 26-46): univariates
+     * - MLB final (round 47): final evaluations + claim_batching_challenge
      */
     static TranscriptManifest build_expected_folding_manifest()
     {
@@ -168,77 +169,82 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
         constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N; // 21
 
-        // Round 0: Oink preamble + wires + ECC ops + databus
-        manifest.add_entry(0, "vk_hash", 1);
+        size_t round = 0;
+
+        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
+        manifest.add_challenge(round, "eta");
+        manifest.add_entry(round, "vk_hash", 1);
         for (size_t i = 0; i < 4; ++i) {
-            manifest.add_entry(0, "public_input_" + std::to_string(i), 1);
+            manifest.add_entry(round, "public_input_" + std::to_string(i), 1);
         }
         for (const auto& wire : { "W_L", "W_R", "W_O" }) {
-            manifest.add_entry(0, wire, frs_per_G);
+            manifest.add_entry(round, wire, frs_per_G);
         }
         for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
-            manifest.add_entry(0, wire, frs_per_G);
+            manifest.add_entry(round, wire, frs_per_G);
         }
         for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
-            manifest.add_entry(0, bus, frs_per_G);
-            manifest.add_entry(0, std::string(bus) + "_READ_COUNTS", frs_per_G);
-            manifest.add_entry(0, std::string(bus) + "_READ_TAGS", frs_per_G);
+            manifest.add_entry(round, bus, frs_per_G);
+            manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
+            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
         }
-        manifest.add_challenge(0, std::array{ "eta", "eta_two", "eta_three" });
+        round++;
 
-        // Round 1: lookup + w_4
-        manifest.add_entry(1, "LOOKUP_READ_COUNTS", frs_per_G);
-        manifest.add_entry(1, "LOOKUP_READ_TAGS", frs_per_G);
-        manifest.add_entry(1, "W_4", frs_per_G);
-        manifest.add_challenge(1, std::array{ "beta", "gamma" });
+        // Round 1: lookup + w_4 -> beta, gamma challenges
+        manifest.add_challenge(round, std::array{ "beta", "gamma" });
+        manifest.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
+        manifest.add_entry(round, "W_4", frs_per_G);
+        round++;
 
-        // Round 2: inverses + z_perm
-        manifest.add_entry(2, "LOOKUP_INVERSES", frs_per_G);
-        manifest.add_entry(2, "CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(2, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(2, "RETURN_DATA_INVERSES", frs_per_G);
-        manifest.add_entry(2, "Z_PERM", frs_per_G);
-        manifest.add_challenge(2, "alpha");
+        // Round 2: inverses + z_perm -> alpha + gate_challenge (consecutive challenges in same round)
+        manifest.add_challenge(round, "alpha");
+        manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
+        manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
+        manifest.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "Z_PERM", frs_per_G);
+        round++;
 
-        // Round 3: gate challenge
-        manifest.add_challenge(3, "HypernovaFoldingProver:gate_challenge");
-
-        // Rounds 4-24: main sumcheck univariates
+        // Rounds 3-23: main sumcheck univariates (21 rounds)
         for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_entry(4 + i, "Sumcheck:univariate_" + std::to_string(i), 8);
-            manifest.add_challenge(4 + i, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 8);
+            round++;
         }
 
-        // Round 25: evaluations + unshifted batching challenges
-        manifest.add_entry(25, "Sumcheck:evaluations", 60);
+        // Round 24: unshifted batching challenges + shifted batching challenges + evaluations
         for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(25, "unshifted_challenge_" + std::to_string(i));
+            manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
         }
-
-        // Round 26: shifted batching challenges
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(26, "shifted_challenge_" + std::to_string(i));
+            manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
+        manifest.add_entry(round, "Sumcheck:evaluations", 60);
+        round++;
 
-        // Round 27: MLB accumulator data
-        manifest.add_entry(27, "non_shifted_accumulator_commitment", frs_per_G);
-        manifest.add_entry(27, "shifted_accumulator_commitment", frs_per_G);
+        // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)
+        manifest.add_challenge(round, "Sumcheck:alpha");
+        manifest.add_entry(round, "non_shifted_accumulator_commitment", frs_per_G);
+        manifest.add_entry(round, "shifted_accumulator_commitment", frs_per_G);
         for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_entry(27, "accumulator_challenge_" + std::to_string(i), 1);
+            manifest.add_entry(round, "accumulator_challenge_" + std::to_string(i), 1);
         }
-        manifest.add_entry(27, "accumulator_evaluation_0", 1);
-        manifest.add_entry(27, "accumulator_evaluation_1", 1);
-        manifest.add_challenge(27, "Sumcheck:alpha");
+        manifest.add_entry(round, "accumulator_evaluation_0", 1);
+        manifest.add_entry(round, "accumulator_evaluation_1", 1);
+        round++;
 
-        // Rounds 28-48: MLB sumcheck univariates
+        // Rounds 26-46: MLB sumcheck univariates (21 rounds)
         for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_entry(28 + i, "Sumcheck:univariate_" + std::to_string(i), 4);
-            manifest.add_challenge(28 + i, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 4);
+            round++;
         }
 
-        // Round 49: final evaluations + claim_batching_challenge
-        manifest.add_entry(49, "Sumcheck:evaluations", 6);
-        manifest.add_challenge(49, "claim_batching_challenge");
+        // Round 47: final evaluations + claim_batching_challenge
+        manifest.add_challenge(round, "claim_batching_challenge");
+        manifest.add_entry(round, "Sumcheck:evaluations", 6);
 
         return manifest;
     }

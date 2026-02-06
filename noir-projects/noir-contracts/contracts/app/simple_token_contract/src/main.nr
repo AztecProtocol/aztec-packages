@@ -19,8 +19,8 @@ pub contract SimpleToken {
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        protocol_types::address::AztecAddress,
-        state_vars::{Map, Owned, PublicImmutable, PublicMutable, state_variable::StateVariable},
+        protocol::address::AztecAddress,
+        state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
 
     use uint_note::{PartialUintNote, UintNote};
@@ -42,24 +42,30 @@ pub contract SimpleToken {
         balances: Owned<BalanceSet<Context>, Context>,
         total_supply: PublicMutable<u128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+        // docs:start:public_immutable
         symbol: PublicImmutable<FieldCompressedString, Context>,
         name: PublicImmutable<FieldCompressedString, Context>,
         decimals: PublicImmutable<u8, Context>,
+        // docs:end:public_immutable
     }
 
     #[external("public")]
     #[initializer]
     fn constructor(name: str<31>, symbol: str<31>, decimals: u8) {
+        // docs:start:public_immutable_initialize
         self.storage.name.initialize(FieldCompressedString::from_string(name));
         self.storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         self.storage.decimals.initialize(decimals);
+        // docs:end:public_immutable_initialize
     }
 
+    // docs:start:public_immutable_read
     #[external("public")]
     #[view]
     fn public_get_name() -> FieldCompressedString {
         self.storage.name.read()
     }
+    // docs:end:public_immutable_read
 
     #[external("public")]
     #[view]

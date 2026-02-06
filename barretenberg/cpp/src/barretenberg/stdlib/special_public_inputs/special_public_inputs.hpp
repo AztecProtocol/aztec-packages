@@ -65,7 +65,6 @@ class KernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -80,6 +79,7 @@ class KernelIO {
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -113,8 +113,9 @@ class KernelIO {
     {
         Builder* builder = output_hn_accum_hash.get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        Builder* pairing_ctx = validate_context<Builder>(pairing_inputs);
+        if (pairing_ctx == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
             pairing_inputs.set_public();
@@ -169,6 +170,7 @@ template <typename Builder_> class DefaultIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -188,7 +190,7 @@ template <typename Builder_> class DefaultIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0.get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
         BB_ASSERT_NEQ(builder, nullptr, "Trying to set constant PairingPoints to public.");
 
         pairing_inputs.set_public();
@@ -233,6 +235,7 @@ template <typename Builder_> class GoblinAvmIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_AVM_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -254,7 +257,7 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0.get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
 
         transcript_hash.set_public();
         pairing_inputs.set_public();
@@ -287,6 +290,7 @@ template <class Builder_> class HidingKernelIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -315,8 +319,8 @@ template <class Builder_> class HidingKernelIO {
     {
         Builder* builder = ecc_op_tables[0].get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        if (validate_context<Builder>(pairing_inputs) == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
             pairing_inputs.set_public();
@@ -369,6 +373,7 @@ class RollupIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -391,11 +396,10 @@ class RollupIO {
     {
         Builder* builder = ipa_claim.commitment.get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
+        if (validate_context<Builder>(pairing_inputs) == nullptr) {
+            // Both points are constant - add the default pairing points to public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
-            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
             pairing_inputs.set_public();
         }
         ipa_claim.set_public();
@@ -422,10 +426,4 @@ class RollupIO {
         builder.ipa_proof = ipa_proof;
     };
 };
-
-// Default IO type for recursive verifiers: RollupIO for IPA flavors, DefaultIO<Builder> otherwise
-template <typename Flavor>
-using DefaultRecursiveIO =
-    std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO<typename Flavor::CircuitBuilder>>;
-
 } // namespace bb::stdlib::recursion::honk

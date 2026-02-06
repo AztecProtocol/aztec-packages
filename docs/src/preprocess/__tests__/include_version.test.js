@@ -59,9 +59,9 @@ describe("preprocessIncludeVersion", () => {
     const testCases = [
       ["nightly", { NIGHTLY_TAG: "v3.0.0-nightly.1" }, "3.0.0-nightly.1"],
       ["devnet", { DEVNET_TAG: "3.0.0-devnet.5" }, "3.0.0-devnet.5"],
-      ["testnet", { TESTNET_TAG: "2.1.9" }, "2.1.9"],
-      ["mainnet", { MAINNET_TAG: "2.1.9" }, "2.1.9"],
-      ["ignition", { MAINNET_TAG: "2.1.9" }, "2.1.9"],
+      ["testnet", { TESTNET_TAG: "2.1.11" }, "2.1.11"],
+      ["mainnet", { MAINNET_TAG: "2.1.11" }, "2.1.11"],
+      ["ignition", { MAINNET_TAG: "2.1.11" }, "2.1.11"],
     ];
 
     testCases.forEach(([releaseType, envVars, expected]) => {
@@ -113,8 +113,8 @@ describe("preprocessIncludeVersion", () => {
 
     const versionMacros = [
       ["#include_devnet_version", "DEVNET_TAG", "3.0.0-devnet.5"],
-      ["#include_testnet_version", "TESTNET_TAG", "2.1.9"],
-      ["#include_mainnet_version", "MAINNET_TAG", "2.1.9"],
+      ["#include_testnet_version", "TESTNET_TAG", "2.1.11"],
+      ["#include_mainnet_version", "MAINNET_TAG", "2.1.11"],
     ];
 
     versionMacros.forEach(([macro, envVar, value]) => {

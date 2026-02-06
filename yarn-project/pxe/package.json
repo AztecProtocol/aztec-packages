@@ -2,6 +2,15 @@
   "name": "@aztec/pxe",
   "version": "0.1.0",
   "type": "module",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/entrypoints/server/index.ts",
+      "./src/entrypoints/client/lazy/index.ts",
+      "./src/config/index.ts"
+    ],
+    "name": "PXE",
+    "tsconfig": "./tsconfig.json"
+  },
   "exports": {
     "./server": "./dest/entrypoints/server/index.js",
     "./client/lazy": "./dest/entrypoints/client/lazy/index.js",

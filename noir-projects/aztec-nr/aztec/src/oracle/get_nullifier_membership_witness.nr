@@ -1,4 +1,4 @@
-use protocol_types::{
+use crate::protocol::{
     abis::{block_header::BlockHeader, nullifier_leaf_preimage::NullifierLeafPreimage},
     constants::NULLIFIER_TREE_HEIGHT,
     traits::{Deserialize, Hash, Serialize},

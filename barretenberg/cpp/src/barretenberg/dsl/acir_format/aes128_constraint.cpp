@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -19,7 +19,6 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 {
 
     using field_ct = bb::stdlib::field_t<Builder>;
-
     // Packs 16 bytes from the inputs (plaintext, iv, key) into a field element
     // Note that noir-stdlib already pads the inputs in accordance with PKCS7 padding scheme.
     BB_ASSERT(constraint.inputs.size() % 16 == 0, "Inputs must be a multiple of 16");
@@ -29,6 +28,11 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         for (size_t i = 0; i < 16; ++i) {
             converted *= 256;
             field_ct byte = to_field_ct(inputs[i], builder);
+            // Noir enforces bytes to be in the range [0, 255] by type declarations, however, if inputs are taken
+            // from
+            // ACIR directly, these ranges should be enforced by the range constraint. In case these range
+            // constraints already exist we won't be paying for the extra constraint.
+            byte.create_range_constraint(8);
             converted += byte;
         }
         return converted;
@@ -40,6 +44,10 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         for (const auto& output : outputs) {
             converted *= 256;
             field_ct byte = field_ct::from_witness_index(&builder, output);
+            // Noir enforces bytes to be in the range [0, 255] by type declarations, however, if inputs are taken from
+            // ACIR directly, these ranges should be enforced by the range constraint. In case these range constraints
+            // already exist we won't be paying for the extra constraint.
+            byte.create_range_constraint(8);
             converted += byte;
         }
         return converted;

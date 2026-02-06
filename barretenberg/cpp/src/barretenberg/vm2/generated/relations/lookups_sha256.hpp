@@ -280,7 +280,7 @@ using lookup_sha256_w_s_1_xor_0_relation = lookup_relation_base<FF_, lookup_sha2
 struct lookup_sha256_w_s_1_xor_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_W_S_1_XOR_1";
     static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::sha256_sel_compute_w;
     static constexpr Column DST_SELECTOR = Column::bitwise_start_sha256;
     static constexpr Column COUNTS = Column::lookup_sha256_w_s_1_xor_1_counts;
@@ -290,13 +290,13 @@ struct lookup_sha256_w_s_1_xor_1_settings_ {
         ColumnAndShifts::sha256_w_2_rshift_10,
         ColumnAndShifts::sha256_w_s_1,
         ColumnAndShifts::sha256_xor_sel,
-        ColumnAndShifts::sha256_u32_tag,
         ColumnAndShifts::sha256_u32_tag
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bitwise_acc_ia, ColumnAndShifts::bitwise_acc_ib, ColumnAndShifts::bitwise_acc_ic,
-        ColumnAndShifts::bitwise_op_id,  ColumnAndShifts::bitwise_tag_a,  ColumnAndShifts::bitwise_tag_a
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::bitwise_acc_ia,
+                                                                                    ColumnAndShifts::bitwise_acc_ib,
+                                                                                    ColumnAndShifts::bitwise_acc_ic,
+                                                                                    ColumnAndShifts::bitwise_op_id,
+                                                                                    ColumnAndShifts::bitwise_tag_a };
 };
 
 using lookup_sha256_w_s_1_xor_1_settings = lookup_settings<lookup_sha256_w_s_1_xor_1_settings_>;
@@ -516,7 +516,7 @@ struct lookup_sha256_round_constant_settings_ {
         ColumnAndShifts::sha256_round_count, ColumnAndShifts::sha256_round_constant
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sha256_compression_round_constant
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_sha256_compression_round_constant
     };
 };
 

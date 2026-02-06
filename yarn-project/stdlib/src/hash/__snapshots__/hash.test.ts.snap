@@ -1,23 +1,23 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`hash Var args hash matches noir 1`] = `Fr<0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f>`;
+exports[`hash Var args hash matches noir 1`] = `Fr<0x2bc7f722916213294a1a4a53cec9e9ee78e2124797ad129658ebd1b00df820d5>`;
 
-exports[`hash compute secret message hash 1`] = `Fr<0x211b950e538ee911389e441942d6646d13d725957a49d06500ae9bb673b0fbc2>`;
+exports[`hash compute secret message hash 1`] = `Fr<0x289f1197a68897bf44de737aca041f2edfc34404e4a9ed6bf5e9bed6f7942ada>`;
 
-exports[`hash computes note hash nonce 1`] = `Fr<0x24cbf5ece05503c37381b5d7dfcaf96fe2aca3749cb1a5d4d2f5264e40872fa2>`;
+exports[`hash computes note hash nonce 1`] = `Fr<0x14a74c3ffd3ce6f83b935e7e5f0a001a28df16774d208a8d9a2a19904f6bc923>`;
 
-exports[`hash computes public data tree leaf slot 1`] = `Fr<0x13c520847ef2069f11086e5085b756d5e03931879b7e6a63eca639e4b5ad4a4a>`;
+exports[`hash computes public data tree leaf slot 1`] = `Fr<0x2abc46277128b24d59797367997ef60717bbd9ab2c32e7975f84daedd5111eea>`;
 
 exports[`hash computes public data tree value 1`] = `Fr<0x0000000000000000000000000000000000000000000000000000000000000003>`;
 
-exports[`hash computes siloed note hash 1`] = `Fr<0x12ddf0068d9dba68cb857f9b431064c0c04c06fad060b9df25894ccc4a790066>`;
+exports[`hash computes siloed note hash 1`] = `Fr<0x24c929946ff04ac055ad92c3007f2e2865d54b8b738728a95405295506eabb64>`;
 
-exports[`hash computes siloed nullifier 1`] = `Fr<0x280270c4a9431f6d4f029f5cd77807c5d797dab9e83181a47a9082ae2c5a3149>`;
+exports[`hash computes siloed nullifier 1`] = `Fr<0x01438daee7b451550624e494a5e031936f8992f20997330ea6cfc51e785fd266>`;
 
-exports[`hash computes unique note hash 1`] = `Fr<0x2f9b80d22188c5383a577596538f71f9713dc220bf36b6497ec16ea0f9df2282>`;
+exports[`hash computes unique note hash 1`] = `Fr<0x1b5fb14f4b648cb437768ce6038b412e7e1c97b78e9975ce23ddf488b810326c>`;
 
 exports[`hash hashes empty function args 1`] = `Fr<0x0000000000000000000000000000000000000000000000000000000000000000>`;
 
-exports[`hash hashes function args 1`] = `Fr<0x08fc05646caf2d63a8f3b424351783a521edaf28da0933d7c5b78a27e7497dac>`;
+exports[`hash hashes function args 1`] = `Fr<0x236f42042a9dd14d7417687b89279e845b96257f8122b910e5001480573a5ee3>`;
 
-exports[`hash hashes many function args 1`] = `Fr<0x03933d5a59efde5af91c47a93e6c4965f0506d160f76c701b2de1503d74c7775>`;
+exports[`hash hashes many function args 1`] = `Fr<0x0675b1a85d42647233a3df9be6bbbfae1984f23fdf9d0b8fef53208b79b3e888>`;

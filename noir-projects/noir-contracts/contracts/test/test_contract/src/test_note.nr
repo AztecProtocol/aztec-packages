@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
     note::note_interface::NoteHash,
-    protocol_types::{
+    protocol::{
         address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
         traits::Packable,
     },
@@ -43,9 +43,9 @@ impl NoteHash for TestNote {
         _self: Self,
         _owner: AztecAddress,
         _note_hash_for_nullification: Field,
-    ) -> Field {
+    ) -> Option<Field> {
         // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
         // implementation here.
-        0
+        Option::none()
     }
 }

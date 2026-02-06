@@ -1,6 +1,6 @@
 use crate::{AMM, test::utils::{add_liquidity, remove_liquidity, setup}};
 use aztec::{
-    protocol_types::{address::AztecAddress, traits::FromField},
+    protocol::{address::AztecAddress, traits::FromField},
     test::helpers::authwit::add_private_authwit_from_call,
 };
 use token::Token;

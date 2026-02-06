@@ -5,7 +5,6 @@ import { maxBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -138,8 +137,6 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     this.roundMonitor.stop();
     await this.offensesCollector.stop();
 
-    // Sleeping to sidestep viem issue with unwatching events
-    await sleep(2000);
     this.log.info('Tally Slasher client stopped');
   }
 
@@ -281,8 +278,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
         return undefined;
       }
 
+      const slashActionsWithAmounts = slashActions.map(action => ({
+        validator: action.validator.toString(),
+        slashAmount: action.slashAmount.toString(),
+      }));
       this.log.info(`Round ${executableRound} is ready to execute with ${slashActions.length} slashes`, {
-        slashActions,
+        slashActions: slashActionsWithAmounts,
         payloadAddress: payload.address.toString(),
         ...logData,
       });
@@ -348,11 +349,15 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
+    const offensesToSlashLog = offensesToSlash.map(offense => ({
+      ...offense,
+      amount: offense.amount.toString(),
+    }));
     this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
-      offensesToSlash,
+      offensesToSlash: offensesToSlashLog,
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);

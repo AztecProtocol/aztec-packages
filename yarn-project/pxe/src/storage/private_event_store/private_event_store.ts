@@ -1,15 +1,15 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
-import { type InTx, TxHash } from '@aztec/stdlib/tx';
+import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
+import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
   contractAddress: AztecAddress;
@@ -17,20 +17,6 @@ export type PrivateEventStoreFilter = {
   toBlock: number;
   scopes: AztecAddress[];
   txHash?: TxHash;
-};
-
-type PrivateEventEntry = {
-  randomness: Fr; // Note that this value is currently not being returned on queries and is therefore temporarily unused
-  msgContent: Buffer;
-  l2BlockNumber: number;
-  l2BlockHash: Buffer;
-  txHash: Buffer;
-  /** The index of the tx within the block, used for ordering events */
-  txIndexInBlock: number;
-  /** The index of the event within the tx (based on nullifier position), used for ordering events */
-  eventIndexInTx: number;
-  /** The lookup key for #eventsByContractScopeSelector, used for cleanup during rollback */
-  lookupKey: string;
 };
 
 type PrivateEventMetadata = InTx & {
@@ -49,104 +35,29 @@ export class PrivateEventStore implements StagedStore {
   readonly storeName: string = 'private_event';
 
   #store: AztecAsyncKVStore;
-  /** Map storing the actual private event log entries, keyed by siloedEventCommitment */
-  #eventLogs: AztecAsyncMap<string, PrivateEventEntry>;
-  /** Multi-map from contractAddress_scope_eventSelector to siloedEventCommitment for efficient lookup */
-  #eventsByContractScopeSelector: AztecAsyncMultiMap<string, string>;
+  /** Actual private event log entries, keyed by siloedEventCommitment */
+  #events: AztecAsyncMap<string, Buffer>;
+  /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
+  #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
   /** Multi-map from block number to siloedEventCommitment for rollback support */
   #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
-  /** Map from siloedEventCommitment to boolean indicating if log has been seen. */
-  #seenLogs: AztecAsyncMap<string, boolean>;
 
-  /** jobId => eventId (event siloed nullifier)  => PrivateEventEntry */
-  #eventLogsInJobStage: Map<string, Map<string, PrivateEventEntry>>;
+  /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
+  #eventsForJob: Map<string, Map<string, StoredPrivateEvent>>;
+
+  /** Per-job locks to prevent concurrent writes from affecting each other. */
+  #jobLocks: Map<string, Semaphore>;
 
   logger = createLogger('private_event_store');
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#eventLogs = this.#store.openMap('private_event_logs');
-    this.#eventsByContractScopeSelector = this.#store.openMultiMap('events_by_contract_scope_selector');
-    this.#seenLogs = this.#store.openMap('seen_logs');
+    this.#events = this.#store.openMap('private_event_logs');
+    this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
     this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
 
-    this.#eventLogsInJobStage = new Map();
-  }
-
-  #keyFor(contractAddress: AztecAddress, scope: AztecAddress, eventSelector: EventSelector): string {
-    return `${contractAddress.toString()}_${scope.toString()}_${eventSelector.toString()}`;
-  }
-
-  async commit(jobId: string): Promise<void> {
-    await Promise.all(
-      [...this.#getEventLogsInJobStage(jobId).entries()].map(async ([eventId, eventEntry]) => {
-        this.logger.verbose('storing private event log (KV store)', eventEntry);
-
-        await Promise.all([
-          this.#eventLogs.set(eventId, eventEntry),
-          this.#eventsByContractScopeSelector.set(eventEntry.lookupKey, eventId),
-          this.#eventsByBlockNumber.set(eventEntry.l2BlockNumber, eventId),
-          this.#seenLogs.set(eventId, true),
-        ]);
-      }),
-    );
-
-    return this.discardStaged(jobId);
-  }
-
-  discardStaged(jobId: string): Promise<void> {
-    this.#eventLogsInJobStage.delete(jobId);
-    return Promise.resolve();
-  }
-
-  #getEventLogsInJobStage(jobId: string): Map<string, PrivateEventEntry> {
-    let jobStage = this.#eventLogsInJobStage.get(jobId);
-    if (jobStage === undefined) {
-      jobStage = new Map();
-      this.#eventLogsInJobStage.set(jobId, jobStage);
-    }
-    return jobStage;
-  }
-
-  async #isSeenLog(jobId: string, eventId: string): Promise<boolean> {
-    const eventLogsInJobStage = this.#getEventLogsInJobStage(jobId).get(eventId);
-    return !!eventLogsInJobStage || !!(await this.#seenLogs.getAsync(eventId));
-  }
-
-  #addEventLogToStage(jobId: string, eventId: string, eventEntry: PrivateEventEntry) {
-    this.#getEventLogsInJobStage(jobId).set(eventId, eventEntry);
-  }
-
-  async #getEventSiloedNullifiers(
-    contractAddress: AztecAddress,
-    scope: AztecAddress,
-    eventSelector: EventSelector,
-    jobId?: string,
-  ): Promise<string[]> {
-    const key = this.#keyFor(contractAddress, scope, eventSelector);
-    const eventSiloedNullifiersInStorage: string[] = [];
-    for await (const eventId of this.#eventsByContractScopeSelector.getValuesAsync(key)) {
-      eventSiloedNullifiersInStorage.push(eventId);
-    }
-
-    if (!jobId) {
-      return eventSiloedNullifiersInStorage;
-    }
-
-    const eventSiloedNullifiersInJobStage = new Set(
-      [...this.#getEventLogsInJobStage(jobId).entries()]
-        .filter(([_, entry]) => entry.lookupKey === key)
-        .map(([idx, _]) => idx),
-    );
-    return [...new Set(eventSiloedNullifiersInStorage).union(eventSiloedNullifiersInJobStage)];
-  }
-
-  async #getEventLogBySiloedNullifier(eventId: string, jobId?: string): Promise<PrivateEventEntry | undefined> {
-    if (jobId) {
-      return this.#getEventLogsInJobStage(jobId).get(eventId) ?? (await this.#eventLogs.getAsync(eventId));
-    } else {
-      return await this.#eventLogs.getAsync(eventId);
-    }
+    this.#eventsForJob = new Map();
+    this.#jobLocks = new Map();
   }
 
   /**
@@ -168,40 +79,46 @@ export class PrivateEventStore implements StagedStore {
     siloedEventCommitment: Fr,
     metadata: PrivateEventMetadata,
     jobId: string,
-  ): Promise<void> {
-    const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
+  ) {
+    return this.#withJobLock(jobId, () =>
+      this.#store.transactionAsync(async () => {
+        const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
+        const eventId = siloedEventCommitment.toString();
 
-    return this.#store.transactionAsync(async () => {
-      const key = this.#keyFor(contractAddress, scope, eventSelector);
+        this.logger.verbose('storing private event log (job stage)', {
+          eventId,
+          contractAddress,
+          scope,
+          msgContent,
+          l2BlockNumber,
+        });
 
-      // The siloed event commitment is guaranteed to be unique as it's inserted into the nullifier tree. For this
-      // reason we use it as id.
-      const eventId = siloedEventCommitment.toString();
+        const existing = await this.#readEvent(eventId, jobId);
 
-      const hasBeenSeen = await this.#isSeenLog(jobId, eventId);
-      if (hasBeenSeen) {
-        this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), siloedEventCommitment });
-        return;
-      }
-
-      this.logger.verbose('storing private event log (job stage)', {
-        contractAddress,
-        scope,
-        msgContent,
-        l2BlockNumber,
-      });
-
-      this.#addEventLogToStage(jobId, eventId, {
-        randomness,
-        msgContent: serializeToBuffer(msgContent),
-        l2BlockNumber,
-        l2BlockHash: l2BlockHash.toBuffer(),
-        txHash: txHash.toBuffer(),
-        txIndexInBlock,
-        eventIndexInTx,
-        lookupKey: key,
-      });
-    });
+        if (existing) {
+          // If we already stored this event, we still want to make sure to track it for the given scope
+          existing.addScope(scope.toString());
+          this.#writeEvent(eventId, existing, jobId);
+        } else {
+          this.#writeEvent(
+            eventId,
+            new StoredPrivateEvent(
+              randomness,
+              msgContent,
+              l2BlockNumber,
+              l2BlockHash,
+              txHash,
+              txIndexInBlock,
+              eventIndexInTx,
+              contractAddress,
+              eventSelector,
+              new Set([scope.toString()]),
+            ),
+            jobId,
+          );
+        }
+      }),
+    );
   }
 
   /**
@@ -215,64 +132,88 @@ export class PrivateEventStore implements StagedStore {
    * @returns - The event log contents, augmented with metadata about the transaction and block in which the event was
    * included.
    */
-  public async getPrivateEvents(
+  public getPrivateEvents(
     eventSelector: EventSelector,
     filter: PrivateEventStoreFilter,
   ): Promise<PackedPrivateEvent[]> {
-    const events: Array<{
-      l2BlockNumber: number;
-      txIndexInBlock: number;
-      eventIndexInTx: number;
-      event: PackedPrivateEvent;
-    }> = [];
+    return this.#store.transactionAsync(async () => {
+      const key = this.#keyFor(filter.contractAddress, eventSelector);
+      const targetScopes = new Set(filter.scopes.map(s => s.toString()));
 
-    for (const scope of filter.scopes) {
-      const eventIds = await this.#getEventSiloedNullifiers(filter.contractAddress, scope, eventSelector);
+      // Map from eventId to the promise that reads the event buffer.
+      // We start reads during iteration to keep DB requests pending and avoid IndexedDB auto-commit.
+      const eventReadPromises: Map<string, Promise<Buffer | undefined>> = new Map();
 
-      for (const eventId of eventIds) {
-        const entry = await this.#getEventLogBySiloedNullifier(eventId);
+      for await (const eventId of this.#eventsByContractAndEventSelector.getValuesAsync(key)) {
+        eventReadPromises.set(eventId, this.#events.getAsync(eventId));
+      }
 
-        if (!entry || entry.l2BlockNumber < filter.fromBlock || entry.l2BlockNumber >= filter.toBlock) {
+      const eventIds = [...eventReadPromises.keys()];
+      const eventBuffers = await Promise.all(eventReadPromises.values());
+
+      const events: Array<{
+        l2BlockNumber: number;
+        txIndexInBlock: number;
+        eventIndexInTx: number;
+        event: PackedPrivateEvent;
+      }> = [];
+
+      for (let i = 0; i < eventIds.length; i++) {
+        const eventId = eventIds[i];
+        const eventBuffer = eventBuffers[i];
+
+        // Defensive, if it happens, there's a problem with how we're handling #eventsByContractAndEventSelector
+        if (!eventBuffer) {
+          this.logger.verbose(
+            `EventId ${eventId} does not exist in main index but it is referenced from contract event selector index`,
+          );
           continue;
         }
 
-        // Convert buffer back to Fr array
-        const reader = BufferReader.asReader(entry.msgContent);
-        const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
-        const msgContent = reader.readArray(numFields, Fr);
-        const txHash = TxHash.fromBuffer(entry.txHash);
-        const l2BlockHash = L2BlockHash.fromBuffer(entry.l2BlockHash);
+        const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
 
-        if (filter.txHash && !txHash.equals(filter.txHash)) {
+        // Filter by block range
+        if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
+          continue;
+        }
+
+        // Filter by scopes
+        if (storedPrivateEvent.scopes.intersection(targetScopes).size === 0) {
+          continue;
+        }
+
+        // Filter by txHash
+        if (filter.txHash && !storedPrivateEvent.txHash.equals(filter.txHash)) {
           continue;
         }
 
         events.push({
-          l2BlockNumber: entry.l2BlockNumber,
-          txIndexInBlock: entry.txIndexInBlock,
-          eventIndexInTx: entry.eventIndexInTx,
+          l2BlockNumber: storedPrivateEvent.l2BlockNumber,
+          txIndexInBlock: storedPrivateEvent.txIndexInBlock,
+          eventIndexInTx: storedPrivateEvent.eventIndexInTx,
           event: {
-            packedEvent: msgContent,
-            l2BlockNumber: BlockNumber(entry.l2BlockNumber),
-            txHash,
-            l2BlockHash,
+            packedEvent: storedPrivateEvent.msgContent,
+            l2BlockNumber: BlockNumber(storedPrivateEvent.l2BlockNumber),
+            txHash: storedPrivateEvent.txHash,
+            l2BlockHash: storedPrivateEvent.l2BlockHash,
             eventSelector,
           },
         });
       }
-    }
 
-    // Sort by block number, then by tx index within block, then by event index within tx
-    events.sort((a, b) => {
-      if (a.l2BlockNumber !== b.l2BlockNumber) {
-        return a.l2BlockNumber - b.l2BlockNumber;
-      }
-      if (a.txIndexInBlock !== b.txIndexInBlock) {
-        return a.txIndexInBlock - b.txIndexInBlock;
-      }
-      return a.eventIndexInTx - b.eventIndexInTx;
+      // Sort by block number, then by tx index within block, then by event index within tx
+      events.sort((a, b) => {
+        if (a.l2BlockNumber !== b.l2BlockNumber) {
+          return a.l2BlockNumber - b.l2BlockNumber;
+        }
+        if (a.txIndexInBlock !== b.txIndexInBlock) {
+          return a.txIndexInBlock - b.txIndexInBlock;
+        }
+        return a.eventIndexInTx - b.eventIndexInTx;
+      });
+
+      return events.map(ev => ev.event);
     });
-    return events.map(ev => ev.event);
   }
 
   /**
@@ -293,32 +234,151 @@ export class PrivateEventStore implements StagedStore {
    * IMPORTANT: This method must be called within a transaction to ensure atomicity.
    */
   public async rollback(blockNumber: number, synchedBlockNumber: number): Promise<void> {
-    let removedCount = 0;
+    // First pass: collect all event IDs for all blocks, starting reads during iteration to keep tx alive.
+    const eventsByBlock: Map<number, { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[]> = new Map();
 
     for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
-      const eventIds: string[] = [];
+      const blockEvents: { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[] = [];
       for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(block)) {
-        eventIds.push(eventId);
+        // Start read immediately during iteration to keep IndexedDB transaction alive
+        blockEvents.push({ eventId, eventReadPromise: this.#events.getAsync(eventId) });
       }
+      if (blockEvents.length > 0) {
+        eventsByBlock.set(block, blockEvents);
+      }
+    }
 
-      if (eventIds.length > 0) {
-        await this.#eventsByBlockNumber.delete(block);
+    // Second pass: await reads and perform deletes
+    let removedCount = 0;
+    for (const [block, events] of eventsByBlock) {
+      await this.#eventsByBlockNumber.delete(block);
 
-        for (const eventId of eventIds) {
-          const entry = await this.#eventLogs.getAsync(eventId);
-          if (!entry) {
-            throw new Error(`Event log not found for eventId ${eventId}`);
-          }
-
-          await this.#eventLogs.delete(eventId);
-          await this.#seenLogs.delete(eventId);
-          await this.#eventsByContractScopeSelector.deleteValue(entry.lookupKey, eventId);
-
-          removedCount++;
+      for (const { eventId, eventReadPromise } of events) {
+        const buffer = await eventReadPromise;
+        if (!buffer) {
+          throw new Error(`Event not found for eventId ${eventId}`);
         }
+
+        const entry = StoredPrivateEvent.fromBuffer(buffer);
+        await this.#events.delete(eventId);
+        await this.#eventsByContractAndEventSelector.deleteValue(
+          this.#keyFor(entry.contractAddress, entry.eventSelector),
+          eventId,
+        );
+
+        removedCount++;
       }
     }
 
     this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
+  }
+
+  /**
+   * Commits in memory job data to persistent storage.
+   *
+   * Called by JobCoordinator when a job completes successfully.
+   *
+   * Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here
+   * (and using one would throw on IndexedDB as it does not support nested txs).
+   *
+   * @param jobId - The jobId identifying which staged data to commit
+   */
+  async commit(jobId: string): Promise<void> {
+    // Note: Don't use #withJobLock here - commit runs within JobCoordinator's transactionAsync,
+    // and awaiting the lock would create a microtask boundary with no pending DB request,
+    // causing IndexedDB to auto-commit the transaction.
+    for (const [eventId, entry] of this.#getEventsForJob(jobId).entries()) {
+      const lookupKey = this.#keyFor(entry.contractAddress, entry.eventSelector);
+      this.logger.verbose('storing private event log', { eventId, lookupKey });
+
+      await Promise.all([
+        this.#events.set(eventId, entry.toBuffer()),
+        this.#eventsByContractAndEventSelector.set(lookupKey, eventId),
+        this.#eventsByBlockNumber.set(entry.l2BlockNumber, eventId),
+      ]);
+    }
+
+    this.#clearJobData(jobId);
+  }
+
+  /**
+   * Discards in memory job data without persisting it.
+   */
+  discardStaged(jobId: string): Promise<void> {
+    this.#clearJobData(jobId);
+    return Promise.resolve();
+  }
+
+  /**
+   * Reads an event from in-memory job data first, falling back to persistent storage if not found.
+   *
+   * Returns undefined if the event does not exist in the store overall.
+   */
+  async #readEvent(eventId: string, jobId: string): Promise<StoredPrivateEvent | undefined> {
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
+    const buffer = await this.#events.getAsync(eventId);
+    const eventForJob = this.#getEventsForJob(jobId).get(eventId);
+    return eventForJob ?? (buffer ? StoredPrivateEvent.fromBuffer(buffer) : undefined);
+  }
+
+  /**
+   * Writes an event to in-memory job data.
+   *
+   * Writes are only allowed in a job context. Events modified during a job will only be persisted when `commit` is
+   * called.
+   */
+  #writeEvent(eventId: string, entry: StoredPrivateEvent, jobId: string) {
+    this.#getEventsForJob(jobId).set(eventId, entry);
+  }
+
+  /**
+   * Get in-memory data only visible to @param jobId
+   */
+  #getEventsForJob(jobId: string): Map<string, StoredPrivateEvent> {
+    let eventsForJob = this.#eventsForJob.get(jobId);
+    if (eventsForJob === undefined) {
+      eventsForJob = new Map();
+      this.#eventsForJob.set(jobId, eventsForJob);
+    }
+    return eventsForJob;
+  }
+
+  /**
+   * Clear data structures supporting a specific job.
+   */
+  #clearJobData(jobId: string) {
+    this.#eventsForJob.delete(jobId);
+    this.#jobLocks.delete(jobId);
+  }
+
+  /**
+   * Ensures a function can only run once it acquires a unique per-job lock, and handles proper lock release after it
+   * runs.
+   *
+   * This primitive allows concurrent writes on this store without risking data corruption due to unsound write
+   * interleaving.
+   */
+  async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
+    let lock = this.#jobLocks.get(jobId);
+    if (!lock) {
+      lock = new Semaphore(1);
+      this.#jobLocks.set(jobId, lock);
+    }
+    await lock.acquire();
+    try {
+      return await fn();
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Returns a string key based on @param contractAddress and @param eventSelector.
+   *
+   * The returned key is meant to be used when interacting with index #eventsByContractAndEventSelector.
+   */
+  #keyFor(contractAddress: AztecAddress, eventSelector: EventSelector): string {
+    return `${contractAddress.toString()}_${eventSelector.toString()}`;
   }
 }

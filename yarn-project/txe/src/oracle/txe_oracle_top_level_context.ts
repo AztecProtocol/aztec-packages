@@ -296,12 +296,24 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
+    // When `from` is the zero address (used when creating a new contract account for example),
+    // we disable scope filtering by setting effectiveScopes to undefined. This allows these operations
+    // to proceed without requiring keys registered for the zero address.
+    const effectiveScopes = from.isZero() ? undefined : [from];
+
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall) => {
-      await this.executeUtilityCall(call);
+      await this.executeUtilityCall(call, effectiveScopes);
     };
 
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, utilityExecutor);
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      utilityExecutor,
+      blockHeader,
+      this.jobId,
+    );
 
     const blockNumber = await this.txeGetNextBlockNumber();
 
@@ -312,8 +324,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
-
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
@@ -345,17 +355,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.keyStore,
       this.addressStore,
       this.stateMachine.node,
-      this.stateMachine.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.stateMachine.contractSyncService,
       this.jobId,
       0, // totalPublicArgsCount
       minRevertibleSideEffectCounter, // (start) sideEffectCounter
       undefined, // log
-      undefined, // scopes
+      effectiveScopes, // scopes
       /**
        * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
        * contract would perform, including setting senderForTags.
@@ -414,7 +424,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
+    const bindings = this.logger.getBindings();
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      bindings,
+    );
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
@@ -427,8 +441,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config),
+      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
       new TestDateProvider(),
+      undefined,
+      createLogger('simulator:public-processor', bindings),
     );
 
     const tx = await Tx.create({
@@ -525,7 +541,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
+    const bindings2 = this.logger.getBindings();
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      bindings2,
+    );
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
@@ -534,8 +554,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
-    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
+    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    const processor = new PublicProcessor(
+      globals,
+      guardedMerkleTrees,
+      contractsDB,
+      simulator,
+      new TestDateProvider(),
+      undefined,
+      createLogger('simulator:public-processor', bindings2),
+    );
 
     // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private
     // kernel init would in this case inject a nullifier with the transaction request hash as a non-revertible
@@ -645,9 +673,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, async call => {
-      await this.executeUtilityCall(call);
-    });
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      async call => {
+        await this.executeUtilityCall(call);
+      },
+      blockHeader,
+      this.jobId,
+    );
 
     const call = new FunctionCall(
       artifact.name,
@@ -663,7 +698,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.executeUtilityCall(call);
   }
 
-  private async executeUtilityCall(call: FunctionCall): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes?: AztecAddress[]): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -686,12 +721,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.keyStore,
         this.addressStore,
         this.stateMachine.node,
-        this.stateMachine.anchorBlockStore,
         this.recipientTaggingStore,
         this.senderAddressBookStore,
         this.capsuleStore,
         this.privateEventStore,
         this.jobId,
+        undefined, // log
+        scopes, // scopes - used to filter notes by account
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

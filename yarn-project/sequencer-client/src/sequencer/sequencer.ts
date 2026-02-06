@@ -12,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockNew, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -59,6 +59,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
+
+  /** The last slot for which we logged "no committee" warning, to avoid spam */
+  private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
 
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
   private lastSlotForCheckpointProposalJob: SlotNumber | undefined;
@@ -424,8 +427,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this,
       this.setState.bind(this),
-      this.log,
       this.tracer,
+      this.log.getBindings(),
     );
   }
 
@@ -529,7 +532,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       };
     }
 
-    const block = await this.l2BlockSource.getL2BlockNew(blockNumber);
+    const block = await this.l2BlockSource.getL2Block(blockNumber);
     if (!block) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync
       this.log.error(`Failed to get L2 block ${blockNumber} from the archiver with all components in sync`);
@@ -557,7 +560,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer = await this.epochCache.getProposerAttesterAddressInSlot(slot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        this.log.warn(`Cannot propose at next L2 slot ${slot} since the committee does not exist on L1`);
+        if (this.lastSlotForNoCommitteeWarning !== slot) {
+          this.lastSlotForNoCommitteeWarning = slot;
+          this.log.warn(`Cannot propose at next L2 slot ${slot} since the committee does not exist on L1`);
+        }
         return [false, undefined];
       }
       this.log.error(`Error getting proposer for slot ${slot}`, e);
@@ -870,7 +876,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 }
 
 type SequencerSyncCheckResult = {
-  block?: L2BlockNew;
+  block?: L2Block;
   checkpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;

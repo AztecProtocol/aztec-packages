@@ -3,12 +3,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Claim {
     // docs:start:history_import
-    use dep::aztec::history::note_inclusion::ProveNoteInclusion;
+    use dep::aztec::history::note::assert_note_existed_by;
     // docs:end:history_import
     use dep::aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
     use dep::uint_note::UintNote;
@@ -48,16 +48,16 @@ pub contract Claim {
         // 3) Prove that the note hash exists in the note hash tree
         // docs:start:prove_note_inclusion
         let header = self.context.get_anchor_block_header();
-        let _ = header.prove_note_inclusion(hinted_note);
+        let _ = assert_note_existed_by(header, hinted_note);
         // docs:end:prove_note_inclusion
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
-        // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
+        // Note: Only the owner of the npk_m will be able to produce the nhk_app and compute this nullifier.
         // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
-        // handle it on its own or we could make prove_note_inclusion return note_hash_for_nullification.
+        // handle it on its own or we could make assert_note_existed_by return note_hash_for_nullification.
         let note_hash_for_nullification = compute_note_hash_for_nullification(hinted_note);
         let nullifier = hinted_note.note.compute_nullifier(
             self.context,

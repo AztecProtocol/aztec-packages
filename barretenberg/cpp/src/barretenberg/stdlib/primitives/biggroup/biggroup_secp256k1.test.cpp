@@ -373,6 +373,62 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
+
+    static void test_secp256k1_ecdsa_mul_point_at_infinity_fails()
+    {
+        // ============================================================================
+        // REGRESSION TEST: Intermediate collision in Montgomery ladder
+        // ============================================================================
+        //
+        // Edge case: u1·G + u2·P = O (point at infinity).
+        //
+        // The secp256k1_ecdsa_mul function uses multiple_montgomery_ladder which computes:
+        //   multiple_montgomery_ladder([A, B, C]) = 2·(2·(2·Q + A) + B) + C
+        //
+        // At each step, it computes R_{i+1} = 2·R_i + P_i using the Montgomery ladder:
+        //   1. Compute (R_i + P_i) with coordinates (x_3, y_3)
+        //   2. Compute (R_i + P_i) + R_i with slope λ₂ = (y_Ri - y_3) / (x_Ri - x_3)
+        //
+        // When x_Ri == x_3 (R_i and R_i+P_i have the same x-coordinate), we run into division by zero!
+        //
+        // When computing u1·G + u2·P = O with random scalars, the probability of hitting
+        // an intermediate collision is negligible (~1/2^256).
+        //
+        // But when we CONSTRAIN u1 = -(u2·s), the wNAF digits of u1 and u2 become correlated.
+        // Some (u2, s) pairs produce wNAF decompositions where an intermediate partial sum leads to
+        // a point at infinity. We are testing one such (u2, s) pair here.
+        //
+        // Disable asserts to test circuit error handling
+        BB_DISABLE_ASSERTS();
+
+        const uint256_t scalar_s_val("0xa829a047d570ff736a868434729a1d364547f538ead58ddf5acf9b9811da7017");
+        const uint256_t scalar_u1_val("0x5ab31ec9ed17cb51e6c706b3ebcd7aaef9f33b4e0fa80f68d2923b7aa432ac3c");
+        const uint256_t scalar_u2_val("0x089dc0bec4aba71bc35daf714bf21f221890b47a12944e8a156a32fd27d8e963");
+
+        fr scalar_s(scalar_s_val);
+        fr scalar_u1(scalar_u1_val);
+        fr scalar_u2(scalar_u2_val);
+
+        // Verify the relationship: u1 = -u2 * s (mod r)
+        EXPECT_EQ(scalar_u1, -(scalar_u2 * scalar_s));
+
+        // Verify u1*G + u2*P = O (the final result is point at infinity)
+        element expected_result = g1::one * scalar_u1 + (g1::one * scalar_s) * scalar_u2;
+        EXPECT_TRUE(expected_result.is_point_at_infinity());
+
+        // Create circuit elements
+        Builder builder = Builder();
+        element_ct P_a = element_ct::from_witness(&builder, g1::one * scalar_s);
+        scalar_ct u1 = scalar_ct::from_witness(&builder, scalar_u1);
+        scalar_ct u2 = scalar_ct::from_witness(&builder, scalar_u2);
+
+        // Call secp256k1_ecdsa_mul
+        element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
+
+        // Verify that circuit fails
+        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+        EXPECT_EQ(builder.err(), "biggroup::multiple_montgomery_ladder: x-coordinates must be distinct.");
+    }
 };
 
 // Then define the test types
@@ -418,4 +474,8 @@ TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1SkewHandlingRegression)
 TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1StaggerRegression)
 {
     TestFixture::test_secp256k1_ecdsa_mul_stagger_regression();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1PointAtInfinityFails)
+{
+    TestFixture::test_secp256k1_ecdsa_mul_point_at_infinity_fails();
 }

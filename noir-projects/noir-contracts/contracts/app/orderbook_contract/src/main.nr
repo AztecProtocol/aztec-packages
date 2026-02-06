@@ -35,8 +35,8 @@ pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
-        oracle::notes::check_nullifier_exists,
-        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        oracle::nullifiers::check_nullifier_exists,
+        protocol::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
     };
 

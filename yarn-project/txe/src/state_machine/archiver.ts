@@ -21,13 +21,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     super(store);
   }
 
-  // TXE-specific method for adding checkpoints
-  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
-    await this.updater.setNewCheckpointData(checkpoints, result);
-    return true;
+  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {
+    await this.updater.addCheckpoints(checkpoints, result);
   }
-
-  // Abstract method implementations
 
   public getRollupAddress(): Promise<EthAddress> {
     throw new Error('TXE Archiver does not implement "getRollupAddress"');
@@ -63,7 +59,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     if (!checkpointedBlock) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
     }
-    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber(number), 1);
+    // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
+    // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
+    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
     if (checkpoint.length === 0) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
     }

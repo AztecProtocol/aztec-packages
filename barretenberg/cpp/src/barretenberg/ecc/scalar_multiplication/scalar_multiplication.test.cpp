@@ -55,6 +55,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         return AffineElement(expected_acc);
     }
+
     static void SetUpTestSuite()
     {
         generators.resize(num_points);
@@ -69,502 +70,573 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             ASSERT_EQ(generators[i].x == generators[i + 1].x, false);
         }
     };
+
+    // ======================= Test Methods =======================
+
+    void test_get_scalar_slice()
+    {
+        constexpr uint32_t fr_size = 254;
+        constexpr uint32_t slice_bits = 7;
+        constexpr uint32_t num_slices = (fr_size + 6) / 7;
+        constexpr uint32_t last_slice_bits = fr_size - ((num_slices - 1) * slice_bits);
+
+        for (size_t x = 0; x < 100; ++x) {
+            uint256_t input_u256 = engine.get_random_uint256();
+            input_u256.data[3] = input_u256.data[3] & 0x3FFFFFFFFFFFFFFF; // 254 bits
+            while (input_u256 > ScalarField::modulus) {
+                input_u256 -= ScalarField::modulus;
+            }
+            std::vector<uint32_t> slices(num_slices);
+
+            uint256_t acc = input_u256;
+            for (uint32_t i = 0; i < num_slices; ++i) {
+                uint32_t mask = ((1U << slice_bits) - 1U);
+                uint32_t shift = slice_bits;
+                if (i == 0) {
+                    mask = ((1U << last_slice_bits) - 1U);
+                    shift = last_slice_bits;
+                }
+                slices[num_slices - 1 - i] = static_cast<uint32_t>((acc & mask).data[0]);
+                acc = acc >> shift;
+            }
+
+            ScalarField input(input_u256);
+            input.self_from_montgomery_form();
+
+            ASSERT_EQ(input.data[0], input_u256.data[0]);
+            ASSERT_EQ(input.data[1], input_u256.data[1]);
+            ASSERT_EQ(input.data[2], input_u256.data[2]);
+            ASSERT_EQ(input.data[3], input_u256.data[3]);
+
+            for (uint32_t i = 0; i < num_slices; ++i) {
+                uint32_t result = scalar_multiplication::MSM<Curve>::get_scalar_slice(input, i, slice_bits);
+                EXPECT_EQ(result, slices[i]);
+            }
+        }
+    }
+
+    void test_consume_point_batch()
+    {
+        const size_t total_points = 30071;
+        const size_t num_buckets = 128;
+
+        std::vector<uint64_t> input_point_schedule;
+        for (size_t i = 0; i < total_points; ++i) {
+            uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
+            uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
+            input_point_schedule.push_back(schedule);
+        }
+        typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data;
+        typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
+        scalar_multiplication::MSM<Curve>::batch_accumulate_points_into_buckets(
+            input_point_schedule, generators, affine_data, bucket_data);
+
+        std::vector<Element> expected_buckets(num_buckets);
+        for (auto& e : expected_buckets) {
+            e.self_set_infinity();
+        }
+        for (size_t i = 0; i < total_points; ++i) {
+            uint64_t bucket = input_point_schedule[i] & 0xFFFFFFFF;
+            EXPECT_LT(static_cast<size_t>(bucket), num_buckets);
+            expected_buckets[static_cast<size_t>(bucket)] += generators[i];
+        }
+        for (size_t i = 0; i < num_buckets; ++i) {
+            if (!expected_buckets[i].is_point_at_infinity()) {
+                AffineElement expected(expected_buckets[i]);
+                EXPECT_EQ(expected, bucket_data.buckets[i]);
+            } else {
+                EXPECT_FALSE(bucket_data.bucket_exists.get(i));
+            }
+        }
+    }
+
+    void test_consume_point_batch_and_accumulate()
+    {
+        const size_t total_points = 30071;
+        const size_t num_buckets = 128;
+
+        std::vector<uint64_t> input_point_schedule;
+        for (size_t i = 0; i < total_points; ++i) {
+            uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
+            uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
+            input_point_schedule.push_back(schedule);
+        }
+        typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data;
+        typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
+        scalar_multiplication::MSM<Curve>::batch_accumulate_points_into_buckets(
+            input_point_schedule, generators, affine_data, bucket_data);
+
+        Element result = scalar_multiplication::MSM<Curve>::accumulate_buckets(bucket_data);
+
+        Element expected_acc;
+        expected_acc.self_set_infinity();
+        size_t num_threads = get_num_cpus();
+        std::vector<Element> expected_accs(num_threads);
+        size_t range_per_thread = (total_points + num_threads - 1) / num_threads;
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            Element expected_thread_acc;
+            expected_thread_acc.self_set_infinity();
+            size_t start = thread_idx * range_per_thread;
+            size_t end = (thread_idx == num_threads - 1) ? total_points : (thread_idx + 1) * range_per_thread;
+            bool skip = start >= total_points;
+            if (!skip) {
+                for (size_t i = start; i < end; ++i) {
+                    ScalarField scalar = input_point_schedule[i] & 0xFFFFFFFF;
+                    expected_thread_acc += generators[i] * scalar;
+                }
+            }
+            expected_accs[thread_idx] = expected_thread_acc;
+        });
+
+        for (size_t i = 0; i < num_threads; ++i) {
+            expected_acc += expected_accs[i];
+        }
+        AffineElement expected(expected_acc);
+        EXPECT_EQ(AffineElement(result), expected);
+    }
+
+    void test_radix_sort_count_zero_entries()
+    {
+        const size_t total_points = 30071;
+
+        std::vector<uint64_t> input_point_schedule;
+        for (size_t i = 0; i < total_points; ++i) {
+            uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
+            uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
+            input_point_schedule.push_back(schedule);
+        }
+
+        size_t result = scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
+            &input_point_schedule[0], input_point_schedule.size(), 7);
+
+        // Verify zero entry count is correct
+        size_t expected = 0;
+        for (size_t i = 0; i < total_points; ++i) {
+            expected += static_cast<size_t>((input_point_schedule[i] & 0xFFFFFFFF) == 0);
+        }
+        EXPECT_EQ(result, expected);
+
+        // Verify the array is sorted by bucket index (lower 32 bits)
+        for (size_t i = 1; i < total_points; ++i) {
+            uint32_t prev_bucket = static_cast<uint32_t>(input_point_schedule[i - 1]);
+            uint32_t curr_bucket = static_cast<uint32_t>(input_point_schedule[i]);
+            EXPECT_LE(prev_bucket, curr_bucket) << "Array not sorted at index " << i;
+        }
+    }
+
+    void test_pippenger_low_memory()
+    {
+        std::span<ScalarField> test_scalars(&scalars[0], num_points);
+        AffineElement result =
+            scalar_multiplication::MSM<Curve>::msm(generators, PolynomialSpan<ScalarField>(0, test_scalars));
+        AffineElement expected = naive_msm(test_scalars, generators);
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_batch_multi_scalar_mul()
+    {
+        BB_BENCH_NAME("BatchMultiScalarMul");
+
+        const size_t num_msms = static_cast<size_t>(engine.get_random_uint8());
+        std::vector<AffineElement> expected(num_msms);
+
+        std::vector<std::vector<ScalarField>> batch_scalars_copies(num_msms);
+        std::vector<std::span<const AffineElement>> batch_points_span;
+        std::vector<std::span<ScalarField>> batch_scalars_spans;
+
+        size_t vector_offset = 0;
+        for (size_t k = 0; k < num_msms; ++k) {
+            const size_t num_pts = static_cast<size_t>(engine.get_random_uint16()) % 400;
+
+            ASSERT_LT(vector_offset + num_pts, num_points);
+            std::span<const AffineElement> batch_points(&generators[vector_offset], num_pts);
+
+            batch_scalars_copies[k].resize(num_pts);
+            for (size_t i = 0; i < num_pts; ++i) {
+                batch_scalars_copies[k][i] = scalars[vector_offset + i];
+            }
+
+            vector_offset += num_pts;
+            batch_points_span.push_back(batch_points);
+            batch_scalars_spans.push_back(batch_scalars_copies[k]);
+
+            expected[k] = naive_msm(batch_scalars_spans[k], batch_points_span[k]);
+        }
+
+        std::vector<AffineElement> result =
+            scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
+
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_batch_multi_scalar_mul_sparse()
+    {
+        const size_t num_msms = 10;
+        std::vector<AffineElement> expected(num_msms);
+
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<std::span<const AffineElement>> batch_points_span;
+        std::vector<std::span<ScalarField>> batch_scalars_spans;
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            const size_t num_pts = 33;
+            auto& test_scalars = batch_scalars[k];
+
+            test_scalars.resize(num_pts);
+
+            size_t fixture_offset = k * num_pts;
+
+            std::span<AffineElement> batch_points(&generators[fixture_offset], num_pts);
+            for (size_t i = 0; i < 13; ++i) {
+                test_scalars[i] = 0;
+            }
+            for (size_t i = 13; i < 23; ++i) {
+                test_scalars[i] = scalars[fixture_offset + i + 13];
+            }
+            for (size_t i = 23; i < num_pts; ++i) {
+                test_scalars[i] = 0;
+            }
+            batch_points_span.push_back(batch_points);
+            batch_scalars_spans.push_back(batch_scalars[k]);
+
+            expected[k] = naive_msm(batch_scalars[k], batch_points);
+        }
+
+        std::vector<AffineElement> result =
+            scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
+
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_msm()
+    {
+        const size_t start_index = 1234;
+        const size_t num_pts = num_points - start_index;
+
+        PolynomialSpan<ScalarField> scalar_span =
+            PolynomialSpan<ScalarField>(start_index, std::span<ScalarField>(&scalars[0], num_pts));
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(generators, scalar_span);
+
+        std::span<AffineElement> points(&generators[start_index], num_pts);
+        AffineElement expected = naive_msm(scalar_span.span, points);
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_msm_all_zeroes()
+    {
+        const size_t start_index = 1234;
+        const size_t num_pts = num_points - start_index;
+        std::vector<ScalarField> test_scalars(num_pts, ScalarField::zero());
+
+        PolynomialSpan<ScalarField> scalar_span = PolynomialSpan<ScalarField>(start_index, test_scalars);
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(generators, scalar_span);
+
+        EXPECT_EQ(result, Group::affine_point_at_infinity);
+    }
+
+    void test_msm_empty_polynomial()
+    {
+        std::vector<ScalarField> test_scalars;
+        std::vector<AffineElement> input_points;
+        PolynomialSpan<ScalarField> scalar_span = PolynomialSpan<ScalarField>(0, test_scalars);
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
+
+        EXPECT_EQ(result, Group::affine_point_at_infinity);
+    }
+
+    void test_scalars_unchanged_after_msm()
+    {
+        const size_t num_pts = 100;
+        std::vector<ScalarField> test_scalars(num_pts);
+        std::vector<ScalarField> scalars_copy(num_pts);
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+            scalars_copy[i] = test_scalars[i];
+        }
+
+        std::span<const AffineElement> points(&generators[0], num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            EXPECT_EQ(test_scalars[i], scalars_copy[i]) << "Scalar at index " << i << " was modified";
+        }
+    }
+
+    void test_scalars_unchanged_after_batch_multi_scalar_mul()
+    {
+        const size_t num_msms = 3;
+        const size_t num_pts = 100;
+
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<std::vector<ScalarField>> scalars_copies(num_msms);
+        std::vector<std::span<const AffineElement>> batch_points;
+        std::vector<std::span<ScalarField>> batch_scalar_spans;
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            batch_scalars[k].resize(num_pts);
+            scalars_copies[k].resize(num_pts);
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                batch_scalars[k][i] = scalars[k * num_pts + i];
+                scalars_copies[k][i] = batch_scalars[k][i];
+            }
+
+            batch_points.push_back(std::span<const AffineElement>(&generators[k * num_pts], num_pts));
+            batch_scalar_spans.push_back(batch_scalars[k]);
+        }
+
+        scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalar_spans);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            for (size_t i = 0; i < num_pts; ++i) {
+                EXPECT_EQ(batch_scalars[k][i], scalars_copies[k][i])
+                    << "Scalar at MSM " << k << ", index " << i << " was modified";
+            }
+        }
+    }
+
+    void test_scalar_one()
+    {
+        const size_t num_pts = 5;
+        std::vector<ScalarField> test_scalars(num_pts, ScalarField::one());
+        std::span<const AffineElement> points(&generators[0], num_pts);
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+        Element expected;
+        expected.self_set_infinity();
+        for (size_t i = 0; i < num_pts; ++i) {
+            expected += points[i];
+        }
+
+        EXPECT_EQ(result, AffineElement(expected));
+    }
+
+    void test_scalar_minus_one()
+    {
+        const size_t num_pts = 5;
+        std::vector<ScalarField> test_scalars(num_pts, -ScalarField::one());
+        std::span<const AffineElement> points(&generators[0], num_pts);
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+        Element expected;
+        expected.self_set_infinity();
+        for (size_t i = 0; i < num_pts; ++i) {
+            expected -= points[i];
+        }
+
+        EXPECT_EQ(result, AffineElement(expected));
+    }
+
+    void test_single_point()
+    {
+        std::vector<ScalarField> test_scalars = { scalars[0] };
+        std::span<const AffineElement> points(&generators[0], 1);
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+        AffineElement expected(points[0] * test_scalars[0]);
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_size_thresholds()
+    {
+        std::vector<size_t> test_sizes = { 1, 2, 15, 16, 17, 50, 127, 128, 129, 256, 512 };
+
+        for (size_t num_pts : test_sizes) {
+            ASSERT_LE(num_pts, num_points);
+
+            std::vector<ScalarField> test_scalars(num_pts);
+            for (size_t i = 0; i < num_pts; ++i) {
+                test_scalars[i] = scalars[i];
+            }
+
+            std::span<const AffineElement> points(&generators[0], num_pts);
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+            AffineElement expected = naive_msm(test_scalars, points);
+
+            EXPECT_EQ(result, expected) << "Failed for size " << num_pts;
+        }
+    }
+
+    void test_duplicate_points()
+    {
+        // Use enough points to trigger Pippenger (> PIPPENGER_THRESHOLD = 16)
+        const size_t num_pts = 32;
+        AffineElement base_point = generators[0];
+
+        std::vector<AffineElement> points(num_pts, base_point);
+        std::vector<ScalarField> test_scalars(num_pts);
+        ScalarField scalar_sum = ScalarField::zero();
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+            scalar_sum += test_scalars[i];
+        }
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+        // Duplicate points are an edge case (P + P requires doubling, not addition).
+        // Must use handle_edge_cases=true for correctness with Pippenger.
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
+
+        AffineElement expected(base_point * scalar_sum);
+        EXPECT_EQ(result, expected);
+    }
+
+    void test_mixed_zero_scalars()
+    {
+        const size_t num_pts = 100;
+        std::vector<ScalarField> test_scalars(num_pts);
+        Element expected;
+        expected.self_set_infinity();
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            if (i % 2 == 0) {
+                test_scalars[i] = ScalarField::zero();
+            } else {
+                test_scalars[i] = scalars[i];
+                expected += generators[i] * test_scalars[i];
+            }
+        }
+
+        std::span<const AffineElement> points(&generators[0], num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+        EXPECT_EQ(result, AffineElement(expected));
+    }
+
+    void test_pippenger_free_function()
+    {
+        const size_t num_pts = 200;
+        std::vector<ScalarField> test_scalars(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+        }
+
+        std::span<const AffineElement> points(&generators[0], num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points);
+
+        AffineElement expected = naive_msm(test_scalars, points);
+        EXPECT_EQ(AffineElement(result), expected);
+    }
+
+    void test_pippenger_unsafe_free_function()
+    {
+        const size_t num_pts = 200;
+        std::vector<ScalarField> test_scalars(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+        }
+
+        std::span<const AffineElement> points(&generators[0], num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        auto result = scalar_multiplication::pippenger_unsafe<Curve>(scalar_span, points);
+
+        AffineElement expected = naive_msm(test_scalars, points);
+        EXPECT_EQ(AffineElement(result), expected);
+    }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
 TYPED_TEST_SUITE(ScalarMultiplicationTest, CurveTypes);
 
-#define SCALAR_MULTIPLICATION_TYPE_ALIASES                                                                             \
-    using Curve = TypeParam;                                                                                           \
-    using ScalarField = typename Curve::ScalarField;                                                                   \
-    // using AffineElement = typename Curve::AffineEleent;
+// ======================= Test Wrappers =======================
 
 TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    const size_t fr_size = 254;
-    const size_t slice_bits = 7;
-    size_t num_slices = (fr_size + 6) / 7;
-    size_t last_slice_bits = fr_size - ((num_slices - 1) * slice_bits);
-
-    for (size_t x = 0; x < 100; ++x) {
-
-        uint256_t input_u256 = engine.get_random_uint256();
-        input_u256.data[3] = input_u256.data[3] & 0x3FFFFFFFFFFFFFFF; // 254 bits
-        while (input_u256 > ScalarField::modulus) {
-            input_u256 -= ScalarField::modulus;
-        }
-        std::vector<uint32_t> slices(num_slices);
-
-        uint256_t acc = input_u256;
-        for (size_t i = 0; i < num_slices; ++i) {
-            size_t mask = ((1 << slice_bits) - 1UL);
-            size_t shift = slice_bits;
-            if (i == 0) {
-                mask = ((1UL << last_slice_bits) - 1UL);
-                shift = last_slice_bits;
-            }
-            slices[num_slices - 1 - i] = static_cast<uint32_t>((acc & mask).data[0]);
-            acc = acc >> shift;
-        }
-        // uint256_t input_u256 = 0;
-
-        // for (size_t i = 0; i < num_slices; ++i) {
-        //     bool valid_slice = false;
-        //     while (!valid_slice) {
-        //         size_t mask = ((1 << slice_bits) - 1);
-        //         if (i == num_slices - 1) {
-        //             mask = ((1 << last_slice_bits) - 1);
-        //         }
-        //         const uint32_t slice = engine.get_random_uint32() & mask;
-
-        //         size_t shift = (fr_size - slice_bits - (i * slice_bits));
-        //         if (i == num_slices - 1) {
-        //             shift = 0;
-        //         }
-
-        //         const uint256_t new_input_u256 = input_u256 + (uint256_t(slice) << shift);
-        //         //   BB_ASSERT(new_input_u256 < fr::modulus);
-        //         if (new_input_u256 < fr::modulus) {
-        //             input_u256 = new_input_u256;
-        //             slices[i] = slice;
-        //             valid_slice = true;
-        //         }
-        //     }
-        // }
-
-        // BB_ASSERT(input_u256 < fr::modulus);
-        // while (input_u256 > fr::modulus) {
-        //     input_u256 -= fr::modulus;
-        // }
-        ScalarField input(input_u256);
-        input.self_from_montgomery_form();
-
-        ASSERT_EQ(input.data[0], input_u256.data[0]);
-        ASSERT_EQ(input.data[1], input_u256.data[1]);
-        ASSERT_EQ(input.data[2], input_u256.data[2]);
-        ASSERT_EQ(input.data[3], input_u256.data[3]);
-
-        for (size_t i = 0; i < num_slices; ++i) {
-
-            uint32_t result = scalar_multiplication::MSM<Curve>::get_scalar_slice(input, i, slice_bits);
-            EXPECT_EQ(result, slices[i]);
-        }
-    }
-    //   fr test = 0;
-    // test.data[0] = 0b;
-    // test.data[1] = 0b010101
+    this->test_get_scalar_slice();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatch)
 {
-    using Curve = TypeParam;
-    using AffineElement = typename Curve::AffineElement;
-    // todo make this not a multiple of 10k
-    const size_t total_points = 30071;
-    const size_t num_buckets = 128;
-
-    std::vector<uint64_t> input_point_schedule;
-    for (size_t i = 0; i < total_points; ++i) {
-
-        uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
-
-        uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
-        input_point_schedule.push_back(schedule);
-    }
-    typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data =
-        typename scalar_multiplication::MSM<Curve>::AffineAdditionData();
-    typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-    scalar_multiplication::MSM<Curve>::consume_point_schedule(
-        input_point_schedule, TestFixture::generators, affine_data, bucket_data, 0, 0);
-
-    std::vector<typename Curve::Element> expected_buckets(num_buckets);
-    for (auto& e : expected_buckets) {
-        e.self_set_infinity();
-    }
-    // std::cout << "computing expected" << std::endl;
-    for (size_t i = 0; i < total_points; ++i) {
-        uint64_t bucket = input_point_schedule[i] & 0xFFFFFFFF;
-        EXPECT_LT(static_cast<size_t>(bucket), num_buckets);
-        expected_buckets[static_cast<size_t>(bucket)] += TestFixture::generators[i];
-    }
-    for (size_t i = 0; i < num_buckets; ++i) {
-        if (!expected_buckets[i].is_point_at_infinity()) {
-            AffineElement expected(expected_buckets[i]);
-            EXPECT_EQ(expected, bucket_data.buckets[i]);
-        } else {
-            EXPECT_FALSE(bucket_data.bucket_exists.get(i));
-        }
-    }
+    this->test_consume_point_batch();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatchAndAccumulate)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-
-    // todo make this not a multiple of 10k
-    const size_t total_points = 30071;
-    const size_t num_buckets = 128;
-
-    std::vector<uint64_t> input_point_schedule;
-    for (size_t i = 0; i < total_points; ++i) {
-
-        uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
-
-        uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
-        input_point_schedule.push_back(schedule);
-    }
-    typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data =
-        typename scalar_multiplication::MSM<Curve>::AffineAdditionData();
-    typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-    scalar_multiplication::MSM<Curve>::consume_point_schedule(
-        input_point_schedule, TestFixture::generators, affine_data, bucket_data, 0, 0);
-
-    Element result = scalar_multiplication::MSM<Curve>::accumulate_buckets(bucket_data);
-
-    Element expected_acc = Element();
-    expected_acc.self_set_infinity();
-    size_t num_threads = get_num_cpus();
-    std::vector<Element> expected_accs(num_threads);
-    size_t range_per_thread = (total_points + num_threads - 1) / num_threads;
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        Element expected_thread_acc;
-        expected_thread_acc.self_set_infinity();
-        size_t start = thread_idx * range_per_thread;
-        size_t end = (thread_idx == num_threads - 1) ? total_points : (thread_idx + 1) * range_per_thread;
-        bool skip = start >= total_points;
-        if (!skip) {
-            for (size_t i = start; i < end; ++i) {
-                ScalarField scalar = input_point_schedule[i] & 0xFFFFFFFF;
-                expected_thread_acc += TestFixture::generators[i] * scalar;
-            }
-        }
-        expected_accs[thread_idx] = expected_thread_acc;
-    });
-
-    for (size_t i = 0; i < num_threads; ++i) {
-        expected_acc += expected_accs[i];
-    }
-    AffineElement expected(expected_acc);
-    EXPECT_EQ(AffineElement(result), expected);
+    this->test_consume_point_batch_and_accumulate();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntries)
 {
-    const size_t total_points = 30071;
-
-    std::vector<uint64_t> input_point_schedule;
-    for (size_t i = 0; i < total_points; ++i) {
-
-        uint64_t bucket = static_cast<uint64_t>(engine.get_random_uint8()) & 0x7f;
-
-        uint64_t schedule = static_cast<uint64_t>(bucket) + (static_cast<uint64_t>(i) << 32);
-        input_point_schedule.push_back(schedule);
-    }
-
-    size_t result = scalar_multiplication::process_buckets_count_zero_entries(
-        &input_point_schedule[0], input_point_schedule.size(), 7);
-    size_t expected = 0;
-    for (size_t i = 0; i < total_points; ++i) {
-        expected += static_cast<size_t>((input_point_schedule[i] & 0xFFFFFFFF) == 0);
-    }
-    EXPECT_EQ(result, expected);
+    this->test_radix_sort_count_zero_entries();
 }
-
-TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
-{
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-    using Element = typename Curve::Element;
-
-    const size_t num_points = 2;
-    std::vector<ScalarField> scalars(num_points);
-    constexpr size_t NUM_BITS_IN_FIELD = fr::modulus.get_msb() + 1;
-    const size_t normal_slice_size = 7; // stop hardcoding
-    const size_t num_buckets = 1 << normal_slice_size;
-
-    const size_t num_rounds = (NUM_BITS_IN_FIELD + normal_slice_size - 1) / normal_slice_size;
-    typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data =
-        typename scalar_multiplication::MSM<Curve>::AffineAdditionData();
-    typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-
-    for (size_t round_index = num_rounds - 1; round_index < num_rounds; round_index++) {
-        const size_t num_bits_in_slice =
-            (round_index == (num_rounds - 1)) ? (NUM_BITS_IN_FIELD % normal_slice_size) : normal_slice_size;
-        for (size_t i = 0; i < num_points; ++i) {
-
-            size_t hi_bit = NUM_BITS_IN_FIELD - (round_index * normal_slice_size);
-            size_t lo_bit = hi_bit - normal_slice_size;
-            if (hi_bit < normal_slice_size) {
-                lo_bit = 0;
-            }
-            uint64_t slice = engine.get_random_uint64() & ((1 << num_bits_in_slice) - 1);
-            // at this point in the algo, scalars has been converted out of montgomery form
-            uint256_t scalar = uint256_t(slice) << lo_bit;
-            scalars[i].data[0] = scalar.data[0];
-            scalars[i].data[1] = scalar.data[1];
-            scalars[i].data[2] = scalar.data[2];
-            scalars[i].data[3] = scalar.data[3];
-            scalars[i].self_to_montgomery_form();
-        }
-
-        std::vector<uint32_t> indices;
-        scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(scalars, indices);
-
-        Element previous_round_output;
-        previous_round_output.self_set_infinity();
-        for (auto x : indices) {
-            ASSERT_LT(x, num_points);
-        }
-        std::vector<uint64_t> point_schedule(scalars.size());
-        typename scalar_multiplication::MSM<Curve>::MSMData msm_data(
-            scalars, TestFixture::generators, indices, point_schedule);
-        Element result = scalar_multiplication::MSM<Curve>::evaluate_pippenger_round(
-            msm_data, round_index, affine_data, bucket_data, previous_round_output, 7);
-        Element expected;
-        expected.self_set_infinity();
-        for (size_t i = 0; i < num_points; ++i) {
-            ScalarField baz = scalars[i].to_montgomery_form();
-            expected += (TestFixture::generators[i] * baz);
-        }
-        size_t num_doublings = NUM_BITS_IN_FIELD - (normal_slice_size * (round_index + 1));
-        if (round_index == num_rounds - 1) {
-            num_doublings = 0;
-        }
-        for (size_t i = 0; i < num_doublings; ++i) {
-            result.self_dbl();
-        }
-        EXPECT_EQ(AffineElement(result), AffineElement(expected));
-    }
-}
-
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t num_points = TestFixture::num_points;
-
-    std::span<ScalarField> scalars(&TestFixture::scalars[0], num_points);
-    AffineElement result =
-        scalar_multiplication::MSM<Curve>::msm(TestFixture::generators, PolynomialSpan<ScalarField>(0, scalars));
-
-    AffineElement expected = TestFixture::naive_msm(scalars, TestFixture::generators);
-    EXPECT_EQ(result, expected);
+    this->test_pippenger_low_memory();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
 {
-    BB_BENCH_NAME("BatchMultiScalarMul");
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t num_msms = static_cast<size_t>(engine.get_random_uint8());
-    std::vector<AffineElement> expected(num_msms);
-
-    std::vector<std::span<const AffineElement>> batch_points_span;
-    std::vector<std::span<ScalarField>> batch_scalars_spans;
-
-    size_t vector_offset = 0;
-    for (size_t k = 0; k < num_msms; ++k) {
-        const size_t num_points = static_cast<size_t>(engine.get_random_uint16()) % 400;
-
-        ASSERT_LT(vector_offset + num_points, TestFixture::num_points);
-        std::span<ScalarField> batch_scalars(&TestFixture::scalars[vector_offset], num_points);
-        std::span<const AffineElement> batch_points(&TestFixture::generators[vector_offset], num_points);
-
-        vector_offset += num_points;
-        batch_points_span.push_back(batch_points);
-        batch_scalars_spans.push_back(batch_scalars);
-
-        expected[k] = TestFixture::naive_msm(batch_scalars_spans[k], batch_points_span[k]);
-    }
-
-    std::vector<AffineElement> result =
-        scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
-
-    EXPECT_EQ(result, expected);
+    this->test_batch_multi_scalar_mul();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t num_msms = 10;
-    std::vector<AffineElement> expected(num_msms);
-
-    std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
-    std::vector<std::vector<AffineElement>> batch_input_points(num_msms);
-    std::vector<std::span<const AffineElement>> batch_points_span;
-    std::vector<std::span<ScalarField>> batch_scalars_spans;
-
-    for (size_t k = 0; k < num_msms; ++k) {
-        const size_t num_points = 33;
-        auto& scalars = batch_scalars[k];
-
-        scalars.resize(num_points);
-
-        size_t fixture_offset = k * num_points;
-
-        std::span<AffineElement> batch_points(&TestFixture::generators[fixture_offset], num_points);
-        for (size_t i = 0; i < 13; ++i) {
-            scalars[i] = 0;
-        }
-        for (size_t i = 13; i < 23; ++i) {
-            scalars[i] = TestFixture::scalars[fixture_offset + i + 13];
-        }
-        for (size_t i = 23; i < num_points; ++i) {
-            scalars[i] = 0;
-        }
-        batch_points_span.push_back(batch_points);
-        batch_scalars_spans.push_back(batch_scalars[k]);
-
-        expected[k] = TestFixture::naive_msm(batch_scalars[k], batch_points);
-    }
-
-    std::vector<AffineElement> result =
-        scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points_span, batch_scalars_spans);
-
-    EXPECT_EQ(result, expected);
+    this->test_batch_multi_scalar_mul_sparse();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t start_index = 1234;
-    const size_t num_points = TestFixture::num_points - start_index;
-
-    PolynomialSpan<ScalarField> scalar_span =
-        PolynomialSpan<ScalarField>(start_index, std::span<ScalarField>(&TestFixture::scalars[0], num_points));
-    AffineElement result = scalar_multiplication::MSM<Curve>::msm(TestFixture::generators, scalar_span);
-
-    std::span<AffineElement> points(&TestFixture::generators[start_index], num_points);
-    AffineElement expected = TestFixture::naive_msm(scalar_span.span, points);
-    EXPECT_EQ(result, expected);
+    this->test_msm();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, MSMAllZeroes)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t start_index = 1234;
-    const size_t num_points = TestFixture::num_points - start_index;
-    std::vector<ScalarField> scalars(num_points);
-
-    for (size_t i = 0; i < num_points; ++i) {
-        scalars[i] = 0;
-    }
-
-    PolynomialSpan<ScalarField> scalar_span = PolynomialSpan<ScalarField>(start_index, scalars);
-    AffineElement result = scalar_multiplication::MSM<Curve>::msm(TestFixture::generators, scalar_span);
-
-    EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+    this->test_msm_all_zeroes();
 }
-
 TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
 {
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t num_points = 0;
-    std::vector<ScalarField> scalars(num_points);
-    std::vector<AffineElement> input_points(num_points);
-    PolynomialSpan<ScalarField> scalar_span = PolynomialSpan<ScalarField>(0, scalars);
-    AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
-
-    EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+    this->test_msm_empty_polynomial();
 }
-
-// Helper function to generate scalars with specified sparsity
-template <typename ScalarField>
-std::vector<ScalarField> generate_sparse_scalars(size_t num_scalars, double sparsity_rate, auto& rng)
+TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
 {
-    std::vector<ScalarField> scalars(num_scalars);
-    for (size_t i = 0; i < num_scalars; ++i) {
-        // Generate random value to determine if this scalar should be zero
-        double rand_val = static_cast<double>(rng.get_random_uint32()) / static_cast<double>(UINT32_MAX);
-        if (rand_val < sparsity_rate) {
-            scalars[i] = 0;
-        } else {
-            scalars[i] = ScalarField::random_element(&rng);
-        }
-    }
-    return scalars;
+    this->test_scalars_unchanged_after_msm();
 }
-
-// Test different MSM strategies with detailed benchmarking
-// NOTE this requres BB_BENCH=1 to be set before the test command
-TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
+TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterBatchMultiScalarMul)
 {
-#ifndef __wasm__
-    if (!bb::detail::use_bb_bench) {
-#else
-    {
-#endif
-        std::cout
-            << "Skipping BatchMultiScalarMulStrategyComparison as BB_BENCH=1 is not passed (OR we are in wasm).\n";
-        return;
-    }
-    SCALAR_MULTIPLICATION_TYPE_ALIASES
-
-    using AffineElement = typename Curve::AffineElement;
-
-    const size_t num_msms = 3;
-    const size_t msm_max_size = 1 << 17;
-    const double max_sparsity = 0.1;
-
-    // Generate test data with varying sparsity
-    std::vector<std::span<const AffineElement>> all_points;
-    std::vector<std::span<ScalarField>> all_scalars;
-    std::vector<AffineElement> all_commitments;
-    std::vector<std::vector<ScalarField>> scalar_storage;
-
-    for (size_t i = 0; i < num_msms; ++i) {
-        // Generate random sizes and density of 0s
-        const size_t size = engine.get_random_uint64() % msm_max_size;
-        const double sparsity = engine.get_random_uint8() / 255.0 * max_sparsity;
-        auto scalars = generate_sparse_scalars<ScalarField>(size, sparsity, engine);
-        scalar_storage.push_back(std::move(scalars));
-
-        std::span<const AffineElement> points(&TestFixture::generators[i], size);
-        all_points.push_back(points);
-        all_scalars.push_back(scalar_storage.back());
-        all_commitments.push_back(TestFixture::naive_msm(all_scalars.back(), all_points.back()));
-    }
-    auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
-        set_parallel_for_concurrency(num_threads);
-        // Strategy 1: Individual MSMs
-        {
-            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "IndividualMSMs">()));
-            for (size_t i = 0; i < num_msms; ++i) {
-                std::vector<std::span<const AffineElement>> single_points = { all_points[i] };
-                std::vector<std::span<ScalarField>> single_scalars = { all_scalars[i] };
-                auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
-                EXPECT_EQ(result[0], all_commitments[i]);
-            }
-        }
-        // Strategy 2: Batch
-        {
-            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "BatchMSMs">()));
-            auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(all_points, all_scalars);
-            EXPECT_EQ(result, all_commitments);
-        }
-    };
-    // call lambda with template param
-    func.template operator()<"1 thread ">(1);
-    func.template operator()<"2 threads ">(2);
-    func.template operator()<"4 threads ">(4);
-    func.template operator()<"8 threads ">(8);
-    func.template operator()<"16 threads ">(16);
-    func.template operator()<"32 threads ">(32);
+    this->test_scalars_unchanged_after_batch_multi_scalar_mul();
+}
+TYPED_TEST(ScalarMultiplicationTest, ScalarOne)
+{
+    this->test_scalar_one();
+}
+TYPED_TEST(ScalarMultiplicationTest, ScalarMinusOne)
+{
+    this->test_scalar_minus_one();
+}
+TYPED_TEST(ScalarMultiplicationTest, SinglePoint)
+{
+    this->test_single_point();
+}
+TYPED_TEST(ScalarMultiplicationTest, SizeThresholds)
+{
+    this->test_size_thresholds();
+}
+TYPED_TEST(ScalarMultiplicationTest, DuplicatePoints)
+{
+    this->test_duplicate_points();
+}
+TYPED_TEST(ScalarMultiplicationTest, MixedZeroScalars)
+{
+    this->test_mixed_zero_scalars();
+}
+TYPED_TEST(ScalarMultiplicationTest, PippengerFreeFunction)
+{
+    this->test_pippenger_free_function();
+}
+TYPED_TEST(ScalarMultiplicationTest, PippengerUnsafeFreeFunction)
+{
+    this->test_pippenger_unsafe_free_function();
 }
 
+// Non-templated test for explicit small inputs
 TEST(ScalarMultiplication, SmallInputsExplicit)
 {
     uint256_t x0(0x68df84429941826a, 0xeb08934ed806781c, 0xc14b6a2e4f796a73, 0x08dc1a9a11a3c8db);

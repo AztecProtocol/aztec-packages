@@ -1,3 +1,5 @@
+import { MAX_ETH_ADDRESS_VALUE } from '@aztec/constants';
+
 import { NullifierCollisionError } from '../../side_effect_errors.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
@@ -86,18 +88,11 @@ export class NullifierExists extends Instruction {
   static type: string = 'NULLIFIEREXISTS';
   static readonly opcode: Opcode = Opcode.NULLIFIEREXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT16,
-    OperandType.UINT16,
-    OperandType.UINT16,
-  ];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,
-    private nullifierOffset: number,
-    private addressOffset: number,
+    private siloedNullifierOffset: number,
     private existsOffset: number,
   ) {
     super();
@@ -111,13 +106,12 @@ export class NullifierExists extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
-    const [nullifierOffset, addressOffset, existsOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
+    const operands = [this.siloedNullifierOffset, this.existsOffset];
+    const [siloedNullifierOffset, existsOffset] = addressing.resolve(operands, memory);
+    memory.checkTag(TypeTag.FIELD, siloedNullifierOffset);
 
-    const nullifier = memory.get(nullifierOffset).toFr();
-    const address = memory.get(addressOffset).toAztecAddress();
-    const exists = await context.persistableState.checkNullifierExists(address, nullifier);
+    const siloedNullifier = memory.get(siloedNullifierOffset).toFr();
+    const exists = await context.persistableState.checkSiloedNullifierExists(siloedNullifier);
 
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
   }
@@ -282,6 +276,10 @@ export class SendL2ToL1Message extends Instruction {
     memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 
     const recipient = memory.get(recipientOffset).toFr();
+
+    if (recipient.toBigInt() > MAX_ETH_ADDRESS_VALUE) {
+      throw new InstructionExecutionError(`SENDL2TOL1MSG: Recipient address is too large`);
+    }
     const content = memory.get(contentOffset).toFr();
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
   }

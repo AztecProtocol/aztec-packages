@@ -1274,7 +1274,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     bool add_constant = true;
     std::vector<bigfield> new_to_add;
 
-    OriginTag new_tag{};
+    OriginTag new_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     // Merge all tags. Do it in pairs (logically a submitted value can be masked by a challenge)
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
         new_tag = OriginTag(new_tag, OriginTag(left_element.get_origin_tag(), right_element.get_origin_tag()));
@@ -1486,7 +1486,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 {
     // Check the basics
     BB_ASSERT_EQ(mul_left.size(), mul_right.size());
-    BB_ASSERT(divisor.get_value() != 0);
+    BB_ASSERT((divisor.get_value() % modulus_u512) != 0, "bigfield: Division by zero in msub_div");
 
     OriginTag new_tag = divisor.get_origin_tag();
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
@@ -1969,8 +1969,9 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
         const auto other_original_tag = other.get_origin_tag();
-        set_origin_tag(OriginTag());
-        other.set_origin_tag(OriginTag());
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
+        set_origin_tag(empty_tag);
+        other.set_origin_tag(empty_tag);
 
         bigfield diff = *this - other;
         const uint512_t diff_val = diff.get_value();
@@ -2220,6 +2221,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     //
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
         bigfield output(input);
+        // Save the original tag before converting to witnesses
+        auto original_tag = input.get_origin_tag();
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
         output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
@@ -2231,6 +2234,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
             ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
         output.context = ctx;
+        // Restore the original tag after converting to witnesses
+        output.set_origin_tag(original_tag);
         return output;
     };
     if (left.is_constant()) {
@@ -2486,6 +2491,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
         BB_ASSERT(input.is_constant());
         bigfield output(input);
+        // Save the original tag before converting to witnesses
+        auto original_tag = input.get_origin_tag();
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
         output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
@@ -2497,6 +2504,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
             ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
         output.context = ctx;
+        // Restore the original tag after converting to witnesses
+        output.set_origin_tag(original_tag);
         return output;
     };
 
@@ -2532,6 +2541,11 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
             field_t<Builder> lo_2 = field_t<Builder>::from_witness_index(ctx, lo_2_idx);
             field_t<Builder> hi_2 = field_t<Builder>::from_witness_index(ctx, hi_2_idx);
+            // Set CONSTANT tags so these intermediate results are absorbed during tag merging
+            // The final tag will come from the remainders which have properly merged tags from mult_madd
+            auto const_tag = OriginTag::constant();
+            lo_2.set_origin_tag(const_tag);
+            hi_2.set_origin_tag(const_tag);
 
             limb_0_accumulator.emplace_back(-lo_2);
             limb_2_accumulator.emplace_back(-hi_2);

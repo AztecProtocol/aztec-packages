@@ -29,6 +29,8 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'valid-epoch-pruned-slash
  * We don't need to do anything special for this test other than to run it without a prover node
  * (which is the default), and this will produce pruned epochs that could have been proven. But we do
  * need to send a tx to make sure that the slash is due to valid epoch prune and not data withholding.
+ *
+ * TODO(palla/mbps): Add tests for 1) out messages and 2) partial epoch prunes
  */
 describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   let t: P2PNetworkTest;
@@ -36,8 +38,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
-  const ethereumSlotDuration = 4;
-  const aztecSlotDuration = 8;
+  const ethereumSlotDuration = 8;
+  const aztecSlotDuration = 24;
   const aztecEpochDuration = 2;
   const initialEpoch = 8;
   const slashingUnit = BigInt(1e18);
@@ -50,6 +52,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        enforceTimeTable: true,
         cancelTxOnTimeout: false,
         publisherAllowInvalidStates: true,
         listenAddress: '127.0.0.1',
@@ -143,7 +146,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // Send a tx to deploy a contract so that we have a tx with public function execution in the pruned epoch
     // This allows us to test that the slashed offense is valid epoch prune and not data withholding
     t.logger.warn(`Submitting deployment tx to the network`);
-    const _spamContract = await SpamContract.deploy(t.wallet!).send({ from: t.defaultAccountAddress! }).deployed();
+    const _spamContract = await SpamContract.deploy(t.wallet!).send({ from: t.defaultAccountAddress! });
 
     // And send a tx that depends on a tx with public function execution on a contract class that will be reorged out
     // This allows us to test that we handle pruned contract classes correctly
@@ -151,7 +154,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // this tx are in different blocks but within the same epoch, so it gets reexecuted by the prune-watcher.
     // This does not always happen in the current test setup.
     // t.logger.warn(`Submitting tx with public function execution to the network`);
-    // await spamContract.methods.spam(1, 1, true).send({ from: t.defaultAccountAddress! }).wait();
+    // await spamContract.methods.spam(1, 1, true).send({ from: t.defaultAccountAddress! });
 
     // Initial node receives the txs, so we cannot stop it before that one is mined
     // Yes, that means that there are probably two nodes running the same validator key (the initial node and nodes[0])

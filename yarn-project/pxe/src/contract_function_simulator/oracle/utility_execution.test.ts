@@ -6,7 +6,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
@@ -17,8 +17,8 @@ import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -37,12 +37,12 @@ describe('Utility Execution test suite', () => {
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let anchorBlockStore: ReturnType<typeof mock<AnchorBlockStore>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -59,15 +59,14 @@ describe('Utility Execution test suite', () => {
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
     aztecNode = mock<AztecNode>();
-    anchorBlockStore = mock<AnchorBlockStore>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    contractSyncService = mock<ContractSyncService>();
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
-    anchorBlockStore.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
@@ -97,13 +96,13 @@ describe('Utility Execution test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
       simulator,
+      contractSyncService,
     );
 
     const ownerPartialAddress = Fr.random();
@@ -170,7 +169,7 @@ describe('Utility Execution test suite', () => {
             Fr.random(),
             TxHash.random(),
             BlockNumber(42),
-            L2BlockHash.random().toString(),
+            BlockHash.random().toString(),
             0,
             0,
           ),
@@ -205,7 +204,6 @@ describe('Utility Execution test suite', () => {
       anchorBlockHeader = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
-      anchorBlockStore.getBlockHeader.mockResolvedValue(anchorBlockHeader);
 
       utilityExecutionOracle = new UtilityExecutionOracle(
         contractAddress,
@@ -217,7 +215,6 @@ describe('Utility Execution test suite', () => {
         keyStore,
         addressStore,
         aztecNode,
-        anchorBlockStore,
         recipientTaggingStore,
         senderAddressBookStore,
         capsuleStore,

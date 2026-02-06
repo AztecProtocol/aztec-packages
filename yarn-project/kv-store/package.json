@@ -16,8 +16,8 @@
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
-    "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node",
+    "test:browser": "vitest run --config ./vitest.config.ts",
+    "test": "yarn test:node && yarn test:browser",
     "test:jest": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -46,17 +46,19 @@
     "@types/node": "^22.15.17",
     "@types/sinon": "^17.0.3",
     "@typescript/native-preview": "7.0.0-dev.20260113.1",
-    "@web/dev-server-esbuild": "^1.0.3",
-    "@web/test-runner": "^0.19.0",
-    "@web/test-runner-playwright": "^0.11.0",
+    "@vitest/browser-playwright": "^4.0.0",
+    "buffer": "^6.0.3",
     "chai": "^5.1.2",
     "chai-as-promised": "^8.0.1",
     "jest": "^30.0.0",
     "mocha": "^10.8.2",
     "mocha-each": "^2.0.1",
+    "playwright": "1.49.0",
     "sinon": "^19.0.2",
     "ts-node": "^10.9.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "util": "^0.12.5",
+    "vitest": "^4.0.0"
   },
   "files": [
     "dest",

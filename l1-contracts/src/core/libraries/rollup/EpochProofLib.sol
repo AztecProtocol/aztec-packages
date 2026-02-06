@@ -295,6 +295,10 @@ library EpochProofLib {
     // Get the stored attestation hash and payload digest for the last checkpoint
     CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
+    // Verify that the out hash matches the stored value
+    // The stored out hash is part of the payloadDigest that was attested to.
+    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
+
     // Verify that the provided attestations match the stored hash
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
     require(providedAttestationsHash == checkpointLog.attestationsHash, Errors.Rollup__InvalidAttestations());
@@ -317,10 +321,6 @@ library EpochProofLib {
     }
 
     ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
-
-    // Verify that the out hash matches the stored value
-    // The stored out hash is part of the payloadDigest that was attested to.
-    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
   }
 
   /**

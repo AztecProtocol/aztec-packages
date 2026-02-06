@@ -1,27 +1,25 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::DOM_SEP__CONSTRUCTOR, hash::poseidon2_hash_with_separator, traits::ToField,
+use crate::protocol::{
+    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__INITIALIZER,
+    hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
 use crate::{
     context::{PrivateContext, PublicContext},
+    nullifier::utils::compute_nullifier_existence_request,
     oracle::get_contract_instance::{
-        get_contract_instance, get_contract_instance_deployer_avm,
-        get_contract_instance_initialization_hash_avm,
+        get_contract_instance, get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
     },
 };
 
 // Used by `create_mark_as_initialized` (you won't find it through searching)
 pub fn mark_as_initialized_public(context: PublicContext) {
-    let init_nullifier =
-        compute_unsiloed_contract_initialization_nullifier((context).this_address());
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
 // Used by `create_mark_as_initialized` (you won't find it through searching)
 pub fn mark_as_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier =
-        compute_unsiloed_contract_initialization_nullifier((*context).this_address());
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
@@ -30,16 +28,14 @@ pub fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
     // Safety: TODO(F-239) - this is currently unsafe, we cannot rely on the nullifier existing to determine that any
     // public component of contract initialization has been complete.
-    assert(
-        context.nullifier_exists_unsafe(init_nullifier, context.this_address()),
-        "Not initialized",
-    );
+    assert(context.nullifier_exists_unsafe(init_nullifier, context.this_address()), "Not initialized");
 }
 
 // Used by `create_init_check` (you won't find it through searching)
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
-    context.assert_nullifier_exists(init_nullifier, context.this_address());
+    let nullifier_existence_request = compute_nullifier_existence_request(init_nullifier, context.this_address());
+    context.assert_nullifier_exists(nullifier_existence_request);
 }
 
 fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> Field {
@@ -73,12 +69,9 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
 
 /// This function is not only used in macros but it's also used by external people to check that an instance has been
 /// initialized with the correct constructor arguments. Don't hide this unless you implement factory functionality.
-pub fn compute_initialization_hash(
-    init_selector: FunctionSelector,
-    init_args_hash: Field,
-) -> Field {
+pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
-        DOM_SEP__CONSTRUCTOR,
+        DOM_SEP__INITIALIZER,
     )
 }

@@ -39,7 +39,7 @@ Before working with devnet, ensure you have:
 2. Aztec CLI installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network)
+bash -i <(curl -sL https://install.aztec.network)
 ```
 
 3. The devnet version installed:
@@ -261,5 +261,5 @@ https://devnet-6.aztec-labs.com
 ## Additional Resources
 
 - [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
-- [Running a node](/network/)
+- [Running a node](/operate/operators)
 - [Block explorers](https://devnet.aztecscan.xyz)

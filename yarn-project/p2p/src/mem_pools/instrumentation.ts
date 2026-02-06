@@ -12,6 +12,7 @@ import {
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export enum PoolName {
@@ -97,7 +98,7 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       dbStats,
     );
 
-    this.addObjectCounter = this.meter.createUpDownCounter(metricsLabels.itemsAdded);
+    this.addObjectCounter = createUpDownCounterWithDefault(this.meter, metricsLabels.itemsAdded);
 
     this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay);
 

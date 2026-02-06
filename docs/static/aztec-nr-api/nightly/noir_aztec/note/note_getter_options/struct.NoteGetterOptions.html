@@ -66,9 +66,9 @@
     pub limit: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
     pub offset: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
     pub owner: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;,
-    pub preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
+    pub preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
     pub preprocessor_args: PreprocessorArgs,
-    pub filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
+    pub filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
     pub filter_args: FilterArgs,
     pub status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
 }
@@ -79,25 +79,28 @@
 <div class="padded-description"></div><div id="structfield.limit" class="struct-field"><code class="code-header">limit: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
 <div class="padded-description"></div><div id="structfield.offset" class="struct-field"><code class="code-header">offset: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
 <div class="padded-description"></div><div id="structfield.owner" class="struct-field"><code class="code-header">owner: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.preprocessor" class="struct-field"><code class="code-header">preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16]</code></div>
+<div class="padded-description"></div><div id="structfield.preprocessor" class="struct-field"><code class="code-header">preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16]</code></div>
 <div class="padded-description"></div><div id="structfield.preprocessor_args" class="struct-field"><code class="code-header">preprocessor_args: PreprocessorArgs</code></div>
-<div class="padded-description"></div><div id="structfield.filter" class="struct-field"><code class="code-header">filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16]</code></div>
+<div class="padded-description"></div><div id="structfield.filter" class="struct-field"><code class="code-header">filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16]</code></div>
 <div class="padded-description"></div><div id="structfield.filter_args" class="struct-field"><code class="code-header">filter_args: FilterArgs</code></div>
 <div class="padded-description"></div><div id="structfield.status" class="struct-field"><code class="code-header">status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, FilterArgs&gt;</code></h3>
+<h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note, PreprocessorArgs&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="with_filter" class="code-header">pub fn <a href="#with_filter"><span class="fn">with_filter</span></a>(
-    filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
-    filter_args: FilterArgs,
+<div class="padded-methods"><code id="with_preprocessor" class="code-header">pub fn <a href="#with_preprocessor"><span class="fn">with_preprocessor</span></a>(
+    preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
+    preprocessor_args: PreprocessorArgs,
 ) -> Self
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>
 
-</div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></h3>
+</div><h3><code class="code-header">impl&lt;FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, FilterArgs&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self
+<div class="padded-methods"><code id="with_filter" class="code-header">pub fn <a href="#with_filter"><span class="fn">with_filter</span></a>(
+    filter: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], FilterArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
+    filter_args: FilterArgs,
+) -> Self
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>
@@ -123,12 +126,9 @@
 
 <code id="set_owner" class="code-header">pub fn <a href="#set_owner"><span class="fn">set_owner</span></a>(&mut self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-</div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note, PreprocessorArgs&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></h3>
+</div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="with_preprocessor" class="code-header">pub fn <a href="#with_preprocessor"><span class="fn">with_preprocessor</span></a>(
-    preprocessor: fn([<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16], PreprocessorArgs) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;&gt;; 16],
-    preprocessor_args: PreprocessorArgs,
-) -> Self
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>

@@ -29,6 +29,7 @@ names:
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
+  - martin: &martin "U09MZMSNZ96"
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
   - suyash: &suyash "U08QFSL6LPM"
@@ -174,7 +175,7 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
-      - *alex
+      - *grego
   - regex: "yarn-project/kv-store"
     error_regex: "timeout: sending signal TERM to command"
     owners:
@@ -182,7 +183,11 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "Failed to fetch dynamically imported module"
     owners:
-      - *alex
+      - *grego
+  - regex: "yarn-project/kv-store"
+    error_regex: "Error: Timeout of 2000ms exceeded"
+    owners:
+      - *martin
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -319,12 +324,6 @@ tests:
     owners:
       - *adam
 
-  # http://ci.aztec-labs.com/b2a907fbce046b94
-  - regex: "src/e2e_simple.test.ts"
-    error_regex: "Failed to send L1 transaction: FormattedViemError: Error: Transaction timed out before sending"
-    owners:
-      - *palla
-
   - regex: "src/e2e_token_bridge_tutorial.test.ts"
     error_regex: "Error: Unable to find low leaf for block"
     owners:
@@ -342,11 +341,6 @@ tests:
     error_regex: "sending signal TERM to command"
     owners:
       - *adam
-
-  - regex: "validator-ha-signer/src/db/postgres.test.ts"
-    error_regex: "FailureMessage Object"
-    owners:
-      - *spyros
 
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
@@ -366,3 +360,13 @@ tests:
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
       - *lasse
+
+  - regex: "yarn-project/scripts/run_test.sh pxe/src/notes/note_service.test.ts"
+    error_regex: "should remove notes that have been nullified"
+    owners:
+      - *martin
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
+    owners:
+      - *alex

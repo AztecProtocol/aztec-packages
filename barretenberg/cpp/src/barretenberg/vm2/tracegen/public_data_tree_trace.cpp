@@ -110,7 +110,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_clk_diff_lo, static_cast<uint16_t>(clk_diff) },
                       { C::public_data_check_clk_diff_hi, clk_diff >> 16 },
                       { C::public_data_check_leaf_slot, event.leaf_slot },
-                      { C::public_data_check_siloing_separator, DOM_SEP__PUBLIC_LEAF_INDEX },
+                      { C::public_data_check_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
                       { C::public_data_check_leaf_not_exists, !exists },
                       { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv,
                         slot_low_leaf_slot_diff }, // Will be inverted in batch later
@@ -119,7 +119,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
                       { C::public_data_check_intermediate_root, intermediate_root },
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
-                      { C::public_data_check_const_two, 2 },
+                      { C::public_data_check_const_three, 3 },
+                      { C::public_data_check_const_four, 4 },
                       { C::public_data_check_updated_low_leaf_hash, updated_low_leaf_hash },
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
@@ -268,13 +269,13 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
             Column::public_data_check_write)
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
         .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>()
+             InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_public_data_check_write_public_data_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

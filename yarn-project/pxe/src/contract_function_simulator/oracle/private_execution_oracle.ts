@@ -30,9 +30,9 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -46,7 +46,7 @@ import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js'
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
-import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
+import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
@@ -88,12 +88,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     keyStore: KeyStore,
     addressStore: AddressStore,
     aztecNode: AztecNode,
-    anchorBlockStore: AnchorBlockStore,
     private readonly senderTaggingStore: SenderTaggingStore,
     recipientTaggingStore: RecipientTaggingStore,
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    private readonly contractSyncService: ContractSyncService,
     jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
@@ -112,7 +112,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
@@ -244,7 +243,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
-    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     return DirectionalAppTaggingSecret.compute(
       senderCompleteAddress,
@@ -265,7 +264,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
+      await syncSenderTaggingIndexes(
+        secret,
+        this.contractAddress,
+        this.aztecNode,
+        this.senderTaggingStore,
+        await this.anchorBlockHeader.hash(),
+        this.jobId,
+      );
 
       const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
@@ -356,7 +362,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -464,6 +470,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Check if a nullifier has been emitted in the same transaction, i.e. if privateNotifyCreatedNullifier has been
+   * called for this inner nullifier from the contract with the specified address.
+   * @param innerNullifier - The inner nullifier to check.
+   * @param contractAddress - Address of the contract that emitted the nullifier.
+   * @returns A boolean indicating whether the nullifier is pending or not.
+   */
+  public async privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
+    const isNullifierPending = this.noteCache.getNullifiers(contractAddress).has(siloedNullifier.toBigInt());
+    return Promise.resolve(isNullifierPending);
+  }
+
+  /**
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
@@ -519,9 +538,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.aztecNode, this.contractStore, this.anchorBlockHeader);
-
-    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
+    await this.contractSyncService.ensureContractSynced(
+      targetContractAddress,
+      functionSelector,
+      this.utilityExecutor,
+      this.anchorBlockHeader,
+      this.jobId,
+    );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
@@ -548,12 +571,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.contractSyncService,
       this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,

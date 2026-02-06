@@ -47,7 +47,7 @@ pub contract AppSubscription {
         macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
@@ -57,7 +57,9 @@ pub contract AppSubscription {
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
+        // docs:start:owned_private_mutable
         subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
+        // docs:end:owned_private_mutable
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
@@ -155,7 +157,7 @@ pub contract AppSubscription {
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
             self.context,
         );
-
+        // docs:start:owned_private_mutable_initialize
         self
             .storage
             .subscriptions
@@ -164,10 +166,13 @@ pub contract AppSubscription {
                 SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
             })
             .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        // docs:end:owned_private_mutable_initialize
     }
 
+    // docs:start:owned_private_mutable_is_initialized
     #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         self.storage.subscriptions.at(subscriber).is_initialized()
     }
+    // docs:end:owned_private_mutable_is_initialized
 }

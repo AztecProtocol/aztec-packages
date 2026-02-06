@@ -91,8 +91,8 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
-      })
-      .wait({ dontThrowOnRevert: true });
+        wait: { dontThrowOnRevert: true },
+      });
 
     expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
@@ -149,10 +149,7 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods
-      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
-      .send({ from: aliceAddress })
-      .wait();
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send({ from: aliceAddress });
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -197,8 +194,8 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
-      })
-      .wait({ dontThrowOnRevert: true });
+        wait: { dontThrowOnRevert: true },
+      });
 
     expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
     const feeAmount = txReceipt.transactionFee!;
@@ -245,8 +242,7 @@ describe('e2e_fees failures', () => {
           fee: {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped/i);
   });
 
@@ -265,10 +261,7 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods
-      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
-      .send({ from: aliceAddress })
-      .wait();
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send({ from: aliceAddress });
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -299,9 +292,7 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, badGas),
         },
-      })
-      .wait({
-        dontThrowOnRevert: true,
+        wait: { dontThrowOnRevert: true },
       });
     expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);

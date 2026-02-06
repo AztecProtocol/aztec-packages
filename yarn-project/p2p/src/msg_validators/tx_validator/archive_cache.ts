@@ -1,5 +1,5 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { ArchiveSource } from '@aztec/p2p';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -14,8 +14,8 @@ export class ArchiveCache implements ArchiveSource {
     this.archives = new Map<string, bigint>();
   }
 
-  public async getArchiveIndices(archives: Fr[]): Promise<(bigint | undefined)[]> {
-    const toCheckDb = archives.filter(n => !this.archives.has(n.toString()));
+  public async getArchiveIndices(archives: BlockHash[]): Promise<(bigint | undefined)[]> {
+    const toCheckDb = archives.filter(n => !this.archives.has(n.toString())).map(n => n.toFr());
     const dbHits = await this.db.findLeafIndices(MerkleTreeId.ARCHIVE, toCheckDb);
     dbHits.forEach((x, index) => {
       if (x !== undefined) {

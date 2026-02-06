@@ -1,6 +1,6 @@
 use aztec::{
     oracle::auth_witness,
-    protocol_types::{address::PartialAddress, public_keys::PublicKeys, traits::Deserialize},
+    protocol::{address::PartialAddress, public_keys::PublicKeys, traits::Deserialize},
 };
 use std::meta::derive;
 

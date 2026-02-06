@@ -105,7 +105,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         for (size_t i = 0; i < InnerFlavor::NUM_OP_QUEUE_WIRES; i++) {
             stdlib_comms[i] = RecursiveFlavor::Commitment::from_witness(builder, native_comms[i]);
             // Set empty origin tags for commitments (they're free witnesses from merge protocol)
-            stdlib_comms[i].set_origin_tag(OriginTag());
+            stdlib_comms[i].set_origin_tag(OriginTag::constant());
         }
         return stdlib_comms;
     }
@@ -130,13 +130,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Get accumulated_result from the prover
         bb::fq accumulated_result_native = prover.get_accumulated_result();
         auto accumulated_result = TranslatorBF::from_witness(builder, accumulated_result_native);
-        accumulated_result.set_origin_tag(OriginTag());
+        accumulated_result.set_origin_tag(OriginTag::constant());
 
         // Convert challenges to circuit witnesses
         auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(builder, evaluation_challenge_x);
         auto stdlib_batching_challenge_v = TranslatorBF::from_witness(builder, batching_challenge_v);
-        stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
-        stdlib_batching_challenge_v.set_origin_tag(OriginTag());
+        stdlib_evaluation_challenge_x.set_origin_tag(OriginTag::constant());
+        stdlib_batching_challenge_v.set_origin_tag(OriginTag::constant());
 
         // Create op queue commitments (normally provided by merge protocol)
         auto native_op_queue_commitments = create_native_op_queue_commitments(prover.key);
@@ -151,7 +151,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
     static std::tuple<OuterBuilder, std::shared_ptr<OuterFlavor::VerificationKey>> create_recursive_verifier_circuit(
         size_t circuit_size_parameter = 500)
     {
-        using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
 
         // Create fake ECCVM proof
         auto prover_transcript = std::make_shared<Transcript>();
@@ -201,9 +200,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         auto native_result = native_verifier.reduce_to_pairing_check();
         bool native_verified = native_result.pairing_points.check() && native_result.reduction_succeeded;
 
-        NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
-                                                         recursive_result.pairing_points.P1.get_value());
+        auto recursive_verified = recursive_result.pairing_points.check();
         EXPECT_EQ(recursive_verified, native_verified);
 
         // Verify VK commitments consistency between recursive and native verifiers

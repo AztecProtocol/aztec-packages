@@ -1,9 +1,7 @@
 // docs:start:custom_filter_imports
 use aztec::{
     note::HintedNote,
-    protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, utils::field::full_field_less_than,
-    },
+    protocol::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, utils::field::full_field_less_than},
 };
 // docs:end:custom_filter_imports
 use field_note::FieldNote;
