@@ -6,7 +6,6 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import type { ReqRespInterface } from '../interface.js';
-import type { MissingTxMetadata } from './missing_txs.js';
 import type { IPeerCollection } from './peer_collection.js';
 import type { BatchRequestTxValidatorConfig, IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -15,18 +14,15 @@ export interface IPeerPenalizer {
 }
 
 export interface ITxMetadataCollection {
-  size: number;
-  values(): IterableIterator<MissingTxMetadata>;
   getMissingTxHashes(): Set<string>;
+  markFetched(peerId: PeerId, tx: Tx): boolean;
   getTxsToRequestFromThePeer(peer: PeerId): TxHash[];
   markRequested(txHash: TxHash): void;
   markInFlightBySmartPeer(txHash: TxHash): void;
   markNotInFlightBySmartPeer(txHash: TxHash): void;
   alreadyFetched(txHash: TxHash): boolean;
   // Returns true if tx was marked as fetched, false if it was already marked as fetched
-  markFetched(peerId: PeerId, tx: Tx): boolean;
   markPeerHas(peerId: PeerId, txHashes: TxHash[]): void;
-  getFetchedTxs(): Tx[];
 }
 
 /**

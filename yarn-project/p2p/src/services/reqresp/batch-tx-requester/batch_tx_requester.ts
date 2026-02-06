@@ -20,7 +20,7 @@ import {
   DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
 } from './config.js';
 import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
-import { MissingTxMetadata, MissingTxMetadataCollection } from './missing_txs.js';
+import { MissingTxMetadataCollection } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -99,8 +99,7 @@ export class BatchTxRequester {
         this.p2pService.peerScoring,
       );
     }
-    const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
-    this.txsMetadata = new MissingTxMetadataCollection(entries, this.txBatchSize);
+    this.txsMetadata = new MissingTxMetadataCollection(new Set(missingTxs.map(e => e.toString())), this.txBatchSize);
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
   }
 
@@ -661,7 +660,7 @@ export class BatchTxRequester {
   /*
    * @returns true if all missing txs have been fetched */
   private fetchedAllTxs() {
-    return Array.from(this.txsMetadata.values()).every(tx => tx.fetched);
+    return this.txsMetadata.getMissingTxHashes().size == 0;
   }
 
   /*
@@ -679,7 +678,7 @@ export class BatchTxRequester {
       this.unlockSmartRequesterSemaphores();
     }
 
-    return aborted || this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
+    return aborted || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
   }
 
   /*
