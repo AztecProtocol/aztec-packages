@@ -130,9 +130,9 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We run after a nextnet-nightly release (from merge-train/spartan), or when the ci-network-scenario label is present in a PR.
+    # We run after a spartan release (from merge-train/spartan), or when the ci-network-scenario label is present in a PR.
     needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nextnet-nightly.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-spartan.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
     steps:
       - name: Remove label (one-time use)
         if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
@@ -179,8 +179,8 @@ jobs:
           ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
-        # Clean up if this is a CI label or nextnet-nightly.
-        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nextnet-nightly.'))
+        # Clean up if this is a CI label or spartan.
+        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-spartan.'))
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
