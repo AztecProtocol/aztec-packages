@@ -178,21 +178,19 @@ class MultiMegaFlavor : public MegaFlavor {
         }
     };
 
-    // Updated FINAL_PCS_MSM_SIZE for interleaved commitments with batching:
-    // The verifier batches the 17 interleaved commitments into 1 using batching_rho before Shplemini
-    // 1 batched unshifted + 1 batched shifted + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG
-    // W) Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
+    // FINAL_PCS_MSM_SIZE for interleaved commitments (individual, no pre-batching):
+    // 17 unshifted + 3 shifted + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // Batched unshifted: 1 (batched from 17 interleaved commitments using batching_rho)
-        // Batched shifted: 1 (batched from 3 shiftable commitments using batching_rho)
+        // Unshifted commitments: NUM_ALL_INTERLEAVED_COMMITMENTS (17)
+        // Shifted commitments: NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS (3)
         // Shplonk Q: 1
         // Gemini folds: pcs_log_n - 1
         // G1 identity: 1
         // KZG W: 1
-        // Total: 1 + 1 + 1 + (pcs_log_n - 1) + 1 + 1 = 4 + pcs_log_n = 27 for log_n=21
-        return 4 + pcs_log_n;
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + 2 + pcs_log_n;
     }
 
     // VerificationKey stores 8 interleaved precomputed commitments instead of 31 individual ones.
@@ -218,34 +216,6 @@ class MultiMegaFlavor : public MegaFlavor {
      * @details This provides a mapping from the individual polynomials to their interleaved groups.
      * Useful for verifier to reconstruct evaluations from individual claimed evals.
      */
-    struct InterleavingInfo {
-        // W₁: [w_l, w_r, w_o, ZERO]
-        static constexpr size_t WIRES_BATCH_SIZE = 3; // actual polys, rest is zero-padded
-
-        // W₂: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
-        static constexpr size_t ECC_OP_WIRES_BATCH_SIZE = 4;
-
-        // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-        static constexpr size_t DATABUS_1_BATCH_SIZE = 4;
-
-        // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-        static constexpr size_t DATABUS_2_BATCH_SIZE = 4;
-
-        // W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-        static constexpr size_t DATABUS_3_BATCH_SIZE = 1;
-
-        // W₆: [w_4, ZERO, ZERO, ZERO]
-        static constexpr size_t W_4_BATCH_SIZE = 1;
-
-        // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-        static constexpr size_t LOOKUP_BATCH_SIZE = 2;
-
-        // W₈: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-        static constexpr size_t INVERSES_BATCH_SIZE = 4;
-
-        // W₉: [z_perm, ZERO, ZERO, ZERO]
-        static constexpr size_t Z_PERM_BATCH_SIZE = 1;
-    };
 };
 
 } // namespace bb

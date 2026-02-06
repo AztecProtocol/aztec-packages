@@ -22,7 +22,7 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor>;
 
 template <typename T>
 concept IsMultiMegaFlavor = IsAnyOf<T, MultiMegaFlavor>;

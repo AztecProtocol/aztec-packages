@@ -554,6 +554,8 @@ typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<con
 
     // Build interleaved array directly (MSM will handle Montgomery transformation)
     // If num_chunks < batch_size, push zeros for missing chunks (MSM skips zeros efficiently)
+    // Use direct span access (.span[i]) rather than logical indexing ([i]) to avoid
+    // start_index offset issues with shiftable polynomials
     std::vector<Fr> interleaved_scalars;
     {
         BB_BENCH_NAME("InterleavedPip_BuildInterleaved");
@@ -561,7 +563,7 @@ typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<con
         for (size_t i = 0; i < chunk_size; i++) {
             for (size_t j = 0; j < batch_size; j++) {
                 if (j < num_chunks) {
-                    interleaved_scalars.push_back(chunks[j][i]);
+                    interleaved_scalars.push_back(chunks[j].span[i]);
                 } else {
                     interleaved_scalars.push_back(Fr::zero());
                 }

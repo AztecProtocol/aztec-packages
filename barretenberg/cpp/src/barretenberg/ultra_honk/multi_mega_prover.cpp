@@ -110,176 +110,24 @@ void MultiMegaProver::execute_sumcheck_iop()
     }
 }
 
-/**
- * @brief Construct interleaved batched polynomials for PCS.
- * @details Instead of constructing each interleaved polynomial separately, we batch by chunk position:
- *   G₀ = Σᵢ ρⁱ·f_{i,0}  (all 0th chunks batched)
- *   G₁ = Σᵢ ρⁱ·f_{i,1}  (all 1st chunks batched)
- *   G₂ = Σᵢ ρⁱ·f_{i,2}  (all 2nd chunks batched)
- *   G₃ = Σᵢ ρⁱ·f_{i,3}  (all 3rd chunks batched)
- *
- * Then the batched interleaved polynomial is:
- *   F(X) = G₀(X⁴) + X·G₁(X⁴) + X²·G₂(X⁴) + X³·G₃(X⁴)
- */
-std::pair<MultiMegaProver::Polynomial, MultiMegaProver::Polynomial> MultiMegaProver::
-    compute_interleaved_batched_polynomials(const FF& rho)
-{
-    const size_t poly_size = prover_instance->dyadic_size();
-    auto& polys = prover_instance->polynomials;
-
-    // Initialize the 4 batched chunk polynomials
-    Polynomial G0(poly_size); // batched 0th chunks
-    Polynomial G1(poly_size); // batched 1st chunks
-    Polynomial G2(poly_size); // batched 2nd chunks
-    Polynomial G3(poly_size); // batched 3rd chunks
-
-    // Similarly for shifted (only 3 shiftable groups: W₁, W₆, W₉)
-    Polynomial G0_shifted(Polynomial::shiftable(poly_size));
-    Polynomial G1_shifted(Polynomial::shiftable(poly_size));
-    Polynomial G2_shifted(Polynomial::shiftable(poly_size));
-    Polynomial G3_shifted(Polynomial::shiftable(poly_size));
-
-    FF rho_power = FF::one();
-    std::array<Polynomial*, 4> G = { &G0, &G1, &G2, &G3 };
-    std::array<Polynomial*, 4> G_shifted = { &G0_shifted, &G1_shifted, &G2_shifted, &G3_shifted };
-
-    // Helper to add an interleaved group's chunks to the unshifted batch
-    auto batch_unshifted_group = [&](const std::array<const Polynomial*, 4>& group) {
-        for (size_t j = 0; j < 4; ++j) {
-            if (group[j] != nullptr) {
-                G[j]->add_scaled(*group[j], rho_power);
-            }
-        }
-        rho_power *= rho;
-    };
-
-    // Helper to add an interleaved group's chunks to the shifted batch
-    auto batch_shifted_group = [&](const std::array<const Polynomial*, 4>& group) {
-        for (size_t j = 0; j < 4; ++j) {
-            if (group[j] != nullptr) {
-                G_shifted[j]->add_scaled(*group[j], rho_power);
-            }
-        }
-        rho_power *= rho;
-    };
-
-    // --- Phase 1: Batch all 17 unshifted groups with rho^0..rho^16 ---
-    // Precomputed groups match VK sequential chunking of 31 PrecomputedEntities (batch_size=4).
-
-    // P₁: [q_m, q_c, q_l, q_r]
-    batch_unshifted_group({ &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r });
-    // P₂: [q_o, q_4, q_busread, q_lookup]
-    batch_unshifted_group({ &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup });
-    // P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-    batch_unshifted_group({ &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory });
-    // P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
-    batch_unshifted_group({ &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, &polys.sigma_1 });
-    // P₅: [sigma_2, sigma_3, sigma_4, id_1]
-    batch_unshifted_group({ &polys.sigma_2, &polys.sigma_3, &polys.sigma_4, &polys.id_1 });
-    // P₆: [id_2, id_3, id_4, table_1]
-    batch_unshifted_group({ &polys.id_2, &polys.id_3, &polys.id_4, &polys.table_1 });
-    // P₇: [table_2, table_3, table_4, lagrange_first]
-    batch_unshifted_group({ &polys.table_2, &polys.table_3, &polys.table_4, &polys.lagrange_first });
-    // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys, zero-padded)
-    batch_unshifted_group({ &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id, nullptr });
-    // W₁: [w_l, w_r, w_o, ZERO]
-    batch_unshifted_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr });
-    // W₂: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
-    batch_unshifted_group({ &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 });
-    // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-    batch_unshifted_group(
-        { &polys.calldata, &polys.calldata_read_counts, &polys.calldata_read_tags, &polys.secondary_calldata });
-    // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-    batch_unshifted_group({ &polys.secondary_calldata_read_counts,
-                            &polys.secondary_calldata_read_tags,
-                            &polys.return_data,
-                            &polys.return_data_read_counts });
-    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-    batch_unshifted_group({ &polys.return_data_read_tags, nullptr, nullptr, nullptr });
-    // W₆: [w_4, ZERO, ZERO, ZERO]
-    batch_unshifted_group({ &polys.w_4, nullptr, nullptr, nullptr });
-    // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-    batch_unshifted_group({ &polys.lookup_read_counts, &polys.lookup_read_tags, nullptr, nullptr });
-    // W₈: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-    batch_unshifted_group({ &polys.lookup_inverses,
-                            &polys.calldata_inverses,
-                            &polys.secondary_calldata_inverses,
-                            &polys.return_data_inverses });
-    // W₉: [z_perm, ZERO, ZERO, ZERO]
-    batch_unshifted_group({ &polys.z_perm, nullptr, nullptr, nullptr });
-
-    // --- Phase 2: Batch 3 shifted groups with rho^17..rho^19 (continuing rho_power) ---
-
-    // W₁_shift: [w_l, w_r, w_o, ZERO]
-    batch_shifted_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr });
-    // W₆_shift: [w_4, ZERO, ZERO, ZERO]
-    batch_shifted_group({ &polys.w_4, nullptr, nullptr, nullptr });
-    // W₉_shift: [z_perm, ZERO, ZERO, ZERO]
-    batch_shifted_group({ &polys.z_perm, nullptr, nullptr, nullptr });
-
-    // Construct the interleaved batched polynomial:
-    // F(X) = G₀(X⁴) + X·G₁(X⁴) + X²·G₂(X⁴) + X³·G₃(X⁴)
-    const size_t interleaved_size = poly_size * 4;
-    Polynomial batched_unshifted(interleaved_size);
-    // Shiftable-by-4: first 4 coefficients are zero (required for .shifted(4) in batcher)
-    Polynomial batched_shifted = Polynomial::shiftable(interleaved_size, interleaved_size, 4);
-
-    // Interleave: coefficient at index 4i+j comes from G_j[i]
-    for (size_t i = 0; i < poly_size; ++i) {
-        batched_unshifted.at((4 * i) + 0) = G0[i];
-        batched_unshifted.at((4 * i) + 1) = G1[i];
-        batched_unshifted.at((4 * i) + 2) = G2[i];
-        batched_unshifted.at((4 * i) + 3) = G3[i];
-    }
-
-    // For shifted polynomials, start from i=1 since G*_shifted[0] = 0 (shiftable property)
-    // Indices 0-3 of batched_shifted remain 0 (required for shift-by-4)
-    for (size_t i = 1; i < poly_size; ++i) {
-        batched_shifted.at((4 * i) + 0) = G0_shifted[i];
-        batched_shifted.at((4 * i) + 1) = G1_shifted[i];
-        batched_shifted.at((4 * i) + 2) = G2_shifted[i];
-        batched_shifted.at((4 * i) + 3) = G3_shifted[i];
-    }
-
-    return { std::move(batched_unshifted), std::move(batched_shifted) };
-}
-
 void MultiMegaProver::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+
+    const size_t n = prover_instance->dyadic_size();
+    const size_t interleaved_size = n * BATCH_SIZE;
 
     auto& ck = prover_instance->commitment_key;
     if (!ck.initialized()) {
         // For interleaved commitments, we need 4x the polynomial size for the SRS
-        ck = CommitmentKey(prover_instance->dyadic_size() * Flavor::INTERLEAVING_BATCH_SIZE);
+        ck = CommitmentKey(interleaved_size);
     }
 
-    // For interleaved polynomials, the shift is by INTERLEAVING_BATCH_SIZE (4) instead of 1
-    constexpr size_t SHIFT_EXPONENT = Flavor::INTERLEAVING_BATCH_SIZE;
-
-    // For interleaved polynomials with k=2, we need to prepend 2 challenges to the sumcheck challenge.
-    // The full challenge vector is (u_0, u_1, u_2, ..., u_{log_n+1}) where:
-    //   - u_0, u_1 are the Lagrange basis challenges for interleaving
-    //   - u_2, ..., u_{log_n+1} are the sumcheck challenges
-    //
-    // CRITICAL: The order of challenge derivation must match the verifier:
-    // 1. Interleaving challenges (after sumcheck)
-    // 2. Batching challenge for interleaved polynomials
-    // 3. Gemini's "rho" challenge (inside Shplemini)
+    // Get interleaving challenges (must match verifier order)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
-
-    // Get batching challenge for interleaved polynomials (before entering Shplemini)
-    // Use a different name than "rho" to avoid duplicate manifest entries
-    // (Gemini will get its own "rho" challenge internally)
-    const FF batching_challenge = transcript->template get_challenge<FF>("batching_rho");
-
-    // Compute the interleaved batched polynomials using batching_challenge
-    auto [batched_unshifted, batched_shifted] = compute_interleaved_batched_polynomials(batching_challenge);
-
-    // Set up the polynomial batcher with precomputed batched polynomials
-    const size_t interleaved_size = prover_instance->dyadic_size() * Flavor::INTERLEAVING_BATCH_SIZE;
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> full_challenge;
@@ -288,41 +136,134 @@ void MultiMegaProver::execute_pcs()
     full_challenge.push_back(u1);
     full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
-    // DEBUG: evaluate batched interleaved polynomials via evaluate_mle as ground truth
-    {
-        const size_t full_virtual_size = static_cast<size_t>(1) << full_challenge.size();
+    auto& polys = prover_instance->polynomials;
 
-        // Create polynomial with correct virtual_size for evaluate_mle
-        Polynomial unshifted_copy(interleaved_size, full_virtual_size);
-        for (size_t i = 0; i < interleaved_size; ++i) {
-            unshifted_copy.at(i) = batched_unshifted.get(i);
+    // Define the 17 unshifted groups and 3 shifted groups (component polynomials)
+    using PolyGroup = std::array<Polynomial const*, BATCH_SIZE>;
+    std::array<PolyGroup, 17> unshifted_groups = { {
+        // P₁-P₈: precomputed groups (match VK sequential chunking of 31 PrecomputedEntities)
+        { &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r },
+        { &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup },
+        { &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory },
+        { &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, &polys.sigma_1 },
+        { &polys.sigma_2, &polys.sigma_3, &polys.sigma_4, &polys.id_1 },
+        { &polys.id_2, &polys.id_3, &polys.id_4, &polys.table_1 },
+        { &polys.table_2, &polys.table_3, &polys.table_4, &polys.lagrange_first },
+        { &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id, nullptr },
+        // W₁-W₉: witness groups
+        { &polys.w_l, &polys.w_r, &polys.w_o, nullptr },
+        { &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 },
+        { &polys.calldata, &polys.calldata_read_counts, &polys.calldata_read_tags, &polys.secondary_calldata },
+        { &polys.secondary_calldata_read_counts,
+          &polys.secondary_calldata_read_tags,
+          &polys.return_data,
+          &polys.return_data_read_counts },
+        { &polys.return_data_read_tags, nullptr, nullptr, nullptr },
+        { &polys.w_4, nullptr, nullptr, nullptr },
+        { &polys.lookup_read_counts, &polys.lookup_read_tags, nullptr, nullptr },
+        { &polys.lookup_inverses,
+          &polys.calldata_inverses,
+          &polys.secondary_calldata_inverses,
+          &polys.return_data_inverses },
+        { &polys.z_perm, nullptr, nullptr, nullptr },
+    } };
+
+    std::array<PolyGroup, 3> shifted_groups = { {
+        { &polys.w_l, &polys.w_r, &polys.w_o, nullptr },
+        { &polys.w_4, nullptr, nullptr, nullptr },
+        { &polys.z_perm, nullptr, nullptr, nullptr },
+    } };
+
+    // DIAGNOSTIC: Materialize interleaved polynomials (like the passing unit tests)
+    // instead of using set_unshifted_interleaved_groups / set_shifted_interleaved_groups.
+
+    // Helper: materialize an interleaved polynomial from a group of component polynomials
+    auto materialize_interleaved = [&](const PolyGroup& group) -> Polynomial {
+        Polynomial result(interleaved_size);
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                if (group[j] != nullptr) {
+                    result.at(BATCH_SIZE * i + j) = group[j]->get(i);
+                }
+            }
         }
-        FF mle_unshifted = unshifted_copy.evaluate_mle(full_challenge);
+        return result;
+    };
 
-        // For shift-by-k: construct F_shifted[i] = F[i+k] and evaluate
-        Polynomial shifted_manual(interleaved_size, full_virtual_size);
-        for (size_t i = 0; i + SHIFT_EXPONENT < interleaved_size; ++i) {
-            shifted_manual.at(i) = batched_shifted.get(i + SHIFT_EXPONENT);
+    // Helper: materialize a shiftable interleaved polynomial (start_index = BATCH_SIZE)
+    auto materialize_interleaved_shiftable = [&](const PolyGroup& group) -> Polynomial {
+        Polynomial result = Polynomial::shiftable(interleaved_size, interleaved_size, BATCH_SIZE);
+        for (size_t i = 1; i < n; ++i) {
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                if (group[j] != nullptr) {
+                    result.at(BATCH_SIZE * i + j) = group[j]->get(i);
+                }
+            }
         }
-        FF mle_shifted_by_k = shifted_manual.evaluate_mle(full_challenge);
+        return result;
+    };
 
-        info("PROVER MLE batched_unshifted=", mle_unshifted);
-        info("PROVER MLE batched_shifted (shift-by-", SHIFT_EXPONENT, ")=", mle_shifted_by_k);
+    // Materialize 17 unshifted interleaved polynomials
+    std::vector<Polynomial> materialized_unshifted;
+    materialized_unshifted.reserve(17);
+    for (const auto& group : unshifted_groups) {
+        materialized_unshifted.emplace_back(materialize_interleaved(group));
     }
 
-    PolynomialBatcher polynomial_batcher(interleaved_size, SHIFT_EXPONENT);
-    polynomial_batcher.set_unshifted(RefVector<Polynomial>{ batched_unshifted });
-    polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>{ batched_shifted });
+    // Materialize 3 shifted interleaved polynomials (shiftable by BATCH_SIZE)
+    std::vector<Polynomial> materialized_shifted;
+    materialized_shifted.reserve(3);
+    for (const auto& group : shifted_groups) {
+        materialized_shifted.emplace_back(materialize_interleaved_shiftable(group));
+    }
 
-    OpeningClaim prover_opening_claim;
-    prover_opening_claim =
+    // Build RefVectors for the batcher
+    RefVector<Polynomial> unshifted_refs;
+    for (auto& p : materialized_unshifted) {
+        unshifted_refs.push_back(p);
+    }
+    RefVector<Polynomial> shifted_refs;
+    for (auto& p : materialized_shifted) {
+        shifted_refs.push_back(p);
+    }
+
+    // DEBUG: trace sizes
+    info("DEBUG PROVER n=",
+         n,
+         " interleaved_size=",
+         interleaved_size,
+         " log2(interleaved_size)=",
+         numeric::get_msb(interleaved_size),
+         " full_challenge.size()=",
+         full_challenge.size(),
+         " sumcheck_output.challenge.size()=",
+         sumcheck_output.challenge.size());
+    info("DEBUG PROVER component poly size: q_m.size()=",
+         polys.q_m.size(),
+         " q_m.virtual_size()=",
+         polys.q_m.virtual_size(),
+         " w_l.size()=",
+         polys.w_l.size(),
+         " w_l.virtual_size()=",
+         polys.w_l.virtual_size());
+    info("DEBUG PROVER materialized[0].size()=",
+         materialized_unshifted[0].size(),
+         " materialized[0].virtual_size()=",
+         materialized_unshifted[0].virtual_size());
+
+    PolynomialBatcher polynomial_batcher(interleaved_size, BATCH_SIZE);
+    polynomial_batcher.set_unshifted(std::move(unshifted_refs));
+    polynomial_batcher.set_to_be_shifted(std::move(shifted_refs));
+
+    OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, transcript);
 
-    info("PROVER u0=", u0, " u1=", u1);
-    info("PROVER batching_rho=", batching_challenge);
-    info("PROVER opening_claim.polynomial[0]=", prover_opening_claim.polynomial[0]);
-    info("PROVER opening_claim.opening_pair.challenge=", prover_opening_claim.opening_pair.challenge);
-    info("PROVER opening_claim.opening_pair.evaluation=", prover_opening_claim.opening_pair.evaluation);
+    info("DEBUG PROVER opening_claim.challenge=",
+         prover_opening_claim.opening_pair.challenge,
+         " eval=",
+         prover_opening_claim.opening_pair.evaluation,
+         " poly.size()=",
+         prover_opening_claim.polynomial.size());
 
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

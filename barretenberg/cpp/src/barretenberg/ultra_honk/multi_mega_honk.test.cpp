@@ -98,8 +98,7 @@ class MultiMegaHonkTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
-        manifest_expected.add_challenge(round, "batching_rho"); // Batching challenge for interleaved polys
-        manifest_expected.add_challenge(round, "rho");          // Gemini's internal rho challenge
+        manifest_expected.add_challenge(round, "rho"); // Gemini's rho challenge (batches all interleaved polys)
 
         // Gemini fold commitments (pcs_log_n - 1 folds)
         round++;

@@ -96,21 +96,14 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, sumcheck_padding_indicator_array);
 
-    // For interleaved polynomials with k=2, we need to get 2 additional challenges
-    // and prepend them to the sumcheck challenge for the PCS.
-    // Get the k=2 interleaving challenges (same as prover)
+    // Get interleaving challenges (must match prover order)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
-
-    // Get the batching challenge (prover uses this to batch polynomials before Shplemini)
-    // Verifier uses this to batch the interleaved commitment evaluations
-    FF batching_challenge = transcript->template get_challenge<FF>("batching_rho");
 
     // Compute Lagrange basis from the interleaving challenges
     auto lagrange_basis = compute_lagrange_basis(u0, u1);
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
-    // PCS operates on interleaved polynomials of size 4n, so the challenge has log_n + INTERLEAVING_LOG_K entries
     std::vector<FF> full_challenge;
     full_challenge.reserve(Flavor::INTERLEAVING_LOG_K + sumcheck_output.challenge.size());
     full_challenge.push_back(u0);
@@ -123,203 +116,102 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
 
     // Get interleaved commitments
     const auto& interleaved = verifier_instance->interleaved_commitments;
-
-    // Get individual polynomial evaluations from sumcheck
     const auto& evals = sumcheck_output.claimed_evaluations;
-
-    // Build batched evaluations for each interleaved commitment using Lagrange basis
-    // W₁: [w_l, w_r, w_o, ZERO] - shiftable
-    FF batched_eval_w1 = compute_batched_evaluation(lagrange_basis, { evals.w_l, evals.w_r, evals.w_o, FF::zero() });
-
-    // W₂: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4] - unshiftable
-    FF batched_eval_w2 = compute_batched_evaluation(
-        lagrange_basis, { evals.ecc_op_wire_1, evals.ecc_op_wire_2, evals.ecc_op_wire_3, evals.ecc_op_wire_4 });
-
-    // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-    FF batched_eval_w3 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals.calldata, evals.calldata_read_counts, evals.calldata_read_tags, evals.secondary_calldata });
-
-    // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-    FF batched_eval_w4 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals.secondary_calldata_read_counts,
-                                                      evals.secondary_calldata_read_tags,
-                                                      evals.return_data,
-                                                      evals.return_data_read_counts });
-
-    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-    FF batched_eval_w5 =
-        compute_batched_evaluation(lagrange_basis, { evals.return_data_read_tags, FF::zero(), FF::zero(), FF::zero() });
-
-    // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
-    FF batched_eval_w6 = compute_batched_evaluation(lagrange_basis, { evals.w_4, FF::zero(), FF::zero(), FF::zero() });
-
-    // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-    FF batched_eval_w7 = compute_batched_evaluation(
-        lagrange_basis, { evals.lookup_read_counts, evals.lookup_read_tags, FF::zero(), FF::zero() });
-
-    // W₈: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-    FF batched_eval_w8 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals.lookup_inverses,
-                                                      evals.calldata_inverses,
-                                                      evals.secondary_calldata_inverses,
-                                                      evals.return_data_inverses });
-
-    // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
-    FF batched_eval_w9 =
-        compute_batched_evaluation(lagrange_basis, { evals.z_perm, FF::zero(), FF::zero(), FF::zero() });
-
-    // For shifted polynomials, we need shifted evaluations
-    // W₁_shift: [w_l_shift, w_r_shift, w_o_shift, ZERO]
-    FF batched_eval_w1_shift =
-        compute_batched_evaluation(lagrange_basis, { evals.w_l_shift, evals.w_r_shift, evals.w_o_shift, FF::zero() });
-
-    // W₆_shift: [w_4_shift, ZERO, ZERO, ZERO]
-    FF batched_eval_w6_shift =
-        compute_batched_evaluation(lagrange_basis, { evals.w_4_shift, FF::zero(), FF::zero(), FF::zero() });
-
-    // W₉_shift: [z_perm_shift, ZERO, ZERO, ZERO]
-    FF batched_eval_w9_shift =
-        compute_batched_evaluation(lagrange_basis, { evals.z_perm_shift, FF::zero(), FF::zero(), FF::zero() });
-
-    // Build arrays for interleaved commitments and evaluations
-    // Unshifted interleaved: W₁-W₉
-    std::array<Commitment, 9> interleaved_comms_arr = {
-        interleaved.interleaved_wires,     interleaved.interleaved_ecc_op_wires, interleaved.interleaved_databus_1,
-        interleaved.interleaved_databus_2, interleaved.interleaved_databus_3,    interleaved.interleaved_w_4,
-        interleaved.interleaved_lookup,    interleaved.interleaved_inverses,     interleaved.interleaved_z_perm
-    };
-
-    std::array<FF, 9> interleaved_evals_arr = { batched_eval_w1, batched_eval_w2, batched_eval_w3,
-                                                batched_eval_w4, batched_eval_w5, batched_eval_w6,
-                                                batched_eval_w7, batched_eval_w8, batched_eval_w9 };
-
-    // Shiftable commitments and their shifted evaluations (W₁, W₆, W₉)
-    std::array<Commitment, 3> shiftable_comms_arr = { interleaved.interleaved_wires,
-                                                      interleaved.interleaved_w_4,
-                                                      interleaved.interleaved_z_perm };
-    std::array<FF, 3> shifted_evals_arr = { batched_eval_w1_shift, batched_eval_w6_shift, batched_eval_w9_shift };
-
-    // Get interleaved precomputed commitments and compute batched evaluations from VK.
-    // Groups match VK sequential chunking of 31 PrecomputedEntities (batch_size=4).
     auto vk = verifier_instance->get_vk();
-    const auto& evals_precomputed = sumcheck_output.claimed_evaluations;
 
-    // P₁: [q_m, q_c, q_l, q_r]
-    FF batched_eval_p0 = compute_batched_evaluation(
-        lagrange_basis, { evals_precomputed.q_m, evals_precomputed.q_c, evals_precomputed.q_l, evals_precomputed.q_r });
+    // Build batched evaluations for each interleaved commitment using Lagrange basis.
+    // For interleaved polynomial F(X) = Σⱼ fⱼ(X^4)·X^j, evaluation at u is Σⱼ fⱼ(u₂,...) · Lⱼ(u₀,u₁).
 
-    // P₂: [q_o, q_4, q_busread, q_lookup]
-    FF batched_eval_p1 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.q_o, evals_precomputed.q_4, evals_precomputed.q_busread, evals_precomputed.q_lookup });
-
-    // P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-    FF batched_eval_p2 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals_precomputed.q_arith,
-                                                      evals_precomputed.q_delta_range,
-                                                      evals_precomputed.q_elliptic,
-                                                      evals_precomputed.q_memory });
-
-    // P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
-    FF batched_eval_p3 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals_precomputed.q_nnf,
-                                                      evals_precomputed.q_poseidon2_external,
-                                                      evals_precomputed.q_poseidon2_internal,
-                                                      evals_precomputed.sigma_1 });
-
-    // P₅: [sigma_2, sigma_3, sigma_4, id_1]
-    FF batched_eval_p4 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.sigma_2, evals_precomputed.sigma_3, evals_precomputed.sigma_4, evals_precomputed.id_1 });
-
-    // P₆: [id_2, id_3, id_4, table_1]
-    FF batched_eval_p5 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.id_2, evals_precomputed.id_3, evals_precomputed.id_4, evals_precomputed.table_1 });
-
-    // P₇: [table_2, table_3, table_4, lagrange_first]
-    FF batched_eval_p6 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals_precomputed.table_2,
-                                                      evals_precomputed.table_3,
-                                                      evals_precomputed.table_4,
-                                                      evals_precomputed.lagrange_first });
-
-    // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys, zero-padded)
-    FF batched_eval_p7 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals_precomputed.lagrange_last,
-                                                      evals_precomputed.lagrange_ecc_op,
-                                                      evals_precomputed.databus_id,
-                                                      FF::zero() });
-
-    // Build arrays for interleaved precomputed commitments and evaluations
-    std::array<Commitment, 8> precomputed_comms_arr = { vk->interleaved_precomputed_0, vk->interleaved_precomputed_1,
-                                                        vk->interleaved_precomputed_2, vk->interleaved_precomputed_3,
-                                                        vk->interleaved_precomputed_4, vk->interleaved_precomputed_5,
-                                                        vk->interleaved_precomputed_6, vk->interleaved_precomputed_7 };
-
-    std::array<FF, 8> precomputed_evals_arr = { batched_eval_p0, batched_eval_p1, batched_eval_p2, batched_eval_p3,
-                                                batched_eval_p4, batched_eval_p5, batched_eval_p6, batched_eval_p7 };
-
-    // Compute powers of batching_challenge for sequential batching:
-    // rho^0..rho^16 for 17 unshifted, then rho^17..rho^19 for 3 shifted
     constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 17
     constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
-    constexpr size_t TOTAL_BATCHED = NUM_UNSHIFTED + NUM_SHIFTED;                 // 20
 
-    std::array<FF, TOTAL_BATCHED> rho_powers;
-    rho_powers[0] = FF::one();
-    for (size_t i = 1; i < TOTAL_BATCHED; ++i) {
-        rho_powers[i] = rho_powers[i - 1] * batching_challenge;
-    }
+    // All 17 unshifted commitments: P₁-P₈ (precomputed) + W₁-W₉ (witness)
+    std::array<Commitment, NUM_UNSHIFTED> unshifted_comms = { // P₁-P₈: precomputed interleaved commitments from VK
+                                                              vk->interleaved_precomputed_0,
+                                                              vk->interleaved_precomputed_1,
+                                                              vk->interleaved_precomputed_2,
+                                                              vk->interleaved_precomputed_3,
+                                                              vk->interleaved_precomputed_4,
+                                                              vk->interleaved_precomputed_5,
+                                                              vk->interleaved_precomputed_6,
+                                                              vk->interleaved_precomputed_7,
+                                                              // W₁-W₉: witness interleaved commitments
+                                                              interleaved.interleaved_wires,
+                                                              interleaved.interleaved_ecc_op_wires,
+                                                              interleaved.interleaved_databus_1,
+                                                              interleaved.interleaved_databus_2,
+                                                              interleaved.interleaved_databus_3,
+                                                              interleaved.interleaved_w_4,
+                                                              interleaved.interleaved_lookup,
+                                                              interleaved.interleaved_inverses,
+                                                              interleaved.interleaved_z_perm
+    };
 
-    // All 17 unshifted commitments in order: S₁-S₈, W₁-W₉
-    std::array<Commitment, NUM_UNSHIFTED> all_unshifted_comms;
-    std::array<FF, NUM_UNSHIFTED> all_unshifted_evals;
-    for (size_t i = 0; i < 8; ++i) {
-        all_unshifted_comms[i] = precomputed_comms_arr[i];
-        all_unshifted_evals[i] = precomputed_evals_arr[i];
-    }
-    for (size_t i = 0; i < 9; ++i) {
-        all_unshifted_comms[8 + i] = interleaved_comms_arr[i];
-        all_unshifted_evals[8 + i] = interleaved_evals_arr[i];
-    }
+    // DEBUG: print first and W₁ evaluations
+    info("VERIFIER eval_P0=",
+         compute_batched_evaluation(lagrange_basis, { evals.q_m, evals.q_c, evals.q_l, evals.q_r }));
+    info("VERIFIER eval_W1=",
+         compute_batched_evaluation(lagrange_basis, { evals.w_l, evals.w_r, evals.w_o, FF::zero() }));
+    info("VERIFIER eval_W1_shift=",
+         compute_batched_evaluation(lagrange_basis, { evals.w_l_shift, evals.w_r_shift, evals.w_o_shift, FF::zero() }));
 
-    // Batch unshifted: batch_mul of 17 commitments with rho^0..rho^16
-    std::span<const FF> unshifted_scalars(rho_powers.data(), NUM_UNSHIFTED);
-    Commitment batched_unshifted_commitment = Commitment::batch_mul(all_unshifted_comms, unshifted_scalars);
-    FF batched_unshifted_eval = FF::zero();
-    for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-        batched_unshifted_eval += all_unshifted_evals[i] * rho_powers[i];
-    }
+    std::array<FF, NUM_UNSHIFTED> unshifted_evals = {
+        // P₁-P₈: precomputed batched evaluations
+        compute_batched_evaluation(lagrange_basis, { evals.q_m, evals.q_c, evals.q_l, evals.q_r }),
+        compute_batched_evaluation(lagrange_basis, { evals.q_o, evals.q_4, evals.q_busread, evals.q_lookup }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.q_arith, evals.q_delta_range, evals.q_elliptic, evals.q_memory }),
+        compute_batched_evaluation(
+            lagrange_basis, { evals.q_nnf, evals.q_poseidon2_external, evals.q_poseidon2_internal, evals.sigma_1 }),
+        compute_batched_evaluation(lagrange_basis, { evals.sigma_2, evals.sigma_3, evals.sigma_4, evals.id_1 }),
+        compute_batched_evaluation(lagrange_basis, { evals.id_2, evals.id_3, evals.id_4, evals.table_1 }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.table_2, evals.table_3, evals.table_4, evals.lagrange_first }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.lagrange_last, evals.lagrange_ecc_op, evals.databus_id, FF::zero() }),
+        // W₁-W₉: witness batched evaluations
+        compute_batched_evaluation(lagrange_basis, { evals.w_l, evals.w_r, evals.w_o, FF::zero() }),
+        compute_batched_evaluation(
+            lagrange_basis, { evals.ecc_op_wire_1, evals.ecc_op_wire_2, evals.ecc_op_wire_3, evals.ecc_op_wire_4 }),
+        compute_batched_evaluation(
+            lagrange_basis,
+            { evals.calldata, evals.calldata_read_counts, evals.calldata_read_tags, evals.secondary_calldata }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.secondary_calldata_read_counts,
+                                     evals.secondary_calldata_read_tags,
+                                     evals.return_data,
+                                     evals.return_data_read_counts }),
+        compute_batched_evaluation(lagrange_basis, { evals.return_data_read_tags, FF::zero(), FF::zero(), FF::zero() }),
+        compute_batched_evaluation(lagrange_basis, { evals.w_4, FF::zero(), FF::zero(), FF::zero() }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.lookup_read_counts, evals.lookup_read_tags, FF::zero(), FF::zero() }),
+        compute_batched_evaluation(lagrange_basis,
+                                   { evals.lookup_inverses,
+                                     evals.calldata_inverses,
+                                     evals.secondary_calldata_inverses,
+                                     evals.return_data_inverses }),
+        compute_batched_evaluation(lagrange_basis, { evals.z_perm, FF::zero(), FF::zero(), FF::zero() }),
+    };
 
-    // Batch shifted: batch_mul of 3 shiftable commitments with rho^17..rho^19
-    std::span<const FF> shifted_scalars(rho_powers.data() + NUM_UNSHIFTED, NUM_SHIFTED);
-    Commitment batched_shifted_commitment = Commitment::batch_mul(shiftable_comms_arr, shifted_scalars);
-    FF batched_shifted_eval = FF::zero();
-    for (size_t i = 0; i < NUM_SHIFTED; ++i) {
-        batched_shifted_eval += shifted_evals_arr[i] * rho_powers[NUM_UNSHIFTED + i];
-    }
+    // 3 shifted commitments (W₁, W₆, W₉) and their shifted evaluations
+    std::array<Commitment, NUM_SHIFTED> shifted_comms = { interleaved.interleaved_wires,
+                                                          interleaved.interleaved_w_4,
+                                                          interleaved.interleaved_z_perm };
 
-    // Create single batched claim for Shplemini
-    std::array<Commitment, 1> batched_unshifted_comm_arr = { batched_unshifted_commitment };
-    std::array<FF, 1> batched_unshifted_eval_arr = { batched_unshifted_eval };
-    std::array<Commitment, 1> batched_shifted_comm_arr = { batched_shifted_commitment };
-    std::array<FF, 1> batched_shifted_eval_arr = { batched_shifted_eval };
+    std::array<FF, NUM_SHIFTED> shifted_evals = {
+        compute_batched_evaluation(lagrange_basis, { evals.w_l_shift, evals.w_r_shift, evals.w_o_shift, FF::zero() }),
+        compute_batched_evaluation(lagrange_basis, { evals.w_4_shift, FF::zero(), FF::zero(), FF::zero() }),
+        compute_batched_evaluation(lagrange_basis, { evals.z_perm_shift, FF::zero(), FF::zero(), FF::zero() }),
+    };
 
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, 1>(batched_unshifted_comm_arr),
-                                                         RefArray<FF, 1>(batched_unshifted_eval_arr) },
-                                .shifted = ClaimBatch{ RefArray<Commitment, 1>(batched_shifted_comm_arr),
-                                                       RefArray<FF, 1>(batched_shifted_eval_arr) },
+    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, NUM_UNSHIFTED>(unshifted_comms),
+                                                         RefArray<FF, NUM_UNSHIFTED>(unshifted_evals) },
+                                .shifted = ClaimBatch{ RefArray<Commitment, NUM_SHIFTED>(shifted_comms),
+                                                       RefArray<FF, NUM_SHIFTED>(shifted_evals) },
                                 .shift_exponent = Flavor::INTERLEAVING_BATCH_SIZE };
-
-    info("VERIFIER u0=", u0, " u1=", u1);
-    info("VERIFIER batching_rho=", batching_challenge);
-    info("VERIFIER reconstructed batched_unshifted_eval=", batched_unshifted_eval);
-    info("VERIFIER reconstructed batched_shifted_eval=", batched_shifted_eval);
 
     const Commitment one_commitment = Commitment::one();
 
@@ -331,6 +223,20 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
                                                                    Flavor::REPEATED_COMMITMENTS,
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
+
+    const auto& boc = shplemini_output.batch_opening_claim;
+    info("DEBUG VERIFIER batch_opening_claim: commitments=",
+         boc.commitments.size(),
+         " scalars=",
+         boc.scalars.size(),
+         " eval_point=",
+         boc.evaluation_point);
+    info("DEBUG VERIFIER expected MSM size=",
+         Flavor::FINAL_PCS_MSM_SIZE(log_n),
+         " log_n=",
+         log_n,
+         " pcs_log_n=",
+         pcs_log_n);
 
     // Build reduction result
     ReductionResult result;
@@ -361,6 +267,10 @@ MultiMegaVerifier::Output MultiMegaVerifier::verify_proof(const Proof& proof)
     // Aggregate pairing points
     PairingPoints pi_pairing_points = inputs.pairing_inputs;
     pi_pairing_points.aggregate(pcs_pairing_points);
+
+    // DEBUG: Check PCS pairing alone (before public input aggregation)
+    bool pcs_alone = pcs_pairing_points.check();
+    info("DEBUG PCS pairing check alone: ", pcs_alone ? "true" : "false");
 
     // Perform pairing check
     bool pairing_verified = pi_pairing_points.check();
