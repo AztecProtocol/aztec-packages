@@ -400,6 +400,18 @@ describe('NoteStore', () => {
       expect(nullifierSet(notes)).toEqual(nullifierSet([note2]));
     });
 
+    it('throws when nullifier has block number 0', async () => {
+      const nullifierAtBlock0 = {
+        data: note1.siloedNullifier,
+        l2BlockNumber: BlockNumber(0),
+        l2BlockHash: BlockHash.random(),
+      };
+
+      await expect(noteStore.applyNullifiers([nullifierAtBlock0], 'test')).rejects.toThrow(
+        'applyNullifiers: nullifiers cannot have been emitted at block 0',
+      );
+    });
+
     it('throws error when nullifier is not found', async () => {
       const fakeNullifier = {
         data: Fr.random(),
