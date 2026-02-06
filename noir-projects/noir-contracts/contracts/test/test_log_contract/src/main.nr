@@ -6,7 +6,7 @@ pub contract TestLog {
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
-        protocol::{address::AztecAddress, traits::FromField},
+        protocol::{address::AztecAddress, traits::{FromField, Serialize}},
         state_vars::{Owned, PrivateSet},
     };
     use field_note::FieldNote;
@@ -21,6 +21,19 @@ pub contract TestLog {
     struct ExampleEvent1 {
         value2: AztecAddress,
         value3: u8,
+    }
+
+    #[derive(Serialize)]
+    struct NestedStruct {
+        a: Field,
+        b: Field,
+        c: AztecAddress,
+    }
+
+    #[event]
+    struct ExampleNestedEvent {
+        nested: NestedStruct,
+        extra_value: Field,
     }
 
     #[storage]
@@ -55,6 +68,13 @@ pub contract TestLog {
                 value3: preimages[3] as u8,
             },
         );
+    }
+
+    // Emits an event with a nested struct to test that decoding works correctly
+    // for events that are not "flat" (i.e., have nested structs as fields).
+    #[external("public")]
+    fn emit_nested_event(a: Field, b: Field, c: AztecAddress, extra: Field) {
+        self.emit(ExampleNestedEvent { nested: NestedStruct { a, b, c }, extra_value: extra });
     }
 
     #[external("private")]
