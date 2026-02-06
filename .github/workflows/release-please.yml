@@ -277,6 +277,8 @@ jobs:
 
           The release will continue, but CLI reference docs may be incomplete for this version.
 
+          cc @AztecProtocol/devrel
+
           [View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           EOF
           )"
