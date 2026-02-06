@@ -54,6 +54,12 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       headless: true,
+      connectTimeout: 30_000,
+      // Reuse a single browser iframe for all test files instead of creating a new one
+      // per file. This avoids an intermittent hang where Vite's module serving deadlocks
+      // during iframe recreation (the second iframe's module imports never complete).
+      // Safe because tests use beforeEach/afterEach for IndexedDB store setup/teardown.
+      isolate: false,
       instances: [
         {
           browser: 'chromium',

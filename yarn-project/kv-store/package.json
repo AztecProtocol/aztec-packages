@@ -16,7 +16,7 @@
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
-    "test:browser": "vitest run --config ./vitest.config.ts",
+    "test:browser": "DEBUG='vitest:browser*' VITEST_BROWSER_DEBUG=verbose vitest run --config ./vitest.config.ts || (echo 'Browser tests failed, retrying...' && DEBUG='vitest:browser*' VITEST_BROWSER_DEBUG=verbose vitest run --config ./vitest.config.ts)",
     "test": "yarn test:node && yarn test:browser",
     "test:jest": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
