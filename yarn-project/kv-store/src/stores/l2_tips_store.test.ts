@@ -7,10 +7,6 @@ import { L2TipsKVStore } from './l2_tips_store.js';
 describe('L2TipsStore', () => {
   let kvStore: AztecAsyncKVStore;
 
-  beforeEach(async () => {
-    kvStore = await openTmpStore('test', true);
-  });
-
   afterEach(async () => {
     await kvStore.delete();
   });
