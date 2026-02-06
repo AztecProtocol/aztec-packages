@@ -453,6 +453,14 @@ const config = {
                 label: "Awesome Aztec",
                 to: "https://github.com/AztecProtocol/awesome-aztec",
               },
+              {
+                label: "Technical Whitepaper",
+                href: "https://aztec.network/technical-whitepaper",
+              },
+              {
+                label: "Economic Whitepaper",
+                href: "https://aztec.network/economic-whitepaper",
+              },
             ],
           },
         ],
