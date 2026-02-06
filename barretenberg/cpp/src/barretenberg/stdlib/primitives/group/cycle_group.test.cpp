@@ -239,21 +239,17 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
 }
 
 /**
- * @brief Checks that a point that is not on the curve but marked as the point at infinity passes the
- * validate_on_curve check
- * @details Should pass since marking it with _is_infinity=true makes whatever other point data invalid.
+ * @brief Checks that the point at infinity passes the validate_on_curve check
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
 {
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    // Use constant_infinity to get a proper infinity point for this test
-    // This avoids creating an invalid point with non-zero coordinates
-    cycle_group_ct a = cycle_group_ct::constant_infinity(&builder);
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, AffineElement::infinity());
     a.validate_on_curve();
     EXPECT_FALSE(builder.failed());
-    check_circuit_and_gate_count(builder, 0);
+    check_circuit_and_gate_count(builder, 19);
 }
 
 /**
@@ -427,6 +423,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_EQ(result.get_value(), expected);
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
+        // Note: same gate count as with hint - hint is a witness generation optimization only
         check_circuit_and_gate_count(builder, 15);
     }
 
@@ -542,7 +539,6 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
 
     a.dbl();
 
-    // Gate count includes auto-detection for the 2-arg constructor (x² + 5y² == 0 check)
     check_circuit_and_gate_count(builder, 10);
 }
 
@@ -1056,7 +1052,7 @@ TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
         EXPECT_EQ(result.get_value(), expected);
         EXPECT_FALSE(result.is_constant());
 
-        // Different gate count than pure witness addition, +2 for standardize()
+        // Different gate count than pure witness addition
         check_circuit_and_gate_count(builder, 29);
     }
 }
