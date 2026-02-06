@@ -1,8 +1,8 @@
 ---
 title: Paying Fees
-tags: [fees, transactions, accounts]
+tags: [fees, transactions, accounts, mana, gas]
 sidebar_position: 7
-description: Pay transaction fees on Aztec using different payment methods and fee paying contracts.
+description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
 ---
 
 import { Fees } from '@site/src/components/Snippets/general_snippets';
@@ -27,6 +27,70 @@ This guide walks you through paying transaction fees on Aztec using various paym
 | Private FPC         | Pay with tokens privately     | Private | Token balance, FPC address |
 | Public FPC          | Pay with tokens publicly      | Public  | Token balance, FPC address |
 | Bridge + Claim      | Bootstrap from L1             | Public  | L1 ETH for gas             |
+
+## Mana and Fee Juice
+
+Mana is Aztec's unit of computational effort (like gas on Ethereum), and Fee Juice is the native fee token used to pay for transactions. For a detailed explanation of these concepts, see [Fee Concepts](../foundational-topics/fees.md).
+
+## Estimate mana costs
+
+Before sending a transaction, you can estimate the mana it will consume by simulating with `estimateGas: true`:
+
+```typescript
+const { estimatedGas } = await contract.methods
+  .myFunction(arg1, arg2)
+  .simulate({
+    from: sender.address,
+    fee: { estimateGas: true, estimatedGasPadding: 0.1 },
+  });
+```
+
+The `estimatedGas` object contains:
+
+- `gasLimits.daGas` - Estimated DA mana for main execution
+- `gasLimits.l2Gas` - Estimated L2 mana for main execution
+- `teardownGasLimits.daGas` - Estimated DA mana for teardown phase
+- `teardownGasLimits.l2Gas` - Estimated L2 mana for teardown phase
+
+### Calculate expected fee from estimate
+
+To calculate the expected fee from estimated gas, use the `computeFee` method with current network fees:
+
+```typescript
+// import { createAztecNodeClient } from '@aztec/aztec.js/node';
+// const aztecNode = createAztecNodeClient('http://localhost:8080');
+const currentFees = await aztecNode.getCurrentMinFees();
+const estimatedFee = estimatedGas.gasLimits.computeFee(currentFees).toBigInt();
+console.log("Estimated fee:", estimatedFee);
+```
+
+:::tip
+The `estimatedGasPadding` parameter adds a safety margin to the estimate. A value of `0.1` adds 10% padding. Use higher padding for transactions with variable gas costs.
+:::
+
+## Get transaction fee from receipt
+
+After a transaction is mined, you can retrieve the fee paid from the receipt:
+
+```typescript
+const receipt = await contract.methods
+  .myFunction(arg1, arg2)
+  .send({ from: sender.address })
+  .wait();
+
+console.log("Transaction fee:", receipt.transactionFee);
+```
+
+The `transactionFee` field is a `bigint` representing the total fee paid in the fee token (Fee Juice). You can also check execution status:
+
+```typescript
+if (receipt.hasExecutionSucceeded()) {
+  console.log("Transaction succeeded in block:", receipt.blockNumber);
+  console.log("Fee paid:", receipt.transactionFee);
+} else {
+  console.log("Transaction failed:", receipt.error);
+}
+```
 
 ## Pay with Fee Juice
 
@@ -153,6 +217,17 @@ const receipt = await contract.methods
 ```
 
 ## Configure gas settings
+
+### Understanding gas dimensions
+
+Gas settings specify limits and fees for both DA and L2 dimensions:
+
+- **gasLimits**: Maximum mana for main execution phase
+- **teardownGasLimits**: Maximum mana for teardown phase (used by FPCs for refunds)
+- **maxFeesPerGas**: Maximum price you're willing to pay per mana unit
+- **maxPriorityFeesPerGas**: Priority fee for faster inclusion
+
+The fee limit is calculated as `gasLimits × maxFeesPerGas` for each dimension.
 
 ### Set custom gas limits
 
