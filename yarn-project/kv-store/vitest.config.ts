@@ -58,7 +58,14 @@ export default defineConfig({
         {
           browser: 'chromium',
           launch: {
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-software-rasterizer',
+            ],
+            timeout: 30_000,
           },
           context: {
             actionTimeout: 10_000,
