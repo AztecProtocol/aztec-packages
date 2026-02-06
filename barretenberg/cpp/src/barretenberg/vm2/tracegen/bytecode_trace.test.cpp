@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -287,7 +288,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
         {
             simulation::BytecodeHashingEvent{
                 .bytecode_id = 1,
-                .bytecode_length = 9,
+                .bytecode_length = 93,
                 .bytecode_fields = { 10, 20, 30 },
             },
         },
@@ -308,12 +309,14 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               // We don't increment at start to account for the prepended separator:
               ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
               ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_separator(93)),
               ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
               ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
+              ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
-              ROW_FIELD_EQ(bc_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_BYTECODE, 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_separator(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
 
     // Latched row
@@ -334,7 +337,8 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(bc_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_BYTECODE, 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_separator(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
 }
 

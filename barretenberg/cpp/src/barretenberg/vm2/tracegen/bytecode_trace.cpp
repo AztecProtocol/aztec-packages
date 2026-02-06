@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -161,7 +162,7 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
-        std::vector<FF> fields = { DOM_SEP__PUBLIC_BYTECODE };
+        std::vector<FF> fields = { simulation::compute_public_bytecode_separator(event.bytecode_length) };
         fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
@@ -181,6 +182,8 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_size_in_bytes,
+                            event.bytecode_length }, // Note: only needs to be constrained at start
                           { C::bc_hashing_input_len, fields.size() },
                           { C::bc_hashing_rounds_rem, num_rounds },
                           { C::bc_hashing_pc_index, pc_index },
@@ -282,9 +285,14 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     for (const auto& event : events) {
         const auto bytecode_id = event.bytecode_id;
         const auto bytecode_size = event.bytecode->size();
+        // To match column PARSING_ERROR_EXCEPT_TAG_ERROR:
+        const bool parsing_error_non_tag = event.error == PC_OUT_OF_RANGE || event.error == OPCODE_OUT_OF_RANGE ||
+                                           event.error == INSTRUCTION_OUT_OF_RANGE;
 
         auto get_operand = [&](size_t i) -> FF {
-            return i < event.instruction.operands.size() ? static_cast<FF>(event.instruction.operands[i]) : 0;
+            return i < event.instruction.operands.size() && !parsing_error_non_tag
+                       ? static_cast<FF>(event.instruction.operands[i])
+                       : 0;
         };
         auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
 
@@ -438,6 +446,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
+        .add<lookup_bc_hashing_bytecode_length_bytes_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval

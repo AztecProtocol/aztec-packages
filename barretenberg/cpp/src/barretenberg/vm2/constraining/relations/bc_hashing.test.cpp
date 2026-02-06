@@ -31,6 +31,7 @@ using ::testing::StrictMock;
 using testing::random_bytes;
 using testing::random_fields;
 
+using simulation::compute_public_bytecode_separator;
 using simulation::EventEmitter;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
@@ -65,7 +66,8 @@ class BytecodeHashingConstrainingTest : public ::testing::Test {
 class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstrainingTest {
   public:
     TestTraceContainer process_bc_hashing_trace(std::vector<std::vector<FF>> all_bytecode_fields,
-                                                std::vector<FF> bytecode_ids)
+                                                std::vector<FF> bytecode_ids,
+                                                std::vector<size_t> bytecode_size_in_bytes)
     {
         // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
         Poseidon2 poseidon2 = Poseidon2(
@@ -78,7 +80,8 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
             uint32_t pc_index = 0;
             auto bytecode_fields = all_bytecode_fields[j];
             auto bytecode_id = bytecode_ids[j];
-            bytecode_fields.insert(bytecode_fields.begin(), DOM_SEP__PUBLIC_BYTECODE);
+            bytecode_fields.insert(bytecode_fields.begin(),
+                                   compute_public_bytecode_separator(bytecode_size_in_bytes[j]));
             auto hash = poseidon2.hash(bytecode_fields);
             auto bytecode_field_at = [&bytecode_fields](size_t i) -> FF {
                 return i < bytecode_fields.size() ? bytecode_fields[i] : 0;
@@ -94,6 +97,7 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
                               { C::bc_hashing_bytecode_id, bytecode_id },
                               { C::bc_hashing_latch, end },
                               { C::bc_hashing_output_hash, hash },
+                              { C::bc_hashing_size_in_bytes, bytecode_size_in_bytes[j] },
                               { C::bc_hashing_input_len, bytecode_fields.size() },
                               { C::bc_hashing_rounds_rem, num_rounds },
                               { C::bc_hashing_packed_fields_0, bytecode_field_at(i) },
@@ -146,15 +150,16 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
         // Each field elt of encoded bytecode represents 31 bytes, hence start at +1:
         bytecode.insert(bytecode.end(), bytes.begin() + 1, bytes.end());
     }
-
-    auto hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE, 1, 2 });
+    auto sep = compute_public_bytecode_separator(bytecode.size());
+    auto hash = poseidon2.hash({ sep, 1, 2 });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
+            { C::bc_hashing_size_in_bytes, bytecode.size() },
             { C::bc_hashing_input_len, 3 },
             { C::bc_hashing_latch, 1 },
-            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, 1 },
             { C::bc_hashing_packed_fields_2, 2 },
             { C::bc_hashing_pc_at_final_field, 31 },
@@ -189,15 +194,13 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHash100Fields)
     for (uint32_t i = 1; i < 100; i++) {
         bytecode_fields.push_back(FF(i));
     }
-
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
-
     std::vector<uint8_t> bytecode = {};
     for (auto bytecode_field : bytecode_fields) {
         auto bytes = to_buffer(bytecode_field);
         // Each field elt of encoded bytecode represents 31 bytes, but to_buffer returns 32, hence start at +1:
         bytecode.insert(bytecode.end(), bytes.begin() + 1, bytes.end());
     }
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash }, { bytecode.size() });
 
     builder.process_decomposition(
         { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
@@ -211,11 +214,11 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHashMax)
 {
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { compute_public_bytecode_separator(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -231,14 +234,16 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, MultipleBytecodeHash)
     std::vector<std::vector<uint8_t>> all_bytecode = { random_bytes(40), random_bytes(20), random_bytes(80) };
     std::vector<std::vector<FF>> all_bytecode_fields;
     std::vector<FF> hashes;
+    std::vector<size_t> byte_sizes;
     for (uint32_t i = 0; i < all_bytecode.size(); i++) {
         all_bytecode_fields.push_back(simulation::encode_bytecode(all_bytecode[i]));
-        std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+        std::vector<FF> prepended_fields = { compute_public_bytecode_separator(all_bytecode[i].size()) };
         prepended_fields.insert(prepended_fields.end(), all_bytecode_fields[i].begin(), all_bytecode_fields[i].end());
         hashes.push_back(RawPoseidon2::hash(prepended_fields));
+        byte_sizes.push_back(all_bytecode[i].size());
     }
 
-    TestTraceContainer trace = process_bc_hashing_trace(all_bytecode_fields, hashes);
+    TestTraceContainer trace = process_bc_hashing_trace(all_bytecode_fields, hashes, byte_sizes);
     std::vector<simulation::BytecodeDecompositionEvent> decomp_events = {};
 
     for (uint32_t j = 0; j < all_bytecode.size(); j++) {
@@ -260,11 +265,14 @@ TEST_F(BytecodeHashingConstrainingTest, BytecodeInteractions)
 
     std::vector<uint8_t> bytecode = random_bytes(123);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { compute_public_bytecode_separator(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
-    builder.process_hashing({ { .bytecode_id = hash, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
+    builder.process_hashing({ { .bytecode_id = hash,
+                                .bytecode_length = static_cast<uint32_t>(bytecode.size()),
+                                .bytecode_fields = fields } },
+                            trace);
     builder.process_decomposition(
         { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -359,7 +367,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
 
     std::vector<uint8_t> bytecode = random_bytes(150);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { compute_public_bytecode_separator(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
@@ -420,7 +428,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -448,11 +456,11 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     // 80 bytes => hash 4 fields, two padding fields
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { compute_public_bytecode_separator(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { hash });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { hash }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -483,7 +491,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
     std::vector<uint8_t> bytecode = random_bytes(100);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -506,7 +514,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeInputLen)
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -530,7 +538,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
@@ -546,10 +554,10 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeOutputHash)
 {
     std::vector<FF> bytecode_fields = random_fields(10);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { compute_public_bytecode_separator(bytecode_fields.size() * 31) };
     prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash }, { bytecode_fields.size() * 31 });
 
     check_relation<bc_hashing>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
@@ -571,13 +579,15 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 3));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto bad_hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE, bytecode_fields[1], bytecode_fields[2] });
+    auto sep = compute_public_bytecode_separator(bytecode.size());
+
+    auto bad_hash = poseidon2.hash({ sep, bytecode_fields[1], bytecode_fields[2] });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_latch, 1 },
-            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, bytecode_fields[1] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[2] },
             { C::bc_hashing_pc_at_final_field, 62 },
@@ -611,14 +621,15 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 3));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto bad_hash = poseidon2.hash(
-        { 0xa, 0xb, 0xc, DOM_SEP__PUBLIC_BYTECODE, bytecode_fields[0], bytecode_fields[1], bytecode_fields[2] });
+    auto sep = compute_public_bytecode_separator(bytecode.size());
+
+    auto bad_hash = poseidon2.hash({ 0xa, 0xb, 0xc, sep, bytecode_fields[0], bytecode_fields[1], bytecode_fields[2] });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_input_len, 7 },
-            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, bytecode_fields[0] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[1] },
             { C::bc_hashing_pc_index_1, 0 },
@@ -665,6 +676,71 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
                               "BYTECODE_LENGTH_FIELDS");
 }
 
+TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
+{
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+    // Attempt to extend the bytecode by zero value bytes (without requiring a new field)
+    // bc: 0xa...f of size 90 => real hash [ (90|sep), 0xa.., .., 0xf000000 ] => try and claim bc = 0xa...f0000 of size
+    // 92 with hash [ (92|sep), 0xa.., .., 0xf000000 ]
+    std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(90));
+    std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
+
+    auto sep = compute_public_bytecode_separator(92);
+
+    auto bad_hash = poseidon2.hash({ sep, bytecode_fields[0], bytecode_fields[1], bytecode_fields[2] });
+
+    auto trace = TestTraceContainer({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::bc_hashing_size_in_bytes, 92 },
+            { C::bc_hashing_input_len, 4 },
+            { C::bc_hashing_packed_fields_0, sep },
+            { C::bc_hashing_packed_fields_1, bytecode_fields[0] },
+            { C::bc_hashing_packed_fields_2, bytecode_fields[1] },
+            { C::bc_hashing_pc_index_1, 0 },
+            { C::bc_hashing_pc_index_2, 31 },
+            { C::bc_hashing_sel_not_padding_1, 1 },
+            { C::bc_hashing_sel_not_padding_2, 1 },
+            { C::bc_hashing_bytecode_id, 1 },
+            { C::bc_hashing_output_hash, bad_hash },
+            { C::bc_hashing_pc_index, 0 },
+            { C::bc_hashing_rounds_rem, 2 },
+            { C::bc_hashing_sel, 1 },
+            { C::bc_hashing_start, 1 },
+        },
+        {
+            { C::bc_hashing_input_len, 4 },
+            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
+            { C::bc_hashing_packed_fields_1, 0 },
+            { C::bc_hashing_packed_fields_2, 0 },
+            { C::bc_hashing_pc_at_final_field, 62 },
+            { C::bc_hashing_pc_index_1, 93 },
+            { C::bc_hashing_pc_index_2, 124 },
+            { C::bc_hashing_bytecode_id, 1 },
+            { C::bc_hashing_output_hash, bad_hash },
+            { C::bc_hashing_pc_index, 62 },
+            { C::bc_hashing_rounds_rem, 1 },
+            { C::bc_hashing_sel, 1 },
+            { C::bc_hashing_sel_not_start, 1 },
+        },
+    });
+
+    precomputed_builder.process_misc(trace, 256);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+
+    // The field length is correct (90 and 92 bytes both require 3 fields, total 4 for sep):
+    check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS);
+
+    // The claimed byte length is incorrect:
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_bytecode_length_bytes_settings_>(trace)),
+        "LOOKUP_BC_HASHING_BYTECODE_LENGTH_BYTES");
+}
+
 TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsistency)
 {
     Poseidon2 poseidon2 =
@@ -674,19 +750,18 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 5));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto good_hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE,
-                                      bytecode_fields[0],
-                                      bytecode_fields[1],
-                                      bytecode_fields[2],
-                                      bytecode_fields[3],
-                                      bytecode_fields[4] });
+    auto sep = compute_public_bytecode_separator(bytecode.size());
+
+    auto good_hash = poseidon2.hash(
+        { sep, bytecode_fields[0], bytecode_fields[1], bytecode_fields[2], bytecode_fields[3], bytecode_fields[4] });
     auto bad_hash = poseidon2.hash({ 0xa, 0xb, 0xc, bytecode_fields[2], bytecode_fields[3], bytecode_fields[4] });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
+            { C::bc_hashing_size_in_bytes, bytecode.size() },
             { C::bc_hashing_input_len, 6 },
-            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, bytecode_fields[0] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[1] },
             { C::bc_hashing_pc_index_1, 0 },

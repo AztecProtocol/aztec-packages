@@ -37,9 +37,21 @@ std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
     return contract_bytecode_fields;
 }
 
+// Takes the size of the bytecode in bytes and computes the field prepended to the public bytecode
+// commitment hash.
+// TODO(MW): rename? prepended field?
+FF compute_public_bytecode_separator(size_t bytecode_size)
+{
+    // TODO(MW): 40 (5 bytes) chosen just to leave a min. of one empty byte between the sep and size.
+    // This keeps the value of sep small and avoids having to change types further down the stack
+    // The maximum sep is currently: Fr<0x000000000000000000000000000000000000000000000000016b4800fd05e4c9>
+    // Max fields in bytes = 3000 * 31 = 16b48, Dom sep = fd05e4c9
+    return uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 40);
+}
+
 FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
 {
-    std::vector<FF> inputs = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> inputs = { compute_public_bytecode_separator(bytecode.size()) };
     auto bytecode_as_fields = encode_bytecode(bytecode);
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
     return poseidon2::hash(inputs);

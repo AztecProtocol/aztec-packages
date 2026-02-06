@@ -11,6 +11,34 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_bc_hashing_bytecode_length_bytes ///////////////////
+
+struct lookup_bc_hashing_bytecode_length_bytes_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_BC_HASHING_BYTECODE_LENGTH_BYTES";
+    static constexpr std::string_view RELATION_NAME = "bc_hashing";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::bc_hashing_start;
+    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
+    static constexpr Column COUNTS = Column::lookup_bc_hashing_bytecode_length_bytes_counts;
+    static constexpr Column INVERSES = Column::lookup_bc_hashing_bytecode_length_bytes_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_size_in_bytes
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytes_remaining
+    };
+};
+
+using lookup_bc_hashing_bytecode_length_bytes_settings =
+    lookup_settings<lookup_bc_hashing_bytecode_length_bytes_settings_>;
+template <typename FF_>
+using lookup_bc_hashing_bytecode_length_bytes_relation =
+    lookup_relation_base<FF_, lookup_bc_hashing_bytecode_length_bytes_settings>;
+
 /////////////////// lookup_bc_hashing_check_final_bytes_remaining ///////////////////
 
 struct lookup_bc_hashing_check_final_bytes_remaining_settings_ {
