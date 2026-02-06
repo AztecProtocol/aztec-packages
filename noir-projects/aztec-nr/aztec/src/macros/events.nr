@@ -1,5 +1,7 @@
 use crate::{
-    macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
+    macros::utils::{
+        compute_struct_selector, derive_serialize_if_not_implemented, find_aztec_contract_module, get_trait_impl_method,
+    },
     utils::cmap::CHashMap,
 };
 use std::panic;
@@ -53,7 +55,11 @@ comptime fn register_event_selector(m: Module, event_selector: Field, event_name
 
 pub comptime fn event(s: TypeDefinition) -> Quoted {
     let (event_interface_impl, event_selector) = generate_event_interface_and_get_selector(s);
-    register_event_selector(s.module(), event_selector, s.name());
+
+    let m = find_aztec_contract_module(s.module());
+    if m.is_some() {
+        register_event_selector(m.unwrap(), event_selector, s.name());
+    }
 
     let serialize_impl = derive_serialize_if_not_implemented(s);
 

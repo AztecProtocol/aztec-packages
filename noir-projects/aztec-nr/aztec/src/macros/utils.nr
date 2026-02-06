@@ -164,3 +164,24 @@ pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted
         derive_serialize(s)
     }
 }
+
+/// Finds the nearest parent module (or self) that has the #[aztec] attribute.
+/// If no #[aztec] module is found, returns the crate root module.
+/// This ensures notes and events in sibling modules of a contract get registered
+/// under the same key that the contract will look up.
+pub comptime fn find_aztec_contract_module(m: Module) -> Option<Module> {
+    // Check if current module has #[aztec] attribute
+    std::println(m.name());
+    if m.has_named_attribute("aztec") {
+        Option::some(m)
+    } else {
+        // Try to get parent module
+        let maybe_parent_module = m.parent();
+
+        if maybe_parent_module.is_some() {
+            find_aztec_contract_module(maybe_parent_module.unwrap())
+        } else {
+            Option::none()
+        }
+    }
+}

@@ -47,6 +47,11 @@ impl<K, V> CHashMap<K, V> {
             self.entries = self.entries.push_back((key, value));
         }
     }
+
+    /// Returns true if the map contains no entries.
+    pub comptime fn is_empty(self) -> bool {
+        self.entries.len() == 0
+    }
 }
 
 impl<K, V> Default for CHashMap<K, V> {

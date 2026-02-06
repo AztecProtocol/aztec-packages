@@ -1,9 +1,10 @@
+use crate::macros::utils::find_aztec_contract_module;
 use crate::note::note_getter_options::PropertySelector;
 use crate::utils::cmap::CHashMap;
 use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
 /// Maximum number of note types within 1 contract.
-comptime global MAX_NOTE_TYPES: u32 = 128;
+pub comptime global MAX_NOTE_TYPES: u32 = 128;
 
 /// A map from module to a BoundedVec containing all the note types within that module's contract.
 comptime mut global NOTES: CHashMap<Module, BoundedVec<Type, MAX_NOTE_TYPES>> = CHashMap::new();
@@ -221,7 +222,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 
     // We register the note in the module-specific `NOTES` map because we need that information inside the #[aztec]
     // macro to generate note processing functionality.
-    let m = s.module();
+    let m = find_aztec_contract_module(s.module());
     register_note(m, s.as_type());
 
     let note_properties = generate_note_properties(s);
@@ -282,7 +283,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
 
     // We register the note in the module-specific `NOTES` map because we need that information inside the #[aztec]
     // macro to generate note processing functionality.
-    let m = s.module();
+    let m = find_aztec_contract_module(s.module());
     register_note(m, s.as_type());
 
     let note_type_id = get_next_note_type_id(m);
