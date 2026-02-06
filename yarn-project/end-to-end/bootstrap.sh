@@ -7,6 +7,7 @@ default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 
 function build {
   cache_load_image consensys/web3signer:25.11.0
+  cache_load_image postgres:16-alpine
 }
 
 # Helper function to extract test names from a test file

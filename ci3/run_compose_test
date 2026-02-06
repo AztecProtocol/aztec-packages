@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+set -x
+set +e
 
 name=$1
 exit_container=$2
@@ -15,7 +17,6 @@ cd "$compose_file_path"
 docker compose $name_arg down --timeout 0 &> /dev/null
 
 function cleanup {
-  set +e
   # echo compose cleanup: $name_arg >/dev/tty
   # If the container hasn't completed, wait up to 15 seconds for it to start.
   # Bit of kludge, but otherwise the "down" could happen before the "up" has started.
