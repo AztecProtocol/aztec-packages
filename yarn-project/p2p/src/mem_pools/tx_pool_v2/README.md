@@ -28,13 +28,21 @@ TxPoolV2 manages transactions through a state machine with clear transitions:
 │              MINED                  │───────────────────┘
 │   (included in a block)             │  handlePrunedBlocks()
 └─────────────────────────────────────┘  (reorg)
-        │
-        │ handleFinalizedBlock()
-        ▼
-┌─────────────────────────────────────┐
-│             DELETED                 │
-│   (optionally archived)             │
-└─────────────────────────────────────┘
+        │                                     │
+        │ handleFinalizedBlock()              │ eviction after reorg
+        ▼                                     ▼
+┌─────────────────────────────────────┐  ┌─────────────────────────────────────┐
+│             DELETED                 │  │         SOFT-DELETED                │
+│   (hard-deleted or archived)        │  │   (kept in DB for debugging)        │
+└─────────────────────────────────────┘  └─────────────────────────────────────┘
+                                                  │
+                                                  │ handleFinalizedBlock()
+                                                  │ (mined block finalized)
+                                                  ▼
+                                         ┌─────────────────────────────────────┐
+                                         │          HARD-DELETED               │
+                                         │   (permanently removed from DB)     │
+                                         └─────────────────────────────────────┘
 ```
 
 ## Key Components
@@ -52,6 +60,16 @@ Core implementation containing:
 - Pre-add rule execution
 - Post-event eviction rule execution
 
+### DeletedPool (`deleted_pool.ts`)
+
+Manages soft deletion of transactions from pruned blocks:
+- When a reorg (chain prune) occurs, transactions from pruned blocks are tracked with their original mined block number
+- When these transactions are later evicted (e.g., failed validation, nullifier conflict), they are "soft-deleted" instead of removed
+- Soft-deleted transactions remain in the database for debugging and potential resubmission
+- When the original mined block is finalized on the new chain, soft-deleted transactions are permanently hard-deleted
+
+This ensures transactions from reorged blocks are kept around until we're certain they won't be needed.
+
 ### TxMetaData (`tx_metadata.ts`)
 
 Lightweight metadata stored alongside each transaction:
@@ -68,7 +86,36 @@ Lightweight metadata stored alongside each transaction:
 State is derived by TxPoolIndices:
 - `mined` if `minedL2BlockId` is set
 - `protected` if in protection map
+- `deleted` if soft-deleted (from a pruned block, evicted but kept in DB)
 - `pending` otherwise
+
+## Soft Deletion
+
+When a chain reorganization occurs, transactions that were mined in pruned blocks are handled specially:
+
+1. **Tracking**: When `handlePrunedBlocks` is called, all un-mined transactions are tracked by their original mined block number
+2. **Soft Delete**: If these transactions are later evicted (failed validation, nullifier conflict, etc.), they are "soft-deleted" - removed from indices but kept in the database
+3. **Retrieval**: Soft-deleted transactions can still be retrieved via `getTxByHash` and `hasTxs`, and return status `'deleted'` from `getTxStatus`
+4. **Hard Delete**: When `handleFinalizedBlock` is called and the finalized block number reaches or exceeds the transaction's original mined block, the transaction is permanently removed
+
+This design allows:
+- Debugging reorg scenarios by keeping transaction data available
+- Potential resubmission of transactions that failed validation after a reorg
+- Clean eventual cleanup once we're certain the transaction won't be needed
+
+**Example scenario:**
+1. Tx mined at block 10
+2. Chain prunes to block 5 (tx becomes un-mined, tracked as minedAtBlock=10)
+3. Tx fails validation and is soft-deleted
+4. Block 9 finalized → tx still in DB (minedAtBlock=10 > finalized=9)
+5. Block 10 finalized → tx hard-deleted (minedAtBlock=10 ≤ finalized=10)
+
+If the tx is re-mined at a higher block before being soft-deleted:
+1. Tx mined at block 10, pruned (tracked as minedAtBlock=10)
+2. Tx re-mined at block 15, pruned again (updated to minedAtBlock=15)
+3. Tx soft-deleted
+4. Block 10 finalized → tx still in DB
+5. Block 15 finalized → tx hard-deleted
 
 ## Architecture: Pre-add vs Post-event Rules
 
@@ -195,8 +242,11 @@ The archive uses FIFO eviction when `archivedTxLimit` is reached.
 ## Testing
 
 ```bash
-# Unit tests (131 tests)
+# Unit tests (177 tests)
 yarn test src/mem_pools/tx_pool_v2/tx_pool_v2.test.ts
+
+# Deleted pool tests (17 tests)
+yarn test src/mem_pools/tx_pool_v2/deleted_pool.test.ts
 
 # Compatibility tests (25 tests)
 yarn test src/mem_pools/tx_pool_v2/tx_pool_v2.compat.test.ts

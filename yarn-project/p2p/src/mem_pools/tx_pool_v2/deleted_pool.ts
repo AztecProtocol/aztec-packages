@@ -89,8 +89,12 @@ export class DeletedPool {
    * Marks transactions as being from a pruned block.
    * Called during handlePrunedBlocks for ALL transactions that were un-mined.
    *
+   * If a tx was previously tracked (e.g., mined at block 4, pruned, re-mined at block 5,
+   * pruned again), updates to the higher block number. This ensures the tx is kept until
+   * its most recent mined block is finalized.
+   *
    * @param txs - Array of {txHash, minedAtBlock} pairs, where minedAtBlock is the block
-   *              number in which the tx was originally mined before being un-mined
+   *              number in which the tx was mined before being un-mined
    */
   async markFromPrunedBlock(txs: { txHash: string; minedAtBlock: BlockNumber }[]): Promise<void> {
     if (txs.length === 0) {
@@ -100,11 +104,11 @@ export class DeletedPool {
     let count = 0;
     for (const { txHash, minedAtBlock } of txs) {
       const existing = this.#state.get(txHash);
-      // Only update if not already tracked (first prune wins - keeps original mined block)
-      if (existing === undefined) {
+      // Update if not tracked, or if this is a higher mined block (tx was re-mined then pruned again)
+      if (existing === undefined || minedAtBlock > existing.minedAtBlock) {
         const state: DeletedTxState = {
           minedAtBlock,
-          softDeleted: false,
+          softDeleted: existing?.softDeleted ?? false,
         };
         this.#state.set(txHash, state);
         await this.#deletedTxsDB.set(txHash, serializeState(state));

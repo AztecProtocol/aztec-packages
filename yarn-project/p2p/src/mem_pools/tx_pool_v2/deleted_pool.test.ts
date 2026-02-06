@@ -49,15 +49,19 @@ describe('DeletedPool', () => {
       expect(pool.getCount()).toBe(0);
     });
 
-    it('keeps original mined block on subsequent prunes', async () => {
+    it('updates to higher mined block when tx is re-mined and pruned again', async () => {
       // First prune: tx was mined at block 10
       await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(10) }]);
       expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(10));
 
-      // Second prune attempt (e.g., tx was re-mined at block 15 then pruned again)
-      // Should keep the original block 10
+      // Second prune: tx was re-mined at block 15 then pruned again
+      // Should update to block 15 (higher)
       await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(15) }]);
-      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(10));
+      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(15));
+
+      // Lower block should be ignored
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(12) }]);
+      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(15));
     });
   });
 
@@ -166,6 +170,32 @@ describe('DeletedPool', () => {
       expect(await txsDB.getAsync('tx1')).toBeUndefined(); // Gone from DB
       expect(pool.isFromPrunedBlock('tx1')).toBe(false);
       expect(pool.isSoftDeleted('tx1')).toBe(false);
+    });
+
+    it('tx re-mined at higher block is kept until that block is finalized', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+
+      // 1. Tx mined at block 4, then pruned
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(4) }]);
+      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(4));
+
+      // 2. Tx re-mined at block 5, then pruned again
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(5) }]);
+      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(5));
+
+      // 3. Tx is soft-deleted (e.g., failed validation after second prune)
+      await pool.deleteTx('tx1');
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+
+      // 4. Block 4 finalized - tx should NOT be hard-deleted (mined at 5 > finalized 4)
+      const deleted4 = await pool.finalizeBlock(BlockNumber(4));
+      expect(deleted4).toHaveLength(0);
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+
+      // 5. Block 5 finalized - tx should be hard-deleted (mined at 5 <= finalized 5)
+      const deleted5 = await pool.finalizeBlock(BlockNumber(5));
+      expect(deleted5).toContain('tx1');
+      expect(await txsDB.getAsync('tx1')).toBeUndefined();
     });
 
     it('multiple txs with different mined blocks finalize at correct times', async () => {
