@@ -198,20 +198,20 @@ fn correct_end_blob_accumulator_with_max_blobs() {
     ];
     let z_6_blobs_from_ts = 0x0d39b1130a385e47a54e3736b57b864cdbb90e7e190856cf80c2be76d4a335f2;
     let gamma_limbs_6_blobs_from_ts =
-        [0x31d456aa106e8a1d79ffedb0ed0485, 0x6f4acc25b4f29560ecdc6deea568aa, 0x12fe];
+        [0xb04f355c08fcbdcfdcdbd88ff290e9, 0x7e6d61e6ca5c0f144e9cc1e6ec5342, 0x00f5];
     let y_limbs_6_blobs_from_ts =
-        [0x0a2fedb8ba726d2d1ed4394796a031, 0x3822a4e42167ad10a5665c813bd5cd, 0x04ef];
+        [0x54457032ac64402990c8b6a356248d, 0x945497de7323ced8fdcbd741ded661, 0x2259];
     let batched_c_x_limbs_6_blobs_from_ts = [
-        0xc7c19538ef27019a111bcec7742330,
-        0x00b03aaf3e1f924a66d83ea8da4efb,
-        0x0dc05cbd0b036ea4d7cdcd96f29255,
-        0x0abe86,
+        0x19837f5bf89229a7e28f0619652fea,
+        0x76d23dfc7e2c3615f8c7223083a1ac,
+        0x9b06a1b0e13471691ea8735350615c,
+        0x12566a,
     ];
     let batched_c_y_limbs_6_blobs_from_ts = [
-        0x44122eaa471d7a5ec6947787fbcec7,
-        0x431ac1e0466cedd88ceda55f5efaf7,
-        0x8eeba206eef1bfc4fc030b1cb7b96d,
-        0x03f0a6,
+        0x62a84eea8d3a809b3f88994c97472c,
+        0x5492d7131d47adbfed4e3c9f986c01,
+        0x7e74433367926a62fdc8c699bee05b,
+        0x156b4c,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
         0x00f234038a323b2776a3f460156e2e6e21b19221f1b964e74c367204337dd510;

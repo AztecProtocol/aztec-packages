@@ -120,11 +120,11 @@ describe('Blob Batching', () => {
   });
 
   it.each([
-    [3, 2 * FIELDS_PER_BLOB + 123, '0x0338a65e19e250e80342e1b1c9ea3a5a7edd96a38e51f8550be2a4c5ad587664', false],
+    [3, 2 * FIELDS_PER_BLOB + 123, '0x5f9f4d4c0bf29c5786e3c9acd98c7b579dfaff669ec099b0c88f269a1d3fef60', false],
     [
       BLOBS_PER_CHECKPOINT,
       BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB,
-      '0x04ef3822a4e42167ad10a5665c813bd5cd0a2fedb8ba726d2d1ed4394796a031',
+      '0x2259945497de7323ced8fdcbd741ded66154457032ac64402990c8b6a356248d',
       true,
     ],
   ])(

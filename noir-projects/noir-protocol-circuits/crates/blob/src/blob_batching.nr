@@ -167,7 +167,7 @@ mod tests {
         ];
         let z_blob_400_from_ts = 0x2386cdc1cd34e082e14fa1410694c58b99c7c9b93b8effd9ae3a6b2d819854f7;
         let gamma_limbs_blob_400_from_ts =
-            [0x0f8e4bdfc88b8bad985c43ef399030, 0xa6111cf46305c115d0c5d3ac38c51a, 0x262d];
+            [0x74d69819ff47e07302242876ed1247, 0x2aaeb12a2cf89516dcecff24b6632d, 0x21eb];
         let y_limbs_blob_400_from_ts =
             [0xfc33eee32e4cfe0cb39ef7578a85c6, 0x2c004486b1796de6f1403c71acdba4, 0x2784];
 
@@ -266,20 +266,20 @@ mod tests {
         ];
         let z_3_blobs_from_ts = 0x1d6f81c9ee5724f7e9d8eea03ba0c9e29e53913151a395a301e17b0901bfa68e;
         let gamma_limbs_3_blobs_from_ts =
-            [0xcaac06f034aff18046f72a833b5e56, 0x14d28092a1b7b9b3a7f541251733c2, 0x1863];
+            [0xc15b647396d8a710623aa64c9d722d, 0xcb1f2e123126da51f64f37e4ad5231, 0x1c25];
         let y_limbs_3_blobs_from_ts =
-            [0xdd96a38e51f8550be2a4c5ad587664, 0xa65e19e250e80342e1b1c9ea3a5a7e, 0x0338];
+            [0xfaff669ec099b0c88f269a1d3fef60, 0x4d4c0bf29c5786e3c9acd98c7b579d, 0x5f9f];
         let batched_c_x_limbs_3_blobs_from_ts = [
-            0xba3b9220d2b505a37963a53b388fbb,
-            0x105b5d6a410c8e44a923538967bcf8,
-            0x415f4e2efbad9d9a9f461bddcc5863,
-            0x11c03e,
+            0xf710f18777b5627137965a3617b52c,
+            0x4c7694a1156e76e3efb93f2e7031e5,
+            0x0bc97cffbd2a634b1f4b2bcc01bcaa,
+            0x099535,
         ];
         let batched_c_y_limbs_3_blobs_from_ts = [
-            0x2f053c58fd82b21f0203ed94078699,
-            0x8c9d5eeaf252eed94085bd7897c3c2,
-            0x91605fcb7bb8f16d6f01a33c0fc9d4,
-            0x0c1b2f,
+            0xe432a24906c0f96c59c056ca4c3fa5,
+            0xac046598657fc3b4ab6935552aaff3,
+            0xb6b9ea23f9bae4747198b0b15c7a27,
+            0x01dcc3,
         ];
         let blob_commitments_hash_3_blobs_from_ts =
             0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;
