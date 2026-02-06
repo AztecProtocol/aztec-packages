@@ -188,7 +188,7 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHash100Fields)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
-    FF hash = FF("0x09348974e76c3602893d7a4b4bb52c2ec746f1ade5004ac471d0fbb4587a81a6");
+    FF hash = FF("0x1a103aa0843e29e9009c8a37c8b83c0c40f8c74cf1237a7dafb947c5797baf07");
 
     std::vector<FF> bytecode_fields = {};
     for (uint32_t i = 1; i < 100; i++) {

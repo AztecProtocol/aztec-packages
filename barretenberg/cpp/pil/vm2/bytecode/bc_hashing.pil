@@ -150,9 +150,9 @@ namespace bc_hashing;
 
     // At the start of a new bytecode hash, the initial field has to be the size appended to the separator, and we skip the lookup
     // fetching a field from decomposition.
-    // NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS (= 3000) * 31 at the contract registration
+    // NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000 at the contract registration
     // level, so the below should never underflow. TODO: Consider what would happen if we get an overflowed size at the seq. level.
-    pol SEPARATOR = constants.DOM_SEP__PUBLIC_BYTECODE + (size_in_bytes * (2 ** 32));
+    pol SEPARATOR = constants.DOM_SEP__PUBLIC_BYTECODE + (size_in_bytes * (2 ** 40));
 
     #[START_IS_SEPARATOR]
     start * (packed_fields_0 - SEPARATOR) = 0;
