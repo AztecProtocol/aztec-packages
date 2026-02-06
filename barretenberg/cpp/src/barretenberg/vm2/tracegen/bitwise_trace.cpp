@@ -113,6 +113,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         for (int ctr = start_ctr; ctr > 0; ctr--) {
             bool is_start = (ctr == start_ctr);
+            uint8_t ia_byte = input_a & mask_low_byte;
+            uint8_t ib_byte = input_b & mask_low_byte;
             trace.set(row,
                       { { { C::bitwise_sel, 1 },
                           { get_op_id_column_selector(event.operation), 1 },
@@ -122,9 +124,12 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_acc_ia, input_a },
                           { C::bitwise_acc_ib, input_b },
                           { C::bitwise_acc_ic, output_c },
-                          { C::bitwise_ia_byte, input_a & mask_low_byte },
-                          { C::bitwise_ib_byte, input_b & mask_low_byte },
+                          { C::bitwise_ia_byte, ia_byte },
+                          { C::bitwise_ib_byte, ib_byte },
                           { C::bitwise_ic_byte, output_c & mask_low_byte },
+                          { C::bitwise_output_and, ia_byte & ib_byte },
+                          { C::bitwise_output_or, ia_byte | ib_byte },
+                          { C::bitwise_output_xor, ia_byte ^ ib_byte },
                           { C::bitwise_tag_a, is_start ? tag_a_u8 : 0 },
                           { C::bitwise_tag_b, is_start ? tag_b_u8 : 0 },
                           { C::bitwise_tag_c, is_start ? tag_a_u8 : 0 }, // same as tag_a
@@ -148,9 +153,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
 const InteractionDefinition BitwiseTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_bitwise_and_byte_operations_settings, InteractionType::LookupIntoBitwise>()
-        .add<lookup_bitwise_or_byte_operations_settings, InteractionType::LookupIntoBitwise>()
-        .add<lookup_bitwise_xor_byte_operations_settings, InteractionType::LookupIntoBitwise>()
+        .add<lookup_bitwise_byte_operations_settings, InteractionType::LookupIntoBitwise>()
         .add<lookup_bitwise_integral_tag_length_settings, InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

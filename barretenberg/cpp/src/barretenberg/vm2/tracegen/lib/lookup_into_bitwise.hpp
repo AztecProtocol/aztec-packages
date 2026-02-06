@@ -15,7 +15,7 @@ template <typename LookupSettings> class LookupIntoBitwise : public IndexedLooku
         // row # is derived as:
         //     - input_b: bits 0...7 (0 being LSB)
         //     - input_a: bits 8...15
-        const auto& [a, b, _] = tup;
+        const auto& [a, b, c_and, c_or, c_xor] = tup;
         return (static_cast<uint32_t>(a) << 8) | static_cast<uint32_t>(b);
     }
 };

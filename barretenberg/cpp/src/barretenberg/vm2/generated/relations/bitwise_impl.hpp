@@ -211,12 +211,19 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_sel)) *
-                   (((static_cast<View>(in.get(C::bitwise_op_id)) -
-                      static_cast<View>(in.get(C::bitwise_sel_and)) * CView(constants_AVM_BITWISE_AND_OP_ID)) -
-                     static_cast<View>(in.get(C::bitwise_sel_or)) * CView(constants_AVM_BITWISE_OR_OP_ID)) -
-                    static_cast<View>(in.get(C::bitwise_sel_xor)) * CView(constants_AVM_BITWISE_XOR_OP_ID));
+        auto tmp = (static_cast<View>(in.get(C::bitwise_sel)) * static_cast<View>(in.get(C::bitwise_op_id)) -
+                    (static_cast<View>(in.get(C::bitwise_sel_and)) * CView(constants_AVM_BITWISE_AND_OP_ID) +
+                     static_cast<View>(in.get(C::bitwise_sel_or)) * CView(constants_AVM_BITWISE_OR_OP_ID) +
+                     static_cast<View>(in.get(C::bitwise_sel_xor)) * CView(constants_AVM_BITWISE_XOR_OP_ID)));
         std::get<28>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bitwise_ic_byte)) -
+                    (static_cast<View>(in.get(C::bitwise_sel_and)) * static_cast<View>(in.get(C::bitwise_output_and)) +
+                     static_cast<View>(in.get(C::bitwise_sel_or)) * static_cast<View>(in.get(C::bitwise_output_or)) +
+                     static_cast<View>(in.get(C::bitwise_sel_xor)) * static_cast<View>(in.get(C::bitwise_output_xor))));
+        std::get<29>(evals) += (tmp * scaling_factor);
     }
 }
 

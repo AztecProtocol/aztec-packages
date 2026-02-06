@@ -235,21 +235,22 @@ sel * op_id = sel_and * constants.AVM_BITWISE_AND_OP_ID
             + sel_or * constants.AVM_BITWISE_OR_OP_ID
             + sel_xor * constants.AVM_BITWISE_XOR_OP_ID;
 
-#[AND_BYTE_OPERATIONS]
-sel_and { ia_byte, ib_byte, ic_byte }
-in
-precomputed.sel_range_16 { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and };
+pol commit output_and;
+pol commit output_or;
+pol commit output_xor;
 
-#[OR_BYTE_OPERATIONS]
-sel_or { ia_byte, ib_byte, ic_byte }
-in
-precomputed.sel_range_16 { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_or };
+// We fetch all the byte operations in one lookup for efficiency purposes.
+#[BYTE_OPERATIONS]
+sel {
+     ia_byte, ib_byte,
+     output_and, output_or, output_xor
+} in precomputed.sel_range_16 {
+     precomputed.bitwise_input_a, precomputed.bitwise_input_b,
+     precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor
+};
 
-#[XOR_BYTE_OPERATIONS]
-sel_xor { ia_byte, ib_byte, ic_byte }
-in
-precomputed.sel_range_16 { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_xor };
-
+// Dispatch the relevant output value to the output.
+ic_byte = sel_and * output_and + sel_or * output_or + sel_xor * output_xor;
 
 // Potential improvements: See the following paragraphs
 

@@ -33,79 +33,34 @@ template <typename FF_>
 using lookup_bitwise_integral_tag_length_relation =
     lookup_relation_base<FF_, lookup_bitwise_integral_tag_length_settings>;
 
-/////////////////// lookup_bitwise_and_byte_operations ///////////////////
+/////////////////// lookup_bitwise_byte_operations ///////////////////
 
-struct lookup_bitwise_and_byte_operations_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BITWISE_AND_BYTE_OPERATIONS";
+struct lookup_bitwise_byte_operations_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_BITWISE_BYTE_OPERATIONS";
     static constexpr std::string_view RELATION_NAME = "bitwise";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bitwise_sel_and;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::bitwise_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_bitwise_and_byte_operations_counts;
-    static constexpr Column INVERSES = Column::lookup_bitwise_and_byte_operations_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_ia_byte,
-                                                                                    ColumnAndShifts::bitwise_ib_byte,
-                                                                                    ColumnAndShifts::bitwise_ic_byte };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_bitwise_input_a,
-        ColumnAndShifts::precomputed_bitwise_input_b,
-        ColumnAndShifts::precomputed_bitwise_output_and
+    static constexpr Column COUNTS = Column::lookup_bitwise_byte_operations_counts;
+    static constexpr Column INVERSES = Column::lookup_bitwise_byte_operations_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bitwise_ia_byte,
+        ColumnAndShifts::bitwise_ib_byte,
+        ColumnAndShifts::bitwise_output_and,
+        ColumnAndShifts::bitwise_output_or,
+        ColumnAndShifts::bitwise_output_xor
     };
-};
-
-using lookup_bitwise_and_byte_operations_settings = lookup_settings<lookup_bitwise_and_byte_operations_settings_>;
-template <typename FF_>
-using lookup_bitwise_and_byte_operations_relation =
-    lookup_relation_base<FF_, lookup_bitwise_and_byte_operations_settings>;
-
-/////////////////// lookup_bitwise_or_byte_operations ///////////////////
-
-struct lookup_bitwise_or_byte_operations_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BITWISE_OR_BYTE_OPERATIONS";
-    static constexpr std::string_view RELATION_NAME = "bitwise";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bitwise_sel_or;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_bitwise_or_byte_operations_counts;
-    static constexpr Column INVERSES = Column::lookup_bitwise_or_byte_operations_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_ia_byte,
-                                                                                    ColumnAndShifts::bitwise_ib_byte,
-                                                                                    ColumnAndShifts::bitwise_ic_byte };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_bitwise_input_a,
         ColumnAndShifts::precomputed_bitwise_input_b,
-        ColumnAndShifts::precomputed_bitwise_output_or
-    };
-};
-
-using lookup_bitwise_or_byte_operations_settings = lookup_settings<lookup_bitwise_or_byte_operations_settings_>;
-template <typename FF_>
-using lookup_bitwise_or_byte_operations_relation =
-    lookup_relation_base<FF_, lookup_bitwise_or_byte_operations_settings>;
-
-/////////////////// lookup_bitwise_xor_byte_operations ///////////////////
-
-struct lookup_bitwise_xor_byte_operations_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BITWISE_XOR_BYTE_OPERATIONS";
-    static constexpr std::string_view RELATION_NAME = "bitwise";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bitwise_sel_xor;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_bitwise_xor_byte_operations_counts;
-    static constexpr Column INVERSES = Column::lookup_bitwise_xor_byte_operations_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_ia_byte,
-                                                                                    ColumnAndShifts::bitwise_ib_byte,
-                                                                                    ColumnAndShifts::bitwise_ic_byte };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_bitwise_input_a,
-        ColumnAndShifts::precomputed_bitwise_input_b,
+        ColumnAndShifts::precomputed_bitwise_output_and,
+        ColumnAndShifts::precomputed_bitwise_output_or,
         ColumnAndShifts::precomputed_bitwise_output_xor
     };
 };
 
-using lookup_bitwise_xor_byte_operations_settings = lookup_settings<lookup_bitwise_xor_byte_operations_settings_>;
+using lookup_bitwise_byte_operations_settings = lookup_settings<lookup_bitwise_byte_operations_settings_>;
 template <typename FF_>
-using lookup_bitwise_xor_byte_operations_relation =
-    lookup_relation_base<FF_, lookup_bitwise_xor_byte_operations_settings>;
+using lookup_bitwise_byte_operations_relation = lookup_relation_base<FF_, lookup_bitwise_byte_operations_settings>;
 
 } // namespace bb::avm2
