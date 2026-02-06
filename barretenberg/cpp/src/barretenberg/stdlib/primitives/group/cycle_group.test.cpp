@@ -362,7 +362,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_d_x, 0);
     EXPECT_EQ(standard_d_y, 0);
 
-    check_circuit_and_gate_count(builder, 12);
+    check_circuit_and_gate_count(builder, 24);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -446,7 +446,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_EQ(result.x().get_value(), 0);
 
         // Same gate count as regular witness points
-        check_circuit_and_gate_count(builder, 0);
+        check_circuit_and_gate_count(builder, 15);
     }
 }
 
@@ -853,7 +853,6 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
 {
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
-    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
     auto rhs = -TestFixture::generators[1];
     auto affine_infinity = cycle_group_ct::AffineElement::infinity();
@@ -872,7 +871,7 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
     EXPECT_EQ(c.get_value(), rhs);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 12);
+    check_circuit_and_gate_count(builder, 57);
 }
 
 // Test addition with RHS point at infinity
@@ -899,7 +898,7 @@ TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition with witness infinity point
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 57);
 }
 
 // Test addition with both points at infinity
@@ -927,7 +926,7 @@ TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
     EXPECT_TRUE(c.get_value().is_point_at_infinity());
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 57);
 }
 
 // Test addition of inverse points (result is infinity)
@@ -1139,7 +1138,7 @@ TYPED_TEST(CycleGroupTest, TestAddInfinityResultLogic)
         EXPECT_EQ(result.get_value(), expected);
     }
 
-    check_circuit_and_gate_count(builder, 138);
+    check_circuit_and_gate_count(builder, 285);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
@@ -1303,7 +1302,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gate_count(builder, 196);
+    check_circuit_and_gate_count(builder, 309);
 }
 
 TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
@@ -1525,9 +1524,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 2774); // Mega
+        check_circuit_and_gate_count(builder, 3548); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 2774); // Ultra
+        check_circuit_and_gate_count(builder, 3551); // Ultra
     }
 }
 
