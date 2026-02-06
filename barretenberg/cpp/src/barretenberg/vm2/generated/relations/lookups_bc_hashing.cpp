@@ -25,6 +25,7 @@
 
 namespace bb::avm2 {
 
+INSTANTIATE_LOOKUP(lookup_bc_hashing_bytecode_length_bytes_relation);
 INSTANTIATE_LOOKUP(lookup_bc_hashing_check_final_bytes_remaining_relation);
 INSTANTIATE_LOOKUP(lookup_bc_hashing_poseidon2_hash_relation);
 

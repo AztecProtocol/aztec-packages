@@ -60,7 +60,7 @@ TEST_F(BytecodeHashingTest, SimpleHash)
         bytecode.insert(bytecode.end(), bytes.begin() + 1, bytes.end());
     }
 
-    bytecode_fields.insert(bytecode_fields.begin(), DOM_SEP__PUBLIC_BYTECODE);
+    bytecode_fields.insert(bytecode_fields.begin(), compute_public_bytecode_separator(bytecode.size()));
 
     EXPECT_CALL(poseidon2, hash(bytecode_fields)).WillOnce(Return(hash));
 
@@ -77,7 +77,7 @@ TEST_F(BytecodeHashingTest, Hash)
 {
     std::vector<uint8_t> bytecode = testing::random_bytes(500);
     std::vector<FF> bytecode_fields = encode_bytecode(bytecode);
-    std::vector<FF> prepended_bytecode_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_bytecode_fields = { compute_public_bytecode_separator(bytecode.size()) };
     prepended_bytecode_fields.reserve(1 + bytecode_fields.size());
     prepended_bytecode_fields.insert(prepended_bytecode_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
 

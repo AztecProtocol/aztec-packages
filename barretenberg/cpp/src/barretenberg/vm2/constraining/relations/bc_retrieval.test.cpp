@@ -68,7 +68,7 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     uint32_t bytecode_size = 20;
     ContractClass klass = random_contract_class(/*bytecode_size=*/bytecode_size);
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(klass.packed_bytecode);
-    std::vector<FF> hash_input = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> hash_input = { simulation::compute_public_bytecode_separator(klass.packed_bytecode.size()) };
     hash_input.reserve(1 + bytecode_fields.size());
     hash_input.insert(hash_input.end(), bytecode_fields.begin(), bytecode_fields.end());
     // Compute the bytecode commitment separately

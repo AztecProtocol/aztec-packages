@@ -106,9 +106,56 @@ namespace bc_hashing;
     // We need 3 packed fields to use as inputs for each poseidon round
     pol commit packed_fields_0, packed_fields_1, packed_fields_2;
 
-    // At the start of a new bytecode hash, the initial field has to be the separator, and we skip the lookup:
+
+    // We could approach linking the size in bytes to bc_decomposition in a few ways.
+    // Easy, naive: add new lookup like
+    // start { precomputed.zero, bytecode_id, size_in_bytes } is bc_decomposition.sel { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining }
+    // we only need the size_in_bytes at start == 1, so it's confined to one row.
+
+    // Clever, interesting, cool: propagate size_in_bytes from start == 1 to latch == 1, then constrain that:
+    // size_in_bytes == 31*(pc_at_final_field + 1) + last_bytes
+    //  where last_bytes < 31 and can be read via a new column in the existing CHECK_FINAL_BYTES_REMAINING lookup:
+    // #[CHECK_FINAL_BYTES_REMAINING]
+    // latch {
+    //     pc_at_final_field,
+    //     bytecode_id,
+    //     last_bytes,
+    //     sel /* =1 */,
+    //     precomputed.zero /* =0 */,
+    //     precomputed.zero /* =0 */,
+    //     precomputed.zero /* =0 */,
+    //     precomputed.zero /* =0 */,
+    //     precomputed.zero /* =0 */,
+    //     precomputed.zero /* =0 */
+    // } in bc_decomposition.sel_packed {
+    //     bc_decomposition.pc,
+    //     bc_decomposition.id,
+    //     bc_decomposition.bytes_remaining,
+    //     bc_decomposition.sel_windows_gt_remaining,
+    //     bc_decomposition.bytes_pc_plus_31,
+    //     bc_decomposition.bytes_pc_plus_32,
+    //     bc_decomposition.bytes_pc_plus_33,
+    //     bc_decomposition.bytes_pc_plus_34,
+    //     bc_decomposition.bytes_pc_plus_35,
+    //     bc_decomposition.bytes_pc_plus_36
+    // };
+    // We have already constrained that we are at the last field using this lookup, so last_bytes < 31
+
+    // Only constrained at start for the prepended field:
+    pol commit size_in_bytes;
+    #[BYTECODE_LENGTH_BYTES]
+    start { precomputed.zero, bytecode_id, size_in_bytes }
+    in
+    bc_decomposition.sel { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
+
+    // At the start of a new bytecode hash, the initial field has to be the size appended to the separator, and we skip the lookup
+    // fetching a field from decomposition.
+    // NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000 at the contract registration
+    // level, so the below should never underflow. TODO: Consider what would happen if we get an overflowed size at the seq. level.
+    pol SEPARATOR = constants.DOM_SEP__PUBLIC_BYTECODE + (size_in_bytes * (2 ** 40));
+
     #[START_IS_SEPARATOR]
-    start * (packed_fields_0 - constants.DOM_SEP__PUBLIC_BYTECODE) = 0;
+    start * (packed_fields_0 - SEPARATOR) = 0;
 
     #[GET_PACKED_FIELD_0]
     sel_not_start { pc_index, bytecode_id, packed_fields_0 }
