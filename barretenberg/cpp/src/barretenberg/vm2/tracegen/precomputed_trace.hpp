@@ -8,7 +8,7 @@
 namespace bb::avm2::tracegen {
 
 // Currently due to the bitwise tables.
-constexpr uint32_t PRECOMPUTED_TRACE_SIZE = (3 << 16);
+constexpr uint32_t PRECOMPUTED_TRACE_SIZE = (1 << 16);
 
 // This fills the trace for the "general" precomputed columns.
 // See precomputed.pil.
