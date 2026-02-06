@@ -31,7 +31,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
@@ -41,8 +41,14 @@ import {
   type ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
-import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback, P2PService } from '../services/service.js';
+import type {
+  DuplicateProposalInfo,
+  P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
+  P2PService,
+} from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
+import type { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { TxProvider } from '../services/tx_provider.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 
@@ -67,7 +73,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
   private txPool: TxPoolV2;
-  private attestationPool: AttestationPool;
+  private attestationPool: AttestationPoolApi;
 
   private config: P2PConfig;
 
@@ -92,6 +98,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     mempools: MemPools,
     private p2pService: P2PService,
     private txCollection: TxCollection,
+    private txFileStore: TxFileStore | undefined,
     config: Partial<P2PConfig> = {},
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -278,6 +285,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.blockStream!.start();
     await this.txCollection.start();
+    this.txFileStore?.start();
     return this.syncPromise;
   }
 
@@ -310,6 +318,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopping p2p client...');
     await tryStop(this.txCollection);
     this.log.debug('Stopped tx collection service');
+    await this.txFileStore?.stop();
+    this.log.debug('Stopped tx file store');
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
     await this.blockStream?.stop();
@@ -335,7 +345,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
     // Store our own proposal so we can respond to req/resp requests for it
-    await this.attestationPool.addBlockProposal(proposal);
+    const { totalForPosition } = await this.attestationPool.tryAddBlockProposal(proposal);
+    if (totalForPosition > 1) {
+      throw new Error(`Attempted to broadcast a duplicate block proposal for slot ${proposal.slotNumber}`);
+    }
     return this.p2pService.propagate(proposal);
   }
 
@@ -349,7 +362,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const blockProposal = proposal.getBlockProposal();
     if (blockProposal) {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
-      await this.attestationPool.addBlockProposal(blockProposal);
+      await this.attestationPool.tryAddBlockProposal(blockProposal);
     }
     return this.p2pService.propagate(proposal);
   }
@@ -368,8 +381,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 
-  public addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
-    return this.attestationPool.addCheckpointAttestations(attestations);
+  public addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+    return this.attestationPool.addOwnCheckpointAttestations(attestations);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -380,6 +393,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public registerCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
     this.p2pService.registerCheckpointReceivedCallback(handler);
+  }
+
+  public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
+    this.p2pService.registerDuplicateProposalCallback(callback);
   }
 
   /**

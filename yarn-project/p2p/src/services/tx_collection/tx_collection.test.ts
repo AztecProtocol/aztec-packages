@@ -130,6 +130,7 @@ describe('TxCollection', () => {
       txCollectionNodeRpcMaxBatchSize: 5,
       txCollectionFastMaxParallelRequestsPerNode: 2,
       txCollectionFastNodeIntervalMs: 100,
+      txCollectionMissingTxsCollectorType: 'old',
     };
 
     txs = await Promise.all([makeTx(), makeTx(), makeTx()]);

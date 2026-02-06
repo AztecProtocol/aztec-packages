@@ -255,7 +255,7 @@ Replace the contents of `contract/src/main.nr` with:
 
 ### Storage Variables Explained
 
-The contract uses two [storage types](../../aztec-nr/framework-description/how_to_define_storage.md) with different characteristics:
+The contract uses two [storage types](../../aztec-nr/framework-description/state_variables.md) with different characteristics:
 
 **`vk_hash: PublicImmutable<Field>`**
 

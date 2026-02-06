@@ -89,6 +89,7 @@ NETWORK_TESTS_2=(
   mempool_limit.test.ts
   upgrade_governance_proposer.test.ts
   validator_nuke_and_suppression.test.ts
+  mbps.test.ts
 )
 
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
@@ -137,6 +138,12 @@ function network_bench_cmds {
   done
 }
 
+function proving_bench_cmds {
+  local tps=1
+  local timeout=9000  # 2.5h
+  echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -147,6 +154,18 @@ function network_bench {
   echo_header "spartan bench"
   gcp_auth
   network_bench_cmds | parallelize 1
+}
+
+function proving_bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan proving bench"
+  gcp_auth
+  proving_bench_cmds | parallelize 1
 }
 
 function ensure_eth_balances {
@@ -212,7 +231,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench)
     env_file="$1"
     $cmd "$env_file"
     ;;
@@ -260,7 +279,7 @@ case "$cmd" in
     ;;
   "test-kind-upgrade-rollup")
     source scripts/source_network_env.sh
-    source_network_env kind-provers
+    source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
     INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"

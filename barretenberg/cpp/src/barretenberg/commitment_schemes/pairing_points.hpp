@@ -9,8 +9,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
 namespace bb {
 
@@ -32,59 +30,46 @@ template <typename Curve_> class PairingPoints {
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
-    Point P0 = Point::infinity();
-    Point P1 = Point::infinity();
+    // Array-like interface for Codec compatibility
+    using value_type = Point;
+    static constexpr size_t SIZE = 2;
+
+    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
+
+    // Named accessors
+    Point& P0() { return _points[0]; }
+    Point& P1() { return _points[1]; }
+    const Point& P0() const { return _points[0]; }
+    const Point& P1() const { return _points[1]; }
 
     PairingPoints() = default;
-    PairingPoints(const Point& P0, const Point& P1)
-        : P0(P0)
-        , P1(P1)
+    PairingPoints(const Point& p0, const Point& p1)
+        : _points{ p0, p1 }
     {}
 
-    PairingPoints(std::array<Point, 2> const& points)
-        : PairingPoints(points[0], points[1])
-    {}
+    auto& operator[](size_t idx) { return _points[idx]; }
+    const auto& operator[](size_t idx) const { return _points[idx]; }
 
-    Point& operator[](size_t idx)
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
-
-    const Point& operator[](size_t idx) const
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
-
-    /**
-     * @brief Reconstruct the pairing points from limbs stored on the public inputs.
-     *
-     */
-    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs_in)
-    {
-        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P0_limbs(limbs_in.data(), Point::PUBLIC_INPUTS_SIZE);
-        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P1_limbs(limbs_in.data() + Point::PUBLIC_INPUTS_SIZE,
-                                                                          Point::PUBLIC_INPUTS_SIZE);
-        Point P0 = Point::reconstruct_from_public(P0_limbs);
-        Point P1 = Point::reconstruct_from_public(P1_limbs);
-
-        return PairingPoints<Curve>{ P0, P1 };
-    }
+    // Iterator support for range-based for (required by Codec)
+    auto begin() { return _points.begin(); }
+    auto end() { return _points.end(); }
+    auto begin() const { return _points.begin(); }
+    auto end() const { return _points.end(); }
+    static constexpr size_t size() { return SIZE; }
 
     /**
      * @brief Aggregate the current pairing points with another set of pairing points using a random scalar
      */
     void aggregate(const PairingPoints<Curve>& other)
     {
-        if (P0 == Point::infinity() || P1 == Point::infinity() || other.P0 == Point::infinity() ||
-            other.P1 == Point::infinity()) {
+        if (P0() == Point::infinity() || P1() == Point::infinity() || other.P0() == Point::infinity() ||
+            other.P1() == Point::infinity()) {
             throw_or_abort("WARNING: Shouldn't be aggregating with Point at infinity! The pairing points are probably "
                            "uninitialized.");
         }
         Fr aggregation_separator = Fr::random_element();
-        P0 = P0 + other.P0 * aggregation_separator;
-        P1 = P1 + other.P1 * aggregation_separator;
+        P0() = P0() + other.P0() * aggregation_separator;
+        P1() = P1() + other.P1() * aggregation_separator;
     }
 
     /**
@@ -95,10 +80,15 @@ template <typename Curve_> class PairingPoints {
         VerifierCK pcs_vkey{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
         // something. Issue exists in many places besides just here.
-        return pcs_vkey.pairing_check(P0, P1);
+        return pcs_vkey.pairing_check(P0(), P1());
     }
 
     bool operator==(const PairingPoints<Curve>& other) const = default;
 };
 
 } // namespace bb
+
+// Enable std::tuple_size for Codec compatibility (array-like deserialization)
+namespace std {
+template <typename Curve> struct tuple_size<bb::PairingPoints<Curve>> : std::integral_constant<size_t, 2> {};
+} // namespace std

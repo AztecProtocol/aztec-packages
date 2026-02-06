@@ -150,6 +150,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivityConsecutiveEpochThreshold: 1,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,

@@ -1,4 +1,4 @@
-import type { AttestationPool } from './attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi } from './attestation_pool/attestation_pool.js';
 import type { TxPoolV2 } from './tx_pool_v2/interfaces.js';
 
 /**
@@ -6,5 +6,5 @@ import type { TxPoolV2 } from './tx_pool_v2/interfaces.js';
  */
 export type MemPools = {
   txPool: TxPoolV2;
-  attestationPool: AttestationPool;
+  attestationPool: AttestationPoolApi;
 };

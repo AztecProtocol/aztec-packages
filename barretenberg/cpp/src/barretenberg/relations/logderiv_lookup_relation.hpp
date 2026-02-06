@@ -17,8 +17,77 @@
 namespace bb {
 
 /**
- * @brief Log-derivative lookup relation (LogUp) for tables with up to 3 columns.
- * @details See LOGDERIV_LOOKUP_RELATION_README.md for full documentation.
+ * @brief Log-derivative lookup argument relation for establishing lookup reads from tables with 3 or fewer columns
+ *
+ * @details The lookup argument seeks to prove lookups from a column by establishing the following sum:
+ * \f[
+ *  \sum_{i=0}^{n-1} q_{\text{logderiv_lookup},i} \cdot \frac{1}{\text{lookup_term}_i}
+ *                                  - \text{read_count}_i \cdot \frac{1}{\text{table_term}_i} = 0
+ * \f]
+ * where
+ * \f[
+ *  \text{table_term} = \text{table_col}_1 + \gamma + \text{table_col}_2 \cdot \beta
+ *                                  + \text{table_col}_3 \cdot \beta^2 + \text{table_index} \cdot \beta^3
+ * \f]
+ * and
+ * \f[
+ *  \text{lookup_term} = \text{derived_table_entry}_1 + \gamma + \text{derived_table_entry}_2 \cdot \beta
+ *                     + \text{derived_table_entry}_3 \cdot \beta^2 + \text{table_index} \cdot \beta^3
+ * \f]
+ * with
+ * \f[
+ *   \text{derived_table_entry}_i = w_i - \text{col_step_size}_i \cdot w_{i,\text{shift}}
+ * \f]
+ * (read note for explanation).
+ *
+ * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
+ * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details).
+ *
+ * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial \f$I\f$
+ * containing (indirectly) the rational functions in the above expression:
+ * \f$I_i = 1/[(\text{lookup_term}_i) \cdot (\text{table_term}_i)]\f$. This leads to two subrelations. The first
+ * demonstrates that the inverse polynomial \f$I\f$ is correctly formed. The second is the primary lookup identity,
+ * where the rational functions are replaced by the use of the inverse polynomial \f$I\f$. These two subrelations can
+ * be expressed as follows:
+ *
+ * <b>Subrelation 1 (Inverse correctness):</b>
+ * \f[
+ * I_i \cdot (\text{lookup_term}_i) \cdot (\text{table_term}_i) - 1 = 0
+ * \f]
+ *
+ * <b>Subrelation 2 (Lookup identity):</b>
+ * \f[
+ * \sum_{i=0}^{n-1} [q_{\text{logderiv_lookup}} \cdot I_i \cdot \text{table_term}_i
+ *                                  - \text{read_count}_i \cdot I_i \cdot \text{lookup_term}_i] = 0
+ * \f]
+ *
+ * To not compute the inverse terms packed in \f$I_i\f$ for indices not included in the sum we introduce a
+ * witness called inverse_exists, which is zero when either read_count\f$_i\f$ is nonzero (a boolean called
+ * read_tag) or we have a read gate. This is represented by setting \f$\text{inverse_exists} = 1 - (1 -
+ * \text{read_tag}) \cdot (1 - \text{is_read_gate})\f$. Since is_read_gate is only dependent on selector values,
+ * we can assume that the verifier can check that it is boolean. However, if read_tag (which is a derived witness),
+ * is not constrained to be boolean, one can set the inverse_exists to any value when is_read_gate = 0, because
+ * inverse_exists is a linear function of read_tag then. Thus we have a third subrelation that ensures read_tag is
+ * a boolean value.
+ *
+ * <b>Subrelation 3 (Boolean check):</b>
+ * \f[
+ * \text{read_tag} \cdot \text{read_tag} - \text{read_tag} = 0
+ * \f]
+ *
+ * Further constraining of read_tags and read_counts is not required, since by tampering read_tags a malicious
+ * prover can only skip a table_term. This is disadvantageous for the cheating prover as it reduces the size of the
+ * lookup table. Hence, a malicious prover cannot abuse this to prove an incorrect lookup.
+ *
+ * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
+ * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
+ * subrelation is not multiplied by a scaling factor at each accumulation step.
+ *
+ * @note The "real" table entries must be 'derived' from wire values since instead of storing actual values in wires
+ * we store successive accumulators, the differences of which are equal to entries in a table. This is an efficiency
+ * trick for the case where entries of the "real" table correspond to limbs of a value too large to be supported by
+ * the lookup table. This way we avoid using additional gates to reconstruct full size values from the limbs contained
+ * in tables. See the documentation in method bb::plookup::get_lookup_accumulators().
  *
  * IMPORTANT: γ and β must be independent challenges for soundness.
  */
@@ -26,7 +95,7 @@ namespace bb {
 template <typename FF_> class LogDerivLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t WRITE_TERMS = 1; // the number of write terms in the lookup relation
+    static constexpr size_t TABLE_TERMS = 1; // the number of table terms in the lookup relation
     // 1 + polynomial degree of this relation
     static constexpr size_t INVERSE_SUBRELATION_LENGTH = 5; // both subrelations are degree 4
     static constexpr size_t LOOKUP_SUBRELATION_LENGTH = 5;  // both subrelations are degree 4
@@ -51,13 +120,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     }
 
     /**
-     * @brief Does the provided row contain data relevant to table lookups; Used to determine whether the polynomial of
-     * inverses must be computed at a given row
-     * @details In order to avoid unnecessary computation, the polynomial of inverses I is only computed for rows at
-     * which the lookup relation is "active". It is active if either (1) the present row contains a lookup gate (i.e.
-     * q_lookup == 1), or (2) the present row contains table data that has been looked up in this circuit
-     * (lookup_read_tags == 1, or equivalently, if the row in consideration has index i, the data in polynomials table_i
-     * has been utlized in the circuit).
+     * @brief Does the provided row contain data relevant to table lookups
+     *
+     * @details Used to determine whether the polynomial of inverses must be computed at a given row. In order to avoid
+     * unnecessary computation, the polynomial of inverses \f$I\f$ is only computed for rows at which the lookup
+     * relation is "active". It is active if either (1) the present row contains a lookup gate (i.e.
+     * \f$q_{\text{lookup}} = 1\f$), or (2) the present row contains table data that has been looked up in this circuit
+     * (lookup_read_tags \f$= 1\f$, or equivalently, if the row in consideration has index \f$i\f$, the data in
+     * polynomials table\f$_i\f$ has been utilized in the circuit).
      *
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
@@ -71,12 +141,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
     /**
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
-     * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
-     * lookup relation is active at a given row.
-     * We skip the inverse computation for all the rows that read_count_i == 0 AND read_selector is 0
-     * @note read_tag is constructed such that read_tag_i = 1 or 0. We add a subrelation to check that read_tag is a
-     * boolean value
      *
+     * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
+     * lookup relation is active at a given row. We skip the inverse computation for all the rows that
+     * \f$\text{read_count}_i = 0\f$ AND read_selector is 0.
+     *
+     * @note read_tag is constructed such that \f$\text{read_tag}_i \in \{0, 1\}\f$. We add a subrelation to check
+     * that read_tag is a boolean value.
+     *
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam AllEntities Type containing all polynomial entities
+     * @param in All entities
+     * @return Accumulator indicating whether inverse should be computed
      */
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
@@ -95,11 +171,25 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
-    // Compute table_1 + gamma + table_2 * β + table_3 * β² + table_4 * β³
+    /**
+     * @brief Compute the table term
+     *
+     * @details Computes \f$\text{table}_1 + \gamma + \text{table}_2 \cdot \beta + \text{table}_3 \cdot \beta^2 +
+     * \text{table}_4 \cdot \beta^3\f$, where table\f$_{1,2,3}\f$ correspond to the (maximum) three columns of the
+     * lookup table and table\f$_4\f$ is the unique identifier of the lookup table (table_index).
+     *
+     * @tparam Accumulator Accumulator type for polynomial evaluations
+     * @tparam AllEntities Type containing all polynomial entities
+     * @tparam Parameters Type containing relation parameters
+     * @param in All entities
+     * @param params Relation parameters (gamma, eta, eta_two, eta_three)
+     * @return Accumulator containing the computed table term
+     */
+    // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
     // table_1,2,3 correspond to the (maximum) three columns of the lookup table and table_4 is the unique identifier
     // of the lookup table table_index
     template <typename Accumulator, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
     {
         using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
@@ -122,7 +212,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
+    static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
         using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
@@ -166,11 +256,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     }
 
     /**
-     * @brief Construct the polynomial I whose components are the inverse of the product of the read and write terms
-     * @details If the denominators of log derivative lookup relation are read_term and write_term, then I_i =
-     * (read_term_i*write_term_i)^{-1}.
-     * @note Importantly, I_i = 0 for rows i at which there is no read or write, so the cost of this method is
-     * proportional to the actual number of lookups.
+     * @brief Construct the polynomial \f$I\f$ whose components are the inverse of the product of the read and write
+     * terms
+     *
+     * @details If the denominators of log derivative lookup relation are lookup_term and table_term, then
+     * \f$I_i = (\text{lookup_term}_i \cdot \text{table_term}_i)^{-1}\f$.
+     *
+     * @note Importantly, \f$I_i = 0\f$ for rows \f$i\f$ at which there is no read or write, so the cost of this method
+     * is proportional to the actual number of lookups.
      *
      */
     template <typename Polynomials>
@@ -190,8 +283,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                 if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                     auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                    auto value = compute_read_term<FF>(row, relation_parameters) *
-                                 compute_write_term<FF>(row, relation_parameters);
+                    auto value = compute_lookup_term<FF>(row, relation_parameters) *
+                                 compute_table_term<FF>(row, relation_parameters);
                     inverse_polynomial.at(i) = value;
                 }
             }
@@ -234,21 +327,21 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
         const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
 
-        const auto inverse_exists = compute_inverse_exists<Accumulator>(in); // Degree 2
-        const auto read_term = compute_read_term<Accumulator>(in, params);   // Degree 2
-        const auto write_term = compute_write_term<Accumulator>(in, params); // Degree 1
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);   // Degree 2
+        const auto lookup_term = compute_lookup_term<Accumulator>(in, params); // Degree 2
+        const auto table_term = compute_table_term<Accumulator>(in, params);   // Degree 1
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
         // Degrees:                 5                 2           1           1                          0
-        const Accumulator logderiv_first_term = (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+        const Accumulator logderiv_first_term = (lookup_term * table_term * inverses - inverse_exists) * scaling_factor;
         std::get<0>(accumulator) += ShortView(logderiv_first_term); // Deg 5
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
         // Degrees:                         1                  2          =       3
-        Accumulator tmp = Accumulator(read_selector_m) * write_term;
-        tmp -= (Accumulator(read_counts_m) * read_term);
+        Accumulator tmp = Accumulator(read_selector_m) * table_term;
+        tmp -= (Accumulator(read_counts_m) * lookup_term);
         tmp *= inverses;                 // degree 4(5)
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
 

@@ -1,4 +1,4 @@
-export { type AttestationPool } from './attestation_pool/attestation_pool.js';
+export { AttestationPool, type AttestationPoolApi } from './attestation_pool/attestation_pool.js';
 export { type MemPools } from './interface.js';
 // Old TxPool exports - kept temporarily for external consumers
 export { type TxPool } from './tx_pool/tx_pool.js';

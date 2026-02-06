@@ -25,7 +25,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Define paths relative to the barretenberg directory
 BARRETENBERG_DIR="$REPO_ROOT/barretenberg"
-SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/optimised/honk-optimized.sol"
+SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/instance/BlakeHonkOpt.sol"
 CPP_FILE="$BARRETENBERG_DIR/cpp/src/barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 
 # Check if source file exists
@@ -65,7 +65,7 @@ sed -i -E 's/(uint256 constant VK_HASH = )0x[0-9a-fA-F]+;/\1{{ VK_HASH }};/' "$T
 sed -i -E 's/(uint256 constant CIRCUIT_SIZE = )[0-9]+;/\1{{ CIRCUIT_SIZE }};/' "$TEMP_SOL"
 sed -i -E 's/(uint256 constant LOG_N = )[0-9]+;/\1{{ LOG_CIRCUIT_SIZE }};/' "$TEMP_SOL"
 sed -i -E 's/(uint256 constant NUMBER_PUBLIC_INPUTS = )[0-9]+;/\1{{ NUM_PUBLIC_INPUTS }};/' "$TEMP_SOL"
-sed -i -E 's/(uint256 constant REAL_NUMBER_PUBLIC_INPUTS = )[0-9]+ - 16;/\1{{ NUM_PUBLIC_INPUTS }} - 16;/' "$TEMP_SOL"
+sed -i -E 's/(uint256 constant REAL_NUMBER_PUBLIC_INPUTS = )[0-9]+ - [0-9]+;/\1{{ REAL_NUM_PUBLIC_INPUTS }};/' "$TEMP_SOL"
 sed -i -E 's/(uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = )[0-9]+;/\1{{ NUMBER_OF_BARYCENTRIC_INVERSES }};/' "$TEMP_SOL"
 
 # Replace the contract name

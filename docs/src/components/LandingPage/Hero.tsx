@@ -19,7 +19,7 @@ export default function Hero() {
           </Link>
           <Link
             className={`button button--secondary button--lg ${styles.secondaryButton}`}
-            to="/network"
+            to="/operate/operators"
           >
             Run a Node
           </Link>

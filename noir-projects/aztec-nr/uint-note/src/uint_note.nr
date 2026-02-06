@@ -1,7 +1,7 @@
 use aztec::{
     context::{PrivateContext, PublicContext},
     history::nullifier::assert_nullifier_existed_by,
-    keys::getters::{get_nhk_app, get_public_keys},
+    keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::logs::partial_note::compute_partial_note_private_content_log,
     note::note_interface::{NoteHash, NoteType},
@@ -75,14 +75,16 @@ impl NoteHash for UintNote {
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field {
-        let owner_npk_m = get_public_keys(owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = get_nhk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification, secret],
-            DOM_SEP__NOTE_NULLIFIER,
-        )
+    ) -> Option<Field> {
+        try_get_public_keys(owner).map(|public_keys| {
+            let owner_npk_m = public_keys.npk_m;
+            let owner_npk_m_hash = owner_npk_m.hash();
+            let secret = get_nhk_app(owner_npk_m_hash);
+            poseidon2_hash_with_separator(
+                [note_hash_for_nullification, secret],
+                DOM_SEP__NOTE_NULLIFIER,
+            )
+        })
     }
 }
 

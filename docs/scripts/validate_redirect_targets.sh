@@ -62,13 +62,13 @@ else
 fi
 
 if [[ -n "$NETWORK_DEFAULT_VERSION" ]] && [[ -d "$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION" ]]; then
-  NETWORK_DOCS_DIR="$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION"
+  OPERATE_DOCS_DIR="$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION"
 else
-  NETWORK_DOCS_DIR="$DOCS_ROOT/docs-network"
+  OPERATE_DOCS_DIR="$DOCS_ROOT/docs-operate"
 fi
 
 echo "Developer docs dir: $DEVELOPER_DOCS_DIR"
-echo "Network docs dir: $NETWORK_DOCS_DIR"
+echo "Operate docs dir: $OPERATE_DOCS_DIR"
 
 # Extract all 'to' values from redirect blocks
 # Handles both:
@@ -147,17 +147,53 @@ check_docs_path() {
     return 1
   fi
 
-  # Handle /network/* paths
-  if [[ "$clean_path" =~ ^network/(.*) ]]; then
+  # Handle /operate/* paths (formerly /network/*)
+  if [[ "$clean_path" =~ ^operate/(.*) ]]; then
     local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned network docs
+    # Check in versioned operate docs
     for ext in md mdx; do
-      if [[ -f "$NETWORK_DOCS_DIR/${sub_path}.${ext}" ]]; then
+      if [[ -f "$OPERATE_DOCS_DIR/${sub_path}.${ext}" ]]; then
         return 0
       fi
       # Also check for index files in directories
-      if [[ -d "$NETWORK_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$NETWORK_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
+      if [[ -d "$OPERATE_DOCS_DIR/${sub_path}" ]]; then
+        if [[ -f "$OPERATE_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
+          return 0
+        fi
+      fi
+    done
+    return 1
+  fi
+
+  # Handle /network/* paths (legacy, will redirect to /operate/*)
+  if [[ "$clean_path" =~ ^network/(.*) ]]; then
+    local sub_path="${BASH_REMATCH[1]}"
+    # Check in versioned operate docs
+    for ext in md mdx; do
+      if [[ -f "$OPERATE_DOCS_DIR/${sub_path}.${ext}" ]]; then
+        return 0
+      fi
+      # Also check for index files in directories
+      if [[ -d "$OPERATE_DOCS_DIR/${sub_path}" ]]; then
+        if [[ -f "$OPERATE_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
+          return 0
+        fi
+      fi
+    done
+    return 1
+  fi
+
+  # Handle /participate/* paths
+  if [[ "$clean_path" =~ ^participate/(.*) ]]; then
+    local sub_path="${BASH_REMATCH[1]}"
+    # Check in participate docs (not versioned)
+    for ext in md mdx; do
+      if [[ -f "$DOCS_ROOT/docs-participate/${sub_path}.${ext}" ]]; then
+        return 0
+      fi
+      # Also check for index files in directories
+      if [[ -d "$DOCS_ROOT/docs-participate/${sub_path}" ]]; then
+        if [[ -f "$DOCS_ROOT/docs-participate/${sub_path}/index.${ext}" ]]; then
           return 0
         fi
       fi

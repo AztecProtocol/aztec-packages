@@ -85,7 +85,7 @@ export interface IUtilityExecutionOracle {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
+  utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
     owner: AztecAddress | undefined,

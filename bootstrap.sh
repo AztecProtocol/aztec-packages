@@ -281,10 +281,11 @@ function build_and_test {
   # Start the test engine.
   rm -f $test_cmds_file
   touch $test_cmds_file
-  # put it in it's own process group via background subshell, we can terminate on cleanup.
-  (color_prefix "test-engine" "denoise test_engine_start") &
+  # put it in it's own process group, we can terminate on cleanup.
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
 
   # Start the build.
   if [ -z "$target" ]; then
@@ -590,6 +591,18 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+  "ci-grind-test")
+    export CI=1
+    export USE_TEST_CACHE=0
+
+    full_cmd="${1:?full_cmd required}"
+    timeout="${2:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
+
+    grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
+    ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
@@ -662,6 +675,30 @@ case "$cmd" in
     mkdir -p bench-out
     bench_merge
     cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
+  "ci-network-proving-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs proving benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run proving benchmarks
+    spartan/bootstrap.sh proving_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>

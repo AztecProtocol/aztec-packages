@@ -179,6 +179,7 @@ locals {
     "validator.slash.prunePenalty"                             = var.SLASH_PRUNE_PENALTY
     "validator.slash.dataWithholdingPenalty"                   = var.SLASH_DATA_WITHHOLDING_PENALTY
     "validator.slash.proposeInvalidAttestationsPenalty"        = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+    "validator.slash.duplicateProposalPenalty"                 = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
     "validator.slash.attestDescendantOfInvalidPenalty"         = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
     "validator.slash.unknownPenalty"                           = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                      = var.SLASH_INVALID_BLOCK_PENALTY
@@ -311,6 +312,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
@@ -324,6 +326,7 @@ locals {
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
+          "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -331,6 +334,7 @@ locals {
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
           "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
+          "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
