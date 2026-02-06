@@ -190,8 +190,8 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
 
     // Same as TestTableRead - ROM with 4 elements (indices 0-3).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 39);
+        check_circuit_and_gate_count(builder, 68);
     } else {
-        check_circuit_and_gate_count(builder, 38);
+        check_circuit_and_gate_count(builder, 67);
     }
 }
