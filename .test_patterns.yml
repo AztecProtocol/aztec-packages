@@ -170,9 +170,6 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
-  - regex: "src/composed/ha/e2e_ha_full.test.ts"
-    owners:
-      - *alex
 
   # yarn-project tests
   - regex: "yarn-project/kv-store"
@@ -187,6 +184,10 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *grego
+  - regex: "yarn-project/kv-store"
+    error_regex: "Error: Timeout of 2000ms exceeded"
+    owners:
+      - *martin
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -364,3 +365,8 @@ tests:
     error_regex: "should remove notes that have been nullified"
     owners:
       - *martin
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
+    owners:
+      - *alex

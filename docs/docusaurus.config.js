@@ -34,7 +34,8 @@ const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
 // Preprocessing runs on both `yarn start` and `yarn build`
 const docsPath = "processed-docs/docs";
 const developerDocsPath = "processed-docs/docs-developers";
-const networkDocsPath = "processed-docs/docs-network";
+const operateDocsPath = "processed-docs/docs-operate";
+const participateDocsPath = "processed-docs/docs-participate";
 
 // Shared remark/rehype plugins configuration
 const remarkPlugins = [math];
@@ -148,28 +149,29 @@ const config = {
         rehypePlugins,
       },
     ],
-    // Network docs instance (node operators) - testnet/ignition versions
+    // Operate docs instance (node operators) - testnet/ignition versions
+    // Note: Plugin ID remains "network" for versioned docs compatibility (network_versioned_docs/)
     [
       "@docusaurus/plugin-content-docs",
       {
         id: "network",
-        path: networkDocsPath,
-        routeBasePath: "network",
-        sidebarPath: "./sidebars-network.js",
+        path: operateDocsPath,
+        routeBasePath: "operate",
+        sidebarPath: "./sidebars-operate.js",
         editUrl: (params) => {
           return (
-            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-network/` +
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-operate/` +
             params.docPath
           );
         },
-        // Version configuration for Network docs
+        // Version configuration for Operate docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: ignitionVersion,
+        lastVersion: process.env.CONTEXT !== "production" ? "current" : ignitionVersion,
         versions: {
           ...(ignitionVersion && {
             [ignitionVersion]: {
               label: `Ignition (${ignitionVersion.replace("-ignition", "")})`,
-              path: "",
+              path: process.env.CONTEXT !== "production" ? "ignition" : "",
               banner: "none",
             },
           }),
@@ -183,10 +185,29 @@ const config = {
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
-              path: "dev",
+              path: "", // Default path during development
             },
           }),
         },
+        remarkPlugins,
+        rehypePlugins,
+      },
+    ],
+    // Participate docs instance - NOT versioned (educational content)
+    [
+      "@docusaurus/plugin-content-docs",
+      {
+        id: "participate",
+        path: participateDocsPath,
+        routeBasePath: "participate",
+        sidebarPath: "./sidebars-participate.js",
+        editUrl: (params) => {
+          return (
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-participate/` +
+            params.docPath
+          );
+        },
+        // NO versioning - educational content is stable
         remarkPlugins,
         rehypePlugins,
       },
@@ -268,12 +289,15 @@ const config = {
           src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
-          // Unified version dropdown - shows context-aware versions based on current section
+          // Participate section - educational content (non-versioned)
           {
-            type: "custom-unifiedVersionDropdown",
+            type: "doc",
+            docId: "index",
+            docsPluginId: "participate",
             position: "left",
+            label: "Participate",
           },
-          // Developer sidebar link
+          // Developer sidebar link (Build)
           {
             type: "docSidebar",
             sidebarId: "sidebar",
@@ -281,14 +305,18 @@ const config = {
             position: "left",
             label: "Build",
           },
-
-          // Network portal link
+          // Operate portal link (node operators)
           {
             type: "doc",
-            docId: "index",
+            docId: "operators/index",
             docsPluginId: "network",
             position: "left",
-            label: "Network",
+            label: "Operate",
+          },
+          // Unified version dropdown - shows context-aware versions based on current section
+          {
+            type: "custom-unifiedVersionDropdown",
+            position: "right",
           },
           {
             to: "/networks",

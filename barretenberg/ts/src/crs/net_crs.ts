@@ -1,4 +1,30 @@
 import { retry, makeBackoff } from '../retry/index.js';
+
+// Primary CRS host (Cloudflare R2)
+const CRS_PRIMARY_HOST = 'https://crs.aztec-cdn.foundation';
+// Fallback CRS host (AWS S3)
+const CRS_FALLBACK_HOST = 'https://crs.aztec-labs.com';
+
+/**
+ * Fetches data from primary URL, falling back to secondary on failure
+ * @internal Exported for testing
+ */
+export async function fetchWithFallback(
+  primaryUrl: string,
+  fallbackUrl: string,
+  options: RequestInit,
+): Promise<Response> {
+  try {
+    const response = await fetch(primaryUrl, options);
+    if (response.ok || response.status === 206) {
+      return response;
+    }
+    throw new Error(`HTTP ${response.status}`);
+  } catch {
+    return await fetch(fallbackUrl, options);
+  }
+}
+
 /**
  * Downloader for CRS from the web or local.
  */
@@ -76,14 +102,14 @@ export class NetCrs {
     }
 
     const g1End = this.numPoints * 64 - 1;
+    const options: RequestInit = {
+      headers: {
+        Range: `bytes=0-${g1End}`,
+      },
+      cache: 'force-cache',
+    };
     return await retry(
-      () =>
-        fetch('https://crs.aztec.network/g1.dat', {
-          headers: {
-            Range: `bytes=0-${g1End}`,
-          },
-          cache: 'force-cache',
-        }),
+      () => fetchWithFallback(`${CRS_PRIMARY_HOST}/g1.dat`, `${CRS_FALLBACK_HOST}/g1.dat`, options),
       makeBackoff([5, 5, 5]),
     );
   }
@@ -92,11 +118,11 @@ export class NetCrs {
    * Fetches the appropriate range of points from a remote source
    */
   private async fetchG2Data(): Promise<Response> {
+    const options: RequestInit = {
+      cache: 'force-cache',
+    };
     return await retry(
-      () =>
-        fetch('https://crs.aztec.network/g2.dat', {
-          cache: 'force-cache',
-        }),
+      () => fetchWithFallback(`${CRS_PRIMARY_HOST}/g2.dat`, `${CRS_FALLBACK_HOST}/g2.dat`, options),
       makeBackoff([5, 5, 5]),
     );
   }
@@ -153,12 +179,17 @@ export class NetGrumpkinCrs {
     }
 
     const g1End = this.numPoints * 64 - 1;
-
-    return await fetch('https://crs.aztec.network/grumpkin_g1.dat', {
+    const options: RequestInit = {
       headers: {
         Range: `bytes=0-${g1End}`,
       },
       cache: 'force-cache',
-    });
+    };
+
+    return await fetchWithFallback(
+      `${CRS_PRIMARY_HOST}/grumpkin_g1.dat`,
+      `${CRS_FALLBACK_HOST}/grumpkin_g1.dat`,
+      options,
+    );
   }
 }

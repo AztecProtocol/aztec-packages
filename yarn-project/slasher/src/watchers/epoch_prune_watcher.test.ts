@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
@@ -76,12 +76,14 @@ describe('EpochPruneWatcher', () => {
   it('should emit WANT_TO_SLASH_EVENT when a validator is in a pruned epoch when data is unavailable', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
+    const checkpointNumber = CheckpointNumber(1);
 
     const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
         slotNumber: SlotNumber(10),
+        checkpointNumber,
       },
     );
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
@@ -124,12 +126,14 @@ describe('EpochPruneWatcher', () => {
 
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
+    const checkpointNumber = CheckpointNumber(1);
 
     const block = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 4,
         slotNumber: SlotNumber(10),
+        checkpointNumber,
       },
     );
     const tx = Tx.random();
@@ -186,12 +190,14 @@ describe('EpochPruneWatcher', () => {
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
+    const checkpointNumber = CheckpointNumber(1);
 
     const blockFromL1 = await L2Block.random(
       BlockNumber(12), // block number
       {
         txsPerBlock: 1,
         slotNumber: SlotNumber(10),
+        checkpointNumber,
       },
     );
 
@@ -200,6 +206,7 @@ describe('EpochPruneWatcher', () => {
       {
         txsPerBlock: 1,
         slotNumber: SlotNumber(10),
+        checkpointNumber,
       },
     );
     const tx = Tx.random();
@@ -244,6 +251,7 @@ describe('EpochPruneWatcher', () => {
 
 class MockL2BlockSource {
   public readonly events = new EventEmitter();
+  public getCheckpointsForEpoch = () => [];
 
   constructor() {}
 }

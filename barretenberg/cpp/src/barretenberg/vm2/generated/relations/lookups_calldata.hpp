@@ -24,7 +24,7 @@ struct lookup_calldata_range_check_context_id_diff_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::calldata_diff_context_id
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_calldata_range_check_context_id_diff_settings =

@@ -516,7 +516,7 @@ struct lookup_sha256_round_constant_settings_ {
         ColumnAndShifts::sha256_round_count, ColumnAndShifts::sha256_round_constant
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sha256_compression_round_constant
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_sha256_compression_round_constant
     };
 };
 

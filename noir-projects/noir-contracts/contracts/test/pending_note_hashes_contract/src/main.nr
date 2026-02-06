@@ -24,10 +24,12 @@ pub contract PendingNoteHashes {
     };
     use field_note::FieldNote;
 
+    // docs:start:private_set
     #[storage]
     struct Storage<Context> {
         balances: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
+    // docs:end:private_set
 
     // TODO(dbanks12): consolidate code into internal helper functions
     // (once Noir's support for this is more robust)
@@ -46,7 +48,9 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
+        // docs:start:private_set_insert
         owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        // docs:end:private_set_insert
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -63,10 +67,11 @@ pub contract PendingNoteHashes {
     #[external("private")]
     fn test_bad_get_then_insert_flat(amount: Field, owner: AztecAddress) -> Field {
         let owner_balance = self.storage.balances.at(owner);
-
+        // docs:start:private_set_get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note (note inserted at bottom of function shouldn't exist yet)
         let notes = owner_balance.get_notes(options);
+        // docs:end:private_set_get_notes
 
         assert(notes.len() == 0);
 
@@ -129,10 +134,10 @@ pub contract PendingNoteHashes {
     #[external("private")]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = self.storage.balances.at(owner);
-
+        // docs:start:private_set_pop_notes
         let options = NoteGetterOptions::new().set_limit(1);
         let note = owner_balance.pop_notes(options).get(0);
-
+        // docs:end:private_set_pop_notes
         assert(expected_value == note.value);
         expected_value
     }

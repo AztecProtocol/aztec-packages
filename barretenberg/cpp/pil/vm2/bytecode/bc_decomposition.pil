@@ -81,7 +81,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
 #[BYTES_ARE_BYTES]
-sel { bytes } in precomputed.sel_range_8 { precomputed.clk };
+sel { bytes } in precomputed.sel_range_8 { precomputed.idx };
 
 // These are helper columns that will be used for bytecode decomposition.
 pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, bytes_pc_plus_5,

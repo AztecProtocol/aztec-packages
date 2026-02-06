@@ -88,8 +88,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
+   * @throws If scopes are defined and the account is not in the scopes.
    */
-  public utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+    // If scopes are defined, check that the key belongs to an account in the scopes
+    if (this.scopes && this.scopes.length > 0) {
+      const [, account] = await this.keyStore.getKeyPrefixAndAccount(pkMHash);
+      if (!this.scopes.some(scope => scope.equals(account))) {
+        throw new Error(`Key validation request denied: account ${account.toString()} is not in the allowed scopes.`);
+      }
+    }
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
@@ -289,8 +297,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
-    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+    const [nullifier, anchorBlockHash] = await Promise.all([
+      siloNullifier(this.contractAddress, innerNullifier!),
+      this.anchorBlockHeader.hash(),
+    ]);
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
+      nullifier,
+    ]);
     return leafIndex?.data !== undefined;
   }
 

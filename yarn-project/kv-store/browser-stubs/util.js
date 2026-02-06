@@ -3,7 +3,7 @@
 
 // Custom inspect symbol
 export const inspect = {
-  custom: Symbol.for('nodejs.util.inspect.custom')
+  custom: Symbol.for('nodejs.util.inspect.custom'),
 };
 
 // Other util functions as simple pass-throughs

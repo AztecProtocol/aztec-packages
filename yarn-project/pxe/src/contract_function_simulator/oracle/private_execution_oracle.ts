@@ -30,7 +30,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { ensureContractSynced } from '../../contract_sync/index.js';
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -93,6 +93,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    private readonly contractSyncService: ContractSyncService,
     jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
@@ -537,13 +538,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await ensureContractSynced(
+    await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
-      this.aztecNode,
-      this.contractStore,
-      this.noteStore,
       this.anchorBlockHeader,
       this.jobId,
     );
@@ -578,6 +576,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.contractSyncService,
       this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,

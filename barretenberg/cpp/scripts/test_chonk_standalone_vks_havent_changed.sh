@@ -13,7 +13,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="9768ca58"
+pinned_short_hash="2b9b79ac"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
@@ -85,13 +85,13 @@ function prove_and_verify_inputs {
   echo "Running proof test for $1..."
   $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || prove_exit_code=$?
 
-  if [[ $proof_exit_code -ne 0 ]]; then
+  # if [[ $proof_exit_code -ne 0 ]]; then
     echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
 
     cp "$flow_folder/ivc-inputs.msgpack" "$root/yarn-project/end-to-end/example-app-ivc-inputs-out/$1/ivc-inputs.msgpack"
     echo "Inputs copied in yarn-project for debugging"
     exit 1
-  fi
+  # fi
 }
 
 export -f prove_and_verify_inputs
@@ -130,6 +130,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
       none                       Test that Chonk standalone VKs haven't changed
       --update_inputs            Generate new IVC inputs and upload to S3
       --prove_and_verify         Prove and verify current pinned inputs
+      --download_pinned_inputs          Download pinned inputs to yarn-project for local debugging
       -h, --help                 Show this help message
 
   Description:
@@ -162,6 +163,30 @@ elif [[ "${1:-}" == "--update_inputs" ]]; then
     fi
 
     echo "Inputs successfully updated."
+    exit 0
+elif [[ "${1:-}" == "--download_pinned_inputs" ]]; then
+    # Download pinned inputs to yarn-project for local debugging
+    set -eu
+    local_output_dir="$root/yarn-project/end-to-end/example-app-ivc-inputs-out"
+
+    echo "Downloading pinned IVC inputs (hash: $pinned_short_hash) to $local_output_dir..."
+
+    mkdir -p "$local_output_dir"
+    cd "$local_output_dir"
+
+    # Clean existing contents
+    rm -rf ./*
+
+    if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
+        echo "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
+        exit 1
+    fi
+
+    tar -xzf bb-chonk-inputs.tar.gz -C .
+    rm -f bb-chonk-inputs.tar.gz
+
+    echo "Done. Inputs downloaded to: $local_output_dir"
+    ls -la "$local_output_dir"
     exit 0
 else
   export inputs_dir=$(mktemp -d)
@@ -204,7 +229,7 @@ else
       echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
     elif [[ $exit_code -eq 1 ]]; then
       # All flows had VK changes
-      echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+      echo "VK changes detected. Please re-run the script with --update_inputs"
       exit 1
     else
       # At least one real error

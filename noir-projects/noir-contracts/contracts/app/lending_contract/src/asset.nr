@@ -9,6 +9,7 @@ use std::meta::derive;
 ///
 /// Note: Right now we are wasting so many writes. If changing last_updated_ts we will end
 /// up rewriting all the values.
+// docs:start:custom_struct_in_storage
 #[derive(Deserialize, Packable, Serialize)]
 pub struct Asset {
     pub interest_accumulator: u128,
@@ -16,3 +17,4 @@ pub struct Asset {
     pub loan_to_value: u128,
     pub oracle: AztecAddress,
 }
+// docs:end:custom_struct_in_storage

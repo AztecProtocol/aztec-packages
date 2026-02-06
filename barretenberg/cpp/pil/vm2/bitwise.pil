@@ -222,7 +222,7 @@ sel_get_ctr = start * (1 - err);
 #[INTEGRAL_TAG_LENGTH]
 sel_get_ctr { tag_a, ctr }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
 #[BYTE_OPERATIONS]
 sel { op_id, ia_byte, ib_byte, ic_byte }
