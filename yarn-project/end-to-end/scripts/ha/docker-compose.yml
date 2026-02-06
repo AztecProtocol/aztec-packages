@@ -9,10 +9,8 @@ services:
       POSTGRES_DB: aztec_ha_test
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aztec -d aztec_ha_test"]
+      test: ['CMD-SHELL', 'pg_isready -U aztec -d aztec_ha_test']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,16 +28,12 @@ services:
       - --chain-id=31337
     volumes:
       - web3signer_keys:/keys
-    ports:
-      - "9000:9000"
 
   anvil:
     image: aztecprotocol/build:3.0
     cpus: 1
     mem_limit: 2G
-    entrypoint: "anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337"
-    ports:
-      - "8545:8545"
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
 
   end-to-end:
     image: aztecprotocol/build:3.0
