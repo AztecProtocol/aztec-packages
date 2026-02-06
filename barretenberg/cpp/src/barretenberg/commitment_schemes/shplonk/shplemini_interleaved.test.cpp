@@ -260,13 +260,10 @@ TEST_F(ShpleminiInterleavedTest, InterleavedShiftablePolynomials)
         }
         individual_shifted_evals[j] = poly_shifted.evaluate_mle(sumcheck_challenge);
     }
-    info("Individual polynomial evaluations computed");
 
     // Step 5: Get interleaving challenges
-    // For this test, generate them as random elements (in real protocol they come from transcript after sumcheck)
     Fr u0 = Fr::random_element();
     Fr u1 = Fr::random_element();
-    info("Interleaving challenges: u₀=", u0, ", u₁=", u1);
 
     // Step 6: Verifier computes Lagrange basis
     auto lagrange_basis = compute_lagrange_basis(u0, u1);
@@ -274,7 +271,6 @@ TEST_F(ShpleminiInterleavedTest, InterleavedShiftablePolynomials)
     // Step 7: Verifier reconstructs batched evaluations
     Fr batched_eval_unshifted = compute_batched_evaluation(lagrange_basis, individual_evals);
     Fr batched_eval_shifted = compute_batched_evaluation(lagrange_basis, individual_shifted_evals);
-    info("Batched evaluations: unshifted=", batched_eval_unshifted, ", shifted=", batched_eval_shifted);
 
     // Ground truth: evaluate the interleaved polynomial directly
     std::vector<Fr> full_challenge;
@@ -322,8 +318,6 @@ TEST_F(ShpleminiInterleavedTest, InterleavedShiftablePolynomials)
     OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, prover_transcript);
 
-    info("Prover opening claim computed");
-
     // Compute KZG opening proof (final step)
     KZG<Curve>::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
 
@@ -352,8 +346,6 @@ TEST_F(ShpleminiInterleavedTest, InterleavedShiftablePolynomials)
 
     auto shplemini_output = ShpleminiVerifier_<Curve>::compute_batch_opening_claim(
         padding_indicator, claim_batcher, full_challenge, Commitment::one(), verifier_transcript);
-
-    info("Verifier batch opening claim computed");
 
     // Verify the opening proof using KZG
     auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim),
