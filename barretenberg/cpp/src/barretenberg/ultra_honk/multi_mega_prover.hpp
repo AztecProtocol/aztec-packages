@@ -70,6 +70,14 @@ class MultiMegaProver {
     void execute_sumcheck_iop();
     void execute_pcs();
 
+    /**
+     * @brief Compute interleaved batched polynomials for PCS.
+     * @details Batches polynomials by chunk position (all 0th, all 1st, etc.) then interleaves.
+     * @param rho The batching challenge
+     * @return Pair of (batched_unshifted, batched_shifted) interleaved polynomials
+     */
+    std::pair<Polynomial, Polynomial> compute_interleaved_batched_polynomials(const FF& rho);
+
     Proof export_proof();
     Proof construct_proof();
     Proof prove() { return construct_proof(); }

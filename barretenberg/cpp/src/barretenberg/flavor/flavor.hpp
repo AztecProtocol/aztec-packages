@@ -168,7 +168,8 @@ template <typename PrecomputedCommitments,
           typename Codec,
           typename HashFunction,
           typename CommitmentKey = void,
-          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
+          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL,
+          size_t InterleavingBatchSize = 1>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
@@ -218,7 +219,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
     /**
      * @brief Construct VK from precomputed data by committing to polynomials
-     * @details Only available when CommitmentKeyType is specified (not void)
+     * @details Only available when CommitmentKeyType is specified (not void).
+     *          When InterleavingBatchSize > 1, groups polynomials into sequential chunks
+     *          and commits each chunk using interleaved MSM.
      */
     template <typename PrecomputedData>
         requires(!std::is_void_v<CommitmentKey>)
@@ -227,9 +230,23 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         , num_public_inputs(precomputed.metadata.num_public_inputs)
         , pub_inputs_offset(precomputed.metadata.pub_inputs_offset)
     {
-        CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-        for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-            commitment = commitment_key.commit(polynomial);
+        if constexpr (InterleavingBatchSize == 1) {
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
+            }
+        } else {
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
+            size_t poly_idx = 0;
+            for (auto& commitment : this->get_all()) {
+                // Collect up to InterleavingBatchSize polynomials for this group
+                std::vector<PolynomialSpan<const DataType>> group;
+                for (size_t j = 0; j < InterleavingBatchSize && poly_idx < precomputed.polynomials.size();
+                     ++j, ++poly_idx) {
+                    group.emplace_back(precomputed.polynomials[poly_idx]);
+                }
+                commitment = commitment_key.template commit_interleaved<InterleavingBatchSize>(std::span(group));
+            }
         }
     }
 

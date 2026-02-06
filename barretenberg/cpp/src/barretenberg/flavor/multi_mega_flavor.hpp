@@ -130,8 +130,9 @@ class MultiMegaFlavor : public MegaFlavor {
      *   S₇: [table_1, table_2, table_3, table_4]
      *   S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
      */
-    template <typename DataType> class InterleavedPrecomputedCommitments {
+    template <typename DataType_> class InterleavedPrecomputedCommitments {
       public:
+        using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               interleaved_selectors_1, // S₁: [q_m, q_c, q_l, q_r]
                               interleaved_selectors_2, // S₂: [q_o, q_4, q_busread, q_lookup]
@@ -174,177 +175,30 @@ class MultiMegaFlavor : public MegaFlavor {
     };
 
     // Updated FINAL_PCS_MSM_SIZE for interleaved commitments:
-    // 1 (Shplonk Q) + 17 unshifted + 3 shifted + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // Note: shifted commitments are NOT deduplicated because they're at non-contiguous indices
+    // 1 (Shplonk Q) + 17 unshifted + 3 shifted + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
         // Unshifted: 8 precomputed + 9 witness = 17
         // Shifted: 3 (W₁, W₆, W₉ - NOT deduplicated due to non-contiguous indices)
         // Shplonk Q: 1
-        // Gemini folds: log_n - 1
+        // Gemini folds: pcs_log_n - 1
         // G1 identity: 1
         // KZG W: 1
-        // Total: 20 + 1 + (log_n - 1) + 1 + 1 = 20 + log_n + 2 = 43 for log_n=21
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + log_n + 2;
+        // Total: 20 + 1 + (pcs_log_n - 1) + 1 + 1 = 20 + pcs_log_n + 2 = 45 for log_n=21
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + pcs_log_n + 2;
     }
 
-    /**
-     * @brief Specialized VerificationKey for MultiMegaFlavor that stores interleaved precomputed commitments.
-     * @details This VK stores 8 interleaved precomputed commitments instead of 31 individual ones,
-     *          reducing the verifier's MSM size significantly.
-     */
-    class VerificationKey : public InterleavedPrecomputedCommitments<Commitment> {
-      public:
-        using DataType = typename Codec::DataType;
-
-        uint64_t log_circuit_size = 0;
-        uint64_t num_public_inputs = 0;
-        uint64_t pub_inputs_offset = 0;
-
-        VerificationKey() = default;
-
-        /**
-         * @brief Construct VK from precomputed data by committing to interleaved polynomials.
-         * @details Uses commit_interleaved to create 8 interleaved commitments from the 31 precomputed polynomials.
-         *
-         * PrecomputedEntities ordering (indices into RefArray):
-         *   0: q_m, 1: q_c, 2: q_l, 3: q_r, 4: q_o, 5: q_4, 6: q_busread, 7: q_lookup,
-         *   8: q_arith, 9: q_delta_range, 10: q_elliptic, 11: q_memory, 12: q_nnf,
-         *   13: q_poseidon2_external, 14: q_poseidon2_internal,
-         *   15: sigma_1, 16: sigma_2, 17: sigma_3, 18: sigma_4,
-         *   19: id_1, 20: id_2, 21: id_3, 22: id_4,
-         *   23: table_1, 24: table_2, 25: table_3, 26: table_4,
-         *   27: lagrange_first, 28: lagrange_last, 29: lagrange_ecc_op, 30: databus_id
-         */
-        template <typename PrecomputedData>
-        explicit VerificationKey(const PrecomputedData& precomputed)
-            : log_circuit_size(numeric::get_msb(precomputed.metadata.dyadic_size))
-            , num_public_inputs(precomputed.metadata.num_public_inputs)
-            , pub_inputs_offset(precomputed.metadata.pub_inputs_offset)
-        {
-            // Need 4x the polynomial size for interleaved commitments
-            bb::CommitmentKey<Curve> ck(precomputed.metadata.dyadic_size * INTERLEAVING_BATCH_SIZE);
-
-            auto& polys = precomputed.polynomials;
-
-            // S₁: [q_m(0), q_c(1), q_l(2), q_r(3)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[0]),
-                                                                  PolynomialSpan<const FF>(polys[1]),
-                                                                  PolynomialSpan<const FF>(polys[2]),
-                                                                  PolynomialSpan<const FF>(polys[3]) };
-                this->interleaved_selectors_1 =
-                    ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₂: [q_o(4), q_4(5), q_busread(6), q_lookup(7)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[4]),
-                                                                  PolynomialSpan<const FF>(polys[5]),
-                                                                  PolynomialSpan<const FF>(polys[6]),
-                                                                  PolynomialSpan<const FF>(polys[7]) };
-                this->interleaved_selectors_2 =
-                    ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₃: [q_arith(8), q_delta_range(9), q_elliptic(10), q_memory(11)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[8]),
-                                                                  PolynomialSpan<const FF>(polys[9]),
-                                                                  PolynomialSpan<const FF>(polys[10]),
-                                                                  PolynomialSpan<const FF>(polys[11]) };
-                this->interleaved_selectors_3 =
-                    ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₄: [q_nnf(12), q_poseidon2_external(13), q_poseidon2_internal(14), ZERO]
-            {
-                std::array<PolynomialSpan<const FF>, 3> batch = { PolynomialSpan<const FF>(polys[12]),
-                                                                  PolynomialSpan<const FF>(polys[13]),
-                                                                  PolynomialSpan<const FF>(polys[14]) };
-                this->interleaved_selectors_4 =
-                    ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₅: [sigma_1(15), sigma_2(16), sigma_3(17), sigma_4(18)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[15]),
-                                                                  PolynomialSpan<const FF>(polys[16]),
-                                                                  PolynomialSpan<const FF>(polys[17]),
-                                                                  PolynomialSpan<const FF>(polys[18]) };
-                this->interleaved_sigmas = ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₆: [id_1(19), id_2(20), id_3(21), id_4(22)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[19]),
-                                                                  PolynomialSpan<const FF>(polys[20]),
-                                                                  PolynomialSpan<const FF>(polys[21]),
-                                                                  PolynomialSpan<const FF>(polys[22]) };
-                this->interleaved_ids = ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₇: [table_1(23), table_2(24), table_3(25), table_4(26)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[23]),
-                                                                  PolynomialSpan<const FF>(polys[24]),
-                                                                  PolynomialSpan<const FF>(polys[25]),
-                                                                  PolynomialSpan<const FF>(polys[26]) };
-                this->interleaved_tables = ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-
-            // S₈: [lagrange_first(27), lagrange_last(28), lagrange_ecc_op(29), databus_id(30)]
-            {
-                std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys[27]),
-                                                                  PolynomialSpan<const FF>(polys[28]),
-                                                                  PolynomialSpan<const FF>(polys[29]),
-                                                                  PolynomialSpan<const FF>(polys[30]) };
-                this->interleaved_lagrange = ck.template commit_interleaved<INTERLEAVING_BATCH_SIZE>(std::span(batch));
-            }
-        }
-
-        /**
-         * @brief Compute VK hash.
-         */
-        FF hash() const
-        {
-            auto elements = to_field_elements();
-            return HashFunction::hash(elements);
-        }
-
-        /**
-         * @brief Compute VK hash with origin tagging for transcript.
-         */
-        template <typename Transcript> FF hash_with_origin_tagging(Transcript& transcript) const
-        {
-            auto elements = to_field_elements();
-            transcript.add_to_hash_buffer("vk_data", elements);
-            return HashFunction::hash(elements);
-        }
-
-        /**
-         * @brief Serialize VK to field elements.
-         */
-        std::vector<DataType> to_field_elements() const
-        {
-            std::vector<DataType> elements;
-
-            auto serialize = [&elements](const auto& input) {
-                std::vector<DataType> input_fields = Codec::serialize_to_fields(input);
-                elements.insert(elements.end(), input_fields.begin(), input_fields.end());
-            };
-
-            serialize(this->log_circuit_size);
-            serialize(this->num_public_inputs);
-            serialize(this->pub_inputs_offset);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize(commitment);
-            }
-
-            return elements;
-        }
-    };
+    // VerificationKey stores 8 interleaved precomputed commitments instead of 31 individual ones.
+    // The NativeVerificationKey_ base class handles construction (grouping polys in chunks of INTERLEAVING_BATCH_SIZE
+    // and calling commit_interleaved), hashing, and serialization.
+    using VerificationKey = NativeVerificationKey_<InterleavedPrecomputedCommitments<Commitment>,
+                                                   Codec,
+                                                   HashFunction,
+                                                   CommitmentKey,
+                                                   VKSerializationMode::FULL,
+                                                   INTERLEAVING_BATCH_SIZE>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 

@@ -143,6 +143,34 @@ template <typename Flavor> struct Honk {
 };
 
 /**
+ * @brief Specialization for MultiMegaFlavor: sumcheck uses log_n, PCS uses log_n + INTERLEAVING_LOG_K.
+ */
+template <> struct Honk<MultiMegaFlavor> {
+    static constexpr size_t INTERLEAVING_LOG_K = MultiMegaFlavor::INTERLEAVING_LOG_K;
+
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        return Oink<MultiMegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<MultiMegaFlavor>::LENGTH(log_n) +
+               Shplemini<MultiMegaFlavor>::LENGTH(pcs_log_n);
+    }
+
+    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    {
+        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    }
+
+    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
+    {
+        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        if constexpr (IO::HasIPA) {
+            size += IPA_PROOF_LENGTH;
+        }
+        return size;
+    }
+};
+
+/**
  * @brief Hypernova instance-to-accumulator proof layout.
  * @details Used when converting a single instance to an accumulator (first circuit in folding).
  *          Contains: Oink + Sumcheck (no Shplemini - PCS is deferred).

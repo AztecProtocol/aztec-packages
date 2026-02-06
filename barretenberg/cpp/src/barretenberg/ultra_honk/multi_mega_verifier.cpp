@@ -96,13 +96,21 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
 
-    // Get the sumcheck challenge point u = (u₀, u₁, ..., u_{d+k-1})
-    // For interleaved polynomials with k=2, first 2 challenges are for Lagrange basis
-    const auto& challenge = sumcheck_output.challenge;
-    BB_ASSERT(challenge.size() >= 2);
+    // For interleaved polynomials with k=2, we need to get 2 additional challenges
+    // and prepend them to the sumcheck challenge for the PCS.
+    // Get the k=2 interleaving challenges (same as prover)
+    FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
+    FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
 
-    // Compute Lagrange basis from first k=2 challenges
-    auto lagrange_basis = compute_lagrange_basis(challenge[0], challenge[1]);
+    // Compute Lagrange basis from the interleaving challenges
+    auto lagrange_basis = compute_lagrange_basis(u0, u1);
+
+    // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
+    std::vector<FF> full_challenge;
+    full_challenge.reserve(2 + sumcheck_output.challenge.size());
+    full_challenge.push_back(u0);
+    full_challenge.push_back(u1);
+    full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
     // Get interleaved commitments
     const auto& interleaved = verifier_instance->interleaved_commitments;
@@ -273,7 +281,7 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
 
     auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                                    claim_batcher,
-                                                                   sumcheck_output.challenge,
+                                                                   full_challenge,
                                                                    one_commitment,
                                                                    transcript,
                                                                    Flavor::REPEATED_COMMITMENTS,
