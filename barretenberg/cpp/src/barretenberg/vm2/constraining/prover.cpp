@@ -246,7 +246,7 @@ void AvmProver::execute_pcs_rounds()
 
     PolynomialBatcher polynomial_batcher(ProvingKey::circuit_size);
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
-    polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
+    polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted });
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
         ProvingKey::circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);

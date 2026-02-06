@@ -275,13 +275,13 @@ void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
     }
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted(size_t k) const
 {
-    BB_ASSERT_GTE(coefficients_.start_, static_cast<size_t>(1));
+    BB_ASSERT_GTE(coefficients_.start_, k);
     Polynomial result;
     result.coefficients_ = coefficients_;
-    result.coefficients_.start_ -= 1;
-    result.coefficients_.end_ -= 1;
+    result.coefficients_.start_ -= k;
+    result.coefficients_.end_ -= k;
     return result;
 }
 

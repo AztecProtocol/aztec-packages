@@ -230,6 +230,25 @@ TEST_F(MultiMegaHonkTests, VerifierManifestConsistency)
 }
 
 /**
+ * @brief Full prove-and-verify test for MultiMega Honk.
+ */
+TEST_F(MultiMegaHonkTests, FullProveAndVerify)
+{
+    Builder builder;
+    generate_test_circuit(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    Verifier verifier(vk_and_hash);
+    auto verifier_output = verifier.verify_proof(proof);
+    EXPECT_TRUE(verifier_output.result) << "MultiMega proof verification failed";
+}
+
+/**
  * @brief Test that interleaved polynomial evaluation via evaluate_mle matches Lagrange-basis reconstruction,
  *        and that commit_interleaved matches commit on the materialized interleaved polynomial.
  *

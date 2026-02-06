@@ -102,19 +102,28 @@ template <typename Fr> class Polynomial {
     {}
 
     /**
-     * @brief Utility to create a shiftable polynomial of given virtual size.
+     * @brief Utility to create a shiftable polynomial of given virtual size (actual size = virtual_size).
+     * @details Uses standard shift depth (NUM_ZERO_ROWS=1). For custom shift depth, use the 3-arg overload.
      */
     static Polynomial shiftable(size_t virtual_size)
     {
-        return Polynomial(
-            /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        return Polynomial(virtual_size - NUM_ZERO_ROWS, virtual_size, NUM_ZERO_ROWS);
     }
     /**
      * @brief Utility to create a shiftable polynomial of given size and virtual size.
+     * @details Uses standard shift depth (NUM_ZERO_ROWS=1). For custom shift depth, use the 3-arg overload.
      */
     static Polynomial shiftable(size_t size, size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        return Polynomial(size - NUM_ZERO_ROWS, virtual_size, NUM_ZERO_ROWS);
+    }
+    /**
+     * @brief Utility to create a shiftable polynomial with explicit shift depth (num_zero_rows).
+     * @details For interleaved polynomials where shift is by k>1 (e.g., k=4 for batch_size=4).
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size, size_t num_zero_rows)
+    {
+        return Polynomial(size - num_zero_rows, virtual_size, num_zero_rows);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -171,12 +180,14 @@ template <typename Fr> class Polynomial {
     bool is_empty() const { return coefficients_.size() == 0; }
 
     /**
-     * @brief Returns a Polynomial the left-shift of self.
+     * @brief Returns a Polynomial that is the left-shift-by-k of self.
      *
-     * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
-     * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
+     * @details If k=1 and the n coefficients of self are (0, a₁, …, aₙ₋₁),
+     * returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
+     * For general k, requires the first k coefficients to be zero.
+     * @param k The shift magnitude (default 1).
      */
-    Polynomial shifted() const;
+    Polynomial shifted(size_t k = 1) const;
 
     /**
      * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
@@ -340,7 +351,7 @@ template <typename Fr> class Polynomial {
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
-    bool is_shiftable() const { return start_index() == NUM_ZERO_ROWS; }
+    bool is_shiftable(size_t k = NUM_ZERO_ROWS) const { return start_index() >= k; }
 
     /**
      * @brief Strictly iterates the defined region of the polynomial.

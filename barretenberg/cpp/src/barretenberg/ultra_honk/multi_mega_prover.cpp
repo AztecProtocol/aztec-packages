@@ -221,9 +221,8 @@ std::pair<MultiMegaProver::Polynomial, MultiMegaProver::Polynomial> MultiMegaPro
     // F(X) = G₀(X⁴) + X·G₁(X⁴) + X²·G₂(X⁴) + X³·G₃(X⁴)
     const size_t interleaved_size = poly_size * 4;
     Polynomial batched_unshifted(interleaved_size);
-    // Use regular Polynomial for shifted - indices 0-3 are implicitly 0 (not written to)
-    // For interleaved shift by 4, the first 4 coefficients must be zero
-    Polynomial batched_shifted(interleaved_size);
+    // Shiftable-by-4: first 4 coefficients are zero (required for .shifted(4) in batcher)
+    Polynomial batched_shifted = Polynomial::shiftable(interleaved_size, interleaved_size, 4);
 
     // Interleave: coefficient at index 4i+j comes from G_j[i]
     for (size_t i = 0; i < poly_size; ++i) {
@@ -281,9 +280,6 @@ void MultiMegaProver::execute_pcs()
 
     // Set up the polynomial batcher with precomputed batched polynomials
     const size_t interleaved_size = prover_instance->dyadic_size() * Flavor::INTERLEAVING_BATCH_SIZE;
-    PolynomialBatcher polynomial_batcher(interleaved_size);
-    polynomial_batcher.set_precomputed_batched(
-        std::move(batched_unshifted), std::move(batched_shifted), SHIFT_EXPONENT);
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> full_challenge;
@@ -292,17 +288,35 @@ void MultiMegaProver::execute_pcs()
     full_challenge.push_back(u1);
     full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
+    // DEBUG: evaluate batched interleaved polynomials via evaluate_mle as ground truth
+    {
+        const size_t full_virtual_size = static_cast<size_t>(1) << full_challenge.size();
+
+        // Create polynomial with correct virtual_size for evaluate_mle
+        Polynomial unshifted_copy(interleaved_size, full_virtual_size);
+        for (size_t i = 0; i < interleaved_size; ++i) {
+            unshifted_copy.at(i) = batched_unshifted.get(i);
+        }
+        FF mle_unshifted = unshifted_copy.evaluate_mle(full_challenge);
+
+        // For shift-by-k: construct F_shifted[i] = F[i+k] and evaluate
+        Polynomial shifted_manual(interleaved_size, full_virtual_size);
+        for (size_t i = 0; i + SHIFT_EXPONENT < interleaved_size; ++i) {
+            shifted_manual.at(i) = batched_shifted.get(i + SHIFT_EXPONENT);
+        }
+        FF mle_shifted_by_k = shifted_manual.evaluate_mle(full_challenge);
+
+        info("PROVER MLE batched_unshifted=", mle_unshifted);
+        info("PROVER MLE batched_shifted (shift-by-", SHIFT_EXPONENT, ")=", mle_shifted_by_k);
+    }
+
+    PolynomialBatcher polynomial_batcher(interleaved_size, SHIFT_EXPONENT);
+    polynomial_batcher.set_unshifted(RefVector<Polynomial>{ batched_unshifted });
+    polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>{ batched_shifted });
+
     OpeningClaim prover_opening_claim;
-    // Note: Gemini will call transcript->get_challenge("rho") internally for its own batching
-    prover_opening_claim = ShpleminiProver_<Curve>::prove(interleaved_size,
-                                                          polynomial_batcher,
-                                                          full_challenge,
-                                                          ck,
-                                                          transcript,
-                                                          {} /* libra_polynomials */,
-                                                          {} /* sumcheck_round_univariates */,
-                                                          {} /* sumcheck_round_evaluations */,
-                                                          SHIFT_EXPONENT);
+    prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, transcript);
 
     info("PROVER u0=", u0, " u1=", u1);
     info("PROVER batching_rho=", batching_challenge);

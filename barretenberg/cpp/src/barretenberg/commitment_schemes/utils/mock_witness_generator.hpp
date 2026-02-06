@@ -123,7 +123,7 @@ template <typename Curve> struct MockClaimGenerator {
         }
 
         polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
-        polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted.polys));
+        polynomial_batcher.set_to_be_shifted(RefVector(to_be_shifted.polys));
 
         claim_batcher =
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) },

@@ -40,8 +40,7 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS>& libra_polynomials = {},
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},
-                              const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {},
-                              size_t shift_exponent = 1)
+                              const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
@@ -49,13 +48,8 @@ template <typename Curve> class ShpleminiProver_ {
         // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multilinear_challenge.size();
 
-        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
-                                                                       polynomial_batcher,
-                                                                       multilinear_challenge,
-                                                                       commitment_key,
-                                                                       transcript,
-                                                                       has_zk,
-                                                                       shift_exponent);
+        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
+            circuit_size, polynomial_batcher, multilinear_challenge, commitment_key, transcript, has_zk);
         // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
         std::vector<OpeningClaim> libra_opening_claims;
 
@@ -227,8 +221,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<Commitment>& sumcheck_round_commitments = {},
-        const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {},
-        size_t shift_exponent = 1)
+        const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
         const size_t virtual_log_n = multivariate_challenge.size();
@@ -317,7 +310,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // For unshifted values, the scalar is computed as (1/(z−r) + ν/(z+r))
         // For shifted values, the scalar is computed as r⁻ᵏ ⋅ (1/(z−r) − ν/(z+r)) where k is shift_exponent
         claim_batcher.compute_scalars_for_each_batch(
-            inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge, shift_exponent);
+            inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul

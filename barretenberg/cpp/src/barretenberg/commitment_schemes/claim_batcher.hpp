@@ -44,9 +44,10 @@ template <typename Curve> struct ClaimBatcher_ {
     };
 
     std::optional<Batch> unshifted;              // commitments and evaluations of unshifted polynomials
-    std::optional<Batch> shifted;                // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> shifted;                // commitments of to-be-shifted polys, evals of their shifts
     std::optional<InterleavedBatch> interleaved; // commitments to groups of polynomials to be combined by interleaving
                                                  // and evaluations of the resulting interleaved polynomials
+    size_t shift_exponent = 1;                   // shift depth: 1 for standard (G/X), k for interleaved (G/X^k)
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
@@ -65,7 +66,7 @@ template <typename Curve> struct ClaimBatcher_ {
      * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
      * - s_1 = \frac{1}{r^k} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
      * \f]
-     * where k is the shift_exponent (1 for standard shifts, 4 for interleaved polynomials with batch_size=4),
+     * where k is the shift_exponent member (1 for standard shifts, 4 for interleaved polynomials with batch_size=4),
      * and the scalars used to batch the claims are given by
      * \f[
      * \left(
@@ -81,13 +82,10 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param inverse_vanishing_evals 1/(z-r), 1/(z+r), 1/(z-r²), 1/(z+r²), ..., 1/(z-r^{2^{d-1}}), 1/(z+r^{2^{d-1}})
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
-     * @param shift_exponent The exponent k such that shifted polys are divided by X^k (default=1, use 4 for
-     * interleaved)
      */
     void compute_scalars_for_each_batch(std::span<const Fr> inverted_vanishing_evals,
                                         const Fr& nu_challenge,
-                                        const Fr& r_challenge,
-                                        size_t shift_exponent = 1)
+                                        const Fr& r_challenge)
     {
         const Fr& inverse_vanishing_eval_pos = inverted_vanishing_evals[0];
         const Fr& inverse_vanishing_eval_neg = inverted_vanishing_evals[1];
@@ -97,8 +95,10 @@ template <typename Curve> struct ClaimBatcher_ {
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
         }
         if (shifted) {
-            // r⁻ᵏ ⋅ (1/(z−r) − ν/(z+r)) where k is the shift_exponent
-            // For standard shifts k=1, for interleaved polynomials k=batch_size (e.g., 4)
+            // r⁻ᵏ ⋅ (1/(z−r) + (-1)^k ⋅ ν/(z+r)) where k is the shift_exponent
+            // This comes from A₀₋(X) = F(X) + (-1)^k · G(X)/r^k, needed because (-r)^k = (-1)^k · r^k
+            // For standard shifts k=1 (odd): r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
+            // For interleaved shifts k=4 (even): r⁻⁴ ⋅ (1/(z−r) + ν/(z+r))
             Fr r_inv_shift;
             if (shift_exponent == 1) {
                 r_inv_shift = r_challenge.invert();
@@ -110,7 +110,10 @@ template <typename Curve> struct ClaimBatcher_ {
                 }
                 r_inv_shift = r_power.invert();
             }
-            shifted->scalar = r_inv_shift * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
+            // (-1)^k determines the sign of the ν/(z+r) term
+            Fr neg_sign = (shift_exponent % 2 == 0) ? Fr(1) : Fr(-1);
+            shifted->scalar =
+                r_inv_shift * (inverse_vanishing_eval_pos + neg_sign * nu_challenge * inverse_vanishing_eval_neg);
         }
 
         if (interleaved) {

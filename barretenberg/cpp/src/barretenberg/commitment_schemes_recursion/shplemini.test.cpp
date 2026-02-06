@@ -146,12 +146,11 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             }
 
             for (size_t i = 0; i < shifted_challenges.size(); ++i) {
-                squashed_shifted.add_scaled(mock_claims.polynomial_batcher.to_be_shifted_by_one[i],
-                                            shifted_challenges[i]);
+                squashed_shifted.add_scaled(mock_claims.polynomial_batcher.to_be_shifted[i], shifted_challenges[i]);
             }
 
             mock_claims.polynomial_batcher.unshifted = RefVector{ squashed_unshifted };
-            mock_claims.polynomial_batcher.to_be_shifted_by_one = RefVector{ squashed_shifted };
+            mock_claims.polynomial_batcher.to_be_shifted = RefVector{ squashed_shifted };
         }
 
         auto prover_opening_claims =

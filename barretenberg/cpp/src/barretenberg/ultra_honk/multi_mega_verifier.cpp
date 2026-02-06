@@ -82,8 +82,8 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     MultiMegaOinkVerifier oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding indicator array
-    auto padding_indicator_array = compute_padding_indicator_array(log_n);
+    // Compute padding indicator array for sumcheck (size = log_n)
+    auto sumcheck_padding_indicator_array = compute_padding_indicator_array(log_n);
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
@@ -94,7 +94,7 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     // Run the sumcheck verifier (no ZK, so no Libra)
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+        verifier_instance->relation_parameters, verifier_instance->gate_challenges, sumcheck_padding_indicator_array);
 
     // For interleaved polynomials with k=2, we need to get 2 additional challenges
     // and prepend them to the sumcheck challenge for the PCS.
@@ -110,11 +110,16 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     auto lagrange_basis = compute_lagrange_basis(u0, u1);
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
+    // PCS operates on interleaved polynomials of size 4n, so the challenge has log_n + INTERLEAVING_LOG_K entries
     std::vector<FF> full_challenge;
-    full_challenge.reserve(2 + sumcheck_output.challenge.size());
+    full_challenge.reserve(Flavor::INTERLEAVING_LOG_K + sumcheck_output.challenge.size());
     full_challenge.push_back(u0);
     full_challenge.push_back(u1);
     full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
+
+    // PCS padding indicator array must match full_challenge size (= log_n + INTERLEAVING_LOG_K)
+    const size_t pcs_log_n = full_challenge.size();
+    std::vector<FF> pcs_padding_indicator_array(pcs_log_n, FF{ 1 });
 
     // Get interleaved commitments
     const auto& interleaved = verifier_instance->interleaved_commitments;
@@ -308,29 +313,24 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, 1>(batched_unshifted_comm_arr),
                                                          RefArray<FF, 1>(batched_unshifted_eval_arr) },
                                 .shifted = ClaimBatch{ RefArray<Commitment, 1>(batched_shifted_comm_arr),
-                                                       RefArray<FF, 1>(batched_shifted_eval_arr) } };
+                                                       RefArray<FF, 1>(batched_shifted_eval_arr) },
+                                .shift_exponent = Flavor::INTERLEAVING_BATCH_SIZE };
 
     info("VERIFIER u0=", u0, " u1=", u1);
     info("VERIFIER batching_rho=", batching_challenge);
-    info("VERIFIER batched_unshifted_eval=", batched_unshifted_eval);
-    info("VERIFIER batched_shifted_eval=", batched_shifted_eval);
+    info("VERIFIER reconstructed batched_unshifted_eval=", batched_unshifted_eval);
+    info("VERIFIER reconstructed batched_shifted_eval=", batched_shifted_eval);
 
     const Commitment one_commitment = Commitment::one();
 
-    // For interleaved polynomials, the shift is by INTERLEAVING_BATCH_SIZE (4) instead of 1
-    constexpr size_t SHIFT_EXPONENT = Flavor::INTERLEAVING_BATCH_SIZE;
-
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(pcs_padding_indicator_array,
                                                                    claim_batcher,
                                                                    full_challenge,
                                                                    one_commitment,
                                                                    transcript,
                                                                    Flavor::REPEATED_COMMITMENTS,
                                                                    libra_commitments,
-                                                                   sumcheck_output.claimed_libra_evaluation,
-                                                                   std::vector<Commitment>{},
-                                                                   std::vector<std::array<FF, 3>>{},
-                                                                   SHIFT_EXPONENT);
+                                                                   sumcheck_output.claimed_libra_evaluation);
 
     // Build reduction result
     ReductionResult result;

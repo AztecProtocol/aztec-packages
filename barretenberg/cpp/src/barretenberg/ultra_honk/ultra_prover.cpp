@@ -171,7 +171,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_pcs()
 
     PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size());
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {

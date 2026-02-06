@@ -16,7 +16,7 @@ HonkProof HypernovaDeciderProver::construct_proof(const CommitmentKey& ck, Accum
     // Open the commitments with Shplemini
     PolynomialBatcher polynomial_batcher(actual_size);
     polynomial_batcher.set_unshifted(RefVector(accumulator.non_shifted_polynomial));
-    polynomial_batcher.set_to_be_shifted_by_one(RefVector(accumulator.shifted_polynomial));
+    polynomial_batcher.set_to_be_shifted(RefVector(accumulator.shifted_polynomial));
 
     OpeningClaim prover_opening_claim;
     prover_opening_claim =

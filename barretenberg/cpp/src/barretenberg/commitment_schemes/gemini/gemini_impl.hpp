@@ -54,8 +54,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     std::span<Fr> multilinear_challenge,
     const CommitmentKey<Curve>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
-    bool has_zk,
-    size_t shift_exponent)
+    bool has_zk)
 {
     // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
@@ -86,9 +85,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
     }
 
-    // Compute polynomials A₀₊(X) = F(X) + G(X)/r^k and A₀₋(X) = F(X) - G(X)/r^k where k is shift_exponent
-    auto [A_0_pos, A_0_neg] =
-        polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge, shift_exponent);
+    // Compute polynomials A₀₊(X) = F(X) + G(X)/r^k and A₀₋(X) = F(X) - G(X)/r^k
+    auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
         virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
