@@ -9,6 +9,44 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec.js] `getDecodedPublicEvents` renamed to `getPublicEvents` with new signature
+
+The `getDecodedPublicEvents` function has been renamed to `getPublicEvents` and now uses a filter object instead of positional parameters:
+
+```diff
+- import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
++ import { getPublicEvents } from '@aztec/aztec.js/events';
+
+- const events = await getDecodedPublicEvents(node, eventMetadata, fromBlock, limit);
++ const events = await getPublicEvents(node, eventMetadata, {
++   fromBlock,
++   toBlock,
++   contractAddress,  // optional
++   txHash,           // optional
++ });
+```
+
+The new function returns richer metadata including `contractAddress`, `txHash`, `l2BlockNumber`, and `l2BlockHash` for each event:
+
+```typescript
+import { getPublicEvents } from '@aztec/aztec.js/events';
+import { MyContract } from './artifacts/MyContract.js';
+
+// Query events from a contract
+const events = await getPublicEvents<{ amount: bigint; sender: AztecAddress }>(
+  aztecNode,
+  MyContract.events.Transfer,
+  { contractAddress: myContractAddress, fromBlock: BlockNumber(1) }
+);
+
+// Each event includes decoded data and metadata
+for (const { event, metadata } of events) {
+  console.log(`Transfer of ${event.amount} from ${event.sender}`);
+  console.log(`  Block: ${metadata.l2BlockNumber}, Tx: ${metadata.txHash}`);
+  console.log(`  Contract: ${metadata.contractAddress}`);
+}
+```
+
 ### [AztecNode] Removed sibling path RPC methods
 
 The following methods have been removed from the `AztecNode` interface:
