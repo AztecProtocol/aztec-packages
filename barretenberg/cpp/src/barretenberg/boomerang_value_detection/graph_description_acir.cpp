@@ -74,15 +74,16 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_boolean_gate(size_t block_idx, 
             q_4 == FF::zero() && q_c == FF::zero());
 }
 
-// Check if the gate is a RAM/ROM access gate.
-// The selectors are the same for RAM r/w and ROM r operations
-// see apply_memory_selectors in ultra_circuit_builder.cpp
-// | gate type | q_1 | q_2 | q_3 | q_4 | q_m | wires constrained |
-// |---------------------|-----|-----|-----|-----|-----|------------------------------|
-// | RAM/ROM access | 1 | 0 | 0 | 0 | 1 | w_l, w_r, w_o, w_4 |
-// | RAM timestamp check | 1 | 0 | 0 | 1 | 0 | w_l, w_r, w_o, w_l', w_r' |
-// | ROM consistency | 1 | 1 | 0 | 0 | 0 | w_l, w_l', w_4, w_4' |
-// | RAM consistency | 0 | 0 | 1 | 0 | 0 | all 8 wires |
+/* Check if the gate is a RAM/ROM access gate.
+ * The selectors are the same for RAM r/w and ROM r operations
+ * see apply_memory_selectors in ultra_circuit_builder.cpp
+ * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
+ * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
+ * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
+ * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
+ * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
+ * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ */
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_ram_rom_access_gate(size_t block_idx, size_t gate_idx)
 {
@@ -670,7 +671,7 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
 {
-    // Helper: For the given index and value, count the number of corresponding ROM gatess
+    // Helper: For the given index and value, count the number of corresponding ROM gates
     auto find_corresponding_rom_gates_count = [this, rom_gates, constraint](uint32_t index, uint32_t value) {
         return std::count_if(
             rom_gates.begin(), rom_gates.end(), [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
@@ -721,7 +722,7 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
     const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates)
 {
-    // Helper: For the given index and value, count the number of corresponding RAM gatess
+    // Helper: For the given index and value, count the number of corresponding RAM gates
     auto find_corresponding_ram_gates_count = [this, ram_gates, constraint](
                                                   uint32_t index, uint32_t value, bool is_write, uint32_t timestamp) {
         return std::count_if(
@@ -823,7 +824,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_calldata_constraint(
 }
 
 // Checks that the returndata constraint is valid.
-// Checks that for every element in the trace there is a corresponding returndata databus read gate
+// Checks that for every element in the init there is a corresponding returndata databus read gate
 // We intentionally ignore assert_equal gates during validation
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_returndata_constraint(

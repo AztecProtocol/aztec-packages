@@ -29,7 +29,7 @@ TEST_F(BlockConstraintsTests, ValidateROMConstraint)
         .type = BlockType::ROM,
     };
 
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
 
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
@@ -55,7 +55,7 @@ TEST_F(BlockConstraintsTests, ValidateRAMConstraint)
                    { AccessType::Write, witness_from_index(6), witness_from_index(7) } },
         .type = BlockType::RAM,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -81,7 +81,7 @@ TEST_F(BlockConstraintsTests, ValidateCallDataConstraint)
         .type = BlockType::CallData,
         .calldata_id = CallDataType::Primary,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
@@ -103,7 +103,7 @@ TEST_F(BlockConstraintsTests, ValidateReturnDataConstraint)
         .trace = {}, // trace must be empty for return data
         .type = BlockType::ReturnData,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
@@ -128,7 +128,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedROMConstraint)
                    { AccessType::Read, witness_from_index(6), witness_from_index(7) } },
         .type = BlockType::ROM,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -153,7 +153,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedROMConstraint)
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
-    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.size() == 1);
 }
 
 TEST_F(BlockConstraintsTests, DetectCorruptedRAMConstraint)
@@ -166,7 +166,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedRAMConstraint)
                    { AccessType::Write, witness_from_index(6), witness_from_index(7) } },
         .type = BlockType::RAM,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -191,7 +191,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedRAMConstraint)
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
-    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.size() == 1);
 }
 
 TEST_F(BlockConstraintsTests, DetectCorruptedCallDataConstraint)
@@ -205,7 +205,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedCallDataConstraint)
         .type = BlockType::CallData,
         .calldata_id = CallDataType::Primary,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
@@ -221,13 +221,12 @@ TEST_F(BlockConstraintsTests, DetectCorruptedCallDataConstraint)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find calldata busread gate to corrupt";
-    // Note: CircuitChecker won't catch selector corruption in the busread block.
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system_copy), std::move(builder));
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
-    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.size() == 1);
 }
 
 TEST_F(BlockConstraintsTests, DetectCorruptedReturnDataConstraint)
@@ -237,7 +236,7 @@ TEST_F(BlockConstraintsTests, DetectCorruptedReturnDataConstraint)
         .trace = {}, // trace must be empty for return data
         .type = BlockType::ReturnData,
     };
-    AcirFormat constraint_system = build_acir_format(8, block_constraint);
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
     auto witness = WitnessVector{ fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7) };
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
@@ -253,11 +252,10 @@ TEST_F(BlockConstraintsTests, DetectCorruptedReturnDataConstraint)
         }
     }
     ASSERT_TRUE(found_gate) << "Could not find returndata busread gate to corrupt";
-    // Note: CircuitChecker won't catch selector corruption in the busread block.
 
     AcirFormat constraint_system_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system_copy), std::move(builder));
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
-    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.size() == 1);
 }
