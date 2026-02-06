@@ -6,5 +6,5 @@ pub contract IncorrectStorageStructName {
 
     // The following struct name is incorrect because it is not `Storage`
     #[storage]
-    struct Storage2<Context> {}
+    struct Storage2<CONTEXT> {}
 }

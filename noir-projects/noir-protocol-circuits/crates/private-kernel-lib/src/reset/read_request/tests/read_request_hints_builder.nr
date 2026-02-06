@@ -5,15 +5,15 @@ use crate::reset::read_request::{
 };
 use dep::types::{merkle_tree::MembershipWitness, traits::Empty};
 
-pub struct ReadRequestHintsBuilder<let ReadRequestLen: u32, let PendingHintsLen: u32, let SettledHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> {
+pub struct ReadRequestHintsBuilder<let ReadRequestLen: u32, let PendingHintsLen: u32, let SettledHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> {
     pub read_request_actions: [ReadRequestAction; ReadRequestLen],
     pub pending_read_hints: BoundedVec<PendingReadHint, PendingHintsLen>,
-    pub settled_read_hints: BoundedVec<SettledReadHint<TreeHeight, SettledReadLeafPreimage>, SettledHintsLen>,
+    pub settled_read_hints: BoundedVec<SettledReadHint<TreeHeight, SETTLED_READ_LEAF_PREIMAGE>, SettledHintsLen>,
 }
 
-impl<let ReadRequestLen: u32, let PendingHintsLen: u32, let SettledHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> ReadRequestHintsBuilder<ReadRequestLen, PendingHintsLen, SettledHintsLen, TreeHeight, SettledReadLeafPreimage>
+impl<let ReadRequestLen: u32, let PendingHintsLen: u32, let SettledHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> ReadRequestHintsBuilder<ReadRequestLen, PendingHintsLen, SettledHintsLen, TreeHeight, SETTLED_READ_LEAF_PREIMAGE>
 where
-    SettledReadLeafPreimage: Empty,
+    SETTLED_READ_LEAF_PREIMAGE: Empty,
 {
     pub fn new() -> Self {
         ReadRequestHintsBuilder {
@@ -40,7 +40,7 @@ where
         &mut self,
         read_request_index: u32,
         membership_witness: MembershipWitness<TreeHeight>,
-        leaf_preimage: SettledReadLeafPreimage,
+        leaf_preimage: SETTLED_READ_LEAF_PREIMAGE,
     ) {
         let hint_index = self.settled_read_hints.len();
         let hint = SettledReadHint { read_request_index, membership_witness, leaf_preimage };
@@ -50,7 +50,7 @@ where
 
     pub fn to_hints(
         self,
-    ) -> ReadRequestHints<ReadRequestLen, PendingHintsLen, SettledHintsLen, TreeHeight, SettledReadLeafPreimage> {
+    ) -> ReadRequestHints<ReadRequestLen, PendingHintsLen, SettledHintsLen, TreeHeight, SETTLED_READ_LEAF_PREIMAGE> {
         ReadRequestHints {
             read_request_actions: self.read_request_actions,
             pending_read_hints: self.pending_read_hints.storage(),

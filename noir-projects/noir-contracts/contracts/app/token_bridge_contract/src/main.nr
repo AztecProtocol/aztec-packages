@@ -24,8 +24,8 @@ pub contract TokenBridge {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage<CONTEXT> {
+        config: PublicImmutable<Config, CONTEXT>,
     }
 
     // Constructs the contract.

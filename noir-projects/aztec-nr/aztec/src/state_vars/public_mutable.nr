@@ -54,11 +54,11 @@ use crate::state_vars::StateVariable;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     total_supply: PublicMutable<u128, Context>,
-///     public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+/// struct Storage<CONTEXT> {
+///     total_supply: PublicMutable<u128, CONTEXT>,
+///     public_balances: Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT>,
 ///
-///     vote_tallies: Map<ElectionId, PublicMutable<u128, Context>, Context>,
+///     vote_tallies: Map<ElectionId, PublicMutable<u128, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -77,16 +77,16 @@ use crate::state_vars::StateVariable;
 /// [`PublicImmutable`](crate::state_vars::PublicImmutable) and
 /// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_
 /// be read privately by restricting mutation.
-pub struct PublicMutable<T, Context> {
-    context: Context,
+pub struct PublicMutable<T, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
-impl<T, Context, let M: u32> StateVariable<M, Context> for PublicMutable<T, Context>
+impl<T, CONTEXT, let M: u32> StateVariable<M, CONTEXT> for PublicMutable<T, CONTEXT>
 where
     T: Packable<N = M>,
 {
-    fn new(context: Context, storage_slot: Field) -> Self {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { context, storage_slot }
     }

@@ -1,6 +1,6 @@
 /// Calls a function and returns its return value, but removes any constraints associated with calling the function,
 /// behaving as if the function was unconstrained.
-pub unconstrained fn remove_constraints<Env, T>(f: fn[Env]() -> T) -> T {
+pub unconstrained fn remove_constraints<ENV, T>(f: fn[ENV]() -> T) -> T {
     f()
 }
 
@@ -8,7 +8,7 @@ pub unconstrained fn remove_constraints<Env, T>(f: fn[Env]() -> T) -> T {
 /// `condition` is true, behaving as if the function was unconstrained.
 ///
 /// Requires `condition` to be a compile time constant.
-pub fn remove_constraints_if<Env, T>(condition: bool, f: fn[Env]() -> T) -> T {
+pub fn remove_constraints_if<ENV, T>(condition: bool, f: fn[ENV]() -> T) -> T {
     // If `condition` is not a compile-time constant, then the compiler won't optimize away the branch not taken in the
     // if statement below, and we may end up with constraints for `f` regardless of the runtime value of `condition`.
     assert_constant(condition);

@@ -6,8 +6,8 @@ contract PublicImmutableContract {
     use aztec::{macros::{functions::external, storage::storage}, state_vars::PublicImmutable};
 
     #[storage]
-    struct Storage<Context> {
-        immutable_value: PublicImmutable<Field, Context>,
+    struct Storage<CONTEXT> {
+        immutable_value: PublicImmutable<Field, CONTEXT>,
     }
 
     #[external("public")]

@@ -22,14 +22,14 @@ pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG
 /// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
 ///
 /// This plaintext is meant to be decoded via [`decode_private_note_message`].
-pub fn encode_private_note_message<Note>(
-    note: Note,
+pub fn encode_private_note_message<NOTE>(
+    note: NOTE,
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
-) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
+) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <NOTE as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
-    Note: NoteType + Packable,
+    NOTE: NoteType + Packable,
 {
     let packed_note = note.pack();
 
@@ -40,7 +40,7 @@ where
         "unexpected value for PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
     );
 
-    let mut msg_content = [0; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N];
+    let mut msg_content = [0; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <NOTE as Packable>::N];
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_OWNER_INDEX] = owner.to_field();
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX] = storage_slot;
     msg_content[PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX] = randomness;
@@ -49,7 +49,7 @@ where
     }
 
     // Notes use the note type id for metadata
-    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
+    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, NOTE::get_id() as u64, msg_content)
 }
 
 /// Decodes the plaintext from a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).

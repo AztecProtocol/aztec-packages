@@ -26,10 +26,10 @@ use types::{side_effect::Ordered, traits::Empty, utils::arrays::ClaimedLengthArr
 /// - Transformed values may not contain counters; the hints are built in this function to associate each transformed
 ///   item with its original counter.
 /// - This function does not mutate the input arrays; it only validates correctness.
-pub fn assert_sorted_transformed_array<T, S, let N: u32, Env>(
+pub fn assert_sorted_transformed_array<T, S, let N: u32, ENV>(
     original_array: ClaimedLengthArray<T, N>,
     sorted_transformed_array: [S; N],
-    assert_transformed: fn[Env](T, S) -> (),
+    assert_transformed: fn[ENV](T, S) -> (),
 )
 where
     T: Ordered + Empty,
@@ -47,10 +47,10 @@ where
     );
 }
 
-fn assert_sorted_transformed_array_with_hints<T, S, let N: u32, Env>(
+fn assert_sorted_transformed_array_with_hints<T, S, let N: u32, ENV>(
     original_array: ClaimedLengthArray<T, N>,
     sorted_transformed_array: [S; N],
-    assert_transformed: fn[Env](T, S) -> (),
+    assert_transformed: fn[ENV](T, S) -> (),
     hints: OrderHints<N>,
 )
 where

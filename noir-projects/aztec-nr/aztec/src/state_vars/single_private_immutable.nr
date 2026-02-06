@@ -35,8 +35,8 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: SinglePrivateImmutable<YourNote, Context>,
+/// struct Storage<CONTEXT> {
+///     your_variable: SinglePrivateImmutable<YourNote, CONTEXT>,
 /// }
 /// ```
 ///
@@ -54,13 +54,13 @@ mod test;
 /// nullifier includes the contract's nullifier hiding key (nhk) in its preimage and because the contract is set as
 /// the owner of the underlying note. This is expected to not ever be a problem because the contracts that use
 /// SinglePrivateImmutable generally have keys associated with them (account contracts or escrow contracts).
-pub struct SinglePrivateImmutable<Note, Context> {
-    context: Context,
+pub struct SinglePrivateImmutable<NOTE, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
-impl<Note, Context> StateVariable<1, Context> for SinglePrivateImmutable<Note, Context> {
-    fn new(context: Context, storage_slot: Field) -> Self {
+impl<NOTE, CONTEXT> StateVariable<1, CONTEXT> for SinglePrivateImmutable<NOTE, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
@@ -70,7 +70,7 @@ impl<Note, Context> StateVariable<1, Context> for SinglePrivateImmutable<Note, C
     }
 }
 
-impl<Note, Context> SinglePrivateImmutable<Note, Context> {
+impl<NOTE, CONTEXT> SinglePrivateImmutable<NOTE, CONTEXT> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -80,7 +80,7 @@ impl<Note, Context> SinglePrivateImmutable<Note, Context> {
     }
 }
 
-impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
+impl<NOTE> SinglePrivateImmutable<NOTE, &mut PrivateContext> {
     /// Computes the nullifier that will be created when this SinglePrivateImmutable is first initialized.
     ///
     /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts
@@ -98,9 +98,9 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// SinglePrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
-    pub fn initialize(self, note: Note) -> NoteMessage<Note>
+    pub fn initialize(self, note: NOTE) -> NoteMessage<NOTE>
     where
-        Note: NoteType + NoteHash + Packable,
+        NOTE: NoteType + NoteHash + Packable,
     {
         let nullifier = self.get_initialization_nullifier();
         self.context.push_nullifier(nullifier);
@@ -130,9 +130,9 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     /// Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
     /// after initialization.
     ///
-    pub fn get_note(self) -> Note
+    pub fn get_note(self) -> NOTE
     where
-        Note: NoteType + NoteHash + Packable,
+        NOTE: NoteType + NoteHash + Packable,
     {
         // The note owner is set to none rather than msg_sender(), which means that anyone with access to this note in
         // the PXE can read it.
@@ -145,9 +145,9 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     }
 }
 
-impl<Note> SinglePrivateImmutable<Note, UtilityContext>
+impl<NOTE> SinglePrivateImmutable<NOTE, UtilityContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Computes the nullifier that will be created when this SinglePrivateImmutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
@@ -165,9 +165,9 @@ where
     }
 
     /// Returns the permanent note in this SinglePrivateImmutable state variable instance.
-    pub unconstrained fn view_note(self) -> Note
+    pub unconstrained fn view_note(self) -> NOTE
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // The note owner is set to none rather than msg_sender(), which means that anyone with access to this note in
         // the PXE can read it.

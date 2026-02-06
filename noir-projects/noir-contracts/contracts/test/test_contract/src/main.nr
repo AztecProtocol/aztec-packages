@@ -81,20 +81,20 @@ pub contract Test {
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // docs:start:private_immutable
-        note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        note_in_private_immutable: Owned<PrivateImmutable<TestNote, CONTEXT>, CONTEXT>,
         // docs:end:private_immutable
-        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
-        note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
-        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
-        note_in_private_set: Owned<PrivateSet<AddressNote, Context>, Context>,
-        struct_in_private_set: Owned<PrivateSet<ExampleStruct, Context>, Context>,
-        note_in_public_immutable: PublicImmutable<TestNote, Context>,
-        struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct, Context>, Context>,
-        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
-        dummy_variable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, CONTEXT>, CONTEXT>,
+        note_in_private_mutable: Owned<PrivateMutable<TestNote, CONTEXT>, CONTEXT>,
+        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, CONTEXT>, CONTEXT>,
+        note_in_private_set: Owned<PrivateSet<AddressNote, CONTEXT>, CONTEXT>,
+        struct_in_private_set: Owned<PrivateSet<ExampleStruct, CONTEXT>, CONTEXT>,
+        note_in_public_immutable: PublicImmutable<TestNote, CONTEXT>,
+        struct_in_public_immutable: PublicImmutable<ExampleStruct, CONTEXT>,
+        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct, CONTEXT>, CONTEXT>,
+        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, CONTEXT>,
+        dummy_variable: Owned<PrivateImmutable<TestNote, CONTEXT>, CONTEXT>,
     }
 
     #[initializer]

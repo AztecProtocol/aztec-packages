@@ -47,10 +47,10 @@ pub contract AvmTest {
     use std::ops::Add;
 
     #[storage]
-    struct Storage<Context> {
-        single: PublicMutable<Field, Context>,
-        list: PublicMutable<Note, Context>,
-        map: Map<AztecAddress, PublicMutable<u32, Context>, Context>,
+    struct Storage<CONTEXT> {
+        single: PublicMutable<Field, CONTEXT>,
+        list: PublicMutable<Note, CONTEXT>,
+        map: Map<AztecAddress, PublicMutable<u32, CONTEXT>, CONTEXT>,
     }
 
     /************************************************************************

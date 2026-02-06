@@ -15,8 +15,8 @@ use crate::{
 };
 
 /// Public mutable values with private read access.
-pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
-    context: Context,
+pub struct DelayedPublicMutable<T, let InitialDelay: u64, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
@@ -24,11 +24,11 @@ pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
 //  - publicly known (i.e. unencrypted)
 //  - mutable in public
 //  - readable in private with no contention
-impl<T, let InitialDelay: u64, Context, let M: u32> StateVariable<M + 1, Context> for DelayedPublicMutable<T, InitialDelay, Context>
+impl<T, let InitialDelay: u64, CONTEXT, let M: u32> StateVariable<M + 1, CONTEXT> for DelayedPublicMutable<T, InitialDelay, CONTEXT>
 where
     DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
 {
-    fn new(context: Context, storage_slot: Field) -> Self {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }

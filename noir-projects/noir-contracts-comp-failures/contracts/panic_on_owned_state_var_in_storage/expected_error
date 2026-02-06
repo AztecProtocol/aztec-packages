@@ -1,1 +1,1 @@
-Type PrivateImmutable<Field, Context> implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<PrivateImmutable<Field, Context><..., Context>>, Context>.
+Type PrivateImmutable<Field, CONTEXT> implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<PrivateImmutable<Field, CONTEXT><..., CONTEXT>>, CONTEXT>.

@@ -10,7 +10,7 @@ pub contract PanicOnNonStateVarInStorage {
     }
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         non_state_var: NonStateVar,
     }
 

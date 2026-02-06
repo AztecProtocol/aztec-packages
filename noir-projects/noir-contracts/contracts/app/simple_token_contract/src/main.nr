@@ -38,14 +38,14 @@ pub contract SimpleToken {
     }
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+    struct Storage<CONTEXT> {
+        balances: Owned<BalanceSet<CONTEXT>, CONTEXT>,
+        total_supply: PublicMutable<u128, CONTEXT>,
+        public_balances: Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT>,
         // docs:start:public_immutable
-        symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
-        decimals: PublicImmutable<u8, Context>,
+        symbol: PublicImmutable<FieldCompressedString, CONTEXT>,
+        name: PublicImmutable<FieldCompressedString, CONTEXT>,
+        decimals: PublicImmutable<u8, CONTEXT>,
         // docs:end:public_immutable
     }
 

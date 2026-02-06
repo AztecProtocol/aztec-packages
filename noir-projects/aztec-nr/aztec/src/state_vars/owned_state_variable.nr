@@ -6,7 +6,7 @@ use crate::protocol::address::AztecAddress;
 /// ```noir
 /// #[storage]
 /// struct Storage {
-///     balance: Owned<PrivateSet<UintNote, Context>, Context>,
+///     balance: Owned<PrivateSet<UintNote, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -26,13 +26,13 @@ use crate::protocol::address::AztecAddress;
 ///
 /// # Type Parameters
 ///
-/// * `Context` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
+/// * `CONTEXT` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
 /// determines which methods of the state variable are available and controls whether the variable can be accessed in
 /// public, private or utility functions.
 ///
-pub trait OwnedStateVariable<Context> {
+pub trait OwnedStateVariable<CONTEXT> {
     /// Initializes a new owned state variable with a given storage slot and owner. The storage slot is inherited from
     /// the `Owned` state variable unchanged. The `Owned` state variable calls this function when its `at` method is
     /// invoked.
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self;
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self;
 }

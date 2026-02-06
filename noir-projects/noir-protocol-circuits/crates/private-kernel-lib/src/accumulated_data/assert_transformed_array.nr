@@ -17,10 +17,10 @@ use types::{traits::Empty, utils::arrays::ClaimedLengthArray};
 /// - This function also checks the transformation of the items beyond `original_array.length`. The caller should ensure
 ///   that the array is dense trimmed if this is desired.
 /// - This function does not mutate the input arrays; it only validates correctness.
-pub fn assert_transformed_array<T, S, let N: u32, Env>(
+pub fn assert_transformed_array<T, S, let N: u32, ENV>(
     original_array: ClaimedLengthArray<T, N>,
     transformed_array: [S; N],
-    assert_transformed: fn[Env](T, S) -> (),
+    assert_transformed: fn[ENV](T, S) -> (),
 )
 where
     S: Empty,

@@ -15,12 +15,12 @@ pub trait EventInterface {
 /// This random value prevents attacks in which someone guesses plausible events (e.g. 'Alice transfers to Bob an
 /// amount of 10'), since they will not be able to test for existence of their guessed events without brute-forcing the
 /// entire `Field` space by guessing `randomness` values.
-pub fn compute_private_event_commitment<Event>(event: Event, randomness: Field) -> Field
+pub fn compute_private_event_commitment<EVENT>(event: EVENT, randomness: Field) -> Field
 where
-    Event: EventInterface + Serialize,
+    EVENT: EventInterface + Serialize,
 {
     poseidon2_hash_with_separator(
-        [randomness, Event::get_event_type_id().to_field()].concat(event.serialize()),
+        [randomness, EVENT::get_event_type_id().to_field()].concat(event.serialize()),
         DOM_SEP__EVENT_COMMITMENT,
     )
 }

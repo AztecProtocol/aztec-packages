@@ -3,9 +3,9 @@ use crate::{context::NoteExistenceRequest, note::{ConfirmedNote, HintedNote, not
 use crate::protocol::hash::{compute_siloed_note_hash, compute_unique_note_hash};
 
 /// Returns the [`NoteExistenceRequest`] used to prove a note exists.
-pub fn compute_note_existence_request<Note>(hinted_note: HintedNote<Note>) -> NoteExistenceRequest
+pub fn compute_note_existence_request<NOTE>(hinted_note: HintedNote<NOTE>) -> NoteExistenceRequest
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash =
         hinted_note.note.compute_note_hash(hinted_note.owner, hinted_note.storage_slot, hinted_note.randomness);
@@ -28,9 +28,9 @@ where
 
 /// Returns the note hash that must be used to compute a note's nullifier when calling `NoteHash::compute_nullifier` or
 /// `NoteHash::compute_nullifier_unconstrained`.
-pub fn compute_note_hash_for_nullification<Note>(hinted_note: HintedNote<Note>) -> Field
+pub fn compute_note_hash_for_nullification<NOTE>(hinted_note: HintedNote<NOTE>) -> Field
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     compute_confirmed_note_hash_for_nullification(ConfirmedNote::new(
         hinted_note,
@@ -41,7 +41,7 @@ where
 /// Same as `compute_note_hash_for_nullification`, except it takes the note hash used in a read request (i.e. what
 /// `compute_note_existence_request` would return). This is useful in scenarios where that hash has already been
 /// computed to reduce constraints by reusing this value.
-pub fn compute_confirmed_note_hash_for_nullification<Note>(confirmed_note: ConfirmedNote<Note>) -> Field {
+pub fn compute_confirmed_note_hash_for_nullification<NOTE>(confirmed_note: ConfirmedNote<NOTE>) -> Field {
     // There is just one instance in which the note hash for nullification does not match the note hash used for a read
     // request, which is when dealing with pending previous phase notes. These had their existence proven using their
     // non-siloed note hash along with the note hash counter (like all pending notes), but since they will be

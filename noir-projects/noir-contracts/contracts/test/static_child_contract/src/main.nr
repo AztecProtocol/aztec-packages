@@ -15,9 +15,9 @@ pub contract StaticChild {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        current_value: PublicMutable<Field, Context>,
-        a_private_value: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage<CONTEXT> {
+        current_value: PublicMutable<Field, CONTEXT>,
+        a_private_value: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp statically

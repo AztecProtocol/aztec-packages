@@ -5,21 +5,21 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-pub struct SettledReadHint<let TreeHeight: u32, SettledReadLeafPreimage> {
+pub struct SettledReadHint<let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> {
     pub read_request_index: u32,
     pub membership_witness: MembershipWitness<TreeHeight>,
-    pub leaf_preimage: SettledReadLeafPreimage,
+    pub leaf_preimage: SETTLED_READ_LEAF_PREIMAGE,
 }
 
-impl<let TreeHeight: u32, SettledReadLeafPreimage> SettledReadHint<TreeHeight, SettledReadLeafPreimage>
+impl<let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> SettledReadHint<TreeHeight, SETTLED_READ_LEAF_PREIMAGE>
 where
-    SettledReadLeafPreimage: Empty,
+    SETTLED_READ_LEAF_PREIMAGE: Empty,
 {
     pub fn skip(read_request_len: u32) -> Self {
         Self {
             read_request_index: read_request_len,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: SettledReadLeafPreimage::empty(),
+            leaf_preimage: SETTLED_READ_LEAF_PREIMAGE::empty(),
         }
     }
 }
@@ -37,13 +37,13 @@ where
 ///    - The membership witness must prove that the leaf exists in the tree with the given root.
 /// 2. If a hint is inactive (its `read_request_index` is ` ReadRequestLen`):
 ///    - It is ignored (no validation performed).
-pub fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage>(
+pub fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    settled_read_hints: [SettledReadHint<TreeHeight, SettledReadLeafPreimage>; SettledReadHintsLen],
+    settled_read_hints: [SettledReadHint<TreeHeight, SETTLED_READ_LEAF_PREIMAGE>; SettledReadHintsLen],
     tree_root: Field,
 )
 where
-    SettledReadLeafPreimage: LeafPreimage + Readable,
+    SETTLED_READ_LEAF_PREIMAGE: LeafPreimage + Readable,
 {
     for hint in settled_read_hints {
         let read_request_index = hint.read_request_index;

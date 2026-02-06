@@ -19,9 +19,9 @@ pub contract Spam {
     use balance_set::BalanceSet;
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
-        public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
+    struct Storage<CONTEXT> {
+        balances: Owned<BalanceSet<CONTEXT>, CONTEXT>,
+        public_balances: Map<Field, PublicMutable<u128, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

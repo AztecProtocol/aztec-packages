@@ -14,9 +14,9 @@ where
 
 /// Sorts the input `array`, but also outputs an `original_index` field for each sorted
 /// item, so that you know where it came from.
-pub unconstrained fn get_sorted_tuples<T, let N: u32, Env>(
+pub unconstrained fn get_sorted_tuples<T, let N: u32, ENV>(
     array: [T; N],
-    ordering: fn[Env](T, T) -> bool,
+    ordering: fn[ENV](T, T) -> bool,
 ) -> [SortedTuple<T>; N]
 where
     T: Eq,

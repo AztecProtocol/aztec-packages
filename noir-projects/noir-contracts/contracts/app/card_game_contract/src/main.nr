@@ -18,10 +18,10 @@ pub contract CardGame {
     use dep::aztec::protocol::traits::{FromField, ToField};
 
     #[storage]
-    struct Storage<Context> {
-        collections: Deck<Context>,
-        game_decks: Map<Field, Deck<Context>, Context>,
-        games: Map<Field, PublicMutable<Game, Context>, Context>,
+    struct Storage<CONTEXT> {
+        collections: Deck<CONTEXT>,
+        game_decks: Map<Field, Deck<CONTEXT>, CONTEXT>,
+        games: Map<Field, PublicMutable<Game, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

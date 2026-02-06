@@ -31,9 +31,9 @@ pub contract SchnorrAccount {
     use crate::public_key_note::PublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // docs:start:public_key
-        signing_public_key: SinglePrivateImmutable<PublicKeyNote, Context>,
+        signing_public_key: SinglePrivateImmutable<PublicKeyNote, CONTEXT>,
         // docs:end:public_key
     }
 

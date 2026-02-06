@@ -10,8 +10,8 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Ser
 /// converted into a [`crate::note::confirmed_note::ConfirmedNote`] via
 /// [`crate::history::note::assert_note_existed_by`].
 #[derive(Deserialize, Eq, Serialize, Packable)]
-pub struct HintedNote<Note> {
-    pub note: Note,
+pub struct HintedNote<NOTE> {
+    pub note: NOTE,
     pub contract_address: AztecAddress,
     pub owner: AztecAddress,
     pub randomness: Field,

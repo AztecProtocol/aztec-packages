@@ -6,12 +6,12 @@ use crate::merkle_tree::leaf_preimage::IndexedTreeLeafPreimage;
 /// - is_valid: `true` if the key is in range of the low leaf, `false` otherwise.
 /// - is_greater_than_low: `true` if the key is greater than the low leaf's key, `false` otherwise.
 /// - is_less_than_next: `true` if the key is less than the low leaf's next key, `false` otherwise.
-pub fn is_valid_low_leaf<LeafPreimage, Value>(
+pub fn is_valid_low_leaf<LEAF_PREIMAGE, VALUE>(
     key: Field,
-    low_leaf_preimage: LeafPreimage,
+    low_leaf_preimage: LEAF_PREIMAGE,
 ) -> (bool, bool, bool)
 where
-    LeafPreimage: IndexedTreeLeafPreimage<Value>,
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();

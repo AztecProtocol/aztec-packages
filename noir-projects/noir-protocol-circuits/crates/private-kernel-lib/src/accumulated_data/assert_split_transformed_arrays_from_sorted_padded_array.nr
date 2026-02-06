@@ -35,12 +35,12 @@ use types::{
 /// - A padded (dummy) item is an item with a counter equal to `MAX_U32_VALUE`. They are added by the protocol in the
 ///   reset circuit to hide the actual number of side effects emitted in the tx.
 /// - This function does not mutate the input arrays; it only validates correctness.
-pub fn assert_split_transformed_arrays_from_sorted_padded_array<T, S, let N: u32, Env>(
+pub fn assert_split_transformed_arrays_from_sorted_padded_array<T, S, let N: u32, ENV>(
     sorted_padded_array: ClaimedLengthArray<T, N>,
     transformed_array_lt: [S; N],
     transformed_array_gte: [S; N],
     split_counter: u32,
-    assert_transformed: fn[Env](T, S) -> (),
+    assert_transformed: fn[ENV](T, S) -> (),
     num_padded_lt: u32,
 )
 where
@@ -72,12 +72,12 @@ where
     );
 }
 
-fn assert_split_transformed_arrays_from_sorted_padded_array_with_hint<T, S, let N: u32, Env>(
+fn assert_split_transformed_arrays_from_sorted_padded_array_with_hint<T, S, let N: u32, ENV>(
     sorted_padded_array: ClaimedLengthArray<T, N>,
     transformed_array_lt: [S; N],
     transformed_array_gte: [S; N],
     split_counter: u32,
-    assert_transformed: fn[Env](T, S) -> (),
+    assert_transformed: fn[ENV](T, S) -> (),
     num_padded_lt: u32,
     first_after_split_index: u32,
     first_padded_index: u32,

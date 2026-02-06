@@ -49,14 +49,14 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 ///
 /// ## Type Parameters
 ///
-/// - `Context`: The execution context type - either `&mut PrivateContext`, `PublicContext`, or `UtilityContext`
-/// - `Storage`: The contract's storage struct (defined with [`storage`](crate::macros::storage::storage), or `()` if
+/// - `CONTEXT`: The execution context type - either `&mut PrivateContext`, `PublicContext`, or `UtilityContext`
+/// - `STORAGE`: The contract's storage struct (defined with [`storage`](crate::macros::storage::storage), or `()` if
 /// the contract has no storage
-/// - `CallSelf`: Macro-generated type for calling contract's own non-view functions
-/// - `EnqueueSelf`: Macro-generated type for enqueuing calls to the contract's own non-view functions
-/// - `CallSelfStatic`: Macro-generated type for calling contract's own view functions
-/// - `EnqueueSelfStatic`: Macro-generated type for enqueuing calls to the contract's own view functions
-pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
+/// - `CALL_SELF`: Macro-generated type for calling contract's own non-view functions
+/// - `ENQUEUE_SELF`: Macro-generated type for enqueuing calls to the contract's own non-view functions
+/// - `CALL_SELF_STATIC`: Macro-generated type for calling contract's own view functions
+/// - `ENQUEUE_SELF_STATIC`: Macro-generated type for enqueuing calls to the contract's own view functions
+pub struct ContractSelf<CONTEXT, STORAGE, CALL_SELF, ENQUEUE_SELF, CALL_SELF_STATIC, ENQUEUE_SELF_STATIC, CALL_INTERNAL> {
     /// The address of this contract
     pub address: AztecAddress,
 
@@ -71,16 +71,16 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     ///
     /// ## Developer Note
     ///
-    /// If you've arrived here while trying to access your contract's storage while the `Storage` generic type is set
+    /// If you've arrived here while trying to access your contract's storage while the `STORAGE` generic type is set
     /// to unit type `()`, it means you haven't yet defined a Storage struct using the
     /// [`storage`](crate::macros::storage::storage) macro in your contract. For guidance on setting this up, please
     /// refer to our docs: https://docs.aztec.network/developers/docs/guides/smart_contracts/storage
 
-    pub storage: Storage,
+    pub storage: STORAGE,
 
     /// The execution context whose type is determined by the [`external`](crate::macros::functions::external)
     /// attribute of the contract function based on the external function type (private, public, or utility).
-    pub context: Context,
+    pub context: CONTEXT,
 
     /// Provides type-safe methods for calling this contract's own non-view functions.
     ///
@@ -91,7 +91,7 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// ```noir
     /// self.call_self.some_private_function(args)
     /// ```
-    pub call_self: CallSelf,
+    pub call_self: CALL_SELF,
 
     /// Provides type-safe methods for enqueuing calls to this contract's own non-view functions.
     ///
@@ -102,7 +102,7 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// ```noir
     /// self.enqueue_self.some_public_function(args)
     /// ```
-    pub enqueue_self: EnqueueSelf,
+    pub enqueue_self: ENQUEUE_SELF,
 
     /// Provides type-safe methods for calling this contract's own view functions.
     ///
@@ -113,7 +113,7 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// ```noir
     /// self.call_self_static.some_view_function(args)
     /// ```
-    pub call_self_static: CallSelfStatic,
+    pub call_self_static: CALL_SELF_STATIC,
 
     /// Provides type-safe methods for enqueuing calls to this contract's own view functions.
     ///
@@ -124,7 +124,7 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// ```noir
     /// self.enqueue_self_static.some_public_view_function(args)
     /// ```
-    pub enqueue_self_static: EnqueueSelfStatic,
+    pub enqueue_self_static: ENQUEUE_SELF_STATIC,
 
     /// Provides type-safe methods for calling internal functions.
     ///
@@ -135,24 +135,24 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// ```noir
     /// self.internal.some_internal_function(args)
     /// ```
-    pub internal: CallInternal,
+    pub internal: CALL_INTERNAL,
 }
 
 // Implementation for `ContractSelf` in private execution contexts.
 //
 // This implementation is used when an external or internal contract function is marked with "private".
-impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> ContractSelf<&mut PrivateContext, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
+impl<STORAGE, CALL_SELF, ENQUEUE_SELF, CALL_SELF_STATIC, ENQUEUE_SELF_STATIC, CALL_INTERNAL> ContractSelf<&mut PrivateContext, STORAGE, CALL_SELF, ENQUEUE_SELF, CALL_SELF_STATIC, ENQUEUE_SELF_STATIC, CALL_INTERNAL> {
     /// Creates a new `ContractSelf` instance for a private function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
     pub fn new_private(
         context: &mut PrivateContext,
-        storage: Storage,
-        call_self: CallSelf,
-        enqueue_self: EnqueueSelf,
-        call_self_static: CallSelfStatic,
-        enqueue_self_static: EnqueueSelfStatic,
-        internal: CallInternal,
+        storage: STORAGE,
+        call_self: CALL_SELF,
+        enqueue_self: ENQUEUE_SELF,
+        call_self_static: CALL_SELF_STATIC,
+        enqueue_self_static: ENQUEUE_SELF_STATIC,
+        internal: CALL_INTERNAL,
     ) -> Self {
         Self {
             context,
@@ -214,9 +214,9 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// The nullifier created when emitting a private event leaks nothing about the content of the event - it's a
     /// commitment that includes a random value, so even with full knowledge of the event preimage determining if an
     /// event was emitted or not requires brute-forcing the entire `Field` space.
-    pub fn emit<Event>(&mut self, event: Event) -> EventMessage<Event>
+    pub fn emit<EVENT>(&mut self, event: EVENT) -> EventMessage<EVENT>
     where
-        Event: EventInterface + Serialize,
+        EVENT: EventInterface + Serialize,
     {
         emit_event_in_private(self.context, event)
     }
@@ -430,16 +430,16 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
 // Implementation for `ContractSelf` in public execution contexts.
 //
 // This implementation is used when an external or internal contract function is marked with "public".
-impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext, Storage, CallSelf, (), CallSelfStatic, (), CallInternal> {
+impl<STORAGE, CALL_SELF, CALL_SELF_STATIC, CALL_INTERNAL> ContractSelf<PublicContext, STORAGE, CALL_SELF, (), CALL_SELF_STATIC, (), CALL_INTERNAL> {
     /// Creates a new `ContractSelf` instance for a public function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
     pub fn new_public(
         context: PublicContext,
-        storage: Storage,
-        call_self: CallSelf,
-        call_self_static: CallSelfStatic,
-        internal: CallInternal,
+        storage: STORAGE,
+        call_self: CALL_SELF,
+        call_self_static: CALL_SELF_STATIC,
+        internal: CALL_INTERNAL,
     ) -> Self {
         Self {
             context,
@@ -489,9 +489,9 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     ///
     /// Public event emission is achieved by emitting public transaction logs. A total of `N+1` fields are emitted,
     /// where `N` is the serialization length of the event.
-    pub fn emit<Event>(&mut self, event: Event)
+    pub fn emit<EVENT>(&mut self, event: EVENT)
     where
-        Event: EventInterface + Serialize,
+        EVENT: EventInterface + Serialize,
     {
         emit_event_in_public(self.context, event);
     }
@@ -547,11 +547,11 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
 // Implementation for `ContractSelf` in utility execution contexts.
 //
 // This implementation is used when an external or internal contract function is marked with "utility".
-impl<Storage> ContractSelf<UtilityContext, Storage, (), (), (), (), ()> {
+impl<STORAGE> ContractSelf<UtilityContext, STORAGE, (), (), (), (), ()> {
     /// Creates a new `ContractSelf` instance for a utility function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
-    pub fn new_utility(context: UtilityContext, storage: Storage) -> Self {
+    pub fn new_utility(context: UtilityContext, storage: STORAGE) -> Self {
         Self {
             context,
             storage,

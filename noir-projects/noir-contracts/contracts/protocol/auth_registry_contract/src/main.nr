@@ -21,12 +21,12 @@ pub contract AuthRegistry {
         state_vars::{Map, PublicMutable, StateVariable},
     };
 
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         /// Map of addresses that have rejected all actions
-        reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        reject_all: Map<AztecAddress, PublicMutable<bool, CONTEXT>, CONTEXT>,
         /// Nested map of approvers to their authorized message hashes
         /// First key is the approver address, second key is the message hash, value is authorization status
-        approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
+        approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, CONTEXT>, CONTEXT>, CONTEXT>,
     }
 
     /**
@@ -350,14 +350,14 @@ pub contract AuthRegistry {
         panic(f"Unknown selector {selector}")
     }
 
-    impl<Context> Storage<Context> {
-        fn init(context: Context) -> Self {
+    impl<CONTEXT> Storage<CONTEXT> {
+        fn init(context: CONTEXT) -> Self {
             Self {
-                reject_all: <Map<AztecAddress, PublicMutable<bool, Context>, Context> as StateVariable<1, Context>>::new(
+                reject_all: <Map<AztecAddress, PublicMutable<bool, CONTEXT>, CONTEXT> as StateVariable<1, CONTEXT>>::new(
                     context,
                     1,
                 ),
-                approved_actions: <Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context> as StateVariable<1, Context>>::new(
+                approved_actions: <Map<AztecAddress, Map<Field, PublicMutable<bool, CONTEXT>, CONTEXT>, CONTEXT> as StateVariable<1, CONTEXT>>::new(
                     context,
                     2,
                 ),

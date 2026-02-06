@@ -11,8 +11,8 @@ use crate::protocol::{address::AztecAddress, traits::Packable};
 /// Use [`NoteMessage::deliver`] to select a delivery mechanism. The same message can be delivered to multiple
 /// recipients.
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
-pub struct NoteMessage<Note> {
-    pub(crate) new_note: NewNote<Note>,
+pub struct NoteMessage<NOTE> {
+    pub(crate) new_note: NewNote<NOTE>,
 
     // NoteMessage is constructed when a note is created, which means that the `context` object will be in scope. By
     // storing a reference to it inside this object we remove the need for its methods to receive it, resulting in a
@@ -20,11 +20,11 @@ pub struct NoteMessage<Note> {
     context: &mut PrivateContext,
 }
 
-impl<Note> NoteMessage<Note>
+impl<NOTE> NoteMessage<NOTE>
 where
-    Note: NoteType + Packable,
+    NOTE: NoteType + Packable,
 {
-    pub fn new(new_note: NewNote<Note>, context: &mut PrivateContext) -> Self {
+    pub fn new(new_note: NewNote<NOTE>, context: &mut PrivateContext) -> Self {
         Self { new_note, context }
     }
 
@@ -85,7 +85,7 @@ where
     }
 
     /// Returns the note contained in the message.
-    pub fn get_note(self) -> Note {
+    pub fn get_note(self) -> NOTE {
         self.new_note.note
     }
 
@@ -93,7 +93,7 @@ where
     ///
     /// This is an advanced function, typically needed only when creating new kinds of state variables that need to
     /// create [`MaybeNoteMessage`] values.
-    pub fn get_new_note(self) -> NewNote<Note> {
+    pub fn get_new_note(self) -> NewNote<NOTE> {
         self.new_note
     }
 }
@@ -103,12 +103,12 @@ where
 ///
 /// Other than that, it and [`MaybeNoteMessage::deliver`] behave the exact same way as [`NoteMessage`].
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
-pub struct MaybeNoteMessage<Note> {
+pub struct MaybeNoteMessage<NOTE> {
     // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the
     // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the
     // contents, and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which
     // only holds `NewNote` in the `Option`, keeping the `context` out.
-    maybe_new_note: Option<NewNote<Note>>,
+    maybe_new_note: Option<NewNote<NOTE>>,
 
     // MaybeNoteMessage is expected to be constructed when a note is created, which means that the `context` object
     // will be in scope. By storing a reference to it inside this object we remove the need for its methods to receive
@@ -116,11 +116,11 @@ pub struct MaybeNoteMessage<Note> {
     context: &mut PrivateContext,
 }
 
-impl<Note> MaybeNoteMessage<Note>
+impl<NOTE> MaybeNoteMessage<NOTE>
 where
-    Note: NoteType + Packable,
+    NOTE: NoteType + Packable,
 {
-    pub fn new(maybe_new_note: Option<NewNote<Note>>, context: &mut PrivateContext) -> Self {
+    pub fn new(maybe_new_note: Option<NewNote<NOTE>>, context: &mut PrivateContext) -> Self {
         Self { maybe_new_note, context }
     }
 
@@ -147,7 +147,7 @@ where
     }
 
     /// Returns the note contained in the message.
-    pub fn get_note(self) -> Option<Note> {
+    pub fn get_note(self) -> Option<NOTE> {
         self.maybe_new_note.map(|new_note| new_note.note)
     }
 }

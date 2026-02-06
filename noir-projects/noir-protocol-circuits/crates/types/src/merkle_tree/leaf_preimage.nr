@@ -5,16 +5,16 @@ pub trait LeafPreimage {
     fn as_leaf(self) -> Field;
 }
 
-pub trait IndexedTreeLeafPreimage<Value>: Empty + LeafPreimage {
+pub trait IndexedTreeLeafPreimage<VALUE>: Empty + LeafPreimage {
     fn get_next_key(self) -> Field;
 
     fn points_to_infinity(self) -> bool;
 
     fn update_pointers(self, next_key: Field, next_index: Field) -> Self;
 
-    fn update_value(self, value: Value) -> Self;
+    fn update_value(self, value: VALUE) -> Self;
 
-    fn build_insertion_leaf(value: Value, low_leaf: Self) -> Self;
+    fn build_insertion_leaf(value: VALUE, low_leaf: Self) -> Self;
 }
 
 pub trait IndexedTreeLeafValue: Empty {

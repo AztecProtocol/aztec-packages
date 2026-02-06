@@ -9,8 +9,8 @@ pub contract AvmInitializerTest {
     };
 
     #[storage]
-    struct Storage<Context> {
-        immutable: PublicImmutable<Field, Context>,
+    struct Storage<CONTEXT> {
+        immutable: PublicImmutable<Field, CONTEXT>,
     }
 
     /************************************************************************

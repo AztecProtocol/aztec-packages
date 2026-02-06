@@ -98,8 +98,8 @@ pub contract ContractInstanceRegistry {
         timestamp_of_change: u64,
     }
 
-    struct Storage<Context> {
-        updated_class_ids: Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
+    struct Storage<CONTEXT> {
+        updated_class_ids: Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, CONTEXT>, CONTEXT>,
     }
 
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
@@ -315,10 +315,10 @@ pub contract ContractInstanceRegistry {
 
     // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
 
-    impl<Context> Storage<Context> {
-        fn init(context: Context) -> Self {
+    impl<CONTEXT> Storage<CONTEXT> {
+        fn init(context: CONTEXT) -> Self {
             Self {
-                updated_class_ids: <Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context> as StateVariable<1, Context>>::new(
+                updated_class_ids: <Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, CONTEXT>, CONTEXT> as StateVariable<1, CONTEXT>>::new(
                     context,
                     1,
                 ),

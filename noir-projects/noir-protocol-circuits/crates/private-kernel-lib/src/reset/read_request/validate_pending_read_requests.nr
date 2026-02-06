@@ -34,13 +34,13 @@ impl PendingReadHint {
 /// More info here:
 /// - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 /// - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-pub fn validate_pending_read_requests<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32>(
+pub fn validate_pending_read_requests<let ReadRequestLen: u32, VALUE, let PendingValueLen: u32, let PendingReadHintsLen: u32>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    pending_values: ClaimedLengthArray<Scoped<Counted<Value>>, PendingValueLen>, // previous_kernel.end.[note_hashes|nullifiers]
+    pending_values: ClaimedLengthArray<Scoped<Counted<VALUE>>, PendingValueLen>, // previous_kernel.end.[note_hashes|nullifiers]
     pending_read_hints: [PendingReadHint; PendingReadHintsLen],
 )
 where
-    Value: Readable,
+    VALUE: Readable,
 {
     for hint in pending_read_hints {
         let read_request_index = hint.read_request_index;

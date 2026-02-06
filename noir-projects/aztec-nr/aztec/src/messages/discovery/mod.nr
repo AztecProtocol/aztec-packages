@@ -60,7 +60,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+pub type ComputeNoteHashAndNullifier<ENV> = unconstrained fn[ENV](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
 randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
@@ -74,9 +74,9 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 ///
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.
-pub unconstrained fn do_sync_state<Env>(
+pub unconstrained fn do_sync_state<ENV>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
 ) {
     debug_log("Performing state synchronization");
 

@@ -76,7 +76,7 @@ unconstrained fn notify_nullified_note_oracle_wrapper(nullifier: Field, note_has
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 #[oracle(utilityGetNotes)]
-unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
+unconstrained fn get_notes_oracle<NOTE, let M: u32, let MaxNotes: u32>(
     _owner: Option<AztecAddress>,
     _storage_slot: Field,
     _num_selects: u8,
@@ -94,16 +94,16 @@ unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to <HintedNote<Note> as Packable>::N. We need to pass it to TS in order to be able to
+    // This is always set to <HintedNote<NOTE> as Packable>::N. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
     _packed_hinted_note_length: u32,
-) -> BoundedVec<[Field; <HintedNote<Note> as Packable>::N], MaxNotes>
+) -> BoundedVec<[Field; <HintedNote<NOTE> as Packable>::N], MaxNotes>
 where
-    // TODO(https://github.com/noir-lang/noir/issues/9399): `Note: Packable` should work here.
-    HintedNote<Note>: Packable,
+    // TODO(https://github.com/noir-lang/noir/issues/9399): `NOTE: Packable` should work here.
+    HintedNote<NOTE>: Packable,
 {}
 
-pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
+pub unconstrained fn get_notes<NOTE, let M: u32, let MaxNotes: u32>(
     owner: Option<AztecAddress>,
     storage_slot: Field,
     num_selects: u8,
@@ -119,11 +119,11 @@ pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
     limit: u32,
     offset: u32,
     status: u8,
-) -> [Option<HintedNote<Note>>; MaxNotes]
+) -> [Option<HintedNote<NOTE>>; MaxNotes]
 where
-    Note: NoteType + Packable,
+    NOTE: NoteType + Packable,
 {
-    let packed_hinted_notes: BoundedVec<[Field; <HintedNote<Note> as Packable>::N], MaxNotes> = get_notes_oracle::<Note, M, MaxNotes>(
+    let packed_hinted_notes: BoundedVec<[Field; <HintedNote<NOTE> as Packable>::N], MaxNotes> = get_notes_oracle::<NOTE, M, MaxNotes>(
         owner,
         storage_slot,
         num_selects,
@@ -140,7 +140,7 @@ where
         offset,
         status,
         MaxNotes,
-        <HintedNote<Note> as Packable>::N,
+        <HintedNote<NOTE> as Packable>::N,
     );
 
     let mut notes = BoundedVec::<_, MaxNotes>::new();

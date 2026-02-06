@@ -187,24 +187,24 @@ impl TestEnvironment {
     ///   state_var.read()
     /// });
     /// ```
-    pub unconstrained fn public_context<Env, T>(self: Self, f: unconstrained fn[Env](PublicContext) -> T) -> T {
+    pub unconstrained fn public_context<ENV, T>(self: Self, f: unconstrained fn[ENV](PublicContext) -> T) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::none() }, f)
     }
 
     /// Variant of `public_context` which allows specifying the contract address in which the public context will
     /// execute, which will affect note and nullifier siloing, storage access, etc.
-    pub unconstrained fn public_context_at<Env, T>(
+    pub unconstrained fn public_context_at<ENV, T>(
         self: Self,
         addr: AztecAddress,
-        f: unconstrained fn[Env](PublicContext) -> T,
+        f: unconstrained fn[ENV](PublicContext) -> T,
     ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::some(addr) }, f)
     }
 
-    unconstrained fn public_context_opts<Env, T>(
+    unconstrained fn public_context_opts<ENV, T>(
         _self: Self,
         opts: PublicContextOptions,
-        f: unconstrained fn[Env](PublicContext) -> T,
+        f: unconstrained fn[ENV](PublicContext) -> T,
     ) -> T {
         txe_oracles::set_public_txe_context(opts.contract_address);
 
@@ -249,7 +249,7 @@ impl TestEnvironment {
     ///   state_var.get_note()
     /// });
     /// ```
-    pub unconstrained fn private_context<Env, T>(self: Self, f: unconstrained fn[Env](&mut PrivateContext) -> T) -> T {
+    pub unconstrained fn private_context<ENV, T>(self: Self, f: unconstrained fn[ENV](&mut PrivateContext) -> T) -> T {
         self.private_context_opts(
             PrivateContextOptions { contract_address: Option::none(), anchor_block_number: Option::none() },
             f,
@@ -258,10 +258,10 @@ impl TestEnvironment {
 
     /// Variant of `private_context` which allows specifying the contract address in which the private context will
     /// execute, which will affect note and nullifier siloing, storage access, etc.
-    pub unconstrained fn private_context_at<Env, T>(
+    pub unconstrained fn private_context_at<ENV, T>(
         self: Self,
         addr: AztecAddress,
-        f: unconstrained fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[ENV](&mut PrivateContext) -> T,
     ) -> T {
         self.private_context_opts(
             PrivateContextOptions { contract_address: Option::some(addr), anchor_block_number: Option::none() },
@@ -270,10 +270,10 @@ impl TestEnvironment {
     }
 
     /// Variant of `private_context` which allows specifying multiple configuration values via `PrivateContextOptions`.
-    pub unconstrained fn private_context_opts<Env, T>(
+    pub unconstrained fn private_context_opts<ENV, T>(
         _self: Self,
         opts: PrivateContextOptions,
-        f: unconstrained fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[ENV](&mut PrivateContext) -> T,
     ) -> T {
         let mut context = PrivateContext::new(
             txe_oracles::set_private_txe_context(opts.contract_address, opts.anchor_block_number),
@@ -313,24 +313,24 @@ impl TestEnvironment {
     ///   state_var.view_note()
     /// });
     /// ```
-    pub unconstrained fn utility_context<Env, T>(self: Self, f: unconstrained fn[Env](UtilityContext) -> T) -> T {
+    pub unconstrained fn utility_context<ENV, T>(self: Self, f: unconstrained fn[ENV](UtilityContext) -> T) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::none() }, f)
     }
 
     /// Variant of `utility_context` which allows specifying the contract address in which the utility context will
     /// execute, which will affect note and storage access.
-    pub unconstrained fn utility_context_at<Env, T>(
+    pub unconstrained fn utility_context_at<ENV, T>(
         self: Self,
         addr: AztecAddress,
-        f: unconstrained fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[ENV](UtilityContext) -> T,
     ) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::some(addr) }, f)
     }
 
-    unconstrained fn utility_context_opts<Env, T>(
+    unconstrained fn utility_context_opts<ENV, T>(
         _self: Self,
         opts: UtilityContextOptions,
-        f: unconstrained fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[ENV](UtilityContext) -> T,
     ) -> T {
         txe_oracles::set_utility_txe_context(opts.contract_address);
         let context = UtilityContext::new();
@@ -685,9 +685,9 @@ impl TestEnvironment {
     ///
     /// env.private_context(|context| { let (hinted_note, _) = get_note::<MockNote>(context, storage_slot); });
     /// ```
-    pub unconstrained fn discover_note<Note>(self: Self, note_message: NoteMessage<Note>)
+    pub unconstrained fn discover_note<NOTE>(self: Self, note_message: NoteMessage<NOTE>)
     where
-        Note: Packable + NoteType + NoteHash,
+        NOTE: Packable + NoteType + NoteHash,
     {
         self.discover_note_opts(NoteDiscoveryOptions { contract_address: Option::none() }, note_message);
     }
@@ -707,16 +707,16 @@ impl TestEnvironment {
     ///     let (hinted_note, _) = get_note::<MockNote>(context, storage_slot);
     /// });
     /// ```
-    pub unconstrained fn discover_note_at<Note>(self: Self, addr: AztecAddress, note_message: NoteMessage<Note>)
+    pub unconstrained fn discover_note_at<NOTE>(self: Self, addr: AztecAddress, note_message: NoteMessage<NOTE>)
     where
-        Note: Packable + NoteType + NoteHash,
+        NOTE: Packable + NoteType + NoteHash,
     {
         self.discover_note_opts(NoteDiscoveryOptions { contract_address: Option::some(addr) }, note_message);
     }
 
-    unconstrained fn discover_note_opts<Note>(self: Self, opts: NoteDiscoveryOptions, note_message: NoteMessage<Note>)
+    unconstrained fn discover_note_opts<NOTE>(self: Self, opts: NoteDiscoveryOptions, note_message: NoteMessage<NOTE>)
     where
-        Note: Packable + NoteType + NoteHash,
+        NOTE: Packable + NoteType + NoteHash,
     {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message created from the received note message.
@@ -734,12 +734,12 @@ impl TestEnvironment {
 
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one
-        // specialized for `Note`.
+        // specialized for `NOTE`.
         let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
-            assert_eq(note_type_id, Note::get_id());
-            assert_eq(packed_note.len(), <Note as Packable>::N);
+            assert_eq(note_type_id, NOTE::get_id());
+            assert_eq(packed_note.len(), <NOTE as Packable>::N);
 
-            let note = Note::unpack(subarray(packed_note.storage(), 0));
+            let note = NOTE::unpack(subarray(packed_note.storage(), 0));
 
             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
@@ -793,13 +793,13 @@ impl TestEnvironment {
     ///
     /// env.discover_event(event_message, recipient);
     /// ```
-    pub(crate) unconstrained fn discover_event<Event>(
+    pub(crate) unconstrained fn discover_event<EVENT>(
         self: Self,
-        event_message: EventMessage<Event>,
+        event_message: EventMessage<EVENT>,
         recipient: AztecAddress,
     )
     where
-        Event: Serialize + EventInterface,
+        EVENT: Serialize + EventInterface,
     {
         self.discover_event_opts(EventDiscoveryOptions { contract_address: Option::none() }, event_message, recipient);
     }
@@ -817,14 +817,14 @@ impl TestEnvironment {
     ///
     /// env.discover_event_at(contract_address, event_message);
     /// ```
-    pub(crate) unconstrained fn discover_event_at<Event>(
+    pub(crate) unconstrained fn discover_event_at<EVENT>(
         self: Self,
         addr: AztecAddress,
-        event_message: EventMessage<Event>,
+        event_message: EventMessage<EVENT>,
         recipient: AztecAddress,
     )
     where
-        Event: Serialize + EventInterface,
+        EVENT: Serialize + EventInterface,
     {
         self.discover_event_opts(
             EventDiscoveryOptions { contract_address: Option::some(addr) },
@@ -833,14 +833,14 @@ impl TestEnvironment {
         );
     }
 
-    unconstrained fn discover_event_opts<Event>(
+    unconstrained fn discover_event_opts<EVENT>(
         self: Self,
         opts: EventDiscoveryOptions,
-        event_message: EventMessage<Event>,
+        event_message: EventMessage<EVENT>,
         recipient: AztecAddress,
     )
     where
-        Event: Serialize + EventInterface,
+        EVENT: Serialize + EventInterface,
     {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message created from the received event message.
@@ -871,12 +871,12 @@ impl TestEnvironment {
         );
     }
 
-    unconstrained fn discover_data_in_message_plaintext<Env>(
+    unconstrained fn discover_data_in_message_plaintext<ENV>(
         self,
         message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
-        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message plaintext.

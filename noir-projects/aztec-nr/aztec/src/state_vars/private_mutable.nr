@@ -28,8 +28,8 @@ mod test;
 /// E.g.:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateMutable<YourNote, Context>, Context>,
+/// struct Storage<CONTEXT> {
+///     your_variable: Owned<PrivateMutable<YourNote, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -69,22 +69,22 @@ mod test;
 ///
 /// # Generic Parameters:
 ///
-/// * `Note` - A single note of this type will represent the PrivateMutable's current value at the given storage_slot.
-/// * `Context` - The execution context (PrivateContext or UtilityContext).
+/// * `NOTE` - A single note of this type will represent the PrivateMutable's current value at the given storage_slot.
+/// * `CONTEXT` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateMutable<Note, Context> {
-    context: Context,
+pub struct PrivateMutable<NOTE, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateMutable<Note, Context> {
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+impl<NOTE, CONTEXT> OwnedStateVariable<CONTEXT> for PrivateMutable<NOTE, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note, Context> PrivateMutable<Note, Context> {
+impl<NOTE, CONTEXT> PrivateMutable<NOTE, CONTEXT> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -94,9 +94,9 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note> PrivateMutable<Note, &mut PrivateContext>
+impl<NOTE> PrivateMutable<NOTE, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash,
+    NOTE: NoteType + NoteHash,
 {
     /// Computes the nullifier that will be created when this PrivateMutable is first initialized.
     ///
@@ -125,7 +125,7 @@ where
     ///
     /// ## Returns
     ///
-    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
+    /// * `NoteMessage<NOTE>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
     /// someone. You can call `.deliver()` on it to encrypt and deliver the note. See NoteMessage for more details.
     ///
     /// ## Advanced
@@ -139,9 +139,9 @@ where
     ///
     /// The initialization nullifier is deterministically computed from the storage slot and can leak privacy
     /// information (see `compute_initialization_nullifier` documentation).
-    pub fn initialize(self, note: Note) -> NoteMessage<Note>
+    pub fn initialize(self, note: NOTE) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // Nullify the storage slot.
         let nullifier = self.get_initialization_nullifier();
@@ -163,12 +163,12 @@ where
     ///
     /// ## Arguments
     ///
-    /// * `f` - A function that takes the current `Note` and returns a new `Note` that will replace it and become the
+    /// * `f` - A function that takes the current `NOTE` and returns a new `NOTE` that will replace it and become the
     /// "current value".
     ///
     /// ## Returns
     ///
-    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
+    /// * `NoteMessage<NOTE>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
     /// someone. You can call `.deliver()` on it to encrypt and log the note. See NoteMessage documentation for more
     /// details.
     ///
@@ -186,9 +186,9 @@ where
     /// The nullification of the previous note ensures that it cannot be used again, maintaining the invariant that a
     /// PrivateMutable has exactly one current note.
     ///
-    pub fn replace<Env>(self, f: fn[Env](Note) -> Note) -> NoteMessage<Note>
+    pub fn replace<ENV>(self, f: fn[ENV](NOTE) -> NOTE) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         let prev_confirmed_note = get_note(self.context, Option::some(self.owner), self.storage_slot);
 
@@ -208,20 +208,20 @@ where
     ///
     /// ## Arguments
     ///
-    /// * `f` - A function that takes an `Option` with the current `Note` and returns the `Note` to insert. This allows
+    /// * `f` - A function that takes an `Option` with the current `NOTE` and returns the `NOTE` to insert. This allows
     /// you to transform the current note before it is reinserted. The `Option` is `none` if the state variable was not
     /// initialized.
     ///
     ///
     /// ## Returns
     ///
-    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
+    /// * `NoteMessage<NOTE>` - A type-safe wrapper that requires you to decide whether to encrypt and send the note to
     /// someone. You can call `.deliver()` on it to encrypt and log the note. See NoteMessage documentation for more
     /// details.
     ///
-    pub fn initialize_or_replace<Env>(self, f: fn[Env](Option<Note>) -> Note) -> NoteMessage<Note>
+    pub fn initialize_or_replace<ENV>(self, f: fn[ENV](Option<NOTE>) -> NOTE) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value by providing
         // an inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would
@@ -264,7 +264,7 @@ where
     ///
     /// ## Returns
     ///
-    /// * `NoteMessage<Note>` - A type-safe wrapper containing the newly-created note. You still need to decide whether
+    /// * `NoteMessage<NOTE>` - A type-safe wrapper containing the newly-created note. You still need to decide whether
     /// to encrypt and send the note to someone. You can call `.deliver()` on it to encrypt and log the note. See
     /// NoteMessage documentation for more details.
     ///
@@ -286,9 +286,9 @@ where
     /// different nullifier, allowing it to be consumed in the future.
     ///
     /// docs:start:get_note
-    pub fn get_note(self) -> NoteMessage<Note>
+    pub fn get_note(self) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         let confirmed_note = get_note(self.context, Option::some(self.owner), self.storage_slot);
 
@@ -306,9 +306,9 @@ where
     }
 }
 
-impl<Note> PrivateMutable<Note, UtilityContext>
+impl<NOTE> PrivateMutable<NOTE, UtilityContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Computes the nullifier that will be created when this PrivateMutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
@@ -343,12 +343,12 @@ where
     ///
     /// ## Returns
     ///
-    /// * `Note` - The current note stored in this PrivateMutable.
+    /// * `NOTE` - The current note stored in this PrivateMutable.
     ///
     /// docs:start:view_note
-    pub unconstrained fn view_note(self) -> Note
+    pub unconstrained fn view_note(self) -> NOTE
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         view_note(Option::some(self.owner), self.storage_slot).note
     }

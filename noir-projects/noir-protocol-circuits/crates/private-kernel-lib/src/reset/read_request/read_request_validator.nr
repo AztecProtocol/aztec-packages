@@ -11,18 +11,18 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-pub struct ReadRequestValidator<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> {
+pub struct ReadRequestValidator<let ReadRequestLen: u32, VALUE, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> {
     pub read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    pub pending_values: ClaimedLengthArray<Scoped<Counted<Value>>, PendingValueLen>,
+    pub pending_values: ClaimedLengthArray<Scoped<Counted<VALUE>>, PendingValueLen>,
     pub tree_root: Field,
     pub propagated_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    pub hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>,
+    pub hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SETTLED_READ_LEAF_PREIMAGE>,
 }
 
-impl<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> ReadRequestValidator<ReadRequestLen, Value, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>
+impl<let ReadRequestLen: u32, VALUE, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE> ReadRequestValidator<ReadRequestLen, VALUE, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SETTLED_READ_LEAF_PREIMAGE>
 where
-    Value: Readable,
-    SettledReadLeafPreimage: LeafPreimage + Readable,
+    VALUE: Readable,
+    SETTLED_READ_LEAF_PREIMAGE: LeafPreimage + Readable,
 {
     // The `...Len` generic names passed through this circuit (see main.nr) are used to dictate array lengths.
     // But sometimes we want to compile variants of the reset circuit with some of these arrays having zero

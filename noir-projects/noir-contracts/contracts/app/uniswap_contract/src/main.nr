@@ -27,8 +27,8 @@ pub contract Uniswap {
     use dep::token_bridge::TokenBridge;
 
     #[storage]
-    struct Storage<Context> {
-        portal_address: PublicImmutable<EthAddress, Context>,
+    struct Storage<CONTEXT> {
+        portal_address: PublicImmutable<EthAddress, CONTEXT>,
     }
 
     #[external("public")]

@@ -49,8 +49,8 @@ pub contract AMM {
     use dep::uint_note::PartialUintNote;
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage<CONTEXT> {
+        config: PublicImmutable<Config, CONTEXT>,
     }
 
     /// Amount of liquidity which gets locked when liquidity is provided for the first time. Its purpose is to prevent

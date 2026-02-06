@@ -20,12 +20,12 @@ pub global MAX_EVENT_SERIALIZED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVE
 /// Creates the plaintext for a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
 /// This plaintext is meant to be decoded via [`decode_private_event_message`].
-pub fn encode_private_event_message<Event>(
-    event: Event,
+pub fn encode_private_event_message<EVENT>(
+    event: EVENT,
     randomness: Field,
-) -> [Field; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N + MESSAGE_EXPANDED_METADATA_LEN]
+) -> [Field; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <EVENT as Serialize>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
-    Event: EventInterface + Serialize,
+    EVENT: EventInterface + Serialize,
 {
     // We use `Serialize` because we want for events to be processable by off-chain actors, e.g. block explorers,
     // wallets and apps, without having to rely on contract invocation. If we used `Packable` we'd need to call utility
@@ -40,7 +40,7 @@ where
         "unexpected value for PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
     );
 
-    let mut msg_plaintext = [0; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Event as Serialize>::N];
+    let mut msg_plaintext = [0; PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <EVENT as Serialize>::N];
     msg_plaintext[PRIVATE_EVENT_MSG_PLAINTEXT_RANDOMNESS_INDEX] = randomness;
 
     for i in 0..serialized_event.len() {
@@ -50,7 +50,7 @@ where
     // The event type id is stored in the message metadata
     encode_message(
         PRIVATE_EVENT_MSG_TYPE_ID,
-        Event::get_event_type_id().to_field() as u64,
+        EVENT::get_event_type_id().to_field() as u64,
         msg_plaintext,
     )
 }

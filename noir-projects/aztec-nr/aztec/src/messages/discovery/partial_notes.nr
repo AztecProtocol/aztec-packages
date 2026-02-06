@@ -67,9 +67,9 @@ pub unconstrained fn process_partial_note_private_msg(
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
 /// being delivered to PXE if completed.
-pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
+pub unconstrained fn fetch_and_process_partial_note_completion_logs<ENV>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
 ) {
     let pending_partial_notes = CapsuleArray::at(
         contract_address,

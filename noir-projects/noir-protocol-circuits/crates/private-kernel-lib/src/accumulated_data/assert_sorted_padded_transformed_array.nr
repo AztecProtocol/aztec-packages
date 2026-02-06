@@ -57,16 +57,16 @@ use types::{
 ///                                         CappedSize
 /// output:         [v, v, v, v | p, p, p, p, p | 0, 0, 0]
 ///
-pub fn assert_sorted_padded_transformed_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
-    original_array: ClaimedLengthArray<Value, N>, // "kept" values (after squashing)
-    padded_items: [Value; N],
-    output_array: ClaimedLengthArray<TransformedValue, N>,
+pub fn assert_sorted_padded_transformed_array_capped_size<VALUE, TRANSFORMED_VALUE, let N: u32, ENV, let CappedSize: u32>(
+    original_array: ClaimedLengthArray<VALUE, N>, // "kept" values (after squashing)
+    padded_items: [VALUE; N],
+    output_array: ClaimedLengthArray<TRANSFORMED_VALUE, N>,
     // "Transformed" here means: "assert siloed" or "assert siloed & unique-ified".
-    assert_transformed: fn[Env](Value, TransformedValue) -> (),
+    assert_transformed: fn[ENV](VALUE, TRANSFORMED_VALUE) -> (),
 )
 where
-    Value: Ordered + Empty,
-    TransformedValue: Ordered + Empty,
+    VALUE: Ordered + Empty,
+    TRANSFORMED_VALUE: Ordered + Empty,
 {
     assert_sorted_padded_transformed_i_array_capped_size::<_, _, _, _, CappedSize>(
         original_array,
@@ -76,13 +76,13 @@ where
     );
 }
 
-unconstrained fn get_num_padded_items<Value, let N: u32>(
-    padded_items: [Value; N],
+unconstrained fn get_num_padded_items<VALUE, let N: u32>(
+    padded_items: [VALUE; N],
     original_array_length: u32,
     CappedSize: u32,
 ) -> u32
 where
-    Value: Ordered,
+    VALUE: Ordered,
 {
     let mut num_padded_items = 0;
     for i in original_array_length..CappedSize {
@@ -97,15 +97,15 @@ where
 /// Same as `assert_sorted_padded_transformed_array_capped_size` (see that fn for more details), but this callback
 /// `assert_transformed_i` has an additional index (`i`) argument.
 /// Used for note hashes to compute the unique note hash value with the index.
-pub fn assert_sorted_padded_transformed_i_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
-    original_array: ClaimedLengthArray<Value, N>,
-    padded_items: [Value; N],
-    output_array: ClaimedLengthArray<TransformedValue, N>,
-    assert_transformed_i: fn[Env](Value, TransformedValue, u32) -> (),
+pub fn assert_sorted_padded_transformed_i_array_capped_size<VALUE, TRANSFORMED_VALUE, let N: u32, ENV, let CappedSize: u32>(
+    original_array: ClaimedLengthArray<VALUE, N>,
+    padded_items: [VALUE; N],
+    output_array: ClaimedLengthArray<TRANSFORMED_VALUE, N>,
+    assert_transformed_i: fn[ENV](VALUE, TRANSFORMED_VALUE, u32) -> (),
 )
 where
-    Value: Ordered + Empty,
-    TransformedValue: Ordered + Empty,
+    VALUE: Ordered + Empty,
+    TRANSFORMED_VALUE: Ordered + Empty,
 {
     // Safety: The hints are constrained by `assert_sorted_padded_transformed_i_array_capped_size_with_hints`.
     let (sorted_index_hints, num_padded_items_hint) = unsafe {
@@ -128,17 +128,17 @@ where
 /// @param original_array - is technically the so-called `kept_` array that's already been through squashing; it's "original" from
 /// the perspective of this function and the transformations it will apply.
 /// @param CappedSize - is a comptime constant for the number of siloing iterations this variant of the circuit supports.
-fn assert_sorted_padded_transformed_i_array_capped_size_with_hints<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
-    original_array: ClaimedLengthArray<Value, N>,
-    padded_items: [Value; N],
-    output_array: ClaimedLengthArray<TransformedValue, N>, // after sorting, siloing, padding, etc.
-    assert_transformed_i: fn[Env](Value, TransformedValue, u32) -> (),
+fn assert_sorted_padded_transformed_i_array_capped_size_with_hints<VALUE, TRANSFORMED_VALUE, let N: u32, ENV, let CappedSize: u32>(
+    original_array: ClaimedLengthArray<VALUE, N>,
+    padded_items: [VALUE; N],
+    output_array: ClaimedLengthArray<TRANSFORMED_VALUE, N>, // after sorting, siloing, padding, etc.
+    assert_transformed_i: fn[ENV](VALUE, TRANSFORMED_VALUE, u32) -> (),
     sorted_index_hints: [u32; N],
     num_padded_items_hint: u32,
 )
 where
-    Value: Ordered + Empty,
-    TransformedValue: Ordered + Empty,
+    VALUE: Ordered + Empty,
+    TRANSFORMED_VALUE: Ordered + Empty,
 {
     let original_array_length = original_array.length;
     assert(

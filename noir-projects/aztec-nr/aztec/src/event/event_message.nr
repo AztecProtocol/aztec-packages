@@ -10,8 +10,8 @@ use crate::protocol::{address::AztecAddress, traits::Serialize};
 ///
 /// Use [`EventMessage::deliver_to`] to select a delivery mechanism.
 #[must_use = "Unused EventMessage result - use the `deliver_to` function to prevent the event information from being lost forever"]
-pub struct EventMessage<Event> {
-    pub(crate) new_event: NewEvent<Event>,
+pub struct EventMessage<EVENT> {
+    pub(crate) new_event: NewEvent<EVENT>,
 
     // EventMessage is constructed when an event is emitted, which means that the `context` object will be in scope. By
     // storing a reference to it inside this object we remove the need for its methods to receive it, resulting in a
@@ -19,11 +19,11 @@ pub struct EventMessage<Event> {
     context: &mut PrivateContext,
 }
 
-impl<Event> EventMessage<Event>
+impl<EVENT> EventMessage<EVENT>
 where
-    Event: EventInterface + Serialize,
+    EVENT: EventInterface + Serialize,
 {
-    pub(crate) fn new(new_event: NewEvent<Event>, context: &mut PrivateContext) -> Self {
+    pub(crate) fn new(new_event: NewEvent<EVENT>, context: &mut PrivateContext) -> Self {
         Self { new_event, context }
     }
 

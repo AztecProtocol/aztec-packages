@@ -28,11 +28,11 @@ pub global for_loop_no_op: fn(u32) -> () = |_i: u32| ();
  * Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
  * 
  */
-pub fn for_i_in_0_<Env1, Env2>(
+pub fn for_i_in_0_<ENV1, ENV2>(
     max: u32,
     MAX: u32,
-    f_within: fn[Env1](u32) -> (),
-    f_after_max: fn[Env2](u32) -> (),
+    f_within: fn[ENV1](u32) -> (),
+    f_after_max: fn[ENV2](u32) -> (),
     // If the dev knows what they're doing, they can choose to set the below bool
     // to `false` for a small constraint reduction.
     assert_max_lte_MAX: bool,
@@ -75,10 +75,10 @@ pub fn for_i_in_0_<Env1, Env2>(
  * Strangely, this sometimes results in many more constraints than `for_i_in_0_` with
  * the `for_loop_no_op` function. But other times, this one wins. I am confused.
  */
-pub fn for_i_only_in_0_<Env>(
+pub fn for_i_only_in_0_<ENV>(
     max: u32,
     MAX: u32,
-    f_within: fn[Env](u32) -> (),
+    f_within: fn[ENV](u32) -> (),
     // If the dev knows what they're doing, they can choose to set the below bool
     // to `false` for a small constraint reduction.
     assert_max_lte_MAX: bool,
@@ -125,14 +125,14 @@ pub fn for_i_only_in_0_<Env>(
  * Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
  * 
  */
-pub fn for_i_in_<Env1, Env2, Env3>(
+pub fn for_i_in_<ENV1, ENV2, ENV3>(
     min: u32,
     max: u32,
     MIN: u32,
     MAX: u32,
-    f_before_min: fn[Env1](u32) -> (),
-    f_within: fn[Env2](u32) -> (),
-    f_after_max: fn[Env3](u32) -> (),
+    f_before_min: fn[ENV1](u32) -> (),
+    f_within: fn[ENV2](u32) -> (),
+    f_after_max: fn[ENV3](u32) -> (),
     // If the dev knows what they're doing, they can choose to set either or both of the below bools
     // to `false` for a small constraint reduction.
     assert_min_lte_max: bool,
@@ -188,12 +188,12 @@ pub fn for_i_in_<Env1, Env2, Env3>(
  * @param f_within: Lambda functions of the form `|i| { my_array[i].assert_empty() }` (for example) can be specified.
  * 
  */
-pub fn for_i_only_in_<Env>(
+pub fn for_i_only_in_<ENV>(
     min: u32,
     max: u32,
     MIN: u32,
     MAX: u32,
-    f_within: fn[Env](u32) -> (),
+    f_within: fn[ENV](u32) -> (),
     // If the dev knows what they're doing, they can choose to set either or both of the below bools
     // to `false` for a small constraint reduction.
     assert_min_lte_max: bool,

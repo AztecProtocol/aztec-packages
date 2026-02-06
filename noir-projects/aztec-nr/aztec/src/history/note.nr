@@ -15,9 +15,9 @@ use crate::{
 
 mod test;
 
-pub fn assert_note_existed_by<Note>(block_header: BlockHeader, hinted_note: HintedNote<Note>) -> ConfirmedNote<Note>
+pub fn assert_note_existed_by<NOTE>(block_header: BlockHeader, hinted_note: HintedNote<NOTE>) -> ConfirmedNote<NOTE>
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash =
         hinted_note.note.compute_note_hash(hinted_note.owner, hinted_note.storage_slot, hinted_note.randomness);
@@ -43,25 +43,25 @@ where
     ConfirmedNote::new(hinted_note, unique_note_hash)
 }
 
-pub fn assert_note_was_valid_by<Note>(
+pub fn assert_note_was_valid_by<NOTE>(
     block_header: BlockHeader,
-    hinted_note: HintedNote<Note>,
+    hinted_note: HintedNote<NOTE>,
     context: &mut PrivateContext,
 )
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let confirmed_note = assert_note_existed_by(block_header, hinted_note);
     assert_note_was_not_nullified_by(block_header, confirmed_note, context);
 }
 
-pub fn assert_note_was_nullified_by<Note>(
+pub fn assert_note_was_nullified_by<NOTE>(
     block_header: BlockHeader,
-    confirmed_note: ConfirmedNote<Note>,
+    confirmed_note: ConfirmedNote<NOTE>,
     context: &mut PrivateContext,
 )
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
     let inner_nullifier =
@@ -72,13 +72,13 @@ where
     assert_nullifier_existed_by(block_header, siloed_nullifier);
 }
 
-pub fn assert_note_was_not_nullified_by<Note>(
+pub fn assert_note_was_not_nullified_by<NOTE>(
     block_header: BlockHeader,
-    confirmed_note: ConfirmedNote<Note>,
+    confirmed_note: ConfirmedNote<NOTE>,
     context: &mut PrivateContext,
 )
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
 

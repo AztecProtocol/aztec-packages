@@ -28,17 +28,17 @@ pub contract PrivateVoting {
     // docs:end:imports
     // docs:start:storage_struct
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // admin can start and end elections
-        admin: PublicMutable<AztecAddress, Context>,
+        admin: PublicMutable<AztecAddress, CONTEXT>,
         // election => candidate => number of votes
-        tally: Map<ElectionId, Map<Field, PublicMutable<Field, Context>, Context>, Context>,
+        tally: Map<ElectionId, Map<Field, PublicMutable<Field, CONTEXT>, CONTEXT>, CONTEXT>,
         // election => election ended
-        vote_ended: Map<ElectionId, PublicMutable<bool, Context>, Context>,
+        vote_ended: Map<ElectionId, PublicMutable<bool, CONTEXT>, CONTEXT>,
         // election => election started at
-        active_at_block: Map<ElectionId, PublicImmutable<u32, Context>, Context>,
+        active_at_block: Map<ElectionId, PublicImmutable<u32, CONTEXT>, CONTEXT>,
         // election => voter => single use claim that ensures voter can at most vote once per election
-        vote_claims: Map<ElectionId, Owned<SingleUseClaim<Context>, Context>, Context>,
+        vote_claims: Map<ElectionId, Owned<SingleUseClaim<CONTEXT>, CONTEXT>, CONTEXT>,
     }
     // docs:end:storage_struct
 

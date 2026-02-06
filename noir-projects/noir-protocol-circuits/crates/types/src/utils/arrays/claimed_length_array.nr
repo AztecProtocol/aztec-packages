@@ -63,7 +63,7 @@ where
         popped_item
     }
 
-    pub fn for_each<Env>(self, f: fn[Env](T) -> ()) {
+    pub fn for_each<ENV>(self, f: fn[ENV](T) -> ()) {
         let mut within_range = true;
         for i in 0..N {
             within_range &= i != self.length;
@@ -76,7 +76,7 @@ where
 
     // E.g.
     // dest.for_each_i(|source_item, i| { assert_eq(dest.array[i], source_item, "bad copy"); })
-    pub fn for_each_i<Env>(self, f: fn[Env](T, u32) -> ()) {
+    pub fn for_each_i<ENV>(self, f: fn[ENV](T, u32) -> ()) {
         let mut within_range = true;
         for i in 0..N {
             within_range &= i != self.length;

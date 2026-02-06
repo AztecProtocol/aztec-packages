@@ -65,13 +65,13 @@ impl CardNote {
     }
 }
 
-pub struct Deck<Context> {
-    owned_set: Owned<PrivateSet<FieldNote, Context>, Context>,
+pub struct Deck<CONTEXT> {
+    owned_set: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> StateVariable<1, Context> for Deck<Context> {
-    fn new(context: Context, storage_slot: Field) -> Self {
+impl<CONTEXT> StateVariable<1, CONTEXT> for Deck<CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         Deck { owned_set: Owned::new(context, storage_slot) }
     }
 
@@ -106,8 +106,8 @@ pub fn filter_cards<let N: u32>(
     selected
 }
 
-impl<Context> Deck<Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+impl<CONTEXT> Deck<CONTEXT> {
+    pub fn new(context: CONTEXT, storage_slot: Field) -> Self {
         let owned_set = Owned::new(context, storage_slot);
         Deck { owned_set }
     }

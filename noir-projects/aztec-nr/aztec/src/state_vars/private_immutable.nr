@@ -26,8 +26,8 @@ use crate::protocol::{
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateImmutable<YourNote, Context>, Context>,
+/// struct Storage<CONTEXT> {
+///     your_variable: Owned<PrivateImmutable<YourNote, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -48,22 +48,22 @@ use crate::protocol::{
 ///
 /// # Generic Parameters:
 ///
-/// * `Note` - A single note of this type will represent the PrivateImmutable's value at the given storage_slot.
-/// * `Context` - The execution context (PrivateContext or UtilityContext).
+/// * `NOTE` - A single note of this type will represent the PrivateImmutable's value at the given storage_slot.
+/// * `CONTEXT` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateImmutable<Note, Context> {
-    context: Context,
+pub struct PrivateImmutable<NOTE, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateImmutable<Note, Context> {
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+impl<NOTE, CONTEXT> OwnedStateVariable<CONTEXT> for PrivateImmutable<NOTE, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note, Context> PrivateImmutable<Note, Context> {
+impl<NOTE, CONTEXT> PrivateImmutable<NOTE, CONTEXT> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -73,7 +73,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     }
 }
 
-impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
+impl<NOTE> PrivateImmutable<NOTE, &mut PrivateContext> {
     /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
     ///
     /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts
@@ -95,9 +95,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     ///
     /// Unlike PrivateMutable, this note will never be nullified or replaced through the state variable interface
     /// - it persists for the lifetime of the state variable.
-    pub fn initialize(self, note: Note) -> NoteMessage<Note>
+    pub fn initialize(self, note: NOTE) -> NoteMessage<NOTE>
     where
-        Note: NoteType + NoteHash + Packable,
+        NOTE: NoteType + NoteHash + Packable,
     {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents the value
         // from being initialized again as a nullifier can be included only once.
@@ -115,9 +115,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
     /// after initialization.
     ///
-    pub fn get_note(self) -> Note
+    pub fn get_note(self) -> NOTE
     where
-        Note: NoteType + NoteHash + Packable,
+        NOTE: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
         let confirmed_note = get_note(self.context, Option::some(self.owner), storage_slot);
@@ -129,9 +129,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     }
 }
 
-impl<Note> PrivateImmutable<Note, UtilityContext>
+impl<NOTE> PrivateImmutable<NOTE, UtilityContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
@@ -154,9 +154,9 @@ where
     ///
     /// Unlike the constrained `get_note()`, this function does not push read requests or perform validation. It simply
     /// reads the note from the PXE's database.
-    pub unconstrained fn view_note(self) -> Note
+    pub unconstrained fn view_note(self) -> NOTE
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         view_note(Option::some(self.owner), self.storage_slot).note
     }

@@ -29,11 +29,11 @@ mod test;
 /// struct ElectionId { id: Field }
 ///
 /// #[storage]
-/// struct Storage<Context> {
+/// struct Storage<CONTEXT> {
 ///     // election => candidate => number of votes
-///     tally: Map<ElectionId, Map<Field, PublicMutable<Field, Context>, Context>, Context>,
+///     tally: Map<ElectionId, Map<Field, PublicMutable<Field, CONTEXT>, CONTEXT>, CONTEXT>,
 ///     // track right to vote at most once per election
-///     vote_claims: Map<ElectionId, Owned<SingleUseClaim<Context>, Context>, Context>,
+///     vote_claims: Map<ElectionId, Owned<SingleUseClaim<CONTEXT>, CONTEXT>, CONTEXT>,
 /// }
 ///
 /// #[external("private")]
@@ -63,19 +63,19 @@ mod test;
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 /// infer who likely exercised the claim, so consider that when designing flows.
 /// ```
-pub struct SingleUseClaim<Context> {
-    context: Context,
+pub struct SingleUseClaim<CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Context> OwnedStateVariable<Context> for SingleUseClaim<Context> {
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+impl<CONTEXT> OwnedStateVariable<CONTEXT> for SingleUseClaim<CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Context> SingleUseClaim<Context> {
+impl<CONTEXT> SingleUseClaim<CONTEXT> {
     /// Computes the nullifier that will be created when the single use claim is claimed by the owner (denoted by the
     /// app-siloed nullifier hiding key `owner_nhk_app`).
     ///

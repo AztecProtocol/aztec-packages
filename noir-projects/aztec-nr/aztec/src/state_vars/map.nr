@@ -12,10 +12,10 @@ use crate::state_vars::StateVariable;
 /// You can declare a state variable contained within a Map in your contract's
 /// [`storage`](crate::macros::storage::storage) struct.
 ///
-/// For example, you might use `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track token balances
+/// For example, you might use `Map<AztecAddress, PublicMutable<FieldNote, CONTEXT>, CONTEXT>` to track token balances
 /// for different users, similar to how you'd use `mapping(address => uint256)` in Solidity.
 ///
-/// > Aside: the verbose `Context` in the declaration is a consequence of > leveraging Noir's regular syntax for
+/// > Aside: the verbose `CONTEXT` in the declaration is a consequence of > leveraging Noir's regular syntax for
 /// generics to ensure that certain > state variable methods can only be called in some contexts (private, > public,
 /// utility).
 ///
@@ -30,7 +30,7 @@ use crate::state_vars::StateVariable;
 /// - `PublicImmutable`
 /// - `DelayedPublicMutable`
 /// - `Map`
-/// - `Context`: The execution context (handles private/public function contexts)
+/// - `CONTEXT`: The execution context (handles private/public function contexts)
 ///
 /// ## Usage Maps are typically declared in your contract's [`storage`](crate::macros::storage::storage) struct and accessed using the `at(key)` method to get the state variable for a specific key. The resulting state variable can then be read from or written to using its own methods.
 ///
@@ -47,16 +47,16 @@ use crate::state_vars::StateVariable;
 /// `poseidon2_hash([base_slot, key.to_field()])`, ensuring cryptographically secure slot separation.
 ///
 /// docs:start:map
-pub struct Map<K, V, Context> {
-    pub context: Context,
+pub struct Map<K, V, CONTEXT> {
+    pub context: CONTEXT,
     storage_slot: Field,
 }
 
 // Map reserves a single storage slot regardless of what it stores because nothing is stored at said slot: it is only
 // used to derive the storage slots of nested state variables, which is expected to never result in collisions or slots
 // being close to one another due to these being hashes. This mirrors the strategy adopted by Solidity mappings.
-impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
-    fn new(context: Context, storage_slot: Field) -> Self {
+impl<K, V, CONTEXT> StateVariable<1, CONTEXT> for Map<K, V, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Map { context, storage_slot }
     }
@@ -66,7 +66,7 @@ impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
     }
 }
 
-impl<K, V, Context> Map<K, V, Context> {
+impl<K, V, CONTEXT> Map<K, V, CONTEXT> {
     /// Returns the state variable associated with the given key.
     ///
     /// This is equivalent to accessing `mapping[`key`]` in Solidity. It returns the state variable instance for the
@@ -99,7 +99,7 @@ impl<K, V, Context> Map<K, V, Context> {
     pub fn at<let N: u32>(self, key: K) -> V
     where
         K: ToField,
-        V: StateVariable<N, Context>,
+        V: StateVariable<N, CONTEXT>,
     {
         V::new(
             self.context,

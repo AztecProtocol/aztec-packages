@@ -45,7 +45,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
             if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
                 .as_trait_constraint()) {
                 panic(
-                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., Context>>, Context>.",
+                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., CONTEXT>>, CONTEXT>.",
                 )
             }
 
@@ -58,7 +58,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         let slot_as_field = slot as Field;
 
         storage_vars_constructors = storage_vars_constructors.push_back(
-            quote { $name: aztec::state_vars::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
+            quote { $name: aztec::state_vars::StateVariable::<$storage_size, CONTEXT>::new(context, $slot_as_field) },
         );
 
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
@@ -85,8 +85,8 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
-        impl<Context> Storage<Context> {
-            fn init(context: Context) -> Self {
+        impl<CONTEXT> Storage<CONTEXT> {
+            fn init(context: CONTEXT) -> Self {
                 Self {
                     $storage_vars_constructors
                 }
@@ -111,7 +111,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
 }
 
 /// Same as `storage`, except the user is in charge of providing an implementation of the `init` constructor function
-/// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
+/// with signature `fn init<CONTEXT>(context: CONTEXT) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
 ///
 /// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in

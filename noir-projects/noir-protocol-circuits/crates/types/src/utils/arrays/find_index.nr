@@ -1,8 +1,8 @@
 /// Helper function to find the index of the first element in an array that satisfies a given predicate.
 /// If the element is not found, the function returns the length of the array `N`
-pub unconstrained fn find_first_index<T, let N: u32, Env>(
+pub unconstrained fn find_first_index<T, let N: u32, ENV>(
     array: [T; N],
-    find: fn[Env](T) -> bool,
+    find: fn[ENV](T) -> bool,
 ) -> u32 {
     let mut index = N;
     for i in 0..N {
@@ -16,9 +16,9 @@ pub unconstrained fn find_first_index<T, let N: u32, Env>(
 
 /// Helper function to find the index of the last element in an array that satisfies a given predicate.
 /// If the element is not found, the function returns the length of the array `N`
-pub unconstrained fn find_last_index<T, let N: u32, Env>(
+pub unconstrained fn find_last_index<T, let N: u32, ENV>(
     array: [T; N],
-    find: fn[Env](T) -> bool,
+    find: fn[ENV](T) -> bool,
 ) -> u32 {
     let mut index = N;
     for i in 0..N {

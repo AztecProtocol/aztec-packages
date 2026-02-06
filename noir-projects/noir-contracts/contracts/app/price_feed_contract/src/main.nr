@@ -11,8 +11,8 @@ pub contract PriceFeed {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
-    struct Storage<Context> {
-        assets: Map<Field, PublicMutable<Asset, Context>, Context>,
+    struct Storage<CONTEXT> {
+        assets: Map<Field, PublicMutable<Asset, CONTEXT>, CONTEXT>,
     }
 
     #[external("public")]

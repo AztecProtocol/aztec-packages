@@ -53,15 +53,15 @@ pub contract Token {
 
     // docs:start:storage_struct
     #[storage]
-    struct Storage<Context> {
-        admin: PublicMutable<AztecAddress, Context>,
-        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
-        decimals: PublicImmutable<u8, Context>,
+    struct Storage<CONTEXT> {
+        admin: PublicMutable<AztecAddress, CONTEXT>,
+        minters: Map<AztecAddress, PublicMutable<bool, CONTEXT>, CONTEXT>,
+        balances: Owned<BalanceSet<CONTEXT>, CONTEXT>,
+        total_supply: PublicMutable<u128, CONTEXT>,
+        public_balances: Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT>,
+        symbol: PublicImmutable<FieldCompressedString, CONTEXT>,
+        name: PublicImmutable<FieldCompressedString, CONTEXT>,
+        decimals: PublicImmutable<u8, CONTEXT>,
     }
     // docs:end:storage_struct
 

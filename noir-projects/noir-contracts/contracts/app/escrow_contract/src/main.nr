@@ -15,8 +15,8 @@ pub contract Escrow {
 
     // docs:start:single_private_immutable_storage
     #[storage]
-    struct Storage<Context> {
-        owner: SinglePrivateImmutable<AddressNote, Context>,
+    struct Storage<CONTEXT> {
+        owner: SinglePrivateImmutable<AddressNote, CONTEXT>,
     }
     // docs:end:single_private_immutable_storage
 

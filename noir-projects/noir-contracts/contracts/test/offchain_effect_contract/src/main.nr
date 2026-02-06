@@ -27,8 +27,8 @@ contract OffchainEffect {
     }
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<PrivateSet<UintNote, Context>, Context>,
+    struct Storage<CONTEXT> {
+        balances: Owned<PrivateSet<UintNote, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

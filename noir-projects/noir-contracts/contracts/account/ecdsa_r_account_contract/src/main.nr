@@ -18,8 +18,8 @@ pub contract EcdsaRAccount {
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
-        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
+    struct Storage<CONTEXT> {
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, CONTEXT>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification

@@ -16,18 +16,18 @@ pub use low_leaf::is_valid_low_leaf;
 
 /// Batch insert values into the indexed tree by creating a subtree of the values and inserting the subtree root.
 /// This function does not allow updating the values of existing leaves.
-pub fn batch_insert_no_update<Value, Leaf, let TreeHeight: u32, let SubtreeWidth: u32, let SubtreeHeight: u32>(
+pub fn batch_insert_no_update<VALUE, LEAF, let TreeHeight: u32, let SubtreeWidth: u32, let SubtreeHeight: u32>(
     start_snapshot: AppendOnlyTreeSnapshot,
-    values_to_insert: [Value; SubtreeWidth],
-    sorted_values: [Value; SubtreeWidth],
+    values_to_insert: [VALUE; SubtreeWidth],
+    sorted_values: [VALUE; SubtreeWidth],
     sorted_values_indexes: [u32; SubtreeWidth],
-    low_leaf_preimages: [Leaf; SubtreeWidth],
+    low_leaf_preimages: [LEAF; SubtreeWidth],
     low_leaf_membership_witnesses: [MembershipWitness<TreeHeight>; SubtreeWidth],
     new_subtree_sibling_path: [Field; TreeHeight - SubtreeHeight],
 ) -> AppendOnlyTreeSnapshot
 where
-    Value: IndexedTreeLeafValue,
-    Leaf: IndexedTreeLeafPreimage<Value>,
+    VALUE: IndexedTreeLeafValue,
+    LEAF: IndexedTreeLeafPreimage<VALUE>,
 {
     // Sanity check: ensure this function is called with correct generics.
     std::static_assert(
@@ -75,7 +75,7 @@ where
             let value_index = sorted_values_indexes[i];
 
             // Point the value to the low leaf's next leaf and stage it for appending later.
-            leaves_to_append[value_index] = Leaf::build_insertion_leaf(value, low_leaf_preimage);
+            leaves_to_append[value_index] = LEAF::build_insertion_leaf(value, low_leaf_preimage);
 
             // Point the low leaf to the new leaf and update it in the tree.
             let new_leaf_insertion_index = start_insertion_index + value_index as Field;
@@ -90,7 +90,7 @@ where
     }
 
     // Compute the root of the subtree form by the new leaves to be appended.
-    let subtree_root = compute_tree_root(leaves_to_append.map(|leaf: Leaf| leaf.as_leaf()));
+    let subtree_root = compute_tree_root(leaves_to_append.map(|leaf: LEAF| leaf.as_leaf()));
     // Since low leaves were updated, the tree root has changed.
     // Insert the new subtree root against the updated tree root.
     let current_snapshot = AppendOnlyTreeSnapshot {

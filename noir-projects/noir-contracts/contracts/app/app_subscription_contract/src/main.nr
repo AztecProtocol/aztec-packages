@@ -55,10 +55,10 @@ pub contract AppSubscription {
     use token::Token;
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage<CONTEXT> {
+        config: PublicImmutable<Config, CONTEXT>,
         // docs:start:owned_private_mutable
-        subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
+        subscriptions: Owned<PrivateMutable<SubscriptionNote, CONTEXT>, CONTEXT>,
         // docs:end:owned_private_mutable
     }
 

@@ -21,15 +21,15 @@ pub contract StateVars {
     }
 
     #[storage_no_init]
-    struct Storage<Context> {
-        mock_struct: PublicMutable<MockStruct, Context>,
-        private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
-        private_immutable: Owned<PrivateImmutable<FieldNote, Context>, Context>,
-        public_immutable: PublicImmutable<MockStruct, Context>,
+    struct Storage<CONTEXT> {
+        mock_struct: PublicMutable<MockStruct, CONTEXT>,
+        private_mutable: Owned<PrivateMutable<FieldNote, CONTEXT>, CONTEXT>,
+        private_immutable: Owned<PrivateImmutable<FieldNote, CONTEXT>, CONTEXT>,
+        public_immutable: PublicImmutable<MockStruct, CONTEXT>,
     }
 
-    impl<Context> Storage<Context> {
-        fn init(context: Context) -> Self {
+    impl<CONTEXT> Storage<CONTEXT> {
+        fn init(context: CONTEXT) -> Self {
             Storage {
                 mock_struct: PublicMutable::new(context, 1),
                 private_mutable: Owned::new(context, 3),

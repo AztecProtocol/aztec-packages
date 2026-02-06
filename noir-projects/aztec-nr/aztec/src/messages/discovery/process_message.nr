@@ -23,9 +23,9 @@ use crate::protocol::{address::AztecAddress, debug_log::{debug_log, debug_log_fo
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
-pub unconstrained fn process_message_ciphertext<Env>(
+pub unconstrained fn process_message_ciphertext<ENV>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
@@ -46,9 +46,9 @@ pub unconstrained fn process_message_ciphertext<Env>(
     }
 }
 
-pub unconstrained fn process_message_plaintext<Env>(
+pub unconstrained fn process_message_plaintext<ENV>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
 ) {

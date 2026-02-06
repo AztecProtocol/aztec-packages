@@ -6,16 +6,16 @@ use crate::state_vars::StateVariable;
 ///
 /// This is one of the most basic public state variables. It is equivalent to a non-`immutable` non-`constant` Solidity
 /// state variable.
-pub struct PublicMutable<T, Context> {
-    context: Context,
+pub struct PublicMutable<T, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
-impl<T, Context, let M: u32> StateVariable<M, Context> for PublicMutable<T, Context>
+impl<T, CONTEXT, let M: u32> StateVariable<M, CONTEXT> for PublicMutable<T, CONTEXT>
 where
     T: Packable<N = M>,
 {
-    fn new(context: Context, storage_slot: Field) -> Self {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { context, storage_slot }
     }

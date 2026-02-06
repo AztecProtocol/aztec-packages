@@ -6,15 +6,15 @@ use crate::{
 use crate::protocol::traits::{Serialize, ToField};
 
 /// An event that was emitted in the current contract call.
-pub struct NewEvent<Event> {
-    pub(crate) event: Event,
+pub struct NewEvent<EVENT> {
+    pub(crate) event: EVENT,
     pub(crate) randomness: Field,
 }
 
 /// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelf::emit`].
-pub fn emit_event_in_private<Event>(context: &mut PrivateContext, event: Event) -> EventMessage<Event>
+pub fn emit_event_in_private<EVENT>(context: &mut PrivateContext, event: EVENT) -> EventMessage<EVENT>
 where
-    Event: EventInterface + Serialize,
+    EVENT: EventInterface + Serialize,
 {
     // In private events, we automatically inject randomness to prevent event commitment preimage attacks and event
     // commitment collisions (the commitments are included in the nullifier tree and duplicate nullifiers are by
@@ -35,11 +35,11 @@ where
 }
 
 /// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelf::emit`].
-pub fn emit_event_in_public<Event>(context: PublicContext, event: Event)
+pub fn emit_event_in_public<EVENT>(context: PublicContext, event: EVENT)
 where
-    Event: EventInterface + Serialize,
+    EVENT: EventInterface + Serialize,
 {
-    let mut log_content = [0; <Event as Serialize>::N + 1];
+    let mut log_content = [0; <EVENT as Serialize>::N + 1];
 
     let serialized_event = event.serialize();
     for i in 0..serialized_event.len() {
@@ -49,7 +49,7 @@ where
     // We put the selector in the "last" place, to avoid reading or assigning to an expression in an index
     //
     // TODO(F-224): change this order.
-    log_content[serialized_event.len()] = Event::get_event_type_id().to_field();
+    log_content[serialized_event.len()] = EVENT::get_event_type_id().to_field();
 
     context.emit_public_log(log_content);
 }

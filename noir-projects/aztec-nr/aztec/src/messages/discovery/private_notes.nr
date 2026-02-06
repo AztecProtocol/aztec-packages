@@ -6,13 +6,13 @@ use crate::messages::{
 };
 use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format};
 
-pub unconstrained fn process_private_note_msg<Env>(
+pub unconstrained fn process_private_note_msg<ENV>(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
@@ -36,13 +36,13 @@ pub unconstrained fn process_private_note_msg<Env>(
 
 /// Attempts discovery of a note given information about its contents and the transaction in which it is suspected the
 /// note was created.
-pub unconstrained fn attempt_note_discovery<Env>(
+pub unconstrained fn attempt_note_discovery<ENV>(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ENV>,
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,

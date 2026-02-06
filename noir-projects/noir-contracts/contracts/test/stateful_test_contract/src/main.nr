@@ -19,9 +19,9 @@ pub contract StatefulTest {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
-        public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+    struct Storage<CONTEXT> {
+        notes: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
+        public_values: Map<AztecAddress, PublicMutable<Field, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

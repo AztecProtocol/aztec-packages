@@ -24,10 +24,10 @@ pub contract Crowdfunding {
     }
     // docs:start:storage
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage<CONTEXT> {
+        config: PublicImmutable<Config, CONTEXT>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
+        donation_receipts: Owned<PrivateSet<UintNote, CONTEXT>, CONTEXT>,
     }
     // docs:end:storage
 

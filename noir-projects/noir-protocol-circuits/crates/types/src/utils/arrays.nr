@@ -82,7 +82,7 @@ where
 
 // Returns the number of consecutive elements at the start of the array for which the predicate returns false.
 // This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
-pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
+pub fn array_length_until<T, let N: u32, ENV>(array: [T; N], predicate: fn[ENV](T) -> bool) -> u32 {
     let mut length = 0;
     let mut stop = false;
     for i in 0..N {

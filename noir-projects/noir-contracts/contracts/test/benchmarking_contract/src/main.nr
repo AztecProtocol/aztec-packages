@@ -17,9 +17,9 @@ pub contract Benchmarking {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
-        balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+    struct Storage<CONTEXT> {
+        notes: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
+        balances: Map<AztecAddress, PublicMutable<Field, CONTEXT>, CONTEXT>,
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.

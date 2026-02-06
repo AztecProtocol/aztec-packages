@@ -15,9 +15,9 @@ pub contract Child {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        current_value: PublicMutable<Field, Context>,
-        private_values: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage<CONTEXT> {
+        current_value: PublicMutable<Field, CONTEXT>,
+        private_values: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.

@@ -37,8 +37,8 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: SinglePrivateMutable<YourNote, Context>,
+/// struct Storage<CONTEXT> {
+///     your_variable: SinglePrivateMutable<YourNote, CONTEXT>,
 /// }
 /// ```
 ///
@@ -60,10 +60,10 @@ mod test;
 /// A private token's admin and total supply can be stored in two single private mutable state variables:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     admin: SinglePrivateMutable<AddressNote, Context>,
-///     total_supply: SinglePrivateMutable<UintNote, Context>,
-///     balances: Owned<BalanceSet<Context>, Context>,
+/// struct Storage<CONTEXT> {
+///     admin: SinglePrivateMutable<AddressNote, CONTEXT>,
+///     total_supply: SinglePrivateMutable<UintNote, CONTEXT>,
+///     balances: Owned<BalanceSet<CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -86,13 +86,13 @@ mod test;
 /// decide what method of note message delivery to use. Keep in mind that unless the caller of the relevant function is
 /// incentivized to deliver the note you should use constrained delivery or you are at a risk of a malicious actor
 /// bricking the contract.
-pub struct SinglePrivateMutable<Note, Context> {
-    context: Context,
+pub struct SinglePrivateMutable<NOTE, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
-impl<Note, Context> StateVariable<1, Context> for SinglePrivateMutable<Note, Context> {
-    fn new(context: Context, storage_slot: Field) -> Self {
+impl<NOTE, CONTEXT> StateVariable<1, CONTEXT> for SinglePrivateMutable<NOTE, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
@@ -102,7 +102,7 @@ impl<Note, Context> StateVariable<1, Context> for SinglePrivateMutable<Note, Con
     }
 }
 
-impl<Note, Context> SinglePrivateMutable<Note, Context> {
+impl<NOTE, CONTEXT> SinglePrivateMutable<NOTE, CONTEXT> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -112,9 +112,9 @@ impl<Note, Context> SinglePrivateMutable<Note, Context> {
     }
 }
 
-impl<Note> SinglePrivateMutable<Note, &mut PrivateContext>
+impl<NOTE> SinglePrivateMutable<NOTE, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash,
+    NOTE: NoteType + NoteHash,
 {
     /// Computes the nullifier that will be created when this SinglePrivateMutable is first initialized.
     ///
@@ -133,9 +133,9 @@ where
     ///
     /// This function can only be called once per SinglePrivateMutable. Subsequent calls will fail because the
     /// initialization nullifier will already exist.
-    pub fn initialize(self, note: Note, owner: AztecAddress) -> NoteMessage<Note>
+    pub fn initialize(self, note: NOTE, owner: AztecAddress) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // Nullify the storage slot.
         let nullifier = self.get_initialization_nullifier();
@@ -162,9 +162,9 @@ where
     ///
     /// The nullification of the previous note ensures that it cannot be used again, maintaining the invariant that a
     /// SinglePrivateMutable has exactly one current note.
-    pub fn replace<Env>(self, f: fn[Env](Note) -> Note, new_owner: AztecAddress) -> NoteMessage<Note>
+    pub fn replace<ENV>(self, f: fn[ENV](NOTE) -> NOTE, new_owner: AztecAddress) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         let prev_confirmed_note = get_note(self.context, Option::none(), self.storage_slot);
 
@@ -179,18 +179,18 @@ where
 
     /// Initializes the SinglePrivateMutable if it's uninitialized, or replaces the current note using a transform
     /// function `f` while the new note is owned by `new_owner`. The function `f` takes an `Option` with the current
-    /// `Note` and returns the `Note` to insert. The `Option` is `none` if the state variable was not initialized.
+    /// `NOTE` and returns the `NOTE` to insert. The `Option` is `none` if the state variable was not initialized.
     ///
     /// This function returns a [`NoteMessage`] that allows you to decide what method of note message delivery to use
     /// for
     /// the new note.
-    pub fn initialize_or_replace<Env>(
+    pub fn initialize_or_replace<ENV>(
         self,
-        f: fn[Env](Option<Note>) -> Note,
+        f: fn[ENV](Option<NOTE>) -> NOTE,
         new_owner: AztecAddress,
-    ) -> NoteMessage<Note>
+    ) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value by providing
         // an inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would
@@ -219,9 +219,9 @@ where
     /// This function returns a [`NoteMessage`] that allows you to decide what method of note message delivery to use
     /// for
     /// the new note.
-    pub fn get_note(self) -> NoteMessage<Note>
+    pub fn get_note(self) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         let confirmed_note = get_note(self.context, Option::none(), self.storage_slot);
 
@@ -236,9 +236,9 @@ where
     }
 }
 
-impl<Note> SinglePrivateMutable<Note, UtilityContext>
+impl<NOTE> SinglePrivateMutable<NOTE, UtilityContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Computes the nullifier that will be created when this SinglePrivateMutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
@@ -256,9 +256,9 @@ where
     }
 
     /// Returns the current note in this SinglePrivateMutable.
-    pub unconstrained fn view_note(self) -> Note
+    pub unconstrained fn view_note(self) -> NOTE
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         // The note owner is set to none rather than msg_sender(), which means that anyone with access to this note in
         // the PXE can read it.

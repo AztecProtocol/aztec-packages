@@ -17,8 +17,8 @@ pub contract NoteGetter {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage<CONTEXT> {
+        set: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

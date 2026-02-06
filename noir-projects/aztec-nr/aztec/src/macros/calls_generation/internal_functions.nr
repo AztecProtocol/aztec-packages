@@ -62,8 +62,8 @@ pub(crate) comptime fn generate_call_internal_struct(m: Module) -> Quoted {
         public_internal_functions.map(|function| generate_public_internal_function_call(function)).join(quote {});
 
     quote {
-        pub struct CallInternal<Context> {
-            pub context: Context,
+        pub struct CallInternal<CONTEXT> {
+            pub context: CONTEXT,
         }
 
         impl CallInternal<&mut aztec::context::PrivateContext> {

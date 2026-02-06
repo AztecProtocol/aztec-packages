@@ -4,7 +4,7 @@ use crate::note::note_interface::NoteType;
 use crate::protocol::{address::AztecAddress, traits::{Packable, ToField}};
 use std::option::Option;
 
-pub struct NoteViewerOptions<Note, let M: u32> {
+pub struct NoteViewerOptions<NOTE, let M: u32> {
     pub selects: BoundedVec<Option<Select>, M>,
     pub sorts: BoundedVec<Option<Sort>, M>,
     pub limit: u32,
@@ -13,10 +13,10 @@ pub struct NoteViewerOptions<Note, let M: u32> {
     pub status: u8,
 }
 
-impl<Note, let M: u32> NoteViewerOptions<Note, M> {
-    pub fn new() -> NoteViewerOptions<Note, M>
+impl<NOTE, let M: u32> NoteViewerOptions<NOTE, M> {
+    pub fn new() -> NoteViewerOptions<NOTE, M>
     where
-        Note: NoteType + Packable<N = M>,
+        NOTE: NoteType + Packable<N = M>,
     {
         NoteViewerOptions {
             selects: BoundedVec::new(),

@@ -11,8 +11,8 @@ use crate::{
 use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A note that was created in the current contract call.
-pub struct NewNote<Note> {
-    pub(crate) note: Note,
+pub struct NewNote<NOTE> {
+    pub(crate) note: NOTE,
     pub(crate) owner: AztecAddress,
     pub(crate) storage_slot: Field,
     pub(crate) randomness: Field,
@@ -20,22 +20,22 @@ pub struct NewNote<Note> {
     pub(crate) note_hash_counter: u32,
 }
 
-impl<Note> NewNote<Note> {
-    fn new(note: Note, owner: AztecAddress, storage_slot: Field, randomness: Field, note_hash_counter: u32) -> Self {
+impl<NOTE> NewNote<NOTE> {
+    fn new(note: NOTE, owner: AztecAddress, storage_slot: Field, randomness: Field, note_hash_counter: u32) -> Self {
         // A counter of value zero indicates a settled note, which a NewNote by definition cannot be.
         assert(note_hash_counter != 0, "A NewNote cannot have a zero note hash counter");
         Self { note, owner, storage_slot, randomness, note_hash_counter }
     }
 }
 
-pub fn create_note<Note>(
+pub fn create_note<NOTE>(
     context: &mut PrivateContext,
     owner: AztecAddress,
     storage_slot: Field,
-    note: Note,
-) -> NoteMessage<Note>
+    note: NOTE,
+) -> NoteMessage<NOTE>
 where
-    Note: NoteType + NoteHash + Packable,
+    NOTE: NoteType + NoteHash + Packable,
 {
     let note_hash_counter = context.side_effect_counter;
 
@@ -51,7 +51,7 @@ where
         owner,
         storage_slot,
         randomness,
-        Note::get_id(),
+        NOTE::get_id(),
         note.pack(),
         note_hash,
         note_hash_counter,
@@ -65,9 +65,9 @@ where
     )
 }
 
-pub fn destroy_note<Note>(context: &mut PrivateContext, confirmed_note: ConfirmedNote<Note>)
+pub fn destroy_note<NOTE>(context: &mut PrivateContext, confirmed_note: ConfirmedNote<NOTE>)
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
     let nullifier = confirmed_note.note.compute_nullifier(context, confirmed_note.owner, note_hash_for_nullification);

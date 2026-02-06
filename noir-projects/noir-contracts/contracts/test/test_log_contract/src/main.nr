@@ -24,8 +24,8 @@ pub contract TestLog {
     }
 
     #[storage]
-    struct Storage<Context> {
-        example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage<CONTEXT> {
+        example_set: Owned<PrivateSet<FieldNote, CONTEXT>, CONTEXT>,
     }
 
     #[external("private")]

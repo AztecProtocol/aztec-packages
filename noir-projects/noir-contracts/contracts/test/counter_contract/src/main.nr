@@ -17,8 +17,8 @@ pub contract Counter {
 
     // docs:start:storage_struct
     #[storage]
-    struct Storage<Context> {
-        counters: Owned<BalanceSet<Context>, Context>,
+    struct Storage<CONTEXT> {
+        counters: Owned<BalanceSet<CONTEXT>, CONTEXT>,
     }
     // docs:end:storage_struct
 

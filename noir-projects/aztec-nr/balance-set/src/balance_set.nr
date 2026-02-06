@@ -13,13 +13,13 @@ use aztec::{
 use std::ops::Add;
 use uint_note::UintNote;
 
-pub struct BalanceSet<Context> {
-    set: PrivateSet<UintNote, Context>,
+pub struct BalanceSet<CONTEXT> {
+    set: PrivateSet<UintNote, CONTEXT>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> OwnedStateVariable<Context> for BalanceSet<Context> {
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+impl<CONTEXT> OwnedStateVariable<CONTEXT> for BalanceSet<CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { set: PrivateSet::new(context, storage_slot, owner) }
     }
 }

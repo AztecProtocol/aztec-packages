@@ -64,29 +64,29 @@ fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sor
     }
 }
 
-pub fn get_note<Note>(
+pub fn get_note<NOTE>(
     context: &mut PrivateContext,
     owner: Option<AztecAddress>,
     storage_slot: Field,
-) -> ConfirmedNote<Note>
+) -> ConfirmedNote<NOTE>
 where
-    Note: NoteType + NoteHash + Packable,
+    NOTE: NoteType + NoteHash + Packable,
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is
     // check that the metadata is correct, and that the note exists.
-    let hinted_note = unsafe { view_note::<Note>(owner, storage_slot) };
+    let hinted_note = unsafe { view_note::<NOTE>(owner, storage_slot) };
 
     confirm_hinted_note(context, hinted_note, owner, storage_slot)
 }
 
-fn confirm_hinted_note<Note>(
+fn confirm_hinted_note<NOTE>(
     context: &mut PrivateContext,
-    hinted_note: HintedNote<Note>,
+    hinted_note: HintedNote<NOTE>,
     owner: Option<AztecAddress>,
     storage_slot: Field,
-) -> ConfirmedNote<Note>
+) -> ConfirmedNote<NOTE>
 where
-    Note: NoteType + NoteHash + Packable,
+    NOTE: NoteType + NoteHash + Packable,
 {
     // For settled notes, the contract address is implicitly checked since the hash returned from
     // `compute_note_existence_request` is siloed and kernels verify the siloing during note read request validation.
@@ -122,13 +122,13 @@ where
 /// or _valid_ - this typically requires also emitting the note's nullifier to prove that it had not been emitted
 /// before. Because of this, calling this function directly from end-user applications should be discouraged, and safe
 /// abstractions such as aztec-nr's state variables should be used instead.
-pub fn get_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+pub fn get_notes<NOTE, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+    options: NoteGetterOptions<NOTE, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+) -> BoundedVec<ConfirmedNote<NOTE>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
 where
-    Note: NoteType + NoteHash + Eq + Packable<N = M>,
+    NOTE: NoteType + NoteHash + Eq + Packable<N = M>,
 {
     // Safety: The notes are constrained below.
     let maybe_hinted_notes = unsafe { get_notes_internal(storage_slot, options) };
@@ -138,22 +138,22 @@ where
     confirm_hinted_notes(context, storage_slot, maybe_hinted_notes, options)
 }
 
-unconstrained fn apply_preprocessor<Note, PreprocessorArgs>(
-    notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    preprocessor_args: PreprocessorArgs,
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+unconstrained fn apply_preprocessor<NOTE, PREPROCESSOR_ARGS>(
+    notes: [Option<NOTE>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor: fn([Option<NOTE>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<NOTE>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor_args: PREPROCESSOR_ARGS,
+) -> [Option<NOTE>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     preprocessor(notes, preprocessor_args)
 }
 
-fn confirm_hinted_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+fn confirm_hinted_notes<NOTE, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    maybe_hinted_notes: [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+    maybe_hinted_notes: [Option<HintedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    options: NoteGetterOptions<NOTE, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+) -> BoundedVec<ConfirmedNote<NOTE>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
 where
-    Note: NoteType + NoteHash + Eq + Packable<N = M>,
+    NOTE: NoteType + NoteHash + Eq + Packable<N = M>,
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
@@ -211,9 +211,9 @@ where
     confirmed_notes
 }
 
-pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>
+pub unconstrained fn view_note<NOTE>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<NOTE>
 where
-    Note: NoteType + Packable,
+    NOTE: NoteType + Packable,
 {
     let maybe_hinted_notes: [_; 1] = oracle::notes::get_notes(
         owner,
@@ -236,12 +236,12 @@ where
     maybe_hinted_notes[0].expect(f"Failed to get a note")
 }
 
-unconstrained fn get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+unconstrained fn get_notes_internal<NOTE, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
-    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+    options: NoteGetterOptions<NOTE, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+) -> [Option<HintedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteType + Packable<N = M>,
+    NOTE: NoteType + Packable<N = M>,
 {
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
@@ -275,12 +275,12 @@ where
 /// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
 /// content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
 /// etc.).
-pub unconstrained fn view_notes<Note, let M: u32>(
+pub unconstrained fn view_notes<NOTE, let M: u32>(
     storage_slot: Field,
-    options: NoteViewerOptions<Note, M>,
-) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
+    options: NoteViewerOptions<NOTE, M>,
+) -> BoundedVec<NOTE, MAX_NOTES_PER_PAGE>
 where
-    Note: NoteType + Packable<N = M> + Eq,
+    NOTE: NoteType + Packable<N = M> + Eq,
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);

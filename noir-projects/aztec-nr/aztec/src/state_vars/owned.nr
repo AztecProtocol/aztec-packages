@@ -10,7 +10,7 @@ use crate::state_vars::{OwnedStateVariable, StateVariable};
 /// ```noir
 /// #[storage]
 /// struct Storage {
-///     balance: Owned<PrivateSet<UintNote, Context>, Context>,
+///     balance: Owned<PrivateSet<UintNote, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -24,17 +24,17 @@ use crate::state_vars::{OwnedStateVariable, StateVariable};
 ///
 /// # Type Parameters
 ///
-/// * `V` - The underlying type that implements `OwnedStateVariable<Context>` (e.g., `PrivateSet`, `PrivateMutable`).
-/// * `Context` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
+/// * `V` - The underlying type that implements `OwnedStateVariable<CONTEXT>` (e.g., `PrivateSet`, `PrivateMutable`).
+/// * `CONTEXT` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
 /// determines which methods of the state variable are available.
 ///
-pub struct Owned<V, Context> {
-    pub context: Context,
+pub struct Owned<V, CONTEXT> {
+    pub context: CONTEXT,
     storage_slot: Field,
 }
 
-impl<V, Context> StateVariable<1, Context> for Owned<V, Context> {
-    fn new(context: Context, storage_slot: Field) -> Self {
+impl<V, CONTEXT> StateVariable<1, CONTEXT> for Owned<V, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Owned { context, storage_slot }
     }
@@ -44,11 +44,11 @@ impl<V, Context> StateVariable<1, Context> for Owned<V, Context> {
     }
 }
 
-impl<V, Context> Owned<V, Context> {
+impl<V, CONTEXT> Owned<V, CONTEXT> {
     /// Returns an instance of the underlying owned state variable for a given owner.
     pub fn at(self, owner: AztecAddress) -> V
     where
-        V: OwnedStateVariable<Context>,
+        V: OwnedStateVariable<CONTEXT>,
     {
         V::new(self.context, self.storage_slot, owner)
     }

@@ -20,8 +20,8 @@ use crate::protocol::address::AztecAddress;
 /// the
 /// note hash tree: if it is nullified in the same transaction, both note hash and nullifier will be squashed (deleted)
 /// by the kernel, resulting in a _transient note_.
-pub struct ConfirmedNote<Note> {
-    pub note: Note,
+pub struct ConfirmedNote<NOTE> {
+    pub note: NOTE,
 
     pub contract_address: AztecAddress,
     pub owner: AztecAddress,
@@ -36,8 +36,8 @@ pub struct ConfirmedNote<Note> {
     pub(crate) proven_note_hash: Field,
 }
 
-impl<Note> ConfirmedNote<Note> {
-    pub(crate) fn new(hinted_note: HintedNote<Note>, proven_note_hash: Field) -> Self {
+impl<NOTE> ConfirmedNote<NOTE> {
+    pub(crate) fn new(hinted_note: HintedNote<NOTE>, proven_note_hash: Field) -> Self {
         Self {
             note: hinted_note.note,
             contract_address: hinted_note.contract_address,

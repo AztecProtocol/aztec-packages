@@ -21,8 +21,8 @@ pub contract FPC {
     use token::Token;
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage<CONTEXT> {
+        config: PublicImmutable<Config, CONTEXT>,
     }
 
     /// Initializes the contract with an accepted asset (AA) and an admin (address that can pull accumulated AA funds

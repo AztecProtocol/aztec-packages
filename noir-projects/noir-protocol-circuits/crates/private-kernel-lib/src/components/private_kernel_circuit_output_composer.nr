@@ -39,9 +39,9 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-unconstrained fn transform_array<T, let N: u32, Env>(
+unconstrained fn transform_array<T, let N: u32, ENV>(
     array: ClaimedLengthArray<T, N>,
-    f: unconstrained fn[Env]([T; N]) -> [T; N],
+    f: unconstrained fn[ENV]([T; N]) -> [T; N],
 ) -> ClaimedLengthArray<T, N>
 where
     T: Ordered + Empty,

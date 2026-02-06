@@ -53,12 +53,12 @@ pub contract TokenBlacklist {
     global TRANSPARENT_NOTE_RANDOMNESS: Field = 0;
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        pending_shields: Owned<PrivateSet<TransparentNote, Context>, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
+    struct Storage<CONTEXT> {
+        balances: Owned<BalanceSet<CONTEXT>, CONTEXT>,
+        total_supply: PublicMutable<u128, CONTEXT>,
+        pending_shields: Owned<PrivateSet<TransparentNote, CONTEXT>, CONTEXT>,
+        public_balances: Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT>,
+        roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, CONTEXT>, CONTEXT>,
     }
 
     // docs:start:constructor

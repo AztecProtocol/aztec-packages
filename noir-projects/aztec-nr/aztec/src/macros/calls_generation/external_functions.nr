@@ -119,9 +119,9 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
         .join(quote {});
 
     quote {
-        pub struct CallSelf<Context> {
+        pub struct CallSelf<CONTEXT> {
             pub address: aztec::protocol::address::AztecAddress,
-            pub context: Context,
+            pub context: CONTEXT,
         }
 
         impl CallSelf<&mut aztec::context::PrivateContext> {
@@ -132,9 +132,9 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             $call_self_public_methods
         }
 
-        pub struct CallSelfStatic<Context> {
+        pub struct CallSelfStatic<CONTEXT> {
             pub address: aztec::protocol::address::AztecAddress,
-            pub context: Context,
+            pub context: CONTEXT,
         }
 
         impl CallSelfStatic<&mut aztec::context::PrivateContext> {
@@ -145,18 +145,18 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             $call_self_public_static_methods
         }
 
-        pub struct EnqueueSelf<Context> {
+        pub struct EnqueueSelf<CONTEXT> {
             pub address: aztec::protocol::address::AztecAddress,
-            pub context: Context,
+            pub context: CONTEXT,
         }
 
         impl EnqueueSelf<&mut aztec::context::PrivateContext> {
             $enqueue_self_methods
         }
 
-        pub struct EnqueueSelfStatic<Context> {
+        pub struct EnqueueSelfStatic<CONTEXT> {
             pub address: aztec::protocol::address::AztecAddress,
-            pub context: Context,
+            pub context: CONTEXT,
         }
 
         impl EnqueueSelfStatic<&mut aztec::context::PrivateContext> {

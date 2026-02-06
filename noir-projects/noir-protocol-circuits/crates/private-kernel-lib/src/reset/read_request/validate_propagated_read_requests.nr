@@ -1,10 +1,10 @@
 use super::{read_request_action::ReadRequestActions, read_request_hints::ReadRequestHints};
 use dep::types::{side_effect::{Counted, Scoped}, utils::arrays::ClaimedLengthArray};
 
-pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage>(
+pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SETTLED_READ_LEAF_PREIMAGE>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     propagated_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
-    hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>,
+    hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SETTLED_READ_LEAF_PREIMAGE>,
 ) {
     let mut num_propagated = 0;
     let mut within_length = true;

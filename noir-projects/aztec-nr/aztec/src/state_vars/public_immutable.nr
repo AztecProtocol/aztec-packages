@@ -64,10 +64,10 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     decimals: PublicImmutable<u8, Context>,
+/// struct Storage<CONTEXT> {
+///     decimals: PublicImmutable<u8, CONTEXT>,
 ///
-///     account_types: Map<AztecAddress, PublicImmutable<AccountType, Context>, Context>,
+///     account_types: Map<AztecAddress, PublicImmutable<AccountType, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -89,18 +89,18 @@ mod test;
 /// do not have access to the current network state, only the _past_ state at the anchor block. They _can_ perform
 /// historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 /// that it has not been emitted since then.
-pub struct PublicImmutable<T, Context> {
-    context: Context,
+pub struct PublicImmutable<T, CONTEXT> {
+    context: CONTEXT,
     storage_slot: Field,
 }
 
 // `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
 // fields.
-impl<T, Context, let M: u32> StateVariable<M + 1, Context> for PublicImmutable<T, Context>
+impl<T, CONTEXT, let M: u32> StateVariable<M + 1, CONTEXT> for PublicImmutable<T, CONTEXT>
 where
     T: Packable<N = M>,
 {
-    fn new(context: Context, storage_slot: Field) -> Self {
+    fn new(context: CONTEXT, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicImmutable { context, storage_slot }
     }
@@ -110,7 +110,7 @@ where
     }
 }
 
-impl<T, Context> PublicImmutable<T, Context> {
+impl<T, CONTEXT> PublicImmutable<T, CONTEXT> {
     /// Returns the inner nullifier emitted during initialization.
     pub fn compute_initialization_inner_nullifier(self) -> Field {
         poseidon2_hash_with_separator([self.storage_slot], DOM_SEP__INITIALIZATION_NULLIFIER)
@@ -299,9 +299,9 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// ```noir
     /// // Bad: reading both `decimals` and `symbol` will require two historical public storage reads
     /// #[storage]
-    /// struct Storage<Context> {
-    ///     decimals: PublicImmutable<u8, Context>,
-    ///     symbol: PubicImmutable<FieldCompressedString, Context>,
+    /// struct Storage<CONTEXT> {
+    ///     decimals: PublicImmutable<u8, CONTEXT>,
+    ///     symbol: PubicImmutable<FieldCompressedString, CONTEXT>,
     /// }
     ///
     /// // Good: both `decimals` and `symbol` are retrieved in a single historical public storage read
@@ -312,8 +312,8 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// }
     ///
     /// #[storage]
-    /// struct Storage<Context> {
-    ///     config: PublicImmutable<Config, Context>,
+    /// struct Storage<CONTEXT> {
+    ///     config: PublicImmutable<Config, CONTEXT>,
     /// }
     /// ```
     pub fn read(self) -> T

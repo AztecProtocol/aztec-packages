@@ -24,8 +24,8 @@ mod test;
 /// E.g.:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateSet<YourNote, Context>, Context>,
+/// struct Storage<CONTEXT> {
+///     your_variable: Owned<PrivateSet<YourNote, CONTEXT>, CONTEXT>,
 /// }
 /// ```
 ///
@@ -91,24 +91,24 @@ mod test;
 ///
 /// # Generic Parameters:
 ///
-/// * `Note` - Many notes of this type will collectively form the PrivateSet at the given storage_slot.
-/// * `Context` - The execution context (PrivateContext or UtilityContext).
+/// * `NOTE` - Many notes of this type will collectively form the PrivateSet at the given storage_slot.
+/// * `CONTEXT` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateSet<Note, Context> {
-    pub context: Context,
+pub struct PrivateSet<NOTE, CONTEXT> {
+    pub context: CONTEXT,
     pub storage_slot: Field,
     pub owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateSet<Note, Context> {
-    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+impl<NOTE, CONTEXT> OwnedStateVariable<CONTEXT> for PrivateSet<NOTE, CONTEXT> {
+    fn new(context: CONTEXT, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note> PrivateSet<Note, &mut PrivateContext>
+impl<NOTE> PrivateSet<NOTE, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Inserts a new `note` into the PrivateSet.
     ///
@@ -118,7 +118,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the smart contract dev that they now have a
+    /// - NoteMessage<NOTE> - A type-safe wrapper which makes it clear to the smart contract dev that they now have a
     /// choice: they need to decide whether they would like to send the contents of the newly- created note to someone,
     /// or not. If they would like to, they have some further choices:
     /// - What kind of log to use? (Private log, or offchain log).
@@ -152,9 +152,9 @@ where
     /// - Ensure uniqueness of the `siloed_note_hash`, to prevent Faerie-Gold attacks, by hashing the
     /// `siloed_note_hash` with a unique value, to yield a `unique_siloed_note_hash` (see the protocol spec for more).
     ///
-    pub fn insert(self, note: Note) -> NoteMessage<Note>
+    pub fn insert(self, note: NOTE) -> NoteMessage<NOTE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         create_note(self.context, self.owner, self.storage_slot, note)
     }
@@ -189,8 +189,8 @@ where
     ///
     /// # Generic Parameters
     ///
-    /// * `PreprocessorArgs` - See `NoteGetterOptions`.
-    /// * `FilterArgs` - See `NoteGetterOptions`.
+    /// * `PREPROCESSOR_ARGS` - See `NoteGetterOptions`.
+    /// * `FILTER_ARGS` - See `NoteGetterOptions`.
     /// * `M` - The length of the note (in Fields), when packed by the Packable trait.
     ///
     /// # Advanced:
@@ -222,12 +222,12 @@ where
     /// - Ensure that each `siloed_nullifier` does not already exist in the nullifier tree. The nullifier tree is an
     /// indexed merkle tree, which supports efficient non-membership proofs.
     ///
-    pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
+    pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let M: u32>(
         self,
-        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+        mut options: NoteGetterOptions<NOTE, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    ) -> BoundedVec<NOTE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable<N = M>,
+        NOTE: Packable<N = M>,
     {
         std::static_assert(options.owner.is_none(), "Owner cannot be set in pop_notes");
 
@@ -262,7 +262,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the smart contract dev that they now have a
+    /// - NoteMessage<NOTE> - A type-safe wrapper which makes it clear to the smart contract dev that they now have a
     /// choice: they need to decide whether they would like to send the contents of the newly- created note to someone,
     /// or not. If they would like to, they have some further choices:
     /// - What kind of log to use? (Private log, or offchain log).
@@ -272,7 +272,7 @@ where
     /// syntax of how to encrypt and deliver notes much clearer, and to make the default options much clearer to
     /// developers. We will also be enabling easier ways to customize your own note encryption options.
     ///
-    pub fn remove(self, confirmed_note: ConfirmedNote<Note>) {
+    pub fn remove(self, confirmed_note: ConfirmedNote<NOTE>) {
         destroy_note(self.context, confirmed_note);
     }
 
@@ -305,8 +305,8 @@ where
     ///
     /// # Generic Parameters
     ///
-    /// * `PreprocessorArgs` - See `NoteGetterOptions`.
-    /// * `FilterArgs` - See `NoteGetterOptions`.
+    /// * `PREPROCESSOR_ARGS` - See `NoteGetterOptions`.
+    /// * `FILTER_ARGS` - See `NoteGetterOptions`.
     /// * `M` - The length of the note (in Fields), when packed by the Packable trait.
     ///
     /// # Advanced:
@@ -326,12 +326,12 @@ where
     /// - For transient notes: makes a request to the kernel to ensure that the note was indeed emitted by some earlier
     /// execution frame of this tx.
     ///
-    pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
+    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let M: u32>(
         self,
-        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-    ) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+        mut options: NoteGetterOptions<NOTE, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    ) -> BoundedVec<ConfirmedNote<NOTE>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable<N = M>,
+        NOTE: Packable<N = M>,
     {
         std::static_assert(options.owner.is_none(), "Owner cannot be set in get_notes");
 
@@ -340,9 +340,9 @@ where
     }
 }
 
-impl<Note> PrivateSet<Note, UtilityContext>
+impl<NOTE> PrivateSet<NOTE, UtilityContext>
 where
-    Note: NoteType + NoteHash + Eq,
+    NOTE: NoteType + NoteHash + Eq,
 {
     /// Returns a collection of notes which belong to this PrivateSet, according to the given selection `options`.
     ///
@@ -356,10 +356,10 @@ where
     ///
     pub unconstrained fn view_notes(
         self,
-        mut options: NoteViewerOptions<Note, <Note as Packable>::N>,
-    ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
+        mut options: NoteViewerOptions<NOTE, <NOTE as Packable>::N>,
+    ) -> BoundedVec<NOTE, MAX_NOTES_PER_PAGE>
     where
-        Note: Packable,
+        NOTE: Packable,
     {
         std::static_assert(options.owner.is_none(), "Owner cannot be set in view_notes");
 

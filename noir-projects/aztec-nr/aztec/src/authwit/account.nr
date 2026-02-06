@@ -5,13 +5,13 @@ use crate::protocol::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_wit
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;
 
-pub struct AccountActions<Context> {
-    context: Context,
+pub struct AccountActions<CONTEXT> {
+    context: CONTEXT,
     is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
 }
 
-impl<Context> AccountActions<Context> {
-    pub fn init(context: Context, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
+impl<CONTEXT> AccountActions<CONTEXT> {
+    pub fn init(context: CONTEXT, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
         AccountActions { context, is_valid_impl }
     }
 }

@@ -13,10 +13,10 @@ pub contract FeeJuice {
     };
     use std::ops::Add;
 
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // This map is accessed directly by protocol circuits to check balances for fee payment.
         // Do not change this storage layout unless you also update the base rollup circuits.
-        balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+        balances: Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT>,
     }
 
     global INCREASE_PUBLIC_BALANCE_SELECTOR: Field = comptime {
@@ -250,10 +250,10 @@ pub contract FeeJuice {
         fields: StorageLayoutFields { balances: aztec::state_vars::Storable { slot: 1 } },
     };
 
-    impl<Context> Storage<Context> {
-        fn init(context: Context) -> Self {
+    impl<CONTEXT> Storage<CONTEXT> {
+        fn init(context: CONTEXT) -> Self {
             Self {
-                balances: <Map<AztecAddress, PublicMutable<u128, Context>, Context> as aztec::state_vars::StateVariable<1, Context>>::new(
+                balances: <Map<AztecAddress, PublicMutable<u128, CONTEXT>, CONTEXT> as aztec::state_vars::StateVariable<1, CONTEXT>>::new(
                     context,
                     1,
                 ),

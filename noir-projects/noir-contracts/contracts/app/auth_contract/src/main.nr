@@ -17,10 +17,10 @@ pub contract Auth {
     pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 180;
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // Admin can change the value of the authorized address via set_authorized()
-        admin: PublicImmutable<AztecAddress, Context>,
-        authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
+        admin: PublicImmutable<AztecAddress, CONTEXT>,
+        authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, CONTEXT>,
     }
     // docs:end:delayed_public_mutable_storage
 

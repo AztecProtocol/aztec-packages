@@ -16,11 +16,11 @@ pub contract Claim {
 
     // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
-    struct Storage<Context> {
+    struct Storage<CONTEXT> {
         // Address of a contract based on whose notes we distribute the rewards
-        target_contract: PublicImmutable<AztecAddress, Context>,
+        target_contract: PublicImmutable<AztecAddress, CONTEXT>,
         // Token to be distributed as a reward when claiming
-        reward_token: PublicImmutable<AztecAddress, Context>,
+        reward_token: PublicImmutable<AztecAddress, CONTEXT>,
     }
 
     #[external("public")]
