@@ -36,9 +36,8 @@ pub(crate) fn barycentric_evaluate_blob_at_z(
     //   /____       \  z - w^i  /
     //    i=0
     //
-    // perhaps because all the w^i terms are constant witnesses?
-    // (AUDITTODO) Potential optimization: The denominator is constant for all ys, since z is the same for all blobs. We could potentially just do this once in an epoch-wide precomputation.
-    // Compute the sum y_i .
+    // Note: fracs are precomputed once upstream (in the checkpoint root rollup) and shared
+    // across all blob evaluations, since they only depend on the roots and the shared challenge z.
 
     let sum = if !std::runtime::is_unconstrained() {
         // OK so...we can add multiple product terms into a sum...but I am not sure how many!
@@ -204,7 +203,7 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
     }
     let inv_denoms: [BLS12_381_Fr; FIELDS_PER_BLOB] = bignum::bignum::batch_invert(denoms); // 1 / (z - w^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
-    let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // aiming for: y_i / (z - w^i), for all i
+    let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // aiming for: w^i / (z - w^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let inv_denom = inv_denoms[i]; // 1 / (z - w^i)
         fracs[i] = ROOTS[i].__mul(inv_denom); // w^i * (1 / (z - w^i))
@@ -219,15 +218,11 @@ pub fn validate_fracs(z: BLS12_381_Fr, fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) {
         // frac <-- ROOTS[i] / (z + ROOTS[i].neg())
         // frac * (z + ROOTS[i].neg()) - ROOTS[i] == 0
         //
-        // Note: technically, if z is equal to any of the negated roots of unity, then this circuit is under-constrained,
-        // because:
-        // - The constraint becomes fracs[i] * 0 - ROOTS[i] = 0
-        // - If y_i != 0: unsatisfiable (safe)
-        // - If y_i = 0: the constraint is 0 = 0, satisfied for any value of fracs[i], meaning fracs[i] is completely
-        //   unconstrained, allowing the prover to inject arbitrary values into the sum.
-        // We _could_ spend 4096 constraints asserting that z is _not_ equal to a root of unity, but...
-        // the challenge z is derived from poseidon2_hash([blob_fields_hash, kzg_commitment[0], kzg_commitment[1]]).
-        // Finding a blob where this hash equals a specific root of unity requires a preimage attack on Poseidon2, which
+        // Note: if z equals a root of unity w^i, the constraint becomes:
+        //   fracs[i] * 0 - ROOTS[i] = 0  =>  -ROOTS[i] = 0
+        // Since ROOTS[i] != 0 for all i, this is unsatisfiable -- no valid proof can be created.
+        // Moreover, the challenge z is derived from poseidon2_hash([blob_fields_hash, kzg_commitment[0], kzg_commitment[1]]),
+        // so finding a blob where z equals a specific root of unity requires a preimage attack on Poseidon2, which
         // is assumed to be computationally infeasible.
         bignum::bignum::evaluate_quadratic_expression(
             [[fracs[i]]],
@@ -546,7 +541,7 @@ mod tests {
 
     #[test]
     unconstrained fn test_compute_fracs_direct() {
-        // Directly test __compute_fracs: verify fracs[i] * (z - w^i) = y_i
+        // Directly test __compute_fracs: verify fracs[i] * (z - w^i) = w^i
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
         let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
         ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
@@ -620,8 +615,8 @@ mod tests {
 
         // When z = 0:
         // - z^d = 0, so factor = (0 - 1) / d = -1/d = -D_INV
-        // - fracs[i] = y_i / (0 - w^i) = -y_i / w^i
-        // - sum = SUM( w^i * (-y_i / w^i) ) = -SUM(y_i)
+        // - fracs[i] = w^i / (0 - w^i) = -1
+        // - sum = SUM( y_i * (-1) ) = -SUM(y_i)
         // - result = factor * sum = (-D_INV) * (-SUM(y_i)) = D_INV * SUM(y_i)
         //
         // For ys = [1, 2, 0, 0, ...]: SUM(y_i) = 3

@@ -4,6 +4,8 @@ use crate::{
         FinalBlobBatchingChallenges,
     },
     blob::barycentric_evaluate_blob_at_z,
+    compute_factor,
+    compute_fracs,
     utils::{compress_to_blob_commitment, validate_canonical_representation_if_infinity},
 };
 use bigcurve::BigCurve;
@@ -61,8 +63,7 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_commitments_points: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
-    fracs: [BLS12_381_Fr; FIELDS_PER_BLOB],
-    factor: BLS12_381_Fr,
+    challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     // The rationale behind this line is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
     // And on root we check that left.start.eq(empty()).
@@ -72,6 +73,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     // but as good measure we'll validate that it's canonical here.
     // Also, the Root Rollup circuit technically validates that the start accumulator of the checkpoint is Empty,
     // and the Empty impl uses the canonical representation of infinity.
+    let fracs = compute_fracs(challenge_z);
+    let factor = compute_factor(challenge_z);
     validate_canonical_representation_if_infinity(start_accumulator.c_acc);
 
     let mut end_accumulator = start_accumulator;
@@ -130,8 +133,6 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
 mod tests {
     use crate::{
         abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges},
-        compute_factor,
-        compute_fracs,
         utils::{compress_to_blob_commitment, validate_final_blob_batching_challenges},
     };
     use super::evaluate_blobs_and_batch;
@@ -189,10 +190,7 @@ mod tests {
             gamma: BLS12_381_Fr::from_limbs(gamma_limbs_blob_400_from_ts),
         };
 
-        // Compute fracs and factor once from the shared challenge z.
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
-        let fracs = compute_fracs(challenge_z);
-        let factor = compute_factor(challenge_z);
 
         // Evaluation: Can evaluate up to 3 blobs, but only 1 is needed and will be accumulated.
         let res = evaluate_blobs_and_batch::<3>(
@@ -202,8 +200,7 @@ mod tests {
             pad_end_with([kzg_commitment], BLSPoint::point_at_infinity()),
             final_challenges,
             BlobAccumulator::empty(),
-            fracs,
-            factor,
+            challenge_z,
         );
 
         validate_final_blob_batching_challenges(res, final_challenges);
@@ -323,10 +320,7 @@ mod tests {
             gamma: BLS12_381_Fr::from_limbs(gamma_limbs_3_blobs_from_ts),
         };
 
-        // Compute fracs and factor once from the shared challenge z.
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
-        let fracs = compute_fracs(challenge_z);
-        let factor = compute_factor(challenge_z);
 
         // Init. the accumulator
         let start_acc = BlobAccumulator::empty();
@@ -338,8 +332,7 @@ mod tests {
             kzg_commitments_in,
             final_challenges,
             start_acc,
-            fracs,
-            factor,
+            challenge_z,
         );
 
         validate_final_blob_batching_challenges(output, final_challenges);
@@ -371,10 +364,7 @@ mod tests {
         let blob = [0; FIELDS_PER_BLOB];
         let final_challenges = FinalBlobBatchingChallenges::empty();
 
-        // Compute fracs and factor (even though they won't be used for empty blob).
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
-        let fracs = compute_fracs(challenge_z);
-        let factor = compute_factor(challenge_z);
 
         // The below should not throw
         let _ = evaluate_blobs_and_batch(
@@ -384,8 +374,7 @@ mod tests {
             [BLSPoint::point_at_infinity()],
             final_challenges,
             BlobAccumulator::empty(),
-            fracs,
-            factor,
+            challenge_z,
         );
     }
 
@@ -395,10 +384,7 @@ mod tests {
         let point = BLSPoint { x: BLS12_381_Fq::one(), y: BLS12_381_Fq::zero(), is_infinity: true };
         let final_challenges = FinalBlobBatchingChallenges::empty();
 
-        // Compute fracs and factor.
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
-        let fracs = compute_fracs(challenge_z);
-        let factor = compute_factor(challenge_z);
 
         let _ = evaluate_blobs_and_batch(
             blob,
@@ -407,8 +393,7 @@ mod tests {
             [point],
             final_challenges,
             BlobAccumulator::empty(),
-            fracs,
-            factor,
+            challenge_z,
         );
     }
 
@@ -422,10 +407,7 @@ mod tests {
         };
         let final_challenges = FinalBlobBatchingChallenges::empty();
 
-        // Compute fracs and factor.
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
-        let fracs = compute_fracs(challenge_z);
-        let factor = compute_factor(challenge_z);
 
         let _ = evaluate_blobs_and_batch(
             blob,
@@ -434,8 +416,7 @@ mod tests {
             [point],
             final_challenges,
             BlobAccumulator::empty(),
-            fracs,
-            factor,
+            challenge_z,
         );
     }
 
