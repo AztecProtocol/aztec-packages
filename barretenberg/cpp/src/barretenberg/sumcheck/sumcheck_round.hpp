@@ -207,30 +207,21 @@ template <typename Flavor> class SumcheckProverRound {
     {
         BB_BENCH_NAME("compute_univariate_avm");
 
+        // Compute the effective round size. If the trace is short, we don't need to iterate over the full round_size.
+        const size_t effective_round_size = compute_effective_round_size(polynomials);
+        // Note: effective_round_size is expected to be even.
+        BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
+
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
+        size_t num_threads = bb::calculate_num_threads(effective_round_size, min_iterations_per_thread);
 
         // In the AVM, the trace is more dense at the top and therefore it is worth to split the work per thread
         // in a more distributed way over the edges. To achieve this, we split the trace into chunks and each chunk is
-        // evenly divided among the threads. Below we name a portion in the chunk being processed by any given thread
-        // a "chunk thread portion".
-        // We have: round_size = num_of_chunks * chunk_size and chunk_size = num_threads * chunk_thread_portion_size
-        // Important invariant: round_size = num_of_chunks * num_threads * chunk_thread_portion_size
-        // All the involved values are power of 2. We also require chunk_thread_portion_size >= 2
-        // because a "work unit" cannot be smaller than 2 as extended_edges() process 2 edges at a time.
-        //
-        // Example: round_size = 4096, num_threads = 16, chunk_thread_portion_size = 8
-        // - chunk_size = 16 * 8 = 128
-        // - num_of_chunks = 4096/128 = 32
-        //
-        // For each chunk with index chunk_idx, the thread with index thread_idx will process the edges
-        // in range starting at index: chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size
-        // up to index (not included): chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size
-        //
+        // evenly divided among the threads.
+
         // Pattern over edges is now (note that horizontal direction here is edge direction, i.e., vertical direction in
         // the trace):
         //
@@ -240,38 +231,13 @@ template <typename Flavor> class SumcheckProverRound {
         // Any thread now processes edges which are distributed at different locations in the trace contrary
         // to the "standard" method where thread_0 processes all the low indices and the last thread processes
         // all the high indices.
-        //
-        // MAX_CHUNK_THREAD_PORTION_SIZE is defined in the flavor.
-        // The MAX_CHUNK_THREAD_PORTION_SIZE defines the maximum value for chunk_thread_portion_size. Whenever the
-        // round_size is large enough, we set chunk_thread_portion_size = MAX_CHUNK_THREAD_PORTION_SIZE. When it is not
-        // possible we use a smaller value but must be at least 2 as mentioned above. If chunk_thread_portion_size is
-        // not at least 2, we fallback to using a single chunk. Note that chunk_size and num_of_chunks are not constant
-        // but are derived by round_size, num_threads and the chunk_thread_portion_size which needs to satisfy: 1) 2 <=
-        // chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE 2) chunk_thread_portion_size * num_threads <=
-        // round_size.
 
-        size_t num_of_chunks = 1;
-        size_t chunk_size = round_size / num_of_chunks;
-        size_t chunk_thread_portion_size = chunk_size / num_threads;
-
-        // This constant is assumed to be a power of 2 greater or equal to 2.
-        static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
-        static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
-
-        // If chunk_thread_portion_size is at least 2, we update its value based on
-        // Flavor::MAX_CHUNK_THREAD_PORTION_SIZE
-        if (chunk_thread_portion_size >= 2) {
-            chunk_thread_portion_size = std::min(chunk_thread_portion_size, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
-            num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
-            chunk_size = round_size / num_of_chunks;
-            // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
-            // - From "std::min()": chunk_thread_portion_size <= round_size/num_threads (where we used that the initial
-            //   value of chunk_thread_portion_size is round_size/num_threads) implying 2)
-            // - From static_assert above, and the "if condition", we know that both values in "std::min()" are >= 2 and
-            //   therefore: chunk_thread_portion_size >= 2
-            // - Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE which
-            //   completes 1).
-        }
+        constexpr size_t rows_per_thread = 2; // Measured in rows, not edges.
+        static_assert((rows_per_thread >= 2) && (rows_per_thread % 2 == 0),
+                      "rows_per_thread must be at least 2 and even, because edges are processed in pairs");
+        size_t chunk_size = rows_per_thread * num_threads;
+        size_t num_chunks = (effective_round_size / chunk_size) +            // This rounds down.
+                            (effective_round_size % chunk_size > 0 ? 1 : 0); // If there's a remainder, add 1.
 
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
@@ -279,12 +245,11 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Construct extended univariates containers; one per thread
             ExtendedEdges lazy_extended_edges(polynomials);
 
-            for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
-                size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
-                size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
+            for (size_t chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
+                size_t start = (chunk_idx * chunk_size) + (thread_idx * rows_per_thread);
+                size_t end = std::min(start + rows_per_thread, effective_round_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     lazy_extended_edges.set_current_edge(edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
