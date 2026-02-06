@@ -233,6 +233,7 @@
     "noinitcheck",
     "noirc",
     "noirup",
+    "allow_phase_change",
     "nophasecheck",
     "nullifer",
     "Nullifiable",

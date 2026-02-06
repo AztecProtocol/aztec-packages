@@ -1103,17 +1103,16 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Expected = (8*2 + LOG_N*BATCHED_RELATION_PARTIAL_LENGTH + NUMBER_OF_ENTITIES
                 //             + (LOG_N-1)*2 + LOG_N + 2*2 + PAIRING_POINTS_SIZE) * 32
                 {
-                    let expected_proof_size :=
-                        mul(
+                    let expected_proof_size := mul(
+                        add(
                             add(
-                                add(
-                                    add(16, mul(LOG_N, BATCHED_RELATION_PARTIAL_LENGTH)),
-                                    add(NUMBER_OF_ENTITIES, mul(sub(LOG_N, 1), 2))
-                                ),
-                                add(add(LOG_N, 4), PAIRING_POINTS_SIZE)
+                                add(16, mul(LOG_N, BATCHED_RELATION_PARTIAL_LENGTH)),
+                                add(NUMBER_OF_ENTITIES, mul(sub(LOG_N, 1), 2))
                             ),
-                            32
-                        )
+                            add(add(LOG_N, 4), PAIRING_POINTS_SIZE)
+                        ),
+                        32
+                    )
                     let proof_length := calldataload(add(calldataload(0x04), 0x04))
                     if iszero(eq(proof_length, expected_proof_size)) {
                         mstore(0x00, PROOF_LENGTH_WRONG_WITH_LOG_N_SELECTOR)
@@ -2048,7 +2047,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     let beta_sqr := mulmod(beta, beta, p)
                     let beta_cube := mulmod(beta_sqr, beta, p)
 
-                    // write_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
+                    // table_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
                     let t0 :=
                         addmod(addmod(mload(TABLE1_EVAL_LOC), gamma, p), mulmod(mload(TABLE2_EVAL_LOC), beta, p), p)
                     let t1 :=
@@ -2057,9 +2056,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                             mulmod(mload(TABLE4_EVAL_LOC), beta_cube, p),
                             p
                         )
-                    let write_term := addmod(t0, t1, p)
+                    let table_term := addmod(t0, t1, p)
 
-                    // read_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
+                    // lookup_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
                     t0 := addmod(
                         addmod(mload(W1_EVAL_LOC), gamma, p),
                         mulmod(mload(QR_EVAL_LOC), mload(W1_SHIFT_EVAL_LOC), p),
@@ -2068,12 +2067,12 @@ contract BlakeOptHonkVerifier is IVerifier {
                     t1 := addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
                     let t2 := addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_SHIFT_EVAL_LOC), p), p)
 
-                    let read_term := addmod(t0, mulmod(t1, beta, p), p)
-                    read_term := addmod(read_term, mulmod(t2, beta_sqr, p), p)
-                    read_term := addmod(read_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
+                    let lookup_term := addmod(t0, mulmod(t1, beta, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(t2, beta_sqr, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
 
-                    let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), write_term, p)
-                    let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), read_term, p)
+                    let lookup_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), table_term, p)
+                    let table_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), lookup_term, p)
 
                     let inverse_exists_xor := addmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), mload(QLOOKUP_EVAL_LOC), p)
                     inverse_exists_xor := addmod(
@@ -2082,14 +2081,14 @@ contract BlakeOptHonkVerifier is IVerifier {
                         p
                     )
 
-                    let accumulator_none := mulmod(mulmod(read_term, write_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
+                    let accumulator_none := mulmod(mulmod(lookup_term, table_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
                     accumulator_none := addmod(accumulator_none, sub(p, inverse_exists_xor), p)
                     accumulator_none := mulmod(accumulator_none, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), read_inverse, p)
+                    let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), lookup_inverse, p)
                     accumulator_one := addmod(
                         accumulator_one,
-                        sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), write_inverse, p)),
+                        sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), table_inverse, p)),
                         p
                     )
 
@@ -4575,9 +4574,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                     p1_other_y := or(shl(136, mload(PAIRING_POINT_1_Y_1_LOC)), p1_other_y)
 
                     // Reconstructed coordinates must be < Q to prevent malleability
-                    if iszero(
-                        and(and(lt(p0_other_x, q), lt(p0_other_y, q)), and(lt(p1_other_x, q), lt(p1_other_y, q)))
-                    ) {
+                    if iszero(and(
+                        and(lt(p0_other_x, q), lt(p0_other_y, q)),
+                        and(lt(p1_other_x, q), lt(p1_other_y, q))
+                    )) {
                         mstore(0x00, VALUE_GE_GROUP_ORDER_SELECTOR)
                         revert(0x00, 0x04)
                     }

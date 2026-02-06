@@ -220,6 +220,10 @@ export class NoteStore implements StagedStore {
       return Promise.resolve([]);
     }
 
+    if (nullifiers.some(n => n.l2BlockNumber === 0)) {
+      return Promise.reject(new Error('applyNullifiers: nullifiers cannot have been emitted at block 0'));
+    }
+
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(async () => {
         const notesToNullify = await Promise.all(

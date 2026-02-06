@@ -140,36 +140,65 @@ export type BatchResults<T extends readonly BatchedMethod[]> = {
 };
 
 /**
- * Filter options when querying private events.
+ * Base filter options for event queries.
  */
-export type PrivateEventFilter = {
-  /** The address of the contract that emitted the events. */
-  contractAddress: AztecAddress;
-  /** Addresses of accounts that are in scope for this filter. */
-  scopes: AztecAddress[];
+export type EventFilterBase = {
   /** Transaction in which the events were emitted. */
   txHash?: TxHash;
   /** The block number from which to start fetching events (inclusive).
    * Optional. If provided, it must be greater or equal than 1.
    * Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
-   * */
+   */
   fromBlock?: BlockNumber;
   /** The block number until which to fetch logs (not inclusive).
    * Optional. If provided, it must be greater than fromBlock.
-   * Defaults to the latest known block to PXE + 1.
    */
   toBlock?: BlockNumber;
 };
 
 /**
- * An ABI decoded private event with associated metadata.
+ * Filter options when querying private events.
  */
-export type PrivateEvent<T> = {
+export type PrivateEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+};
+
+/**
+ * Filter options when querying public events.
+ */
+export type PublicEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress?: AztecAddress;
+};
+
+/**
+ * An ABI decoded event with associated metadata.
+ * @typeParam T - The decoded event type
+ * @typeParam M - Additional metadata fields (empty by default)
+ */
+export type Event<T, M extends object = object> = {
   /** The ABI decoded event */
   event: T;
   /** Metadata describing event context information such as tx and block */
-  metadata: InTx;
+  metadata: InTx & M;
 };
+
+/** An ABI decoded private event with associated metadata. */
+export type PrivateEvent<T> = Event<T>;
+
+/** An ABI decoded public event with associated metadata (includes contract address). */
+export type PublicEvent<T> = Event<
+  T,
+  {
+    /**
+     * Address of the contract that emitted this event
+     */
+    contractAddress: AztecAddress;
+  }
+>;
 
 /**
  * Contract metadata including deployment and registration status.
@@ -307,6 +336,21 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
+const EventFilterBaseSchema = z.object({
+  txHash: optional(TxHash.schema),
+  fromBlock: optional(BlockNumberPositiveSchema),
+  toBlock: optional(BlockNumberPositiveSchema),
+});
+
+export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: schemas.AztecAddress,
+  scopes: z.array(schemas.AztecAddress),
+});
+
+export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: optional(schemas.AztecAddress),
+});
+
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({
     event: AbiDecodedSchema,
@@ -314,13 +358,12 @@ export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded
   }),
 );
 
-export const PrivateEventFilterSchema = z.object({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-  txHash: optional(TxHash.schema),
-  fromBlock: optional(BlockNumberPositiveSchema),
-  toBlock: optional(BlockNumberPositiveSchema),
-});
+export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
+  z.object({
+    event: AbiDecodedSchema,
+    metadata: z.intersection(inTxSchema(), z.object({ contractAddress: schemas.AztecAddress })),
+  }),
+);
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),

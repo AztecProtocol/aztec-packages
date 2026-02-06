@@ -43,7 +43,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, only_self, noinitcheck, external, nophasecheck},
+            functions::{initializer, only_self, noinitcheck, external, allow_phase_change},
             storage::storage,
         },
         // Contract instance management
@@ -282,7 +282,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn end_setup_checking_phases() {
         assert(!self.context.in_revertible_phase());
         self.context.end_setup();
@@ -296,7 +296,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn call_function_that_ends_setup_without_phase_check() {
         self.call_self.end_setup_checking_phases();
     }
