@@ -137,6 +137,7 @@ template <typename Curve> class GeminiProver_ {
         // Pre-computed batched polynomial (for interleaved flows)
         std::optional<Polynomial> precomputed_batched;
         std::optional<Polynomial> precomputed_batched_shifted;
+        size_t precomputed_shift_exponent = 1; // X^k shift for precomputed_batched_shifted
 
       public:
         RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
@@ -165,10 +166,13 @@ template <typename Curve> class GeminiProver_ {
          * @param batched_unshifted_poly Pre-computed batched unshifted polynomial
          * @param batched_shifted_poly Pre-computed batched shifted polynomial (before division by X^k)
          */
-        void set_precomputed_batched(Polynomial&& batched_unshifted_poly, Polynomial&& batched_shifted_poly)
+        void set_precomputed_batched(Polynomial&& batched_unshifted_poly,
+                                     Polynomial&& batched_shifted_poly,
+                                     size_t shift_exponent = 1)
         {
             precomputed_batched = std::move(batched_unshifted_poly);
             precomputed_batched_shifted = std::move(batched_shifted_poly);
+            precomputed_shift_exponent = shift_exponent;
         }
 
         void set_interleaved(RefVector<Polynomial> results, std::vector<RefVector<Polynomial>> groups)
@@ -206,9 +210,15 @@ template <typename Curve> class GeminiProver_ {
 
             // If precomputed batched polynomials are set, use them
             if (has_precomputed_batched()) {
-                full_batched += *precomputed_batched;
-                // The shifted part will be handled in compute_partially_evaluated_batch_polynomials
-                // using the precomputed_batched_shifted polynomial
+                full_batched += *precomputed_batched; // A₀ += F
+                // Include G/X^k so that fold polynomials are computed from A₀ = F + G/X^k
+                if (precomputed_batched_shifted.has_value()) {
+                    const auto& G = *precomputed_batched_shifted;
+                    const size_t k = precomputed_shift_exponent;
+                    for (size_t i = k; i < full_batched_size; ++i) {
+                        full_batched.at(i - k) += G[i]; // A₀ += G/X^k
+                    }
+                }
             } else {
                 // compute the linear combination F of the unshifted polynomials
                 if (has_unshifted()) {

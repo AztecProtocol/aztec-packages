@@ -140,92 +140,81 @@ std::pair<MultiMegaProver::Polynomial, MultiMegaProver::Polynomial> MultiMegaPro
     Polynomial G3_shifted(Polynomial::shiftable(poly_size));
 
     FF rho_power = FF::one();
+    std::array<Polynomial*, 4> G = { &G0, &G1, &G2, &G3 };
+    std::array<Polynomial*, 4> G_shifted = { &G0_shifted, &G1_shifted, &G2_shifted, &G3_shifted };
 
-    // Helper to add a polynomial to the appropriate chunk batch
-    auto batch_group = [&](const std::array<const Polynomial*, 4>& group, bool is_shiftable) {
+    // Helper to add an interleaved group's chunks to the unshifted batch
+    auto batch_unshifted_group = [&](const std::array<const Polynomial*, 4>& group) {
         for (size_t j = 0; j < 4; ++j) {
             if (group[j] != nullptr) {
-                if (j == 0) {
-                    G0.add_scaled(*group[j], rho_power);
-                    if (is_shiftable)
-                        G0_shifted.add_scaled(*group[j], rho_power);
-                } else if (j == 1) {
-                    G1.add_scaled(*group[j], rho_power);
-                    if (is_shiftable)
-                        G1_shifted.add_scaled(*group[j], rho_power);
-                } else if (j == 2) {
-                    G2.add_scaled(*group[j], rho_power);
-                    if (is_shiftable)
-                        G2_shifted.add_scaled(*group[j], rho_power);
-                } else {
-                    G3.add_scaled(*group[j], rho_power);
-                    if (is_shiftable)
-                        G3_shifted.add_scaled(*group[j], rho_power);
-                }
+                G[j]->add_scaled(*group[j], rho_power);
             }
         }
         rho_power *= rho;
     };
 
-    // S₁: [q_m, q_c, q_l, q_r] - precomputed, unshiftable
-    batch_group({ &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r }, false);
+    // Helper to add an interleaved group's chunks to the shifted batch
+    auto batch_shifted_group = [&](const std::array<const Polynomial*, 4>& group) {
+        for (size_t j = 0; j < 4; ++j) {
+            if (group[j] != nullptr) {
+                G_shifted[j]->add_scaled(*group[j], rho_power);
+            }
+        }
+        rho_power *= rho;
+    };
 
+    // --- Phase 1: Batch all 17 unshifted groups with rho^0..rho^16 ---
+
+    // S₁: [q_m, q_c, q_l, q_r]
+    batch_unshifted_group({ &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r });
     // S₂: [q_o, q_4, q_busread, q_lookup]
-    batch_group({ &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup }, false);
-
+    batch_unshifted_group({ &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup });
     // S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-    batch_group({ &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory }, false);
-
+    batch_unshifted_group({ &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory });
     // S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-    batch_group({ &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, nullptr }, false);
-
+    batch_unshifted_group({ &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, nullptr });
     // S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-    batch_group({ &polys.sigma_1, &polys.sigma_2, &polys.sigma_3, &polys.sigma_4 }, false);
-
+    batch_unshifted_group({ &polys.sigma_1, &polys.sigma_2, &polys.sigma_3, &polys.sigma_4 });
     // S₆: [id_1, id_2, id_3, id_4]
-    batch_group({ &polys.id_1, &polys.id_2, &polys.id_3, &polys.id_4 }, false);
-
+    batch_unshifted_group({ &polys.id_1, &polys.id_2, &polys.id_3, &polys.id_4 });
     // S₇: [table_1, table_2, table_3, table_4]
-    batch_group({ &polys.table_1, &polys.table_2, &polys.table_3, &polys.table_4 }, false);
-
+    batch_unshifted_group({ &polys.table_1, &polys.table_2, &polys.table_3, &polys.table_4 });
     // S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
-    batch_group({ &polys.lagrange_first, &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id }, false);
-
-    // W₁: [w_l, w_r, w_o, ZERO] - shiftable
-    batch_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr }, true);
-
+    batch_unshifted_group({ &polys.lagrange_first, &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id });
+    // W₁: [w_l, w_r, w_o, ZERO]
+    batch_unshifted_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr });
     // W₂: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
-    batch_group({ &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 }, false);
-
+    batch_unshifted_group({ &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 });
     // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-    batch_group({ &polys.calldata, &polys.calldata_read_counts, &polys.calldata_read_tags, &polys.secondary_calldata },
-                false);
-
+    batch_unshifted_group(
+        { &polys.calldata, &polys.calldata_read_counts, &polys.calldata_read_tags, &polys.secondary_calldata });
     // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-    batch_group({ &polys.secondary_calldata_read_counts,
-                  &polys.secondary_calldata_read_tags,
-                  &polys.return_data,
-                  &polys.return_data_read_counts },
-                false);
-
+    batch_unshifted_group({ &polys.secondary_calldata_read_counts,
+                            &polys.secondary_calldata_read_tags,
+                            &polys.return_data,
+                            &polys.return_data_read_counts });
     // W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-    batch_group({ &polys.return_data_read_tags, nullptr, nullptr, nullptr }, false);
-
-    // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
-    batch_group({ &polys.w_4, nullptr, nullptr, nullptr }, true);
-
+    batch_unshifted_group({ &polys.return_data_read_tags, nullptr, nullptr, nullptr });
+    // W₆: [w_4, ZERO, ZERO, ZERO]
+    batch_unshifted_group({ &polys.w_4, nullptr, nullptr, nullptr });
     // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-    batch_group({ &polys.lookup_read_counts, &polys.lookup_read_tags, nullptr, nullptr }, false);
-
+    batch_unshifted_group({ &polys.lookup_read_counts, &polys.lookup_read_tags, nullptr, nullptr });
     // W₈: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-    batch_group({ &polys.lookup_inverses,
-                  &polys.calldata_inverses,
-                  &polys.secondary_calldata_inverses,
-                  &polys.return_data_inverses },
-                false);
+    batch_unshifted_group({ &polys.lookup_inverses,
+                            &polys.calldata_inverses,
+                            &polys.secondary_calldata_inverses,
+                            &polys.return_data_inverses });
+    // W₉: [z_perm, ZERO, ZERO, ZERO]
+    batch_unshifted_group({ &polys.z_perm, nullptr, nullptr, nullptr });
 
-    // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
-    batch_group({ &polys.z_perm, nullptr, nullptr, nullptr }, true);
+    // --- Phase 2: Batch 3 shifted groups with rho^17..rho^19 (continuing rho_power) ---
+
+    // W₁_shift: [w_l, w_r, w_o, ZERO]
+    batch_shifted_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr });
+    // W₆_shift: [w_4, ZERO, ZERO, ZERO]
+    batch_shifted_group({ &polys.w_4, nullptr, nullptr, nullptr });
+    // W₉_shift: [z_perm, ZERO, ZERO, ZERO]
+    batch_shifted_group({ &polys.z_perm, nullptr, nullptr, nullptr });
 
     // Construct the interleaved batched polynomial:
     // F(X) = G₀(X⁴) + X·G₁(X⁴) + X²·G₂(X⁴) + X³·G₃(X⁴)
@@ -276,20 +265,24 @@ void MultiMegaProver::execute_pcs()
     //
     // CRITICAL: The order of challenge derivation must match the verifier:
     // 1. Interleaving challenges (after sumcheck)
-    // 2. Gemini's "rho" challenge (inside Shplemini)
+    // 2. Batching challenge for interleaved polynomials
+    // 3. Gemini's "rho" challenge (inside Shplemini)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
 
-    // Get rho challenge for batching - use same label as Gemini so it gets cached
-    const FF rho = transcript->template get_challenge<FF>("rho");
+    // Get batching challenge for interleaved polynomials (before entering Shplemini)
+    // Use a different name than "rho" to avoid duplicate manifest entries
+    // (Gemini will get its own "rho" challenge internally)
+    const FF batching_challenge = transcript->template get_challenge<FF>("batching_rho");
 
-    // Compute the interleaved batched polynomials using rho
-    auto [batched_unshifted, batched_shifted] = compute_interleaved_batched_polynomials(rho);
+    // Compute the interleaved batched polynomials using batching_challenge
+    auto [batched_unshifted, batched_shifted] = compute_interleaved_batched_polynomials(batching_challenge);
 
     // Set up the polynomial batcher with precomputed batched polynomials
     const size_t interleaved_size = prover_instance->dyadic_size() * Flavor::INTERLEAVING_BATCH_SIZE;
     PolynomialBatcher polynomial_batcher(interleaved_size);
-    polynomial_batcher.set_precomputed_batched(std::move(batched_unshifted), std::move(batched_shifted));
+    polynomial_batcher.set_precomputed_batched(
+        std::move(batched_unshifted), std::move(batched_shifted), SHIFT_EXPONENT);
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> full_challenge;
@@ -299,8 +292,7 @@ void MultiMegaProver::execute_pcs()
     full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
     OpeningClaim prover_opening_claim;
-    // Note: Gemini will call transcript->get_challenge("rho") internally, but it will get
-    // the cached value we already derived above.
+    // Note: Gemini will call transcript->get_challenge("rho") internally for its own batching
     prover_opening_claim = ShpleminiProver_<Curve>::prove(interleaved_size,
                                                           polynomial_batcher,
                                                           full_challenge,
@@ -310,6 +302,12 @@ void MultiMegaProver::execute_pcs()
                                                           {} /* sumcheck_round_univariates */,
                                                           {} /* sumcheck_round_evaluations */,
                                                           SHIFT_EXPONENT);
+
+    info("PROVER u0=", u0, " u1=", u1);
+    info("PROVER batching_rho=", batching_challenge);
+    info("PROVER opening_claim.polynomial[0]=", prover_opening_claim.polynomial[0]);
+    info("PROVER opening_claim.opening_pair.challenge=", prover_opening_claim.opening_pair.challenge);
+    info("PROVER opening_claim.opening_pair.evaluation=", prover_opening_claim.opening_pair.evaluation);
 
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

@@ -174,20 +174,21 @@ class MultiMegaFlavor : public MegaFlavor {
         }
     };
 
-    // Updated FINAL_PCS_MSM_SIZE for interleaved commitments:
-    // 1 (Shplonk Q) + 17 unshifted + 3 shifted + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
+    // Updated FINAL_PCS_MSM_SIZE for interleaved commitments with batching:
+    // The verifier batches the 17 interleaved commitments into 1 using batching_rho before Shplemini
+    // 1 batched unshifted + 1 batched shifted + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG
+    // W) Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // Unshifted: 8 precomputed + 9 witness = 17
-        // Shifted: 3 (W₁, W₆, W₉ - NOT deduplicated due to non-contiguous indices)
+        // Batched unshifted: 1 (batched from 17 interleaved commitments using batching_rho)
+        // Batched shifted: 1 (batched from 3 shiftable commitments using batching_rho)
         // Shplonk Q: 1
         // Gemini folds: pcs_log_n - 1
         // G1 identity: 1
         // KZG W: 1
-        // Total: 20 + 1 + (pcs_log_n - 1) + 1 + 1 = 20 + pcs_log_n + 2 = 45 for log_n=21
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + pcs_log_n + 2;
+        // Total: 1 + 1 + 1 + (pcs_log_n - 1) + 1 + 1 = 4 + pcs_log_n = 27 for log_n=21
+        return 4 + pcs_log_n;
     }
 
     // VerificationKey stores 8 interleaved precomputed commitments instead of 31 individual ones.

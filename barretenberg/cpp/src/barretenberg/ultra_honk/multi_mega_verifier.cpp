@@ -102,6 +102,10 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
 
+    // Get the batching challenge (prover uses this to batch polynomials before Shplemini)
+    // Verifier uses this to batch the interleaved commitment evaluations
+    FF batching_challenge = transcript->template get_challenge<FF>("batching_rho");
+
     // Compute Lagrange basis from the interleaving challenges
     auto lagrange_basis = compute_lagrange_basis(u0, u1);
 
@@ -250,29 +254,64 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
     std::array<FF, 8> precomputed_evals_arr = { batched_eval_s1, batched_eval_s2, batched_eval_s3, batched_eval_s4,
                                                 batched_eval_s5, batched_eval_s6, batched_eval_s7, batched_eval_s8 };
 
-    // Create combined arrays for claims
-    // Unshifted = interleaved precomputed (8) + interleaved witness (9) = 17
-    std::array<Commitment, 17> all_unshifted_comms_arr;
-    std::array<FF, 17> all_unshifted_evals_arr;
+    // Compute powers of batching_challenge for sequential batching:
+    // rho^0..rho^16 for 17 unshifted, then rho^17..rho^19 for 3 shifted
+    constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 17
+    constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
+    constexpr size_t TOTAL_BATCHED = NUM_UNSHIFTED + NUM_SHIFTED;                 // 20
 
-    // Copy precomputed
+    std::array<FF, TOTAL_BATCHED> rho_powers;
+    rho_powers[0] = FF::one();
+    for (size_t i = 1; i < TOTAL_BATCHED; ++i) {
+        rho_powers[i] = rho_powers[i - 1] * batching_challenge;
+    }
+
+    // All 17 unshifted commitments in order: S₁-S₈, W₁-W₉
+    std::array<Commitment, NUM_UNSHIFTED> all_unshifted_comms;
+    std::array<FF, NUM_UNSHIFTED> all_unshifted_evals;
     for (size_t i = 0; i < 8; ++i) {
-        all_unshifted_comms_arr[i] = precomputed_comms_arr[i];
-        all_unshifted_evals_arr[i] = precomputed_evals_arr[i];
+        all_unshifted_comms[i] = precomputed_comms_arr[i];
+        all_unshifted_evals[i] = precomputed_evals_arr[i];
     }
-    // Copy witness
     for (size_t i = 0; i < 9; ++i) {
-        all_unshifted_comms_arr[8 + i] = interleaved_comms_arr[i];
-        all_unshifted_evals_arr[8 + i] = interleaved_evals_arr[i];
+        all_unshifted_comms[8 + i] = interleaved_comms_arr[i];
+        all_unshifted_evals[8 + i] = interleaved_evals_arr[i];
     }
+
+    // Batch unshifted: batch_mul of 17 commitments with rho^0..rho^16
+    std::span<const FF> unshifted_scalars(rho_powers.data(), NUM_UNSHIFTED);
+    Commitment batched_unshifted_commitment = Commitment::batch_mul(all_unshifted_comms, unshifted_scalars);
+    FF batched_unshifted_eval = FF::zero();
+    for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+        batched_unshifted_eval += all_unshifted_evals[i] * rho_powers[i];
+    }
+
+    // Batch shifted: batch_mul of 3 shiftable commitments with rho^17..rho^19
+    std::span<const FF> shifted_scalars(rho_powers.data() + NUM_UNSHIFTED, NUM_SHIFTED);
+    Commitment batched_shifted_commitment = Commitment::batch_mul(shiftable_comms_arr, shifted_scalars);
+    FF batched_shifted_eval = FF::zero();
+    for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+        batched_shifted_eval += shifted_evals_arr[i] * rho_powers[NUM_UNSHIFTED + i];
+    }
+
+    // Create single batched claim for Shplemini
+    std::array<Commitment, 1> batched_unshifted_comm_arr = { batched_unshifted_commitment };
+    std::array<FF, 1> batched_unshifted_eval_arr = { batched_unshifted_eval };
+    std::array<Commitment, 1> batched_shifted_comm_arr = { batched_shifted_commitment };
+    std::array<FF, 1> batched_shifted_eval_arr = { batched_shifted_eval };
 
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, 17>(all_unshifted_comms_arr),
-                                                         RefArray<FF, 17>(all_unshifted_evals_arr) },
-                                .shifted = ClaimBatch{ RefArray<Commitment, 3>(shiftable_comms_arr),
-                                                       RefArray<FF, 3>(shifted_evals_arr) } };
+    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, 1>(batched_unshifted_comm_arr),
+                                                         RefArray<FF, 1>(batched_unshifted_eval_arr) },
+                                .shifted = ClaimBatch{ RefArray<Commitment, 1>(batched_shifted_comm_arr),
+                                                       RefArray<FF, 1>(batched_shifted_eval_arr) } };
+
+    info("VERIFIER u0=", u0, " u1=", u1);
+    info("VERIFIER batching_rho=", batching_challenge);
+    info("VERIFIER batched_unshifted_eval=", batched_unshifted_eval);
+    info("VERIFIER batched_shifted_eval=", batched_shifted_eval);
 
     const Commitment one_commitment = Commitment::one();
 

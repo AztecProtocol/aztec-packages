@@ -92,11 +92,12 @@ class MultiMegaHonkTests : public ::testing::Test {
             round++;
         }
 
-        // Sumcheck evaluations + interleaving challenges + rho
+        // Sumcheck evaluations + interleaving challenges + batching challenges
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
-        manifest_expected.add_challenge(round, "rho");
+        manifest_expected.add_challenge(round, "batching_rho"); // Batching challenge for interleaved polys
+        manifest_expected.add_challenge(round, "rho");          // Gemini's internal rho challenge
 
         // Gemini fold commitments (pcs_log_n - 1 folds)
         round++;
