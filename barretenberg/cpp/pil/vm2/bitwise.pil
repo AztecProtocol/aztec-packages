@@ -231,7 +231,9 @@ sel_and * (1 - sel_and) = 0;
 sel_or * (1 - sel_or) = 0;
 sel_xor * (1 - sel_xor) = 0;
 // op_id dispatch for byte operations
-sel * (op_id - sel_and * constants.AVM_BITWISE_AND_OP_ID - sel_or * constants.AVM_BITWISE_OR_OP_ID - sel_xor * constants.AVM_BITWISE_XOR_OP_ID) = 0;
+sel * op_id = sel_and * constants.AVM_BITWISE_AND_OP_ID
+            + sel_or * constants.AVM_BITWISE_OR_OP_ID
+            + sel_xor * constants.AVM_BITWISE_XOR_OP_ID;
 
 #[AND_BYTE_OPERATIONS]
 sel_and { ia_byte, ib_byte, ic_byte }
