@@ -5,11 +5,11 @@ use dep::aztec::macros::aztec;
 /// Useful for e2e testing of phase checking only.
 #[aztec]
 pub contract SponsoredFPCNoEndSetup {
-    use dep::aztec::macros::functions::{external, nophasecheck};
+    use dep::aztec::macros::functions::{allow_phase_change, external};
 
     /// Sponsors the transaction unconditionally. Doesn't end the setup phase.
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn sponsor_unconditionally() {
         // Set the FPC as the fee payer of the tx.
         self.context.set_as_fee_payer();
