@@ -115,7 +115,7 @@ contract submitEpochRootProofTest is EscapeHatchIntegrationBase {
       previousArchive: previousArchive, endArchive: endArchive, outHash: outHash, proverId: address(this)
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(("sequencer")))));
     fees[1] = bytes32(0);
 

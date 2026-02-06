@@ -12,7 +12,7 @@ use types::{
         epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient,
     },
     blob_data::SpongeBlob,
-    constants::{AZTEC_MAX_EPOCH_DURATION, FIELDS_PER_BLOB, OUT_HASH_TREE_HEIGHT},
+    constants::{FIELDS_PER_BLOB, MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_HEIGHT},
     merkle_tree::append_leaf_to_snapshot_sha,
     traits::{Empty, Hash},
     utils::arrays::assert_trailing_zeros,
@@ -73,15 +73,15 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         let new_out_hash = self.accumulate_checkpoint_out_hash(merged_rollup.out_hash);
 
         // Note: it might seem strange that we only write to the 0th index of an array of length
-        // `AZTEC_MAX_EPOCH_DURATION`. "Why not output a single `Field`?". It's because we want the
+        // `MAX_CHECKPOINTS_PER_EPOCH`. "Why not output a single `Field`?". It's because we want the
         // layout of the public inputs of this Checkpoint Root circuit to match those of the Checkpoint
         // Merge circuit. In the Checkpoint Merge circuit, we use more elements of this array: we
         // progressively merge the arrays from left and right subtrees.
-        let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+        let mut checkpoint_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
         checkpoint_header_hashes[0] = self.create_checkpoint_header(new_out_hash.root).hash();
 
         // Note: as per the above note.
-        let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        let mut fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         fees[0] = FeeRecipient {
             recipient: merged_rollup.constants.coinbase,
             value: merged_rollup.accumulated_fees,

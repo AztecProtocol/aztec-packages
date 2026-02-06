@@ -1,5 +1,5 @@
 use crate::abis::CheckpointRollupPublicInputs;
-use types::{constants::AZTEC_MAX_EPOCH_DURATION, utils::arrays::copy_items_into_array};
+use types::{constants::MAX_CHECKPOINTS_PER_EPOCH, utils::arrays::copy_items_into_array};
 
 pub fn merge_checkpoint_rollups(
     left: CheckpointRollupPublicInputs,
@@ -14,7 +14,7 @@ pub fn merge_checkpoint_rollups(
     let num_checkpoints = num_left_checkpoints + num_right_checkpoints;
 
     assert(
-        num_checkpoints <= AZTEC_MAX_EPOCH_DURATION,
+        num_checkpoints <= MAX_CHECKPOINTS_PER_EPOCH,
         "total number of checkpoints exceeds max allowed in an epoch",
     );
 

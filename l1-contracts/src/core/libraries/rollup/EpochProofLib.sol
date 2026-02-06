@@ -185,8 +185,8 @@ library EpochProofLib {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
     //   out_hash: Field,
-    //   checkpointHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
-    //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
+    //   checkpointHeaderHashes: [Field; Constants.MAX_CHECKPOINTS_PER_EPOCH],
+    //   fees: [FeeRecipient; Constants.MAX_CHECKPOINTS_PER_EPOCH],
     //   chain_id: Field,
     //   version: Field,
     //   vk_tree_root: Field,
@@ -210,9 +210,9 @@ library EpochProofLib {
       publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 3 + Constants.AZTEC_MAX_EPOCH_DURATION;
+    uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
-    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
+    uint256 feesLength = Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
     // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
     for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[offset + i] = _fees[i];
@@ -373,10 +373,10 @@ library EpochProofLib {
     bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProven();
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
-    bool claimedNumCheckpointsInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    bool claimedNumCheckpointsInEpoch = _end - _start + 1 <= Constants.MAX_CHECKPOINTS_PER_EPOCH;
     require(
       claimedNumCheckpointsInEpoch,
-      Errors.Rollup__TooManyCheckpointsInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+      Errors.Rollup__TooManyCheckpointsInEpoch(Constants.MAX_CHECKPOINTS_PER_EPOCH, _end - _start)
     );
 
     return endEpoch;
