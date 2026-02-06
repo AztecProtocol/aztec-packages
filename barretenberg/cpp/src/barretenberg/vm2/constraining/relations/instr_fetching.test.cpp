@@ -733,113 +733,6 @@ using simulation::Poseidon2PermutationMemoryEvent;
 using ::testing::StrictMock;
 using tracegen::Poseidon2TraceBuilder;
 
-TEST(InstrFetchingConstrainingTest, NegativeExtendedBytecodeRepro)
-{
-    TestTraceContainer trace;
-    BytecodeTraceBuilder bytecode_builder;
-    PrecomputedTraceBuilder precomputed_builder;
-    RangeCheckTraceBuilder range_check_builder;
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
-    StrictMock<MockGreaterThan> mock_gt;
-    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
-    // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
-    Poseidon2 poseidon2 =
-        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
-
-    Poseidon2TraceBuilder poseidon2_builder;
-
-    // Build some good bytecode:
-    const uint32_t pc = 15;
-    std::vector<uint8_t> bytecode(pc, 0x23);
-    WireOpCode opcode = WireOpCode::KECCAKF1600;
-    const auto instr = testing::random_instruction(opcode);
-    const auto instr_bytecode = instr.serialize();
-    bytecode.insert(
-        bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
-
-    info("bytecode: ", bytecode, ", w len: ", bytecode.size());
-
-    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
-    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
-    FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
-    info("hash of good bytecode: ", hash, ", w field len: ", prepended_fields.size());
-
-    // Extend that bytecode by 3 bytes of zeros
-    std::vector<uint8_t> trailing_zeros = { 0, 0, 0 };
-    std::vector<uint8_t> ext_bytecode(pc, 0x23);
-    ext_bytecode.insert(ext_bytecode.end(),
-                        std::make_move_iterator(instr_bytecode.begin()),
-                        std::make_move_iterator(instr_bytecode.end()));
-    ext_bytecode.insert(ext_bytecode.end(),
-                        std::make_move_iterator(trailing_zeros.begin()),
-                        std::make_move_iterator(trailing_zeros.end()));
-    info("ext_bytecode: ", ext_bytecode, ", w len: ", ext_bytecode.size());
-
-    std::vector<FF> ext_fields = simulation::encode_bytecode(ext_bytecode);
-    std::vector<FF> ext_prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
-    ext_prepended_fields.insert(ext_prepended_fields.end(), ext_fields.begin(), ext_fields.end());
-    FF ext_hash = poseidon2.hash(ext_prepended_fields);
-    info("hash of bad bytecode (matches) ", ext_hash, ", w field len: ", ext_prepended_fields.size());
-
-    // ISSUE 1
-    // 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 ] of length 21 bytes
-    // We can process an extended bytecode with the same id by extending it with zeros:
-    // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 41 67 c6 69 73 51 00 00 00 ] of length 24 bytes
-    // Bytecode id = hash = ext_hash:
-    ASSERT_EQ(ext_hash, hash);
-    // This means even though instruction fetching refers to the 'real' 21 byte length bytecode with a correct hash...
-    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
-    InstructionFetchingEvent instr_event = {
-        .bytecode_id = hash,
-        .pc = pc,
-        .instruction = instr,
-        .bytecode = bytecode_ptr,
-    };
-    bytecode_builder.process_instruction_fetching({ instr_event }, trace);
-    // ...we can make it fail by processing a 'fake' extended bytecode for that id:
-    bytecode_builder.process_hashing({ {
-                                         .bytecode_id = hash,                                           // = ext_hash
-                                         .bytecode_length = static_cast<uint32_t>(ext_bytecode.size()), // unused
-                                         .bytecode_fields = ext_fields,                                 // = fields
-                                     } },
-                                     trace);
-    auto ext_bytecode_ptr = std::make_shared<std::vector<uint8_t>>(ext_bytecode);
-    bytecode_builder.process_decomposition({ {
-                                               .bytecode_id = hash,          // = ext_hash
-                                               .bytecode = ext_bytecode_ptr, // != bytecode
-                                           } },
-                                           trace);
-
-    // Prep trace:
-    range_check_builder.process(gen_range_check_events({ instr_event }), trace);
-    precomputed_builder.process_misc(trace, 256);
-    precomputed_builder.process_sel_range_8(trace);
-    precomputed_builder.process_wire_instruction_spec(trace);
-    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-
-    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
-                                      perm_bc_hashing_get_packed_field_1_settings,
-                                      perm_bc_hashing_get_packed_field_2_settings>
-        perm_builder(C::bc_decomposition_sel_packed);
-    perm_builder.process(trace);
-    // Everything in decomp/hashing passes:
-    check_relation<bb::avm2::bc_decomposition<FF>>(trace);
-    check_relation<bb::avm2::bc_hashing<FF>>(trace);
-    check_relation<instr_fetching>(trace);
-    check_multipermutation_interaction<BytecodeTraceBuilder,
-                                       perm_bc_hashing_get_packed_field_0_settings,
-                                       perm_bc_hashing_get_packed_field_1_settings,
-                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
-    // instruction fetching fails because it expects bytes_to_read = 6 for [41 67 c6 69 73 51], but the bytecode traces
-    // have [41 67 c6 69 73 51 00 00 00 ] (of length 9) for that id:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(trace)),
-        "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
-}
-
 TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
 {
     TestTraceContainer trace;
@@ -866,13 +759,10 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
     bytecode.insert(
         bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
 
-    info("bytecode: ", bytecode, ", w len: ", bytecode.size());
-
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { simulation::compute_public_bytecode_separator(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
-    info("hash of good bytecode: ", hash, ", w field len: ", prepended_fields.size());
 
     // Remove the final byte (which has a value of zero)
     std::vector<uint8_t> trunc_bytecode(pc, 0x23);
@@ -880,20 +770,19 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
                           std::make_move_iterator(instr_bytecode.begin()),
                           std::make_move_iterator(instr_bytecode.end()));
     trunc_bytecode.resize(trunc_bytecode.size() - 1);
-    info("trunc bytecode: ", trunc_bytecode, ", w len: ", trunc_bytecode.size());
     std::vector<FF> trunc_fields = simulation::encode_bytecode(trunc_bytecode);
     std::vector<FF> trunc_prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     trunc_prepended_fields.insert(trunc_prepended_fields.end(), trunc_fields.begin(), trunc_fields.end());
     FF trunc_hash = poseidon2.hash(trunc_prepended_fields);
-    info("hash of bad bytecode (matches) ", trunc_hash, ", w field len: ", trunc_prepended_fields.size());
-
-    // ISSUE 2
     // 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 00 ] of length 20 bytes
-    // We can process a truncated bytecode with the same id:
+    // We could previously process a truncated bytecode with the same id:
     // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 ] of length 19 bytes
-    // Bytecode id = hash = trunc_hash:
-    ASSERT_EQ(trunc_hash, hash);
-    // This means even though instruction fetching refers to the 'real' 21 byte length bytecode with a correct hash...
+    // Before introducing  #[BYTECODE_LENGTH_BYTES] in bc_hashing.pil and including the size in
+    // compute_public_bytecode_separator(), trunc_hash == hash, meaning we could use truncated bytecode. TODO(MW): add
+    // PR number here for future ref
+    ASSERT_NE(hash, trunc_hash);
+
+    // Now, we cannot process the truncated bytecode and force a good instruction on the full bytecode to fail:
     auto trunc_bytecode_ptr = std::make_shared<std::vector<uint8_t>>(trunc_bytecode);
     auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
     InstructionFetchingEvent instr_event = {
@@ -903,17 +792,16 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
         .bytecode = bytecode_ptr,
     };
     bytecode_builder.process_instruction_fetching({ instr_event }, trace);
-    // ...we can make it fail by processing a 'fake' truncated bytecode for that id:
     bytecode_builder.process_hashing({ {
-                                         .bytecode_id = hash,                                             // = ext_hash
-                                         .bytecode_length = static_cast<uint32_t>(trunc_bytecode.size()), // unused
-                                         .bytecode_fields = trunc_fields,                                 // = fields
+                                         .bytecode_id = hash,
+                                         .bytecode_length = static_cast<uint32_t>(trunc_bytecode.size()),
+                                         .bytecode_fields = trunc_fields,
                                      } },
                                      trace);
 
     bytecode_builder.process_decomposition({ {
-                                               .bytecode_id = hash,            // = ext_hash
-                                               .bytecode = trunc_bytecode_ptr, // != bytecode
+                                               .bytecode_id = hash,
+                                               .bytecode = trunc_bytecode_ptr,
                                            } },
                                            trace);
 
@@ -929,34 +817,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
                                       perm_bc_hashing_get_packed_field_2_settings>
         perm_builder(C::bc_decomposition_sel_packed);
     perm_builder.process(trace);
-    // Everything in decomp/hashing passes:
-    check_relation<bb::avm2::bc_decomposition<FF>>(trace);
-    check_relation<bb::avm2::bc_hashing<FF>>(trace);
-    check_relation<instr_fetching>(trace);
-    check_multipermutation_interaction<BytecodeTraceBuilder,
-                                       perm_bc_hashing_get_packed_field_0_settings,
-                                       perm_bc_hashing_get_packed_field_1_settings,
-                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
-    // instruction fetching fails because it expects bytes_to_read = 5 for [ 02 00 05 05 00 ], but the bytecode traces
-    // have [ 02 00 05 05 ] (of length 4) for that id:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(trace)),
-        "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
-
-    // This means we can make a tx revert even though the bytecode & instruction are both valid:
-    InstructionFetchingEvent instr_event_err = { .bytecode_id = hash, // 'good' hash
-                                                 .pc = pc,
-                                                 .instruction = add_instr,       // 'good' instr
-                                                 .bytecode = trunc_bytecode_ptr, // <-- points at 'fake' bytecode
-                                                 .error = InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE };
-
-    // Since instr_size = 5 and now bytes_to_read = 4, the tx reverts with INSTRUCTION_OUT_OF_RANGE error
-    bytecode_builder.process_instruction_fetching({ instr_event_err }, trace);
-    range_check_builder.process(gen_range_check_events({ instr_event_err }), trace);
-    check_relation<instr_fetching>(trace);
-    check_all_interactions<BytecodeTraceBuilder>(trace);
-    ASSERT_EQ(trace.get(C::instr_fetching_sel_parsing_err, 1), 1);
-    ASSERT_EQ(trace.get(C::instr_fetching_instr_out_of_range, 1), 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::bc_hashing<FF>>(trace), "HASH_IS_ID");
 }
 
 TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
