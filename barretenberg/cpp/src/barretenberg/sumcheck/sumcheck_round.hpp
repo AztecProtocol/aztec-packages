@@ -374,40 +374,43 @@ template <typename Flavor> class SumcheckProverRound {
         // When !HasZK, compute the effective round size to avoid iterating over zero regions
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
-        const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
-        const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (can_skip_rows) {
+            // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range
+            const size_t num_edge_pairs = effective_round_size / 2;
+            const size_t min_iterations_per_thread = 1 << 10;
+            const size_t num_threads = bb::calculate_num_threads(num_edge_pairs, min_iterations_per_thread);
             std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
-            parallel_for(num_threads, [&](size_t thread_idx) {
-                ThreadChunk chunk{ .thread_index = thread_idx, .total_threads = num_threads };
-                auto range = chunk.range(effective_round_size);
+            parallel_for(num_threads, [&](ThreadChunk chunk) {
+                auto range = chunk.range(num_edge_pairs);
                 if (range.empty()) {
                     return;
                 }
+                size_t current_block_start = 0;
                 size_t current_block_size = 0;
-                size_t start = *range.begin();
-                size_t end = start + range.size();
                 std::vector<BlockOfContiguousRows> thread_blocks;
-                for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
+                for (size_t pair_idx : range) {
+                    size_t edge_idx = pair_idx * 2;
                     if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                        if (current_block_size == 0) {
+                            current_block_start = edge_idx;
+                        }
                         current_block_size += 2;
                     } else {
                         if (current_block_size > 0) {
                             thread_blocks.push_back(BlockOfContiguousRows{
-                                .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
+                                .starting_edge_idx = current_block_start, .size = current_block_size });
                             current_block_size = 0;
                         }
                     }
                 }
                 if (current_block_size > 0) {
-                    thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = end - current_block_size,
+                    thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
                                                                    .size = current_block_size });
                 }
-                all_thread_blocks[thread_idx] = thread_blocks;
+                all_thread_blocks[chunk.thread_index] = std::move(thread_blocks);
             });
 
             for (const auto& thread_blocks : all_thread_blocks) {
