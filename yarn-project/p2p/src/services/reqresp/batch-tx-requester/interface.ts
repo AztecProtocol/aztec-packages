@@ -13,8 +13,15 @@ export interface IPeerPenalizer {
   penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity): void;
 }
 
+/**
+ * Tracks which transactions are still missing and need to be fetched.
+ * Allows external code to mark transactions as fetched, enabling coordination
+ * between multiple fetching mechanisms (e.g., BatchTxRequester and Rpc Node requests).
+ */
 export interface IMissingTxsTracker {
+  /** Returns the set of transaction hashes that are still missing. */
   getMissingTxHashes(): Set<string>;
+  /** Marks a transaction as fetched. Returns true if it was previously missing. */
   markFetched(tx: Tx): boolean;
 }
 

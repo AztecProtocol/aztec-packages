@@ -1402,6 +1402,62 @@ describe('BatchTxRequester', () => {
     });
   });
 
+  describe('External fetching', () => {
+    it('should not request transactions that were marked as fetched externally', async () => {
+      const txCount = 16;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peer = await createSecp256k1PeerId();
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
+
+      const tracker = new MissingTxsTracker(missing);
+
+      // Peer has only first half of transactions
+      const peerTransactions = new Map([[peer.toString(), Array.from({ length: TX_BATCH_SIZE }, (_, i) => i)]]);
+      const { requestLog, mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      // Create requester first
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        deadline,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+          txValidator,
+        },
+      );
+
+      // Mark transactions 8-15 as fetched externally after creating requester
+      for (let i = TX_BATCH_SIZE; i < txCount; i++) {
+        tracker.markFetched(makeTx(missing[i]));
+      }
+
+      // Run and collect results
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Verify only transactions 0-7 were requested (indices 8-15 were marked fetched)
+      const allRequestedIndices = requestLog.get(peer.toString())?.flatMap(r => r.indices) || [];
+      const requestedExternallyFetched = allRequestedIndices.filter(idx => idx >= TX_BATCH_SIZE);
+
+      expect(requestedExternallyFetched).toEqual([]);
+      expect(result.length).toBe(TX_BATCH_SIZE);
+    });
+  });
+
   describe('Pinned peer functionality', () => {
     it('Should query pinned peer if available', async () => {
       const txCount = 10;
