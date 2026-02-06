@@ -21,14 +21,6 @@ class BoomerangBigQuadConstraintsTests : public ::testing::Test {
 // =====================================================================================
 
 /**
- * @brief Convert fr value to byte vector for Acir::Expression fields
- */
-static std::vector<uint8_t> fr_to_bytes(const fr& value)
-{
-    return value.to_buffer();
-}
-
-/**
  * @brief Build BigQuadConstraint from Acir::Expression via the ACIR splitting pipeline
  * @details Calls assert_zero_to_quad_constraints which invokes split_into_mul_quad_gates
  *          to split the expression into a chain of width-4 gates.
@@ -45,9 +37,9 @@ static BigQuadConstraint expression_to_big_quad(const Acir::Expression& expr)
     return BigQuadConstraint{};
 }
 
-// Helper to build AcirFormat from individual constraints through the full ACIR serde flow
-template <typename... Constraints>
-static AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+// Helper to build AcirFormat from individual constraints through the full ACIR serde flow.
+// Uses constraint_to_acir_opcode and build_acir_circuit from test_class.hpp.
+template <typename... Constraints> static AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -55,7 +47,6 @@ static AcirFormat build_acir_format(uint32_t max_witness_index, const Constraint
         opcodes.insert(opcodes.end(), ops.begin(), ops.end());
     };
     (collect(constraints), ...);
-    (void)max_witness_index; // No longer needed by build_acir_circuit
     return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
@@ -77,27 +68,16 @@ TEST_F(BoomerangBigQuadConstraintsTests, FullSerializationPipeline_1Mul3Linear)
 {
     // Step 1: Build Acir::Expression
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-9)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-9).to_buffer(),
     };
 
-    // Step 2: Build Acir::Circuit and convert through circuit_serde_to_acir_format
+    // Step 2: Build Acir::Circuit using helper and convert through circuit_serde_to_acir_format
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
-    Acir::Circuit circuit{
-        .function_name = "test_circuit",
-        .current_witness_index = 4,
-        .opcodes = { Acir::Opcode{ .value = assert_zero } },
-        .private_parameters = {},
-        .public_parameters = Acir::PublicInputs{ .value = {} },
-        .return_values = Acir::PublicInputs{ .value = {} },
-        .assert_messages = {},
-    };
-
-    // Step 3: Convert Acir::Circuit to AcirFormat (full serde pipeline)
-    AcirFormat constraint_system = circuit_serde_to_acir_format(circuit);
+    AcirFormat constraint_system = circuit_serde_to_acir_format(build_acir_circuit({ Acir::Opcode{ .value = assert_zero } }));
 
     // Step 4: Verify constraint routing
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
@@ -136,17 +116,17 @@ TEST_F(BoomerangBigQuadConstraintsTests, FullSerializationPipeline_1Mul3Linear)
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_2MulTerms)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-33)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-33).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty()) << "Expression should produce BigQuadConstraint";
     ASSERT_GT(big_quad.size(), 1u) << "Expression should produce multiple gates";
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(3), fr(4), fr(5), fr(7) };
@@ -173,18 +153,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_0Mul5Linear)
 {
     Acir::Expression expr{
         .mul_terms = {},
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 1 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-15)),
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 1 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-15).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty()) << "Expression should produce BigQuadConstraint";
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(5) };
@@ -211,18 +191,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_0Mul5Linear)
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_OverlappingMulAndLinear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-32)),
+        .mul_terms = { std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-32).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(5), fr(8) };
@@ -249,20 +229,20 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_OverlappingMulAndLinear)
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_3Mul3Linear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 5 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 6 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 7 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 8 }) },
-        .q_c = fr_to_bytes(fr(-88)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 5 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 6 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 7 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 8 }) },
+        .q_c = fr(-88).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
     EXPECT_GE(big_quad.size(), 3u) << "3 mul terms should produce at least 3 gates";
 
-    auto constraint_system = build_acir_format(8, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(3), fr(4), fr(5), fr(1), fr(2), fr(10), fr(20), fr(30) };
@@ -294,18 +274,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_3Mul3Linear)
 TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithRange)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-9)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-9).to_buffer(),
     };
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
 
     RangeConstraint range_2{ .witness = 2, .num_bits = 8 };
     RangeConstraint range_3{ .witness = 3, .num_bits = 8 };
-    auto constraint_system = build_acir_format(4, big_quad, range_2, range_3);
+    auto constraint_system = build_acir_format(big_quad, range_2, range_3);
 
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(1), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -342,11 +322,11 @@ TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithRange)
 TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithQuad)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-9)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-9).to_buffer(),
     };
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
@@ -364,7 +344,7 @@ TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithQuad)
         .const_scaling = fr(0),
     };
 
-    auto constraint_system = build_acir_format(7, big_quad, quad);
+    auto constraint_system = build_acir_format(big_quad, quad);
 
     // big_quad: 2*3 + 1 + 1 + 1 = 9, quad: 4*5 = 20
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(1), fr(1), fr(4), fr(5), fr(20) };
@@ -404,18 +384,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, FullSerializationPipeline_BigQuadAndQua
 {
     // Big expression (5 distinct witnesses -> BigQuadConstraint)
     Acir::Expression big_expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-9)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-9).to_buffer(),
     };
 
     // Small expression (fits in 1 gate -> QuadConstraint)
     Acir::Expression small_expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 5 }, Acir::Witness{ .value = 6 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(-1)), Acir::Witness{ .value = 7 }) },
-        .q_c = fr_to_bytes(fr(0)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 5 }, Acir::Witness{ .value = 6 }) },
+        .linear_combinations = { std::make_tuple(fr(-1).to_buffer(), Acir::Witness{ .value = 7 }) },
+        .q_c = fr(0).to_buffer(),
     };
 
     Acir::Circuit circuit{
@@ -474,14 +454,14 @@ TEST_F(BoomerangBigQuadConstraintsTests, FullSerializationPipeline_BigQuadAndQua
 static std::pair<AcirFormat, UltraCircuitBuilder> build_simple_big_quad_circuit()
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-33)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-33).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
 
     WitnessVector witness = { fr(2), fr(3), fr(4), fr(5), fr(7) };
     AcirProgram program{ constraint_system, witness };
@@ -761,18 +741,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, DetectCorruptedBigQuad_wl_LastGate)
 TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithRange_CorruptBigQuadOnly)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-9)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-9).to_buffer(),
     };
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
 
     RangeConstraint range_2{ .witness = 2, .num_bits = 8 };
     RangeConstraint range_3{ .witness = 3, .num_bits = 8 };
-    auto constraint_system = build_acir_format(4, big_quad, range_2, range_3);
+    auto constraint_system = build_acir_format(big_quad, range_2, range_3);
 
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(1), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -812,17 +792,17 @@ TEST_F(BoomerangBigQuadConstraintsTests, MixedBigQuadWithRange_CorruptBigQuadOnl
 static std::pair<AcirFormat, UltraCircuitBuilder> build_3gate_big_quad_circuit()
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 5 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 6 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 7 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 8 }) },
-        .q_c = fr_to_bytes(fr(-88)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 5 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 6 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 7 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 8 }) },
+        .q_c = fr(-88).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
-    auto constraint_system = build_acir_format(8, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
 
     WitnessVector witness = { fr(2), fr(3), fr(4), fr(5), fr(1), fr(2), fr(10), fr(20), fr(30) };
     AcirProgram program{ constraint_system, witness };
@@ -869,17 +849,17 @@ static std::vector<size_t> find_big_quad_gate_chain(UltraCircuitBuilder& builder
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_2Mul0Linear_PureMultiplication)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
+        .mul_terms = { std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }) },
         .linear_combinations = {},
-        .q_c = fr_to_bytes(fr(-54)),
+        .q_c = fr(-54).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty()) << "2 mul terms should produce BigQuadConstraint";
     EXPECT_EQ(big_quad.size(), 2u) << "2 mul terms should produce exactly 2 gates";
 
-    auto constraint_system = build_acir_format(3, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(5), fr(3), fr(4) };
@@ -906,17 +886,17 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_2Mul0Linear_PureMultiplic
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_NonTrivialScalings)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(7)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(5)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(-3)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(11)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-52)),
+        .mul_terms = { std::make_tuple(fr(7).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(5).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(-3).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(11).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-52).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(3), fr(2), fr(4), fr(7), fr(1) };
@@ -946,20 +926,20 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_NonTrivialScalings)
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_MulLinearOverlap_3Mul3Linear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 4 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-56)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 4 }) },
+        .linear_combinations = { std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-56).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
     EXPECT_GE(big_quad.size(), 3u) << "3 mul terms should produce at least 3 gates";
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(4), fr(5) };
@@ -988,18 +968,18 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_MulLinearOverlap_3Mul3Lin
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_1Mul4Linear_LinearOverlap)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-24)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-24).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(2), fr(3), fr(5), fr(7), fr(1) };
@@ -1029,19 +1009,19 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_LinearOverlap_0Mul6Linear
 {
     Acir::Expression expr{
         .mul_terms = {},
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 1 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }) },
-        .q_c = fr_to_bytes(fr(-18)),
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 1 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }) },
+        .q_c = fr(-18).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty()) << "6 linear terms should produce BigQuadConstraint";
 
-    auto constraint_system = build_acir_format(4, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(3), fr(1), fr(2), fr(4), fr(5) };
@@ -1072,24 +1052,24 @@ TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_LinearOverlap_0Mul6Linear
 TEST_F(BoomerangBigQuadConstraintsTests, AuditPipeline_LargeChain_5Mul5Linear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 4 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 5 }, Acir::Witness{ .value = 6 }),
-                       std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 7 }, Acir::Witness{ .value = 8 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 3 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 4 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 9 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 9 }) },
-        .q_c = fr_to_bytes(fr(-37)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }, Acir::Witness{ .value = 3 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 4 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 5 }, Acir::Witness{ .value = 6 }),
+                       std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 7 }, Acir::Witness{ .value = 8 }) },
+        .linear_combinations = { std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 3 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 4 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 9 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 9 }) },
+        .q_c = fr(-37).to_buffer(),
     };
 
     BigQuadConstraint big_quad = expression_to_big_quad(expr);
     ASSERT_FALSE(big_quad.empty());
     EXPECT_GE(big_quad.size(), 5u) << "5 mul terms should produce at least 5 gates";
 
-    auto constraint_system = build_acir_format(9, big_quad);
+    auto constraint_system = build_acir_format(big_quad);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1u);
 
     WitnessVector witness = { fr(1), fr(2), fr(1), fr(3), fr(2), fr(1), fr(4), fr(1), fr(5), fr(3) };

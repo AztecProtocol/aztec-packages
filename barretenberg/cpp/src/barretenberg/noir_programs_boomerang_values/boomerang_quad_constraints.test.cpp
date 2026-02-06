@@ -22,9 +22,9 @@ static WitnessOrConstant<fr> witness_from_index(uint32_t idx)
     return WitnessOrConstant<fr>::from_index(idx);
 }
 
-// Helper to build AcirFormat from individual constraints through the full ACIR serde flow
-template <typename... Constraints>
-static AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+// Helper to build AcirFormat from individual constraints through the full ACIR serde flow.
+// Uses constraint_to_acir_opcode and build_acir_circuit from test_class.hpp.
+template <typename... Constraints> static AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -32,7 +32,6 @@ static AcirFormat build_acir_format(uint32_t max_witness_index, const Constraint
         opcodes.insert(opcodes.end(), ops.begin(), ops.end());
     };
     (collect(constraints), ...);
-    (void)max_witness_index; // No longer needed by build_acir_circuit
     return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
@@ -49,6 +48,34 @@ static std::optional<size_t> find_quad_gate(UltraCircuitBuilder& builder, fr exp
         }
     }
     return std::nullopt;
+}
+
+/**
+ * @brief Helper: build a valid quad constraint with all 4 wires active
+ * @details 2*(a*b) + 3*a + (-1)*b + c + (-2)*d + 5 = 0
+ *          a=2, b=3, c=2, d=11
+ */
+static std::pair<AcirFormat, UltraCircuitBuilder> build_full_equation_quad_circuit()
+{
+    QuadConstraint quad{
+        .a = 0,
+        .b = 1,
+        .c = 2,
+        .d = 3,
+        .mul_scaling = fr(2),
+        .a_scaling = fr(3),
+        .b_scaling = fr(-1),
+        .c_scaling = fr(1),
+        .d_scaling = fr(-2),
+        .const_scaling = fr(5),
+    };
+
+    auto constraint_system = build_acir_format(quad);
+
+    WitnessVector witness = { fr(2), fr(3), fr(2), fr(11) };
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    return { constraint_system, std::move(builder) };
 }
 
 // =====================================================================================
@@ -77,7 +104,7 @@ TEST_F(BoomerangQuadConstraintsTests, SimpleMultiplicationGate)
         .const_scaling = fr(0),
     };
 
-    auto constraint_system = build_acir_format(2, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(3), fr(7), fr(21) };
     AcirProgram program{ constraint_system, witness };
@@ -118,7 +145,7 @@ TEST_F(BoomerangQuadConstraintsTests, LinearCombinationGate)
         .const_scaling = fr(-30),
     };
 
-    auto constraint_system = build_acir_format(3, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4) };
     AcirProgram program{ constraint_system, witness };
@@ -160,7 +187,7 @@ TEST_F(BoomerangQuadConstraintsTests, FullEquationAllWires)
         .const_scaling = fr(5),
     };
 
-    auto constraint_system = build_acir_format(3, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(2), fr(3), fr(2), fr(11) };
     AcirProgram program{ constraint_system, witness };
@@ -202,7 +229,7 @@ TEST_F(BoomerangQuadConstraintsTests, MinimalSingleWireConstraint)
         .const_scaling = fr(-84),
     };
 
-    auto constraint_system = build_acir_format(0, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(42) };
     AcirProgram program{ constraint_system, witness };
@@ -258,7 +285,7 @@ TEST_F(BoomerangQuadConstraintsTests, MultipleQuadConstraints)
         .const_scaling = fr(-10),
     };
 
-    auto constraint_system = build_acir_format(4, quad_0, quad_1);
+    auto constraint_system = build_acir_format(quad_0, quad_1);
 
     // a=4, b=5, c=20, d=3, e=7
     WitnessVector witness = { fr(4), fr(5), fr(20), fr(3), fr(7) };
@@ -307,7 +334,7 @@ TEST_F(BoomerangQuadConstraintsTests, QuadWithRangeConstraints)
     RangeConstraint range_a{ .witness = 0, .num_bits = 8 };
     RangeConstraint range_b{ .witness = 1, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(2, quad, range_a, range_b);
+    auto constraint_system = build_acir_format(quad, range_a, range_b);
 
     // a=10, b=20, c=200 (both a,b fit in 8 bits)
     WitnessVector witness = { fr(10), fr(20), fr(200) };
@@ -359,7 +386,7 @@ TEST_F(BoomerangQuadConstraintsTests, SharedWitnessSquaring)
         .const_scaling = fr(0),
     };
 
-    auto constraint_system = build_acir_format(1, quad);
+    auto constraint_system = build_acir_format(quad);
 
     // a=7, c=49
     WitnessVector witness = { fr(7), fr(49) };
@@ -418,7 +445,7 @@ static std::pair<AcirFormat, UltraCircuitBuilder> build_mixed_quad_logic_range_c
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(5, quad, xor_constraint, range_3, range_4);
+    auto constraint_system = build_acir_format(quad, xor_constraint, range_3, range_4);
 
     WitnessVector witness = { fr(3), fr(7), fr(21), fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -587,7 +614,7 @@ TEST_F(BoomerangQuadConstraintsTests, MixedConstraints_SharedWitnesses)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(4, xor_constraint, quad, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, quad, range_0, range_1);
 
     // witness 0=100, 1=200, 2=100^200=172, 3=5, 4=172*5=860
     WitnessVector witness = { fr(100), fr(200), fr(xor_result_val), fr(5), fr(xor_result_val * 5) };
@@ -644,7 +671,7 @@ TEST_F(BoomerangQuadConstraintsTests, MixedConstraints_DifferentBitWidths)
     RangeConstraint range_4{ .witness = 4, .num_bits = 8 };
     RangeConstraint range_bool{ .witness = 6, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(6, quad, and_constraint, range_3, range_4, range_bool);
+    auto constraint_system = build_acir_format(quad, and_constraint, range_3, range_4, range_bool);
 
     // a=10, b=20, c=80, d=0xAB=171, e=0xCD=205, f=171&205=137, g=1 (boolean)
     WitnessVector witness = { fr(10), fr(20), fr(80), fr(171), fr(205), fr(171 & 205), fr(1) };
@@ -724,7 +751,7 @@ TEST_F(BoomerangQuadConstraintsTests, MixedMultipleQuadsWithLogicAndRange)
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(8, quad_0, quad_1, xor_constraint, range_3, range_4);
+    auto constraint_system = build_acir_format(quad_0, quad_1, xor_constraint, range_3, range_4);
 
     // quad_0: 4*5=20, quad_1: 2*10+3*20=80, xor: 100^200=172
     WitnessVector witness = { fr(4), fr(5), fr(20), fr(100), fr(200), fr(100 ^ 200), fr(10), fr(20), fr(80) };
@@ -778,7 +805,7 @@ static std::pair<AcirFormat, UltraCircuitBuilder> build_simple_quad_circuit()
         .const_scaling = fr(0),
     };
 
-    auto constraint_system = build_acir_format(2, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(3), fr(7), fr(21) };
     AcirProgram program{ constraint_system, witness };
@@ -818,6 +845,27 @@ TEST_F(BoomerangQuadConstraintsTests, DetectCorruptedQuad_q1)
     ASSERT_TRUE(gate_idx.has_value()) << "Could not find quad gate";
 
     builder.blocks.arithmetic.q_1().set(*gate_idx, fr(5)); // corrupt a_scaling from 0 to 5
+    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    AcirFormat cs_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_FALSE(incorrect_opcodes.empty());
+    EXPECT_TRUE(incorrect_opcodes.count(0) > 0);
+}
+
+/**
+ * @brief Test that corrupting q_2 (b_scaling) selector is detected
+ */
+TEST_F(BoomerangQuadConstraintsTests, DetectCorruptedQuad_q2_simple)
+{
+    auto [constraint_system, builder] = build_simple_quad_circuit();
+
+    auto gate_idx = find_quad_gate(builder, fr(1));
+    ASSERT_TRUE(gate_idx.has_value()) << "Could not find quad gate";
+
+    builder.blocks.arithmetic.q_2().set(*gate_idx, fr(5)); // corrupt b_scaling from 0 to 5
     EXPECT_FALSE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
@@ -974,7 +1022,7 @@ TEST_F(BoomerangQuadConstraintsTests, DetectCorruptedQuad_FullEquation_q4)
         .const_scaling = fr(5),
     };
 
-    auto constraint_system = build_acir_format(3, quad);
+    auto constraint_system = build_acir_format(quad);
 
     WitnessVector witness = { fr(2), fr(3), fr(2), fr(11) };
     AcirProgram program{ constraint_system, witness };
@@ -1028,7 +1076,7 @@ TEST_F(BoomerangQuadConstraintsTests, DetectCorruptedQuad_OnlyCorruptedFlagged)
         .const_scaling = fr(-10),
     };
 
-    auto constraint_system = build_acir_format(4, quad_0, quad_1);
+    auto constraint_system = build_acir_format(quad_0, quad_1);
 
     WitnessVector witness = { fr(4), fr(5), fr(20), fr(3), fr(7) };
     AcirProgram program{ constraint_system, witness };
@@ -1055,14 +1103,6 @@ TEST_F(BoomerangQuadConstraintsTests, DetectCorruptedQuad_OnlyCorruptedFlagged)
 // =====================================================================================
 
 /**
- * @brief Convert fr value to byte vector for Acir::Expression fields
- */
-static std::vector<uint8_t> fr_to_bytes(const fr& value)
-{
-    return value.to_buffer();
-}
-
-/**
  * @brief Test 1 mul + 0 linear via Acir::Expression pipeline
  * @details Expression: 5*(w0*w1) - 30 = 0
  *          w0=2, w1=3 -> 5*6 = 30
@@ -1071,9 +1111,9 @@ static std::vector<uint8_t> fr_to_bytes(const fr& value)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul0Linear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(5)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .mul_terms = { std::make_tuple(fr(5).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
         .linear_combinations = {},
-        .q_c = fr_to_bytes(fr(-30)),
+        .q_c = fr(-30).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1082,7 +1122,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul0Linear)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u);
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(1, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1109,10 +1149,10 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul0Linear)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul2Linear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(7)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(-2)), Acir::Witness{ .value = 3 }) },
-        .q_c = fr_to_bytes(fr(-17)),
+        .mul_terms = { std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(7).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(-2).to_buffer(), Acir::Witness{ .value = 3 }) },
+        .q_c = fr(-17).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1121,7 +1161,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul2Linear)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u);
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(3, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3), fr(1), fr(4) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1148,11 +1188,11 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul2Linear)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul3Linear_LinearOverlap)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }) },
-        .q_c = fr_to_bytes(fr(-21)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }) },
+        .q_c = fr(-21).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1161,7 +1201,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul3Linear_LinearOverlap)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u) << "Linear overlap should merge to fit in one gate";
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(3, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3), fr(3), fr(6) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1189,12 +1229,12 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul3Linear_LinearOverlap)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul4Linear_BothOverlaps)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(2)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 3 }) },
-        .q_c = fr_to_bytes(fr(-22)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(2).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 3 }) },
+        .q_c = fr(-22).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1203,7 +1243,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_1Mul4Linear_BothOverlaps)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u) << "Overlaps should merge to fit in one gate";
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(3, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3), fr(2), fr(4) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1231,11 +1271,11 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_0Mul4Linear_LinearOverlap)
 {
     Acir::Expression expr{
         .mul_terms = {},
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 1 }),
-                                 std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 2 }) },
-        .q_c = fr_to_bytes(fr(-10)),
+        .linear_combinations = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 1 }),
+                                 std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 2 }) },
+        .q_c = fr(-10).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1244,7 +1284,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_0Mul4Linear_LinearOverlap)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u) << "Linear overlap should merge to fit in one gate";
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(2, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3), fr(3) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1270,9 +1310,9 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_0Mul4Linear_LinearOverlap)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_SelfMul_WithLinear)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(1)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 0 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(3)), Acir::Witness{ .value = 1 }) },
-        .q_c = fr_to_bytes(fr(-13)),
+        .mul_terms = { std::make_tuple(fr(1).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 0 }) },
+        .linear_combinations = { std::make_tuple(fr(3).to_buffer(), Acir::Witness{ .value = 1 }) },
+        .q_c = fr(-13).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1281,7 +1321,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_SelfMul_WithLinear)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u);
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(1, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(2), fr(3) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1306,10 +1346,10 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_SelfMul_WithLinear)
 TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_NonTrivialScalings)
 {
     Acir::Expression expr{
-        .mul_terms = { std::make_tuple(fr_to_bytes(fr(-7)), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
-        .linear_combinations = { std::make_tuple(fr_to_bytes(fr(13)), Acir::Witness{ .value = 2 }),
-                                 std::make_tuple(fr_to_bytes(fr(-5)), Acir::Witness{ .value = 3 }) },
-        .q_c = fr_to_bytes(fr(96)),
+        .mul_terms = { std::make_tuple(fr(-7).to_buffer(), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+        .linear_combinations = { std::make_tuple(fr(13).to_buffer(), Acir::Witness{ .value = 2 }),
+                                 std::make_tuple(fr(-5).to_buffer(), Acir::Witness{ .value = 3 }) },
+        .q_c = fr(96).to_buffer(),
     };
 
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
@@ -1318,7 +1358,7 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_NonTrivialScalings)
     ASSERT_EQ(dummy.quad_constraints.size(), 1u);
     ASSERT_TRUE(dummy.big_quad_constraints.empty());
 
-    auto constraint_system = build_acir_format(3, dummy.quad_constraints[0]);
+    auto constraint_system = build_acir_format(dummy.quad_constraints[0]);
     WitnessVector witness = { fr(3), fr(4), fr(1), fr(5) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -1333,38 +1373,6 @@ TEST_F(BoomerangQuadConstraintsTests, AcirPipeline_NonTrivialScalings)
 
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_TRUE(incorrect_opcodes.empty());
-}
-
-// =====================================================================================
-// Additional corruption tests for selectors and wires not covered above
-// =====================================================================================
-
-/**
- * @brief Helper: build a valid quad constraint with all 4 wires active
- * @details 2*(a*b) + 3*a + (-1)*b + c + (-2)*d + 5 = 0
- *          a=2, b=3, c=2, d=11
- */
-static std::pair<AcirFormat, UltraCircuitBuilder> build_full_equation_quad_circuit()
-{
-    QuadConstraint quad{
-        .a = 0,
-        .b = 1,
-        .c = 2,
-        .d = 3,
-        .mul_scaling = fr(2),
-        .a_scaling = fr(3),
-        .b_scaling = fr(-1),
-        .c_scaling = fr(1),
-        .d_scaling = fr(-2),
-        .const_scaling = fr(5),
-    };
-
-    auto constraint_system = build_acir_format(3, quad);
-
-    WitnessVector witness = { fr(2), fr(3), fr(2), fr(11) };
-    AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-    return { constraint_system, std::move(builder) };
 }
 
 /**

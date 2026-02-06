@@ -36,9 +36,9 @@ WitnessOrConstant<fr> constant_from_value(uint8_t val)
     return WitnessOrConstant<fr>::from_constant(fr(val));
 }
 
-// Helper to build AcirFormat from individual constraints through the full ACIR serde flow
-template <typename... Constraints>
-AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+// Helper to build AcirFormat from individual constraints through the full ACIR serde flow.
+// Uses constraint_to_acir_opcode and build_acir_circuit from test_class.hpp.
+template <typename... Constraints> AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -46,7 +46,6 @@ AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... c
         opcodes.insert(opcodes.end(), ops.begin(), ops.end());
     };
     (collect(constraints), ...);
-    (void)max_witness_index; // No longer needed by build_acir_circuit
     return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
@@ -76,7 +75,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+    auto constraint_system = build_acir_format(xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -123,7 +122,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -150,7 +149,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(1), fr(0), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -182,7 +181,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(171), fr(205), fr(137) };
     AcirProgram program{ constraint_system, witness };
@@ -214,7 +213,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
                       uint256_t(0xAABBCCDD);
@@ -273,7 +272,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
     RangeConstraint range_7{ .witness = 7, .num_bits = 64 };
 
     auto constraint_system =
-        build_acir_format(8, xor_8, and_32, xor_64, range_0, range_1, range_3, range_4, range_6, range_7);
+        build_acir_format(xor_8, and_32, xor_64, range_0, range_1, range_3, range_4, range_6, range_7);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -312,7 +311,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
+    auto constraint_system = build_acir_format(xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -338,7 +337,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
+    auto constraint_system = build_acir_format(xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -364,7 +363,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(1, and_constraint, range_0);
+    auto constraint_system = build_acir_format(and_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -390,7 +389,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
 
-    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
+    auto constraint_system = build_acir_format(xor_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -416,7 +415,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
 
-    auto constraint_system = build_acir_format(1, and_constraint, range_0);
+    auto constraint_system = build_acir_format(and_constraint, range_0);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
@@ -443,7 +442,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qm)
     // Create a simple 1-bit range constraint
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(0, range_1bit);
+    auto constraint_system = build_acir_format(range_1bit);
 
     // Build circuit normally
     WitnessVector witness = { fr(1) }; // Valid boolean value
@@ -482,7 +481,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_qArith)
 {
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(0, range_1bit);
+    auto constraint_system = build_acir_format(range_1bit);
 
     WitnessVector witness = { fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -518,7 +517,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedBooleanGate_q1)
 {
     RangeConstraint range_1bit{ .witness = 0, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(0, range_1bit);
+    auto constraint_system = build_acir_format(range_1bit);
 
     WitnessVector witness = { fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -553,7 +552,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedSmallRangeConstraint)
 {
     RangeConstraint range_8bit{ .witness = 0, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(0, range_8bit);
+    auto constraint_system = build_acir_format(range_8bit);
 
     WitnessVector witness = { fr(200) }; // Valid 8-bit value
     AcirProgram program{ constraint_system, witness };
@@ -586,7 +585,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_DecomposeC
     // 32-bit range requires decompose chain (> 14 bits)
     RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(0, range_32bit);
+    auto constraint_system = build_acir_format(range_32bit);
 
     WitnessVector witness = { fr(1000000) }; // Valid 32-bit value
     AcirProgram program{ constraint_system, witness };
@@ -633,7 +632,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLargeRangeConstraint_SublimbRan
 {
     RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(0, range_32bit);
+    auto constraint_system = build_acir_format(range_32bit);
 
     WitnessVector witness = { fr(1000000) };
     AcirProgram program{ constraint_system, witness };
@@ -676,7 +675,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_LookupTableSelect
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -720,7 +719,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedAndConstraint_LookupTableSelect
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 & 200) };
     AcirProgram program{ constraint_system, witness };
@@ -764,7 +763,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_q3_TableIndex)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -811,7 +810,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wl_InputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -855,7 +854,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wr_InputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -899,7 +898,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedLookup_wo_OutputWire)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200) };
     AcirProgram program{ constraint_system, witness };
@@ -943,7 +942,7 @@ TEST_F(BoomerangConstraintsTests, FindAccumulationGateFromResultWitness)
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     uint64_t a_val = (1ULL << 32) + 100;
     uint64_t b_val = (2ULL << 32) + 200;
@@ -1014,7 +1013,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_64bit_Accumulatio
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     // Use actual 64-bit values that span both 32-bit chunks
     uint64_t a_val = (1ULL << 32) + 100; // High bits: 1, Low bits: 100
@@ -1072,7 +1071,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_LookupSele
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     // Use smaller values that fit in fr
     WitnessVector witness = { fr(300), fr(400), fr(300 ^ 400) };
@@ -1114,7 +1113,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_ConstantOperand)
     };
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(1, xor_constraint, range_0);
+    auto constraint_system = build_acir_format(xor_constraint, range_0);
 
     WitnessVector witness = { fr(500), fr(500 ^ 66) };
     AcirProgram program{ constraint_system, witness };
@@ -1159,7 +1158,7 @@ TEST_F(BoomerangConstraintsTests, DetectMultipleCorruptedConstraints)
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
     RangeConstraint range_bool{ .witness = 3, .num_bits = 1 };
 
-    auto constraint_system = build_acir_format(3, xor_constraint, range_0, range_1, range_bool);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1, range_bool);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(1) };
     AcirProgram program{ constraint_system, witness };
@@ -1222,7 +1221,7 @@ TEST_F(BoomerangConstraintsTests, ValidCircuitPassesValidation)
     RangeConstraint range_8bit{ .witness = 7, .num_bits = 8 };
 
     auto constraint_system = build_acir_format(
-        7, xor_constraint, and_constraint, range_0, range_1, range_3, range_4, range_bool, range_8bit);
+        xor_constraint, and_constraint, range_0, range_1, range_3, range_4, range_bool, range_8bit);
 
     WitnessVector witness = { fr(100), fr(200), fr(100 ^ 200), fr(300), fr(400), fr(300 & 400), fr(1), fr(150) };
     AcirProgram program{ constraint_system, witness };
@@ -1250,7 +1249,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_14Bit_BoundaryThreshold)
 {
     RangeConstraint range_14bit{ .witness = 0, .num_bits = 14 };
 
-    auto constraint_system = build_acir_format(0, range_14bit);
+    auto constraint_system = build_acir_format(range_14bit);
 
     WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
     AcirProgram program{ constraint_system, witness };
@@ -1272,7 +1271,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_15Bit_DecomposeChain)
 {
     RangeConstraint range_15bit{ .witness = 0, .num_bits = 15 };
 
-    auto constraint_system = build_acir_format(0, range_15bit);
+    auto constraint_system = build_acir_format(range_15bit);
 
     WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
     AcirProgram program{ constraint_system, witness };
@@ -1295,7 +1294,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_ZeroWitnessValue)
     RangeConstraint range_8bit{ .witness = 1, .num_bits = 8 };
     RangeConstraint range_32bit{ .witness = 2, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, range_1bit, range_8bit, range_32bit);
+    auto constraint_system = build_acir_format(range_1bit, range_8bit, range_32bit);
 
     WitnessVector witness = { fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -1336,7 +1335,7 @@ TEST_F(BoomerangConstraintsTests, LogicConstraint_MaxValues_32Bit)
     RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+    auto constraint_system = build_acir_format(xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
 
     // XOR: max ^ max = 0, AND: max & max = max
     WitnessVector witness = { fr(max_val), fr(max_val), fr(0), fr(max_val), fr(max_val), fr(max_val) };
@@ -1358,7 +1357,7 @@ TEST_F(BoomerangConstraintsTests, RangeConstraint_MaxValue_8Bit)
 {
     RangeConstraint range_8bit{ .witness = 0, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(0, range_8bit);
+    auto constraint_system = build_acir_format(range_8bit);
 
     WitnessVector witness = { fr(255) }; // Max 8-bit value
     AcirProgram program{ constraint_system, witness };
@@ -1386,7 +1385,7 @@ TEST_F(BoomerangConstraintsTests, LogicConstraint_BothOperandsConstant)
         .is_xor_gate = 1,
     };
 
-    auto constraint_system = build_acir_format(0, xor_constraint);
+    auto constraint_system = build_acir_format(xor_constraint);
 
     WitnessVector witness = { fr(42 ^ 99) };
     AcirProgram program{ constraint_system, witness };
@@ -1420,7 +1419,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_32BitXor)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val ^ b_val) };
     AcirProgram program{ constraint_system, witness };
@@ -1473,7 +1472,7 @@ TEST_F(BoomerangConstraintsTests, RecoverChunksFromLookups_8BitAnd)
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
 
-    auto constraint_system = build_acir_format(2, and_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(and_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(a_val), fr(b_val), fr(a_val & b_val) };
     AcirProgram program{ constraint_system, witness };
@@ -1531,7 +1530,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_Accumulati
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
                       uint256_t(0xAABBCCDD);
@@ -1593,7 +1592,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_128bit_Intermedia
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     uint256_t a_val = (uint256_t(0xDEADBEEF) << 96) | (uint256_t(0xCAFEBABE) << 64) | (uint256_t(0x12345678) << 32) |
                       uint256_t(0xAABBCCDD);
@@ -1662,7 +1661,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorruptedXorConstraint_MultipleLookupGat
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     uint64_t a_val = (1ULL << 32) + 100;
     uint64_t b_val = (2ULL << 32) + 200;
@@ -1721,7 +1720,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_14Bit_BoundaryThreshold_RangeL
 {
     RangeConstraint range_14bit{ .witness = 0, .num_bits = 14 };
 
-    auto constraint_system = build_acir_format(0, range_14bit);
+    auto constraint_system = build_acir_format(range_14bit);
 
     WitnessVector witness = { fr((1ULL << 14) - 1) }; // Max 14-bit value: 16383
     AcirProgram program{ constraint_system, witness };
@@ -1753,7 +1752,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_15Bit_DecomposeChain)
 {
     RangeConstraint range_15bit{ .witness = 0, .num_bits = 15 };
 
-    auto constraint_system = build_acir_format(0, range_15bit);
+    auto constraint_system = build_acir_format(range_15bit);
 
     WitnessVector witness = { fr((1ULL << 15) - 1) }; // Max 15-bit value: 32767
     AcirProgram program{ constraint_system, witness };
@@ -1800,7 +1799,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_ZeroWitness_DecomposeChain)
 {
     RangeConstraint range_32bit{ .witness = 0, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(0, range_32bit);
+    auto constraint_system = build_acir_format(range_32bit);
 
     WitnessVector witness = { fr(0) }; // Zero witness — all sublimbs will be zero
     AcirProgram program{ constraint_system, witness };
@@ -1860,7 +1859,7 @@ TEST_F(BoomerangConstraintsTests, DetectCorrupted_MaxValues_XorResultZero)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(2, xor_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(xor_constraint, range_0, range_1);
 
     // XOR: max ^ max = 0 — all result chunks are zero
     WitnessVector witness = { fr(max_val), fr(max_val), fr(0) };

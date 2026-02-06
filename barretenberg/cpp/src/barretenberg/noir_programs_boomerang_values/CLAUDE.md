@@ -133,9 +133,10 @@ but `process_quad_constraints` knows the circuit gate has `2 * mul_scaling` and 
 Tests use the `build_acir_format` helper to construct `AcirFormat` through the full ACIR serde flow, matching production code paths. This is defined in `boomerang_constraints.test.cpp` and relies on functions from `../dsl/acir_format/test_class.hpp`.
 
 ```cpp
-// Variadic helper: accepts any number of individual constraints
+// Variadic helper: accepts any number of individual constraints.
+// Uses constraint_to_acir_opcode and build_acir_circuit from test_class.hpp.
 template <typename... Constraints>
-AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints);
+AcirFormat build_acir_format(const Constraints&... constraints);
 ```
 
 **Flow**: constraints → `constraint_to_acir_opcode` → `build_acir_circuit` → `circuit_serde_to_acir_format` → `AcirFormat`
@@ -143,17 +144,16 @@ AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... c
 **Usage examples**:
 ```cpp
 // Single constraint type (range-only)
-auto cs = build_acir_format(0, range_1bit);
+auto cs = build_acir_format(range_1bit);
 
 // Mixed types (logic + range)
-auto cs = build_acir_format(2, xor_constraint, range_0, range_1);
+auto cs = build_acir_format(xor_constraint, range_0, range_1);
 
 // Multiple mixed types
-auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
+auto cs = build_acir_format(xor_constraint, and_constraint, range_0, range_1, range_3, range_4);
 ```
 
 **Key points**:
-- `max_witness_index` is the highest witness index used across all constraints
 - Opcode indices are assigned sequentially in the order constraints are passed
 - `num_acir_opcodes` and `original_opcode_indices` are set automatically by the serde flow
 - **Do NOT manually construct `AcirFormat{...}` structs** — always use `build_acir_format`
@@ -173,6 +173,7 @@ auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1,
 - **Include failure/corruption cases for every constraint type.** Every constraint type should have tests where the circuit is corrupted after construction and the analyzer is expected to detect the corruption. This validates the analyzer's purpose — identifying tampered or incorrect constraints.
 - **Corruption tests should target the analyzer's validation logic.** When corrupting a circuit, choose corruptions that the analyzer is designed to detect (e.g., wrong lookup table type, broken accumulation chain, mismatched witness values). Corruptions that only break low-level gate arithmetic (caught by `CircuitChecker`) without exercising the analyzer's constraint-specific checks are less valuable.
 - **Use `CircuitChecker::check(builder)` in corruption tests when applicable.** If the corruption is also detectable by `CircuitChecker` (e.g., wire value changes, certain selector changes), add `EXPECT_FALSE(CircuitChecker::check(builder))` before the analyzer check to confirm the corruption actually broke the circuit. If `CircuitChecker` cannot detect the corruption type (e.g., `q_arith=0` disabling a gate, `q_lookup=0`, range list clearing), add a comment explaining why.
+- **Always test corruption of ALL selectors.** For arithmetic constraints (QUAD, BIG_QUAD), ensure there are corruption tests for every selector: `q_m`, `q_1`, `q_2`, `q_3`, `q_4`, `q_c`, and `q_arith`. For lookup-based constraints, test `q_lookup` and table type selectors. Missing selector coverage can leave security gaps undetected.
 
 ## Development Rules
 
