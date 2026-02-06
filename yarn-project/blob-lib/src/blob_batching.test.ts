@@ -16,6 +16,7 @@ import { Blob } from './blob.js';
 import { BatchedBlobAccumulator } from './blob_batching.js';
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { encodeCheckpointEndMarker } from './encoding/checkpoint_end_marker.js';
+import { hashNoirBigNumLimbs } from './hash.js';
 import { computeBlobFieldsHash } from './hash.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
@@ -71,7 +72,7 @@ describe('Blob Batching', () => {
     const finalBlobCommitmentsHash = sha256ToField([onlyBlob.commitment]);
 
     // Challenge gamma
-    const hashedEval = await poseidon2Hash(y.toNoirBigNum().limbs.map(Fr.fromHexString));
+    const hashedEval = await hashNoirBigNumLimbs(y);
     const expectedFinalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([hashedEval, finalZ]));
     expect(finalGamma).toEqual(expectedFinalGamma);
 
@@ -158,8 +159,7 @@ describe('Blob Batching', () => {
       const qs = proofObjects.map(({ proof }) => BLS12Point.decompress(proof));
 
       // Challenge gamma
-      const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
-      const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
+      const hashedEvals = await Promise.all(evalYs.map(y => hashNoirBigNumLimbs(y)));
       let evaluationsHash = hashedEvals[0];
       for (let i = 1; i < numBlobs; i++) {
         evaluationsHash = await poseidon2Hash([evaluationsHash, hashedEvals[i]]);

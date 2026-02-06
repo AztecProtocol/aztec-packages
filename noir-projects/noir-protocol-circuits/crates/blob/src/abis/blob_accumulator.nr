@@ -1,4 +1,4 @@
-use crate::utils::compress_to_blob_commitment;
+use crate::{config::TWO_POW_120, utils::compress_to_blob_commitment};
 use super::{
     batching_blob_commitment::BatchingBlobCommitment, BLSPoint,
     final_blob_accumulator::FinalBlobAccumulator,
@@ -75,8 +75,13 @@ impl BlobAccumulator {
     *
     */
     pub fn init(first_output: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_0 = poseidon2_hash(first_output.y_i.get_limbs().map(|l| l as Field));
+        // BLS12 elements have 3 limbs of 120 bits each. We pack first two in a field element and the third in a second field element.
+        let preimage: [Field; 2] = [
+            (first_output.y_i.get_limbs()[0] as Field)
+                + TWO_POW_120 * (first_output.y_i.get_limbs()[1] as Field),
+            first_output.y_i.get_limbs()[2] as Field,
+        ];
+        let hashed_y_0 = poseidon2_hash(preimage);
         Self {
             blob_commitments_hash_acc: sha256_to_field(first_output.c_i.compressed),
             z_acc: first_output.z_i,
@@ -115,8 +120,12 @@ impl BlobAccumulator {
     *
     */
     pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_i = poseidon2_hash(other.y_i.get_limbs().map(|l| l as Field));
+        // BLS12 elements have 3 limbs of 120 bits each. We pack first two in a field element and the third in a second field element.
+        let preimage: [Field; 2] = [
+            (other.y_i.get_limbs()[0] as Field) + TWO_POW_120 * (other.y_i.get_limbs()[1] as Field),
+            other.y_i.get_limbs()[2] as Field,
+        ];
+        let hashed_y_i = poseidon2_hash(preimage);
 
         // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow_acc)))
         let c_acc = BLS12_381::evaluate_linear_expression(

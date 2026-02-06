@@ -79,11 +79,17 @@ export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer):
   return await poseidon2Hash([blobFieldsHash, commitmentFields[0], commitmentFields[1]]);
 }
 
+const TWO_POW_120 = BigInt('0x1000000000000000000000000000000');
+
 /**
- * Hash each u128 limb of the noir bignum struct representing the BLS field, to mimic the hash accumulation in the
- * rollup circuits.
+ * Hash a BLS12 field element to mimic the hash accumulation in the rollup circuits.
+ * BLS12 elements have 3 limbs of 120 bits each. We pack the first two into a single
+ * BN254 field element and use the third as the second, hashing a 2-element preimage.
  */
 export async function hashNoirBigNumLimbs(field: BLS12Fr): Promise<Fr> {
   const num = field.toNoirBigNum();
-  return await poseidon2Hash(num.limbs.map(Fr.fromHexString));
+  const limbs = num.limbs.map(l => BigInt(l));
+  const packed = new Fr(limbs[0] + TWO_POW_120 * limbs[1]);
+  const third = new Fr(limbs[2]);
+  return await poseidon2Hash([packed, third]);
 }

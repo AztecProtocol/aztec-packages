@@ -2,6 +2,7 @@ use bignum::{BigNum, BLS12_381_Fr};
 use types::constants::FIELDS_PER_BLOB;
 
 pub global LOG_FIELDS_PER_BLOB: u32 = 12;
+pub global TWO_POW_120: Field = 0x1000000000000000000000000000000;
 pub global D: BLS12_381_Fr = BLS12_381_Fr::from_limbs([4096, 0, 0]);
 pub global D_INV: BLS12_381_Fr = BLS12_381_Fr::from_limbs([
     0x686828bfce5c19400fffff00100001,
