@@ -195,64 +195,66 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
                                                       interleaved.interleaved_z_perm };
     std::array<FF, 3> shifted_evals_arr = { batched_eval_w1_shift, batched_eval_w6_shift, batched_eval_w9_shift };
 
-    // Get interleaved precomputed commitments and compute batched evaluations from VK
+    // Get interleaved precomputed commitments and compute batched evaluations from VK.
+    // Groups match VK sequential chunking of 31 PrecomputedEntities (batch_size=4).
     auto vk = verifier_instance->get_vk();
     const auto& evals_precomputed = sumcheck_output.claimed_evaluations;
 
-    // Compute batched evaluations for each interleaved precomputed commitment
-    // S₁: [q_m, q_c, q_l, q_r]
-    FF batched_eval_s1 = compute_batched_evaluation(
+    // P₁: [q_m, q_c, q_l, q_r]
+    FF batched_eval_p0 = compute_batched_evaluation(
         lagrange_basis, { evals_precomputed.q_m, evals_precomputed.q_c, evals_precomputed.q_l, evals_precomputed.q_r });
 
-    // S₂: [q_o, q_4, q_busread, q_lookup]
-    FF batched_eval_s2 = compute_batched_evaluation(
+    // P₂: [q_o, q_4, q_busread, q_lookup]
+    FF batched_eval_p1 = compute_batched_evaluation(
         lagrange_basis,
         { evals_precomputed.q_o, evals_precomputed.q_4, evals_precomputed.q_busread, evals_precomputed.q_lookup });
 
-    // S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-    FF batched_eval_s3 = compute_batched_evaluation(lagrange_basis,
+    // P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
+    FF batched_eval_p2 = compute_batched_evaluation(lagrange_basis,
                                                     { evals_precomputed.q_arith,
                                                       evals_precomputed.q_delta_range,
                                                       evals_precomputed.q_elliptic,
                                                       evals_precomputed.q_memory });
 
-    // S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-    FF batched_eval_s4 = compute_batched_evaluation(lagrange_basis,
+    // P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
+    FF batched_eval_p3 = compute_batched_evaluation(lagrange_basis,
                                                     { evals_precomputed.q_nnf,
                                                       evals_precomputed.q_poseidon2_external,
                                                       evals_precomputed.q_poseidon2_internal,
+                                                      evals_precomputed.sigma_1 });
+
+    // P₅: [sigma_2, sigma_3, sigma_4, id_1]
+    FF batched_eval_p4 = compute_batched_evaluation(
+        lagrange_basis,
+        { evals_precomputed.sigma_2, evals_precomputed.sigma_3, evals_precomputed.sigma_4, evals_precomputed.id_1 });
+
+    // P₆: [id_2, id_3, id_4, table_1]
+    FF batched_eval_p5 = compute_batched_evaluation(
+        lagrange_basis,
+        { evals_precomputed.id_2, evals_precomputed.id_3, evals_precomputed.id_4, evals_precomputed.table_1 });
+
+    // P₇: [table_2, table_3, table_4, lagrange_first]
+    FF batched_eval_p6 = compute_batched_evaluation(lagrange_basis,
+                                                    { evals_precomputed.table_2,
+                                                      evals_precomputed.table_3,
+                                                      evals_precomputed.table_4,
+                                                      evals_precomputed.lagrange_first });
+
+    // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys, zero-padded)
+    FF batched_eval_p7 = compute_batched_evaluation(lagrange_basis,
+                                                    { evals_precomputed.lagrange_last,
+                                                      evals_precomputed.lagrange_ecc_op,
+                                                      evals_precomputed.databus_id,
                                                       FF::zero() });
 
-    // S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-    FF batched_eval_s5 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.sigma_1, evals_precomputed.sigma_2, evals_precomputed.sigma_3, evals_precomputed.sigma_4 });
-
-    // S₆: [id_1, id_2, id_3, id_4]
-    FF batched_eval_s6 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.id_1, evals_precomputed.id_2, evals_precomputed.id_3, evals_precomputed.id_4 });
-
-    // S₇: [table_1, table_2, table_3, table_4]
-    FF batched_eval_s7 = compute_batched_evaluation(
-        lagrange_basis,
-        { evals_precomputed.table_1, evals_precomputed.table_2, evals_precomputed.table_3, evals_precomputed.table_4 });
-
-    // S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
-    FF batched_eval_s8 = compute_batched_evaluation(lagrange_basis,
-                                                    { evals_precomputed.lagrange_first,
-                                                      evals_precomputed.lagrange_last,
-                                                      evals_precomputed.lagrange_ecc_op,
-                                                      evals_precomputed.databus_id });
-
     // Build arrays for interleaved precomputed commitments and evaluations
-    std::array<Commitment, 8> precomputed_comms_arr = { vk->interleaved_selectors_1, vk->interleaved_selectors_2,
-                                                        vk->interleaved_selectors_3, vk->interleaved_selectors_4,
-                                                        vk->interleaved_sigmas,      vk->interleaved_ids,
-                                                        vk->interleaved_tables,      vk->interleaved_lagrange };
+    std::array<Commitment, 8> precomputed_comms_arr = { vk->interleaved_precomputed_0, vk->interleaved_precomputed_1,
+                                                        vk->interleaved_precomputed_2, vk->interleaved_precomputed_3,
+                                                        vk->interleaved_precomputed_4, vk->interleaved_precomputed_5,
+                                                        vk->interleaved_precomputed_6, vk->interleaved_precomputed_7 };
 
-    std::array<FF, 8> precomputed_evals_arr = { batched_eval_s1, batched_eval_s2, batched_eval_s3, batched_eval_s4,
-                                                batched_eval_s5, batched_eval_s6, batched_eval_s7, batched_eval_s8 };
+    std::array<FF, 8> precomputed_evals_arr = { batched_eval_p0, batched_eval_p1, batched_eval_p2, batched_eval_p3,
+                                                batched_eval_p4, batched_eval_p5, batched_eval_p6, batched_eval_p7 };
 
     // Compute powers of batching_challenge for sequential batching:
     // rho^0..rho^16 for 17 unshifted, then rho^17..rho^19 for 3 shifted

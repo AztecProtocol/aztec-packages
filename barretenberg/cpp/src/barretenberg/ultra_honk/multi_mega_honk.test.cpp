@@ -2,8 +2,10 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -224,5 +226,230 @@ TEST_F(MultiMegaHonkTests, VerifierManifestConsistency)
             verifier_manifest[round].print();
             FAIL();
         }
+    }
+}
+
+/**
+ * @brief Test that interleaved polynomial evaluation via evaluate_mle matches Lagrange-basis reconstruction,
+ *        and that commit_interleaved matches commit on the materialized interleaved polynomial.
+ *
+ * @details For an interleaved polynomial F(X) = f₀(X⁴) + X·f₁(X⁴) + X²·f₂(X⁴) + X³·f₃(X⁴),
+ *          the MLE evaluation at (u₀, u₁, u₂, ...) satisfies:
+ *            F(u₀, u₁, u₂, ...) = Σⱼ fⱼ(u₂, ...) · Lⱼ(u₀, u₁)
+ *          where Lⱼ is the Lagrange basis for the first 2 variables.
+ */
+TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
+{
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE; // 4
+    constexpr size_t LOG_K = Flavor::INTERLEAVING_LOG_K;           // 2
+
+    // Use a small polynomial size for the test
+    constexpr size_t CHUNK_LOG_N = 4;
+    constexpr size_t CHUNK_SIZE = 1 << CHUNK_LOG_N;              // 16
+    constexpr size_t INTERLEAVED_SIZE = CHUNK_SIZE * BATCH_SIZE; // 64
+    constexpr size_t INTERLEAVED_LOG_N = CHUNK_LOG_N + LOG_K;    // 6
+
+    // Create a commitment key large enough for the interleaved polynomial
+    auto ck = CommitmentKey<Curve>(INTERLEAVED_SIZE);
+
+    // --- Test 1: Full batch (4 polynomials) ---
+    {
+        // Create 4 random chunk polynomials
+        std::array<Polynomial<FF>, BATCH_SIZE> chunks;
+        for (size_t j = 0; j < BATCH_SIZE; ++j) {
+            chunks[j] = Polynomial<FF>(CHUNK_SIZE);
+            for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+                chunks[j].at(i) = FF::random_element();
+            }
+        }
+
+        // Materialize the interleaved polynomial: F[4i+j] = chunks[j][i]
+        Polynomial<FF> interleaved(INTERLEAVED_SIZE);
+        for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                interleaved.at(BATCH_SIZE * i + j) = chunks[j][i];
+            }
+        }
+
+        // Generate random challenge point: (u₀, u₁, u₂, ..., u_{INTERLEAVED_LOG_N-1})
+        std::vector<FF> full_challenge(INTERLEAVED_LOG_N);
+        for (auto& u : full_challenge) {
+            u = FF::random_element();
+        }
+
+        // Ground truth: evaluate_mle on the materialized interleaved polynomial
+        FF eval_ground_truth = interleaved.evaluate_mle(full_challenge);
+
+        // Lagrange-basis reconstruction: Σⱼ fⱼ(u₂,...) · Lⱼ(u₀, u₁)
+        FF u0 = full_challenge[0];
+        FF u1 = full_challenge[1];
+        std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
+
+        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+
+        FF eval_reconstructed = FF::zero();
+        for (size_t j = 0; j < BATCH_SIZE; ++j) {
+            FF chunk_eval = chunks[j].evaluate_mle(inner_challenge);
+            eval_reconstructed += chunk_eval * lagrange[j];
+        }
+
+        EXPECT_EQ(eval_ground_truth, eval_reconstructed)
+            << "Interleaved MLE evaluation does not match Lagrange reconstruction (full batch)";
+
+        // Commitment test: commit_interleaved vs commit on materialized polynomial
+        std::vector<PolynomialSpan<const FF>> chunk_spans;
+        chunk_spans.reserve(BATCH_SIZE);
+        for (size_t j = 0; j < BATCH_SIZE; ++j) {
+            chunk_spans.emplace_back(PolynomialSpan<const FF>(chunks[j]));
+        }
+
+        Commitment commit_interleaved = ck.commit_interleaved<BATCH_SIZE>(chunk_spans);
+        Commitment commit_materialized = ck.commit(interleaved);
+
+        EXPECT_EQ(commit_interleaved, commit_materialized)
+            << "commit_interleaved does not match commit on materialized polynomial (full batch)";
+    }
+
+    // --- Test 2: Partial batch (e.g. [f₀, ZERO, ZERO, ZERO]) ---
+    {
+        // Create 1 non-zero chunk polynomial, rest are zero
+        Polynomial<FF> chunk0(CHUNK_SIZE);
+        for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+            chunk0.at(i) = FF::random_element();
+        }
+
+        // Materialize: only slot 0 is non-zero
+        Polynomial<FF> interleaved(INTERLEAVED_SIZE);
+        for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+            interleaved.at(BATCH_SIZE * i) = chunk0[i];
+        }
+
+        std::vector<FF> full_challenge(INTERLEAVED_LOG_N);
+        for (auto& u : full_challenge) {
+            u = FF::random_element();
+        }
+
+        FF eval_ground_truth = interleaved.evaluate_mle(full_challenge);
+
+        FF u0 = full_challenge[0];
+        FF u1 = full_challenge[1];
+        std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
+
+        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        FF chunk_eval = chunk0.evaluate_mle(inner_challenge);
+        FF eval_reconstructed = chunk_eval * lagrange[0]; // only L₀ contributes
+
+        EXPECT_EQ(eval_ground_truth, eval_reconstructed)
+            << "Interleaved MLE evaluation does not match Lagrange reconstruction (partial batch)";
+    }
+
+    // --- Test 3: Shifted evaluation ---
+    {
+        // Create a shiftable chunk polynomial (first coefficient is zero)
+        Polynomial<FF> chunk0 = Polynomial<FF>::shiftable(CHUNK_SIZE);
+        for (size_t i = 1; i < CHUNK_SIZE; ++i) {
+            chunk0.at(i) = FF::random_element();
+        }
+
+        // Materialize the interleaved polynomial: F[4i] = chunk0[i], rest zero
+        // For shift-by-4: the first BATCH_SIZE coefficients must be zero
+        Polynomial<FF> interleaved(INTERLEAVED_SIZE);
+        for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+            interleaved.at(BATCH_SIZE * i) = chunk0.get(i);
+        }
+
+        std::vector<FF> full_challenge(INTERLEAVED_LOG_N);
+        for (auto& u : full_challenge) {
+            u = FF::random_element();
+        }
+
+        // Ground truth: evaluate_mle on the interleaved polynomial with shift=true
+        // Note: shift=true in evaluate_mle shifts by 1. For interleaved shift-by-4,
+        // we construct the shifted polynomial manually: F_shifted[i] = F[i + BATCH_SIZE]
+        Polynomial<FF> interleaved_shifted(INTERLEAVED_SIZE);
+        for (size_t i = 0; i + BATCH_SIZE < INTERLEAVED_SIZE; ++i) {
+            interleaved_shifted.at(i) = interleaved.get(i + BATCH_SIZE);
+        }
+        FF eval_shifted_ground_truth = interleaved_shifted.evaluate_mle(full_challenge);
+
+        // Lagrange reconstruction with shifted chunk evals
+        FF u0 = full_challenge[0];
+        FF u1 = full_challenge[1];
+        std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
+
+        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        // For shift-by-4 on interleaved, chunk0 is shifted by 1 in its own domain
+        FF chunk_eval_shifted = chunk0.evaluate_mle(inner_challenge, /*shift=*/true);
+        FF eval_shifted_reconstructed = chunk_eval_shifted * lagrange[0];
+
+        EXPECT_EQ(eval_shifted_ground_truth, eval_shifted_reconstructed)
+            << "Shifted interleaved MLE evaluation does not match Lagrange reconstruction";
+    }
+
+    // --- Test 4: Batched evaluation with rho powers (mimics prover/verifier batching) ---
+    {
+        constexpr size_t NUM_GROUPS = 3;
+        FF rho = FF::random_element();
+
+        // Create 3 interleaved groups, each with 4 chunks
+        std::array<std::array<Polynomial<FF>, BATCH_SIZE>, NUM_GROUPS> groups;
+        for (size_t g = 0; g < NUM_GROUPS; ++g) {
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                groups[g][j] = Polynomial<FF>(CHUNK_SIZE);
+                for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+                    groups[g][j].at(i) = FF::random_element();
+                }
+            }
+        }
+
+        // Prover-side: batch chunks by position, then interleave
+        // G_j = Σ_g rho^g · group[g][j]
+        std::array<Polynomial<FF>, BATCH_SIZE> batched_chunks;
+        for (size_t j = 0; j < BATCH_SIZE; ++j) {
+            batched_chunks[j] = Polynomial<FF>(CHUNK_SIZE);
+            FF rho_pow = FF::one();
+            for (size_t g = 0; g < NUM_GROUPS; ++g) {
+                batched_chunks[j].add_scaled(PolynomialSpan<const FF>(groups[g][j]), rho_pow);
+                rho_pow *= rho;
+            }
+        }
+
+        // Materialize the batched interleaved polynomial
+        Polynomial<FF> batched_interleaved(INTERLEAVED_SIZE);
+        for (size_t i = 0; i < CHUNK_SIZE; ++i) {
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                batched_interleaved.at(BATCH_SIZE * i + j) = batched_chunks[j][i];
+            }
+        }
+
+        std::vector<FF> full_challenge(INTERLEAVED_LOG_N);
+        for (auto& u : full_challenge) {
+            u = FF::random_element();
+        }
+
+        // Ground truth from materialized batched interleaved polynomial
+        FF eval_batched_ground_truth = batched_interleaved.evaluate_mle(full_challenge);
+
+        // Verifier-side: compute individual interleaved evals via Lagrange, then batch with rho
+        FF u0 = full_challenge[0];
+        FF u1 = full_challenge[1];
+        std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
+        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+
+        FF eval_batched_reconstructed = FF::zero();
+        FF rho_pow = FF::one();
+        for (size_t g = 0; g < NUM_GROUPS; ++g) {
+            // Compute the interleaved eval for this group: Σ_j chunk[g][j].eval(inner) * L_j
+            FF group_eval = FF::zero();
+            for (size_t j = 0; j < BATCH_SIZE; ++j) {
+                FF chunk_eval = groups[g][j].evaluate_mle(inner_challenge);
+                group_eval += chunk_eval * lagrange[j];
+            }
+            eval_batched_reconstructed += group_eval * rho_pow;
+            rho_pow *= rho;
+        }
+
+        EXPECT_EQ(eval_batched_ground_truth, eval_batched_reconstructed)
+            << "Batched interleaved eval does not match verifier Lagrange reconstruction with rho";
     }
 }

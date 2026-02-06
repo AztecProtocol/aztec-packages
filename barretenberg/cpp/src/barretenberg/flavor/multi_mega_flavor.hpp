@@ -120,28 +120,32 @@ class MultiMegaFlavor : public MegaFlavor {
     /**
      * @brief Container for interleaved precomputed commitments (8 total, down from 31).
      *
+     * @details Groups are formed by sequential chunking of PrecomputedEntities (batch_size=4).
+     * With 31 entities, groups cross semantic boundaries; the last group has only 3 polynomials.
+     *
      * Batching layout:
-     *   S₁: [q_m, q_c, q_l, q_r]
-     *   S₂: [q_o, q_4, q_busread, q_lookup]
-     *   S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-     *   S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-     *   S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-     *   S₆: [id_1, id_2, id_3, id_4]
-     *   S₇: [table_1, table_2, table_3, table_4]
-     *   S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
+     *   P₁: [q_m, q_c, q_l, q_r]
+     *   P₂: [q_o, q_4, q_busread, q_lookup]
+     *   P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
+     *   P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
+     *   P₅: [sigma_2, sigma_3, sigma_4, id_1]
+     *   P₆: [id_2, id_3, id_4, table_1]
+     *   P₇: [table_2, table_3, table_4, lagrange_first]
+     *   P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys, zero-padded)
      */
     template <typename DataType_> class InterleavedPrecomputedCommitments {
       public:
         using DataType = DataType_;
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              interleaved_selectors_1, // S₁: [q_m, q_c, q_l, q_r]
-                              interleaved_selectors_2, // S₂: [q_o, q_4, q_busread, q_lookup]
-                              interleaved_selectors_3, // S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-                              interleaved_selectors_4, // S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-                              interleaved_sigmas,      // S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-                              interleaved_ids,         // S₆: [id_1, id_2, id_3, id_4]
-                              interleaved_tables,      // S₇: [table_1, table_2, table_3, table_4]
-                              interleaved_lagrange) // S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
+        DEFINE_FLAVOR_MEMBERS(
+            DataType,
+            interleaved_precomputed_0, // P₁: [q_m, q_c, q_l, q_r]
+            interleaved_precomputed_1, // P₂: [q_o, q_4, q_busread, q_lookup]
+            interleaved_precomputed_2, // P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
+            interleaved_precomputed_3, // P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
+            interleaved_precomputed_4, // P₅: [sigma_2, sigma_3, sigma_4, id_1]
+            interleaved_precomputed_5, // P₆: [id_2, id_3, id_4, table_1]
+            interleaved_precomputed_6, // P₇: [table_2, table_3, table_4, lagrange_first]
+            interleaved_precomputed_7) // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys)
     };
 
     // Number of interleaved precomputed commitments
@@ -163,14 +167,14 @@ class MultiMegaFlavor : public MegaFlavor {
       public:
         InterleavedPrecomputedLabels()
         {
-            interleaved_selectors_1 = "INTERLEAVED_SELECTORS_1";
-            interleaved_selectors_2 = "INTERLEAVED_SELECTORS_2";
-            interleaved_selectors_3 = "INTERLEAVED_SELECTORS_3";
-            interleaved_selectors_4 = "INTERLEAVED_SELECTORS_4";
-            interleaved_sigmas = "INTERLEAVED_SIGMAS";
-            interleaved_ids = "INTERLEAVED_IDS";
-            interleaved_tables = "INTERLEAVED_TABLES";
-            interleaved_lagrange = "INTERLEAVED_LAGRANGE";
+            interleaved_precomputed_0 = "INTERLEAVED_PRECOMPUTED_0";
+            interleaved_precomputed_1 = "INTERLEAVED_PRECOMPUTED_1";
+            interleaved_precomputed_2 = "INTERLEAVED_PRECOMPUTED_2";
+            interleaved_precomputed_3 = "INTERLEAVED_PRECOMPUTED_3";
+            interleaved_precomputed_4 = "INTERLEAVED_PRECOMPUTED_4";
+            interleaved_precomputed_5 = "INTERLEAVED_PRECOMPUTED_5";
+            interleaved_precomputed_6 = "INTERLEAVED_PRECOMPUTED_6";
+            interleaved_precomputed_7 = "INTERLEAVED_PRECOMPUTED_7";
         }
     };
 

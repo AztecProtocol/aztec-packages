@@ -164,23 +164,24 @@ std::pair<MultiMegaProver::Polynomial, MultiMegaProver::Polynomial> MultiMegaPro
     };
 
     // --- Phase 1: Batch all 17 unshifted groups with rho^0..rho^16 ---
+    // Precomputed groups match VK sequential chunking of 31 PrecomputedEntities (batch_size=4).
 
-    // S₁: [q_m, q_c, q_l, q_r]
+    // P₁: [q_m, q_c, q_l, q_r]
     batch_unshifted_group({ &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r });
-    // S₂: [q_o, q_4, q_busread, q_lookup]
+    // P₂: [q_o, q_4, q_busread, q_lookup]
     batch_unshifted_group({ &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup });
-    // S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
+    // P₃: [q_arith, q_delta_range, q_elliptic, q_memory]
     batch_unshifted_group({ &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory });
-    // S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-    batch_unshifted_group({ &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, nullptr });
-    // S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-    batch_unshifted_group({ &polys.sigma_1, &polys.sigma_2, &polys.sigma_3, &polys.sigma_4 });
-    // S₆: [id_1, id_2, id_3, id_4]
-    batch_unshifted_group({ &polys.id_1, &polys.id_2, &polys.id_3, &polys.id_4 });
-    // S₇: [table_1, table_2, table_3, table_4]
-    batch_unshifted_group({ &polys.table_1, &polys.table_2, &polys.table_3, &polys.table_4 });
-    // S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
-    batch_unshifted_group({ &polys.lagrange_first, &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id });
+    // P₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, sigma_1]
+    batch_unshifted_group({ &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, &polys.sigma_1 });
+    // P₅: [sigma_2, sigma_3, sigma_4, id_1]
+    batch_unshifted_group({ &polys.sigma_2, &polys.sigma_3, &polys.sigma_4, &polys.id_1 });
+    // P₆: [id_2, id_3, id_4, table_1]
+    batch_unshifted_group({ &polys.id_2, &polys.id_3, &polys.id_4, &polys.table_1 });
+    // P₇: [table_2, table_3, table_4, lagrange_first]
+    batch_unshifted_group({ &polys.table_2, &polys.table_3, &polys.table_4, &polys.lagrange_first });
+    // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys, zero-padded)
+    batch_unshifted_group({ &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id, nullptr });
     // W₁: [w_l, w_r, w_o, ZERO]
     batch_unshifted_group({ &polys.w_l, &polys.w_r, &polys.w_o, nullptr });
     // W₂: [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
