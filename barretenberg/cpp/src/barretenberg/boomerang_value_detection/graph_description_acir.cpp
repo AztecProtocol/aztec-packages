@@ -1,5 +1,7 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -336,6 +338,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
             break;
         case AcirConstraintType::BIG_QUAD:
             result = process_big_quad_constraints(constraint_info.ptr);
+            break;
+        case AcirConstraintType::POSEIDON2:
+            result = process_poseidon2s_constraints(constraint_info.ptr);
             break;
         default:
             // Constraint type not yet implemented - mark as not processed
@@ -678,6 +683,282 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
             return false;
         }
     }
+    return true;
+}
+
+namespace {
+/**
+ * @brief Find a gate in a block where wires match the given state
+ * @return Gate index if found, std::nullopt otherwise
+ */
+template <typename Block>
+std::optional<size_t> find_gate_matching_state(Block& block, const std::array<uint32_t, 4>& state)
+{
+    for (size_t i = 0; i < block.size(); ++i) {
+        if (block.w_l()[i] == state[0] && block.w_r()[i] == state[1] && block.w_o()[i] == state[2] &&
+            block.w_4()[i] == state[3]) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+} // namespace
+
+/**
+ * @brief Validates Poseidon2 constraint by checking circuit structure matches expected algorithm.
+ *
+ * Poseidon2 permutation structure:
+ *   1. Initial matrix multiplication layer (6 arithmetic gates)
+ *   2. First half of external rounds (rounds 0 to rounds_f/2 - 1)
+ *   3. Internal rounds (rounds_f/2 to rounds_f/2 + rounds_p - 1)
+ *   4. Second half of external rounds (rounds_f/2 + rounds_p to total_rounds - 1)
+ *
+ * Matrix multiplication layer creates 6 gates with this structure:
+ *   | Gate | w_l  | w_r  | w_o  | w_4  | q_1 | q_2 | q_3 | q_4 | Operation                    |
+ *   |------|------|------|------|------|-----|-----|-----|-----|------------------------------|
+ *   | 0    | s[0] | s[1] | s[3] | tmp1 | 1   | 1   | 2   | -1  | tmp1 = s[0] + s[1] + 2*s[3]  |
+ *   | 1    | s[2] | s[1] | s[3] | tmp2 | 1   | 2   | 1   | -1  | tmp2 = s[2] + 2*s[1] + s[3]  |
+ *   | 2    | tmp2 | s[0] | s[1] | v2   | 1   | 4   | 4   | -1  | v2 = tmp2 + 4*s[0] + 4*s[1]  |
+ *   | 3    | v2   | tmp1 | v1   | zero | 1   | 1   | -1  | 0   | v1 = v2 + tmp1               |
+ *   | 4    | tmp1 | s[2] | s[3] | v4   | 1   | 4   | 4   | -1  | v4 = tmp1 + 4*s[2] + 4*s[3]  |
+ *   | 5    | v4   | tmp2 | v3   | zero | 1   | 1   | -1  | 0   | v3 = v4 + tmp2               |
+ *
+ * Output state after matrix layer: [v1, v2, v3, v4]
+ *
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(const ConstraintPtr& ptr)
+{
+    const auto* constraint = std::get<const acir_format::Poseidon2Constraint*>(ptr);
+    const std::vector<WitnessOrConstant<FF>>& state = constraint->state;
+    const std::vector<uint32_t>& result = constraint->result;
+
+    // Convert state witnesses to real indices
+    std::array<uint32_t, 4> state_indices;
+    for (size_t i = 0; i < 4; ++i) {
+        state_indices[i] = analyzer.to_real(state[i].index);
+    }
+
+    auto& arith_block = builder.blocks.arithmetic;
+
+    // Lambda to validate matrix multiplication layer (6 arithmetic gates)
+    // Returns the output state [v1, v2, v3, v4] if valid, std::nullopt otherwise
+    auto validate_matrix_layer = [&]() -> std::optional<std::array<uint32_t, 4>> {
+        const auto& gates = analyzer.get_variable_gates(state_indices[0]);
+
+        // Expected selectors [q_1, q_2, q_3, q_4] for matrix multiplication layer
+        // Gates 0,1,2,4 use add_two() with q_4 = -1
+        // Gates 3,5 use operator+ with q_3 = -1, q_4 = 0
+        const std::array<std::array<FF, 4>, 6> expected_selectors = { {
+            { FF(1), FF(1), FF(2), FF(-1) }, // gate 0: tmp1 = s[0] + s[1] + 2*s[3]
+            { FF(1), FF(2), FF(1), FF(-1) }, // gate 1: tmp2 = s[2] + 2*s[1] + s[3]
+            { FF(1), FF(4), FF(4), FF(-1) }, // gate 2: v2 = tmp2 + 4*s[0] + 4*s[1]
+            { FF(1), FF(1), FF(-1), FF(0) }, // gate 3: v1 = v2 + tmp1
+            { FF(1), FF(4), FF(4), FF(-1) }, // gate 4: v4 = tmp1 + 4*s[2] + 4*s[3]
+            { FF(1), FF(1), FF(-1), FF(0) }, // gate 5: v3 = v4 + tmp2
+        } };
+
+        for (const auto& [block_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[block_idx] != &arith_block) {
+                continue;
+            }
+            if (gate_idx + 6 > arith_block.size()) {
+                continue;
+            }
+
+            // Collect wires and selectors for 6 sequential gates
+            std::array<std::array<uint32_t, 4>, 6> wires;
+            std::array<std::array<FF, 4>, 6> selectors;
+
+            for (size_t i = 0; i < 6; ++i) {
+                size_t cur_gate = gate_idx + i;
+                wires[i] = { arith_block.w_l()[cur_gate],
+                             arith_block.w_r()[cur_gate],
+                             arith_block.w_o()[cur_gate],
+                             arith_block.w_4()[cur_gate] };
+                selectors[i] = { arith_block.q_1()[cur_gate],
+                                 arith_block.q_2()[cur_gate],
+                                 arith_block.q_3()[cur_gate],
+                                 arith_block.q_4()[cur_gate] };
+            }
+
+            // Verify exact selector values [q_1, q_2, q_3, q_4] match expected (prevents scaling attack)
+            if (selectors != expected_selectors) {
+                continue;
+            }
+
+            // Verify q_m = 0 and q_arith = 1 for all gates
+            bool correct_common_selectors = true;
+            for (size_t i = 0; i < 6; ++i) {
+                size_t cur_gate = gate_idx + i;
+                correct_common_selectors &= (arith_block.q_m()[cur_gate] == FF::zero());
+                correct_common_selectors &= (arith_block.q_arith()[cur_gate] == FF::one());
+            }
+            if (!correct_common_selectors) {
+                continue;
+            }
+
+            // Verify q_c = 0 for gates 3 and 5 (guaranteed by operator+)
+            // For gates 0,1,2,4 (add_two), q_c depends on input additive_constants
+            // and is validated via equation correctness
+            bool correct_qc =
+                (arith_block.q_c()[gate_idx + 3] == FF::zero()) && (arith_block.q_c()[gate_idx + 5] == FF::zero());
+            if (!correct_qc) {
+                continue;
+            }
+
+            // Verify w_4 == zero_idx for gates 3 and 5 (prevents zero-selector attack)
+            bool correct_zero_wires = (wires[3][3] == builder.zero_idx()) && (wires[5][3] == builder.zero_idx());
+            if (!correct_zero_wires) {
+                continue;
+            }
+
+            // Verify gate equations: q_1*w_l + q_2*w_r + q_3*w_o + q_4*w_4 + q_c = 0
+            // This implicitly validates q_c for gates 0,1,2,4
+            bool correct_equations = true;
+            for (size_t i = 0; i < 6; ++i) {
+                size_t cur_gate = gate_idx + i;
+                FF equation = arith_block.q_c()[cur_gate];
+                for (size_t j = 0; j < 4; ++j) {
+                    equation += builder.get_variable(wires[i][j]) * selectors[i][j];
+                }
+                correct_equations &= (equation == FF::zero());
+            }
+            if (!correct_equations) {
+                continue;
+            }
+
+            // Verify wire position invariants for input state
+            bool correct_s0 = (state_indices[0] == wires[0][0]) && (wires[0][0] == wires[2][1]);
+            bool correct_s1 =
+                (state_indices[1] == wires[0][1]) && (wires[0][1] == wires[1][1]) && (wires[0][1] == wires[2][2]);
+            bool correct_s2 = (state_indices[2] == wires[1][0]) && (wires[1][0] == wires[4][1]);
+            bool correct_s3 =
+                (state_indices[3] == wires[0][2]) && (wires[0][2] == wires[1][2]) && (wires[0][2] == wires[4][2]);
+
+            // Verify wire position invariants for intermediate values
+            bool correct_tmp1 = (wires[0][3] == wires[3][1]) && (wires[0][3] == wires[4][0]);
+            bool correct_tmp2 = (wires[1][3] == wires[2][0]) && (wires[1][3] == wires[5][1]);
+            bool correct_v2 = (wires[2][3] == wires[3][0]);
+            bool correct_v4 = (wires[4][3] == wires[5][0]);
+
+            if (correct_s0 && correct_s1 && correct_s2 && correct_s3 && correct_tmp1 && correct_tmp2 && correct_v2 &&
+                correct_v4) {
+                // Output: [v1, v2, v3, v4] = [wires[3][2], wires[2][3], wires[5][2], wires[4][3]]
+                return std::array<uint32_t, 4>{ wires[3][2], wires[2][3], wires[5][2], wires[4][3] };
+            }
+        }
+        return std::nullopt;
+    };
+
+    // Step 1: Validate matrix multiplication layer
+    auto matrix_output = validate_matrix_layer();
+    if (!matrix_output) {
+        return false;
+    }
+
+    // Setup for round validation
+    using Poseidon2Perm = bb::stdlib::Poseidon2Permutation<CircuitBuilder>;
+    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    static constexpr size_t rounds_f_half = Poseidon2Perm::rounds_f / 2;
+    static constexpr size_t rounds_p = Poseidon2Perm::rounds_p;
+
+    auto& ext_block = builder.blocks.poseidon2_external;
+    auto& int_block = builder.blocks.poseidon2_internal;
+    std::array<uint32_t, 4> current_state = *matrix_output;
+
+    // Validates external rounds in poseidon2_external block.
+    // External rounds apply S-box to all 4 state elements and use full round constants (q_1-q_4).
+    // Each gate stores input state in wires; output state is in next row's wires.
+    auto validate_external_rounds = [&](size_t start_idx, size_t num_rounds, size_t round_offset) -> bool {
+        for (size_t round = 0; round < num_rounds; ++round) {
+            size_t gate_idx = start_idx + round;
+            size_t round_idx = round_offset + round;
+
+            // Check: wires match current state, selectors match round constants, gate is enabled
+            bool correct =
+                ext_block.w_l()[gate_idx] == current_state[0] && ext_block.w_r()[gate_idx] == current_state[1] &&
+                ext_block.w_o()[gate_idx] == current_state[2] && ext_block.w_4()[gate_idx] == current_state[3] &&
+                ext_block.q_1()[gate_idx] == Params::round_constants[round_idx][0] &&
+                ext_block.q_2()[gate_idx] == Params::round_constants[round_idx][1] &&
+                ext_block.q_3()[gate_idx] == Params::round_constants[round_idx][2] &&
+                ext_block.q_4()[gate_idx] == Params::round_constants[round_idx][3] &&
+                ext_block.q_poseidon2_external()[gate_idx] == FF::one();
+
+            if (!correct) {
+                return false;
+            }
+
+            // Output state is stored in next row (propagate_current_state_to_next_row)
+            current_state = { ext_block.w_l()[gate_idx + 1],
+                              ext_block.w_r()[gate_idx + 1],
+                              ext_block.w_o()[gate_idx + 1],
+                              ext_block.w_4()[gate_idx + 1] };
+        }
+        return true;
+    };
+
+    // Validates internal rounds in poseidon2_internal block.
+    // Internal rounds apply S-box only to state[0] and use single round constant (q_1).
+    auto validate_internal_rounds = [&](size_t start_idx, size_t num_rounds, size_t round_offset) -> bool {
+        for (size_t round = 0; round < num_rounds; ++round) {
+            size_t gate_idx = start_idx + round;
+            size_t round_idx = round_offset + round;
+
+            // Check: wires match current state, q_1 matches round constant, gate is enabled
+            bool correct =
+                int_block.w_l()[gate_idx] == current_state[0] && int_block.w_r()[gate_idx] == current_state[1] &&
+                int_block.w_o()[gate_idx] == current_state[2] && int_block.w_4()[gate_idx] == current_state[3] &&
+                int_block.q_1()[gate_idx] == Params::round_constants[round_idx][0] &&
+                int_block.q_poseidon2_internal()[gate_idx] == FF::one();
+
+            if (!correct) {
+                return false;
+            }
+
+            // Output state is stored in next row
+            current_state = { int_block.w_l()[gate_idx + 1],
+                              int_block.w_r()[gate_idx + 1],
+                              int_block.w_o()[gate_idx + 1],
+                              int_block.w_4()[gate_idx + 1] };
+        }
+        return true;
+    };
+
+    // Step 2: Validate first half of external rounds (rounds 0 to rounds_f/2 - 1)
+    // Find gate where current_state appears, then validate sequential round gates
+    auto start_ext = find_gate_matching_state(ext_block, current_state);
+    if (!start_ext || !validate_external_rounds(*start_ext, rounds_f_half, 0)) {
+        return false;
+    }
+
+    // Step 3: Validate internal rounds (rounds_f/2 to rounds_f/2 + rounds_p - 1)
+    auto start_int = find_gate_matching_state(int_block, current_state);
+    if (!start_int || !validate_internal_rounds(*start_int, rounds_p, rounds_f_half)) {
+        return false;
+    }
+
+    // Step 4: Validate second half of external rounds (rounds_f/2 + rounds_p to total_rounds - 1)
+    auto start_final = find_gate_matching_state(ext_block, current_state);
+    if (!start_final || !validate_external_rounds(*start_final, rounds_f_half, rounds_f_half + rounds_p)) {
+        return false;
+    }
+
+    // Step 5: Verify final output matches constraint->result
+    // Output may be connected via copy constraints (same real_variable_index)
+    for (size_t i = 0; i < 4; ++i) {
+        uint32_t final_witness = current_state[i];
+        uint32_t result_witness = result[i];
+
+        if (final_witness != result_witness) {
+            uint32_t final_real = builder.real_variable_index[final_witness];
+            uint32_t result_real = builder.real_variable_index[result_witness];
+            if (final_real != result_real) {
+                return false;
+            }
+        }
+    }
+
     return true;
 }
 
