@@ -20,7 +20,7 @@ WitnessOrConstant<fr> witness_from_index(uint32_t idx)
 
 // Helper to build AcirFormat from individual constraints through the full ACIR serde flow
 template <typename... Constraints>
-AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -28,7 +28,6 @@ AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... c
         opcodes.insert(opcodes.end(), ops.begin(), ops.end());
     };
     (collect(constraints), ...);
-    (void)max_witness_index;
     return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
@@ -57,7 +56,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, BasicPoseidon2Constraint)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     // Build circuit with sample witness values
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
@@ -85,7 +84,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2ZeroInputs)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(0), fr(0), fr(0), fr(0), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -111,7 +110,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2LargeInputs)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     // Use large values
     WitnessVector witness = { fr::random_element(),
@@ -145,7 +144,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_q1)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -184,7 +183,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_q4)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -222,7 +221,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_qSelecto
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -264,7 +263,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedInternalRound_qSelecto
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -303,7 +302,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_RoundCon
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -343,7 +342,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedInternalRound_RoundCon
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -382,7 +381,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_qm)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -421,7 +420,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_qArith)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -460,7 +459,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_q2)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -499,7 +498,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_q3)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -538,7 +537,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_qc)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -576,7 +575,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_q2)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -615,7 +614,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_q3)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -654,7 +653,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_q4)
         .result = { 4, 5, 6, 7 },
     };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint);
 
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -700,7 +699,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, MultiplePoseidon2Constraints)
         .result = { 12, 13, 14, 15 },
     };
 
-    auto constraint_system = build_acir_format(15, poseidon_constraint1, poseidon_constraint2);
+    auto constraint_system = build_acir_format(poseidon_constraint1, poseidon_constraint2);
 
     WitnessVector witness = { fr(1),  fr(2),  fr(3),  fr(4),  fr(0), fr(0), fr(0), fr(0),
                               fr(10), fr(20), fr(30), fr(40), fr(0), fr(0), fr(0), fr(0) };
@@ -729,7 +728,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithRangeConstraints)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
     RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
 
-    auto constraint_system = build_acir_format(7, poseidon_constraint, range_0, range_1);
+    auto constraint_system = build_acir_format(poseidon_constraint, range_0, range_1);
 
     WitnessVector witness = { fr(100), fr(200), fr(300), fr(400), fr(0), fr(0), fr(0), fr(0) };
     AcirProgram program{ constraint_system, witness };
@@ -770,7 +769,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithQuadConstraint)
         .const_scaling = fr(0),
     };
 
-    auto constraint_system = build_acir_format(11, poseidon_constraint, quad_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint, quad_constraint);
 
     // Witness: poseidon inputs (0-3), poseidon outputs (4-7), quad wires (8-11)
     WitnessVector witness = { fr(1), fr(2), fr(3), fr(4), fr(0), fr(0), fr(0), fr(0), fr(2), fr(3), fr(4), fr(15) };
@@ -828,7 +827,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithBigQuadConstraint)
         },
     };
 
-    auto constraint_system = build_acir_format(15, poseidon_constraint, big_quad_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint, big_quad_constraint);
 
     // Witness values:
     // Poseidon: inputs 0-3, outputs 4-7
@@ -902,7 +901,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithQuadAndBigQuad)
         },
     };
 
-    auto constraint_system = build_acir_format(19, poseidon_constraint, quad_constraint, big_quad_constraint);
+    auto constraint_system = build_acir_format(poseidon_constraint, quad_constraint, big_quad_constraint);
 
     // Witness:
     // Poseidon: 0-7
