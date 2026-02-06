@@ -13,6 +13,11 @@ export interface IPeerPenalizer {
   penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity): void;
 }
 
+export interface IMissingTxsTracker {
+  getMissingTxHashes(): Set<string>;
+  markFetched(tx: Tx): boolean;
+}
+
 export interface ITxMetadataCollection {
   getMissingTxHashes(): Set<string>;
   markFetched(peerId: PeerId, tx: Tx): boolean;

@@ -3,7 +3,23 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
-import type { ITxMetadataCollection } from './interface.js';
+import type { IMissingTxsTracker, ITxMetadataCollection } from './interface.js';
+
+export class MissingTxsTracker implements IMissingTxsTracker {
+  private readonly pendingTxs: Set<string>;
+
+  constructor(missingTxHashes: TxHash[]) {
+    this.pendingTxs = new Set(missingTxHashes.map(hash => hash.toString()));
+  }
+
+  getMissingTxHashes(): Set<string> {
+    return this.pendingTxs;
+  }
+
+  markFetched(tx: Tx): boolean {
+    return this.pendingTxs.delete(tx.txHash.toString());
+  }
+}
 
 class MissingTxMetadata {
   constructor(
@@ -55,10 +71,10 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   private txMetadata = new Map<string, MissingTxMetadata>();
 
   constructor(
-    private missingTxHashes: Set<string>,
+    private missingTxsTracker: IMissingTxsTracker,
     private readonly txBatchSize: number = DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
   ) {
-    missingTxHashes.forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
+    missingTxsTracker.getMissingTxHashes().forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
   }
 
   public getPrioritizingNotInFlightAndLowerRequestCount(txs: string[]): MissingTxMetadata[] {
@@ -79,7 +95,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public getMissingTxHashes(): Set<string> {
-    return new Set(this.missingTxHashes.values().filter(hash => this.txMetadata.has(hash)));
+    return this.missingTxsTracker.getMissingTxHashes();
   }
 
   public getTxsPeerHas(peer: PeerId): Set<string> {
@@ -157,6 +173,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
       return false;
     }
 
+    this.missingTxsTracker.markFetched(tx);
     return txMeta.markAsFetched(peerId, tx);
   }
 

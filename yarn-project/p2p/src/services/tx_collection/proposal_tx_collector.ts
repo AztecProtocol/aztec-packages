@@ -7,6 +7,7 @@ import type { PeerId } from '@libp2p/interface';
 import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
+import { MissingTxsTracker } from '../reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../reqresp/batch-tx-requester/tx_validator.js';
 import { type BlockTxsSource, ReqRespSubProtocol, chunkTxHashesRequest } from '../reqresp/index.js';
 
@@ -58,7 +59,7 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
     } = this.batchTxRequesterConfig ?? {};
 
     const batchRequester = new BatchTxRequester(
-      txHashes,
+      new MissingTxsTracker(txHashes),
       blockTxsSource,
       pinnedPeer,
       timeoutMs,

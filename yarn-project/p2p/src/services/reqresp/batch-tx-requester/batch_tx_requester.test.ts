@@ -24,6 +24,7 @@ import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
+import { MissingTxsTracker } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -95,7 +96,7 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -150,7 +151,7 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -276,7 +277,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -330,7 +331,7 @@ describe('BatchTxRequester', () => {
       const semaphore = new TestSemaphore(new Semaphore(0));
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -382,7 +383,7 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -449,7 +450,7 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -505,7 +506,7 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -561,7 +562,7 @@ describe('BatchTxRequester', () => {
       );
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -635,7 +636,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -749,7 +750,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -885,7 +886,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -960,7 +961,7 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         shortDeadline,
@@ -1018,7 +1019,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1090,7 +1091,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1143,7 +1144,7 @@ describe('BatchTxRequester', () => {
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1217,7 +1218,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1298,7 +1299,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1369,7 +1370,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         undefined,
         deadline,
@@ -1430,7 +1431,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -1480,7 +1481,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -1561,7 +1562,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -1615,7 +1616,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -1671,7 +1672,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        new MissingTxsTracker(missing),
         blockProposal,
         pinnedPeer,
         deadline,
