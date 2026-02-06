@@ -25,6 +25,7 @@ export default defineConfig({
       util: path.resolve(__dirname, 'browser-stubs/util.js'),
     },
   },
+  // Pre-bundle third-party deps via esbuild at server startup.
   optimizeDeps: {
     include: [
       'chai',
@@ -44,6 +45,21 @@ export default defineConfig({
       'comlink',
     ],
   },
+  // Eagerly transform local source files during server startup so they're cached
+  // before the browser requests them. This prevents CPU-intensive on-demand transforms
+  // from blocking the event loop during test startup, which can cause BroadcastChannel
+  // messages between orchestrator and tester to be lost in CPU-constrained CI (2 vCPUs).
+  // Vite follows imports, so warming test files cascades to their dependency tree.
+  server: {
+    warmup: {
+      clientFiles: [
+        './src/indexeddb/**/*.ts',
+        './src/interfaces/**/*.ts',
+        './src/stores/**/*.ts',
+        './browser-stubs/**/*.js',
+      ],
+    },
+  },
   test: {
     globals: true,
     reporters: ['verbose'],
@@ -55,9 +71,7 @@ export default defineConfig({
       provider: playwright(),
       headless: true,
       connectTimeout: 30_000,
-      // Reuse a single browser iframe for all test files instead of creating a new one
-      // per file. This avoids an intermittent hang where Vite's module serving deadlocks
-      // during iframe recreation (the second iframe's module imports never complete).
+      // Reuse a single browser iframe for all test files to reduce overhead.
       // Safe because tests use beforeEach/afterEach for IndexedDB store setup/teardown.
       isolate: false,
       instances: [
