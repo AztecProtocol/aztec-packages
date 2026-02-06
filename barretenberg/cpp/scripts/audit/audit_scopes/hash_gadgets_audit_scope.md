@@ -1,7 +1,7 @@
 # External Audit Scope: Hash Gadgets
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Commit hash: 21476601b111f046f023474465598843e4cfd8ac
 
 Note: All paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
