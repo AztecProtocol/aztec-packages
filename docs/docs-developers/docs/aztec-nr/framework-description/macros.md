@@ -27,7 +27,7 @@ Aztec.nr provides macros (attributes) that transform your code during compilatio
 | `#[view]` | Prevents state modification |
 | `#[initializer]` | Contract constructor |
 | `#[noinitcheck]` | Callable before contract initialization |
-| `#[nophasecheck]` | Skips transaction phase validation |
+| `#[allow_phase_change]` | Allows for phase change to happen during the function's execution |
 | `#[only_self]` | Only callable by the same contract |
 | `#[authorize_once]` | Requires authwit authorization with replay protection |
 

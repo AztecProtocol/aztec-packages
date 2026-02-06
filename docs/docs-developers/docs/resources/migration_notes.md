@@ -29,14 +29,14 @@ The `getDecodedPublicEvents` function has been renamed to `getPublicEvents` and 
 The new function returns richer metadata including `contractAddress`, `txHash`, `l2BlockNumber`, and `l2BlockHash` for each event:
 
 ```typescript
-import { getPublicEvents } from '@aztec/aztec.js/events';
-import { MyContract } from './artifacts/MyContract.js';
+import { getPublicEvents } from "@aztec/aztec.js/events";
+import { MyContract } from "./artifacts/MyContract.js";
 
 // Query events from a contract
 const events = await getPublicEvents<{ amount: bigint; sender: AztecAddress }>(
   aztecNode,
   MyContract.events.Transfer,
-  { contractAddress: myContractAddress, fromBlock: BlockNumber(1) }
+  { contractAddress: myContractAddress, fromBlock: BlockNumber(1) },
 );
 
 // Each event includes decoded data and metadata
@@ -46,6 +46,8 @@ for (const { event, metadata } of events) {
   console.log(`  Contract: ${metadata.contractAddress}`);
 }
 ```
+
+### [Aztec.nr] `nophasecheck` renamed as `allow_phase_change`
 
 ### [AztecNode] Removed sibling path RPC methods
 
@@ -58,12 +60,12 @@ The following methods have been removed from the `AztecNode` interface:
 
 These methods were not used by PXE and returned a subset of the information already available through the corresponding membership witness methods:
 
-| Removed Method | Use Instead |
-|----------------|-------------|
-| `getNullifierSiblingPath` | `getNullifierMembershipWitness` |
-| `getNoteHashSiblingPath` | `getNoteHashMembershipWitness` |
-| `getArchiveSiblingPath` | `getBlockHashMembershipWitness` |
-| `getPublicDataSiblingPath` | `getPublicDataWitness` |
+| Removed Method             | Use Instead                     |
+| -------------------------- | ------------------------------- |
+| `getNullifierSiblingPath`  | `getNullifierMembershipWitness` |
+| `getNoteHashSiblingPath`   | `getNoteHashMembershipWitness`  |
+| `getArchiveSiblingPath`    | `getBlockHashMembershipWitness` |
+| `getPublicDataSiblingPath` | `getPublicDataWitness`          |
 
 The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
 
@@ -72,6 +74,7 @@ The membership witness methods return both the sibling path and additional conte
 The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hiding key (`nhk_m` / `nhk_app`). This is a protocol-breaking change: the domain separator string changes from `"az_nsk_m"` to `"az_nhk_m"`, producing a different constant value.
 
 **Noir changes:**
+
 ```diff
 - context.request_nsk_app(npk_m_hash)
 + context.request_nhk_app(npk_m_hash)
@@ -81,6 +84,7 @@ The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hid
 ```
 
 **TypeScript changes:**
+
 ```diff
 - import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/stdlib/keys';
 + import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/stdlib/keys';
