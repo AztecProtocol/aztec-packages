@@ -25,25 +25,11 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
         NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep "nightly" | sort -Vr)
         NON_NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep -v "nightly" | sort -Vr)
 
-        # Build versions array with nightly versions first, then stable versions
+        # Build versions array with stable versions first, then nightly last
         NEW_VERSIONS="["
         FIRST=true
 
-        # Add nightly versions first (newest first)
-        if [ -n "$NIGHTLY_VERSIONS" ]; then
-            while IFS= read -r version; do
-                if [ -n "$version" ]; then
-                    if [ "$FIRST" = true ]; then
-                        NEW_VERSIONS="$NEW_VERSIONS\"$version\""
-                        FIRST=false
-                    else
-                        NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
-                    fi
-                fi
-            done <<< "$NIGHTLY_VERSIONS"
-        fi
-
-        # Add non-nightly versions (newest first)
+        # Add non-nightly versions first (newest first)
         if [ -n "$NON_NIGHTLY_VERSIONS" ]; then
             while IFS= read -r version; do
                 if [ -n "$version" ]; then
@@ -55,6 +41,20 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
                     fi
                 fi
             done <<< "$NON_NIGHTLY_VERSIONS"
+        fi
+
+        # Add nightly versions last (newest first)
+        if [ -n "$NIGHTLY_VERSIONS" ]; then
+            while IFS= read -r version; do
+                if [ -n "$version" ]; then
+                    if [ "$FIRST" = true ]; then
+                        NEW_VERSIONS="$NEW_VERSIONS\"$version\""
+                        FIRST=false
+                    else
+                        NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
+                    fi
+                fi
+            done <<< "$NIGHTLY_VERSIONS"
         fi
 
         NEW_VERSIONS="$NEW_VERSIONS]"
