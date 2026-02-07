@@ -24,12 +24,27 @@ from rk_billing import (
     aggregate_billing_weekly, aggregate_billing_monthly,
     serve_billing_dashboard,
 )
+import rk_db
+import rk_metrics
 
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
 app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
+
+def _init_metrics():
+    """Initialize SQLite and start metrics ingestion threads."""
+    try:
+        rk_db.get_db()
+        rk_metrics.start_redis_listener(r)
+        rk_metrics.start_backfill_loop(r)
+        print("[rk.py] Metrics ingestion started")
+    except Exception as e:
+        print(f"[rk.py] Warning: metrics startup failed: {e}")
+
+# Start in background to avoid blocking Flask startup
+threading.Thread(target=_init_metrics, daemon=True, name='metrics-init').start()
 
 def read_from_disk(key):
     """Read log from disk as fallback when Redis key not found."""
@@ -539,6 +554,71 @@ def billing_data():
         result = daily_data
 
     return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/api/ci/runs')
+@auth.login_required
+def api_ci_runs():
+    """API endpoint: list CI runs from SQLite with optional filters."""
+    date_from = request.args.get('from', '')
+    date_to = request.args.get('to', '')
+    status = request.args.get('status', '')
+    author = request.args.get('author', '')
+    dashboard = request.args.get('dashboard', '')
+    limit = min(int(request.args.get('limit', 100)), 1000)
+    offset = int(request.args.get('offset', 0))
+
+    conditions = []
+    params = []
+    if date_from:
+        ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
+        conditions.append('timestamp_ms >= ?')
+        params.append(ts_from)
+    if date_to:
+        ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
+        conditions.append('timestamp_ms < ?')
+        params.append(ts_to)
+    if status:
+        conditions.append('status = ?')
+        params.append(status)
+    if author:
+        conditions.append('author = ?')
+        params.append(author)
+    if dashboard:
+        conditions.append('dashboard = ?')
+        params.append(dashboard)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    rows = rk_db.query(
+        f"SELECT * FROM ci_runs {where} ORDER BY timestamp_ms DESC LIMIT ? OFFSET ?",
+        params + [limit, offset]
+    )
+    return Response(json.dumps(rows), mimetype='application/json')
+
+
+@app.route('/api/ci/stats')
+@auth.login_required
+def api_ci_stats():
+    """API endpoint: CI run statistics summary."""
+    rows = rk_db.query('''
+        SELECT
+            COUNT(*) as total_runs,
+            SUM(CASE WHEN status = 'PASSED' THEN 1 ELSE 0 END) as passed,
+            SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed,
+            SUM(cost_usd) as total_cost,
+            AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END) as avg_duration_mins
+        FROM ci_runs
+        WHERE timestamp_ms > ?
+    ''', (int((datetime.now() - timedelta(days=7)).timestamp() * 1000),))
+    return Response(json.dumps(rows[0] if rows else {}), mimetype='application/json')
+
+
+def serve_dashboard_view(name):
+    """Serve a dashboard HTML file from dashboard-views/."""
+    path = Path(f'dashboard-views/{name}.html')
+    if path.exists():
+        return path.read_text()
+    return f"Dashboard {name} not found", 404
 
 
 @app.route('/<key>')
