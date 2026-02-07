@@ -19,6 +19,11 @@ from rk_core import (
     YELLOW, BLUE, GREEN, RED, PURPLE, BOLD, RESET,
     hyperlink, r, get_section_data, get_list_as_string
 )
+from rk_billing import (
+    get_all_namespaces, get_billing_files_in_range,
+    aggregate_billing_weekly, aggregate_billing_monthly,
+    serve_billing_dashboard,
+)
 
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
@@ -493,108 +498,23 @@ def trigger_grind():
     # Redirect to log view.
     return redirect(f'/{run_id}')
 
-BILLING_DIR = os.path.join(LOGS_DISK_PATH, 'billing')
-
-def read_billing_file(filepath):
-    """Read a billing JSON file (gzipped or plain)."""
-    try:
-        if filepath.endswith('.gz'):
-            with gzip.open(filepath, 'rb') as f:
-                return json.loads(f.read().decode('utf-8'))
-        else:
-            with open(filepath, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Error reading billing file {filepath}: {e}")
-        return None
-
-def get_billing_files_in_range(date_from, date_to):
-    """Return list of billing data entries for dates in range."""
-    results = []
-    if not os.path.exists(BILLING_DIR):
-        return results
-
-    current = date_from
-    while current <= date_to:
-        date_str = current.strftime('%Y-%m-%d')
-        # Try .json then .json.gz
-        for ext in ['.json', '.json.gz']:
-            filepath = os.path.join(BILLING_DIR, date_str + ext)
-            if os.path.exists(filepath):
-                data = read_billing_file(filepath)
-                if data:
-                    data['date'] = date_str
-                    results.append(data)
-                break
-        current += timedelta(days=1)
-    return results
-
-def _merge_ns_billing(target, ns_data):
-    """Merge a single day's namespace billing into an aggregation target."""
-    target['total'] += ns_data.get('total', 0)
-    for cat, val in ns_data.get('breakdown', {}).items():
-        target['breakdown'][cat] = target['breakdown'].get(cat, 0) + val
-
-def aggregate_billing_weekly(daily_data):
-    """Aggregate daily billing data into weekly buckets."""
-    if not daily_data:
-        return []
-    weeks = {}
-    for entry in daily_data:
-        d = datetime.strptime(entry['date'], '%Y-%m-%d')
-        week_start = d - timedelta(days=d.weekday())
-        week_key = week_start.strftime('%Y-%m-%d')
-        if week_key not in weeks:
-            weeks[week_key] = {'date': week_key, 'namespaces': {}}
-        for ns, ns_data in entry.get('namespaces', {}).items():
-            if ns not in weeks[week_key]['namespaces']:
-                weeks[week_key]['namespaces'][ns] = {'total': 0, 'breakdown': {}}
-            _merge_ns_billing(weeks[week_key]['namespaces'][ns], ns_data)
-    return sorted(weeks.values(), key=lambda x: x['date'])
-
-def aggregate_billing_monthly(daily_data):
-    """Aggregate daily billing data into monthly buckets."""
-    if not daily_data:
-        return []
-    months = {}
-    for entry in daily_data:
-        month_key = entry['date'][:7] + '-01'
-        if month_key not in months:
-            months[month_key] = {'date': month_key, 'namespaces': {}}
-        for ns, ns_data in entry.get('namespaces', {}).items():
-            if ns not in months[month_key]['namespaces']:
-                months[month_key]['namespaces'][ns] = {'total': 0, 'breakdown': {}}
-            _merge_ns_billing(months[month_key]['namespaces'][ns], ns_data)
-    return sorted(months.values(), key=lambda x: x['date'])
 
 @app.route('/namespace-billing')
 @auth.login_required
 def namespace_billing():
-    """Serve the namespace billing dashboard."""
-    billing_html_path = Path('namespace-billing/billing-dashboard.html')
-    if billing_html_path.exists():
-        with billing_html_path.open('r') as f:
-            return f.read()
+    html = serve_billing_dashboard()
+    if html:
+        return html
     return "Billing dashboard not found", 404
 
 @app.route('/api/billing/namespaces')
 @auth.login_required
 def billing_namespaces():
-    """List all known namespaces from billing data."""
-    ns_set = set()
-    if os.path.exists(BILLING_DIR):
-        for filename in os.listdir(BILLING_DIR):
-            if filename.endswith('.json') or filename.endswith('.json.gz'):
-                filepath = os.path.join(BILLING_DIR, filename)
-                data = read_billing_file(filepath)
-                if data:
-                    ns_set.update(data.get('namespaces', {}).keys())
-    return Response(json.dumps(sorted(ns_set)), mimetype='application/json')
+    return Response(json.dumps(get_all_namespaces()), mimetype='application/json')
 
 @app.route('/api/billing/data')
 @auth.login_required
 def billing_data():
-    """Fetch billing data for a date range with optional granularity."""
     date_from_str = request.args.get('from')
     date_to_str = request.args.get('to')
     granularity = request.args.get('granularity', 'daily')
@@ -602,7 +522,6 @@ def billing_data():
     if not date_from_str or not date_to_str:
         return Response(json.dumps({'error': 'from and to date params required (YYYY-MM-DD)'}),
                         mimetype='application/json', status=400)
-
     try:
         date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
         date_to = datetime.strptime(date_to_str, '%Y-%m-%d')
@@ -620,6 +539,7 @@ def billing_data():
         result = daily_data
 
     return Response(json.dumps(result), mimetype='application/json')
+
 
 @app.route('/<key>')
 @auth.login_required

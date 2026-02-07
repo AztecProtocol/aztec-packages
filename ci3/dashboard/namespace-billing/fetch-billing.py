@@ -34,54 +34,61 @@ from google.cloud import bigquery
 # ---- defaults ----
 DEFAULT_PROJECT = 'testnet-440309'
 DEFAULT_DATASET = 'egress_consumption'
-DEFAULT_TABLE = 'gke_cluster_resource_consumption'
+DEFAULT_TABLE_CONSUMPTION = 'gke_cluster_resource_consumption'
+DEFAULT_TABLE_USAGE = 'gke_cluster_resource_usage'
 DEFAULT_OUTPUT_DIR = os.path.join(
     os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'billing'
 )
 
 # ---- SKU pricing ----
 # Prices sourced from GCP Cloud Billing Catalog API for us-west1.
-# CPU prices are per vCPU-hour; memory prices are per GiB-hour.
 SKU_PRICING = {
-    # Spot / Preemptible
-    'E7FF-A0FB-FA82': {'desc': 'Spot T2D AMD Core',  'price_per_hour': 0.00497,  'resource': 'cpu',    'category': 'compute_spot'},
-    '48AB-89F5-9112': {'desc': 'Spot T2D AMD Ram',   'price_per_hour': 0.000668, 'resource': 'memory', 'category': 'compute_spot'},
-    # On-demand T2D
-    'EFE6-E23C-19CB': {'desc': 'T2D AMD Core',       'price_per_hour': 0.027502, 'resource': 'cpu',    'category': 'compute_ondemand'},
-    'FB05-036A-8982': {'desc': 'T2D AMD Ram',         'price_per_hour': 0.003686, 'resource': 'memory', 'category': 'compute_ondemand'},
-    # On-demand N2
-    'BB77-5FDA-69D9': {'desc': 'N2 Core',             'price_per_hour': 0.031611, 'resource': 'cpu',    'category': 'compute_ondemand'},
-    '5B01-D157-A097': {'desc': 'N2 Ram',              'price_per_hour': 0.004237, 'resource': 'memory', 'category': 'compute_ondemand'},
-    # On-demand N2D
-    'A03E-E620-7389': {'desc': 'N2D AMD Core',        'price_per_hour': 0.027502, 'resource': 'cpu',    'category': 'compute_ondemand'},
-    '5535-6D2D-4B50': {'desc': 'N2D AMD Ram',         'price_per_hour': 0.003686, 'resource': 'memory', 'category': 'compute_ondemand'},
+    # Compute - Spot (per vCPU-hour / per GiB-hour)
+    'E7FF-A0FB-FA82': {'price': 0.00497,  'resource': 'cpu',    'category': 'compute_spot'},
+    '48AB-89F5-9112': {'price': 0.000668, 'resource': 'memory', 'category': 'compute_spot'},
+    # Compute - On-demand T2D
+    'EFE6-E23C-19CB': {'price': 0.027502, 'resource': 'cpu',    'category': 'compute_ondemand'},
+    'FB05-036A-8982': {'price': 0.003686, 'resource': 'memory', 'category': 'compute_ondemand'},
+    # Compute - On-demand N2
+    'BB77-5FDA-69D9': {'price': 0.031611, 'resource': 'cpu',    'category': 'compute_ondemand'},
+    '5B01-D157-A097': {'price': 0.004237, 'resource': 'memory', 'category': 'compute_ondemand'},
+    # Compute - On-demand N2D
+    'A03E-E620-7389': {'price': 0.027502, 'resource': 'cpu',    'category': 'compute_ondemand'},
+    '5535-6D2D-4B50': {'price': 0.003686, 'resource': 'memory', 'category': 'compute_ondemand'},
+    # Network Egress (per GiB)
+    '0C3C-6B13-B1E8': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    '6B8F-E63D-832B': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},
+    '92CB-C25F-B1D1': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},
+    '984A-1F27-2D1F': {'price': 0.04,  'resource': 'networkEgress', 'category': 'network'},
+    '9DE9-9092-B3BC': {'price': 0.20,  'resource': 'networkEgress', 'category': 'network'},
+    'C863-37DA-506E': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    'C8EA-1A86-3D28': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    'DE9E-AFBC-A15A': {'price': 0.01,  'resource': 'networkEgress', 'category': 'network'},
+    'DFA5-B5C6-36D6': {'price': 0.085, 'resource': 'networkEgress', 'category': 'network'},
+    'F274-1692-F213': {'price': 0.08,  'resource': 'networkEgress', 'category': 'network'},
+    'FDBC-6E3B-D4D8': {'price': 0.15,  'resource': 'networkEgress', 'category': 'network'},
+    # Storage (per GiB-month)
+    'D973-5D65-BAB2': {'price': 0.04,  'resource': 'storage', 'category': 'storage'},
 }
 
 
 def usage_to_cost(sku_id: str, resource_name: str, amount: float) -> tuple[float, str]:
-    """Convert raw usage amount to dollar cost.
-
-    CPU usage is in cpu-seconds  → cost = (seconds / 3600) × price_per_cpu_hour
-    Memory usage is in byte-seconds → cost = (byte_seconds / 3600 / 1024³) × price_per_GiB_hour
-
-    Returns (cost_usd, category).
-    """
+    """Convert raw usage amount to dollar cost. Returns (cost_usd, category)."""
     info = SKU_PRICING.get(sku_id)
     if not info:
-        # Unknown SKU – bucket into compute_ondemand with zero cost so we
-        # don't silently drop data.  A warning is printed at the end.
-        return 0.0, 'compute_ondemand'
+        return 0.0, 'other'
 
-    price = info['price_per_hour']
+    price = info['price']
     if resource_name == 'cpu':
-        cost = (amount / 3600.0) * price
+        return (amount / 3600.0) * price, info['category']
     elif resource_name == 'memory':
-        gib_hours = amount / 3600.0 / (1024 ** 3)
-        cost = gib_hours * price
-    else:
-        cost = 0.0
-
-    return cost, info['category']
+        return (amount / 3600.0 / (1024 ** 3)) * price, info['category']
+    elif resource_name.startswith('networkEgress'):
+        return (amount / (1024 ** 3)) * price, info['category']
+    elif resource_name == 'storage':
+        gib_months = amount / (1024 ** 3) / (730 * 3600)
+        return gib_months * price, info['category']
+    return 0.0, info['category']
 
 
 # ---- BigQuery query ----
@@ -90,27 +97,27 @@ def fetch_usage_rows(
     client: bigquery.Client,
     project: str,
     dataset: str,
-    table: str,
     date_from: str,
     date_to: str,
 ) -> list[dict]:
-    """Query the metering table for daily usage by namespace + SKU."""
-    full_table = f'{project}.{dataset}.{table}'
+    """Query both metering tables for daily usage by namespace + SKU."""
+    consumption = f'{project}.{dataset}.{DEFAULT_TABLE_CONSUMPTION}'
+    usage = f'{project}.{dataset}.{DEFAULT_TABLE_USAGE}'
     query = f"""
-    SELECT
-        DATE(start_time) AS date,
-        namespace,
-        sku_id,
-        resource_name,
-        SUM(usage.amount) AS total_usage
-    FROM
-        `{full_table}`
-    WHERE
-        DATE(start_time) BETWEEN @date_from AND @date_to
-    GROUP BY
-        date, namespace, sku_id, resource_name
-    ORDER BY
-        date, namespace
+    SELECT date, namespace, sku_id, resource_name, SUM(total_usage) AS total_usage FROM (
+        SELECT DATE(start_time) AS date, namespace, sku_id, resource_name, SUM(usage.amount) AS total_usage
+        FROM `{consumption}`
+        WHERE DATE(start_time) BETWEEN @date_from AND @date_to
+        GROUP BY date, namespace, sku_id, resource_name
+        UNION ALL
+        SELECT DATE(start_time) AS date, namespace, sku_id, resource_name, SUM(usage.amount) AS total_usage
+        FROM `{usage}`
+        WHERE DATE(start_time) BETWEEN @date_from AND @date_to
+          AND resource_name IN ('networkEgress', 'storage')
+        GROUP BY date, namespace, sku_id, resource_name
+    )
+    GROUP BY date, namespace, sku_id, resource_name
+    ORDER BY date, namespace
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
@@ -201,8 +208,6 @@ def main():
                         help=f'GCP project ID (default: {DEFAULT_PROJECT})')
     parser.add_argument('--dataset', default=DEFAULT_DATASET,
                         help=f'BigQuery dataset (default: {DEFAULT_DATASET})')
-    parser.add_argument('--table', default=DEFAULT_TABLE,
-                        help=f'BigQuery table (default: {DEFAULT_TABLE})')
     parser.add_argument('--output-dir', default=DEFAULT_OUTPUT_DIR,
                         help=f'Output directory (default: {DEFAULT_OUTPUT_DIR})')
     args = parser.parse_args()
@@ -210,12 +215,11 @@ def main():
     print(f'Connecting to BigQuery ({args.project})...')
     client = bigquery.Client(project=args.project)
 
-    full_table = f'{args.project}.{args.dataset}.{args.table}'
-    print(f'Using table: {full_table}')
-
     print(f'Fetching metering data {args.date_from} to {args.date_to}...')
+    print(f'  consumption: {args.project}.{args.dataset}.{DEFAULT_TABLE_CONSUMPTION}')
+    print(f'  usage:       {args.project}.{args.dataset}.{DEFAULT_TABLE_USAGE}')
     rows = fetch_usage_rows(
-        client, args.project, args.dataset, args.table,
+        client, args.project, args.dataset,
         args.date_from, args.date_to,
     )
     print(f'Got {len(rows)} aggregated rows')
