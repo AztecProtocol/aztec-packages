@@ -311,10 +311,6 @@ case "$cmd" in
   # DISPLAYING LOGS #
   ###################
   log|dlog)
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for log query."
-      exit 1
-    fi
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
     key=$1
@@ -323,9 +319,23 @@ case "$cmd" in
       key=${key#list/}
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
+      if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+        echo "No redis available for list log query."
+        exit 1
+      fi
       redis_cli LRANGE "$key" 0 -1 | $pager
-    else
+    elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       redis_getz "$key" | $pager
+    else
+      if [ -z "${CI_PASSWORD:-}" ]; then
+        echo "No redis available and CI_PASSWORD not set for http fallback."
+        exit 1
+      fi
+      curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
+      if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo "Failed to fetch log via http."
+        exit 1
+      fi
     fi
     ;;
 
