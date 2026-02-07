@@ -204,7 +204,7 @@ auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1,
 | ⬜ TODO | SHA256_COMPRESSION | `process_sha256compression_constraints` | No |
 | ⬜ TODO | BLAKE2S | `process_blake2s_constraints` | No |
 | ⬜ TODO | BLAKE3 | `process_blake3s_constraints` | No |
-| ⬜ TODO | POSEIDON2 | `process_poseidon2s_constraints` | No |
+| ✅ Done | POSEIDON2 | `process_poseidon2_constraints` | Yes |
 | ⬜ TODO | ECDSA_K1 | `process_ecdsa_constraints` | No |
 | ⬜ TODO | ECDSA_R1 | `process_ecdsa_constraints` | No |
 | ⬜ TODO | MULTI_SCALAR_MUL | `process_multi_scalar_mul_constraints` | No |
