@@ -68,32 +68,6 @@ class MultiMegaFlavor : public MegaFlavor {
 
         // Shiftable commitments (W₁, W₆, W₉)
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
-
-        // Unshiftable commitments (W₂, W₃, W₄, W₅, W₇, W₈)
-        auto get_unshiftable()
-        {
-            return RefArray{ interleaved_ecc_op_wires, interleaved_databus_1, interleaved_databus_2,
-                             interleaved_databus_3,    interleaved_lookup,    interleaved_inverses };
-        }
-
-        // Round 1 commitments (before eta)
-        auto get_round_1()
-        {
-            return RefArray{ interleaved_wires,
-                             interleaved_ecc_op_wires,
-                             interleaved_databus_1,
-                             interleaved_databus_2,
-                             interleaved_databus_3 };
-        }
-
-        // Round 2 commitments (after eta)
-        auto get_round_2() { return RefArray{ interleaved_w_4, interleaved_lookup }; }
-
-        // Round 3 commitments (after beta/gamma)
-        auto get_round_3() { return RefArray{ interleaved_inverses }; }
-
-        // Round 4 commitments
-        auto get_round_4() { return RefArray{ interleaved_z_perm }; }
     };
 
     using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
@@ -212,10 +186,64 @@ class MultiMegaFlavor : public MegaFlavor {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData();
 
     /**
-     * @brief Information about which polynomials go into each interleaved batch.
-     * @details This provides a mapping from the individual polynomials to their interleaved groups.
-     * Useful for verifier to reconstruct evaluations from individual claimed evals.
+     * @brief Interleaving group accessors, templated on AllEntities<DataType>.
+     * @details These define the mapping from individual polynomials/evaluations to interleaved groups.
+     *          Works for both ProverPolynomials (DataType=Polynomial) and AllValues (DataType=FF).
+     *          Returns pointer groups; prover passes directly to PolynomialBatcher,
+     *          verifier dereferences to reconstruct batched evaluations via Lagrange basis.
+     *          Order: 8 precomputed groups (P₁-P₈) + 9 witness groups (W₁-W₉).
      */
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            // P₁-P₈: precomputed (sequential chunks of PrecomputedEntities)
+            { &e.q_m, &e.q_c, &e.q_l, &e.q_r },
+            { &e.q_o, &e.q_4, &e.q_busread, &e.q_lookup },
+            { &e.q_arith, &e.q_delta_range, &e.q_elliptic, &e.q_memory },
+            { &e.q_nnf, &e.q_poseidon2_external, &e.q_poseidon2_internal, &e.sigma_1 },
+            { &e.sigma_2, &e.sigma_3, &e.sigma_4, &e.id_1 },
+            { &e.id_2, &e.id_3, &e.id_4, &e.table_1 },
+            { &e.table_2, &e.table_3, &e.table_4, &e.lagrange_first },
+            { &e.lagrange_last, &e.lagrange_ecc_op, &e.databus_id, nullptr },
+            // W₁-W₉: witness (matching InterleavedWitnessCommitments layout)
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
+            { &e.calldata, &e.calldata_read_counts, &e.calldata_read_tags, &e.secondary_calldata },
+            { &e.secondary_calldata_read_counts,
+              &e.secondary_calldata_read_tags,
+              &e.return_data,
+              &e.return_data_read_counts },
+            { &e.return_data_read_tags, nullptr, nullptr, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
+            { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
+            { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
+            { &e.z_perm, nullptr, nullptr, nullptr },
+        };
+    }
+
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
+            { &e.z_perm, nullptr, nullptr, nullptr },
+        };
+    }
+
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l_shift, &e.w_r_shift, &e.w_o_shift, nullptr },
+            { &e.w_4_shift, nullptr, nullptr, nullptr },
+            { &e.z_perm_shift, nullptr, nullptr, nullptr },
+        };
+    }
 };
 
 } // namespace bb

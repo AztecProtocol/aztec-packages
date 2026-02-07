@@ -138,45 +138,9 @@ void MultiMegaProver::execute_pcs()
 
     auto& polys = prover_instance->polynomials;
 
-    // Define the 17 unshifted groups and 3 shifted groups (component polynomials)
-    using PolyGroup = std::vector<Polynomial const*>;
-    std::vector<PolyGroup> unshifted_groups = { {
-        // P₁-P₈: precomputed groups (match VK sequential chunking of 31 PrecomputedEntities)
-        { &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r },
-        { &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup },
-        { &polys.q_arith, &polys.q_delta_range, &polys.q_elliptic, &polys.q_memory },
-        { &polys.q_nnf, &polys.q_poseidon2_external, &polys.q_poseidon2_internal, &polys.sigma_1 },
-        { &polys.sigma_2, &polys.sigma_3, &polys.sigma_4, &polys.id_1 },
-        { &polys.id_2, &polys.id_3, &polys.id_4, &polys.table_1 },
-        { &polys.table_2, &polys.table_3, &polys.table_4, &polys.lagrange_first },
-        { &polys.lagrange_last, &polys.lagrange_ecc_op, &polys.databus_id, nullptr },
-        // W₁-W₉: witness groups
-        { &polys.w_l, &polys.w_r, &polys.w_o, nullptr },
-        { &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 },
-        { &polys.calldata, &polys.calldata_read_counts, &polys.calldata_read_tags, &polys.secondary_calldata },
-        { &polys.secondary_calldata_read_counts,
-          &polys.secondary_calldata_read_tags,
-          &polys.return_data,
-          &polys.return_data_read_counts },
-        { &polys.return_data_read_tags, nullptr, nullptr, nullptr },
-        { &polys.w_4, nullptr, nullptr, nullptr },
-        { &polys.lookup_read_counts, &polys.lookup_read_tags, nullptr, nullptr },
-        { &polys.lookup_inverses,
-          &polys.calldata_inverses,
-          &polys.secondary_calldata_inverses,
-          &polys.return_data_inverses },
-        { &polys.z_perm, nullptr, nullptr, nullptr },
-    } };
-
-    std::vector<PolyGroup> shifted_groups = { {
-        { &polys.w_l, &polys.w_r, &polys.w_o, nullptr },
-        { &polys.w_4, nullptr, nullptr, nullptr },
-        { &polys.z_perm, nullptr, nullptr, nullptr },
-    } };
-
     PolynomialBatcher polynomial_batcher(interleaved_size, BATCH_SIZE);
-    polynomial_batcher.set_unshifted_interleaved_groups(std::move(unshifted_groups));
-    polynomial_batcher.set_shifted_interleaved_groups(std::move(shifted_groups));
+    polynomial_batcher.set_unshifted_interleaved_groups(Flavor::get_unshifted_groups(polys));
+    polynomial_batcher.set_shifted_interleaved_groups(Flavor::get_to_be_shifted_groups(polys));
 
     OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, transcript);
