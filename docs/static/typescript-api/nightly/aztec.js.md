@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260205
+Version: v4.0.0-nightly.20260207
 
 ## Quick Import Reference
 
@@ -1228,6 +1228,12 @@ Wallet capability response. Returned by wallet after user reviews and approves/d
 
 ## Functions
 
+### BlockNumber
+```typescript
+function BlockNumber(value: number) => BlockNumber
+```
+Creates a BlockNumber from a number.
+
 ### broadcastPrivateFunction
 ```typescript
 function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
@@ -1473,6 +1479,12 @@ type BatchedMethodResultWrapper = unknown
 ```
 Wrapper type for batch results that includes the method name for discriminated union deserialization. Each result is wrapped as { name: 'methodName', result: ActualResult } to allow proper deserialization when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
 
+### BlockNumber
+```typescript
+type BlockNumber = Branded<number, "BlockNumber">
+```
+Creates a BlockNumber from a number.
+
 ### CAPABILITY_VERSION
 ```typescript
 type CAPABILITY_VERSION = "1.0"
@@ -1663,13 +1675,13 @@ A type which along with public key forms a preimage of a contract address. See t
 
 ### PrivateEvent
 ```typescript
-type PrivateEvent = unknown
+type PrivateEvent = Event<T>
 ```
 An ABI decoded private event with associated metadata.
 
 ### PrivateEventFilter
 ```typescript
-type PrivateEventFilter = unknown
+type PrivateEventFilter = EventFilterBase & { contractAddress: AztecAddress; scopes: AztecAddress[] }
 ```
 Filter options when querying private events.
 
@@ -1684,6 +1696,18 @@ Represents the options for profiling an interaction.
 type ProfileOptions = Omit<ProfileInteractionOptions, "fee"> & { fee?: GasSettingsOption }
 ```
 Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
+
+### PublicEvent
+```typescript
+type PublicEvent = Event<T, { contractAddress: AztecAddress }>
+```
+An ABI decoded public event with associated metadata (includes contract address).
+
+### PublicEventFilter
+```typescript
+type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress }
+```
+Filter options when querying public events.
 
 ### PublicKey
 ```typescript
@@ -1787,6 +1811,36 @@ type WrappedFieldLike = { inner: FieldLike } | FieldLike
 ```
 Any type that can be converted into a struct with a single `inner` field.
 
+### ZERO
+```typescript
+type ZERO = BlockNumber
+```
+
+### add
+```typescript
+type add = (bn: BlockNumber, increment: number) => BlockNumber
+```
+
+### fromBigInt
+```typescript
+type fromBigInt = (value: bigint) => BlockNumber
+```
+
+### fromCheckpointNumber
+```typescript
+type fromCheckpointNumber = (value: CheckpointNumber) => BlockNumber
+```
+
+### fromString
+```typescript
+type fromString = (value: string) => BlockNumber
+```
+
+### isValid
+```typescript
+type isValid = (value: unknown) => boolean
+```
+
 ## Enums
 
 ### FunctionType
@@ -1815,7 +1869,7 @@ This package references types from other Aztec packages:
 - `ExtendedViemWalletClient`, `L1ContractAddresses`
 
 **@aztec/foundation**
-- `BaseField`, `BlockNumber`, `Buffer32`, `BufferReader`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
+- `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
 - `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`

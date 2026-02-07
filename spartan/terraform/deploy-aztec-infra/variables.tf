@@ -399,6 +399,12 @@ variable "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" {
   default     = 0.0
 }
 
+variable "SLASH_DUPLICATE_PROPOSAL_PENALTY" {
+  description = "The slash duplicate proposal penalty"
+  type        = string
+  nullable    = true
+}
+
 variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
   description = "The slash attest descendant of invalid penalty"
   type        = string
