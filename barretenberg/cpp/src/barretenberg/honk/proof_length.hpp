@@ -10,6 +10,9 @@
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include <cstddef>
 
 namespace bb::ProofLength {
@@ -51,6 +54,37 @@ template <> struct Oink<MultiMegaFlavor> : CodecConstants<MultiMegaFlavor> {
     // MultiMega uses 9 interleaved witness commitments instead of NUM_WITNESS_ENTITIES
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
         MultiMegaFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+};
+
+/**
+ * @brief Specialization for MultiMegaZKFlavor: 10 interleaved witness commitments (9 base + masking).
+ */
+template <> struct Oink<MultiMegaZKFlavor> : CodecConstants<MultiMegaZKFlavor> {
+    using CodecConstants<MultiMegaZKFlavor>::num_frs_in_comm;
+
+    // 10 interleaved witness commitments (includes masking group W₁₀)
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
+        MultiMegaZKFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+};
+
+/**
+ * @brief Partial specialization for recursive MultiMegaFlavor (any builder type).
+ */
+template <typename BuilderType>
+struct Oink<MultiMegaRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaRecursiveFlavor_<BuilderType>> {
+    using Flavor = MultiMegaRecursiveFlavor_<BuilderType>;
+    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+};
+
+/**
+ * @brief Partial specialization for recursive MultiMegaZKFlavor (any builder type).
+ */
+template <typename BuilderType>
+struct Oink<MultiMegaZKRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaZKRecursiveFlavor_<BuilderType>> {
+    using Flavor = MultiMegaZKRecursiveFlavor_<BuilderType>;
+    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
 };
 
 /**
@@ -153,6 +187,93 @@ template <> struct Honk<MultiMegaFlavor> {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
         return Oink<MultiMegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<MultiMegaFlavor>::LENGTH(log_n) +
                Shplemini<MultiMegaFlavor>::LENGTH(pcs_log_n);
+    }
+
+    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    {
+        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    }
+
+    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
+    {
+        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        if constexpr (IO::HasIPA) {
+            size += IPA_PROOF_LENGTH;
+        }
+        return size;
+    }
+};
+
+/**
+ * @brief Specialization for MultiMegaZKFlavor: sumcheck uses log_n, PCS uses log_n + INTERLEAVING_LOG_K.
+ * @details Masking chunk evaluations are part of sumcheck claimed_evaluations (NUM_ALL_ENTITIES includes them).
+ */
+template <> struct Honk<MultiMegaZKFlavor> {
+    static constexpr size_t INTERLEAVING_LOG_K = MultiMegaZKFlavor::INTERLEAVING_LOG_K;
+
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        return Oink<MultiMegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<MultiMegaZKFlavor>::LENGTH(log_n) +
+               Shplemini<MultiMegaZKFlavor>::LENGTH(pcs_log_n);
+    }
+
+    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    {
+        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    }
+
+    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
+    {
+        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        if constexpr (IO::HasIPA) {
+            size += IPA_PROOF_LENGTH;
+        }
+        return size;
+    }
+};
+
+/**
+ * @brief Partial specialization for recursive MultiMegaFlavor (any builder type).
+ */
+template <typename BuilderType> struct Honk<MultiMegaRecursiveFlavor_<BuilderType>> {
+    using Flavor = MultiMegaRecursiveFlavor_<BuilderType>;
+    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
+
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
+               Shplemini<Flavor>::LENGTH(pcs_log_n);
+    }
+
+    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    {
+        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    }
+
+    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
+    {
+        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        if constexpr (IO::HasIPA) {
+            size += IPA_PROOF_LENGTH;
+        }
+        return size;
+    }
+};
+
+/**
+ * @brief Partial specialization for recursive MultiMegaZKFlavor (any builder type).
+ */
+template <typename BuilderType> struct Honk<MultiMegaZKRecursiveFlavor_<BuilderType>> {
+    using Flavor = MultiMegaZKRecursiveFlavor_<BuilderType>;
+    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
+
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
+               Shplemini<Flavor>::LENGTH(pcs_log_n);
     }
 
     static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)

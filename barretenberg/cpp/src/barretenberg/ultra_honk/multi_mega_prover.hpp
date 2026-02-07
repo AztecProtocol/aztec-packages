@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -17,12 +18,14 @@
 namespace bb {
 
 /**
- * @brief Prover for MultiMegaFlavor using interleaved commitments.
+ * @brief Prover for MultiMega flavors using interleaved commitments.
  * @details Uses MultiMegaOinkProver which commits to 9 interleaved batches instead of 24 individual commitments.
+ *
+ * @tparam Flavor_ MultiMegaFlavor or MultiMegaZKFlavor
  */
-class MultiMegaProver {
+template <IsMultiMegaFlavor Flavor_> class MultiMegaProver_ {
   public:
-    using Flavor = MultiMegaFlavor;
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using Builder = typename Flavor::CircuitBuilder;
     using Commitment = typename Flavor::Commitment;
@@ -33,9 +36,11 @@ class MultiMegaProver {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
     using ProverInstance = ProverInstance_<Flavor>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using HonkVK = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
     using Proof = typename Transcript::Proof;
+    using ZKData = ZKSumcheckData<Flavor>;
 
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
@@ -53,17 +58,19 @@ class MultiMegaProver {
     // Storage for interleaved commitments from OinkProver
     typename Flavor::InterleavedCommitments interleaved_commitments;
 
-    MultiMegaProver(const std::shared_ptr<ProverInstance>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
+    ZKData zk_sumcheck_data;
 
-    explicit MultiMegaProver(const std::shared_ptr<ProverInstance>&,
-                             const std::shared_ptr<HonkVK>&,
-                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    MultiMegaProver_(const std::shared_ptr<ProverInstance>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
 
-    explicit MultiMegaProver(Builder&,
-                             const std::shared_ptr<HonkVK>&,
-                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit MultiMegaProver_(const std::shared_ptr<ProverInstance>&,
+                              const std::shared_ptr<HonkVK>&,
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit MultiMegaProver(Builder&&, const std::shared_ptr<HonkVK>&);
+    explicit MultiMegaProver_(Builder&,
+                              const std::shared_ptr<HonkVK>&,
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    explicit MultiMegaProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
     void generate_gate_challenges();
 
@@ -74,5 +81,7 @@ class MultiMegaProver {
     Proof construct_proof();
     Proof prove() { return construct_proof(); }
 };
+
+using MultiMegaProver = MultiMegaProver_<MultiMegaFlavor>;
 
 } // namespace bb

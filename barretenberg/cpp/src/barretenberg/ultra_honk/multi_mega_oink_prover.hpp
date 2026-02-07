@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -35,9 +36,11 @@ namespace bb {
  *
  * ROUND 4 - 1 commit:
  *   W₉ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
+ *
+ * @tparam Flavor_ MultiMegaFlavor or MultiMegaZKFlavor
  */
-class MultiMegaOinkProver {
-    using Flavor = MultiMegaFlavor;
+template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkProver_ {
+    using Flavor = Flavor_;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using HonkVK = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
@@ -62,10 +65,10 @@ class MultiMegaOinkProver {
     // Storage for interleaved commitments
     typename Flavor::InterleavedCommitments interleaved_commitments;
 
-    MultiMegaOinkProver(std::shared_ptr<ProverInstance> prover_instance,
-                        std::shared_ptr<HonkVK> honk_vk,
-                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                        std::string domain_separator = "")
+    MultiMegaOinkProver_(std::shared_ptr<ProverInstance> prover_instance,
+                         std::shared_ptr<HonkVK> honk_vk,
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         std::string domain_separator = "")
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
@@ -75,6 +78,7 @@ class MultiMegaOinkProver {
     void prove();
     Proof export_proof();
     void execute_preamble_round();
+    void commit_to_masking_poly();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
@@ -95,5 +99,7 @@ class MultiMegaOinkProver {
     Commitment commit_interleaved_and_send(std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials,
                                            const std::string& label);
 };
+
+using MultiMegaOinkProver = MultiMegaOinkProver_<MultiMegaFlavor>;
 
 } // namespace bb

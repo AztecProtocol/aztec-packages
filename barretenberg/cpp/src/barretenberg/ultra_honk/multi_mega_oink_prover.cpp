@@ -6,11 +6,12 @@
 
 #include "barretenberg/ultra_honk/multi_mega_oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 
 namespace bb {
 
-void MultiMegaOinkProver::prove()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::prove()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::prove");
     if (!prover_instance->commitment_key.initialized()) {
@@ -18,6 +19,8 @@ void MultiMegaOinkProver::prove()
     }
     // Add circuit size public input size and public inputs to transcript
     execute_preamble_round();
+    // For ZK flavors: create and commit to Gemini masking polynomial
+    commit_to_masking_poly();
     // Compute interleaved wire commitments (Round 1: W₁ - W₅)
     execute_wire_commitments_round();
     // Compute sorted list accumulator and interleaved commitments (Round 2: W₆, W₇)
@@ -35,12 +38,13 @@ void MultiMegaOinkProver::prove()
     prover_instance->commitment_key = CommitmentKey();
 }
 
-typename MultiMegaOinkProver::Proof MultiMegaOinkProver::export_proof()
+template <IsMultiMegaFlavor Flavor>
+typename MultiMegaOinkProver_<Flavor>::Proof MultiMegaOinkProver_<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }
 
-void MultiMegaOinkProver::execute_preamble_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::execute_preamble_round");
     FF vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
@@ -53,8 +57,31 @@ void MultiMegaOinkProver::execute_preamble_round()
     }
 }
 
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::commit_to_masking_poly()
+{
+    if constexpr (Flavor::HasZK) {
+        auto& polys = prover_instance->polynomials;
+        const size_t n = prover_instance->dyadic_size();
+
+        // Generate 4 random masking chunks (one per interleaving slot)
+        polys.masking_chunk_0 = Polynomial::random(n);
+        polys.masking_chunk_1 = Polynomial::random(n);
+        polys.masking_chunk_2 = Polynomial::random(n);
+        polys.masking_chunk_3 = Polynomial::random(n);
+
+        // Commit as interleaved group W₁₀
+        std::array<PolynomialSpan<const FF>, 4> masking_batch = { PolynomialSpan<const FF>(polys.masking_chunk_0),
+                                                                  PolynomialSpan<const FF>(polys.masking_chunk_1),
+                                                                  PolynomialSpan<const FF>(polys.masking_chunk_2),
+                                                                  PolynomialSpan<const FF>(polys.masking_chunk_3) };
+        interleaved_commitments.interleaved_masking =
+            commit_interleaved_and_send<4>(masking_batch, interleaved_labels.interleaved_masking);
+    }
+}
+
+template <IsMultiMegaFlavor Flavor>
 template <size_t NUM_POLYS>
-MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send(
+typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::commit_interleaved_and_send(
     std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials, const std::string& label)
 {
     static_assert(NUM_POLYS <= BATCH_SIZE, "Cannot batch more than BATCH_SIZE polynomials");
@@ -79,7 +106,7 @@ MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send
  *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data,
  * return_data_read_counts] W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
  */
-void MultiMegaOinkProver::execute_wire_commitments_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_wire_commitments_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::execute_wire_commitments_round");
 
@@ -135,9 +162,6 @@ void MultiMegaOinkProver::execute_wire_commitments_round()
         interleaved_commitments.interleaved_databus_3 =
             commit_interleaved_and_send<1>(databus_3_batch, interleaved_labels.interleaved_databus_3);
     }
-
-    // Also store individual commitments for compatibility with existing code that expects them
-    // (These will be reconstructed from interleaved commitments in the verifier)
 }
 
 /**
@@ -147,7 +171,7 @@ void MultiMegaOinkProver::execute_wire_commitments_round()
  *   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
  *   W₇ (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
  */
-void MultiMegaOinkProver::execute_sorted_list_accumulator_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_sorted_list_accumulator_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::execute_sorted_list_accumulator_round");
 
@@ -185,7 +209,7 @@ void MultiMegaOinkProver::execute_sorted_list_accumulator_round()
  * Round 3 (after beta/gamma) - 1 interleaved commit:
  *   W₈ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
  */
-void MultiMegaOinkProver::execute_log_derivative_inverse_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_log_derivative_inverse_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::execute_log_derivative_inverse_round");
 
@@ -219,7 +243,7 @@ void MultiMegaOinkProver::execute_log_derivative_inverse_round()
  * Round 4 - 1 interleaved commit:
  *   W₉ (shiftable): [z_perm, ZERO, ZERO, ZERO]
  */
-void MultiMegaOinkProver::execute_grand_product_computation_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_grand_product_computation_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::execute_grand_product_computation_round");
 
@@ -240,7 +264,8 @@ void MultiMegaOinkProver::execute_grand_product_computation_round()
     }
 }
 
-typename MultiMegaOinkProver::SubrelationSeparator MultiMegaOinkProver::generate_alpha_round()
+template <IsMultiMegaFlavor Flavor>
+typename MultiMegaOinkProver_<Flavor>::SubrelationSeparator MultiMegaOinkProver_<Flavor>::generate_alpha_round()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::generate_alpha_round");
 
@@ -250,13 +275,7 @@ typename MultiMegaOinkProver::SubrelationSeparator MultiMegaOinkProver::generate
 }
 
 // Explicit template instantiations
-template MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send<1>(
-    std::array<PolynomialSpan<const FF>, 1>, const std::string&);
-template MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send<2>(
-    std::array<PolynomialSpan<const FF>, 2>, const std::string&);
-template MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send<3>(
-    std::array<PolynomialSpan<const FF>, 3>, const std::string&);
-template MultiMegaOinkProver::Commitment MultiMegaOinkProver::commit_interleaved_and_send<4>(
-    std::array<PolynomialSpan<const FF>, 4>, const std::string&);
+template class MultiMegaOinkProver_<MultiMegaFlavor>;
+template class MultiMegaOinkProver_<MultiMegaZKFlavor>;
 
 } // namespace bb

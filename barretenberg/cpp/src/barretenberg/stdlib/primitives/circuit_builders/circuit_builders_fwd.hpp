@@ -26,6 +26,7 @@ class MegaFlavor;
 class MegaZKFlavor;
 class MegaAvmFlavor;
 class MultiMegaFlavor;
+class MultiMegaZKFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class ECCVMFlavor;
@@ -48,6 +49,8 @@ template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;
+template <typename BuilderType> class MultiMegaRecursiveFlavor_;
+template <typename BuilderType> class MultiMegaZKRecursiveFlavor_;
 
 namespace avm2 {
 class AvmRecursiveFlavor;

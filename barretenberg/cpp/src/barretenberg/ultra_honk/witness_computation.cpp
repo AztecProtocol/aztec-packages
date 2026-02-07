@@ -11,6 +11,7 @@
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
@@ -158,5 +159,6 @@ template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;
 template class WitnessComputation<MegaAvmFlavor>;
 template class WitnessComputation<MultiMegaFlavor>;
+template class WitnessComputation<MultiMegaZKFlavor>;
 
 } // namespace bb

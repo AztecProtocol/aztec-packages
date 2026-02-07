@@ -69,6 +69,10 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NativeFlavor::NUM_UNSHIFTED_ENTITIES;
 
     static constexpr bool HasZK = false;
+
+    // Labels are string-based and can be inherited directly from the native flavor
+    using InterleavedCommitmentLabels = typename NativeFlavor::InterleavedCommitmentLabels;
+    using CommitmentLabels = typename NativeFlavor::CommitmentLabels;
     static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
 
     // BATCHED_RELATION_PARTIAL_LENGTH must match native flavor
@@ -80,9 +84,6 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
     {
         return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
     }
-
-    // For Sumcheck, evaluating edges can be left as degree-1 monomials for these entity groups
-    using PartiallyFlattenedMultivariate = typename MegaRecursiveFlavor_<BuilderType>::PartiallyFlattenedMultivariate;
 
     /**
      * @brief Container for interleaved witness commitments (circuit types).
@@ -149,26 +150,39 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
         using Base::Base;
     };
 
+    /**
+     * @brief Verification key for recursive MultiMegaFlavor with interleaved precomputed commitments.
+     * @details Contains 8 interleaved precomputed commitments instead of 31 individual ones.
+     *          Uses StdlibVerificationKey_ (circuit-compatible) referencing the native
+     * MultiMegaFlavor::VerificationKey.
+     */
+    using VerificationKey = StdlibVerificationKey_<CircuitBuilder,
+                                                   InterleavedPrecomputedCommitments<Commitment>,
+                                                   NativeFlavor::VerificationKey>;
+
     // VerifierCommitments includes interleaved commitments
     // The base VerifierCommitments_ handles individual polynomial commitments for relations,
     // but we also need to track interleaved commitments for PCS verification
     using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 
-    /**
-     * @brief Verification key for MultiMegaFlavor with interleaved precomputed commitments.
-     * @details Contains 8 interleaved precomputed commitments instead of 31 individual ones.
-     */
-    using VerificationKey = NativeVerificationKey_<InterleavedPrecomputedCommitments<Commitment>,
-                                                   Codec,
-                                                   HashFunction,
-                                                   CommitmentKey,
-                                                   VKSerializationMode::FULL,
-                                                   INTERLEAVING_BATCH_SIZE>;
-
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     // Repeated commitments (disabled for MultiMega due to non-contiguous shifted indices)
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
+    // Forward static group methods to the native flavor (they work on any entity type with matching member names)
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_unshifted_groups(e);
+    }
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_to_be_shifted_groups(e);
+    }
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_shifted_groups(e);
+    }
 };
 
 } // namespace bb

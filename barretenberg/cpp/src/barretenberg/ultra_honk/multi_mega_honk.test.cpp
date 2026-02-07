@@ -1,9 +1,13 @@
 #include <cstddef>
 #include <cstdint>
-#include <gtest/gtest.h>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -25,8 +29,8 @@ class MultiMegaHonkTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Commitment = typename Flavor::Commitment;
-    using Prover = MultiMegaProver;
-    using Verifier = MultiMegaVerifier;
+    using Prover = MultiMegaProver_<MultiMegaFlavor>;
+    using Verifier = MultiMegaVerifier_<MultiMegaFlavor>;
     using Proof = typename Flavor::Transcript::Proof;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
@@ -269,6 +273,31 @@ TEST_F(MultiMegaHonkTests, FullProveAndVerify)
 }
 
 /**
+ * @brief Full prove-and-verify test for MultiMega ZK Honk.
+ */
+TEST_F(MultiMegaHonkTests, FullProveAndVerifyZK)
+{
+    using ZKFlavor = MultiMegaZKFlavor;
+    using ZKProverInstance = ProverInstance_<ZKFlavor>;
+    using ZKProver = MultiMegaProver_<ZKFlavor>;
+    using ZKVerifier = MultiMegaVerifier_<ZKFlavor>;
+    using ZKVK = typename ZKFlavor::VerificationKey;
+
+    Builder builder;
+    generate_test_circuit(builder);
+
+    auto prover_instance = std::make_shared<ZKProverInstance>(builder);
+    auto verification_key = std::make_shared<ZKVK>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename ZKFlavor::VKAndHash>(verification_key);
+    ZKProver prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    ZKVerifier verifier(vk_and_hash);
+    auto verifier_output = verifier.verify_proof(proof);
+    EXPECT_TRUE(verifier_output.result) << "MultiMega ZK proof verification failed";
+}
+
+/**
  * @brief Test that interleaved polynomial evaluation via evaluate_mle matches Lagrange-basis reconstruction,
  *        and that commit_interleaved matches commit on the materialized interleaved polynomial.
  *
@@ -324,7 +353,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
 
         FF eval_reconstructed = FF::zero();
         for (size_t j = 0; j < BATCH_SIZE; ++j) {
@@ -374,7 +403,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
         FF chunk_eval = chunk0.evaluate_mle(inner_challenge);
         FF eval_reconstructed = chunk_eval * lagrange[0]; // only L₀ contributes
 
@@ -416,7 +445,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
         // For shift-by-4 on interleaved, chunk0 is shifted by 1 in its own domain
         FF chunk_eval_shifted = chunk0.evaluate_mle(inner_challenge, /*shift=*/true);
         FF eval_shifted_reconstructed = chunk_eval_shifted * lagrange[0];
@@ -473,7 +502,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u0 = full_challenge[0];
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
-        auto lagrange = MultiMegaVerifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
 
         FF eval_batched_reconstructed = FF::zero();
         FF rho_pow = FF::one();
@@ -551,3 +580,154 @@ TEST_F(MultiMegaHonkTests, CommitInterleavedHeterogeneousStartIndex)
     EXPECT_EQ(commit_il, commit_mat) << "commit_interleaved should match commit on materialized polynomial "
                                         "when chunks have heterogeneous start_index";
 }
+
+// =====================================================================================
+// Recursive verification tests for MultiMega and MultiMegaZK
+// =====================================================================================
+
+namespace bb::stdlib::recursion::honk {
+
+template <typename RecursiveFlavor_, typename IO_> struct MultiMegaRecursiveTestParams {
+    using RecursiveFlavor = RecursiveFlavor_;
+    using IO = IO_;
+};
+
+using MultiMegaRecursiveTestConfigs = testing::Types<
+    MultiMegaRecursiveTestParams<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    MultiMegaRecursiveTestParams<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    MultiMegaRecursiveTestParams<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    MultiMegaRecursiveTestParams<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>>;
+
+template <typename Params> class MultiMegaRecursiveTests : public testing::Test {
+    using RecursiveFlavor = typename Params::RecursiveFlavor;
+    using IO = typename Params::IO;
+
+    // Inner circuit types (always MegaCircuitBuilder since MultiMega requires ECC ops)
+    using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+    using InnerProver = MultiMegaProver_<InnerFlavor>;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerFF = typename InnerFlavor::FF;
+    using InnerCommitment = typename InnerFlavor::Commitment;
+    using InnerVerifier = MultiMegaVerifier_<InnerFlavor, bb::DefaultIO>;
+
+    // Outer circuit types
+    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = bb::UltraVerifier_<OuterFlavor, bb::DefaultIO>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterStdlibProof = bb::stdlib::Proof<OuterBuilder>;
+    using OuterIO = IO;
+
+    // Recursive verifier uses MultiMegaVerifier_ (not UltraVerifier_)
+    using RecursiveVerifier = MultiMegaVerifier_<RecursiveFlavor, IO>;
+    using VerifierOutput = UltraRecursiveVerifierOutput<OuterBuilder>;
+
+    static InnerBuilder create_inner_circuit()
+    {
+        InnerBuilder builder;
+
+        // Add some ecc op gates
+        for (size_t i = 0; i < 3; ++i) {
+            auto point = InnerFlavor::Curve::AffineElement::one() * InnerFF::random_element();
+            auto scalar = InnerFF::random_element();
+            builder.queue_ecc_mul_accum(point, scalar);
+        }
+        builder.queue_ecc_eq();
+
+        // Add conventional gates that utilize public inputs
+        InnerFF a = InnerFF::random_element();
+        InnerFF b = InnerFF::random_element();
+        InnerFF c = InnerFF::random_element();
+        InnerFF d = a + b + c;
+        uint32_t a_idx = builder.add_public_variable(a);
+        uint32_t b_idx = builder.add_variable(b);
+        uint32_t c_idx = builder.add_variable(c);
+        uint32_t d_idx = builder.add_variable(d);
+        builder.create_big_add_gate(
+            { a_idx, b_idx, c_idx, d_idx, InnerFF(1), InnerFF(1), InnerFF(1), InnerFF(-1), InnerFF(0) });
+
+        DefaultIO<InnerBuilder>::add_default(builder);
+
+        return builder;
+    }
+
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static void test_recursive_verification()
+    {
+        // Create and prove the inner circuit
+        auto inner_circuit = create_inner_circuit();
+
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
+        auto inner_proof = inner_prover.construct_proof();
+
+        // Native verification (sanity check)
+        auto native_vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(verification_key);
+        InnerVerifier native_verifier(native_vk_and_hash);
+        bool native_result = native_verifier.verify_proof(inner_proof).result;
+        ASSERT_TRUE(native_result) << "Native MultiMega verification failed";
+
+        // Create the recursive verification circuit
+        OuterBuilder outer_circuit;
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
+
+        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+
+        // Set public inputs on the outer circuit
+        OuterIO inputs;
+        inputs.pairing_inputs = output.points_accumulator;
+        inputs.set_public();
+
+        // Check pairing points match native
+        bool pairing_result = output.points_accumulator.check();
+        EXPECT_EQ(pairing_result, native_result) << "Recursive pairing check disagrees with native";
+
+        // Check recursive verifier circuit correctness
+        EXPECT_FALSE(outer_circuit.failed()) << outer_circuit.err();
+        EXPECT_TRUE(CircuitChecker::check(outer_circuit)) << "Recursive verifier circuit check failed";
+
+        // Prove and verify the outer circuit
+        {
+            auto outer_prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+
+            info("MultiMega Recursive Verifier gate count: ",
+                 outer_circuit.get_num_finalized_gates(),
+                 " [InnerFlavor=",
+                 InnerFlavor::HasZK ? "MultiMegaZK" : "MultiMega",
+                 ", OuterBuilder=",
+                 IsMegaBuilder<OuterBuilder> ? "Mega" : "Ultra",
+                 "]");
+            auto outer_vk =
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_prover_instance->get_precomputed());
+            OuterProver outer_prover(outer_prover_instance, outer_vk);
+            auto outer_proof = outer_prover.construct_proof();
+
+            auto outer_vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(outer_vk);
+            OuterVerifier outer_verifier(outer_vk_and_hash);
+            bool outer_result = outer_verifier.verify_proof(outer_proof).result;
+            EXPECT_TRUE(outer_result) << "Outer proof verification failed";
+        }
+    }
+};
+
+TYPED_TEST_SUITE(MultiMegaRecursiveTests, MultiMegaRecursiveTestConfigs);
+
+HEAVY_TYPED_TEST(MultiMegaRecursiveTests, RecursiveVerification)
+{
+    TestFixture::test_recursive_verification();
+}
+
+#ifdef DISABLE_HEAVY_TESTS
+TEST(MultiMegaRecursiveTests, DoNothingTestToEnsureATestExists) {}
+#endif
+
+} // namespace bb::stdlib::recursion::honk

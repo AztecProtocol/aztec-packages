@@ -15,20 +15,23 @@ namespace bb {
  * @brief ZK version of MultiMegaFlavor with coefficient interleaving.
  * @details Combines:
  *   - Coefficient interleaving (batch=4) from MultiMegaFlavor
- *   - ZK sumcheck with masking from MegaZKFlavor
+ *   - ZK sumcheck with masking from MegaZKFlavor pattern
  *
  * Used for the hiding kernel in Chonk IVC.
  *
- * Key properties:
- *   - 9 interleaved witness commitments (vs 24 individual in MegaFlavor)
- *   - 8 interleaved precomputed commitments (vs 31 individual)
- *   - ZK masking polynomial (gemini_masking_poly)
+ * Key differences from MultiMegaFlavor:
+ *   - 4 masking chunk polynomials in AllEntities (masking_chunk_0..3)
+ *   - 10 interleaved witness commitments (9 base + W₁₀ masking)
  *   - 3 Libra commitments for ZK sumcheck
- *   - +2 Gemini rounds (log(n)+2 total) due to interleaving
+ *   - ZK sumcheck with Row Disabling Polynomial (BATCHED_RELATION_PARTIAL_LENGTH + 1)
+ *
+ * The masking polynomial is split into 4 chunks of size n (one per interleaving slot).
+ * These chunks are committed as an interleaved group (W₁₀) and their evaluations flow
+ * through sumcheck naturally, eliminating manual masking handling in PCS.
  *
  * See multichonk.md for interleaving design and benchmarks.
  */
-class MultiMegaZKFlavor : public bb::MultiMegaFlavor {
+class MultiMegaZKFlavor : public MultiMegaFlavor {
   public:
     // MultiMegaZK is used for the Hiding Kernel in Chonk
     static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
@@ -36,65 +39,67 @@ class MultiMegaZKFlavor : public bb::MultiMegaFlavor {
     // Indicates that this flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
 
-    // The number of entities added for ZK (gemini_masking_poly)
-    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
-
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MultiMegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MultiMegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
-    // Note: MultiMegaFlavor inherits from MegaFlavor, which has AllEntities_ templated on HasZK
+    // Entity counts: +4 for masking chunks
+    static constexpr size_t NUM_MASKING_ENTITIES = 4;
+    static constexpr size_t NUM_WITNESS_ENTITIES = MultiMegaFlavor::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = MultiMegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_ENTITIES;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MultiMegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_ENTITIES;
+
+    // 10 interleaved witness commitments (9 base + 1 masking group)
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 10;
+
+    // Total interleaved commitments: 8 precomputed + 10 witness = 18
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
+        NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+
+    // Override AllEntities to use ZK version (includes 4 masking chunks via MultiMegaMaskingEntities)
     template <typename DataType> using AllEntities = MultiMegaFlavor::AllEntities_<DataType, HasZK>;
-
-    // NUM_WITNESS_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_WITNESS_ENTITIES = MultiMegaFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
-    // NUM_ALL_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_ALL_ENTITIES = MultiMegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
-    // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MultiMegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
-
-    // Size of the final PCS MSM for ZK with interleaving:
-    // - MultiMegaFlavor has 17 interleaved commitments (8 precomputed + 9 witness)
-    // - +1 for gemini_masking_poly commitment
-    // - +3 for NUM_LIBRA_COMMITMENTS
-    // - +(pcs_log_n - 1) Gemini folds where pcs_log_n = log_n + INTERLEAVING_LOG_K
-    // - +1 for Shplonk Q commitment
-    // - +1 for G1 identity
-    // - +1 for KZG W commitment
-    //
-    // Total: (8 precomputed + 9 witness) + 1 masking + 3 shifted + 3 Libra + (pcs_log_n - 1) + 3
-    //      = 17 + 1 + 3 + 3 + pcs_log_n - 1 + 3 = 26 + pcs_log_n
-    //
-    // For log_n=21, pcs_log_n=23 → 26 + 23 = 49
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // Breakdown:
-        // - NUM_ALL_INTERLEAVED_COMMITMENTS = 17 (8 precomputed + 9 witness)
-        // - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = 3 (W₁, W₆, W₉)
-        // - NUM_MASKING_POLYNOMIALS = 1 (gemini_masking_poly)
-        // - NUM_LIBRA_COMMITMENTS = 3 (Libra for ZK sumcheck)
-        // - Gemini folds = pcs_log_n - 1
-        // - Shplonk Q = 1
-        // - G1 identity = 1
-        // - KZG W = 1
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + NUM_MASKING_POLYNOMIALS +
-               NUM_LIBRA_COMMITMENTS + (pcs_log_n - 1) + 3;
-    }
 
     using AllValues = MultiMegaFlavor::AllValues_<HasZK>;
     using ProverPolynomials = MultiMegaFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = MultiMegaFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
     using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 
-    // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
+    // Override ProverUnivariates and ExtendedEdges to include masking chunk entities
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
+    // Use ZK interleaved witness commitments (10 members including masking)
+    template <typename DataType>
+    using InterleavedWitnessCommitments = MultiMegaFlavor::InterleavedWitnessCommitments_<DataType, HasZK>;
+    using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
+    using InterleavedCommitmentLabels = MultiMegaFlavor::InterleavedCommitmentLabels_<HasZK>;
+
     using Transcript = NativeTranscript;
     using VKAndHash = MultiMegaFlavor::VKAndHash;
+
+    // FINAL_PCS_MSM_SIZE: masking is now counted in NUM_ALL_INTERLEAVED_COMMITMENTS (18)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        // 18 unshifted + 3 shifted + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity + 1 KZG W
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + NUM_LIBRA_COMMITMENTS +
+               (pcs_log_n - 1) + 3;
+    }
+
+    /**
+     * @brief Override get_unshifted_groups to include masking group as 18th unshifted group.
+     */
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
+    {
+        auto groups = MultiMegaFlavor::get_unshifted_groups(e);
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        groups.push_back(Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        return groups;
+    }
+
+    // get_to_be_shifted_groups and get_shifted_groups are inherited unchanged (masking chunks are not shifted)
 };
 
 } // namespace bb

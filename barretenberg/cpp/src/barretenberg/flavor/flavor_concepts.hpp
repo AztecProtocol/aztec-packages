@@ -22,18 +22,26 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
 
 template <typename T>
-concept IsMultiMegaFlavor = IsAnyOf<T, MultiMegaFlavor>;
+concept IsMultiMegaFlavor = IsAnyOf<T, MultiMegaFlavor, MultiMegaZKFlavor,
+                                       MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                       MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                    MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                    MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                    MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
@@ -56,6 +64,10 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                       MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
                                        MultilinearBatchingRecursiveFlavor,

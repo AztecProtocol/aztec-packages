@@ -388,8 +388,14 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                         shplonk_batching_challenge_powers,
                         shplonk_evaluation_challenge);
 
+            // For interleaved flavors, the multivariate_challenge has extra interleaving coordinates
+            // prepended (e.g., [u0, u1, sumcheck_challenges...]). The Libra consistency check only uses
+            // sumcheck challenges, so strip the first log2(shift_exponent) entries.
+            const size_t interleaving_log_k = numeric::get_msb(claim_batcher.shift_exponent);
+            std::vector<Fr> libra_challenge(multivariate_challenge.begin() + static_cast<ptrdiff_t>(interleaving_log_k),
+                                            multivariate_challenge.end());
             consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
-                libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
+                libra_evaluations, gemini_evaluation_challenge, libra_challenge, libra_univariate_evaluation);
         }
 
         // Currently, only used in ECCVM

@@ -36,24 +36,184 @@ namespace bb {
  * ROUND 4 - 1 commit:
  *   W₉ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
  *
- * Total: 9 interleaved commits (vs 24 individual) - 62.5% reduction
+ * For ZK (HasZK=true), an additional commit:
+ *   W₁₀ (unshiftable): [masking_chunk_0, masking_chunk_1, masking_chunk_2, masking_chunk_3]
+ *
+ * Total: 9 (non-ZK) or 10 (ZK) interleaved witness commits
  */
 class MultiMegaFlavor : public MegaFlavor {
   public:
     // Interleaving batch size
     static constexpr size_t INTERLEAVING_BATCH_SIZE = 4;
 
-    // Number of interleaved witness commitments
+    // Number of interleaved witness commitments (non-ZK)
     static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 9;
 
     // +2 Gemini rounds for k=2 (batch size 4 = 2^2)
     static constexpr size_t INTERLEAVING_LOG_K = 2;
 
+    // ========================================================================
+    // HasZK-templated masking entities (mirrors MegaFlavor::MaskingEntities pattern)
+    // ========================================================================
+
     /**
-     * @brief Container for the 9 interleaved witness commitments.
-     * @details These replace the 24 individual witness commitments in the standard MegaFlavor.
+     * @brief MultiMega-specific ZK masking entities.
+     * @details When HasZK=false, this class is empty.
+     *          When HasZK=true, contains 4 masking chunk polynomials that are committed
+     *          as an interleaved group (W₁₀) and participate in sumcheck naturally.
      */
-    template <typename DataType> class InterleavedWitnessCommitments {
+    template <typename DataType, bool HasZK_ = false> class MultiMegaMaskingEntities {
+      public:
+        auto get_all() { return RefArray<DataType, 0>{}; }
+        auto get_all() const { return RefArray<const DataType, 0>{}; }
+        static auto get_labels() { return std::vector<std::string>{}; }
+    };
+
+    template <typename DataType> class MultiMegaMaskingEntities<DataType, true> {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType, masking_chunk_0, masking_chunk_1, masking_chunk_2, masking_chunk_3)
+    };
+
+    // ========================================================================
+    // HasZK-templated AllEntities (mirrors MegaFlavor::AllEntities_ pattern)
+    // ========================================================================
+
+    template <typename DataType, bool HasZK_ = HasZK>
+    class AllEntities_ : public MultiMegaMaskingEntities<DataType, HasZK_>,
+                         public PrecomputedEntities<DataType>,
+                         public WitnessEntities_<DataType>,
+                         public ShiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(MultiMegaMaskingEntities<DataType, HasZK_>,
+                                PrecomputedEntities<DataType>,
+                                WitnessEntities_<DataType>,
+                                ShiftedEntities<DataType>)
+
+        auto get_unshifted()
+        {
+            return concatenate(MultiMegaMaskingEntities<DataType, HasZK_>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities_<DataType>::get_all());
+        };
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+        auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
+        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+    };
+
+    template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
+
+    // ========================================================================
+    // HasZK-templated AllValues, ProverPolynomials, etc.
+    // ========================================================================
+
+    template <bool HasZK_ = HasZK> class AllValues_ : public AllEntities_<FF, HasZK_> {
+      public:
+        using Base = AllEntities_<FF, HasZK_>;
+        using Base::Base;
+    };
+
+    using AllValues = AllValues_<HasZK>;
+
+    template <bool HasZK_ = HasZK> class ProverPolynomials_ : public AllEntities_<Polynomial, HasZK_> {
+      public:
+        ProverPolynomials_() = default;
+        ProverPolynomials_(size_t circuit_size)
+        {
+            for (auto& poly : this->get_to_be_shifted()) {
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
+            }
+            for (auto& poly : this->get_unshifted()) {
+                if (poly.is_empty()) {
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                }
+            }
+            set_shifted();
+        }
+        ProverPolynomials_& operator=(const ProverPolynomials_&) = delete;
+        ProverPolynomials_(const ProverPolynomials_& o) = delete;
+        ProverPolynomials_(ProverPolynomials_&& o) noexcept = default;
+        ProverPolynomials_& operator=(ProverPolynomials_&& o) noexcept = default;
+        ~ProverPolynomials_() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.size(); }
+        [[nodiscard]] AllValues_<HasZK_> get_row(size_t row_idx) const
+        {
+            AllValues_<HasZK_> result;
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
+        [[nodiscard]] AllValues_<HasZK_> get_row_for_permutation_arg(size_t row_idx)
+        {
+            AllValues_<HasZK_> result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), this->get_sigmas())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_ids(), this->get_ids())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), this->get_wires())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
+        void set_shifted()
+        {
+            for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
+                shifted = to_be_shifted.shifted();
+            }
+        }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
+            }
+        }
+    };
+
+    using ProverPolynomials = ProverPolynomials_<HasZK>;
+
+    template <bool HasZK_ = HasZK>
+    using PartiallyEvaluatedMultivariates_ =
+        PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial, HasZK_>, ProverPolynomials_<HasZK_>, Polynomial>;
+
+    using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
+
+    template <typename Commitment_, typename VerificationKey_, bool HasZK_ = HasZK>
+    class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {
+      public:
+        VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key)
+        {
+            for (auto [comm, precomputed_comm] :
+                 zip_view(PrecomputedEntities<Commitment_>::get_all(), verification_key->get_all())) {
+                comm = precomputed_comm;
+            }
+        }
+    };
+
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    // ========================================================================
+    // HasZK-templated interleaved witness commitments
+    // ========================================================================
+
+    /**
+     * @brief Container for interleaved witness commitments, templated on HasZK.
+     * @details Non-ZK: 9 commitments (W₁-W₉). ZK: 10 commitments (W₁-W₁₀ including masking).
+     */
+    template <typename DataType, bool HasZK_> class InterleavedWitnessCommitments_;
+
+    // Non-ZK: 9 interleaved witness commitments
+    template <typename DataType> class InterleavedWitnessCommitments_<DataType, false> {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
@@ -66,30 +226,60 @@ class MultiMegaFlavor : public MegaFlavor {
                               interleaved_inverses,     // W₈: all inverses - unshiftable
                               interleaved_z_perm)       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
 
-        // Shiftable commitments (W₁, W₆, W₉)
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     };
 
+    // ZK: 10 interleaved witness commitments (9 base + masking)
+    template <typename DataType> class InterleavedWitnessCommitments_<DataType, true> {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
+                              interleaved_ecc_op_wires, // W₂: ecc_op_wires - unshiftable
+                              interleaved_databus_1,    // W₃: first batch of databus - unshiftable
+                              interleaved_databus_2,    // W₄: second batch of databus - unshiftable
+                              interleaved_databus_3,    // W₅: [return_data_read_tags, ...] - unshiftable
+                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
+                              interleaved_lookup,       // W₇: [lookup_read_counts, lookup_read_tags, ...]
+                              interleaved_inverses,     // W₈: all inverses - unshiftable
+                              interleaved_z_perm,       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
+                              interleaved_masking)      // W₁₀: masking chunks - unshiftable
+
+        auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+    };
+
+    // Default alias: non-ZK uses InterleavedWitnessCommitments_<DataType, false> (9 commits)
+    template <typename DataType> using InterleavedWitnessCommitments = InterleavedWitnessCommitments_<DataType, HasZK>;
     using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
 
-    /**
-     * @brief Labels for interleaved commitments in the transcript.
-     */
-    class InterleavedCommitmentLabels : public InterleavedWitnessCommitments<std::string> {
+    // ========================================================================
+    // HasZK-templated interleaved commitment labels
+    // ========================================================================
+
+    template <bool HasZK_>
+    class InterleavedCommitmentLabels_ : public InterleavedWitnessCommitments_<std::string, HasZK_> {
       public:
-        InterleavedCommitmentLabels()
+        InterleavedCommitmentLabels_()
         {
-            interleaved_wires = "INTERLEAVED_WIRES";
-            interleaved_ecc_op_wires = "INTERLEAVED_ECC_OP_WIRES";
-            interleaved_databus_1 = "INTERLEAVED_DATABUS_1";
-            interleaved_databus_2 = "INTERLEAVED_DATABUS_2";
-            interleaved_databus_3 = "INTERLEAVED_DATABUS_3";
-            interleaved_w_4 = "INTERLEAVED_W_4";
-            interleaved_lookup = "INTERLEAVED_LOOKUP";
-            interleaved_inverses = "INTERLEAVED_INVERSES";
-            interleaved_z_perm = "INTERLEAVED_Z_PERM";
+            this->interleaved_wires = "INTERLEAVED_WIRES";
+            this->interleaved_ecc_op_wires = "INTERLEAVED_ECC_OP_WIRES";
+            this->interleaved_databus_1 = "INTERLEAVED_DATABUS_1";
+            this->interleaved_databus_2 = "INTERLEAVED_DATABUS_2";
+            this->interleaved_databus_3 = "INTERLEAVED_DATABUS_3";
+            this->interleaved_w_4 = "INTERLEAVED_W_4";
+            this->interleaved_lookup = "INTERLEAVED_LOOKUP";
+            this->interleaved_inverses = "INTERLEAVED_INVERSES";
+            this->interleaved_z_perm = "INTERLEAVED_Z_PERM";
+            if constexpr (HasZK_) {
+                this->interleaved_masking = "INTERLEAVED_MASKING";
+            }
         }
     };
+
+    using InterleavedCommitmentLabels = InterleavedCommitmentLabels_<HasZK>;
+
+    // ========================================================================
+    // Interleaved precomputed commitments (same for ZK and non-ZK)
+    // ========================================================================
 
     /**
      * @brief Container for interleaved precomputed commitments (8 total, down from 31).

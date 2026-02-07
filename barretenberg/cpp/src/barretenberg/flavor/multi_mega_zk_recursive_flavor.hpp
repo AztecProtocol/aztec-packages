@@ -27,13 +27,14 @@ namespace bb {
  * MultiMegaZKFlavor (the hiding kernel in Chonk IVC).
  *
  * Combines:
- *   - Interleaved commitments (9 witness + 8 precomputed) from MultiMegaRecursiveFlavor
- *   - ZK sumcheck with masking polynomial from MegaZKRecursiveFlavor
+ *   - Interleaved commitments (10 witness + 8 precomputed) from MultiMegaRecursiveFlavor
+ *   - ZK sumcheck with masking chunks in AllEntities
  *   - Libra commitments for ZK verification
  *
  * Key properties:
  *   - HasZK = true
- *   - Includes gemini_masking_poly in entity count
+ *   - 4 masking chunk evaluations in AllEntities (masking_chunk_0..3)
+ *   - 10 interleaved witness commitments (9 base + W₁₀ masking)
  *   - Receives 3 Libra commitments for ZK sumcheck
  *   - Batches evaluations using Lagrange basis (same as non-ZK MultiMega)
  *
@@ -75,19 +76,46 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
         return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
     }
 
-    // Override AllValues to include ZK entities (gemini_masking_poly)
-    class AllValues : public MultiMegaFlavor::AllEntities_<FF, HasZK> {
+    // AllValues with 4 masking chunks (matching NativeFlavor::AllEntities layout)
+    class AllValues : public NativeFlavor::template AllEntities<FF> {
       public:
-        using Base = MultiMegaFlavor::AllEntities_<FF, HasZK>;
+        using Base = NativeFlavor::template AllEntities<FF>;
         using Base::Base;
     };
 
-    // VerifierCommitments with ZK entities
-    using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+    // VerifierCommitments with 4 masking chunks
+    class VerifierCommitments : public NativeFlavor::template AllEntities<Commitment> {
+      public:
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
+        {
+            for (auto [comm, precomputed_comm] :
+                 zip_view(MultiMegaFlavor::PrecomputedEntities<Commitment>::get_all(), verification_key->get_all())) {
+                comm = precomputed_comm;
+            }
+        }
+    };
 
-    // Inherit interleaved commitment structures from base
-    using InterleavedCommitments = typename MultiMegaRecursiveFlavor_<BuilderType>::InterleavedCommitments;
+    // Use ZK interleaved witness commitments from NativeFlavor (10 members)
+    using InterleavedCommitments = typename MultiMegaFlavor::template InterleavedWitnessCommitments_<Commitment, true>;
+
+    using InterleavedCommitmentLabels = typename NativeFlavor::InterleavedCommitmentLabels;
+
+    // Inherit interleaved precomputed from base
     using InterleavedPrecomputed = typename MultiMegaRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
+
+    // Override get_unshifted_groups to include masking group (18 groups instead of 17)
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_unshifted_groups(e);
+    }
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_to_be_shifted_groups(e);
+    }
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
+    {
+        return NativeFlavor::get_shifted_groups(e);
+    }
 };
 
 } // namespace bb

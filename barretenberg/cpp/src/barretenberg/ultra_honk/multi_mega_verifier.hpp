@@ -6,18 +6,21 @@
 
 #pragma once
 
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
 /**
- * @brief Output type for MultiMegaVerifier
+ * @brief Output type for native MultiMegaVerifier
  */
-struct MultiMegaVerifierOutput {
-    using Flavor = MultiMegaFlavor;
+template <typename Flavor> struct MultiMegaVerifierOutput {
     using Commitment = typename Flavor::Commitment;
 
     bool result = false;
@@ -26,26 +29,38 @@ struct MultiMegaVerifierOutput {
 };
 
 /**
- * @brief Verifier for MultiMegaFlavor using interleaved commitments.
+ * @brief Verifier for MultiMega flavors using interleaved commitments.
  * @details Uses MultiMegaOinkVerifier which receives 9 interleaved commitments instead of 24 individual ones.
+ *
+ * @tparam Flavor_ MultiMegaFlavor, MultiMegaZKFlavor, or recursive variants
+ * @tparam IO Public input type (DefaultIO for native, stdlib variants for recursive)
  */
-class MultiMegaVerifier {
+template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifier_ {
   public:
-    using Flavor = MultiMegaFlavor;
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = VerifierInstance_<Flavor>;
     using VKAndHash = typename Flavor::VKAndHash;
 
+    static constexpr bool IsRecursive = IsRecursiveFlavor<Flavor>;
+
+    // Conditional types based on recursion
+    using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
+    using PairingPoints =
+        std::conditional_t<IsRecursive, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
+
     using PublicInputs = std::vector<FF>;
     using Proof = typename Transcript::Proof;
-    using PairingPoints = bb::PairingPoints<Curve>;
-    using Output = MultiMegaVerifierOutput;
+
+    // Conditional output type
+    using Output = std::conditional_t<IsRecursive,
+                                      stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>,
+                                      MultiMegaVerifierOutput<Flavor>>;
 
     /**
      * @brief Result of reducing proof to pairing points check.
@@ -55,12 +70,16 @@ class MultiMegaVerifier {
         bool reduction_succeeded = false;
     };
 
-    explicit MultiMegaVerifier(const std::shared_ptr<VKAndHash>& vk_and_hash,
-                               const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
+    explicit MultiMegaVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
+                                const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : vk_and_hash(vk_and_hash)
         , verifier_instance(std::make_shared<Instance>(vk_and_hash))
         , transcript(transcript)
-    {}
+    {
+        if constexpr (IsRecursive) {
+            builder = vk_and_hash->hash.get_context();
+        }
+    }
 
     /**
      * @brief Compute log_n based on flavor.
@@ -70,7 +89,7 @@ class MultiMegaVerifier {
     /**
      * @brief Compute padding indicator array.
      */
-    static std::vector<FF> compute_padding_indicator_array(size_t log_n);
+    std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     /**
      * @brief Compute Lagrange basis evaluations for interleaving (k=2).
@@ -126,6 +145,11 @@ class MultiMegaVerifier {
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;
+
+    // Builder pointer (extracted from proof for recursive, unused for native)
+    Builder* builder = nullptr;
 };
+
+using MultiMegaVerifier = MultiMegaVerifier_<MultiMegaFlavor>;
 
 } // namespace bb

@@ -12,6 +12,7 @@
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -445,6 +446,7 @@ Polynomial<typename Flavor::Curve::ScalarField> SmallSubgroupIPAProver<Flavor>::
 template class SmallSubgroupIPAProver<ECCVMFlavor>;
 template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
+template class SmallSubgroupIPAProver<MultiMegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
 #ifdef STARKNET_GARAGA_FLAVORS

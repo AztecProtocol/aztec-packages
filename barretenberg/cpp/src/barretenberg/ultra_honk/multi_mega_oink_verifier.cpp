@@ -6,14 +6,22 @@
 
 #include "barretenberg/ultra_honk/multi_mega_oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 
 namespace bb {
 
-void MultiMegaOinkVerifier::verify()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
+    // For ZK flavors: receive masking interleaved commitment (W₁₀)
+    if constexpr (Flavor::HasZK) {
+        interleaved_comms.interleaved_masking = transcript->template receive_from_prover<Commitment>(
+            domain_separator + interleaved_labels.interleaved_masking);
+    }
     // Receive Round 1 interleaved commitments (W₁ - W₅)
     execute_wire_commitments_round();
     // Receive Round 2 interleaved commitments (W₆, W₇)
@@ -28,7 +36,7 @@ void MultiMegaOinkVerifier::verify()
     verifier_instance->alpha = generate_alpha_round();
 }
 
-void MultiMegaOinkVerifier::execute_preamble_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
@@ -36,10 +44,22 @@ void MultiMegaOinkVerifier::execute_preamble_round()
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in MultiMegaOink verifier: ", vk_hash);
 
-    BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native MultiMega Verifier: VK Hash Mismatch");
-    BB_ASSERT_EQ(num_public_inputs,
-                 static_cast<size_t>(vk->num_public_inputs),
-                 "MultiMegaOinkVerifier: num_public_inputs mismatch with VK");
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        const bool is_write_vk_mode = vk_hash.get_context()->is_write_vk_mode();
+        const bool vk_hash_consistency = verifier_instance->vk_and_hash->hash.get_value() == vk_hash.get_value();
+        if (!vk_hash_consistency && !is_write_vk_mode) {
+            info("Recursive MultiMega Verifier: VK Hash Mismatch");
+        }
+        verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
+
+        vk->num_public_inputs.assert_equal(FF(num_public_inputs),
+                                           "MultiMegaOinkVerifier: num_public_inputs mismatch with VK");
+    } else {
+        BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native MultiMega Verifier: VK Hash Mismatch");
+        BB_ASSERT_EQ(num_public_inputs,
+                     static_cast<size_t>(vk->num_public_inputs),
+                     "MultiMegaOinkVerifier: num_public_inputs mismatch with VK");
+    }
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -52,15 +72,8 @@ void MultiMegaOinkVerifier::execute_preamble_round()
 
 /**
  * @brief Receive Round 1 interleaved commitments.
- *
- * Round 1 (before eta) - 5 interleaved commits:
- *   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
- *   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
- *   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
- *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data,
- * return_data_read_counts] W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
  */
-void MultiMegaOinkVerifier::execute_wire_commitments_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute_wire_commitments_round()
 {
     // Receive W₁: [w_l, w_r, w_o, ZERO]
     interleaved_comms.interleaved_wires =
@@ -85,12 +98,8 @@ void MultiMegaOinkVerifier::execute_wire_commitments_round()
 
 /**
  * @brief Receive Round 2 interleaved commitments.
- *
- * Round 2 (after eta) - 2 interleaved commits:
- *   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
- *   W₇ (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
  */
-void MultiMegaOinkVerifier::execute_sorted_list_accumulator_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenge and compute powers (eta, eta², eta³)
     relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
@@ -106,11 +115,8 @@ void MultiMegaOinkVerifier::execute_sorted_list_accumulator_round()
 
 /**
  * @brief Receive Round 3 interleaved commitment.
- *
- * Round 3 (after beta/gamma) - 1 interleaved commit:
- *   W₈ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
  */
-void MultiMegaOinkVerifier::execute_log_derivative_inverse_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute_log_derivative_inverse_round()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
@@ -124,11 +130,8 @@ void MultiMegaOinkVerifier::execute_log_derivative_inverse_round()
 
 /**
  * @brief Receive Round 4 interleaved commitment.
- *
- * Round 4 - 1 interleaved commit:
- *   W₉ (shiftable): [z_perm, ZERO, ZERO, ZERO]
  */
-void MultiMegaOinkVerifier::execute_grand_product_computation_round()
+template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute_grand_product_computation_round()
 {
     auto vk = verifier_instance->get_vk();
 
@@ -142,11 +145,22 @@ void MultiMegaOinkVerifier::execute_grand_product_computation_round()
         transcript->template receive_from_prover<Commitment>(domain_separator + interleaved_labels.interleaved_z_perm);
 }
 
-MultiMegaOinkVerifier::SubrelationSeparator MultiMegaOinkVerifier::generate_alpha_round()
+template <IsMultiMegaFlavor Flavor>
+typename MultiMegaOinkVerifier_<Flavor>::SubrelationSeparator MultiMegaOinkVerifier_<Flavor>::generate_alpha_round()
 {
     // Get the single alpha challenge for sumcheck computation
     // Powers of this challenge will be used to batch subrelations
     return transcript->template get_challenge<FF>(domain_separator + "alpha");
 }
+
+// Native flavor instantiations
+template class MultiMegaOinkVerifier_<MultiMegaFlavor>;
+template class MultiMegaOinkVerifier_<MultiMegaZKFlavor>;
+
+// Recursive flavor instantiations
+template class MultiMegaOinkVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>>;
+template class MultiMegaOinkVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class MultiMegaOinkVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class MultiMegaOinkVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

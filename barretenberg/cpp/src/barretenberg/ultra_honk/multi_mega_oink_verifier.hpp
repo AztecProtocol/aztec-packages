@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
@@ -33,9 +34,11 @@ namespace bb {
  *
  * ROUND 4 - 1 commit:
  *   W₉ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
+ *
+ * @tparam Flavor_ MultiMegaFlavor, MultiMegaZKFlavor, or recursive variants
  */
-class MultiMegaOinkVerifier {
-    using Flavor = MultiMegaFlavor;
+template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkVerifier_ {
+    using Flavor = Flavor_;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -55,10 +58,10 @@ class MultiMegaOinkVerifier {
     // Number of public inputs - provided by caller
     size_t num_public_inputs;
 
-    MultiMegaOinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
-                          const std::shared_ptr<Transcript>& transcript,
-                          size_t num_public_inputs,
-                          std::string domain_separator = "")
+    MultiMegaOinkVerifier_(const std::shared_ptr<Instance>& verifier_instance,
+                           const std::shared_ptr<Transcript>& transcript,
+                           size_t num_public_inputs,
+                           std::string domain_separator = "")
         : transcript(transcript)
         , verifier_instance(verifier_instance)
         , domain_separator(std::move(domain_separator))
@@ -74,5 +77,7 @@ class MultiMegaOinkVerifier {
     void execute_grand_product_computation_round();
     SubrelationSeparator generate_alpha_round();
 };
+
+using MultiMegaOinkVerifier = MultiMegaOinkVerifier_<MultiMegaFlavor>;
 
 } // namespace bb
