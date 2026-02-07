@@ -608,6 +608,58 @@ describe('L1TxUtils', () => {
       }
     });
 
+    // Regression: getGasPrice must include maxFeePerBlobGas even when blob base fee is 0n.
+    // 0n is falsy in JS, so `...(maxFeePerBlobGas && { maxFeePerBlobGas })` silently drops it.
+    // This caused missed block proposals when getBlobBaseFee() RPC failed and defaulted to 0n.
+    it('includes maxFeePerBlobGas in result even when blob base fee is zero', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock getBlobBaseFee to return 0n (simulates RPC failure defaulting to 0n)
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+      l1Client.getBlobBaseFee = () => Promise.resolve(0n);
+
+      try {
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 0,
+        });
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // maxFeePerBlobGas MUST be present for blob transactions, even when 0n
+        expect(gasPrice.maxFeePerBlobGas).toBeDefined();
+        expect(typeof gasPrice.maxFeePerBlobGas).toBe('bigint');
+      } finally {
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
+      }
+    });
+
+    // Regression: same bug when getBlobBaseFee() RPC call fails entirely
+    it('includes maxFeePerBlobGas in result even when getBlobBaseFee RPC fails', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock getBlobBaseFee to reject (simulates RPC timeout under memory pressure)
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+      l1Client.getBlobBaseFee = () => Promise.reject(new Error('RPC timeout'));
+
+      try {
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 0,
+        });
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // maxFeePerBlobGas MUST be present for blob transactions, even on RPC failure
+        expect(gasPrice.maxFeePerBlobGas).toBeDefined();
+        expect(typeof gasPrice.maxFeePerBlobGas).toBe('bigint');
+      } finally {
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
+      }
+    });
+
     it('respects minimum gas price bump for replacements', async () => {
       gasUtils.updateConfig({
         ...defaultL1TxUtilsConfig,
