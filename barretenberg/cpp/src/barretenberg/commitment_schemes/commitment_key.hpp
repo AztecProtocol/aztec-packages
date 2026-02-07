@@ -179,22 +179,24 @@ template <class Curve> class CommitmentKey {
             throw_or_abort("commit_interleaved: chunks.size() must be <= BATCH_SIZE");
         }
         std::span<const Commitment> point_table = get_monomial_points();
-        const size_t start_index = chunks[0].start_index;
-        const size_t chunk_size = chunks[0].size();
-        const size_t total_size = chunk_size * BATCH_SIZE;
-        // Offset SRS points to account for virtual zeros at positions 0..start_index*BATCH_SIZE-1
-        // (shiftable polynomials have start_index > 0, and their leading zeros need no SRS points)
-        const size_t srs_offset = start_index * BATCH_SIZE;
 
-        if (srs_offset + total_size > get_monomial_size()) {
+        // pippenger_interleaved determines the logical size n from max(end_index) across chunks,
+        // so we need n * BATCH_SIZE SRS points.
+        size_t n = 0;
+        for (const auto& chunk : chunks) {
+            n = std::max(n, chunk.end_index());
+        }
+        const size_t total_size = n * BATCH_SIZE;
+
+        if (total_size > get_monomial_size()) {
             throw_or_abort(format("Attempting to commit to interleaved polynomial that needs ",
-                                  srs_offset + total_size,
+                                  total_size,
                                   " points with an SRS of size ",
                                   get_monomial_size()));
         }
 
         return scalar_multiplication::pippenger_interleaved<Curve>(
-            chunks, std::span<const Commitment>{ point_table.data() + srs_offset, total_size }, BATCH_SIZE);
+            chunks, std::span<const Commitment>{ point_table.data(), total_size }, BATCH_SIZE);
     }
 };
 

@@ -147,14 +147,6 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
                                                               interleaved.interleaved_z_perm
     };
 
-    // DEBUG: print first and W₁ evaluations
-    info("VERIFIER eval_P0=",
-         compute_batched_evaluation(lagrange_basis, { evals.q_m, evals.q_c, evals.q_l, evals.q_r }));
-    info("VERIFIER eval_W1=",
-         compute_batched_evaluation(lagrange_basis, { evals.w_l, evals.w_r, evals.w_o, FF::zero() }));
-    info("VERIFIER eval_W1_shift=",
-         compute_batched_evaluation(lagrange_basis, { evals.w_l_shift, evals.w_r_shift, evals.w_o_shift, FF::zero() }));
-
     std::array<FF, NUM_UNSHIFTED> unshifted_evals = {
         // P₁-P₈: precomputed batched evaluations
         compute_batched_evaluation(lagrange_basis, { evals.q_m, evals.q_c, evals.q_l, evals.q_r }),
@@ -223,21 +215,6 @@ MultiMegaVerifier::ReductionResult MultiMegaVerifier::reduce_to_pairing_check(co
                                                                    Flavor::REPEATED_COMMITMENTS,
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
-
-    const auto& boc = shplemini_output.batch_opening_claim;
-    info("DEBUG VERIFIER batch_opening_claim: commitments=",
-         boc.commitments.size(),
-         " scalars=",
-         boc.scalars.size(),
-         " eval_point=",
-         boc.evaluation_point);
-    info("DEBUG VERIFIER expected MSM size=",
-         Flavor::FINAL_PCS_MSM_SIZE(log_n),
-         " log_n=",
-         log_n,
-         " pcs_log_n=",
-         pcs_log_n);
-
     // Build reduction result
     ReductionResult result;
     result.pairing_points = PCS::reduce_verify_batch_opening_claim(
@@ -256,7 +233,7 @@ MultiMegaVerifier::Output MultiMegaVerifier::verify_proof(const Proof& proof)
     vinfo("MultiMegaVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
 
     if (!reduction_succeeded) {
-        info("MultiMegaVerifier: verification failed at reduction step");
+        vinfo("MultiMegaVerifier: verification failed at reduction step");
         return Output{};
     }
 
@@ -268,16 +245,12 @@ MultiMegaVerifier::Output MultiMegaVerifier::verify_proof(const Proof& proof)
     PairingPoints pi_pairing_points = inputs.pairing_inputs;
     pi_pairing_points.aggregate(pcs_pairing_points);
 
-    // DEBUG: Check PCS pairing alone (before public input aggregation)
-    bool pcs_alone = pcs_pairing_points.check();
-    info("DEBUG PCS pairing check alone: ", pcs_alone ? "true" : "false");
-
     // Perform pairing check
     bool pairing_verified = pi_pairing_points.check();
     vinfo("MultiMegaVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
     if (!pairing_verified) {
-        info("MultiMegaVerifier: verification failed at pairing check");
+        vinfo("MultiMegaVerifier: verification failed at pairing check");
         return Output{};
     }
 

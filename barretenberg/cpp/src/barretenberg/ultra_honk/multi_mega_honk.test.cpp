@@ -11,6 +11,8 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/multi_mega_prover.hpp"
 #include "barretenberg/ultra_honk/multi_mega_verifier.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace bb;
 
@@ -226,6 +228,25 @@ TEST_F(MultiMegaHonkTests, VerifierManifestConsistency)
             FAIL();
         }
     }
+}
+
+/**
+ * @brief Sanity check: verify that the test circuit is valid using standard MegaHonk.
+ */
+TEST_F(MultiMegaHonkTests, CircuitValidWithStandardMega)
+{
+    Builder builder;
+    generate_test_circuit(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<MegaFlavor::VKAndHash>(verification_key);
+    MegaProver prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    MegaVerifier verifier(vk_and_hash);
+    auto verifier_output = verifier.verify_proof(proof);
+    EXPECT_TRUE(verifier_output.result) << "Standard MegaHonk verification failed on the test circuit";
 }
 
 /**
@@ -470,4 +491,63 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         EXPECT_EQ(eval_batched_ground_truth, eval_batched_reconstructed)
             << "Batched interleaved eval does not match verifier Lagrange reconstruction with rho";
     }
+}
+
+/**
+ * @brief Test that commit_interleaved matches commit on a materialized interleaved polynomial
+ *        when chunks have heterogeneous start_index (as in structured traces).
+ */
+TEST_F(MultiMegaHonkTests, CommitInterleavedHeterogeneousStartIndex)
+{
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE; // 4
+    constexpr size_t N = 64;                                       // logical polynomial size
+    constexpr size_t INTERLEAVED_SIZE = N * BATCH_SIZE;
+
+    auto ck = CommitmentKey<Curve>(INTERLEAVED_SIZE);
+
+    // Create 4 polynomials with different start_index / size (mimics structured trace)
+    // chunk0: full range [0, N)
+    // chunk1: starts at 5, ends at 20
+    // chunk2: starts at 10, ends at 30
+    // chunk3: starts at 0, ends at 8
+    Polynomial<FF> chunk0(N, N);
+    for (size_t i = 0; i < N; ++i) {
+        chunk0.at(i) = FF::random_element();
+    }
+
+    Polynomial<FF> chunk1(/*size=*/15, /*virtual_size=*/N, /*start_index=*/5);
+    for (size_t i = 5; i < 20; ++i) {
+        chunk1.at(i) = FF::random_element();
+    }
+
+    Polynomial<FF> chunk2(/*size=*/20, /*virtual_size=*/N, /*start_index=*/10);
+    for (size_t i = 10; i < 30; ++i) {
+        chunk2.at(i) = FF::random_element();
+    }
+
+    Polynomial<FF> chunk3(/*size=*/8, /*virtual_size=*/N);
+    for (size_t i = 0; i < 8; ++i) {
+        chunk3.at(i) = FF::random_element();
+    }
+
+    // Materialize the interleaved polynomial using logical access (.get())
+    Polynomial<FF> interleaved(INTERLEAVED_SIZE);
+    for (size_t i = 0; i < N; ++i) {
+        interleaved.at(BATCH_SIZE * i + 0) = chunk0.get(i);
+        interleaved.at(BATCH_SIZE * i + 1) = chunk1.get(i);
+        interleaved.at(BATCH_SIZE * i + 2) = chunk2.get(i);
+        interleaved.at(BATCH_SIZE * i + 3) = chunk3.get(i);
+    }
+
+    // commit_interleaved should match commit on the materialized polynomial
+    std::vector<PolynomialSpan<const FF>> chunk_spans = { PolynomialSpan<const FF>(chunk0),
+                                                          PolynomialSpan<const FF>(chunk1),
+                                                          PolynomialSpan<const FF>(chunk2),
+                                                          PolynomialSpan<const FF>(chunk3) };
+
+    Commitment commit_il = ck.commit_interleaved<BATCH_SIZE>(chunk_spans);
+    Commitment commit_mat = ck.commit(interleaved);
+
+    EXPECT_EQ(commit_il, commit_mat) << "commit_interleaved should match commit on materialized polynomial "
+                                        "when chunks have heterogeneous start_index";
 }

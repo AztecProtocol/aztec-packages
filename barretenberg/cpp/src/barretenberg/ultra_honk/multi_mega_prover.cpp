@@ -139,8 +139,8 @@ void MultiMegaProver::execute_pcs()
     auto& polys = prover_instance->polynomials;
 
     // Define the 17 unshifted groups and 3 shifted groups (component polynomials)
-    using PolyGroup = std::array<Polynomial const*, BATCH_SIZE>;
-    std::array<PolyGroup, 17> unshifted_groups = { {
+    using PolyGroup = std::vector<Polynomial const*>;
+    std::vector<PolyGroup> unshifted_groups = { {
         // P₁-P₈: precomputed groups (match VK sequential chunking of 31 PrecomputedEntities)
         { &polys.q_m, &polys.q_c, &polys.q_l, &polys.q_r },
         { &polys.q_o, &polys.q_4, &polys.q_busread, &polys.q_lookup },
@@ -168,102 +168,18 @@ void MultiMegaProver::execute_pcs()
         { &polys.z_perm, nullptr, nullptr, nullptr },
     } };
 
-    std::array<PolyGroup, 3> shifted_groups = { {
+    std::vector<PolyGroup> shifted_groups = { {
         { &polys.w_l, &polys.w_r, &polys.w_o, nullptr },
         { &polys.w_4, nullptr, nullptr, nullptr },
         { &polys.z_perm, nullptr, nullptr, nullptr },
     } };
 
-    // DIAGNOSTIC: Materialize interleaved polynomials (like the passing unit tests)
-    // instead of using set_unshifted_interleaved_groups / set_shifted_interleaved_groups.
-
-    // Helper: materialize an interleaved polynomial from a group of component polynomials
-    auto materialize_interleaved = [&](const PolyGroup& group) -> Polynomial {
-        Polynomial result(interleaved_size);
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = 0; j < BATCH_SIZE; ++j) {
-                if (group[j] != nullptr) {
-                    result.at(BATCH_SIZE * i + j) = group[j]->get(i);
-                }
-            }
-        }
-        return result;
-    };
-
-    // Helper: materialize a shiftable interleaved polynomial (start_index = BATCH_SIZE)
-    auto materialize_interleaved_shiftable = [&](const PolyGroup& group) -> Polynomial {
-        Polynomial result = Polynomial::shiftable(interleaved_size, interleaved_size, BATCH_SIZE);
-        for (size_t i = 1; i < n; ++i) {
-            for (size_t j = 0; j < BATCH_SIZE; ++j) {
-                if (group[j] != nullptr) {
-                    result.at(BATCH_SIZE * i + j) = group[j]->get(i);
-                }
-            }
-        }
-        return result;
-    };
-
-    // Materialize 17 unshifted interleaved polynomials
-    std::vector<Polynomial> materialized_unshifted;
-    materialized_unshifted.reserve(17);
-    for (const auto& group : unshifted_groups) {
-        materialized_unshifted.emplace_back(materialize_interleaved(group));
-    }
-
-    // Materialize 3 shifted interleaved polynomials (shiftable by BATCH_SIZE)
-    std::vector<Polynomial> materialized_shifted;
-    materialized_shifted.reserve(3);
-    for (const auto& group : shifted_groups) {
-        materialized_shifted.emplace_back(materialize_interleaved_shiftable(group));
-    }
-
-    // Build RefVectors for the batcher
-    RefVector<Polynomial> unshifted_refs;
-    for (auto& p : materialized_unshifted) {
-        unshifted_refs.push_back(p);
-    }
-    RefVector<Polynomial> shifted_refs;
-    for (auto& p : materialized_shifted) {
-        shifted_refs.push_back(p);
-    }
-
-    // DEBUG: trace sizes
-    info("DEBUG PROVER n=",
-         n,
-         " interleaved_size=",
-         interleaved_size,
-         " log2(interleaved_size)=",
-         numeric::get_msb(interleaved_size),
-         " full_challenge.size()=",
-         full_challenge.size(),
-         " sumcheck_output.challenge.size()=",
-         sumcheck_output.challenge.size());
-    info("DEBUG PROVER component poly size: q_m.size()=",
-         polys.q_m.size(),
-         " q_m.virtual_size()=",
-         polys.q_m.virtual_size(),
-         " w_l.size()=",
-         polys.w_l.size(),
-         " w_l.virtual_size()=",
-         polys.w_l.virtual_size());
-    info("DEBUG PROVER materialized[0].size()=",
-         materialized_unshifted[0].size(),
-         " materialized[0].virtual_size()=",
-         materialized_unshifted[0].virtual_size());
-
     PolynomialBatcher polynomial_batcher(interleaved_size, BATCH_SIZE);
-    polynomial_batcher.set_unshifted(std::move(unshifted_refs));
-    polynomial_batcher.set_to_be_shifted(std::move(shifted_refs));
+    polynomial_batcher.set_unshifted_interleaved_groups(std::move(unshifted_groups));
+    polynomial_batcher.set_shifted_interleaved_groups(std::move(shifted_groups));
 
     OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, transcript);
-
-    info("DEBUG PROVER opening_claim.challenge=",
-         prover_opening_claim.opening_pair.challenge,
-         " eval=",
-         prover_opening_claim.opening_pair.evaluation,
-         " poly.size()=",
-         prover_opening_claim.polynomial.size());
 
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

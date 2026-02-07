@@ -547,26 +547,27 @@ typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<con
 {
     using Fr = typename Curve::ScalarField;
 
-    // Get chunk size (all chunks must be same size)
-    const size_t chunk_size = chunks[0].size();
-    const size_t total_size = chunk_size * batch_size;
+    // Determine the logical size n: max end_index across all chunks.
+    // Each chunk may have a different start_index/size (structured trace), but they all live
+    // in the same logical domain [0, n). The interleaved polynomial has size n * batch_size.
+    size_t n = 0;
+    for (const auto& chunk : chunks) {
+        n = std::max(n, chunk.end_index());
+    }
+    const size_t total_size = n * batch_size;
     const size_t num_chunks = chunks.size();
 
-    // Build interleaved array directly (MSM will handle Montgomery transformation)
-    // If num_chunks < batch_size, push zeros for missing chunks (MSM skips zeros efficiently)
-    // Use direct span access (.span[i]) rather than logical indexing ([i]) to avoid
-    // start_index offset issues with shiftable polynomials
+    // Build interleaved scalar array using logical indexing.
+    // For each logical index i in [0, n), place chunk_j's coefficient at position batch_size*i + j.
+    // Coefficients outside a chunk's [start_index, end_index) range are zero.
     std::vector<Fr> interleaved_scalars;
     {
         BB_BENCH_NAME("InterleavedPip_BuildInterleaved");
-        interleaved_scalars.reserve(total_size);
-        for (size_t i = 0; i < chunk_size; i++) {
-            for (size_t j = 0; j < batch_size; j++) {
-                if (j < num_chunks) {
-                    interleaved_scalars.push_back(chunks[j].span[i]);
-                } else {
-                    interleaved_scalars.push_back(Fr::zero());
-                }
+        interleaved_scalars.resize(total_size, Fr::zero());
+        for (size_t j = 0; j < num_chunks; j++) {
+            const auto& chunk = chunks[j];
+            for (size_t i = chunk.start_index; i < chunk.end_index(); i++) {
+                interleaved_scalars[batch_size * i + j] = chunk[i];
             }
         }
     }
@@ -575,7 +576,7 @@ typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<con
     {
         BB_BENCH_NAME("InterleavedPip_MSM");
         auto scalars_span = PolynomialSpan<const Fr>(0, interleaved_scalars);
-        return MSM<Curve>::msm(points, scalars_span, false);
+        return MSM<Curve>::msm(points.subspan(0, total_size), scalars_span, false);
     }
 }
 
