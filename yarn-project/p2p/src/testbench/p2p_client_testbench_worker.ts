@@ -447,7 +447,7 @@ process.on('message', async msg => {
         const txHashes = allTxs.map(tx => tx.getTxHash());
         const blockProposal = await createBlockProposal(benchCmd.blockNumber, txHashes, benchCmd.seed);
 
-        await workerAttestationPool.addBlockProposal(blockProposal);
+        await workerAttestationPool.tryAddBlockProposal(blockProposal);
         workerLogger.debug(
           `[BENCH] Added block proposal with archive ${blockProposal.archive.toString().slice(0, 10)}...`,
         );

@@ -24,8 +24,8 @@ import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { P2PConfig } from '../config.js';
-import { InMemoryAttestationPool, type P2PService } from '../index.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { P2PService } from '../index.js';
+import { type AttestationPool, createTestAttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool } from '../mem_pools/tx_pool/aztec_kv_tx_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
@@ -60,7 +60,7 @@ describe('P2P Client', () => {
     txCollection = mock<TxCollection>();
     txCollection.getConstants.mockReturnValue(l1Constants);
 
-    attestationPool = new InMemoryAttestationPool();
+    attestationPool = await createTestAttestationPool();
 
     blockSource = new MockL2BlockSource();
     await blockSource.createBlocks(100);
@@ -415,25 +415,22 @@ describe('P2P Client', () => {
 
   describe('Attestation pool pruning', () => {
     it('deletes attestations for finalized blocks', async () => {
-      const deleteCheckpointAttestationsOlderThanSpy = jest.spyOn(
-        attestationPool,
-        'deleteCheckpointAttestationsOlderThan',
-      );
+      const deleteOlderThanSpy = jest.spyOn(attestationPool, 'deleteOlderThan');
 
       blockSource.setProvenBlockNumber(0);
       await client.start();
-      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToProvenBlock(BlockNumber(10));
-      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToFinalizedBlock(BlockNumber(10));
-      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
-      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
+      expect(deleteOlderThanSpy).toHaveBeenCalledTimes(1);
+      expect(deleteOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
 
       await advanceToFinalizedBlock(BlockNumber(15));
-      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
-      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
+      expect(deleteOlderThanSpy).toHaveBeenCalledTimes(2);
+      expect(deleteOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
     });
   });
 

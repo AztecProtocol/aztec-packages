@@ -301,7 +301,7 @@ process.on('message', (msg: WorkerCommand) => {
             throw new Error('Attestation pool not initialized');
           }
           const proposal = deserializeBlockProposal(msg.blockProposal);
-          await attestationPool.addBlockProposal(proposal);
+          await attestationPool.tryAddBlockProposal(proposal);
           await sendMessage({ type: 'BLOCK_PROPOSAL_SET', requestId, archiveRoot: proposal.archive.toString() });
           break;
         }
