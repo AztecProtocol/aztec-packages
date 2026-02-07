@@ -1,38 +1,44 @@
 #!/usr/bin/env bash
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+set -euo pipefail
 set -x
 set +e
 
-name=$1
-exit_container=$2
-compose_file_path=$3
+name="$1"
+exit_service="$2"
+compose_dir="$3"
 
-# Strip leading non alpha numerics and replace / and . with _.
-name=$(echo "${name}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')
-name_arg="-p $name"
+name="$(echo "${name}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')"
+cd "$compose_dir"
 
-cd "$compose_file_path"
+shutdown=0
+trap 'shutdown=1' TERM INT
 
-# Remove any existing container with the same name.
-docker compose $name_arg down --timeout 0 &> /dev/null
-
-function cleanup {
-  # echo compose cleanup: $name_arg >/dev/tty
-  # If the container hasn't completed, wait up to 15 seconds for it to start.
-  # Bit of kludge, but otherwise the "down" could happen before the "up" has started.
-  SECONDS=0
-  while [[ -z "${code:-}" && $SECONDS -lt 15 ]] && \
-    ! docker compose $name_arg ps --format '{{.Service}} {{.State}}' | grep -q "running"; do
-      # echo waiting for compose to be running: $name_arg >/dev/tty
-      sleep 1
-  done
-  # echo compose kill $name_arg >/dev/tty
-  docker compose $name_arg down --timeout 0 &> /dev/null
+down() {
+  docker compose -p "$name" down --remove-orphans --timeout 2 >/dev/null 2>&1 || true
 }
-trap cleanup EXIT
+trap down EXIT
 
-setsid docker compose $name_arg up --exit-code-from=$exit_container --abort-on-container-exit --force-recreate &
-pid=$!
-wait $pid
-code=$?
-exit $code
+# Start clean
+down
+
+docker compose -p "$name" up -d --force-recreate
+
+cid="$(docker ps -aq \
+  --filter "label=com.docker.compose.project=$name" \
+  --filter "label=com.docker.compose.service=$exit_service" \
+  | head -n1)"
+
+# If asked to shutdown (or never found cid), cleanup and exit with signal-ish code / failure.
+if [[ "$shutdown" -eq 1 ]]; then
+  exit 143
+fi
+if [[ -z "$cid" ]]; then
+  exit 1
+fi
+
+docker logs -f "$cid" &
+
+# Block until the target container exits; exit status is the container's exit code.
+rc=$(docker wait "$cid")
+
+exit "$rc"
