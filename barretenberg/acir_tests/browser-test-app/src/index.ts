@@ -69,18 +69,20 @@ function installChonkGlobal() {
 
   async function processChonkInputs(
     ivcInputsBuf: Uint8Array
-  ): Promise<[Uint8Array[], Uint8Array[], Uint8Array[]]> {
+  ): Promise<[Uint8Array[], Uint8Array[], Uint8Array[], string[]]> {
     const acirBufs: Uint8Array[] = [];
     const vkBufs: Uint8Array[] = [];
     const witnessBufs: Uint8Array[] = [];
+    const names: string[] = [];
     // Unpack the msgpack data into the format AztecClientBackend expects
     const steps: PrivateExecutionStepRaw[] = unpack(ivcInputsBuf);
     for (const step of steps) {
       acirBufs.push(ungzip(step.bytecode));
       vkBufs.push(step.vk);
       witnessBufs.push(ungzip(step.witness));
+      names.push(step.functionName);
     }
-    return [acirBufs, witnessBufs, vkBufs];
+    return [acirBufs, witnessBufs, vkBufs, names];
   }
 
   async function proveChonk(
@@ -89,12 +91,12 @@ function installChonkGlobal() {
   ): Promise<{ proof: Uint8Array; verificationKey: Uint8Array }> {
     const { AztecClientBackend } = await import("@aztec/bb.js");
 
-    const [acirBufs, witnessBufs, vkBufs] = await processChonkInputs(
+    const [acirBufs, witnessBufs, vkBufs, circuitNames] = await processChonkInputs(
       ivcInputsBuf
     );
     logger.debug("starting test...");
     const bb = await Barretenberg.new({ threads, logger: bbLogger });
-    const backend = new AztecClientBackend(acirBufs, bb);
+    const backend = new AztecClientBackend(acirBufs, bb, circuitNames);
     const [_, proof, verificationKey] = await backend.prove(
       witnessBufs,
       vkBufs
