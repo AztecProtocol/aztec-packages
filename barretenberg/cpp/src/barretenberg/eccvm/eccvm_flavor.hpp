@@ -86,10 +86,11 @@ class ECCVMFlavor {
     static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
     // first witness to be shifted.
+    static constexpr size_t SHPLEMINI_OFFSET = 2; // Shplonk:Q + Gemini:masking_poly_comm (ECCVM is always ZK)
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
+        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
                                     NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+                                SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
                                 NUM_SHIFTED_ENTITIES);
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;

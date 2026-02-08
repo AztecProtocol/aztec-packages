@@ -8,6 +8,9 @@
 #include <cstddef>
 
 namespace bb {
+// Indices into the Shplemini commitments vector identifying contiguous ranges of to-be-shifted and shifted commitments.
+// These are absolute indices that already account for any entries preceding the polynomial commitments (e.g. Shplonk:Q,
+// Gemini:masking_poly_comm).
 struct RepeatedCommitmentsData {
     size_t first_range_to_be_shifted_start = 0;
     size_t first_range_shifted_start = 0;

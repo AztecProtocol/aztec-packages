@@ -213,36 +213,38 @@ class MultiMegaFlavor : public MegaFlavor {
     template <typename DataType, bool HasZK_> class InterleavedWitnessCommitments_;
 
     // Non-ZK: 9 interleaved witness commitments
+    // Ordered: unshiftable first, then shiftable at end (enables REPEATED_COMMITMENTS optimization)
     template <typename DataType> class InterleavedWitnessCommitments_<DataType, false> {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
                               interleaved_ecc_op_wires, // W₂: ecc_op_wires - unshiftable
                               interleaved_databus_1,    // W₃: first batch of databus - unshiftable
                               interleaved_databus_2,    // W₄: second batch of databus - unshiftable
                               interleaved_databus_3,    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO] - unshiftable
-                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
                               interleaved_lookup,       // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
                               interleaved_inverses,     // W₈: all inverses - unshiftable
+                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
+                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
                               interleaved_z_perm)       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
 
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     };
 
     // ZK: 10 interleaved witness commitments (9 base + masking)
+    // Ordered: unshiftable first (including masking), then shiftable at end
     template <typename DataType> class InterleavedWitnessCommitments_<DataType, true> {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
                               interleaved_ecc_op_wires, // W₂: ecc_op_wires - unshiftable
                               interleaved_databus_1,    // W₃: first batch of databus - unshiftable
                               interleaved_databus_2,    // W₄: second batch of databus - unshiftable
                               interleaved_databus_3,    // W₅: [return_data_read_tags, ...] - unshiftable
-                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
                               interleaved_lookup,       // W₇: [lookup_read_counts, lookup_read_tags, ...]
                               interleaved_inverses,     // W₈: all inverses - unshiftable
-                              interleaved_z_perm,       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
-                              interleaved_masking)      // W₁₀: masking chunks - unshiftable
+                              interleaved_masking,      // W₁₀: masking chunks - unshiftable
+                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
+                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
+                              interleaved_z_perm)       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
 
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     };
@@ -342,19 +344,20 @@ class MultiMegaFlavor : public MegaFlavor {
         }
     };
 
-    // FINAL_PCS_MSM_SIZE for interleaved commitments (individual, no pre-batching):
-    // 17 unshifted + 3 shifted + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // FINAL_PCS_MSM_SIZE for interleaved commitments (with REPEATED_COMMITMENTS optimization):
+    // 17 unshifted (shifted merged via REPEATED_COMMITMENTS) + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds
+    // + 1 (G1 identity) + 1 (KZG W)
     // Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
         // Unshifted commitments: NUM_ALL_INTERLEAVED_COMMITMENTS (17)
-        // Shifted commitments: NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS (3)
+        // Shifted commitments: 0 (merged with unshifted via REPEATED_COMMITMENTS)
         // Shplonk Q: 1
         // Gemini folds: pcs_log_n - 1
         // G1 identity: 1
         // KZG W: 1
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + 2 + pcs_log_n;
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + 2 + pcs_log_n;
     }
 
     // VerificationKey stores 8 interleaved precomputed commitments instead of 31 individual ones.
@@ -369,11 +372,15 @@ class MultiMegaFlavor : public MegaFlavor {
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
-    // For interleaved commitments, shifted commitments are at non-contiguous indices (8, 13, 16).
-    // The current RepeatedCommitmentsData mechanism assumes contiguous ranges, so we disable it.
-    // This means the MSM will include the 3 shifted commitments separately (not deduplicated with unshifted).
-    // TODO: Optimize by extending RepeatedCommitmentsData to support non-contiguous ranges.
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData();
+    // With the reordered InterleavedWitnessCommitments (unshiftable first, shiftable at end),
+    // the shiftable commitments are now contiguous, enabling the REPEATED_COMMITMENTS optimization.
+    // This saves NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS (3) points from the final PCS MSM.
+    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
+                                    (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
+                                SHPLEMINI_OFFSET + NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
 
     /**
      * @brief Interleaving group accessors, templated on AllEntities<DataType>.
@@ -397,8 +404,7 @@ class MultiMegaFlavor : public MegaFlavor {
             { &e.id_2, &e.id_3, &e.id_4, &e.table_1 },
             { &e.table_2, &e.table_3, &e.table_4, &e.lagrange_first },
             { &e.lagrange_last, &e.lagrange_ecc_op, &e.databus_id, nullptr },
-            // W₁-W₉: witness (matching InterleavedWitnessCommitments layout)
-            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            // W₂-W₈: unshiftable witness groups first
             { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
             { &e.calldata, &e.calldata_read_counts, &e.calldata_read_tags, &e.secondary_calldata },
             { &e.secondary_calldata_read_counts,
@@ -406,9 +412,11 @@ class MultiMegaFlavor : public MegaFlavor {
               &e.return_data,
               &e.return_data_read_counts },
             { &e.return_data_read_tags, nullptr, nullptr, nullptr },
-            { &e.w_4, nullptr, nullptr, nullptr },
             { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
             { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
+            // W₁, W₆, W₉: shiftable witness groups at end (contiguous for REPEATED_COMMITMENTS)
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
             { &e.z_perm, nullptr, nullptr, nullptr },
         };
     }

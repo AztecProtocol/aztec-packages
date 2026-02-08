@@ -41,6 +41,12 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
+    static constexpr size_t SHPLEMINI_OFFSET = 2; // Shplonk:Q + Gemini:masking_poly_comm
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        SHPLEMINI_OFFSET + MegaFlavor::NUM_PRECOMPUTED_ENTITIES,
+        SHPLEMINI_OFFSET + MegaFlavor::NUM_PRECOMPUTED_ENTITIES + MegaFlavor::NUM_WITNESS_ENTITIES,
+        MegaFlavor::NUM_SHIFTED_ENTITIES);
+
     // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = MegaFlavor::VIRTUAL_LOG_N)
     {

@@ -9,6 +9,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 
 namespace bb {
 
@@ -36,6 +37,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_UNSHIFTED_ENTITIES =
         UltraKeccakFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraZKFlavor::REPEATED_COMMITMENTS;
 
     // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)

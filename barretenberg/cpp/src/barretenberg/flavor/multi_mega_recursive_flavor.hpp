@@ -85,61 +85,14 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
         return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
     }
 
-    /**
-     * @brief Container for interleaved witness commitments (circuit types).
-     * @details Mirrors the structure from MultiMegaFlavor::InterleavedCommitments.
-     *
-     * In the recursive verifier:
-     *   - These commitments are received from the transcript
-     *   - Individual polynomial evaluations come from sumcheck
-     *   - Verifier batches evaluations using Lagrange basis
-     */
-    template <typename DataType> class InterleavedWitnessCommitments {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
-                              interleaved_ecc_op_wires, // W₂: ecc_op_wires
-                              interleaved_databus_1,    // W₃: calldata batch 1
-                              interleaved_databus_2,    // W₄: calldata/return data batch 2
-                              interleaved_databus_3,    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-                              interleaved_w_4,          // W₆: [w_4, ZERO, ZERO, ZERO] - shiftable
-                              interleaved_lookup,       // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-                              interleaved_inverses,     // W₈: all inverses
-                              interleaved_z_perm)       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
-
-        // Get shiftable commitments (W₁, W₆, W₉)
-        auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
-
-        // Get unshiftable commitments (W₂, W₃, W₄, W₅, W₇, W₈)
-        auto get_unshiftable()
-        {
-            return RefArray{ interleaved_ecc_op_wires, interleaved_databus_1, interleaved_databus_2,
-                             interleaved_databus_3,    interleaved_lookup,    interleaved_inverses };
-        }
-    };
-
+    // Reuse native flavor's InterleavedWitnessCommitments template (works with any DataType including stdlib types)
+    template <typename DataType>
+    using InterleavedWitnessCommitments = NativeFlavor::InterleavedWitnessCommitments_<DataType, HasZK>;
     using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
 
-    /**
-     * @brief Container for interleaved precomputed commitments (from VK).
-     * @details Mirrors MultiMegaFlavor::InterleavedPrecomputedCommitments.
-     *
-     * These are stored in the verification key and represent batched selector/table polynomials.
-     */
-    template <typename DataType_> class InterleavedPrecomputedCommitments {
-      public:
-        using DataType = DataType_;
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              interleaved_selectors_1, // S₁: [q_m, q_c, q_l, q_r]
-                              interleaved_selectors_2, // S₂: [q_o, q_4, q_busread, q_lookup]
-                              interleaved_selectors_3, // S₃: [q_arith, q_delta_range, q_elliptic, q_memory]
-                              interleaved_selectors_4, // S₄: [q_nnf, q_poseidon2_external, q_poseidon2_internal, ZERO]
-                              interleaved_sigmas,      // S₅: [sigma_1, sigma_2, sigma_3, sigma_4]
-                              interleaved_ids,         // S₆: [id_1, id_2, id_3, id_4]
-                              interleaved_tables,      // S₇: [table_1, table_2, table_3, table_4]
-                              interleaved_lagrange) // S₈: [lagrange_first, lagrange_last, lagrange_ecc_op, databus_id]
-    };
-
+    // Reuse native flavor's InterleavedPrecomputedCommitments template (only accessed via get_all())
+    template <typename DataType_>
+    using InterleavedPrecomputedCommitments = NativeFlavor::InterleavedPrecomputedCommitments<DataType_>;
     using InterleavedPrecomputed = InterleavedPrecomputedCommitments<Commitment>;
 
     // AllValues contains all polynomial evaluations received from the prover
@@ -167,7 +120,6 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
-    // Repeated commitments (disabled for MultiMega due to non-contiguous shifted indices)
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
     // Forward static group methods to the native flavor (they work on any entity type with matching member names)

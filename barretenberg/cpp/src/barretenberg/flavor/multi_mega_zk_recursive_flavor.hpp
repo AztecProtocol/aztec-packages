@@ -70,6 +70,10 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
     // BATCHED_RELATION_PARTIAL_LENGTH increased by 1 for ZK (multiplied by Row Disabling Polynomial)
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
+    // Override REPEATED_COMMITMENTS from base class (which points to non-ZK MultiMegaFlavor)
+    // ZK version has different indices due to the extra masking witness commitment
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
     // Final PCS MSM size for ZK with interleaving
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {

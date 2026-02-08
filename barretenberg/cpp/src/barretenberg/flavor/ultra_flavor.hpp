@@ -72,9 +72,13 @@ class UltraFlavor {
     // The number of unshifted witness entities
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls.
+    // Indices are absolute positions in the Shplemini commitments vector: [Q, precomputed..., witness..., shifted...]
+    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES,
+                                SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+                                NUM_SHIFTED_ENTITIES);
 
     // Size of the final PCS MSM after KZG adds quotient commitment:
     // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)

@@ -372,7 +372,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, HasZK);
+        remove_repeated_commitments(commitments, scalars, repeated_commitments);
         // An optional boolean flag for SmallSubgroupIPAVerifier to check the consistency of the Libra evaluations
         bool consistency_checked = true;
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
@@ -523,22 +523,17 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
     static void remove_repeated_commitments(std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
-                                            const RepeatedCommitmentsData& repeated_commitments,
-                                            bool has_zk)
+                                            const RepeatedCommitmentsData& repeated_commitments)
     {
-        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
-        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
-        // commitments to prover polynomials
-        const size_t offset = has_zk ? 2 : 1;
+        // Extract the indices from the container, which is normally created in a given Flavor.
+        // These are absolute indices into the commitments vector (already account for Q, masking_poly, etc.).
+        const size_t first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start;
+        const size_t first_range_shifted_start = repeated_commitments.first_range_shifted_start;
+        const size_t first_range_size = repeated_commitments.first_range_size;
 
-        // Extract the indices from the container, which is normally created in a given Flavor
-        const size_t& first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start + offset;
-        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start + offset;
-        const size_t& first_range_size = repeated_commitments.first_range_size;
-
-        const size_t& second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start + offset;
-        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start + offset;
-        const size_t& second_range_size = repeated_commitments.second_range_size;
+        const size_t second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start;
+        const size_t second_range_shifted_start = repeated_commitments.second_range_shifted_start;
+        const size_t second_range_size = repeated_commitments.second_range_size;
 
         // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
         for (size_t i = 0; i < first_range_size; i++) {

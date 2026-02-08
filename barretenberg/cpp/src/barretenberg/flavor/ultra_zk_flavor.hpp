@@ -45,6 +45,15 @@ class UltraZKFlavor : public UltraFlavor {
     // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = UltraFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
+    // ZK commitments vector: [Q, masking_poly_comm, precomputed..., witness..., shifted...]
+    // Note: masking_poly_comm is at index 1, not counted in the claim_batcher witness section,
+    // so we use UltraFlavor's (base) witness count for the range calculation.
+    static constexpr size_t SHPLEMINI_OFFSET = 2; // Shplonk:Q + Gemini:masking_poly_comm
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        SHPLEMINI_OFFSET + UltraFlavor::NUM_PRECOMPUTED_ENTITIES,
+        SHPLEMINI_OFFSET + UltraFlavor::NUM_PRECOMPUTED_ENTITIES + UltraFlavor::NUM_WITNESS_ENTITIES,
+        UltraFlavor::NUM_SHIFTED_ENTITIES);
+
     // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = CONST_PROOF_SIZE_LOG_N)
     {

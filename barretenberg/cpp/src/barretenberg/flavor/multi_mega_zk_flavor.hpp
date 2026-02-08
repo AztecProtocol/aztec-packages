@@ -78,24 +78,38 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     using Transcript = NativeTranscript;
     using VKAndHash = MultiMegaFlavor::VKAndHash;
 
-    // FINAL_PCS_MSM_SIZE: masking is now counted in NUM_ALL_INTERLEAVED_COMMITMENTS (18)
+    // Override REPEATED_COMMITMENTS: ZK has 10 witness commitments (7 unshiftable + 3 shiftable),
+    // so indices differ from the non-ZK base.
+    static constexpr size_t SHPLEMINI_OFFSET = 1; // Only Shplonk:Q (no Gemini masking poly in MultiMega)
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
+                                    (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
+                                SHPLEMINI_OFFSET + NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+
+    // FINAL_PCS_MSM_SIZE: with REPEATED_COMMITMENTS optimization, shifted commitments are merged
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // 18 unshifted + 3 shifted + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity + 1 KZG W
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS + NUM_LIBRA_COMMITMENTS +
-               (pcs_log_n - 1) + 3;
+        // 18 unshifted (shifted merged) + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity +
+        // 1 KZG W
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_LIBRA_COMMITMENTS + (pcs_log_n - 1) + 3;
     }
 
     /**
-     * @brief Override get_unshifted_groups to include masking group as 18th unshifted group.
+     * @brief Override get_unshifted_groups to include masking group before the shiftable groups.
+     * @details Inserts W₁₀ (masking) before the last NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS groups,
+     *          maintaining the invariant: unshiftable groups first, shiftable groups at the end.
      */
     template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {
         auto groups = MultiMegaFlavor::get_unshifted_groups(e);
         using T = std::decay_t<decltype(e.w_l)>;
         using Group = std::vector<T const*>;
-        groups.push_back(Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        // Insert masking before the shiftable groups (last 3 groups)
+        auto insert_pos = groups.end() - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        groups.insert(insert_pos,
+                      Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
         return groups;
     }
 
