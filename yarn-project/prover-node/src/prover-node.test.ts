@@ -478,6 +478,51 @@ describe('prover-node', () => {
 
       resolveRun();
     });
+
+    it('does not skip intermediate checkpoints that become proven mid-epoch', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      // First checkpoint: proven block is 0, so it passes the guard and creates a job.
+      l2BlockSource.getProvenBlockNumber.mockResolvedValueOnce(BlockNumber.ZERO);
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[0],
+        block: blockId,
+      });
+      expect(jobs.length).toEqual(1);
+      expect(jobs[0].job.addCheckpoint).toHaveBeenCalledTimes(1);
+
+      // Simulate checkpoint 1's blocks becoming proven (e.g. via cheat codes).
+      const checkpoint1LastBlock = checkpoints[0].blocks.at(-1)!.number;
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(checkpoint1LastBlock));
+
+      // Second checkpoint: its last block <= provenBlockNumber, but the epoch is already
+      // in progress so it must NOT be skipped.
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[1],
+        block: blockId,
+      });
+      expect(jobs[0].job.addCheckpoint).toHaveBeenCalledTimes(2);
+
+      // Third checkpoint: same — must also pass through.
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[2],
+        block: blockId,
+      });
+      expect(jobs[0].job.addCheckpoint).toHaveBeenCalledTimes(3);
+
+      resolveRun();
+    });
   });
 
   class TestProverNode extends ProverNode {

@@ -188,11 +188,17 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const l1Constants = await this.getL1Constants();
     const epoch = getEpochAtSlot(checkpoint.header.slotNumber, l1Constants);
 
-    // Skip already proven epochs.
-    const lastProvenBlock = await this.l2BlockSource.getProvenBlockNumber();
     const lastBlockInCheckpoint = checkpoint.blocks.at(-1)!.number;
-    if (lastBlockInCheckpoint <= lastProvenBlock) {
-      return;
+
+    // Skip already proven checkpoints, but only if we haven't started this epoch yet.
+    // Once any checkpoint for an epoch is accepted, ALL subsequent checkpoints must be processed
+    // to maintain the previousBlockHeader chain (otherwise we get gaps when intermediate
+    // checkpoints become proven before the stream delivers them).
+    if (!this.pendingCheckpoints.has(epoch) && !this.activeJobsByEpoch.has(epoch)) {
+      const lastProvenBlock = await this.l2BlockSource.getProvenBlockNumber();
+      if (lastBlockInCheckpoint <= lastProvenBlock) {
+        return;
+      }
     }
 
     this.log.debug(`Checkpoint ${checkpoint.number} received for epoch ${epoch}`, {
