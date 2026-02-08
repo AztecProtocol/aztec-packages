@@ -65,6 +65,8 @@ export class EpochProvingJob implements Traceable {
 
   /** Tracks the next expected checkpoint index. */
   private nextCheckpointIndex = 0;
+  /** Checkpoint numbers already added, for dedup. */
+  private addedCheckpointNumbers: Set<number> = new Set();
 
   public readonly tracer: Tracer;
 
@@ -133,6 +135,11 @@ export class EpochProvingJob implements Traceable {
     previousBlockHeader: BlockHeader,
     txs: Map<string, Tx>,
   ): void {
+    if (this.addedCheckpointNumbers.has(checkpoint.number)) {
+      this.log.warn(`Duplicate checkpoint ${checkpoint.number} ignored`, { uuid: this.uuid });
+      return;
+    }
+    this.addedCheckpointNumbers.add(checkpoint.number);
     const checkpointIndex = this.nextCheckpointIndex++;
     this.log.verbose(`Adding checkpoint ${checkpoint.number} (index ${checkpointIndex}) for processing`, {
       uuid: this.uuid,

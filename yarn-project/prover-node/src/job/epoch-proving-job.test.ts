@@ -319,4 +319,34 @@ describe('epoch-proving-job', () => {
     expect(prover.finalizeEpoch).toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
+
+  it('ignores duplicate checkpoint additions', async () => {
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+
+    const job = new EpochProvingJob(
+      EpochNumber(epochNumber),
+      worldState,
+      prover,
+      publicProcessorFactory,
+      publisher,
+      metrics,
+      undefined,
+      { parallelBlockLimit: 32 },
+    );
+
+    const runPromise = job.run();
+    await sleep(10);
+
+    // Add same checkpoint twice.
+    const previousHeader = initialHeader;
+    job.addCheckpoint(checkpoints[0], [], previousHeader, txsMap);
+    job.addCheckpoint(checkpoints[0], [], previousHeader, txsMap);
+
+    job.setEpochComplete(attestations);
+    await runPromise;
+
+    expect(job.getState()).toEqual('completed');
+    // startNewCheckpoint should be called only once for the single unique checkpoint.
+    expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(1);
+  });
 });

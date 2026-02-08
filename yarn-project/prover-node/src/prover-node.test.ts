@@ -423,6 +423,61 @@ describe('prover-node', () => {
       // No job created because blocks are already proven.
       expect(jobs.length).toEqual(0);
     });
+
+    it('deduplicates repeated checkpoint events', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      // Send same checkpoint event twice.
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[0],
+        block: blockId,
+      });
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[0],
+        block: blockId,
+      });
+
+      expect(jobs.length).toEqual(1);
+      expect(jobs[0].job.addCheckpoint).toHaveBeenCalledTimes(1);
+
+      resolveRun();
+    });
+
+    it('passes through distinct checkpoints', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      // Send 3 different checkpoint events.
+      for (const pub of publishedCheckpoints) {
+        await proverNode.handleBlockStreamEvent({
+          type: 'chain-checkpointed',
+          checkpoint: pub,
+          block: blockId,
+        });
+      }
+
+      expect(jobs.length).toEqual(1);
+      expect(jobs[0].job.addCheckpoint).toHaveBeenCalledTimes(3);
+
+      resolveRun();
+    });
   });
 
   class TestProverNode extends ProverNode {

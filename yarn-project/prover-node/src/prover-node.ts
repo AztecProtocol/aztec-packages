@@ -164,6 +164,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
 
   /** Handles events from the L2BlockStream. */
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    await this.l2TipsStore?.handleBlockStreamEvent(event);
     switch (event.type) {
       case 'chain-checkpointed':
         await this.onCheckpointAvailable(event.checkpoint);
@@ -200,11 +201,15 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       lastBlockInCheckpoint,
     });
 
-    // Track checkpoint per epoch.
+    // Track checkpoint per epoch, deduplicating by checkpoint number.
     if (!this.pendingCheckpoints.has(epoch)) {
       this.pendingCheckpoints.set(epoch, []);
     }
-    this.pendingCheckpoints.get(epoch)!.push({ checkpoint, published: publishedCheckpoint });
+    const existing = this.pendingCheckpoints.get(epoch)!;
+    if (existing.some(e => e.checkpoint.number === checkpoint.number)) {
+      return;
+    }
+    existing.push({ checkpoint, published: publishedCheckpoint });
 
     if (this.config.proverNodeOptimisticProcessing) {
       // Optimistic mode: find or create job, push checkpoint immediately.
