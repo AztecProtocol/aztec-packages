@@ -1,4 +1,4 @@
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -15,12 +15,14 @@ export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
   private isSyncing = false;
   private hasStarted = false;
+  private lastKnownEpoch: EpochNumber | undefined;
 
   constructor(
     private l2BlockSource: Pick<
       L2BlockSource,
       'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
-    >,
+    > &
+      Partial<Pick<L2BlockSource, 'getL2EpochNumber'>>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -231,6 +233,16 @@ export class L2BlockStream {
       if (localTips.finalized !== undefined && sourceTips.finalized.block.number !== localTips.finalized.block.number) {
         await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized.block });
       }
+
+      // Detect epoch transitions based on L1 time.
+      const currentEpoch = await this.l2BlockSource.getL2EpochNumber?.();
+      if (currentEpoch !== undefined && this.lastKnownEpoch !== undefined && currentEpoch > this.lastKnownEpoch) {
+        const completedEpoch = EpochNumber(currentEpoch - 1);
+        await this.emitEvent({ type: 'epoch-completed', epochNumber: completedEpoch });
+      }
+      if (currentEpoch !== undefined) {
+        this.lastKnownEpoch = currentEpoch;
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         return;
@@ -277,7 +289,7 @@ export class L2BlockStream {
 
   private async emitEvent(event: L2BlockStreamEvent) {
     this.log.debug(
-      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.type === 'chain-checkpointed' ? event.checkpoint.checkpoint.number : event.block.number})`,
+      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.type === 'chain-checkpointed' ? event.checkpoint.checkpoint.number : event.type === 'epoch-completed' ? event.epochNumber : event.block.number})`,
     );
     await this.handler.handleBlockStreamEvent(event);
     if (!this.isRunning() && !this.isSyncing) {

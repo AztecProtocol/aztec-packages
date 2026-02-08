@@ -1,5 +1,5 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -121,6 +121,9 @@ describe('L2BlockStream', () => {
         ),
       ),
     );
+
+    // Default: no epoch information available
+    blockSource.getL2EpochNumber.mockResolvedValue(undefined);
 
     // Returns published checkpoints - each checkpoint contains just the one block for simplicity
     // Respects the limit parameter and returns up to `limit` checkpoints
@@ -1447,6 +1450,105 @@ describe('L2BlockStream', () => {
         // Should have new blocks-added events but still no checkpoint events
         expect(handler.events).toEqual([expectBlocksAdded([7, 8, 9]), expectBlocksAdded([10, 11, 12])]);
       });
+    });
+  });
+
+  describe('epoch-completed', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+    });
+
+    it('does not emit epoch-completed on first work call (initialization only)', async () => {
+      setRemoteTips(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(2));
+
+      await blockStream.work();
+
+      const epochEvents = handler.events.filter(e => e.type === 'epoch-completed');
+      expect(epochEvents).toHaveLength(0);
+    });
+
+    it('does not emit epoch-completed when epoch is unchanged between polls', async () => {
+      setRemoteTips(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(2));
+
+      await blockStream.work();
+      handler.clearEvents();
+
+      await blockStream.work();
+
+      const epochEvents = handler.events.filter(e => e.type === 'epoch-completed');
+      expect(epochEvents).toHaveLength(0);
+    });
+
+    it('emits epoch-completed when epoch advances', async () => {
+      setRemoteTips(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(2));
+
+      await blockStream.work();
+      handler.clearEvents();
+
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(3));
+
+      await blockStream.work();
+
+      const epochEvents = handler.events.filter(e => e.type === 'epoch-completed');
+      expect(epochEvents).toHaveLength(1);
+      expect(epochEvents[0]).toEqual({ type: 'epoch-completed', epochNumber: EpochNumber(2) });
+    });
+
+    it('emits epoch-completed after all other events', async () => {
+      setRemoteTips(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(2));
+
+      await blockStream.work();
+      handler.clearEvents();
+
+      setRemoteTips(10, 0, 8, 6);
+      localData.proposed.number = BlockNumber(5);
+      localData.proven.block.number = BlockNumber(5);
+      localData.finalized.block.number = BlockNumber(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(3));
+
+      await blockStream.work();
+
+      const lastEvent = handler.events.at(-1)!;
+      expect(lastEvent).toEqual({ type: 'epoch-completed', epochNumber: EpochNumber(2) });
+    });
+
+    it('emits only one event when multiple epochs elapse', async () => {
+      setRemoteTips(5);
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(1));
+
+      await blockStream.work();
+      handler.clearEvents();
+
+      blockSource.getL2EpochNumber.mockResolvedValue(EpochNumber(4));
+
+      await blockStream.work();
+
+      const epochEvents = handler.events.filter(e => e.type === 'epoch-completed');
+      expect(epochEvents).toHaveLength(1);
+      expect(epochEvents[0]).toEqual({ type: 'epoch-completed', epochNumber: EpochNumber(3) });
+    });
+
+    it('does not emit epoch-completed when getL2EpochNumber returns undefined', async () => {
+      setRemoteTips(5);
+      // getL2EpochNumber returns undefined (default mock)
+
+      await blockStream.work();
+      handler.clearEvents();
+
+      await blockStream.work();
+
+      const epochEvents = handler.events.filter(e => e.type === 'epoch-completed');
+      expect(epochEvents).toHaveLength(0);
     });
   });
 

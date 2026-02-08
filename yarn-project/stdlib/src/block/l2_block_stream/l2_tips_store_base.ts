@@ -105,6 +105,8 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       case 'chain-finalized':
         await this.handleChainFinalized(event);
         break;
+      case 'epoch-completed':
+        break;
     }
   }
 

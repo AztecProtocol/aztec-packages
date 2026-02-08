@@ -203,6 +203,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-checkpointed':
         break;
+      case 'epoch-completed':
+        break;
       default: {
         const _: never = event;
         break;

@@ -90,6 +90,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         }
         break;
       }
+      case 'epoch-completed':
+        break;
       case 'chain-pruned': {
         const currentAnchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();

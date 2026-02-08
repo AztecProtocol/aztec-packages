@@ -1,3 +1,5 @@
+import type { EpochNumber } from '@aztec/foundation/branded-types';
+
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { L2Block } from '../l2_block.js';
 import type { CheckpointId, L2BlockId, L2Tips } from '../l2_block_source.js';
@@ -39,6 +41,10 @@ export type L2BlockStreamEvent =
   | /** Reports new finalized block (proven and finalized on L1). */ {
       type: 'chain-finalized';
       block: L2BlockId;
+    }
+  | /** Reports that an epoch has completed based on L1 time. */ {
+      type: 'epoch-completed';
+      epochNumber: EpochNumber;
     };
 
 export type L2TipsStore = L2BlockStreamEventHandler & L2BlockStreamLocalDataProvider;

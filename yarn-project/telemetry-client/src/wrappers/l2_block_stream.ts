@@ -14,7 +14,8 @@ export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
     l2BlockSource: Pick<
       L2BlockSource,
       'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
-    >,
+    > &
+      Partial<Pick<L2BlockSource, 'getL2EpochNumber'>>,
     localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,
     public readonly tracer: Tracer,

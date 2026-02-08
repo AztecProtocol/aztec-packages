@@ -171,8 +171,10 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       case 'chain-pruned':
         await this.onChainPruned(event);
         break;
+      case 'epoch-completed':
+        await this.onEpochCompleted(event.epochNumber);
+        break;
       default:
-        // We only care about checkpointed and pruned events.
         break;
     }
   }
@@ -213,26 +215,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       }
       await this.pushCheckpointToJob(job, epoch, checkpoint, publishedCheckpoint);
     }
-
-    // Check if epoch is now complete.
-    if (!this.completedEpochs.has(epoch)) {
-      const isComplete = await this.l2BlockSource.isEpochComplete(epoch);
-      if (isComplete) {
-        this.completedEpochs.add(epoch);
-        const attestations = publishedCheckpoint.attestations ?? [];
-
-        let job = this.activeJobsByEpoch.get(epoch);
-        if (!job) {
-          // Non-optimistic: create job now, push all checkpoints at once.
-          job = await this.createJobForEpoch(epoch);
-          for (const entry of this.pendingCheckpoints.get(epoch)!) {
-            await this.pushCheckpointToJob(job, epoch, entry.checkpoint, entry.published);
-          }
-          void this.runJob(job);
-        }
-        job.setEpochComplete(attestations);
-      }
-    }
   }
 
   private async onChainPruned(event: {
@@ -251,6 +233,30 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       this.pendingCheckpoints.delete(epoch);
       this.previousBlockHeaders.delete(epoch);
       this.jobs.delete(job.getId());
+    }
+  }
+
+  private async onEpochCompleted(completedEpoch: EpochNumber) {
+    for (const [epoch, checkpoints] of this.pendingCheckpoints) {
+      if (this.completedEpochs.has(epoch)) {
+        continue;
+      }
+      if (completedEpoch < epoch) {
+        continue;
+      }
+
+      this.completedEpochs.add(epoch);
+      const attestations = checkpoints.at(-1)?.published.attestations ?? [];
+
+      let job = this.activeJobsByEpoch.get(epoch);
+      if (!job) {
+        job = await this.createJobForEpoch(EpochNumber(epoch));
+        for (const entry of checkpoints) {
+          await this.pushCheckpointToJob(job, epoch, entry.checkpoint, entry.published);
+        }
+        void this.runJob(job);
+      }
+      job.setEpochComplete(attestations);
     }
   }
 

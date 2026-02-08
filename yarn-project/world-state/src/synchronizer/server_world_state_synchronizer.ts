@@ -291,6 +291,8 @@ export class ServerWorldStateSynchronizer
       case 'chain-finalized':
         await this.handleChainFinalized(event.block.number);
         break;
+      case 'epoch-completed':
+        break;
     }
   }
 
