@@ -9,6 +9,7 @@ import threading
 from datetime import datetime, timezone
 
 import rk_db
+import rk_github
 
 SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake', 'local']
 
@@ -67,6 +68,9 @@ def extract_pr_number(name: str) -> int | None:
 
 def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
     """Read CI runs directly from Redis sorted sets."""
+    # Build branch→PR map for runs where we can't extract PR from name/msg
+    branch_pr_map = rk_github.get_branch_pr_map()
+
     runs = []
     for section in SECTIONS:
         key = f'ci-run-{section}'
@@ -85,6 +89,7 @@ def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
                         extract_pr_number(data.get('name', ''))
                         or extract_pr_number(data.get('msg', ''))
                         or (int(data['pr_number']) if data.get('pr_number') else None)
+                        or branch_pr_map.get(data.get('name'))
                     )
                     runs.append(data)
                 except Exception:
