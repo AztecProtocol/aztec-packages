@@ -228,15 +228,15 @@ function track_test_failed {
 function publish_redis {
   local redis_data=$(jq -n \
     --arg status "$1" \
-    --arg cmd "$cmd" \
-    --arg log_key "$log_key" \
-    --arg ref_name "$REF_NAME" \
+    --arg test_cmd "$cmd" \
+    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
     --arg commit_msg "$COMMIT_MSG" \
     --argjson code "$code" \
     --argjson duration "$SECONDS" \
-    '{status: $status, cmd: $cmd, log_key: $log_key, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, timestamp: now | todate}')
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, timestamp: now | todate}')
   redis_publish "ci:test:$1" "$redis_data"
 }
 

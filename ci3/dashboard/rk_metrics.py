@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 import rk_db
 
-SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake']
+SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake', 'local']
 
 # EC2 instance hourly rates (us-east-2)
 INSTANCE_HOURLY_RATES = {
@@ -102,6 +102,12 @@ def _ts_to_date(ts_ms):
 
 def _handle_test_event(channel: str, data: dict):
     status = channel.split(':')[-1]
+    # Handle field name mismatches: run_test_cmd publishes 'cmd' for failed/flaked
+    # but 'test_cmd' for started events. Same for 'log_key' vs 'log_url'.
+    test_cmd = data.get('test_cmd') or data.get('cmd', '')
+    log_url = data.get('log_url') or data.get('log_key')
+    if log_url and not log_url.startswith('http'):
+        log_url = f'http://ci.aztec-labs.com/{log_url}'
     rk_db.execute('''
         INSERT INTO test_events
         (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
@@ -110,8 +116,8 @@ def _handle_test_event(channel: str, data: dict):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         status,
-        data.get('test_cmd', ''),
-        data.get('log_url'),
+        test_cmd,
+        log_url,
         data.get('ref_name', ''),
         data.get('commit_hash'),
         data.get('commit_author'),

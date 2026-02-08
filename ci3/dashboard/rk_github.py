@@ -51,8 +51,9 @@ def _gh(args: list[str]) -> str | None:
 def _fetch_and_process_prs() -> list[dict]:
     out = _gh([
         'pr', 'list', '--repo', REPO, '--state', 'merged',
-        '--limit', '100',
-        '--json', 'number,author,title,createdAt,mergedAt,closedAt,baseRefName'
+        '--limit', '500',
+        '--json', 'number,author,title,createdAt,mergedAt,closedAt,baseRefName,'
+                  'headRefName,additions,deletions,changedFiles,isDraft,reviewDecision,labels'
     ])
     if not out:
         return []
@@ -65,6 +66,10 @@ def _fetch_and_process_prs() -> list[dict]:
         author = pr.get('author', {})
         if isinstance(author, dict):
             pr['author'] = author.get('login', 'unknown')
+        # Extract label names from label objects
+        labels = pr.get('labels', [])
+        if labels and isinstance(labels[0], dict):
+            pr['labels'] = [l.get('name', '') for l in labels]
         created = pr.get('createdAt', '')
         merged = pr.get('mergedAt')
         if created and merged:
@@ -77,6 +82,7 @@ def _fetch_and_process_prs() -> list[dict]:
         else:
             pr['merge_time_hrs'] = None
         pr['merged_date'] = merged[:10] if merged else None
+        pr['size'] = (pr.get('additions', 0) or 0) + (pr.get('deletions', 0) or 0)
     return prs
 
 
@@ -297,13 +303,14 @@ def get_pr_author(pr_number) -> dict | None:
     for pr in _pr_cache.get('data', []):
         if pr.get('number') == pr_number:
             info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
-                    'branch': pr.get('headRefName', '')}
+                    'branch': pr.get('headRefName', ''),
+                    'additions': pr.get('additions', 0), 'deletions': pr.get('deletions', 0)}
             _pr_author_cache[pr_number] = info
             return info
 
     # Fetch from GitHub API
     out = _gh(['pr', 'view', str(pr_number), '--repo', REPO,
-               '--json', 'author,title,headRefName'])
+               '--json', 'author,title,headRefName,additions,deletions'])
     if out:
         try:
             data = json.loads(out)
@@ -311,7 +318,8 @@ def get_pr_author(pr_number) -> dict | None:
             if isinstance(author, dict):
                 author = author.get('login', 'unknown')
             info = {'author': author, 'title': data.get('title', ''),
-                    'branch': data.get('headRefName', '')}
+                    'branch': data.get('headRefName', ''),
+                    'additions': data.get('additions', 0), 'deletions': data.get('deletions', 0)}
             _pr_author_cache[pr_number] = info
             return info
         except (json.JSONDecodeError, KeyError):
@@ -337,7 +345,8 @@ def batch_get_pr_authors(pr_numbers: set) -> dict:
         num = pr.get('number')
         if num in to_fetch:
             info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
-                    'branch': pr.get('headRefName', '')}
+                    'branch': pr.get('headRefName', ''),
+                    'additions': pr.get('additions', 0), 'deletions': pr.get('deletions', 0)}
             _pr_author_cache[num] = info
             result[num] = info
             to_fetch.remove(num)
