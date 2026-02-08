@@ -222,7 +222,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Use the shared helper to create and verify the recursive circuit
         auto [outer_circuit, outer_verification_key] = create_recursive_verifier_circuit();
 
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
         // Prove and verify the outer recursive circuit

@@ -234,9 +234,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
                                    mle_opening_point,
-                                   ck,
-                                   /*num_interleaved*/ 3,
-                                   /*num_to_be_interleaved*/ 2);
+                                   ck);
 
     auto prover_transcript = NativeTranscript::test_prover_init_empty();
 

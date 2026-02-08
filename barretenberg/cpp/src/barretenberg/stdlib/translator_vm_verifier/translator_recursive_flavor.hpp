@@ -74,6 +74,31 @@ class TranslatorRecursiveFlavor {
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
+    // Computable precomputed selectors: constants and methods forwarded from NativeFlavor
+    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = NativeFlavor::NUM_COMPUTABLE_PRECOMPUTED;
+    static constexpr size_t COMPUTABLE_PRECOMPUTED_OFFSET = NativeFlavor::COMPUTABLE_PRECOMPUTED_OFFSET;
+    static constexpr size_t NUM_SENT_EVALUATIONS = NativeFlavor::NUM_SENT_EVALUATIONS;
+
+    template <typename FFType>
+    static void compute_computable_precomputed(NativeFlavor::AllEntities<FFType>& evals,
+                                               std::span<const FFType> challenge)
+    {
+        NativeFlavor::compute_computable_precomputed(evals, challenge);
+    }
+
+    template <typename FFType>
+    static auto get_all_without_computable_precomputed(const NativeFlavor::AllEntities<FFType>& evals)
+    {
+        return NativeFlavor::get_all_without_computable_precomputed(evals);
+    }
+
+    template <typename FFType>
+    static void set_all_without_computable_precomputed(NativeFlavor::AllEntities<FFType>& evals,
+                                                       const std::array<FFType, NUM_SENT_EVALUATIONS>& sent)
+    {
+        NativeFlavor::set_all_without_computable_precomputed(evals, sent);
+    }
+
     using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();

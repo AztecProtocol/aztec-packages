@@ -137,7 +137,6 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
-    using InterleavedBatch = typename ClaimBatcher::InterleavedBatch;
     using Sumcheck = SumcheckVerifier<Flavor>;
 
     // Load the proof produced by the translator prover
@@ -177,7 +176,6 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
-
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
@@ -208,14 +206,112 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // Execute Shplemini
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
-        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
-                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
+    // Concatenation consistency check: reconstruct concatenated evaluations from individual wire evaluations
+    // using Lagrange decomposition over the top 4 sumcheck challenges.
+    //
+    // Wires have values in [1,MINI) embedded in 17D space, so wire_j(u_17d) = L_0(u_top) * wire_j(u_13d)
+    // Therefore: concat(u) = [1/L_0(u_top)] * Σ_j L_j(u_top) * wire_j(u_17d)
+    // where L_0(u_top) = (1-u_13)(1-u_14)(1-u_15)(1-u_16)
+
+    const size_t log_n = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+    const size_t num_top_bits = 4; // log2(CONCATENATION_GROUP_SIZE)
+
+    // Extract top 4 sumcheck challenges (u_{d-4}, ..., u_{d-1})
+    std::array<FF, 4> u_top;
+    for (size_t i = 0; i < num_top_bits; i++) {
+        u_top[i] = sumcheck_output.challenge[log_n - num_top_bits + i];
+    }
+
+    // Compute L_0(u_top) = (1-u_13)(1-u_14)(1-u_15)(1-u_16)
+    // This accounts for wires having values in [1,MINI) embedded in 17D space
+    FF padding = FF(1);
+    for (size_t i = 0; i < num_top_bits; i++) {
+        padding *= (FF(1) - u_top[i]);
+    }
+    FF padding_inv = padding.invert();
+
+    // Compute Lagrange basis L_j(u_top) for j = 0..15
+    // L_j(u_top) = Π_{i=0}^{3} (bit_i(j) ? u_top[i] : (1 - u_top[i]))
+    // Uses little-endian bit ordering: bit i of j corresponds to challenge u_top[i]
+    std::array<FF, 16> lagrange_basis;
+    for (size_t j = 0; j < 16; j++) {
+        lagrange_basis[j] = FF(1);
+        for (size_t bit = 0; bit < num_top_bits; bit++) {
+            // Little-endian: LSB corresponds to first challenge
+            bool bit_set = (j >> bit) & 1;
+            lagrange_basis[j] *= bit_set ? u_top[bit] : (FF(1) - u_top[bit]);
+        }
+    }
+
+    // Helper lambda: reconstruct concatenated evaluation from a group of wire evaluations
+    // Wire polys have values in [1,MINI) embedded in 17D space with top bits = 0
+    // So wire_j(u_17d) = L_0(u_top) * wire_j(u_bottom_13d)
+    // Therefore: concat(u) = [1/L_0(u_top)] * Σ_j L_j(u_top) * wire_j(u_17d)
+    auto reconstruct_concatenated_eval = [&](const auto& group) -> FF {
+        FF result = FF(0);
+        for (size_t j = 0; j < 16; j++) {
+            result += lagrange_basis[j] * group[j];
+        }
+        return result * padding_inv;
     };
+
+    // Get the groups of wire evaluations from sumcheck
+    auto groups = sumcheck_output.claimed_evaluations.get_groups_to_be_concatenated();
+
+    // Reconstruct concatenated evaluations (unshifted) using the helper
+    auto concat_evals = sumcheck_output.claimed_evaluations.get_concatenated();
+    for (size_t g = 0; g < groups.size(); g++) {
+        concat_evals[g] = reconstruct_concatenated_eval(groups[g]);
+    }
+
+    // Reconstruct concatenated shifted evaluations using the same helper
+    // For shifted: concat_shift(u) = [1/padding] * Σ_j L_j(u_top) * source_j_shift(u)
+    // This works because f_j[0] = 0 for all minicircuit wires (enforced by zero constraint at row 0).
+
+    // Get shifted groups using the flavor method
+    auto shift_groups = sumcheck_output.claimed_evaluations.get_groups_to_be_concatenated_shifted();
+
+    // Reconstruct concatenated shift evaluations using the helper
+    std::array<FF, 5> concat_shift_evals;
+    for (size_t g = 0; g < shift_groups.size(); g++) {
+        concat_shift_evals[g] = reconstruct_concatenated_eval(shift_groups[g]);
+    }
+
+    // Build the unshifted claims: standard unshifted + concatenated (with reconstructed evals)
+    // Unshifted base: masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) = 9
+    // (12 computable precomputed selectors excluded — verifier computed them locally)
+    auto unshifted_commitments = commitments.get_unshifted_without_concatenated();
+    auto unshifted_evals = sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated();
+    auto concat_commitments = commitments.get_concatenated();
+
+    // Combine: unshifted base + concatenated
+    auto combined_unshifted_comms = concatenate(unshifted_commitments, concat_commitments);
+    auto combined_unshifted_evals = concatenate(unshifted_evals, concat_evals);
+
+    // Build the shifted claims: standard shifted + concatenated shifted
+    // Use get_to_be_shifted() for commitments (9 entries) and get_pcs_shifted() for matching shifted evals (9 entries)
+    auto shifted_commitments = commitments.get_to_be_shifted();
+    auto shifted_evals = sumcheck_output.claimed_evaluations.get_pcs_shifted();
+
+    // Store reconstructed evals into the concatenated polynomial eval slots
+    auto& all_evals = sumcheck_output.claimed_evaluations;
+    all_evals.concatenated_range_constraints_0 = concat_evals[0];
+    all_evals.concatenated_range_constraints_1 = concat_evals[1];
+    all_evals.concatenated_range_constraints_2 = concat_evals[2];
+    all_evals.concatenated_range_constraints_3 = concat_evals[3];
+    all_evals.concatenated_non_range = concat_evals[4];
+
+    // Build combined shifted claims: standard shifted + 5 concatenated shifts
+    auto combined_shifted_comms = concatenate(shifted_commitments, concat_commitments);
+    // Combine shifted evals: convert RefArray to RefVector, then append reconstructed concat shift evals
+    RefVector<FF> combined_shifted_evals(shifted_evals);
+    for (auto& eval : concat_shift_evals) {
+        combined_shifted_evals.push_back(eval);
+    }
+
+    // Execute Shplemini with standard batching (no InterleavedBatch)
+    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
+                                .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };
 
     // Get Commitment::one() - requires builder for recursive case
     Commitment commitment_one;
@@ -236,9 +332,6 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
                                                sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-
-    vinfo("Translator Verifier: sumcheck verified: ", sumcheck_output.verified);
-    vinfo("Translator Verifier: consistency checked: ", consistency_checked);
 
     return { pairing_points, sumcheck_output.verified && consistency_checked };
 }

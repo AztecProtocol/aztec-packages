@@ -21,12 +21,12 @@ namespace bb {
  *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
  * where P(X) = Prod_{i=0:4} (numerator_polynomial_i(X) + lagrange_masking * β + γ)
  *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_masking * β + γ)
- * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
+ * the first 4 numerator polynomials are concatenated range constraint polynomials and the last one is the constant
  * extra numerator
  *
  * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that
- * contain random values. Since the masking values in four interleaved polynomials are distributed across five
- * ordered polynomials, we need to ensure that the values are consistent between the interleaved and ordered sets (even
+ * contain random values. Since the masking values in four concatenated polynomials are distributed across five
+ * ordered polynomials, we need to ensure that the values are consistent between the concatenated and ordered sets (even
  * if they are at different indices).
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`

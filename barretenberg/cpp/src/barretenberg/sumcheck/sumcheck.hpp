@@ -597,7 +597,13 @@ template <typename Flavor> class SumcheckProver {
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
-        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
+        // For Translator: skip sending 12 computable precomputed evaluations (verifier computes them locally)
+        if constexpr (requires { Flavor::NUM_COMPUTABLE_PRECOMPUTED; }) {
+            auto filtered = Flavor::get_all_without_computable_precomputed(multivariate_evaluations);
+            transcript->send_to_verifier("Sumcheck:evaluations", filtered);
+        } else {
+            transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
+        }
 
         // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
         // transcript.
@@ -802,10 +808,19 @@ template <typename Flavor> class SumcheckVerifier {
 
         // Populate claimed evaluations at the challenge
         ClaimedEvaluations purported_evaluations;
-        auto transcript_evaluations =
-            transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
-            eval = transcript_eval;
+        // For Translator: receive fewer evals (excluding 12 computable precomputed) and compute the rest locally
+        if constexpr (requires { Flavor::NUM_COMPUTABLE_PRECOMPUTED; }) {
+            auto transcript_evals =
+                transcript->template receive_from_prover<std::array<FF, Flavor::NUM_SENT_EVALUATIONS>>(
+                    "Sumcheck:evaluations");
+            Flavor::set_all_without_computable_precomputed(purported_evaluations, transcript_evals);
+            Flavor::compute_computable_precomputed(purported_evaluations, std::span<const FF>(multivariate_challenge));
+        } else {
+            auto transcript_evaluations =
+                transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+            for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
+                eval = transcript_eval;
+            }
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.

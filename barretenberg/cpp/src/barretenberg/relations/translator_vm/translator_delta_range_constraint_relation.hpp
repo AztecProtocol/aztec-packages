@@ -14,21 +14,20 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
     using FF = FF_;
 
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH =
-        6; // degree((lagrange_real_last + lagrange_masking - 1) * D(D - 1)(D - 2)(D - 3)) = 6
+    // degree(-(1-lagrange_real_last)*(1-lagrange_masking_adjacent) * D(D-1)(D-2)(D-3)) = 4+2 = 6, so length = 7
+    static constexpr size_t RELATION_LENGTH = 7;
 
     static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS{
-        6, // ordered_range_constraints_0 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_1 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_2 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_3 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_4 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_0 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_1 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_2 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_3 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_4 step in {0,1,2,3} subrelation
         3, // ordered_range_constraints_0 ends with defined maximum value subrelation
         3, // ordered_range_constraints_1 ends with defined maximum value subrelation
         3, // ordered_range_constraints_2 ends with defined maximum value subrelation
         3, // ordered_range_constraints_3 ends with defined maximum value subrelation
         3  // ordered_range_constraints_4 ends with defined maximum value subrelation
-
     };
 
     /**
@@ -36,14 +35,15 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
      *
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
      * 1) 2 sequential values are non-descending and have a difference of at most 3. This check is skipped
-     *    at the real_last index (lagrange_real_last = 1) and in the masking region (lagrange_masking = 1).
+     *    at the real_last index (lagrange_real_last = 1) and in the ordered masking region
+     *    (lagrange_ordered_masking_adjacent = 1).
      * 2) The value at the real_last index is 2¹⁴ - 1.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): This only enforces <254-bit range constraints,
      * NOT strict <q checks. Values in [q, 2^254) pass verification, potentially creating inconsistency with
      * native/Ultra verification which reject such aliased representations.
      *
-     * The delta constraint uses: not_last_or_masking = lagrange_real_last + lagrange_masking - 1
-     * which equals 0 when checks should be skipped, and -1 when checks should be enforced.
+     * The delta constraint uses: not_last_or_masking = (lagrange_real_last - 1) * (lagrange_ordered_masking_adjacent -
+     * 1) which equals 0 when checks should be skipped, and -1 when checks should be enforced.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.

@@ -35,10 +35,16 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
     constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::dyadic_mini_circuit_size_without_masking;
-    // Fill in lagrange even polynomial
-    for (size_t i = prover_polynomials.lagrange_even_in_minicircuit.start_index();
-         i < prover_polynomials.lagrange_even_in_minicircuit.end_index();
-         i += 2) {
+    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
+
+    // Reallocate lagrange polynomials to full circuit size for manual testing
+    prover_polynomials.lagrange_even_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_result_row = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_last_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
+
+    // Fill in lagrange even and odd polynomials (only in first minicircuit, not the full concatenated circuit)
+    for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
@@ -106,6 +112,10 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
+    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
+
+    // Reallocate lagrange polynomials to full circuit size for manual testing
+    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
 
     auto lagrange_odd_in_minicircuit = prover_polynomials.lagrange_odd_in_minicircuit;
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
@@ -525,6 +535,11 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
+    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
+
+    // Reallocate lagrange polynomials to full circuit size for manual testing
+    prover_polynomials.lagrange_even_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
 
     // Copy values of wires used in the non-native field relation from the circuit builder
     for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
@@ -576,14 +591,19 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-    const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
     auto& engine = numeric::get_debug_randomness();
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{};
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-    const size_t dyadic_circuit_size_without_masking = full_circuit_size - full_masking_offset;
+
+    // Reallocate lagrange polynomials to full circuit size for manual testing
+    prover_polynomials.lagrange_first = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_last = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_real_last = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_masking = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_masking_adjacent = typename Flavor::Polynomial(full_circuit_size);
 
     // Fill required relation parameters
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -599,21 +619,38 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         }
     };
 
-    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
+    for (const auto& group : prover_polynomials.get_groups_to_be_concatenated()) {
         for (auto& poly : group) {
+            // Skip null padding slots (empty zero polynomials in group 4)
+            if (poly.is_empty()) {
+                continue;
+            }
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
+    // lagrange_real_last is at the last non-masking row of block 15
+    const size_t real_last_index =
+        15 * Flavor::MINI_CIRCUIT_SIZE + (Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END - 1);
+    prover_polynomials.lagrange_real_last.at(real_last_index) = 1;
     prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
-    for (size_t i = dyadic_circuit_size_without_masking; i < full_circuit_size; i++) {
-        prover_polynomials.lagrange_masking.at(i) = 1;
+    // lagrange_masking is scattered: last NUM_MASKED_ROWS_END rows of each of the 16 blocks
+    for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+        for (size_t k = Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END; k < Flavor::MINI_CIRCUIT_SIZE; k++) {
+            prover_polynomials.lagrange_masking.at(j * Flavor::MINI_CIRCUIT_SIZE + k) = 1;
+        }
+    }
+    // lagrange_masking_adjacent is 1 where lagrange_masking[i]=1 OR lagrange_masking[i+1]=1
+    for (size_t i = 0; i < full_circuit_size; i++) {
+        if (prover_polynomials.lagrange_masking.at(i) == 1 ||
+            (i + 1 < full_circuit_size && prover_polynomials.lagrange_masking.at(i + 1) == 1)) {
+            prover_polynomials.lagrange_masking_adjacent.at(i) = 1;
+        }
     }
 
-    key.compute_interleaved_polynomials();
+    key.compute_concatenated_polynomials();
     key.compute_extra_range_constraint_numerator();
     key.compute_translator_range_constraint_ordered_polynomials();
 
@@ -638,15 +675,35 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
+    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::CONCATENATION_GROUP_SIZE;
     const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::dyadic_circuit_size_without_masking;
+
+    // Reallocate lagrange polynomials to full circuit size for manual testing
+    prover_polynomials.lagrange_first = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_real_last = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_masking = typename Flavor::Polynomial(full_circuit_size);
+    prover_polynomials.lagrange_masking_adjacent = typename Flavor::Polynomial(full_circuit_size);
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
+    // lagrange_real_last is at the last non-masking row of block 15
+    const size_t real_last_index =
+        15 * Flavor::MINI_CIRCUIT_SIZE + (Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END - 1);
+    prover_polynomials.lagrange_real_last.at(real_last_index) = 1;
 
-    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
-        prover_polynomials.lagrange_masking.at(i) = 1;
+    // lagrange_masking is scattered: last NUM_MASKED_ROWS_END rows of each of the 16 blocks
+    for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+        for (size_t k = Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END; k < Flavor::MINI_CIRCUIT_SIZE; k++) {
+            prover_polynomials.lagrange_masking.at(j * Flavor::MINI_CIRCUIT_SIZE + k) = 1;
+        }
+    }
+    // lagrange_masking_adjacent is 1 where lagrange_masking[i]=1 OR lagrange_masking[i+1]=1
+    for (size_t i = 0; i < key.dyadic_circuit_size; i++) {
+        if (prover_polynomials.lagrange_masking.at(i) == 1 ||
+            (i + 1 < key.dyadic_circuit_size && prover_polynomials.lagrange_masking.at(i + 1) == 1)) {
+            prover_polynomials.lagrange_masking_adjacent.at(i) = 1;
+        }
     }
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation

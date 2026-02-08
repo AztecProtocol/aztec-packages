@@ -96,21 +96,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
     }
 
-    // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
-    // where s is the size of the interleaved group assumed even. The prover sends P₊(rˢ) and P₋(rˢ) to the verifier
-    // so it can reconstruct the evaluation of A₀(r) and A₀(-r) respectively
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1282)
-    if (polynomial_batcher.has_interleaved()) {
-        auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
-        Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
-        Fr P_pos_eval = P_pos.evaluate(r_pow);
-        Fr P_neg_eval = P_neg.evaluate(r_pow);
-        claims.emplace_back(Claim{ std::move(P_pos), { r_pow, P_pos_eval } });
-        transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
-        claims.emplace_back(Claim{ std::move(P_neg), { r_pow, P_neg_eval } });
-        transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
-    }
-
     return claims;
 };
 
