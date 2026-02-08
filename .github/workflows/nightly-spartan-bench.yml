@@ -93,6 +93,7 @@ jobs:
           benchmark-data-dir-path: "bench/next"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
