@@ -339,41 +339,54 @@ template <typename Flavor> class SumcheckProverRound {
         // When !HasZK, compute the effective round size to avoid iterating over zero regions
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
-        const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
-        const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (can_skip_rows) {
-            std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
-            parallel_for(num_threads, [&](size_t thread_idx) {
-                ThreadChunk chunk{ .thread_index = thread_idx, .total_threads = num_threads };
-                auto range = chunk.range(effective_round_size);
-                if (range.empty()) {
-                    return;
-                }
-                size_t current_block_size = 0;
-                size_t start = *range.begin();
-                size_t end = start + range.size();
-                std::vector<BlockOfContiguousRows> thread_blocks;
-                for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                    if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
-                        current_block_size += 2;
-                    } else {
-                        if (current_block_size > 0) {
-                            thread_blocks.push_back(BlockOfContiguousRows{
-                                .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
-                            current_block_size = 0;
+            // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range
+            const size_t num_edge_pairs = effective_round_size / 2;
+            // Cost per iteration: skip_entire_row reads across polynomial columns.
+            // Overestimates by using total entity count (skip_entire_row only checks a subset).
+            constexpr size_t heuristic_cost = bb::thread_heuristics::FF_COPY_COST * 2 * Flavor::NUM_ALL_ENTITIES;
+            std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(bb::get_num_cpus());
+            bb::parallel_for_heuristic(
+                num_edge_pairs,
+                [&](ThreadChunk chunk) {
+                    auto range = chunk.range(num_edge_pairs);
+                    if (range.empty()) {
+                        return;
+                    }
+                    // Scan edge pairs to find contiguous runs of non-skippable rows.
+                    // We track the start and size of the current run, emitting a block
+                    // whenever we hit a skippable row or reach the end of the range.
+                    size_t current_block_start = 0;
+                    size_t current_block_size = 0;
+                    std::vector<BlockOfContiguousRows> thread_blocks;
+                    for (size_t pair_idx : range) {
+                        size_t edge_idx = pair_idx * 2;
+                        if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                            // Non-skippable row: begin a new block or extend the current one
+                            if (current_block_size == 0) {
+                                current_block_start = edge_idx;
+                            }
+                            current_block_size += 2; // each pair covers 2 edges
+                        } else {
+                            // Skippable row: flush the current block if one is open
+                            if (current_block_size > 0) {
+                                thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
+                                                                               .size = current_block_size });
+                                current_block_size = 0;
+                            }
                         }
                     }
-                }
-                if (current_block_size > 0) {
-                    thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = end - current_block_size,
-                                                                   .size = current_block_size });
-                }
-                all_thread_blocks[thread_idx] = thread_blocks;
-            });
+                    // Flush any remaining block at the end of the range
+                    if (current_block_size > 0) {
+                        thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
+                                                                       .size = current_block_size });
+                    }
+                    all_thread_blocks[chunk.thread_index] = std::move(thread_blocks);
+                },
+                heuristic_cost);
 
             for (const auto& thread_blocks : all_thread_blocks) {
                 for (const auto block : thread_blocks) {
