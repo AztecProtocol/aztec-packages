@@ -120,7 +120,7 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 const pool = new AztecKVTxPoolV2(txStore, archiveStore, {
   l2BlockSource: archiver,
   worldStateSynchronizer: worldState,
-  pendingTxValidator: validator,
+  createTxValidator: () => validator,
 });
 
 await pool.start();

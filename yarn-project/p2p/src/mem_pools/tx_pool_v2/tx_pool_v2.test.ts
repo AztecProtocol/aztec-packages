@@ -18,13 +18,14 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 // Tx type alias for cleaner type annotations
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
 /** A validator that accepts all transactions. Used in tests that don't need validation. */
-const alwaysValidValidator: TxValidator<Tx> = {
+const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
 };
 
@@ -116,7 +117,7 @@ describe('TxPoolV2', () => {
     pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      pendingTxValidator: alwaysValidValidator,
+      createTxValidator: () => alwaysValidValidator,
     });
     await pool.start();
 
@@ -501,7 +502,7 @@ describe('TxPoolV2', () => {
 
   describe('validator rejection', () => {
     let rejectingPool: AztecKVTxPoolV2;
-    let rejectingValidator: TxValidator<Tx>;
+    let rejectingValidator: TxValidator<TxMetaData>;
     let txsToReject: Set<string>;
     let rejectingStore: Awaited<ReturnType<typeof openTmpStore>>;
     let rejectingArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
@@ -510,9 +511,8 @@ describe('TxPoolV2', () => {
       // Create a validator that rejects specific transactions
       txsToReject = new Set<string>();
       rejectingValidator = {
-        validateTx: (tx: Tx) => {
-          const txHash = tx.getTxHash().toString();
-          if (txsToReject.has(txHash)) {
+        validateTx: (meta: TxMetaData) => {
+          if (txsToReject.has(meta.txHash)) {
             return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
           }
           return Promise.resolve({ result: 'valid' });
@@ -524,7 +524,7 @@ describe('TxPoolV2', () => {
       rejectingPool = new AztecKVTxPoolV2(rejectingStore, rejectingArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: rejectingValidator,
+        createTxValidator: () => rejectingValidator,
       });
       await rejectingPool.start();
     });
@@ -1653,13 +1653,13 @@ describe('TxPoolV2', () => {
   });
 
   describe('validation during restore', () => {
-    let mockValidator: MockProxy<TxValidator<Tx>>;
+    let mockValidator: MockProxy<TxValidator<TxMetaData>>;
     let poolWithValidator: AztecKVTxPoolV2;
     let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
     let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
 
     beforeEach(async () => {
-      mockValidator = mock<TxValidator<Tx>>();
+      mockValidator = mock<TxValidator<TxMetaData>>();
       // Default to valid
       mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
 
@@ -1668,7 +1668,7 @@ describe('TxPoolV2', () => {
       poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: mockValidator,
+        createTxValidator: () => mockValidator,
       });
       await poolWithValidator.start();
     });
@@ -1721,8 +1721,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txValid, txInvalid, txAlsoValid], slot1Header);
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txInvalid.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txInvalid.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['invalid proof'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -1787,8 +1787,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.handleMinedBlock(makeBlock([txValid, txInvalid, txAlsoValid], slot1Header));
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txInvalid.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txInvalid.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['nullifier exists'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -1816,8 +1816,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txProtected], slot1Header);
 
       // Make validator reject the protected tx
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txProtected.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txProtected.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['invalid'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -3492,7 +3492,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool1.start();
 
@@ -3517,7 +3517,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool2.start();
 
@@ -3545,7 +3545,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => alwaysValidValidator,
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -3571,7 +3571,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => alwaysValidValidator,
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -3603,7 +3603,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool1.start();
 
@@ -3620,7 +3620,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool2.start();
 
@@ -3649,7 +3649,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool1.start();
 
@@ -3683,7 +3683,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => alwaysValidValidator,
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -3711,7 +3711,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool1.start();
 
@@ -3724,9 +3724,9 @@ describe('TxPoolV2', () => {
         await pool1.stop();
 
         // Create validator that rejects tx1
-        const selectiveValidator: TxValidator<Tx> = {
-          validateTx: (tx: Tx) => {
-            if (tx.getTxHash().toString() === tx1.getTxHash().toString()) {
+        const selectiveValidator: TxValidator<TxMetaData> = {
+          validateTx: (meta: TxMetaData) => {
+            if (meta.txHash === tx1.getTxHash().toString()) {
               return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
             }
             return Promise.resolve({ result: 'valid' });
@@ -3737,7 +3737,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: selectiveValidator,
+          createTxValidator: () => selectiveValidator,
         });
         await pool2.start();
 
@@ -3762,7 +3762,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool1.start();
 
@@ -3787,7 +3787,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         });
         await pool2.start();
 

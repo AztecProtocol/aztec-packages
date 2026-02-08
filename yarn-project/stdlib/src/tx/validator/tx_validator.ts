@@ -20,7 +20,7 @@ export type TxValidationResult =
   | { result: 'invalid'; reason: string[] }
   | { result: 'skipped'; reason: string[] };
 
-export interface TxValidator<T extends AnyTx = AnyTx> {
+export interface TxValidator<T = AnyTx> {
   validateTx(tx: T): Promise<TxValidationResult>;
 }
 

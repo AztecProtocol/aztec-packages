@@ -72,8 +72,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sendTx"');
   }
 
-  public deleteTxs(_txHashes: TxHash[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "deleteTxs"');
+  public handleFailedExecution(_txHashes: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "handleFailedExecution"');
   }
 
   public getTxByHashFromPool(_txHash: TxHash): Promise<Tx | undefined> {
@@ -158,14 +158,6 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sync"');
   }
 
-  public requestTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "requestTxsByHash"');
-  }
-
-  public getTxs(_filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "getTxs"');
-  }
-
   public getTxsByHashFromPool(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     throw new Error('DummyP2P does not implement "getTxsByHashFromPool"');
   }
@@ -190,8 +182,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
   }
 
-  markTxsAsNonEvictable(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<TxHash[]> {
-    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
+  protectTxs(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<TxHash[]> {
+    throw new Error('DummyP2P does not implement "protectTxs".');
+  }
+
+  prepareForSlot(_slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
   }
 
   addReqRespSubProtocol(

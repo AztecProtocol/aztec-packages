@@ -1,15 +1,24 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import {
-  type AnyTx,
-  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
-  type TxValidationResult,
-  type TxValidator,
-  getTxHash,
-} from '@aztec/stdlib/tx';
+import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
+/** Structural interface for timestamp validation. */
+export interface HasTimestampData {
+  txHash: { toString(): string };
+  data: {
+    includeByTimestamp: bigint;
+    constants: {
+      anchorBlockHeader: {
+        globalVariables: {
+          blockNumber: BlockNumber;
+        };
+      };
+    };
+  };
+}
+
+export class TimestampTxValidator<T extends HasTimestampData> implements TxValidator<T> {
   #log: Logger;
 
   constructor(
@@ -38,11 +47,7 @@ export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${getTxHash(
-          tx,
-        )} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
-          this.values.timestamp
-        }.`,
+        `Rejecting tx ${tx.txHash} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${this.values.timestamp}.`,
       );
       return Promise.resolve({ result: 'invalid', reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP] });
     } else {

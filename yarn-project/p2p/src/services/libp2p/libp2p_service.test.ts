@@ -32,7 +32,7 @@ import {
   MAX_PROPOSALS_PER_SLOT,
 } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../../mem_pools/interface.js';
-import type { TxPool } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { PubSubLibp2p } from '../../util.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
@@ -376,7 +376,7 @@ describe('LibP2PService', () => {
 
   describe('processBlockFromPeer', () => {
     let attestationPool: AttestationPool;
-    let mockTxPool: MockProxy<TxPool>;
+    let mockTxPool: MockProxy<TxPoolV2>;
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let signer: Secp256k1Signer;
     let blockReceivedCallback: jest.Mock;
@@ -388,8 +388,8 @@ describe('LibP2PService', () => {
     beforeEach(() => {
       signer = Secp256k1Signer.random();
       attestationPool = new AttestationPool(openTmpStore(true));
-      mockTxPool = mock<TxPool>();
-      mockTxPool.markTxsAsNonEvictable.mockResolvedValue();
+      mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
@@ -429,7 +429,7 @@ describe('LibP2PService', () => {
       expect(blockReceivedCallback).toHaveBeenCalledWith(expect.any(Object), mockPeerId);
 
       // Verify txs were marked as non-evictable
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
 
       // Verify message was accepted
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
@@ -614,7 +614,7 @@ describe('LibP2PService', () => {
 
   describe('handleGossipedCheckpointProposal', () => {
     let attestationPool: AttestationPool;
-    let mockTxPool: MockProxy<TxPool>;
+    let mockTxPool: MockProxy<TxPoolV2>;
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let signer: Secp256k1Signer;
     let blockReceivedCallback: jest.Mock;
@@ -627,8 +627,8 @@ describe('LibP2PService', () => {
     beforeEach(() => {
       signer = Secp256k1Signer.random();
       attestationPool = new AttestationPool(openTmpStore(true));
-      mockTxPool = mock<TxPool>();
-      mockTxPool.markTxsAsNonEvictable.mockResolvedValue();
+      mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
@@ -731,7 +731,7 @@ describe('LibP2PService', () => {
       expect(checkpointReceivedCallback).toHaveBeenCalledTimes(1);
 
       // Verify txs were marked as non-evictable (for the lastBlock)
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
 
       // Verify both were stored in attestation pool
       const storedCheckpoint = await attestationPool.getCheckpointProposal(proposal.archive.toString());
@@ -761,7 +761,7 @@ describe('LibP2PService', () => {
       blockReceivedCallback.mockClear();
       checkpointReceivedCallback.mockClear();
       reportMessageValidationResultSpy.mockClear();
-      mockTxPool.markTxsAsNonEvictable.mockClear();
+      mockTxPool.protectTxs.mockClear();
       mockPeerManager.penalizePeer.mockClear();
 
       // Create checkpoint with lastBlock that would exceed the cap
@@ -796,7 +796,7 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
 
       // Txs were marked as non-evictable since the block was processed
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalled();
+      expect(mockTxPool.protectTxs).toHaveBeenCalled();
     });
 
     it('checkpoint rejected when lastBlock is equivocated', async () => {
@@ -872,7 +872,7 @@ interface CreateTestLibP2PServiceOptions {
   node: MockProxy<PubSubLibp2p>;
   archiver?: MockProxy<L2BlockSource & ContractDataSource>;
   attestationPool?: AttestationPool;
-  txPool?: MockProxy<TxPool>;
+  txPool?: MockProxy<TxPoolV2>;
   epochCache?: MockProxy<EpochCacheInterface>;
 }
 
@@ -999,7 +999,7 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     node,
     archiver = mock<L2BlockSource & ContractDataSource>(),
     attestationPool = new AttestationPool(openTmpStore(true)),
-    txPool = mock<TxPool>(),
+    txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
   } = options;
 
@@ -1018,7 +1018,7 @@ function createTestLibP2PServiceWithPools(
   mockPeerManager: MockProxy<PeerManagerInterface>,
   reportMessageValidationResultSpy: jest.Mock,
   attestationPool: AttestationPool,
-  mockTxPool: MockProxy<TxPool>,
+  mockTxPool: MockProxy<TxPoolV2>,
   mockEpochCache: MockProxy<EpochCacheInterface>,
 ): TestLibP2PService {
   const mockNode = mock<PubSubLibp2p>();

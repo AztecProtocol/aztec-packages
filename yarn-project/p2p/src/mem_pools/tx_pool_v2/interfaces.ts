@@ -55,8 +55,8 @@ export type TxPoolV2Dependencies = {
   l2BlockSource: L2BlockSource;
   /** World state synchronizer for validating transactions after chain prunes */
   worldStateSynchronizer: WorldStateSynchronizer;
-  /** Validator for transactions entering the pending pool */
-  pendingTxValidator: TxValidator<Tx>;
+  /** Factory that creates a validator for re-validating pool transactions using metadata */
+  createTxValidator: () => TxValidator<TxMetaData>;
 };
 
 /**

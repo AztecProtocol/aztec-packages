@@ -1,6 +1,12 @@
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { type TxMetaData, buildTxMetaData, checkNullifierConflict, comparePriority } from './tx_metadata.js';
+import {
+  type TxMetaData,
+  buildTxMetaData,
+  checkNullifierConflict,
+  comparePriority,
+  stubTxMetaValidationData,
+} from './tx_metadata.js';
 
 describe('TxMetaData', () => {
   describe('buildTxMetaData', () => {
@@ -41,6 +47,7 @@ describe('TxMetaData', () => {
       feeLimit: 1000n,
       nullifiers: [],
       includeByTimestamp: 0n,
+      data: stubTxMetaValidationData(),
     });
 
     it('returns negative when first has lower priority fee', () => {
@@ -72,6 +79,7 @@ describe('TxMetaData', () => {
       feeLimit: 1000n,
       nullifiers,
       includeByTimestamp: 0n,
+      data: stubTxMetaValidationData(),
     });
 
     it('returns no conflict when nullifiers do not overlap', () => {
