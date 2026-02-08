@@ -1,14 +1,13 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -20,14 +19,12 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
-import type { EpochProvingJobData } from './epoch-proving-job-data.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
   // Dependencies
   let prover: MockProxy<EpochProver>;
   let publisher: MockProxy<ProverNodePublisher>;
-  let l2BlockSource: MockProxy<L2BlockSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
   let metrics: ProverNodeJobMetrics;
@@ -56,32 +53,34 @@ describe('epoch-proving-job', () => {
   // Subject factory
   const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number; skipSubmitProof?: boolean } = {}) => {
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    const l1ToL2Messages: Record<number, never[]> = fromEntries(checkpoints.map(c => [c.number, []]));
 
-    const data: EpochProvingJobData = {
-      checkpoints,
-      txs: txsMap,
-      epochNumber: EpochNumber(epochNumber),
-      l1ToL2Messages: fromEntries(checkpoints.map(c => [c.number, []])),
-      previousBlockHeader: initialHeader,
-      attestations,
-    };
-    return new EpochProvingJob(
-      data,
+    const job = new EpochProvingJob(
+      EpochNumber(epochNumber),
       worldState,
       prover,
       publicProcessorFactory,
       publisher,
-      l2BlockSource,
       metrics,
       opts.deadline,
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
     );
+
+    // Push checkpoints and mark epoch complete.
+    const lastBlocks = checkpoints.map(checkpoint => checkpoint.blocks.at(-1)!);
+    const previousBlockHeaders = [initialHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
+    for (let i = 0; i < checkpoints.length; i++) {
+      const checkpoint = checkpoints[i];
+      job.addCheckpoint(checkpoint, l1ToL2Messages[checkpoint.number] ?? [], previousBlockHeaders[i], txsMap);
+    }
+    job.setEpochComplete(attestations);
+
+    return job;
   };
 
   beforeEach(async () => {
     prover = mock<EpochProver>();
     publisher = mock<ProverNodePublisher>();
-    l2BlockSource = mock<L2BlockSource>();
     worldState = mock<WorldStateSynchronizer>();
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
@@ -114,14 +113,6 @@ describe('epoch-proving-job', () => {
     const txHashes = checkpoints.map(c => c.blocks.map(b => b.body.txEffects.map(tx => tx.txHash))).flat(2);
     txs = txHashes.map(txHash => ({ txHash, getTxHash: () => txHash }) as Tx);
 
-    l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
-    l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
-    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(
-      checkpoints.map(c => c.blocks.map(b => b.header)).flat(),
-    );
-    l2BlockSource.getCheckpoints.mockResolvedValue([
-      { checkpoint: checkpoints.at(-1)!, attestations } as PublishedCheckpoint,
-    ]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
@@ -217,16 +208,107 @@ describe('epoch-proving-job', () => {
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 
-  it('halts if a new block for the epoch is found', async () => {
-    const newHeaders = times(NUM_BLOCKS + 1, i => BlockHeader.random({ blockNumber: BlockNumber(i + 1) }));
-    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(newHeaders);
+  it('processes checkpoints pushed after run starts', async () => {
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    const l1ToL2Messages: Record<number, never[]> = fromEntries(checkpoints.map(c => [c.number, []]));
 
-    const job = createJob();
-    await job.run();
+    const job = new EpochProvingJob(
+      EpochNumber(epochNumber),
+      worldState,
+      prover,
+      publicProcessorFactory,
+      publisher,
+      metrics,
+      undefined, // deadline
+      { parallelBlockLimit: 32 },
+    );
 
-    expect(job.getState()).toEqual('reorg');
+    // Start run() — it calls startNewEpoch() then blocks on epochCompleteResolver.
+    const runPromise = job.run();
+
+    // Give run() a tick to execute past startNewEpoch() and hit the await.
+    await sleep(10);
+
+    // Push checkpoints while run() is waiting on epochCompleteResolver.
+    const lastBlocks = checkpoints.map(checkpoint => checkpoint.blocks.at(-1)!);
+    const previousBlockHeaders = [initialHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
+    for (let i = 0; i < checkpoints.length; i++) {
+      const checkpoint = checkpoints[i];
+      job.addCheckpoint(checkpoint, l1ToL2Messages[checkpoint.number] ?? [], previousBlockHeaders[i], txsMap);
+    }
+
+    // Signal epoch complete — unblocks run()'s first await.
+    job.setEpochComplete(attestations);
+
+    // run() now waits for Promise.all(checkpointProcessingPromises), then finalizes.
+    await runPromise;
+
+    expect(job.getState()).toEqual('completed');
+    // Verify startNewEpoch was called (happens in run() before waiting).
+    expect(prover.startNewEpoch).toHaveBeenCalled();
+    // Verify all checkpoints were processed.
+    expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(NUM_CHECKPOINTS);
+    expect(publisher.submitEpochProof).toHaveBeenCalled();
+  });
+
+  it('waits for slow checkpoint processing after epoch marked complete', async () => {
+    // Make block processing slow so checkpoints take time to finish.
+    prover.startNewBlock.mockImplementation(() => sleep(500));
+
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    const l1ToL2Messages: Record<number, never[]> = fromEntries(checkpoints.map(c => [c.number, []]));
+
+    const job = new EpochProvingJob(
+      EpochNumber(epochNumber),
+      worldState,
+      prover,
+      publicProcessorFactory,
+      publisher,
+      metrics,
+      undefined,
+      { parallelBlockLimit: 32 },
+    );
+
+    const runPromise = job.run();
+    await sleep(10);
+
+    // Push one checkpoint — starts slow processing.
+    const lastBlocks = checkpoints.map(checkpoint => checkpoint.blocks.at(-1)!);
+    const previousBlockHeaders = [initialHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
+    job.addCheckpoint(checkpoints[0], l1ToL2Messages[checkpoints[0].number] ?? [], previousBlockHeaders[0], txsMap);
+
+    // Epoch complete signal arrives while checkpoint is still processing.
+    job.setEpochComplete(attestations);
+
+    // run() should NOT finalize until checkpoint processing completes.
+    await runPromise;
+
+    expect(job.getState()).toEqual('completed');
+    expect(prover.finalizeEpoch).toHaveBeenCalled();
+    expect(publisher.submitEpochProof).toHaveBeenCalled();
+  });
+
+  it('stops gracefully when waiting for epoch completion', async () => {
+    const job = new EpochProvingJob(
+      EpochNumber(epochNumber),
+      worldState,
+      prover,
+      publicProcessorFactory,
+      publisher,
+      metrics,
+      undefined,
+      { parallelBlockLimit: 32 },
+    );
+
+    // run() blocks on epochCompleteResolver.
+    void job.run();
+    await sleep(50);
+
+    // stop() resolves epochCompleteResolver to unblock run().
+    await job.stop();
+
+    expect(job.getState()).toEqual('stopped');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
-    expect(prover.cancel).toHaveBeenCalled();
   });
 
   it('skips publishing when skipSubmitProof is enabled', async () => {

@@ -54,7 +54,8 @@ describe('prover/orchestrator/failures', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1));
+      await orchestrator.setEpochStructure(1, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];

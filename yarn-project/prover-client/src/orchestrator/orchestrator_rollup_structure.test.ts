@@ -122,7 +122,8 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1) /* epochNumber */, numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1) /* epochNumber */);
+      await context.orchestrator.setEpochStructure(numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
@@ -198,7 +199,8 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
+      await context.orchestrator.setEpochStructure(1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex

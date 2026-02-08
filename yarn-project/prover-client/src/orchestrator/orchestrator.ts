@@ -129,11 +129,7 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  public startNewEpoch(
-    epochNumber: EpochNumber,
-    totalNumCheckpoints: number,
-    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-  ) {
+  public startNewEpoch(epochNumber: EpochNumber) {
     if (this.provingState?.verifyState()) {
       throw new Error(
         `Cannot start epoch ${epochNumber} when epoch ${this.provingState.epochNumber} is still being processed.`,
@@ -142,16 +138,40 @@ export class ProvingOrchestrator implements EpochProver {
 
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
-    this.logger.info(`Starting epoch ${epochNumber} with ${totalNumCheckpoints} checkpoints.`);
+    this.logger.info(`Starting epoch ${epochNumber}. Block-level proving can begin immediately.`);
     this.provingState = new EpochProvingState(
       epochNumber,
-      totalNumCheckpoints,
-      finalBlobBatchingChallenges,
       provingState => this.checkAndEnqueueCheckpointRootRollup(provingState),
       resolve,
       reject,
     );
     this.provingPromise = promise;
+  }
+
+  public async setEpochStructure(
+    totalNumCheckpoints: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ) {
+    if (!this.provingState) {
+      throw new Error('Empty epoch proving state. Call startNewEpoch before setting epoch structure.');
+    }
+
+    this.logger.info(
+      `Setting epoch ${this.provingState.epochNumber} structure with ${totalNumCheckpoints} checkpoints.`,
+    );
+    this.provingState.setStructure(totalNumCheckpoints, finalBlobBatchingChallenges);
+
+    // Update blob batching challenges on all existing checkpoints.
+    for (let i = 0; i < totalNumCheckpoints; i++) {
+      const checkpoint = this.provingState.getCheckpointProvingState(i);
+      if (checkpoint) {
+        checkpoint.setFinalBlobBatchingChallenges(finalBlobBatchingChallenges);
+      }
+    }
+
+    // Re-trigger accumulation for all completed checkpoints.
+    await this.provingState.accumulateCheckpointOutHashes();
+    await this.provingState.setBlobAccumulators();
   }
 
   /**

@@ -35,7 +35,8 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
         logger.info(`Starting new epoch with ${numCheckpoints} checkpoints`);
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1));
+        await context.orchestrator.setEpochStructure(numCheckpoints, finalBlobChallenges);
 
         for (let i = 0; i < checkpoints.length; i++) {
           const {
@@ -90,7 +91,8 @@ describe('prover/orchestrator/multi-checkpoints', () => {
           const epochNumber = epochIndex + 1;
           const { checkpoints, finalBlobChallenges } = epochs[epochIndex];
           logger.info(`Starting epoch ${epochNumber} with ${checkpoints.length} checkpoints`);
-          context.orchestrator.startNewEpoch(EpochNumber(epochNumber), checkpoints.length, finalBlobChallenges);
+          context.orchestrator.startNewEpoch(EpochNumber(epochNumber));
+          await context.orchestrator.setEpochStructure(checkpoints.length, finalBlobChallenges);
 
           for (let i = 0; i < checkpoints.length; i++) {
             const {

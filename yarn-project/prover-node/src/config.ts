@@ -47,6 +47,8 @@ export type SpecificProverNodeConfig = {
   proverNodeFailedEpochStore: string | undefined;
   proverNodeEpochProvingDelayMs: number | undefined;
   proverNodeDisableProofPublish?: boolean;
+  /** Enable optimistic proving: start block-level proving during epoch instead of waiting for completion. */
+  proverNodeOptimisticProcessing: boolean;
   txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
@@ -102,6 +104,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
     description: 'Whether the prover node skips publishing proofs to L1',
     ...booleanConfigHelper(false),
+  },
+  proverNodeOptimisticProcessing: {
+    env: 'PROVER_NODE_OPTIMISTIC_PROCESSING',
+    description: 'Enable optimistic proving: start block-level proving during epoch instead of waiting for completion',
+    ...booleanConfigHelper(true),
   },
 };
 

@@ -68,7 +68,7 @@ export class CheckpointProvingState {
     public readonly index: number,
     public readonly constants: CheckpointConstantData,
     public readonly totalNumBlocks: number,
-    private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+    private finalBlobBatchingChallenges: FinalBlobBatchingChallenges | undefined,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly l1ToL2Messages: Fr[],
@@ -89,6 +89,11 @@ export class CheckpointProvingState {
   ) {
     this.blockProofs = new UnbalancedTreeStore(totalNumBlocks);
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
+  }
+
+  /** Sets the final blob batching challenges. Called when epoch structure is known. */
+  public setFinalBlobBatchingChallenges(challenges: FinalBlobBatchingChallenges) {
+    this.finalBlobBatchingChallenges = challenges;
   }
 
   public get epochNumber(): number {
@@ -282,6 +287,9 @@ export class CheckpointProvingState {
     }
     if (!this.startBlobAccumulator) {
       throw new Error('Start blob accumulator is not set.');
+    }
+    if (!this.finalBlobBatchingChallenges) {
+      throw new Error('Final blob batching challenges are not set.');
     }
 
     // `blobFields` must've been set if `startBlobAccumulator` is set (in `accumulateBlobs`).

@@ -34,7 +34,8 @@ describe('prover/orchestrator/single-checkpoint', () => {
     });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(EpochNumber(1));
+    await context.orchestrator.setEpochStructure(numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex
@@ -80,7 +81,8 @@ describe('prover/orchestrator/single-checkpoint', () => {
     });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(EpochNumber(1));
+    await context.orchestrator.setEpochStructure(numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex

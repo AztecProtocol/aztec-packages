@@ -739,6 +739,7 @@ export function createAndSyncProverNode(
       proverNodeFailedEpochStore: undefined,
       proverId: EthAddress.fromNumber(1),
       proverNodeEpochProvingDelayMs: undefined,
+      proverNodeOptimisticProcessing: true,
       ...proverNodeConfig,
     };
 

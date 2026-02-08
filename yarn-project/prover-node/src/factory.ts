@@ -29,7 +29,6 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 import { createPublicClient, fallback, http } from 'viem';
 
 import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
-import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNode } from './prover-node.js';
 import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
@@ -195,17 +194,12 @@ export async function createProverNode(
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
       'proverNodeDisableProofPublish',
+      'proverNodeOptimisticProcessing',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',
     ),
   };
-
-  const epochMonitor = await EpochMonitor.create(
-    archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
-    telemetry,
-  );
 
   const l1Metrics = new L1Metrics(
     telemetry.getMeter('ProverNodeL1Metrics'),
@@ -221,7 +215,6 @@ export async function createProverNode(
     archiver,
     worldStateSynchronizer,
     p2pClient,
-    epochMonitor,
     rollupContract,
     l1Metrics,
     proverNodeConfig,

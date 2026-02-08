@@ -14,16 +14,22 @@ import type { IBlockFactory } from './block-builder.js';
 /** Coordinates the proving of an entire epoch. */
 export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | 'startNewBlock'> {
   /**
-   * Starts a new epoch. Must be the first method to be called.
+   * Starts a new epoch. Block-level proving can begin immediately after this call.
+   * Call setEpochStructure() once the epoch is complete to unblock checkpoint root rollups.
    * @param epochNumber - The epoch number.
-   * @param totalNumCheckpoints - The total number of checkpoints expected in the epoch (must be at least one).
-   * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
    **/
-  startNewEpoch(
-    epochNumber: EpochNumber,
+  startNewEpoch(epochNumber: EpochNumber): void;
+
+  /**
+   * Sets epoch structure once the epoch is complete. Must be called before finalizeEpoch().
+   * Unblocks checkpoint root rollups and above.
+   * @param totalNumCheckpoints - The total number of checkpoints in the epoch.
+   * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
+   */
+  setEpochStructure(
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-  ): void;
+  ): Promise<void>;
 
   /**
    * Starts a new checkpoint.

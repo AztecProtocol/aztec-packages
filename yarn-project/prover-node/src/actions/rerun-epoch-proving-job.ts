@@ -34,7 +34,6 @@ export async function rerunEpochProvingJob(
   const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };
-  const l2BlockSourceForReorgDetection = undefined;
   const deadline = undefined;
 
   // This starts a local proving broker that does not get exposed as a service. This should be good enough for
@@ -44,17 +43,30 @@ export async function rerunEpochProvingJob(
   const prover = await createProverClient(config, worldState, broker, telemetry);
 
   const provingJob = new EpochProvingJob(
-    jobData,
+    jobData.epochNumber,
     worldState,
     prover.createEpochProver(),
     publicProcessorFactory,
     publisher,
-    l2BlockSourceForReorgDetection,
     metrics,
     deadline,
-    { skipEpochCheck: true },
+    {},
     log.getBindings(),
   );
+
+  // Push all checkpoints and mark epoch complete.
+  const lastBlocks = jobData.checkpoints.map(checkpoint => checkpoint.blocks.at(-1)!);
+  const previousBlockHeaders = [jobData.previousBlockHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
+  for (let i = 0; i < jobData.checkpoints.length; i++) {
+    const checkpoint = jobData.checkpoints[i];
+    provingJob.addCheckpoint(
+      checkpoint,
+      jobData.l1ToL2Messages[checkpoint.number] ?? [],
+      previousBlockHeaders[i],
+      jobData.txs,
+    );
+  }
+  provingJob.setEpochComplete(jobData.attestations);
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
   await provingJob.run();
