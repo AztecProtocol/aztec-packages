@@ -95,7 +95,7 @@ export async function createReadOnlyFileStoreBlobClients(
         clients.push(client);
       }
     } catch (err) {
-      log.error(`Failed to create read-only filestore blob client for ${storeUrl}`, err);
+      log.error('Failed to create read-only filestore blob client for %s', storeUrl, err);
     }
   }
 
@@ -137,7 +137,7 @@ export async function createWritableFileStoreBlobClient(
 
   const store: FileStore | undefined = await createFileStore(storeUrl, log);
   if (!store) {
-    log.warn(`Failed to create writable filestore for ${storeUrl}`);
+    log.warn('Failed to create writable filestore for %s', storeUrl);
     return undefined;
   }
 

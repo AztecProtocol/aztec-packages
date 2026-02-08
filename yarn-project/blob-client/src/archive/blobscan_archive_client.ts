@@ -90,7 +90,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     url.searchParams.set('p', '1');
     url.searchParams.set('ps', '1');
 
-    this.logger.trace(`Fetching latest block from ${url.href}`);
+    this.logger.trace('Fetching latest block from %s', url.href);
     const response = await this.fetch(url, this.fetchOpts);
 
     if (response.status !== 200) {
@@ -121,13 +121,13 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     url.searchParams.set('type', 'canonical');
     url.searchParams.set('expand', 'blob,blob_data');
 
-    this.logger.trace(`Fetching blobs for block ${blockId} from ${url.href}`);
+    this.logger.trace('Fetching blobs for block %s from %s', blockId, url.href);
     const response = await this.fetch(url, this.fetchOpts);
 
     this.instrumentation.incRequest('blocks', response.status);
 
     if (response.status === 404) {
-      this.logger.debug(`No blobs found for block ${blockId} at ${this.baseUrl}`);
+      this.logger.debug('No blobs found for block %s at %s', blockId, this.baseUrl);
       return undefined;
     } else if (response.status !== 200) {
       throw new Error(`Failed to fetch blobs for block ${blockId}: ${response.statusText} (${response.status})`, {
@@ -140,7 +140,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
       });
     } else {
       const result = await response.json().then((data: any) => BlobscanBlockResponseSchema.parse(data));
-      this.logger.debug(`Fetched ${result.length} blobs for block ${blockId} from ${this.baseUrl}`);
+      this.logger.debug('Fetched %s blobs for block %s from %s', result.length, blockId, this.baseUrl);
       this.instrumentation.incRetrievedBlobs(result.length);
       return result;
     }

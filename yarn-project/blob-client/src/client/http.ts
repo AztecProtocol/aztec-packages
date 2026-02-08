@@ -69,7 +69,7 @@ export class HttpBlobClient implements BlobClientInterface {
     }
 
     void this.fileStoreUploadClient.saveBlobs(blobs, true).catch(err => {
-      this.log.warn(`Failed to upload ${blobs.length} blobs to filestore`, err);
+      this.log.warn('Failed to upload %s blobs to filestore', blobs.length, err);
     });
   }
 
@@ -81,7 +81,7 @@ export class HttpBlobClient implements BlobClientInterface {
    */
   public setDisabled(value: boolean): void {
     this.disabled = value;
-    this.log.info(`Blob storage ${value ? 'disabled' : 'enabled'}`);
+    this.log.info('Blob storage %s', value ? 'disabled' : 'enabled');
   }
 
   public async testSources() {
@@ -105,7 +105,7 @@ export class HttpBlobClient implements BlobClientInterface {
             this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
             successfulSourceCount++;
           } else {
-            this.log.error(`Failure reaching L1 consensus host: ${res.statusText} (${res.status})`, {
+            this.log.error('Failure reaching L1 consensus host: %s (%s)', res.statusText, res.status, {
               l1ConsensusHostUrl,
             });
           }
@@ -120,7 +120,7 @@ export class HttpBlobClient implements BlobClientInterface {
     if (this.archiveClient) {
       try {
         const latest = await this.archiveClient.getLatestBlock();
-        this.log.info(`Archive client is reachable and synced to L1 block ${latest.number}`, { latest, archiveUrl });
+        this.log.info('Archive client is reachable and synced to L1 block %s', latest.number, { latest, archiveUrl });
         successfulSourceCount++;
       } catch (err) {
         this.log.error(`Error reaching archive client`, err, { archiveUrl });
@@ -165,7 +165,7 @@ export class HttpBlobClient implements BlobClientInterface {
       return false;
     }
 
-    this.log.verbose(`Uploading ${blobs.length} blobs to filestore`);
+    this.log.verbose('Uploading %s blobs to filestore', blobs.length);
     try {
       await this.fileStoreUploadClient.saveBlobs(blobs, true);
       return true;
@@ -252,7 +252,7 @@ export class HttpBlobClient implements BlobClientInterface {
       const consensusCtx = { l1ConsensusHostUrls, ...ctx };
       this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
       const slotNumber = await this.getSlotNumber(blockHash);
-      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, consensusCtx);
+      this.log.debug('Got slot number %s from consensus host for querying blobs', slotNumber, consensusCtx);
 
       if (slotNumber) {
         let l1ConsensusHostUrl: string;
@@ -263,7 +263,7 @@ export class HttpBlobClient implements BlobClientInterface {
           }
 
           l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
-          this.log.trace(`Attempting to get ${missingHashes.length} blobs from consensus host`, {
+          this.log.trace('Attempting to get %s blobs from consensus host', missingHashes.length, {
             slotNumber,
             l1ConsensusHostUrl,
             ...ctx,
@@ -306,12 +306,12 @@ export class HttpBlobClient implements BlobClientInterface {
     const missingAfterConsensus = getMissingBlobHashes();
     if (missingAfterConsensus.length > 0 && this.archiveClient) {
       const archiveCtx = { archiveUrl: this.archiveClient.getBaseUrl(), ...ctx };
-      this.log.trace(`Attempting to get ${missingAfterConsensus.length} blobs from archive`, archiveCtx);
+      this.log.trace('Attempting to get %s blobs from archive', missingAfterConsensus.length, archiveCtx);
       const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
       if (!allBlobs) {
         this.log.debug('No blobs found from archive client', archiveCtx);
       } else {
-        this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
+        this.log.trace('Got %s blobs from archive client before filtering', allBlobs.length, archiveCtx);
         const result = fillResults(allBlobs);
         this.log.debug(
           `Got ${allBlobs.length} blobs from archive client (total: ${result.length}/${blobHashes.length})`,
@@ -360,7 +360,7 @@ export class HttpBlobClient implements BlobClientInterface {
 
       try {
         const blobHashStrings = blobHashes.map(h => `0x${h.toString('hex')}`);
-        this.log.trace(`Attempting to get ${blobHashStrings.length} blobs from filestore`, {
+        this.log.trace('Attempting to get %s blobs from filestore', blobHashStrings.length, {
           url: client.getBaseUrl(),
           ...ctx,
         });
@@ -376,7 +376,7 @@ export class HttpBlobClient implements BlobClientInterface {
           );
         }
       } catch (err) {
-        this.log.warn(`Failed to fetch from filestore: ${err}`, { url: client.getBaseUrl() });
+        this.log.warn('Failed to fetch from filestore: %s', err, { url: client.getBaseUrl() });
       }
     }
   }
@@ -404,7 +404,7 @@ export class HttpBlobClient implements BlobClientInterface {
 
       if (res.status === 404 && typeof blockHashOrSlot === 'number') {
         const latestSlot = await this.getLatestSlotNumber(hostUrl, l1ConsensusHostIndex);
-        this.log.debug(`Requested L1 slot ${blockHashOrSlot} not found, trying out slots up to ${latestSlot}`, {
+        this.log.debug('Requested L1 slot %s not found, trying out slots up to %s', blockHashOrSlot, latestSlot, {
           hostUrl,
           status: res.status,
           statusText: res.statusText,
@@ -413,7 +413,7 @@ export class HttpBlobClient implements BlobClientInterface {
         let maxRetries = 10;
         let currentSlot = blockHashOrSlot + 1;
         while (res.status === 404 && maxRetries > 0 && latestSlot !== undefined && currentSlot <= latestSlot) {
-          this.log.debug(`Trying slot ${currentSlot}`);
+          this.log.debug('Trying slot %s', currentSlot);
           res = await this.fetchBlobSidecars(hostUrl, currentSlot, l1ConsensusHostIndex);
           if (res.ok) {
             return parseBlobJsonsFromResponse(await res.json(), this.log);
@@ -423,14 +423,14 @@ export class HttpBlobClient implements BlobClientInterface {
         }
       }
 
-      this.log.warn(`Unable to get blob sidecar for ${blockHashOrSlot}: ${res.statusText} (${res.status})`, {
+      this.log.warn('Unable to get blob sidecar for %s: %s (%s)', blockHashOrSlot, res.statusText, res.status, {
         status: res.status,
         statusText: res.statusText,
         body: await res.text().catch(() => 'Failed to read response body'),
       });
       return [];
     } catch (error: any) {
-      this.log.warn(`Error getting blob sidecar from ${hostUrl}: ${error.message ?? error}`);
+      this.log.warn('Error getting blob sidecar from %s: %s', hostUrl, error.message ?? error);
       return [];
     }
   }
@@ -443,7 +443,7 @@ export class HttpBlobClient implements BlobClientInterface {
     const baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
 
     const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
-    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
+    this.log.debug('Fetching blob sidecar for %s', blockHashOrSlot, { url, ...options });
     return this.fetch(url, options);
   }
 
@@ -457,13 +457,13 @@ export class HttpBlobClient implements BlobClientInterface {
         const body = await res.json();
         const slot = parseInt(body.data.header.message.slot);
         if (Number.isNaN(slot)) {
-          this.log.error(`Failed to parse slot number from response from ${hostUrl}`, { body });
+          this.log.error('Failed to parse slot number from response from %s', hostUrl, { body });
           return undefined;
         }
         return slot;
       }
     } catch (err) {
-      this.log.error(`Error getting latest slot number from ${hostUrl}`, err);
+      this.log.error('Error getting latest slot number from %s', hostUrl, err);
       return undefined;
     }
   }
@@ -513,7 +513,7 @@ export class HttpBlobClient implements BlobClientInterface {
     }
 
     if (!parentBeaconBlockRoot) {
-      this.log.error(`No parent beacon block root found for block ${blockHash}`);
+      this.log.error('No parent beacon block root found for block %s', blockHash);
       return undefined;
     }
 
