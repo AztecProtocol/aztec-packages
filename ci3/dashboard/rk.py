@@ -140,9 +140,9 @@ def root() -> str:
         f"\n"
         f"Benchmarks:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=master', 'master')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=staging', 'staging')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=next', 'next')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=master', 'master')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
     )
