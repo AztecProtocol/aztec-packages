@@ -73,6 +73,66 @@ describe('pino-logger', () => {
     expect(logEntry.level).toBe(30); // info level
   });
 
+  it('supports pino-style format strings with %s substitution', () => {
+    const testLogger = createLogger('format-test');
+    capturingStream.clear();
+
+    testLogger.info('Hello %s', 'world');
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      module: 'format-test',
+      msg: 'Hello world',
+    });
+  });
+
+  it('supports multiple format arguments', () => {
+    const testLogger = createLogger('multi-format-test');
+    capturingStream.clear();
+
+    testLogger.info('User %s logged in from %s', 'alice', '192.168.1.1');
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      module: 'multi-format-test',
+      msg: 'User alice logged in from 192.168.1.1',
+    });
+  });
+
+  it('supports format strings with data object', () => {
+    const testLogger = createLogger('format-data-test');
+    capturingStream.clear();
+
+    testLogger.info('Processing block %s', 42, { txCount: 10 });
+
+    const entries = capturingStream.getJsonLines() as any[];
+    expect(entries).toHaveLength(1);
+    expect(entries[0].module).toBe('format-data-test');
+    expect(entries[0].msg).toBe('Processing block 42');
+    expect(entries[0].txCount).toBe(10);
+  });
+
+  it('handles format strings at different log levels', () => {
+    const testLogger = createLogger('level-format-test');
+    capturingStream.clear();
+
+    testLogger.debug('Debug %s', 'message');
+    testLogger.verbose('Verbose %s', 'message');
+    testLogger.trace('Trace %s', 'message');
+    testLogger.warn('Warn %s', 'message');
+
+    const entries = capturingStream.getJsonLines() as any[];
+    expect(entries).toHaveLength(4);
+    expect(entries.map(e => e.msg)).toEqual([
+      'Debug message',
+      'Verbose message',
+      'Trace message',
+      'Warn message',
+    ]);
+  });
+
   it('logs at different levels', () => {
     const testLogger = createLogger('level-test');
     capturingStream.clear();
