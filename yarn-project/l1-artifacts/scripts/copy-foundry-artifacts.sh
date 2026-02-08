@@ -24,6 +24,9 @@ mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
 cp -p "$src"/{foundry.toml,foundry.lock,solc-*} "l1-contracts/"
+# Copy the forge broadcast wrapper script (used by yarn-project for deployments)
+mkdir -p "l1-contracts/scripts"
+cp -p "$src/scripts/forge_broadcast.ts" "l1-contracts/scripts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib
 (cd "$src" && find lib \( -name "*.sol" -o -name "remappings.txt" -o -name "foundry.toml" \) -exec cp --parents -t "$abs_dest" {} +)

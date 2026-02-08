@@ -5,10 +5,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Batch size of 8 prevents forge from hanging during broadcast (forge bug with large RPC batches).
-MAGIC_BATCH_SIZE=8
-# Timeout ensures forge fails instead of hanging forever. Default 50s for local/testnet deployments.
-FORGE_BROADCAST_TIMEOUT="${FORGE_BROADCAST_TIMEOUT:-50}"
+# Timeout for local/testnet deployments.
+export FORGE_BROADCAST_TIMEOUT="${FORGE_BROADCAST_TIMEOUT:-50}"
 
 echo "=== Loading devnet defaults ==="
 source ./scripts/load_network_defaults.sh devnet
@@ -22,21 +20,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "=== Starting anvil ==="
-anvil &
+# Clean stale broadcast artifacts from previous runs to avoid nonce conflicts.
+rm -rf broadcast/
+
+# Use a random port to avoid conflicts with other anvil instances.
+ANVIL_PORT="${ANVIL_PORT:-$(shuf -i 10000-60000 -n 1)}"
+
+echo "=== Starting anvil on port $ANVIL_PORT ==="
+anvil --port "$ANVIL_PORT" &
 anvil_pid=$!
 sleep 2
 
-export L1_RPC_URL="http://127.0.0.1:8545"
+export L1_RPC_URL="http://127.0.0.1:$ANVIL_PORT"
 export ROLLUP_DEPLOYMENT_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 echo "=== Deploying initial L1 contracts ==="
-forge script script/deploy/DeployAztecL1Contracts.s.sol:DeployAztecL1Contracts \
+./scripts/forge_broadcast.ts \
+  script/deploy/DeployAztecL1Contracts.s.sol:DeployAztecL1Contracts \
   --rpc-url "$L1_RPC_URL" \
   --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
-  --broadcast \
-  --batch-size "$MAGIC_BATCH_SIZE" \
-  --timeout "$FORGE_BROADCAST_TIMEOUT" \
   --json > /tmp/initial_deploy.jsonl
 
 deploy_json=$(head -1 /tmp/initial_deploy.jsonl | jq -r '.logs[0]' | sed 's/JSON DEPLOY RESULT: //')

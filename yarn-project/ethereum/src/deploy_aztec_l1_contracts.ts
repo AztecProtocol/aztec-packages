@@ -30,18 +30,15 @@ const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
-/** Batch size of 8 prevents forge from hanging during broadcast (forge bug with large RPC batches). */
-const MAGIC_BATCH_SIZE = 8;
-
 /** Returns forge broadcast timeout in seconds. Mainnet/sepolia get 5 minutes, everything else gets 50 seconds. */
 function getForgeBroadcastTimeout(chainId: number): number {
   return chainId === mainnet.id || chainId === sepolia.id ? 300 : 50;
 }
 
 /**
- * Runs a process with the given command, arguments, and environment.
- * If the process outputs a line starting with JSON_DEPLOY_RESULT_PREFIX,
- * the JSON is parsed and returned.
+ * Runs a process and parses JSON deploy results from stdout.
+ * Lines starting with JSON_DEPLOY_RESULT_PREFIX are parsed and returned.
+ * All other stdout goes to logger.info, stderr goes to logger.warn.
  */
 function runProcess<T>(
   command: string,
@@ -57,53 +54,47 @@ function runProcess<T>(
   });
 
   let result: T | undefined;
+  let parseError: Error | undefined;
+  let settled = false;
 
   readline.createInterface({ input: proc.stdout }).on('line', line => {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith(JSON_DEPLOY_RESULT_PREFIX)) {
       const jsonStr = trimmedLine.slice(JSON_DEPLOY_RESULT_PREFIX.length).trim();
-      // TODO(AD): should this be a zod parse?
-      result = JSON.parse(jsonStr);
+      try {
+        result = JSON.parse(jsonStr);
+      } catch {
+        parseError = new Error(`Failed to parse deploy result JSON: ${jsonStr.slice(0, 200)}`);
+      }
     } else {
       logger.info(line);
     }
   });
-  readline.createInterface({ input: proc.stderr }).on('line', logger.error.bind(logger));
+  readline.createInterface({ input: proc.stderr }).on('line', logger.warn.bind(logger));
 
   proc.on('error', error => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     reject(new Error(`Failed to spawn ${command}: ${error.message}`));
   });
 
   proc.on('close', code => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     if (code !== 0) {
-      reject(new Error(`${command} exited with code ${code}. See logs for details.\n`));
+      reject(new Error(`${command} exited with code ${code}`));
+    } else if (parseError) {
+      reject(parseError);
     } else {
       resolve(result);
     }
   });
 
   return promise;
-}
-
-/**
- * Runs a forge script with retry on timeout. Forge can hang during broadcast due to a bug with
- * large RPC batches. On timeout, retries once with --resume to pick up where it left off.
- */
-async function runForgeScript<T>(
-  forgeArgs: string[],
-  forgeEnv: Record<string, string | undefined>,
-  cwd: string,
-): Promise<T | undefined> {
-  try {
-    return await runProcess<T>('forge', forgeArgs, forgeEnv, cwd);
-  } catch (e: any) {
-    const isTimeout = /timed? ?out/i.test(e.message);
-    if (isTimeout) {
-      logger.warn(`Forge script timed out: ${e.message}. Retrying with --resume...`);
-      return await runProcess<T>('forge', [...forgeArgs, '--resume'], forgeEnv, cwd);
-    }
-    throw e;
-  }
 }
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.
@@ -207,6 +198,10 @@ export function prepareL1ContractsForDeployment(): string {
     logger.verbose(`Updated solc path in foundry.toml to: ${absoluteSolcPath}`);
   }
   writeFileSync(join(tempDir, 'foundry.toml'), foundryToml);
+
+  // Copy the forge broadcast wrapper script
+  mkdirSync(join(tempDir, 'scripts'), { recursive: true });
+  cpSync(join(basePath, 'scripts', 'forge_broadcast.ts'), join(tempDir, 'scripts', 'forge_broadcast.ts'));
 
   mkdirSync(join(tempDir, 'broadcast'));
   return tempDir;
@@ -350,8 +345,8 @@ export async function deployAztecL1Contracts(
     );
   }
 
+  const scriptPath = join(l1ContractsPath, 'scripts', 'forge_broadcast.ts');
   const forgeArgs = [
-    'script',
     FORGE_SCRIPT,
     '--sig',
     'run()',
@@ -359,20 +354,21 @@ export async function deployAztecL1Contracts(
     privateKey,
     '--rpc-url',
     rpcUrl,
-    '--broadcast',
-    '--batch-size',
-    MAGIC_BATCH_SIZE.toString(),
-    '--timeout',
-    getForgeBroadcastTimeout(chainId).toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+    FORGE_BROADCAST_TIMEOUT: getForgeBroadcastTimeout(chainId).toString(),
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runForgeScript<ForgeL1ContractsDeployResult>(forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeL1ContractsDeployResult>(
+    process.execPath,
+    ['--experimental-strip-types', scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -615,30 +611,23 @@ export const deployRollupForUpgrade = async (
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  const forgeArgs = [
-    'script',
-    FORGE_SCRIPT,
-    '--sig',
-    'run()',
-    '--private-key',
-    privateKey,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-    '--batch-size',
-    MAGIC_BATCH_SIZE.toString(),
-    '--timeout',
-    getForgeBroadcastTimeout(chainId).toString(),
-  ];
+  const scriptPath = join(l1ContractsPath, 'scripts', 'forge_broadcast.ts');
+  const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),
     NETWORK: getActiveNetworkName(),
+    FORGE_BROADCAST_TIMEOUT: getForgeBroadcastTimeout(chainId).toString(),
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runForgeScript<ForgeRollupUpgradeResult>(forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeRollupUpgradeResult>(
+    process.execPath,
+    ['--experimental-strip-types', scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
