@@ -7,7 +7,7 @@ import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import { FeePayerBalanceEvictionRule } from './fee_payer_balance_eviction_rule.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
@@ -42,6 +42,7 @@ describe('FeePayerBalanceEvictionRule', () => {
     feeLimit: opts.feeLimit ?? 100n,
     nullifiers: [`0x${txHash.slice(2)}null1`],
     includeByTimestamp: 0n,
+    data: stubTxMetaValidationData(),
   });
 
   // Create mock pool operations

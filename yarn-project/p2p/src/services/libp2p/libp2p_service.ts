@@ -1132,22 +1132,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ...block.toBlockInfo(),
     });
 
-    // Attempt to add proposal
-    try {
-      await this.mempools.attestationPool.addBlockProposal(block);
-    } catch (err: unknown) {
-      // Drop proposals if we hit per-slot cap in the attestation pool; rethrow unknown errors
-      if (err instanceof ProposalSlotCapExceededError) {
-        this.logger.warn(`Dropping block proposal due to per-slot proposal cap`, {
-          slot: String(slot),
-          archive: block.archive.toString(),
-          error: (err as Error).message,
-        });
-        return;
-      }
-      throw err;
-    }
-
     // Mark the txs in this proposal as protected
     await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
@@ -1309,31 +1293,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       archive: checkpoint.archive.toString(),
       source: sender.toString(),
     });
-
-    // Extract block proposal before adding to pool (pool stores them separately)
-    const blockProposal = checkpoint.getBlockProposal();
-
-    // Add proposal to the pool (this extracts and stores block proposal separately)
-    await this.mempools.attestationPool.addCheckpointProposal(checkpoint);
-
-    // Mark txs as protected if present (from the last block)
-    if (checkpoint.txHashes.length > 0 && checkpoint.lastBlock) {
-      await this.mempools.txPool.protectTxs(checkpoint.txHashes, checkpoint.lastBlock.blockHeader);
-    }
-
-    // If there was a last block proposal, invoke the block callback first for validation.
-    // Note: The block proposal is already stored in the pool by addCheckpointProposal.
-    if (blockProposal) {
-      const isValid = await this.blockReceivedCallback(blockProposal, sender);
-      if (!isValid) {
-        this.logger.warn(`Block proposal from checkpoint failed validation`, {
-          slot: slot.toString(),
-          archive: checkpoint.archive.toString(),
-          blockNumber: blockProposal.blockNumber.toString(),
-        });
-        return;
-      }
-    }
 
     // Call the checkpoint received callback with the core version (without lastBlock)
     // to validate and potentially generate attestations

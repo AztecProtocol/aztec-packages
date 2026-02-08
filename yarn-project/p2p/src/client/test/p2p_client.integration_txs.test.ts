@@ -113,7 +113,7 @@ describe('p2p client integration', () => {
     const tx = await createMockTxWithMetadata(config);
     const txHash = tx.getTxHash();
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await (client1 as any).requestTxsByHash([txHash], undefined);
     expect(requestedTxs).toEqual([]);
   });
 
@@ -141,7 +141,7 @@ describe('p2p client integration', () => {
     // Mock the tx pool to return the tx we are looking for
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await (client1 as any).requestTxsByHash([txHash], undefined);
     expect(requestedTxs).toHaveLength(1);
     const requestedTx = requestedTxs[0];
 
@@ -181,11 +181,11 @@ describe('p2p client integration', () => {
     //@ts-expect-error - we want to spy on the sendRequestToPeer method
     const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    const resultingTxs = await (client1 as any).requestTxsByHash(txHashes, undefined);
     expect(resultingTxs).toHaveLength(txs.length);
 
     // Expect the tx to be the returned tx to be the same as the one we mocked
-    resultingTxs.forEach((requestedTx, i) => {
+    resultingTxs.forEach((requestedTx: Tx, i: number) => {
       expect(requestedTx.toBuffer()).toStrictEqual(txs[i].toBuffer());
     });
 
@@ -239,12 +239,12 @@ describe('p2p client integration', () => {
     //@ts-expect-error - we want to spy on the sendRequestToPeer method
     const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    const resultingTxs = await (client1 as any).requestTxsByHash(txHashes, undefined);
     expect(resultingTxs).toHaveLength(txs.length / 2);
 
     // Expect the tx to be the returned tx to be the same as the one we mocked
     // Note we have only returned the half of the txs, so we expect the resulting txs to be every other tx
-    resultingTxs.forEach((requestedTx, i) => {
+    resultingTxs.forEach((requestedTx: Tx, i: number) => {
       expect(requestedTx.toBuffer()).toStrictEqual(txs[2 * i].toBuffer());
     });
 
@@ -293,7 +293,7 @@ describe('p2p client integration', () => {
     // Return the correct tx with an invalid proof -> active attack
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await (client1 as any).requestTxsByHash([txHash], undefined);
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
@@ -330,7 +330,7 @@ describe('p2p client integration', () => {
     // Return an invalid tx
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await (client1 as any).requestTxsByHash([txHash], undefined);
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 

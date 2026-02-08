@@ -58,7 +58,17 @@ describe('P2P Client', () => {
   });
 
   const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, undefined, config);
+    new P2PClient(
+      P2PClientType.Full,
+      kvStore,
+      blockSource,
+      mempools,
+      p2pService,
+      txCollection,
+      undefined,
+      undefined,
+      config,
+    );
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -161,20 +171,25 @@ describe('P2P Client', () => {
     const mockTx2 = await mockTx();
     const mockTx3 = await mockTx();
 
+    // None of the txs are in the pool
+    txPool.getTxByHash.mockResolvedValue(undefined);
+
     // P2P service will not return tx2
     p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[mockTx1, mockTx3])]);
 
     // Spy on the tx pool addPendingTxs method, it should not be called for the missing tx
     const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
 
-    // We query for all 3 txs
+    await client.start();
+
+    // We query for all 3 txs via getTxsByHash which internally requests from the network
     const txHashes = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
-    const results = await client.requestTxsByHash(txHashes, undefined);
+    const results = await client.getTxsByHash(txHashes, undefined);
 
-    // We should receive the found transactions
-    expect(results).toEqual([mockTx1, mockTx3]);
+    // We should receive the found transactions (tx2 will be undefined)
+    expect(results).toEqual([mockTx1, undefined, mockTx3]);
 
-    // P2P should have been called with the 3 tx hashes
+    // P2P should have been called with the 3 tx hashes (all missing from pool)
     expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
       ReqRespSubProtocol.TX,
       txHashes.map(hash => new TxHashArray(...[hash])),
@@ -186,7 +201,9 @@ describe('P2P Client', () => {
 
     // Retrieved txs should have been added to the pool
     expect(addTxsSpy).toHaveBeenCalledTimes(1);
-    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3], expect.any(Object));
+    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3]);
+
+    await client.stop();
   });
 
   it('getTxsByHash handles missing items', async () => {
@@ -202,7 +219,6 @@ describe('P2P Client', () => {
     );
 
     const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
-    const requestTxsSpy = jest.spyOn(client, 'requestTxsByHash');
 
     p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[txToBeRequested])]);
 
@@ -211,12 +227,19 @@ describe('P2P Client', () => {
     const query = await Promise.all([txInMempool.getTxHash(), txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()]);
     const results = await client.getTxsByHash(query, undefined);
 
-    // We should return the resolved transactions
-    expect(results).toEqual([txInMempool, txToBeRequested]);
+    // We should return the resolved transactions (txToNotBeFound is undefined)
+    expect(results).toEqual([txInMempool, txToBeRequested, undefined]);
     // We should add the found requested transactions to the pool
-    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested], expect.any(Object));
-    // We should request the missing transactions from the network, but only find one of them
-    expect(requestTxsSpy).toHaveBeenCalledWith([txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()], undefined);
+    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
+    // The p2p service should have been called to request the missing txs
+    expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
+      ReqRespSubProtocol.TX,
+      expect.anything(),
+      undefined,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it('getPendingTxs respects pagination', async () => {
@@ -240,48 +263,6 @@ describe('P2P Client', () => {
     await expect(client.getPendingTxs(-1)).rejects.toThrow();
 
     await expect(client.getPendingTxs(10, TxHash.random())).resolves.toEqual([]);
-  });
-
-  it('getTxs respects pagination', async () => {
-    const allTxs = await timesAsync(50, i => mockTx(i));
-    const minedTxs = allTxs.slice(0, Math.ceil(allTxs.length / 3));
-    const pendingTxs = allTxs.slice(Math.ceil(allTxs.length / 3));
-    // TxPoolV2's getTxs('all') returns pending first, then mined
-    const allTxsInNewOrder = [...pendingTxs, ...minedTxs];
-
-    // Mock with block ID instead of just block number (TxPoolV2 returns [TxHash, L2BlockId][])
-    txPool.getMinedTxHashes.mockResolvedValue(
-      minedTxs.map(tx => [tx.getTxHash(), { number: BlockNumber(42), hash: '0x42' }]),
-    );
-    txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(pendingTxs.map(tx => tx.getTxHash())));
-
-    txPool.getTxByHash.mockImplementation(hash => Promise.resolve(allTxs.find(tx => hash.equals(tx.getTxHash()))));
-    txPool.getTxsByHash.mockImplementation(hashes =>
-      Promise.resolve(hashes.map(h => allTxs.find(tx => h.equals(tx.getTxHash())))),
-    );
-
-    for (const [txType, txs] of [
-      ['all', allTxsInNewOrder],
-      ['pending', pendingTxs],
-      ['mined', minedTxs],
-    ] as const) {
-      const firstPage = await client.getTxs(txType, 2);
-      expect(firstPage).toEqual(txs.slice(0, 2));
-      const secondPage = await client.getTxs(txType, 2, firstPage.at(-1)!.getTxHash());
-      expect(secondPage).toEqual(txs.slice(2, 4));
-      const thirdPage = await client.getTxs(txType, 10, secondPage.at(-1)!.getTxHash());
-      expect(thirdPage).toEqual(txs.slice(4, 14));
-      const lastPage = await client.getTxs(txType, undefined, thirdPage.at(-1)!.getTxHash());
-      expect(lastPage).toEqual(txs.slice(14));
-
-      await expect(client.getTxs(txType, 1, lastPage.at(-1)!.getTxHash())).resolves.toEqual([]);
-      await expect(client.getTxs(txType)).resolves.toEqual(txs);
-
-      await expect(client.getTxs(txType, 0)).rejects.toThrow();
-      await expect(client.getTxs(txType, -1)).rejects.toThrow();
-
-      await expect(client.getTxs(txType, 10, TxHash.random())).resolves.toEqual([]);
-    }
   });
 
   describe('Chain prunes', () => {

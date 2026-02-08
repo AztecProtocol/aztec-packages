@@ -5,7 +5,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
@@ -144,6 +144,7 @@ export class TxProvider implements ITxProvider {
     // Take txs from the proposal body if there are any
     // Note that we still have to validate these txs, but we do it in parallel with tx collection
     const proposal = request.type === 'proposal' ? request.blockProposal : undefined;
+    const proposalBlockHeader = proposal?.blockHeader;
     const txsFromProposal = this.extractFromProposal(proposal, [...missingTxHashes]);
     if (txsFromProposal.length > 0) {
       this.instrumentation.incTxsFromProposals(txsFromProposal.length);
@@ -155,7 +156,7 @@ export class TxProvider implements ITxProvider {
     }
 
     if (missingTxHashes.size === 0) {
-      await this.processProposalTxs(txsFromProposal);
+      await this.processProposalTxs(txsFromProposal, proposalBlockHeader!);
       this.instrumentation.incTxsFromP2P(0, txHashes.length);
       return { txsFromMempool, txsFromProposal };
     }
@@ -163,7 +164,7 @@ export class TxProvider implements ITxProvider {
     // Start tx collection from the network if needed, while we validate the txs taken from the proposal in parallel
     const [txsFromNetwork] = await Promise.all([
       this.collectFromP2P(request, [...missingTxHashes], opts),
-      this.processProposalTxs(txsFromProposal),
+      this.processProposalTxs(txsFromProposal, proposalBlockHeader!),
     ] as const);
 
     if (txsFromNetwork.length > 0) {
@@ -222,12 +223,11 @@ export class TxProvider implements ITxProvider {
     return compactArray(proposal.txs ?? []).filter(tx => missingTxHashes.includes(tx.getTxHash().toString()));
   }
 
-  private async processProposalTxs(txs: Tx[]): Promise<void> {
+  private async processProposalTxs(txs: Tx[], blockHeader: BlockHeader): Promise<void> {
     if (txs.length === 0) {
       return;
     }
     await this.txValidator.validate(txs);
-    // TODO(pw/tx-pool): Add context on the expected state on this tx
-    await this.txPool.addPendingTxs(txs);
+    await this.txPool.addProtectedTxs(txs, blockHeader);
   }
 }

@@ -3,7 +3,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
@@ -24,16 +24,21 @@ describe('InvalidTxsAfterMiningRule', () => {
       nullifiers?: string[];
       includeByTimestamp?: bigint;
     } = {},
-  ): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee: 100n,
-    feePayer: '0xfeepayer',
-    claimAmount: 0n,
-    feeLimit: 100n,
-    nullifiers: opts.nullifiers ?? [`0x${txHash.slice(2)}null1`],
-    includeByTimestamp: opts.includeByTimestamp ?? DEFAULT_INCLUDE_BY_TIMESTAMP,
-  });
+  ): TxMetaData => {
+    const nullifiers = opts.nullifiers ?? [`0x${txHash.slice(2)}null1`];
+    const includeByTimestamp = opts.includeByTimestamp ?? DEFAULT_INCLUDE_BY_TIMESTAMP;
+    return {
+      txHash,
+      anchorBlockHeaderHash: '0x1234',
+      priorityFee: 100n,
+      feePayer: '0xfeepayer',
+      claimAmount: 0n,
+      feeLimit: 100n,
+      nullifiers,
+      includeByTimestamp,
+      data: stubTxMetaValidationData({ includeByTimestamp }),
+    };
+  };
 
   // Create mock pool operations
   const createPoolOps = (pendingTxs: TxMetaData[]): PoolOperations => {

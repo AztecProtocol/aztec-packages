@@ -4,7 +4,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import { EvictionManager } from './eviction_manager.js';
 import {
   EvictionEvent,
@@ -182,6 +182,7 @@ describe('EvictionManager', () => {
       feeLimit: 100n,
       nullifiers: [`0x${txHash.slice(2)}null1`],
       includeByTimestamp: 0n,
+      data: stubTxMetaValidationData(),
     });
 
     beforeEach(() => {
@@ -315,6 +316,7 @@ describe('EvictionManager', () => {
         feeLimit: 100n,
         nullifiers: [`0x${txHash.slice(2)}null1`],
         includeByTimestamp: 0n,
+        data: stubTxMetaValidationData(),
       });
 
       preAddRule1.check.mockRejectedValue(new Error('Rule failed'));

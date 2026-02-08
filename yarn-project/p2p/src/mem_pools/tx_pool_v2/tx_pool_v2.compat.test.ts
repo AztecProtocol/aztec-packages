@@ -28,10 +28,11 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 /** A validator that accepts all transactions. */
-const alwaysValidValidator: TxValidator<Tx> = {
+const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
 };
 
@@ -85,7 +86,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     pool = new AztecKVTxPoolV2(await openTmpStore('p2p'), await openTmpStore('archive'), {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      pendingTxValidator: alwaysValidValidator,
+      createTxValidator: () => alwaysValidValidator,
     });
     await pool.start();
   });
@@ -323,7 +324,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => alwaysValidValidator,
       },
       undefined, // telemetry
       { archivedTxLimit: 2 },
@@ -364,7 +365,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => alwaysValidValidator,
       },
       undefined, // telemetry
       { maxPendingTxCount: 3 },
@@ -420,7 +421,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => alwaysValidValidator,
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -463,7 +464,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => alwaysValidValidator,
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -635,7 +636,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => alwaysValidValidator,
         },
         undefined, // telemetry
         { maxPendingTxCount: 0 },

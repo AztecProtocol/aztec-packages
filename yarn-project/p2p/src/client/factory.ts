@@ -1,13 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -20,11 +17,11 @@ import type { P2PConfig } from '../config.js';
 import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
+import type { TxMetaData } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import { AggregateTxValidator } from '../msg_validators/tx_validator/aggregate_tx_validator.js';
-import { DataTxValidator } from '../msg_validators/tx_validator/data_validator.js';
+import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_header_validator.js';
 import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
-import { MetadataTxValidator } from '../msg_validators/tx_validator/metadata_validator.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
@@ -78,29 +75,29 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  // TODO(pw/tx-pool): Refactor into a TxValidatorFactory that can be called whenever we need a validator for a block
-  const pendingTxValidator = new AggregateTxValidator(
-    new DataTxValidator(bindings),
-    new MetadataTxValidator(
-      {
-        l1ChainId: new Fr(config.l1ChainId),
-        rollupVersion: new Fr(config.rollupVersion),
-        protocolContractsHash,
-        vkTreeRoot: getVKTreeRoot(),
-      },
-      bindings,
-    ),
-    new DoubleSpendTxValidator(
-      {
-        nullifiersExist: async (nullifiers: Buffer[]) => {
-          const merkleTree = worldStateSynchronizer.getCommitted();
-          const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-          return indices.map(index => index !== undefined);
+  /** Validator factory for pool re-validation (double-spend + block header only). */
+  const createPoolTxValidator = () =>
+    new AggregateTxValidator<TxMetaData>(
+      new DoubleSpendTxValidator<TxMetaData>(
+        {
+          nullifiersExist: async (nullifiers: Buffer[]) => {
+            const merkleTree = worldStateSynchronizer.getCommitted();
+            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            return indices.map(index => index !== undefined);
+          },
         },
-      },
-      bindings,
-    ),
-  );
+        bindings,
+      ),
+      new BlockHeaderTxValidator<TxMetaData>(
+        {
+          getArchiveIndices: (archives: BlockHash[]) => {
+            const merkleTree = worldStateSynchronizer.getCommitted();
+            return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
+          },
+        },
+        bindings,
+      ),
+    );
 
   const txPool =
     deps.txPool ??
@@ -110,7 +107,7 @@ export async function createP2PClient<T extends P2PClientType>(
       {
         l2BlockSource: archiver,
         worldStateSynchronizer,
-        pendingTxValidator,
+        createTxValidator: createPoolTxValidator,
       },
       telemetry,
       {
@@ -171,6 +168,7 @@ export async function createP2PClient<T extends P2PClientType>(
     p2pService,
     txCollection,
     txFileStore,
+    epochCache,
     config,
     dateProvider,
     telemetry,

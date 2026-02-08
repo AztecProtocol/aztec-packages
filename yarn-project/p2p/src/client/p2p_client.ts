@@ -1,6 +1,6 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
@@ -83,6 +83,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private validatorAddresses: EthAddress[] = [];
 
+  /** Tracks the last slot for which we called prepareForSlot */
+  private lastSlotProcessed: SlotNumber = SlotNumber(0);
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -99,6 +102,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     private p2pService: P2PService,
     private txCollection: TxCollection,
     private txFileStore: TxFileStore | undefined,
+    private epochCache: EpochCacheInterface | undefined,
     config: Partial<P2PConfig> = {},
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -199,7 +203,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block.number);
+        await this.handlePruneL2Blocks(event.block);
         break;
       case 'chain-checkpointed':
         break;
@@ -402,7 +406,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<Tx[]> {
+  private async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<Tx[]> {
     const timeoutMs = 8000; // Longer timeout for now
     const maxRetryAttempts = 10; // Keep retrying within the timeout
     const requests = chunkTxHashesRequest(txHashes);
@@ -429,8 +433,27 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return txs;
   }
 
-  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
-    return this.getTxs('pending', limit, after);
+  public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+    if (limit !== undefined && limit <= 0) {
+      throw new TypeError('limit must be greater than 0');
+    }
+
+    let txHashes = await this.txPool.getPendingTxHashes();
+
+    let startIndex = 0;
+    if (after) {
+      startIndex = txHashes.findIndex(txHash => after.equals(txHash));
+      if (startIndex === -1) {
+        return [];
+      }
+      startIndex++;
+    }
+
+    const endIndex = limit !== undefined ? startIndex + limit : undefined;
+    txHashes = txHashes.slice(startIndex, endIndex);
+
+    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    return maybeTxs.filter((tx): tx is Tx => !!tx);
   }
 
   public getPendingTxCount(): Promise<number> {
@@ -444,66 +467,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         yield tx;
       }
     }
-  }
-
-  /**
-   * Returns all transactions in the transaction pool.
-   * @param filter - The type of txs to return
-   * @param limit - How many txs to return
-   * @param after - If paginating, the last known tx hash. Will return txs after this hash
-   * @returns An array of Txs.
-   */
-  public async getTxs(filter: 'all' | 'pending' | 'mined', limit?: number, after?: TxHash): Promise<Tx[]> {
-    if (limit !== undefined && limit <= 0) {
-      throw new TypeError('limit must be greater than 0');
-    }
-
-    let txs: Tx[] | undefined = undefined;
-    let txHashes: TxHash[];
-
-    if (filter === 'all') {
-      const pendingHashes = await this.txPool.getPendingTxHashes();
-      const minedData = await this.txPool.getMinedTxHashes();
-      txHashes = [...pendingHashes, ...minedData.map(([hash]) => hash)];
-      txs = compactArray(await this.txPool.getTxsByHash(txHashes));
-    } else if (filter === 'mined') {
-      const minedTxHashes = await this.txPool.getMinedTxHashes();
-      txHashes = minedTxHashes.map(([txHash]) => txHash);
-    } else if (filter === 'pending') {
-      txHashes = await this.txPool.getPendingTxHashes();
-    } else {
-      const _: never = filter;
-      throw new Error(`Unknown filter ${filter}`);
-    }
-
-    let startIndex = 0;
-    let endIndex: number | undefined = undefined;
-
-    if (after) {
-      startIndex = txHashes.findIndex(txHash => after.equals(txHash));
-
-      // if we can't find the last tx in our set then return an empty array as pagination is no longer valid.
-      if (startIndex === -1) {
-        return [];
-      }
-
-      // increment by one because we don't want to return the same tx again
-      startIndex++;
-    }
-
-    if (limit !== undefined) {
-      endIndex = startIndex + limit;
-    }
-
-    txHashes = txHashes.slice(startIndex, endIndex);
-    if (txs) {
-      txs = txs.slice(startIndex, endIndex);
-    } else {
-      const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
-      txs = maybeTxs.filter((tx): tx is Tx => !!tx);
-    }
-
-    return txs;
   }
 
   /**
@@ -621,12 +584,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Deletes the 'txs' from the pool.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes of the transactions to delete.
-   * @returns Empty promise.
+   * Handles failed transaction execution by removing txs from the pool.
+   * @param txHashes - Hashes of the transactions that failed execution.
    **/
-  public async deleteTxs(txHashes: TxHash[]): Promise<void> {
+  public async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
     this.#assertIsReady();
     await this.txPool.handleFailedExecution(txHashes);
   }
@@ -709,12 +670,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     await this.handleMinedBlocks(blocks);
-
-    // TODO(pw/tx-pool): Figure out when to call!
-    // const lastBlock = blocks.at(-1)!;
-    // const nextSlot = SlotNumber(lastBlock.header.getSlot() + 1);
-    // await this.txPool.prepareForSlot(nextSlot);
-
+    await this.maybeCallPrepareForSlot();
     await this.startCollectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
@@ -759,32 +715,30 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return;
     }
 
-    for (const block of blocks) {
-      await this.txPool.handleFinalizedBlock(block.header);
-    }
-
-    const lastBlockSlot = blocks.at(-1)!.header.getSlot();
-    await this.attestationPool.deleteCheckpointAttestationsOlderThan(lastBlockSlot);
+    // Finalization is monotonic, so we only need to call with the last block
+    const lastBlock = blocks.at(-1)!;
+    await this.txPool.handleFinalizedBlock(lastBlock.header);
+    await this.attestationPool.deleteOlderThan(lastBlock.header.getSlot());
   }
 
   /**
    * Updates the tx pool after a chain prune.
-   * @param latestBlock - The block number the chain was pruned to.
+   * @param latestBlock - The block ID the chain was pruned to.
    */
-  private async handlePruneL2Blocks(latestBlock: BlockNumber): Promise<void> {
-    const header = await this.l2BlockSource.getBlockHeader(latestBlock);
-    if (!header) {
-      this.log.error(`Cannot handle prune: block ${latestBlock} not found`);
+  private async handlePruneL2Blocks(latestBlock: L2BlockId): Promise<void> {
+    await this.txPool.handlePrunedBlocks(latestBlock);
+  }
+
+  /** Checks if the slot has changed and calls prepareForSlot if so. */
+  private async maybeCallPrepareForSlot(): Promise<void> {
+    if (!this.epochCache) {
       return;
     }
-
-    const latestBlockId: L2BlockId = {
-      number: latestBlock,
-      hash: header.hash().toString(),
-    };
-
-    await this.txPool.handlePrunedBlocks(latestBlockId);
-    // Note: txPoolDeleteTxsAfterReorg config is now handled internally by TxPoolV2
+    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
+    if (currentSlot > this.lastSlotProcessed) {
+      this.lastSlotProcessed = currentSlot;
+      await this.txPool.prepareForSlot(currentSlot);
+    }
   }
 
   private async startServiceIfSynched() {
@@ -829,13 +783,23 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Marks transactions as protected (non-evictable) in the pool.
-   * @param txHashes - Hashes of the transactions to mark as protected.
+   * Protects existing transactions by hash for a given slot.
+   * Returns hashes of transactions that weren't found in the pool.
+   * @param txHashes - Hashes of the transactions to protect.
    * @param blockHeader - The block header providing slot context.
    * @returns Hashes of transactions not found in the pool.
    */
-  public async markTxsAsNonEvictable(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]> {
+  public async protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]> {
     return this.txPool.protectTxs(txHashes, blockHeader);
+  }
+
+  /**
+   * Prepares the pool for a new slot.
+   * Unprotects transactions from earlier slots and validates them.
+   * @param slotNumber - The slot number to prepare for
+   */
+  public async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
+    await this.txPool.prepareForSlot(slotNumber);
   }
 
   public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {

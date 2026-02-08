@@ -829,7 +829,7 @@ describe('CheckpointProposalJob', () => {
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
 
     it('does not build a block if checkpoint builder fails with invalid txs', async () => {
@@ -851,7 +851,7 @@ describe('CheckpointProposalJob', () => {
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
   });
 
