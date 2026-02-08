@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: v4.0.0-nightly.20260205
+Version: v4.0.0-nightly.20260208
 
 ## Quick Import Reference
 
@@ -74,7 +74,7 @@ type AVM_AND_BASE_L2_GAS = 12
 
 ### AVM_BITWISE_AND_OP_ID
 ```typescript
-type AVM_BITWISE_AND_OP_ID = 0
+type AVM_BITWISE_AND_OP_ID = 1
 ```
 
 ### AVM_BITWISE_DYN_L2_GAS
@@ -84,12 +84,12 @@ type AVM_BITWISE_DYN_L2_GAS = 3
 
 ### AVM_BITWISE_OR_OP_ID
 ```typescript
-type AVM_BITWISE_OR_OP_ID = 1
+type AVM_BITWISE_OR_OP_ID = 2
 ```
 
 ### AVM_BITWISE_XOR_OP_ID
 ```typescript
-type AVM_BITWISE_XOR_OP_ID = 2
+type AVM_BITWISE_XOR_OP_ID = 4
 ```
 
 ### AVM_CALLDATACOPY_BASE_L2_GAS

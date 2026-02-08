@@ -742,9 +742,10 @@ pub global AVM_MEMORY_NUM_BITS: u8 = 32;
 pub global AVM_MEMORY_SIZE: u64 = 0x100000000;
 
 // AVM bitwise operation IDs
-pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
-pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
-pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_BITWISE_AND_OP_ID: u8 = 1;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 2 * AVM_BITWISE_AND_OP_ID;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2 * AVM_BITWISE_OR_OP_ID;
 
 // AVM Keccakf1600 specific constants
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;

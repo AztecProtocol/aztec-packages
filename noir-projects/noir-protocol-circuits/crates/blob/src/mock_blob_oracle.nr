@@ -1,4 +1,5 @@
 use crate::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use bignum::BLS12_381_Fr;
 use types::{
     constants::{BLOB_ACCUMULATOR_LENGTH, FIELDS_PER_BLOB},
     traits::{Deserialize, Serialize},
@@ -7,6 +8,9 @@ use types::{
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
+//
+// Note: `fracs` and `factor` are computed from `challenge_z` inside `evaluate_blobs_and_batch`.
+// The oracle does not use them; it receives `challenge_z` for interface consistency.
 pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_blob_fields: u32,
@@ -14,6 +18,7 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_commitments: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
+    challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     let fields = evaluate_blobs_oracle(
         NumBlobs,

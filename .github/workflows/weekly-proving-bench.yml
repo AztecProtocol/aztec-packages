@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       nightly_tag:
-        description: "Nightly tag to use (e.g., 2.3.4-nextnet-nightly.20251209). Leave empty to auto-detect."
+        description: "Nightly tag to use (e.g., 2.3.4-spartan.20251209). Leave empty to auto-detect."
         required: false
         type: string
 
@@ -30,7 +30,7 @@ jobs:
             nightly_tag="${{ inputs.nightly_tag }}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
-            nightly_tag="${current_version}-nextnet-nightly.$(date -u +%Y%m%d)"
+            nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
           echo "Using nightly tag: $nightly_tag"
