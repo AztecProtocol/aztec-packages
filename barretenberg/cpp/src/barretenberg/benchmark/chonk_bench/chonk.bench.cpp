@@ -8,6 +8,7 @@
 
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
 
 using namespace benchmark;
@@ -53,6 +54,7 @@ BENCHMARK_DEFINE_F(ChonkBench, Full)(benchmark::State& state)
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
 
     for (auto _ : state) {
+        BB_BENCH_NAME("Testy");
         GOOGLE_BB_BENCH_REPORTER(state);
         accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
     }

@@ -2,7 +2,6 @@
 name: identify-ci-failures
 description: |
   Identify CI failures from a PR number, CI URL, or log hash. Returns structured list of failures with local file paths for downloaded logs. Use this subagent to find what failed before deeper analysis.
-model: sonnet
 ---
 
 # CI Failure Identification Agent

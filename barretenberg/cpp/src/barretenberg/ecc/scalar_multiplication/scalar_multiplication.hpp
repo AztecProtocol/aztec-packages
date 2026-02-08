@@ -134,7 +134,7 @@ template <typename Curve> class MSM {
      * @note Allocated per-call for WASM compatibility.
      */
     struct BucketAccumulators {
-        std::vector<AffineElement> buckets;
+        region_vector<AffineElement> buckets;
         BitVector bucket_exists;
 
         BucketAccumulators(size_t num_buckets) noexcept

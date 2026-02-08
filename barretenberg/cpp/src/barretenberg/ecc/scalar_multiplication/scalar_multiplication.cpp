@@ -308,6 +308,25 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
     AffineAdditionData affine_data;
     BucketAccumulators bucket_data(num_buckets);
 
+    // Debug: verify sizes, alignment, and data pointers
+    {
+        auto* p = bucket_data.buckets.data();
+        uintptr_t addr = reinterpret_cast<uintptr_t>(p);
+        if (p == nullptr || (addr & 31) != 0) {
+            fprintf(stderr,
+                    "BUCKET ISSUE: data=%p align=%zu sizeof_vec=%zu sizeof_rvec=%zu num_buckets=%zu\n",
+                    (void*)p,
+                    addr & 31,
+                    sizeof(std::vector<AffineElement>),
+                    sizeof(region_vector<AffineElement>),
+                    num_buckets);
+            std::abort();
+        }
+        // Test actual read/write
+        volatile auto& elem = bucket_data.buckets[0];
+        (void)elem;
+    }
+
     Element msm_result = Curve::Group::point_at_infinity;
 
     for (uint32_t round = 0; round < num_rounds; ++round) {

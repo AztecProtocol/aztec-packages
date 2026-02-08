@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/region_allocator.hpp"
 
 /**
  * @brief Custom class to handle packed vectors of bits
@@ -62,5 +63,5 @@ class BitVector {
 
   private:
     size_t num_bits_;
-    std::vector<uint64_t> data_;
+    bb::region_vector<uint64_t> data_;
 };
