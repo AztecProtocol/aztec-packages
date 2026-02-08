@@ -414,6 +414,30 @@ function build_bench {
 }
 export -f build_bench
 
+# CI build timing benchmarks - published alongside perf benchmarks
+declare -a CI_PHASE_TIMINGS=()
+
+function ci_phase_start {
+  export _CI_PHASE_NAME="$1"
+  export _CI_PHASE_START=$SECONDS
+}
+
+function ci_phase_end {
+  if [ -n "${_CI_PHASE_NAME:-}" ]; then
+    local elapsed=$(( SECONDS - _CI_PHASE_START ))
+    CI_PHASE_TIMINGS+=("{\"name\":\"ci/${_CI_PHASE_NAME}\",\"value\":${elapsed},\"unit\":\"seconds\"}")
+    unset _CI_PHASE_NAME _CI_PHASE_START
+  fi
+}
+
+function ci_timing_bench {
+  if [ "${CI_FULL:-0}" -eq 0 ] && [ "${CI:-0}" -eq 0 ]; then return; fi
+  mkdir -p bench-out
+  local total=$SECONDS
+  CI_PHASE_TIMINGS+=("{\"name\":\"ci/total_duration\",\"value\":${total},\"unit\":\"seconds\"}")
+  printf '[%s]' "$(IFS=,; echo "${CI_PHASE_TIMINGS[*]}")" | jq '.' > bench-out/ci-timing.bench.json 2>/dev/null || true
+}
+
 function bench_merge {
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
   xargs -0 -I{} bash -c '
@@ -567,24 +591,27 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build
-    test
-    bench
+    ci_phase_start "build"; build; ci_phase_end
+    ci_phase_start "test"; test; ci_phase_end
+    ci_phase_start "bench"; bench; ci_phase_end
+    ci_timing_bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
-    bench
+    ci_phase_start "build"; build; ci_phase_end
+    ci_phase_start "test"; test; ci_phase_end
+    ci_phase_start "bench"; bench; ci_phase_end
+    ci_timing_bench
     ;;
   "ci-full-no-test-cache-makefile")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build_and_test
-    bench
+    ci_phase_start "build_and_test"; build_and_test; ci_phase_end
+    ci_phase_start "bench"; bench; ci_phase_end
+    ci_timing_bench
     ;;
   "ci-grind-test")
     export CI=1

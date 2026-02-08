@@ -45,10 +45,24 @@
     th.amt { text-align: right; }
     .msg { color: #888; padding: 8px 0; }
     .msg.err { color: #f85149; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
   </style>
 </head>
 <body>
-  <a href="/">&lt; ci dashboard</a>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing" class="active">namespace billing</a>
+    <a href="/ci-performance">ci performance</a>
+    <a href="/deploy-speed">deploy speed</a>
+    <a href="/branch-lag">branch lag</a>
+    <a href="/pr-metrics">pr metrics</a>
+    <a href="/runner-costs">runner costs</a>
+  </div>
   <h2 style="margin:8px 0;color:#ccc;">namespace billing</h2>
 
   <div class="controls">

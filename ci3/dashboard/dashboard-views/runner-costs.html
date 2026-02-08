@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - Runner Costs</title>
+  <style>
+    body {
+      background-color: black;
+      color: #ccc;
+      font-family: monospace;
+      padding: 10px;
+      font-size: 14px;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+    .controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .controls label { color: #888; }
+    input, select {
+      background: #111; border: 1px solid #333; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 8px;
+    }
+    input:focus, select:focus { outline: none; border-color: #58a6ff; }
+    button {
+      background: #222; border: 1px solid #444; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 12px; cursor: pointer;
+    }
+    button:hover { background: #333; }
+    button.active { background: #238636; border-color: #238636; color: #fff; }
+    .stats { margin: 12px 0; color: #888; }
+    .stats span { color: #ccc; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .charts .full { grid-column: 1 / -1; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .chart-box h3 { color: #888; font-size: 12px; font-weight: normal; text-transform: uppercase; margin-bottom: 8px; }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall { height: 350px; }
+    .chart-wrap.med { height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333; color: #888; cursor: pointer; white-space: nowrap; }
+    th:hover { color: #ccc; }
+    td { padding: 6px 8px; border-bottom: 1px solid #111; }
+    tr:hover td { background: #111; }
+    .amt { font-variant-numeric: tabular-nums; text-align: right; }
+    th.amt { text-align: right; }
+    .msg { color: #888; padding: 8px 0; }
+    .msg.err { color: #f85149; }
+    .spot-yes { color: #3fb950; }
+    .spot-no { color: #f85149; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing">namespace billing</a>
+    <a href="/ci-performance">ci performance</a>
+    <a href="/deploy-speed">deploy speed</a>
+    <a href="/branch-lag">branch lag</a>
+    <a href="/pr-metrics">pr metrics</a>
+    <a href="/runner-costs" class="active">runner costs</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">runner costs</h2>
+
+  <div class="controls">
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>daily runner cost (spot vs on-demand)</h3>
+      <div class="chart-wrap tall"><canvas id="dailyCost"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>cost by instance type</h3>
+      <div class="chart-wrap med"><canvas id="instanceDoughnut"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>cost by dashboard / job type</h3>
+      <div class="chart-wrap med"><canvas id="dashboardBar"></canvas></div>
+    </div>
+  </div>
+
+  <table>
+    <thead id="thead"><tr></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    let apiData = null;
+    let charts = {};
+    let sort = { col: 'cost', dir: 'desc' };
+
+    const INSTANCE_COLORS = [
+      '#58a6ff', '#3fb950', '#d2a8ff', '#f0883e', '#f85149',
+      '#a5d6ff', '#56d364', '#bc8cff', '#db6d28', '#ff7b72',
+      '#79c0ff', '#7ee787', '#e2c5ff', '#d18616', '#ffa198',
+      '#39d353', '#2ea043', '#388bfd', '#8957e5', '#bf4b8a'
+    ];
+
+    const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+
+    function granularity() {
+      return document.querySelector('[data-g].active').dataset.g;
+    }
+
+    // ---- data ----
+    async function load() {
+      document.getElementById('msg').className = 'msg';
+      document.getElementById('msg').textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const g = granularity();
+        const resp = await fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        apiData = await resp.json();
+
+        if (!apiData.by_date || !apiData.by_date.length) {
+          document.getElementById('msg').textContent = 'no data yet - loading...';
+          document.getElementById('stats').innerHTML = '';
+          document.getElementById('tbody').innerHTML = '';
+          Object.values(charts).forEach(c => c.destroy());
+          charts = {};
+          return;
+        }
+
+        document.getElementById('msg').textContent = '';
+        buildHeader();
+        render();
+      } catch (e) {
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').textContent = 'error: ' + e.message;
+      }
+    }
+
+    // ---- render ----
+    function render() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+
+      const byDate = apiData.by_date;
+      const byInstance = apiData.by_instance_type || [];
+      const byDashboard = apiData.by_dashboard || [];
+      const summary = apiData.summary || {};
+
+      // stats
+      document.getElementById('stats').innerHTML =
+        `total: <span>${fmt(summary.total_cost || 0)}</span> &middot; ` +
+        `spot: <span>${(summary.spot_pct || 0).toFixed(1)}%</span> &middot; ` +
+        `avg/run: <span>${fmt(summary.avg_cost_per_run || 0)}</span> &middot; ` +
+        `runs: <span>${(summary.total_runs || 0).toLocaleString()}</span> &middot; ` +
+        `spot evictions: <span>${summary.spot_evictions || 0}</span>`;
+
+      // ---- stacked bar: daily runner cost (spot vs on-demand) ----
+      const dates = byDate.map(e => e.date);
+      charts.daily = new Chart(document.getElementById('dailyCost').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            {
+              label: 'Spot',
+              data: byDate.map(e => e.spot_cost || 0),
+              backgroundColor: '#3fb950',
+              borderWidth: 0
+            },
+            {
+              label: 'On-Demand',
+              data: byDate.map(e => e.ondemand_cost || 0),
+              backgroundColor: '#58a6ff',
+              borderWidth: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => `${c.dataset.label}: ${fmt(c.raw)}`,
+                afterBody: items => {
+                  const idx = items[0].dataIndex;
+                  const entry = byDate[idx];
+                  return entry ? `spot %: ${(entry.spot_pct || 0).toFixed(1)}%` : '';
+                },
+                footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}`
+              }
+            }
+          }
+        }
+      });
+
+      // ---- doughnut: instance type breakdown ----
+      const sortedInstances = [...byInstance].sort((a, b) => b.cost - a.cost);
+      charts.instance = new Chart(document.getElementById('instanceDoughnut').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: sortedInstances.map(e => e.instance_type),
+          datasets: [{
+            data: sortedInstances.map(e => e.cost),
+            backgroundColor: sortedInstances.map((_, i) => INSTANCE_COLORS[i % INSTANCE_COLORS.length]),
+            borderColor: '#0a0a0a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  const total = sortedInstances.reduce((s, e) => s + e.cost, 0);
+                  const pct = total > 0 ? ((c.raw / total) * 100).toFixed(1) : '0';
+                  const runs = sortedInstances[c.dataIndex] ? sortedInstances[c.dataIndex].runs : 0;
+                  return `${c.label}: ${fmt(c.raw)} (${pct}%) - ${runs} runs`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // ---- horizontal bar: cost by dashboard/job type ----
+      const sortedDashboards = [...byDashboard].sort((a, b) => b.cost - a.cost);
+      charts.dashboard = new Chart(document.getElementById('dashboardBar').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: sortedDashboards.map(e => e.dashboard),
+          datasets: [{
+            data: sortedDashboards.map(e => e.cost),
+            backgroundColor: '#f0883e',
+            borderRadius: 2,
+            barPercentage: 0.5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  const entry = sortedDashboards[c.dataIndex];
+                  return `${fmt(c.raw)} - ${entry ? entry.runs : 0} runs`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      renderTable();
+      saveUrl();
+    }
+
+    // ---- table ----
+    const TABLE_COLS = [
+      { k: 'date', l: 'Date' },
+      { k: 'instance_type', l: 'Instance Type' },
+      { k: 'spot', l: 'Spot?' },
+      { k: 'dashboard', l: 'Dashboard' },
+      { k: 'duration', l: 'Duration' },
+      { k: 'cost', l: 'Cost' }
+    ];
+
+    function buildHeader() {
+      const tr = document.querySelector('#thead tr');
+      tr.innerHTML = '';
+      TABLE_COLS.forEach(col => {
+        const th = document.createElement('th');
+        th.dataset.sort = col.k;
+        if (col.k === 'cost' || col.k === 'duration') th.className = 'amt';
+        th.textContent = col.l;
+        th.onclick = () => {
+          sort = sort.col === col.k
+            ? { col: col.k, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+            : { col: col.k, dir: 'desc' };
+          renderTable();
+        };
+        tr.appendChild(th);
+      });
+    }
+
+    function fmtDuration(mins) {
+      if (mins == null) return '--';
+      if (mins < 1) return (mins * 60).toFixed(0) + 's';
+      if (mins < 60) return mins.toFixed(1) + 'm';
+      const h = Math.floor(mins / 60);
+      const m = Math.round(mins % 60);
+      return h + 'h ' + m + 'm';
+    }
+
+    function renderTable() {
+      if (!apiData) return;
+
+      // Build rows from by_date, expanding each date's details
+      // The table shows individual run details; we derive rows from the aggregate data
+      // by combining by_date with by_instance_type and by_dashboard where possible
+      let rows = [];
+
+      // If the API provides a runs array, use it directly
+      if (apiData.runs && Array.isArray(apiData.runs)) {
+        rows = apiData.runs.map(r => ({
+          date: r.date || '',
+          instance_type: r.instance_type || '',
+          spot: r.spot != null ? r.spot : null,
+          dashboard: r.dashboard || '',
+          duration: r.duration != null ? r.duration : null,
+          cost: r.cost || 0
+        }));
+      } else {
+        // Fallback: synthesize table rows from by_date aggregates
+        // Each by_date entry becomes a summary row
+        (apiData.by_date || []).forEach(entry => {
+          rows.push({
+            date: entry.date,
+            instance_type: '--',
+            spot: null,
+            dashboard: '--',
+            duration: null,
+            cost: entry.total || 0,
+            _spot_cost: entry.spot_cost || 0,
+            _ondemand_cost: entry.ondemand_cost || 0,
+            _spot_pct: entry.spot_pct || 0
+          });
+        });
+      }
+
+      // Sort
+      rows.sort((a, b) => {
+        let av = a[sort.col];
+        let bv = b[sort.col];
+        if (sort.col === 'spot') {
+          av = av === true ? 1 : av === false ? 0 : -1;
+          bv = bv === true ? 1 : bv === false ? 0 : -1;
+        }
+        if (av == null) av = sort.col === 'date' ? '' : -Infinity;
+        if (bv == null) bv = sort.col === 'date' ? '' : -Infinity;
+        if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return sort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      document.getElementById('tbody').innerHTML = rows.map(r => {
+        const spotCell = r.spot === true
+          ? '<span class="spot-yes">yes</span>'
+          : r.spot === false
+            ? '<span class="spot-no">no</span>'
+            : '--';
+        return `<tr>` +
+          `<td>${r.date ? fmtDate(r.date) : '--'}</td>` +
+          `<td>${r.instance_type}</td>` +
+          `<td>${spotCell}</td>` +
+          `<td>${r.dashboard}</td>` +
+          `<td class="amt">${fmtDuration(r.duration)}</td>` +
+          `<td class="amt" style="color:#fff">${fmt(r.cost)}</td>` +
+          `</tr>`;
+      }).join('');
+    }
+
+    // ---- url state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      history.replaceState({}, '', '?' + p);
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) {
+        document.querySelectorAll('[data-g]').forEach(b =>
+          b.classList.toggle('active', b.dataset.g === p.get('g'))
+        );
+      }
+    }
+
+    // ---- init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      loadUrl();
+
+      document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        load();
+      });
+      document.getElementById('dateFrom').onchange = load;
+      document.getElementById('dateTo').onchange = load;
+
+      load();
+    });
+  </script>
+</body>
+</html>

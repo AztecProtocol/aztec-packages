@@ -26,6 +26,8 @@ from rk_billing import (
 )
 import rk_db
 import rk_metrics
+import rk_aws_costs
+import rk_github
 
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
@@ -34,12 +36,14 @@ Compress(app)
 auth = HTTPBasicAuth()
 
 def _init_metrics():
-    """Initialize SQLite and start metrics ingestion threads."""
+    """Initialize SQLite and start all data ingestion threads."""
     try:
         rk_db.get_db()
         rk_metrics.start_redis_listener(r)
         rk_metrics.start_backfill_loop(r)
-        print("[rk.py] Metrics ingestion started")
+        rk_aws_costs.start_daily_poll()
+        rk_github.start_daily_poll()
+        print("[rk.py] Metrics ingestion started (Redis, AWS, GitHub)")
     except Exception as e:
         print(f"[rk.py] Warning: metrics startup failed: {e}")
 
@@ -167,9 +171,15 @@ def root() -> str:
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
         f"\n"
-        f"Billing:\n"
+        f"Billing & Metrics:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('/namespace-billing', 'namespace billing dashboard')}\n"
+        f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
+        f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
+        f"{hyperlink('/ci-performance', 'ci performance')}\n"
+        f"{hyperlink('/deploy-speed', 'deploy speed')}\n"
+        f"{hyperlink('/branch-lag', 'branch lag')}\n"
+        f"{hyperlink('/pr-metrics', 'pr metrics')}\n"
+        f"{hyperlink('/runner-costs', 'runner costs')}\n"
         f"{RESET}"
     )
 
@@ -619,6 +629,194 @@ def serve_dashboard_view(name):
     if path.exists():
         return path.read_text()
     return f"Dashboard {name} not found", 404
+
+
+# ---- Cost endpoints ----
+
+@app.route('/api/costs/overview')
+@auth.login_required
+def api_costs_overview():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    return Response(json.dumps(rk_aws_costs.get_costs_overview(date_from, date_to)), mimetype='application/json')
+
+
+@app.route('/api/costs/runners')
+@auth.login_required
+def api_costs_runners():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
+    ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
+
+    by_date = rk_db.query('''
+        SELECT date(timestamp_ms/1000, 'unixepoch') as date,
+               SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) as spot_cost,
+               SUM(CASE WHEN spot=0 THEN cost_usd ELSE 0 END) as ondemand_cost,
+               SUM(cost_usd) as total,
+               ROUND(100.0 * SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) / MAX(SUM(cost_usd), 0.01), 1) as spot_pct
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
+        GROUP BY date(timestamp_ms/1000, 'unixepoch') ORDER BY date
+    ''', (ts_from, ts_to))
+
+    by_instance = rk_db.query('''
+        SELECT instance_type, SUM(cost_usd) as cost, COUNT(*) as runs
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL AND instance_type IS NOT NULL
+        GROUP BY instance_type ORDER BY cost DESC
+    ''', (ts_from, ts_to))
+
+    by_dashboard = rk_db.query('''
+        SELECT dashboard, SUM(cost_usd) as cost, COUNT(*) as runs
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
+        GROUP BY dashboard ORDER BY cost DESC
+    ''', (ts_from, ts_to))
+
+    summary = rk_db.query('''
+        SELECT SUM(cost_usd) as total_cost,
+               ROUND(100.0 * SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) / MAX(SUM(cost_usd), 0.01), 1) as spot_pct,
+               ROUND(AVG(cost_usd), 2) as avg_cost_per_run,
+               COUNT(*) as total_runs
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
+    ''', (ts_from, ts_to))
+
+    return Response(json.dumps({
+        'by_date': by_date,
+        'by_instance_type': by_instance,
+        'by_dashboard': by_dashboard,
+        'summary': summary[0] if summary else {},
+    }), mimetype='application/json')
+
+
+# ---- CI Performance endpoint ----
+
+@app.route('/api/ci/performance')
+@auth.login_required
+def api_ci_performance():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    dashboard = request.args.get('dashboard', '')
+    ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
+    ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
+
+    dash_filter = "AND dashboard = ?" if dashboard else ""
+    params = [ts_from, ts_to] + ([dashboard] if dashboard else [])
+
+    by_date = rk_db.query(f'''
+        SELECT date(timestamp_ms/1000, 'unixepoch') as date,
+               COUNT(*) as total,
+               SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) as failed,
+               ROUND(100.0 * SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as pass_rate,
+               ROUND(100.0 * SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as failure_rate,
+               ROUND(AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END), 1) as avg_duration_mins
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND status IN ('PASSED','FAILED') {dash_filter}
+        GROUP BY date(timestamp_ms/1000, 'unixepoch') ORDER BY date
+    ''', params)
+
+    # Flake data from test_events
+    top_flakes = rk_db.query('''
+        SELECT test_cmd, COUNT(*) as count, ref_name
+        FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
+        GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+    ''', (date_from, date_to + 'T23:59:59'))
+
+    top_failures = rk_db.query('''
+        SELECT test_cmd, COUNT(*) as count
+        FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
+        GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+    ''', (date_from, date_to + 'T23:59:59'))
+
+    summary = rk_db.query(f'''
+        SELECT COUNT(*) as total_runs,
+               ROUND(100.0 * SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as pass_rate,
+               ROUND(100.0 * SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as failure_rate,
+               ROUND(AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END), 1) as avg_duration_mins
+        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND status IN ('PASSED','FAILED') {dash_filter}
+    ''', params)
+
+    # Flake rate from test_events
+    flake_count = rk_db.query('''
+        SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
+    ''', (date_from, date_to + 'T23:59:59'))
+    total_tests = rk_db.query('''
+        SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND timestamp >= ? AND timestamp <= ?
+    ''', (date_from, date_to + 'T23:59:59'))
+
+    s = summary[0] if summary else {}
+    fc = flake_count[0]['c'] if flake_count else 0
+    tc = total_tests[0]['c'] if total_tests else 0
+    s['flake_rate'] = round(100.0 * fc / max(tc, 1), 1) if tc else 0
+
+    return Response(json.dumps({
+        'by_date': by_date,
+        'top_flakes': top_flakes,
+        'top_failures': top_failures,
+        'summary': s,
+    }), mimetype='application/json')
+
+
+# ---- Deployment speed endpoint ----
+
+@app.route('/api/deployments/speed')
+@auth.login_required
+def api_deploy_speed():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    return Response(json.dumps(rk_github.get_deployment_speed(date_from, date_to)), mimetype='application/json')
+
+
+# ---- Branch lag endpoint ----
+
+@app.route('/api/branches/lag')
+@auth.login_required
+def api_branch_lag():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    return Response(json.dumps(rk_github.get_branch_lag(date_from, date_to)), mimetype='application/json')
+
+
+# ---- PR metrics endpoint ----
+
+@app.route('/api/prs/metrics')
+@auth.login_required
+def api_pr_metrics():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    author = request.args.get('author', '')
+    return Response(json.dumps(rk_github.get_pr_metrics(date_from, date_to, author)), mimetype='application/json')
+
+
+# ---- Dashboard view routes ----
+
+@app.route('/cost-overview')
+@auth.login_required
+def cost_overview():
+    return serve_dashboard_view('cost-overview')
+
+@app.route('/ci-performance')
+@auth.login_required
+def ci_performance():
+    return serve_dashboard_view('ci-performance')
+
+@app.route('/deploy-speed')
+@auth.login_required
+def deploy_speed():
+    return serve_dashboard_view('deploy-speed')
+
+@app.route('/branch-lag')
+@auth.login_required
+def branch_lag():
+    return serve_dashboard_view('branch-lag')
+
+@app.route('/pr-metrics')
+@auth.login_required
+def pr_metrics():
+    return serve_dashboard_view('pr-metrics')
+
+@app.route('/runner-costs')
+@auth.login_required
+def runner_costs():
+    return serve_dashboard_view('runner-costs')
 
 
 @app.route('/<key>')

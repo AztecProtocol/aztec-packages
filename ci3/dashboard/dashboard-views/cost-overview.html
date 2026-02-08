@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - Cost Overview</title>
+  <style>
+    body {
+      background-color: black;
+      color: #ccc;
+      font-family: monospace;
+      padding: 10px;
+      font-size: 14px;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+    .controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .controls label { color: #888; }
+    input, select {
+      background: #111; border: 1px solid #333; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 8px;
+    }
+    input:focus, select:focus { outline: none; border-color: #58a6ff; }
+    button {
+      background: #222; border: 1px solid #444; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 12px; cursor: pointer;
+    }
+    button:hover { background: #333; }
+    button.active { background: #238636; border-color: #238636; color: #fff; }
+    .stats { margin: 12px 0; color: #888; }
+    .stats span { color: #ccc; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .charts .full { grid-column: 1 / -1; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .chart-box h3 { color: #888; font-size: 12px; font-weight: normal; text-transform: uppercase; margin-bottom: 8px; }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall { height: 350px; }
+    .chart-wrap.med { height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333; color: #888; cursor: pointer; white-space: nowrap; }
+    th:hover { color: #ccc; }
+    td { padding: 6px 8px; border-bottom: 1px solid #111; }
+    tr:hover td { background: #111; }
+    .amt { font-variant-numeric: tabular-nums; text-align: right; }
+    th.amt { text-align: right; }
+    .msg { color: #888; padding: 8px 0; }
+    .msg.err { color: #f85149; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview" class="active">cost overview</a>
+    <a href="/namespace-billing">namespace billing</a>
+    <a href="/ci-performance">ci performance</a>
+    <a href="/deploy-speed">deploy speed</a>
+    <a href="/branch-lag">branch lag</a>
+    <a href="/pr-metrics">pr metrics</a>
+    <a href="/runner-costs">runner costs</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">cost overview</h2>
+
+  <div class="controls">
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>combined daily spend</h3>
+      <div class="chart-wrap tall"><canvas id="stackedBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>service category breakdown</h3>
+      <div class="chart-wrap med"><canvas id="categoryBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>aws vs gcp split</h3>
+      <div class="chart-wrap med"><canvas id="providerDoughnut"></canvas></div>
+    </div>
+  </div>
+
+  <table>
+    <thead id="thead"><tr></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    let apiData = null;
+    let charts = {};
+    let sort = { col: 'total', dir: 'desc' };
+
+    const SVC_COLORS = {
+      aws_ec2: '#58a6ff',
+      aws_cloudfront: '#d2a8ff',
+      aws_other: '#555',
+      gcp_compute_spot: '#3fb950',
+      gcp_compute_ondemand: '#a5d6ff',
+      gcp_network: '#bc8cff',
+      gcp_storage: '#f0883e'
+    };
+
+    const SVC_LABELS = {
+      aws_ec2: 'AWS EC2',
+      aws_cloudfront: 'AWS CloudFront',
+      aws_other: 'AWS Other',
+      gcp_compute_spot: 'GCP Compute Spot',
+      gcp_compute_ondemand: 'GCP Compute On-Demand',
+      gcp_network: 'GCP Network',
+      gcp_storage: 'GCP Storage'
+    };
+
+    const SVC_KEYS = Object.keys(SVC_COLORS);
+
+    const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+
+    function granularity() {
+      return document.querySelector('[data-g].active').dataset.g;
+    }
+
+    function extractServices(entry) {
+      return {
+        aws_ec2: (entry.aws && entry.aws.ec2) || 0,
+        aws_cloudfront: (entry.aws && entry.aws.cloudfront) || 0,
+        aws_other: (entry.aws && entry.aws.other) || 0,
+        gcp_compute_spot: (entry.gcp && entry.gcp.compute_spot) || 0,
+        gcp_compute_ondemand: (entry.gcp && entry.gcp.compute_ondemand) || 0,
+        gcp_network: (entry.gcp && entry.gcp.network) || 0,
+        gcp_storage: (entry.gcp && entry.gcp.storage) || 0
+      };
+    }
+
+    // ---- data ----
+    async function load() {
+      document.getElementById('msg').className = 'msg';
+      document.getElementById('msg').textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const g = granularity();
+        const resp = await fetch(`/api/costs/overview?from=${f}&to=${t}&granularity=${g}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        apiData = await resp.json();
+
+        if (!apiData.by_date || !apiData.by_date.length) {
+          document.getElementById('msg').textContent = 'no data yet - loading...';
+          document.getElementById('stats').innerHTML = '';
+          document.getElementById('tbody').innerHTML = '';
+          Object.values(charts).forEach(c => c.destroy());
+          charts = {};
+          return;
+        }
+
+        document.getElementById('msg').textContent = '';
+        buildHeader();
+        render();
+      } catch (e) {
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').textContent = 'error: ' + e.message;
+      }
+    }
+
+    // ---- render ----
+    function render() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+
+      const byDate = apiData.by_date;
+      const totals = apiData.totals;
+      const days = byDate.length || 1;
+      const dailyAvg = totals.combined / days;
+
+      // trend: compare second half vs first half
+      const mid = Math.floor(byDate.length / 2);
+      const firstHalf = byDate.slice(0, mid).reduce((s, e) => s + (e.aws_total || 0) + (e.gcp_total || 0), 0);
+      const secondHalf = byDate.slice(mid).reduce((s, e) => s + (e.aws_total || 0) + (e.gcp_total || 0), 0);
+      const trendPct = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100) : 0;
+      const trendStr = trendPct >= 0 ? `+${trendPct.toFixed(1)}%` : `${trendPct.toFixed(1)}%`;
+
+      // stats row
+      document.getElementById('stats').innerHTML =
+        `total: <span>${fmt(totals.combined)}</span> &middot; ` +
+        `daily avg: <span>${fmt(dailyAvg)}</span> &middot; ` +
+        `aws: <span>${fmt(totals.aws)}</span> &middot; ` +
+        `gcp: <span>${fmt(totals.gcp)}</span> &middot; ` +
+        `trend: <span>${trendStr}</span>`;
+
+      // ---- stacked bar chart (full width) ----
+      const dates = byDate.map(e => e.date);
+      const datasets = SVC_KEYS.map(key => ({
+        label: SVC_LABELS[key],
+        data: byDate.map(e => extractServices(e)[key]),
+        backgroundColor: SVC_COLORS[key],
+        borderWidth: 0
+      }));
+
+      charts.stacked = new Chart(document.getElementById('stackedBar').getContext('2d'), {
+        type: 'bar',
+        data: { labels: dates.map(fmtDate), datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => `${c.dataset.label}: ${fmt(c.raw)}`,
+                footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}`
+              }
+            }
+          }
+        }
+      });
+
+      // ---- service category breakdown (horizontal bar, half width) ----
+      const svcTotals = {};
+      SVC_KEYS.forEach(key => { svcTotals[key] = 0; });
+      byDate.forEach(e => {
+        const svcs = extractServices(e);
+        SVC_KEYS.forEach(key => { svcTotals[key] += svcs[key]; });
+      });
+      const activeSvcs = SVC_KEYS.filter(k => svcTotals[k] > 0);
+
+      charts.category = new Chart(document.getElementById('categoryBar').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: activeSvcs.map(k => SVC_LABELS[k]),
+          datasets: [{
+            data: activeSvcs.map(k => svcTotals[k]),
+            backgroundColor: activeSvcs.map(k => SVC_COLORS[k]),
+            borderRadius: 2,
+            barPercentage: 0.5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => fmt(c.raw) } }
+          }
+        }
+      });
+
+      // ---- aws vs gcp doughnut (half width) ----
+      charts.provider = new Chart(document.getElementById('providerDoughnut').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['AWS', 'GCP'],
+          datasets: [{
+            data: [totals.aws, totals.gcp],
+            backgroundColor: ['#58a6ff', '#3fb950'],
+            borderColor: '#0a0a0a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  const pct = totals.combined > 0 ? ((c.raw / totals.combined) * 100).toFixed(1) : '0';
+                  return `${c.label}: ${fmt(c.raw)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      renderTable();
+      saveUrl();
+    }
+
+    // ---- table ----
+    function buildHeader() {
+      const tr = document.querySelector('#thead tr');
+      tr.innerHTML = '';
+      const cols = [
+        { k: 'date', l: 'Date' },
+        { k: 'aws', l: 'AWS' },
+        { k: 'gcp', l: 'GCP' },
+        { k: 'total', l: 'Total' }
+      ];
+      cols.forEach(col => {
+        const th = document.createElement('th');
+        th.dataset.sort = col.k;
+        if (col.k !== 'date') th.className = 'amt';
+        th.textContent = col.l;
+        th.onclick = () => {
+          sort = sort.col === col.k
+            ? { col: col.k, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+            : { col: col.k, dir: 'desc' };
+          renderTable();
+        };
+        tr.appendChild(th);
+      });
+    }
+
+    function renderTable() {
+      if (!apiData || !apiData.by_date) return;
+      const rows = apiData.by_date.map(e => ({
+        date: e.date,
+        aws: e.aws_total || 0,
+        gcp: e.gcp_total || 0,
+        total: (e.aws_total || 0) + (e.gcp_total || 0)
+      }));
+
+      rows.sort((a, b) => {
+        const av = sort.col === 'date' ? a.date : (a[sort.col] || 0);
+        const bv = sort.col === 'date' ? b.date : (b[sort.col] || 0);
+        if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return sort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      document.getElementById('tbody').innerHTML = rows.map(r =>
+        `<tr>` +
+        `<td>${fmtDate(r.date)}</td>` +
+        `<td class="amt">${fmt(r.aws)}</td>` +
+        `<td class="amt">${fmt(r.gcp)}</td>` +
+        `<td class="amt" style="color:#fff">${fmt(r.total)}</td>` +
+        `</tr>`
+      ).join('');
+    }
+
+    // ---- url state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      history.replaceState({}, '', '?' + p);
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) {
+        document.querySelectorAll('[data-g]').forEach(b =>
+          b.classList.toggle('active', b.dataset.g === p.get('g'))
+        );
+      }
+    }
+
+    // ---- init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      loadUrl();
+
+      document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        load();
+      });
+      document.getElementById('dateFrom').onchange = load;
+      document.getElementById('dateTo').onchange = load;
+
+      load();
+    });
+  </script>
+</body>
+</html>

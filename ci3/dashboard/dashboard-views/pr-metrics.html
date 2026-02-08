@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - PR Metrics</title>
+  <style>
+    body {
+      background-color: black;
+      color: #ccc;
+      font-family: monospace;
+      padding: 10px;
+      font-size: 14px;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+    .controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .controls label { color: #888; }
+    input, select {
+      background: #111; border: 1px solid #333; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 8px;
+    }
+    input:focus, select:focus { outline: none; border-color: #58a6ff; }
+    button {
+      background: #222; border: 1px solid #444; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 12px; cursor: pointer;
+    }
+    button:hover { background: #333; }
+    button.active { background: #238636; border-color: #238636; color: #fff; }
+    .stats { margin: 12px 0; color: #888; }
+    .stats span { color: #ccc; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .charts .full { grid-column: 1 / -1; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .chart-box h3 { color: #888; font-size: 12px; font-weight: normal; text-transform: uppercase; margin-bottom: 8px; }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall { height: 350px; }
+    .chart-wrap.med { height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333; color: #888; cursor: pointer; white-space: nowrap; }
+    th:hover { color: #ccc; }
+    td { padding: 6px 8px; border-bottom: 1px solid #111; }
+    tr:hover td { background: #111; }
+    .amt { font-variant-numeric: tabular-nums; text-align: right; }
+    th.amt { text-align: right; }
+    .msg { color: #888; padding: 8px 0; }
+    .msg.err { color: #f85149; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing">namespace billing</a>
+    <a href="/ci-performance">ci performance</a>
+    <a href="/deploy-speed">deploy speed</a>
+    <a href="/branch-lag">branch lag</a>
+    <a href="/pr-metrics" class="active">pr metrics</a>
+    <a href="/runner-costs">runner costs</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">pr metrics</h2>
+
+  <div class="controls">
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <label>author</label>
+    <select id="authorFilter"><option value="">all</option></select>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>cost per pr &amp; rolling avg merge time</h3>
+      <div class="chart-wrap tall"><canvas id="comboChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>top 15 authors by ci cost</h3>
+      <div class="chart-wrap med"><canvas id="authorChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>merge time distribution</h3>
+      <div class="chart-wrap med"><canvas id="mergeDistChart"></canvas></div>
+    </div>
+  </div>
+
+  <table>
+    <thead id="thead"><tr></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    let apiData = null;
+    let charts = {};
+    let sort = { col: 'total_cost', dir: 'desc' };
+
+    const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+
+    // compute 7-day rolling average
+    function rollingAvg(arr, windowSize) {
+      const result = [];
+      for (let i = 0; i < arr.length; i++) {
+        const start = Math.max(0, i - windowSize + 1);
+        const window = arr.slice(start, i + 1);
+        const avg = window.reduce((s, v) => s + v, 0) / window.length;
+        result.push(parseFloat(avg.toFixed(2)));
+      }
+      return result;
+    }
+
+    // bucket merge times from by_author data into histogram
+    function bucketMergeTimes(byAuthor) {
+      // We approximate distribution from avg_merge_time_hrs per author weighted by pr_count
+      const buckets = { '<1h': 0, '1-4h': 0, '4-12h': 0, '12-24h': 0, '>24h': 0 };
+      for (const a of byAuthor) {
+        const h = a.avg_merge_time_hrs;
+        const count = a.pr_count;
+        if (h < 1) buckets['<1h'] += count;
+        else if (h < 4) buckets['1-4h'] += count;
+        else if (h < 12) buckets['4-12h'] += count;
+        else if (h < 24) buckets['12-24h'] += count;
+        else buckets['>24h'] += count;
+      }
+      return buckets;
+    }
+
+    // ---- data ----
+    async function load() {
+      document.getElementById('msg').className = 'msg';
+      document.getElementById('msg').textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const author = document.getElementById('authorFilter').value;
+        const url = `/api/prs/metrics?from=${f}&to=${t}&author=${encodeURIComponent(author)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        apiData = await resp.json();
+
+        if (!apiData.by_date || !apiData.by_date.length) {
+          document.getElementById('msg').textContent = 'no data for selected range';
+          document.getElementById('stats').innerHTML = '';
+          document.getElementById('tbody').innerHTML = '';
+          Object.values(charts).forEach(c => c.destroy());
+          charts = {};
+          return;
+        }
+
+        // populate author filter dropdown
+        const sel = document.getElementById('authorFilter');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">all</option>';
+        if (apiData.by_author) {
+          apiData.by_author
+            .sort((a, b) => b.total_cost - a.total_cost)
+            .forEach(a => {
+              const o = document.createElement('option');
+              o.value = a.author;
+              o.textContent = a.author;
+              sel.appendChild(o);
+            });
+        }
+        if (cur) sel.value = cur;
+
+        document.getElementById('msg').textContent = '';
+        buildHeader();
+        render();
+      } catch (e) {
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').textContent = 'error: ' + e.message;
+      }
+    }
+
+    // ---- render ----
+    function render() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+
+      const byDate = apiData.by_date;
+      const byAuthor = apiData.by_author || [];
+      const summary = apiData.summary || {};
+
+      // stats row
+      document.getElementById('stats').innerHTML =
+        `avg cost/PR: <span>${fmt(summary.avg_cost_per_pr || 0)}</span> &middot; ` +
+        `median merge time: <span>${(summary.median_merge_time_hrs || 0).toFixed(1)}h</span> &middot; ` +
+        `total PRs: <span>${(summary.total_prs || 0).toLocaleString()}</span> &middot; ` +
+        `total CI spend: <span>${fmt(summary.total_cost || 0)}</span> &middot; ` +
+        `avg runs/PR: <span>${(summary.avg_ci_runs_per_pr || 0).toFixed(1)}</span>`;
+
+      // ---- chart 1: combo bar+line (full width) ----
+      const dates = byDate.map(e => e.date);
+      const avgCosts = byDate.map(e => e.avg_cost || 0);
+      const mergeTimesRaw = byDate.map(e => e.avg_merge_time_hrs || 0);
+      const mergeTimesRolling = rollingAvg(mergeTimesRaw, 7);
+
+      charts.combo = new Chart(document.getElementById('comboChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            {
+              label: 'Avg Cost/PR',
+              type: 'bar',
+              data: avgCosts,
+              backgroundColor: '#58a6ff',
+              borderWidth: 0,
+              yAxisID: 'yCost',
+              order: 2
+            },
+            {
+              label: '7d Avg Merge Time',
+              type: 'line',
+              data: mergeTimesRolling,
+              borderColor: '#f0883e',
+              backgroundColor: 'rgba(240,136,62,0.1)',
+              borderWidth: 2,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'yTime',
+              order: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              ticks: { color: '#555', maxRotation: 45 },
+              grid: { color: '#181818' }
+            },
+            yCost: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'USD', color: '#58a6ff', font: { family: 'monospace', size: 11 } },
+              ticks: { color: '#58a6ff', callback: v => '$' + v },
+              grid: { color: '#181818' }
+            },
+            yTime: {
+              type: 'linear',
+              position: 'right',
+              title: { display: true, text: 'hours', color: '#f0883e', font: { family: 'monospace', size: 11 } },
+              ticks: { color: '#f0883e', callback: v => v + 'h' },
+              grid: { drawOnChartArea: false }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  if (c.dataset.yAxisID === 'yCost') return `${c.dataset.label}: ${fmt(c.raw)}`;
+                  return `${c.dataset.label}: ${c.raw.toFixed(1)}h`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // ---- chart 2: top 15 authors by CI cost (horizontal bar, half width) ----
+      const top15 = byAuthor
+        .sort((a, b) => b.total_cost - a.total_cost)
+        .slice(0, 15);
+
+      charts.authors = new Chart(document.getElementById('authorChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: top15.map(a => a.author),
+          datasets: [{
+            data: top15.map(a => a.total_cost),
+            backgroundColor: '#d2a8ff',
+            borderRadius: 2,
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { ticks: { color: '#ccc', font: { family: 'monospace', size: 10 } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => fmt(c.raw) } }
+          }
+        }
+      });
+
+      // ---- chart 3: merge time distribution histogram (half width) ----
+      const buckets = bucketMergeTimes(byAuthor);
+      const bucketLabels = Object.keys(buckets);
+      const bucketValues = Object.values(buckets);
+      const bucketColors = ['#3fb950', '#7ee787', '#f0883e', '#f85149', '#da3633'];
+
+      charts.mergeDist = new Chart(document.getElementById('mergeDistChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: bucketLabels,
+          datasets: [{
+            data: bucketValues,
+            backgroundColor: bucketColors,
+            borderRadius: 2,
+            barPercentage: 0.7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { color: '#181818' } },
+            y: { ticks: { color: '#555', callback: v => v + ' PRs' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => c.raw + ' PRs' } }
+          }
+        }
+      });
+
+      renderTable();
+      saveUrl();
+    }
+
+    // ---- table ----
+    function buildHeader() {
+      const tr = document.querySelector('#thead tr');
+      tr.innerHTML = '';
+      const cols = [
+        { k: 'author', l: 'Author' },
+        { k: 'pr_count', l: 'PRs' },
+        { k: 'total_cost', l: 'Total Cost' },
+        { k: 'avg_cost', l: 'Avg Cost/PR' },
+        { k: 'avg_merge_time_hrs', l: 'Avg Merge Time' }
+      ];
+      cols.forEach(col => {
+        const th = document.createElement('th');
+        th.dataset.sort = col.k;
+        if (col.k !== 'author') th.className = 'amt';
+        th.textContent = col.l;
+        th.onclick = () => {
+          sort = sort.col === col.k
+            ? { col: col.k, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+            : { col: col.k, dir: 'desc' };
+          renderTable();
+        };
+        tr.appendChild(th);
+      });
+    }
+
+    function renderTable() {
+      if (!apiData || !apiData.by_author) return;
+      const rows = apiData.by_author.map(a => ({
+        author: a.author,
+        pr_count: a.pr_count,
+        total_cost: a.total_cost,
+        avg_cost: a.pr_count > 0 ? a.total_cost / a.pr_count : 0,
+        avg_merge_time_hrs: a.avg_merge_time_hrs
+      }));
+
+      rows.sort((a, b) => {
+        const av = sort.col === 'author' ? a.author : (a[sort.col] || 0);
+        const bv = sort.col === 'author' ? b.author : (b[sort.col] || 0);
+        if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return sort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      document.getElementById('tbody').innerHTML = rows.map(r =>
+        `<tr>` +
+        `<td>${r.author}</td>` +
+        `<td class="amt">${r.pr_count}</td>` +
+        `<td class="amt">${fmt(r.total_cost)}</td>` +
+        `<td class="amt">${fmt(r.avg_cost)}</td>` +
+        `<td class="amt">${r.avg_merge_time_hrs.toFixed(1)}h</td>` +
+        `</tr>`
+      ).join('');
+    }
+
+    // ---- url state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      const author = document.getElementById('authorFilter').value;
+      if (author) p.set('author', author);
+      history.replaceState({}, '', '?' + p);
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      return p.get('author') || '';
+    }
+
+    // ---- init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      const savedAuthor = loadUrl();
+
+      document.getElementById('refreshBtn').onclick = load;
+      document.getElementById('authorFilter').onchange = load;
+      document.getElementById('dateFrom').onchange = load;
+      document.getElementById('dateTo').onchange = load;
+
+      const origLoad = load;
+      load = async () => {
+        await origLoad();
+        if (savedAuthor) {
+          document.getElementById('authorFilter').value = savedAuthor;
+        }
+        load = origLoad;
+      };
+      load();
+    });
+  </script>
+</body>
+</html>
