@@ -1,14 +1,13 @@
-"""GitHub API polling for PR lifecycle, workflow runs, and branch lag.
+"""GitHub API polling with in-memory cache.
 
-Uses `gh` CLI for GitHub API access. Stores results in SQLite.
+Fetches PR lifecycle, deployment runs, and branch lag via `gh` CLI.
+All data cached in memory with TTL. No SQLite, no background threads.
 """
 import json
 import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-
-import rk_db
 
 REPO = 'AztecProtocol/aztec-packages'
 
@@ -24,9 +23,17 @@ DEPLOY_WORKFLOWS = [
     'deploy-next-net.yml',
 ]
 
+_CACHE_TTL = 3600  # 1 hour
+_pr_cache = {'data': [], 'ts': 0}
+_deploy_cache = {'data': [], 'ts': 0}
+_lag_cache = {'data': [], 'ts': 0}
+_pr_author_cache = {}  # {pr_number: {'author': str, 'title': str, 'branch': str}}
+_pr_lock = threading.Lock()
+_deploy_lock = threading.Lock()
+_lag_lock = threading.Lock()
+
 
 def _gh(args: list[str]) -> str | None:
-    """Run a gh CLI command and return stdout."""
     try:
         result = subprocess.run(
             ['gh'] + args,
@@ -39,78 +46,64 @@ def _gh(args: list[str]) -> str | None:
     return None
 
 
-def fetch_recent_prs(limit: int = 100) -> list[dict]:
-    """Fetch recently merged PRs."""
+# ---- PR lifecycle ----
+
+def _fetch_and_process_prs() -> list[dict]:
     out = _gh([
         'pr', 'list', '--repo', REPO, '--state', 'merged',
-        '--limit', str(limit),
+        '--limit', '100',
         '--json', 'number,author,title,createdAt,mergedAt,closedAt,baseRefName'
     ])
     if not out:
         return []
     try:
-        return json.loads(out)
+        prs = json.loads(out)
     except json.JSONDecodeError:
         return []
 
-
-def store_prs(prs: list[dict]):
-    """Upsert PR lifecycle data into SQLite."""
     for pr in prs:
         author = pr.get('author', {})
         if isinstance(author, dict):
-            author = author.get('login', 'unknown')
+            pr['author'] = author.get('login', 'unknown')
         created = pr.get('createdAt', '')
         merged = pr.get('mergedAt')
-        merge_time = None
         if created and merged:
             try:
                 c = datetime.fromisoformat(created.replace('Z', '+00:00'))
                 m = datetime.fromisoformat(merged.replace('Z', '+00:00'))
-                merge_time = round((m - c).total_seconds() / 3600, 2)
+                pr['merge_time_hrs'] = round((m - c).total_seconds() / 3600, 2)
             except (ValueError, TypeError):
-                pass
-
-        rk_db.execute('''
-            INSERT INTO pr_lifecycle (pr_number, author, title, created_at, merged_at, closed_at, base_branch, merge_time_hrs)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(pr_number) DO UPDATE SET
-                merged_at = COALESCE(excluded.merged_at, pr_lifecycle.merged_at),
-                closed_at = COALESCE(excluded.closed_at, pr_lifecycle.closed_at),
-                merge_time_hrs = COALESCE(excluded.merge_time_hrs, pr_lifecycle.merge_time_hrs)
-        ''', (
-            pr.get('number'),
-            author,
-            pr.get('title'),
-            created,
-            merged,
-            pr.get('closedAt'),
-            pr.get('baseRefName'),
-            merge_time,
-        ))
+                pr['merge_time_hrs'] = None
+        else:
+            pr['merge_time_hrs'] = None
+        pr['merged_date'] = merged[:10] if merged else None
+    return prs
 
 
-def update_pr_costs():
-    """Update ci_cost_usd and ci_runs_count for PRs from ci_runs table."""
-    rk_db.execute('''
-        UPDATE pr_lifecycle SET
-            ci_cost_usd = COALESCE((
-                SELECT SUM(cost_usd) FROM ci_runs WHERE ci_runs.pr_number = pr_lifecycle.pr_number
-            ), 0),
-            ci_runs_count = COALESCE((
-                SELECT COUNT(*) FROM ci_runs WHERE ci_runs.pr_number = pr_lifecycle.pr_number
-            ), 0)
-        WHERE pr_number IN (SELECT DISTINCT pr_number FROM ci_runs WHERE pr_number IS NOT NULL)
-    ''')
+def _ensure_prs():
+    now = time.time()
+    if _pr_cache['data'] and now - _pr_cache['ts'] < _CACHE_TTL:
+        return
+    if not _pr_lock.acquire(blocking=False):
+        return
+    try:
+        prs = _fetch_and_process_prs()
+        if prs:
+            _pr_cache['data'] = prs
+            _pr_cache['ts'] = now
+    finally:
+        _pr_lock.release()
 
 
-def fetch_deploy_runs(limit: int = 50):
-    """Fetch recent deployment workflow runs."""
+# ---- Deployments ----
+
+def _fetch_all_deploys() -> list[dict]:
+    all_runs = []
     for workflow in DEPLOY_WORKFLOWS:
         out = _gh([
             'run', 'list', '--repo', REPO,
-            '--workflow', workflow, '--limit', str(limit),
-            '--json', 'databaseId,status,conclusion,createdAt,updatedAt,headBranch,headSha,name'
+            '--workflow', workflow, '--limit', '50',
+            '--json', 'databaseId,status,conclusion,createdAt,updatedAt,headBranch,name'
         ])
         if not out:
             continue
@@ -129,27 +122,40 @@ def fetch_deploy_runs(limit: int = 50):
                     duration = round((c - s).total_seconds(), 1)
                 except (ValueError, TypeError):
                     pass
-            status = run.get('conclusion', run.get('status', 'unknown'))
-            rk_db.execute('''
-                INSERT OR REPLACE INTO deployments
-                (run_id, workflow_name, ref_name, status, started_at, completed_at, duration_secs)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                str(run.get('databaseId', '')),
-                workflow.replace('.yml', ''),
-                run.get('headBranch', ''),
-                status,
-                started,
-                completed,
-                duration,
-            ))
+            all_runs.append({
+                'run_id': str(run.get('databaseId', '')),
+                'workflow_name': workflow.replace('.yml', ''),
+                'ref_name': run.get('headBranch', ''),
+                'status': run.get('conclusion', run.get('status', 'unknown')),
+                'started_at': started,
+                'completed_at': completed,
+                'duration_secs': duration,
+                'started_date': started[:10] if started else None,
+            })
+    return all_runs
 
 
-def compute_branch_lag():
-    """Compute current branch lag and store daily snapshot."""
+def _ensure_deploys():
+    now = time.time()
+    if _deploy_cache['data'] and now - _deploy_cache['ts'] < _CACHE_TTL:
+        return
+    if not _deploy_lock.acquire(blocking=False):
+        return
+    try:
+        deploys = _fetch_all_deploys()
+        if deploys:
+            _deploy_cache['data'] = deploys
+            _deploy_cache['ts'] = now
+    finally:
+        _deploy_lock.release()
+
+
+# ---- Branch lag ----
+
+def _fetch_branch_lag() -> list[dict]:
+    results = []
     today = datetime.now(timezone.utc).date().isoformat()
     for source, target in BRANCH_PAIRS:
-        # Count commits in source not in target
         out = _gh([
             'api', f'repos/{REPO}/compare/{target}...{source}',
             '--jq', '.ahead_by'
@@ -161,7 +167,6 @@ def compute_branch_lag():
         except (ValueError, TypeError):
             continue
 
-        # Get oldest diverging commit date for days_behind
         days_behind = None
         out2 = _gh([
             'api', f'repos/{REPO}/compare/{target}...{source}',
@@ -174,138 +179,255 @@ def compute_branch_lag():
             except (ValueError, TypeError):
                 pass
 
-        rk_db.execute('''
-            INSERT OR REPLACE INTO branch_lag (date, source_branch, target_branch, commits_behind, days_behind)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (today, source, target, commits_behind, days_behind))
+        results.append({
+            'date': today,
+            'source': source,
+            'target': target,
+            'commits_behind': commits_behind,
+            'days_behind': days_behind,
+        })
+    return results
+
+
+def _ensure_lag():
+    now = time.time()
+    if _lag_cache['data'] and now - _lag_cache['ts'] < _CACHE_TTL:
+        return
+    if not _lag_lock.acquire(blocking=False):
+        return
+    try:
+        lag = _fetch_branch_lag()
+        if lag:
+            _lag_cache['data'] = lag
+            _lag_cache['ts'] = now
+    finally:
+        _lag_lock.release()
 
 
 # ---- Query functions for API endpoints ----
 
-def get_branch_lag(date_from: str, date_to: str) -> dict:
-    """Get branch lag data for API response."""
-    # Trigger fresh computation
-    threading.Thread(target=compute_branch_lag, daemon=True).start()
+def get_deployment_speed(date_from: str, date_to: str, workflow: str = '') -> dict:
+    if not _deploy_cache['data']:
+        _ensure_deploys()
+    else:
+        threading.Thread(target=_ensure_deploys, daemon=True).start()
+    deploys = [d for d in _deploy_cache['data']
+               if d.get('started_date') and date_from <= d['started_date'] <= date_to]
+    if workflow:
+        deploys = [d for d in deploys if d['workflow_name'] == workflow]
 
-    pairs = []
-    for source, target in BRANCH_PAIRS:
-        history = rk_db.query(
-            "SELECT date, commits_behind, days_behind FROM branch_lag WHERE source_branch=? AND target_branch=? AND date>=? AND date<=? ORDER BY date",
-            (source, target, date_from, date_to)
-        )
-        current = rk_db.query(
-            "SELECT commits_behind, days_behind FROM branch_lag WHERE source_branch=? AND target_branch=? ORDER BY date DESC LIMIT 1",
-            (source, target)
-        )
-        pairs.append({
-            'source': source,
-            'target': target,
-            'current': current[0] if current else {'commits_behind': 0, 'days_behind': 0},
-            'history': history,
+    # Group by date
+    by_date_map = {}
+    for d in deploys:
+        date = d['started_date']
+        if date not in by_date_map:
+            by_date_map[date] = {'durations': [], 'success': 0, 'failure': 0, 'count': 0}
+        by_date_map[date]['count'] += 1
+        if d['duration_secs'] is not None:
+            by_date_map[date]['durations'].append(d['duration_secs'] / 60.0)
+        if d['status'] == 'success':
+            by_date_map[date]['success'] += 1
+        elif d['status'] == 'failure':
+            by_date_map[date]['failure'] += 1
+
+    by_date = []
+    for date in sorted(by_date_map):
+        b = by_date_map[date]
+        durs = sorted(b['durations'])
+        by_date.append({
+            'date': date,
+            'median_mins': round(durs[len(durs)//2], 1) if durs else None,
+            'p95_mins': round(durs[int(len(durs)*0.95)], 1) if durs else None,
+            'count': b['count'],
+            'success': b['success'],
+            'failure': b['failure'],
         })
-    return {'pairs': pairs}
 
+    all_durs = sorted([d['duration_secs']/60.0 for d in deploys if d['duration_secs'] is not None])
+    total = len(deploys)
+    success = sum(1 for d in deploys if d['status'] == 'success')
 
-def get_deployment_speed(date_from: str, date_to: str) -> dict:
-    """Get deployment speed metrics."""
-    threading.Thread(target=fetch_deploy_runs, daemon=True).start()
-
-    rows = rk_db.query('''
-        SELECT date(started_at) as date,
-               AVG(duration_secs/60.0) as median_mins,
-               MAX(duration_secs/60.0) as p95_mins,
-               COUNT(*) as count,
-               SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as success,
-               SUM(CASE WHEN status='failure' THEN 1 ELSE 0 END) as failure
-        FROM deployments
-        WHERE date(started_at) >= ? AND date(started_at) <= ?
-        GROUP BY date(started_at)
-        ORDER BY date(started_at)
-    ''', (date_from, date_to))
-
-    summary_row = rk_db.query('''
-        SELECT AVG(duration_secs/60.0) as median_mins,
-               MAX(duration_secs/60.0) as p95_mins,
-               ROUND(100.0 * SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as success_rate,
-               COUNT(*) as total
-        FROM deployments
-        WHERE date(started_at) >= ? AND date(started_at) <= ?
-    ''', (date_from, date_to))
-
-    recent = rk_db.query('''
-        SELECT run_id, workflow_name, status, ROUND(duration_secs/60.0, 1) as duration_mins, started_at, ref_name
-        FROM deployments
-        WHERE date(started_at) >= ? AND date(started_at) <= ?
-        ORDER BY started_at DESC LIMIT 50
-    ''', (date_from, date_to))
+    recent = [{'run_id': d['run_id'], 'workflow_name': d['workflow_name'],
+               'status': d['status'], 'duration_mins': round(d['duration_secs']/60.0, 1) if d['duration_secs'] else None,
+               'started_at': d['started_at'], 'ref_name': d['ref_name']}
+              for d in sorted(deploys, key=lambda x: x['started_at'], reverse=True)[:50]]
 
     return {
-        'by_date': rows,
-        'summary': summary_row[0] if summary_row else {},
+        'by_date': by_date,
+        'summary': {
+            'median_mins': round(all_durs[len(all_durs)//2], 1) if all_durs else None,
+            'p95_mins': round(all_durs[int(len(all_durs)*0.95)], 1) if all_durs else None,
+            'success_rate': round(100.0 * success / max(total, 1), 1),
+            'total': total,
+        },
         'recent': recent,
     }
 
 
-def get_pr_metrics(date_from: str, date_to: str, author: str = '') -> dict:
-    """Get PR metrics for the date range."""
-    threading.Thread(target=lambda: (store_prs(fetch_recent_prs()), update_pr_costs()), daemon=True).start()
+def get_branch_lag(date_from: str, date_to: str) -> dict:
+    if not _lag_cache['data']:
+        _ensure_lag()
+    else:
+        threading.Thread(target=_ensure_lag, daemon=True).start()
+    pairs = []
+    for source, target in BRANCH_PAIRS:
+        matching = [l for l in _lag_cache['data']
+                    if l['source'] == source and l['target'] == target]
+        current = matching[-1] if matching else {'commits_behind': 0, 'days_behind': 0}
+        pairs.append({
+            'source': source,
+            'target': target,
+            'current': {'commits_behind': current.get('commits_behind', 0),
+                        'days_behind': current.get('days_behind', 0)},
+            'history': [{'date': l['date'], 'commits_behind': l['commits_behind'],
+                         'days_behind': l['days_behind']} for l in matching],
+        })
+    return {'pairs': pairs}
 
-    author_filter = "AND author = ?" if author else ""
-    params_base = [date_from, date_to] + ([author] if author else [])
 
-    by_date = rk_db.query(f'''
-        SELECT date(merged_at) as date,
-               AVG(ci_cost_usd) as avg_cost,
-               AVG(merge_time_hrs) as avg_merge_time_hrs,
-               COUNT(*) as pr_count
-        FROM pr_lifecycle
-        WHERE merged_at IS NOT NULL AND date(merged_at) >= ? AND date(merged_at) <= ? {author_filter}
-        GROUP BY date(merged_at)
-        ORDER BY date(merged_at)
-    ''', params_base)
+def get_pr_author(pr_number) -> dict | None:
+    """Look up PR author/title by number. Results are cached permanently (PR data doesn't change)."""
+    pr_number = int(pr_number) if pr_number else None
+    if not pr_number:
+        return None
+    if pr_number in _pr_author_cache:
+        return _pr_author_cache[pr_number]
 
-    by_author = rk_db.query(f'''
-        SELECT author, SUM(ci_cost_usd) as total_cost, COUNT(*) as pr_count,
-               AVG(merge_time_hrs) as avg_merge_time_hrs
-        FROM pr_lifecycle
-        WHERE merged_at IS NOT NULL AND date(merged_at) >= ? AND date(merged_at) <= ?
-        GROUP BY author ORDER BY total_cost DESC LIMIT 20
-    ''', (date_from, date_to))
+    # Check merged PR cache first (already fetched)
+    for pr in _pr_cache.get('data', []):
+        if pr.get('number') == pr_number:
+            info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
+                    'branch': pr.get('headRefName', '')}
+            _pr_author_cache[pr_number] = info
+            return info
 
-    summary = rk_db.query(f'''
-        SELECT AVG(ci_cost_usd) as avg_cost_per_pr,
-               AVG(merge_time_hrs) as median_merge_time_hrs,
-               COUNT(*) as total_prs,
-               SUM(ci_cost_usd) as total_cost,
-               AVG(ci_runs_count) as avg_ci_runs_per_pr
-        FROM pr_lifecycle
-        WHERE merged_at IS NOT NULL AND date(merged_at) >= ? AND date(merged_at) <= ? {author_filter}
-    ''', params_base)
+    # Fetch from GitHub API
+    out = _gh(['pr', 'view', str(pr_number), '--repo', REPO,
+               '--json', 'author,title,headRefName'])
+    if out:
+        try:
+            data = json.loads(out)
+            author = data.get('author', {})
+            if isinstance(author, dict):
+                author = author.get('login', 'unknown')
+            info = {'author': author, 'title': data.get('title', ''),
+                    'branch': data.get('headRefName', '')}
+            _pr_author_cache[pr_number] = info
+            return info
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return None
+
+
+def batch_get_pr_authors(pr_numbers: set) -> dict:
+    """Fetch authors for multiple PR numbers, using cache. Returns {pr_number: info}."""
+    result = {}
+    to_fetch = []
+    for prn in pr_numbers:
+        if not prn:
+            continue
+        prn = int(prn)
+        if prn in _pr_author_cache:
+            result[prn] = _pr_author_cache[prn]
+        else:
+            to_fetch.append(prn)
+
+    # Check merged PR cache first
+    for pr in _pr_cache.get('data', []):
+        num = pr.get('number')
+        if num in to_fetch:
+            info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
+                    'branch': pr.get('headRefName', '')}
+            _pr_author_cache[num] = info
+            result[num] = info
+            to_fetch.remove(num)
+
+    # Fetch remaining individually (with a cap to avoid API abuse)
+    for prn in to_fetch[:50]:
+        info = get_pr_author(prn)
+        if info:
+            result[prn] = info
+
+    return result
+
+
+def get_pr_metrics(date_from: str, date_to: str, author: str = '',
+                   ci_runs: list = None) -> dict:
+    """Get PR metrics. ci_runs should be passed from the caller (read from Redis)."""
+    if not _pr_cache['data']:
+        _ensure_prs()
+    else:
+        threading.Thread(target=_ensure_prs, daemon=True).start()
+
+    prs = [p for p in _pr_cache['data']
+           if p.get('merged_date') and date_from <= p['merged_date'] <= date_to]
+    if author:
+        prs = [p for p in prs if p.get('author') == author]
+
+    # Compute per-PR CI cost from ci_runs
+    pr_costs = {}
+    pr_run_counts = {}
+    if ci_runs:
+        for run in ci_runs:
+            prn = run.get('pr_number')
+            if prn and run.get('cost_usd') is not None:
+                pr_costs[prn] = pr_costs.get(prn, 0) + run['cost_usd']
+                pr_run_counts[prn] = pr_run_counts.get(prn, 0) + 1
+
+    for pr in prs:
+        prn = pr.get('number')
+        pr['ci_cost_usd'] = round(pr_costs.get(prn, 0), 2)
+        pr['ci_runs_count'] = pr_run_counts.get(prn, 0)
+
+    # Group by date
+    by_date_map = {}
+    for pr in prs:
+        date = pr['merged_date']
+        if date not in by_date_map:
+            by_date_map[date] = {'costs': [], 'merge_times': [], 'count': 0}
+        by_date_map[date]['count'] += 1
+        by_date_map[date]['costs'].append(pr['ci_cost_usd'])
+        if pr.get('merge_time_hrs') is not None:
+            by_date_map[date]['merge_times'].append(pr['merge_time_hrs'])
+
+    by_date = [{'date': d, 'avg_cost': round(sum(v['costs'])/max(len(v['costs']),1), 2),
+                'avg_merge_time_hrs': round(sum(v['merge_times'])/max(len(v['merge_times']),1), 1) if v['merge_times'] else None,
+                'pr_count': v['count']}
+               for d, v in sorted(by_date_map.items())]
+
+    # By author (all PRs in range, not filtered by author)
+    all_prs_in_range = [p for p in _pr_cache['data']
+                        if p.get('merged_date') and date_from <= p['merged_date'] <= date_to]
+    for pr in all_prs_in_range:
+        prn = pr.get('number')
+        pr.setdefault('ci_cost_usd', round(pr_costs.get(prn, 0), 2))
+
+    author_map = {}
+    for pr in all_prs_in_range:
+        a = pr.get('author', 'unknown')
+        if a not in author_map:
+            author_map[a] = {'total_cost': 0, 'pr_count': 0, 'merge_times': []}
+        author_map[a]['total_cost'] += pr.get('ci_cost_usd', 0)
+        author_map[a]['pr_count'] += 1
+        if pr.get('merge_time_hrs') is not None:
+            author_map[a]['merge_times'].append(pr['merge_time_hrs'])
+
+    by_author = [{'author': a, 'total_cost': round(v['total_cost'], 2), 'pr_count': v['pr_count'],
+                  'avg_merge_time_hrs': round(sum(v['merge_times'])/max(len(v['merge_times']),1), 1) if v['merge_times'] else None}
+                 for a, v in sorted(author_map.items(), key=lambda x: -x[1]['total_cost'])[:20]]
+
+    all_costs = [p.get('ci_cost_usd', 0) for p in prs]
+    all_merge = [p['merge_time_hrs'] for p in prs if p.get('merge_time_hrs') is not None]
+    all_run_counts = [p.get('ci_runs_count', 0) for p in prs]
 
     return {
         'by_date': by_date,
         'by_author': by_author,
-        'summary': summary[0] if summary else {},
+        'summary': {
+            'avg_cost_per_pr': round(sum(all_costs)/max(len(all_costs),1), 2) if all_costs else 0,
+            'median_merge_time_hrs': round(sorted(all_merge)[len(all_merge)//2], 1) if all_merge else None,
+            'total_prs': len(prs),
+            'total_cost': round(sum(all_costs), 2),
+            'avg_ci_runs_per_pr': round(sum(all_run_counts)/max(len(all_run_counts),1), 1) if all_run_counts else 0,
+        },
     }
-
-
-def start_daily_poll(interval_hours=6):
-    """Start background thread for GitHub data polling."""
-    def loop():
-        time.sleep(60)  # initial delay
-        while True:
-            try:
-                prs = fetch_recent_prs()
-                if prs:
-                    store_prs(prs)
-                    update_pr_costs()
-                fetch_deploy_runs()
-                compute_branch_lag()
-                print(f"[rk_github] Polled: {len(prs)} PRs, deployments, branch lag")
-            except Exception as e:
-                print(f"[rk_github] Poll error: {e}")
-            time.sleep(interval_hours * 3600)
-
-    t = threading.Thread(target=loop, daemon=True, name='github-poll')
-    t.start()
-    return t

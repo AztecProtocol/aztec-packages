@@ -57,21 +57,26 @@
     <a href="/">&lt; CI</a> <span class="sep">|</span>
     <a href="/cost-overview">cost overview</a>
     <a href="/namespace-billing" class="active">namespace billing</a>
-    <a href="/ci-performance">ci performance</a>
-    <a href="/deploy-speed">deploy speed</a>
-    <a href="/branch-lag">branch lag</a>
-    <a href="/pr-metrics">pr metrics</a>
-    <a href="/runner-costs">runner costs</a>
   </div>
   <h2 style="margin:8px 0;color:#ccc;">namespace billing</h2>
 
   <div class="controls">
+    <button data-range="30">1m</button>
+    <button data-range="90">3m</button>
+    <button data-range="365">1y</button>
+    <span style="color:#333">|</span>
     <label>from</label> <input type="date" id="dateFrom" />
     <label>to</label> <input type="date" id="dateTo" />
     <span style="color:#333">|</span>
     <button data-g="daily" class="active">daily</button>
     <button data-g="weekly">weekly</button>
     <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <label>top</label>
+    <button data-top="5">5</button>
+    <button data-top="10">10</button>
+    <button data-top="20">20</button>
+    <button data-top="0" class="active">all</button>
     <span style="color:#333">|</span>
     <label>ns</label>
     <select id="nsFilter"><option value="all">all</option></select>
@@ -122,6 +127,7 @@
     const fmtDate = s => { const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
 
     function granularity() { return document.querySelector('[data-g].active').dataset.g; }
+    function topN() { return parseInt(document.querySelector('[data-top].active').dataset.top) || 0; }
 
     // ---- data ----
     async function load() {
@@ -130,11 +136,11 @@
       try {
         const f = document.getElementById('dateFrom').value;
         const t = document.getElementById('dateTo').value;
-        const [d, ns] = await Promise.all([
-          fetch(`/api/billing/data?from=${f}&to=${t}&granularity=${granularity()}`).then(r=>r.json()),
-          fetch('/api/billing/namespaces').then(r=>r.json()),
-        ]);
-        data = d; nsList = ns;
+        const d = await fetch(`/api/billing/data?from=${f}&to=${t}&granularity=${granularity()}`).then(r=>r.json());
+        data = d;
+        // Derive namespace list from data (only namespaces present in the response)
+        const ns = [...new Set(data.flatMap(e=>Object.keys(e.namespaces||{})))].sort();
+        nsList = ns;
         cats = [...new Set(data.flatMap(e => Object.values(e.namespaces||{}).flatMap(n => Object.keys(n.breakdown||{}))))].sort();
 
         const sel = document.getElementById('nsFilter');
@@ -179,6 +185,22 @@
       const a = agg(nsF);
       Object.values(charts).forEach(c=>c.destroy()); charts = {};
 
+      // Apply top N filter
+      const n = topN();
+      const ranked = Object.entries(a.nsTotals).sort((x,y)=>y[1].total-x[1].total);
+      const visibleNs = n > 0 ? new Set(ranked.slice(0, n).map(e=>e[0])) : null;
+      if (visibleNs) {
+        for (const ns of Object.keys(a.nsTotals)) {
+          if (!visibleNs.has(ns)) delete a.nsTotals[ns];
+        }
+        cats.forEach(c => { a.catTotals[c] = 0; });
+        a.total = 0;
+        for (const d of Object.values(a.nsTotals)) {
+          cats.forEach(c => { a.catTotals[c] += d[c]||0; });
+          a.total += d.total;
+        }
+      }
+
       // stats
       const top = Object.entries(a.nsTotals).sort((x,y)=>y[1].total-x[1].total);
       document.getElementById('stats').innerHTML =
@@ -188,7 +210,8 @@
 
       // timeline
       const dates = data.map(e=>e.date);
-      const nsSet = [...new Set(data.flatMap(e=>Object.keys(e.namespaces).filter(n=>nsF==='all'||n===nsF)))].sort();
+      let nsSet = [...new Set(data.flatMap(e=>Object.keys(e.namespaces).filter(n=>nsF==='all'||n===nsF)))].sort();
+      if (visibleNs) nsSet = nsSet.filter(ns => visibleNs.has(ns));
       charts.t = new Chart(document.getElementById('timeline').getContext('2d'), {
         type:'bar',
         data: { labels: dates.map(fmtDate), datasets: nsSet.map(ns => ({
@@ -204,7 +227,11 @@
           },
           plugins: {
             legend:{position:'bottom',labels:{color:'#888',boxWidth:10,padding:8,font:{size:10,family:'monospace'}}},
-            tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.raw)}`, footer:items=>`total: ${fmt(items.reduce((s,i)=>s+i.raw,0))}`}}
+            tooltip:{
+              itemSort:(a,b)=>b.raw-a.raw,
+              filter:c=>c.raw>0,
+              callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.raw)}`, footer:items=>`total: ${fmt(items.reduce((s,i)=>s+i.raw,0))}`}
+            }
           }
         }
       });
@@ -274,9 +301,11 @@
         if (typeof av==='string') return sort.dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
         return sort.dir==='asc'?av-bv:bv-av;
       });
-      document.getElementById('tbody').innerHTML = rows.map(r =>
-        `<tr><td>${r.namespace}</td>${cats.map(c=>`<td class="amt">${fmt(r[c]||0)}</td>`).join('')}<td class="amt" style="color:#fff">${fmt(r.total)}</td></tr>`
-      ).join('');
+      const threshold = a.total * 0.01;
+      document.getElementById('tbody').innerHTML = rows.map(r => {
+        const dim = r.total < threshold ? ' style="opacity:0.35"' : '';
+        return `<tr${dim}><td>${r.namespace}</td>${cats.map(c=>`<td class="amt">${fmt(r[c]||0)}</td>`).join('')}<td class="amt" style="color:#fff">${fmt(r.total)}</td></tr>`;
+      }).join('');
     }
 
     // ---- url state ----
@@ -287,6 +316,8 @@
       p.set('g', granularity());
       const ns = document.getElementById('nsFilter').value;
       if (ns!=='all') p.set('ns', ns);
+      const tn = topN();
+      if (tn > 0) p.set('top', tn);
       history.replaceState({}, '', '?'+p);
     }
 
@@ -295,6 +326,7 @@
       if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
       if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
       if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b=>b.classList.toggle('active',b.dataset.g===p.get('g')));
+      if (p.get('top')) document.querySelectorAll('[data-top]').forEach(b=>b.classList.toggle('active',b.dataset.top===p.get('top')));
       return p.get('ns')||'all';
     }
 
@@ -307,13 +339,27 @@
 
       const savedNs = loadUrl();
       document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        const days = parseInt(b.dataset.range);
+        const to = new Date(), fr = new Date();
+        fr.setDate(fr.getDate() - days);
+        document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        load();
+      });
       document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-g]').forEach(x=>x.classList.remove('active'));
         b.classList.add('active'); load();
       });
+      document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-top]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); render(document.getElementById('nsFilter').value);
+      });
       document.getElementById('nsFilter').onchange = () => render(document.getElementById('nsFilter').value);
-      document.getElementById('dateFrom').onchange = load;
-      document.getElementById('dateTo').onchange = load;
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active')); load(); };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active')); load(); };
 
       const orig = load;
       load = async () => { await orig(); if (savedNs!=='all') { document.getElementById('nsFilter').value=savedNs; render(savedNs); } load=orig; };

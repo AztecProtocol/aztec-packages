@@ -20,7 +20,7 @@ from rk_core import (
     hyperlink, r, get_section_data, get_list_as_string
 )
 from rk_billing import (
-    get_all_namespaces, get_billing_files_in_range,
+    get_billing_files_in_range,
     aggregate_billing_weekly, aggregate_billing_monthly,
     serve_billing_dashboard,
 )
@@ -36,14 +36,11 @@ Compress(app)
 auth = HTTPBasicAuth()
 
 def _init_metrics():
-    """Initialize SQLite and start all data ingestion threads."""
+    """Initialize SQLite for test events and start test listener."""
     try:
         rk_db.get_db()
-        rk_metrics.start_redis_listener(r)
-        rk_metrics.start_backfill_loop(r)
-        rk_aws_costs.start_daily_poll()
-        rk_github.start_daily_poll()
-        print("[rk.py] Metrics ingestion started (Redis, AWS, GitHub)")
+        rk_metrics.start_test_listener(r)
+        print("[rk.py] Test event listener started")
     except Exception as e:
         print(f"[rk.py] Warning: metrics startup failed: {e}")
 
@@ -171,15 +168,10 @@ def root() -> str:
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
         f"\n"
-        f"Billing & Metrics:\n"
+        f"Billing:\n"
         f"\n{YELLOW}"
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
-        f"{hyperlink('/ci-performance', 'ci performance')}\n"
-        f"{hyperlink('/deploy-speed', 'deploy speed')}\n"
-        f"{hyperlink('/branch-lag', 'branch lag')}\n"
-        f"{hyperlink('/pr-metrics', 'pr metrics')}\n"
-        f"{hyperlink('/runner-costs', 'runner costs')}\n"
         f"{RESET}"
     )
 
@@ -532,11 +524,6 @@ def namespace_billing():
         return html
     return "Billing dashboard not found", 404
 
-@app.route('/api/billing/namespaces')
-@auth.login_required
-def billing_namespaces():
-    return Response(json.dumps(get_all_namespaces()), mimetype='application/json')
-
 @app.route('/api/billing/data')
 @auth.login_required
 def billing_data():
@@ -556,6 +543,17 @@ def billing_data():
 
     daily_data = get_billing_files_in_range(date_from, date_to)
 
+    # Filter out namespaces costing less than $1 total across the range
+    ns_totals = {}
+    for entry in daily_data:
+        for ns, ns_data in entry.get('namespaces', {}).items():
+            ns_totals[ns] = ns_totals.get(ns, 0) + ns_data.get('total', 0)
+    cheap_ns = {ns for ns, total in ns_totals.items() if total < 1.0}
+    if cheap_ns:
+        for entry in daily_data:
+            entry['namespaces'] = {ns: d for ns, d in entry.get('namespaces', {}).items()
+                                   if ns not in cheap_ns}
+
     if granularity == 'weekly':
         result = aggregate_billing_weekly(daily_data)
     elif granularity == 'monthly':
@@ -566,69 +564,107 @@ def billing_data():
     return Response(json.dumps(result), mimetype='application/json')
 
 
+def _aggregate_dates(by_date_list, granularity, sum_fields, avg_fields=None):
+    """Aggregate a list of {date, ...} dicts by weekly/monthly granularity."""
+    if granularity == 'daily' or not by_date_list:
+        return by_date_list
+
+    buckets = {}
+    for entry in by_date_list:
+        d = datetime.strptime(entry['date'], '%Y-%m-%d')
+        if granularity == 'weekly':
+            key = (d - timedelta(days=d.weekday())).strftime('%Y-%m-%d')
+        else:  # monthly
+            key = d.strftime('%Y-%m') + '-01'
+
+        if key not in buckets:
+            buckets[key] = {'date': key}
+            for f in sum_fields:
+                buckets[key][f] = 0
+            if avg_fields:
+                for f in avg_fields:
+                    buckets[key][f'_avg_sum_{f}'] = 0
+                    buckets[key][f'_avg_cnt_{f}'] = 0
+
+        for f in sum_fields:
+            buckets[key][f] += entry.get(f) or 0
+        if avg_fields:
+            for f in avg_fields:
+                val = entry.get(f)
+                if val is not None:
+                    buckets[key][f'_avg_sum_{f}'] += val
+                    buckets[key][f'_avg_cnt_{f}'] += 1
+
+    result = []
+    for key in sorted(buckets):
+        b = buckets[key]
+        out = {'date': b['date']}
+        for f in sum_fields:
+            out[f] = round(b[f], 2) if isinstance(b[f], float) else b[f]
+        if avg_fields:
+            for f in avg_fields:
+                cnt = b[f'_avg_cnt_{f}']
+                out[f] = round(b[f'_avg_sum_{f}'] / cnt, 1) if cnt else None
+        result.append(out)
+
+    return result
+
+
 @app.route('/api/ci/runs')
 @auth.login_required
 def api_ci_runs():
-    """API endpoint: list CI runs from SQLite with optional filters."""
+    """API endpoint: list CI runs from Redis with optional filters."""
     date_from = request.args.get('from', '')
     date_to = request.args.get('to', '')
-    status = request.args.get('status', '')
+    status_filter = request.args.get('status', '')
     author = request.args.get('author', '')
     dashboard = request.args.get('dashboard', '')
     limit = min(int(request.args.get('limit', 100)), 1000)
     offset = int(request.args.get('offset', 0))
 
-    conditions = []
-    params = []
-    if date_from:
-        ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
-        conditions.append('timestamp_ms >= ?')
-        params.append(ts_from)
-    if date_to:
-        ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
-        conditions.append('timestamp_ms < ?')
-        params.append(ts_to)
-    if status:
-        conditions.append('status = ?')
-        params.append(status)
-    if author:
-        conditions.append('author = ?')
-        params.append(author)
-    if dashboard:
-        conditions.append('dashboard = ?')
-        params.append(dashboard)
+    ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000) if date_from else None
+    ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000) if date_to else None
 
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    rows = rk_db.query(
-        f"SELECT * FROM ci_runs {where} ORDER BY timestamp_ms DESC LIMIT ? OFFSET ?",
-        params + [limit, offset]
-    )
-    return Response(json.dumps(rows), mimetype='application/json')
+    runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
+
+    if status_filter:
+        runs = [run for run in runs if run.get('status') == status_filter]
+    if author:
+        runs = [run for run in runs if run.get('author') == author]
+    if dashboard:
+        runs = [run for run in runs if run.get('dashboard') == dashboard]
+
+    runs.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    runs = runs[offset:offset + limit]
+
+    return Response(json.dumps(runs), mimetype='application/json')
 
 
 @app.route('/api/ci/stats')
 @auth.login_required
 def api_ci_stats():
-    """API endpoint: CI run statistics summary."""
-    rows = rk_db.query('''
-        SELECT
-            COUNT(*) as total_runs,
-            SUM(CASE WHEN status = 'PASSED' THEN 1 ELSE 0 END) as passed,
-            SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed,
-            SUM(cost_usd) as total_cost,
-            AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END) as avg_duration_mins
-        FROM ci_runs
-        WHERE timestamp_ms > ?
-    ''', (int((datetime.now() - timedelta(days=7)).timestamp() * 1000),))
-    return Response(json.dumps(rows[0] if rows else {}), mimetype='application/json')
+    """API endpoint: CI run statistics summary (last 7 days)."""
+    ts_from = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
+    runs = rk_metrics.get_ci_runs(r, ts_from)
 
+    total = len(runs)
+    passed = sum(1 for run in runs if run.get('status') == 'PASSED')
+    failed = sum(1 for run in runs if run.get('status') == 'FAILED')
+    costs = [run['cost_usd'] for run in runs if run.get('cost_usd') is not None]
+    durations = []
+    for run in runs:
+        complete = run.get('complete')
+        ts = run.get('timestamp')
+        if complete and ts:
+            durations.append((complete - ts) / 60000.0)
 
-def serve_dashboard_view(name):
-    """Serve a dashboard HTML file from dashboard-views/."""
-    path = Path(f'dashboard-views/{name}.html')
-    if path.exists():
-        return path.read_text()
-    return f"Dashboard {name} not found", 404
+    return Response(json.dumps({
+        'total_runs': total,
+        'passed': passed,
+        'failed': failed,
+        'total_cost': round(sum(costs), 2) if costs else None,
+        'avg_duration_mins': round(sum(durations) / len(durations), 1) if durations else None,
+    }), mimetype='application/json')
 
 
 # ---- Cost endpoints ----
@@ -638,7 +674,221 @@ def serve_dashboard_view(name):
 def api_costs_overview():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    return Response(json.dumps(rk_aws_costs.get_costs_overview(date_from, date_to)), mimetype='application/json')
+    granularity = request.args.get('granularity', 'daily')
+    result = rk_aws_costs.get_costs_overview(date_from, date_to)
+    if granularity != 'daily' and result.get('by_date'):
+        buckets = {}
+        for entry in result['by_date']:
+            d = datetime.strptime(entry['date'], '%Y-%m-%d')
+            if granularity == 'weekly':
+                key = (d - timedelta(days=d.weekday())).strftime('%Y-%m-%d')
+            else:
+                key = d.strftime('%Y-%m') + '-01'
+            if key not in buckets:
+                buckets[key] = {'date': key, 'aws': {}, 'gcp': {}, 'aws_total': 0, 'gcp_total': 0}
+            for cat, amt in entry.get('aws', {}).items():
+                buckets[key]['aws'][cat] = buckets[key]['aws'].get(cat, 0) + amt
+            for cat, amt in entry.get('gcp', {}).items():
+                buckets[key]['gcp'][cat] = buckets[key]['gcp'].get(cat, 0) + amt
+            buckets[key]['aws_total'] += entry.get('aws_total', 0)
+            buckets[key]['gcp_total'] += entry.get('gcp_total', 0)
+        result['by_date'] = sorted(buckets.values(), key=lambda x: x['date'])
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/api/costs/details')
+@auth.login_required
+def api_costs_details():
+    """Per-resource (USAGE_TYPE) cost breakdown — shows individual instance types and RI fees."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+
+    rows = rk_aws_costs.get_aws_cost_details(date_from, date_to)
+
+    # Aggregate: usage_type -> { total, by_date: {date: amount}, is_ri }
+    usage_map = {}
+    for row in rows:
+        ut = row['usage_type']
+        if ut not in usage_map:
+            usage_map[ut] = {
+                'usage_type': ut,
+                'service': row['service'],
+                'category': row['category'],
+                'total': 0,
+                'by_date': {},
+                'is_ri': 'HeavyUsage' in ut,
+            }
+        usage_map[ut]['total'] += row['amount_usd']
+        d = row['date']
+        usage_map[ut]['by_date'][d] = usage_map[ut]['by_date'].get(d, 0) + row['amount_usd']
+
+    # Sort by total cost descending
+    items = sorted(usage_map.values(), key=lambda x: -x['total'])
+
+    # Round totals
+    for item in items:
+        item['total'] = round(item['total'], 2)
+        item['by_date'] = {d: round(v, 4) for d, v in sorted(item['by_date'].items())}
+
+    # Collect all dates for the table header
+    all_dates = sorted({row['date'] for row in rows})
+
+    # RI summary
+    ri_items = [i for i in items if i['is_ri']]
+    ri_total = round(sum(i['total'] for i in ri_items), 2)
+
+    return Response(json.dumps({
+        'items': items,
+        'dates': all_dates,
+        'ri_total': ri_total,
+        'grand_total': round(sum(i['total'] for i in items), 2),
+    }), mimetype='application/json')
+
+
+@app.route('/api/costs/attribution')
+@auth.login_required
+def api_costs_attribution():
+    """CI cost attribution by user, branch, instance — from Redis CI run data + GKE namespace billing."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
+    ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
+
+    runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
+    runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
+
+    # Enrich merge queue runs with PR author from GitHub
+    pr_numbers = {run.get('pr_number') for run in runs_with_cost if run.get('pr_number')}
+    pr_authors = rk_github.batch_get_pr_authors(pr_numbers)
+
+    # Build per-instance records with decoded branch info
+    instances = []
+    by_user = {}
+    by_branch = {}
+    by_type = {}  # merge-queue, pr, nightly, etc.
+
+    for run in runs_with_cost:
+        info = rk_aws_costs.decode_branch_info(run)
+        cost = run['cost_usd']
+        date = rk_metrics._ts_to_date(run.get('timestamp', 0))
+
+        # Resolve author: for merge queue, prefer GitHub PR author over git commit author
+        author = info['author']
+        prn = info['pr_number']
+        if prn and int(prn) in pr_authors:
+            author = pr_authors[int(prn)]['author']
+
+        instances.append({
+            'instance_name': info['instance_name'],
+            'date': date,
+            'cost_usd': cost,
+            'author': author,
+            'branch': info['branch'],
+            'pr_number': prn,
+            'type': info['type'],
+            'instance_type': run.get('instance_type', 'unknown'),
+            'spot': run.get('spot', False),
+            'job_id': run.get('job_id', ''),
+            'duration_mins': round((run.get('complete', 0) - run.get('timestamp', 0)) / 60000, 1) if run.get('complete') else None,
+        })
+
+        # Aggregate by user
+        if author not in by_user:
+            by_user[author] = {'aws_cost': 0, 'gcp_cost': 0, 'runs': 0, 'by_date': {}}
+        by_user[author]['aws_cost'] += cost
+        by_user[author]['runs'] += 1
+        by_user[author]['by_date'][date] = by_user[author]['by_date'].get(date, 0) + cost
+
+        # Aggregate by branch
+        branch_key = info['branch'] or info['type']
+        if branch_key not in by_branch:
+            by_branch[branch_key] = {'cost': 0, 'runs': 0, 'type': info['type'], 'author': author}
+        by_branch[branch_key]['cost'] += cost
+        by_branch[branch_key]['runs'] += 1
+
+        # Aggregate by type
+        rt = info['type']
+        if rt not in by_type:
+            by_type[rt] = {'cost': 0, 'runs': 0}
+        by_type[rt]['cost'] += cost
+        by_type[rt]['runs'] += 1
+
+    # Add GKE namespace costs attributed to users.
+    # Namespace naming: pr-$(echo "$branch" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
+    # So we match namespaces to CI run branch names by reversing the sanitization.
+    try:
+        from rk_billing import get_billing_files_in_range
+        gcp_data = get_billing_files_in_range(
+            datetime.strptime(date_from, '%Y-%m-%d'),
+            datetime.strptime(date_to, '%Y-%m-%d'),
+        )
+
+        # Build namespace -> author mapping from CI runs (branch name -> sanitized namespace prefix)
+        import re
+        def branch_to_ns_prefix(branch):
+            """Replicate: echo "$branch" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//'"""
+            sanitized = re.sub(r'[^a-z0-9-]', '-', branch.lower())[:20].rstrip('-')
+            return f'pr-{sanitized}'
+
+        # Map sanitized prefixes to authors from CI runs
+        ns_prefix_to_author = {}
+        for run in runs_with_cost:
+            branch = run.get('name', '')
+            if not branch or '(queue)' in branch:
+                continue
+            prefix = branch_to_ns_prefix(branch)
+            author = run.get('author', 'unknown')
+            prn = run.get('pr_number')
+            if prn and int(prn) in pr_authors:
+                author = pr_authors[int(prn)]['author']
+            ns_prefix_to_author[prefix] = author
+
+        for entry in gcp_data:
+            for ns, ns_data in entry.get('namespaces', {}).items():
+                ns_cost = ns_data.get('total', 0)
+                if ns_cost < 0.01:
+                    continue
+                # Try to match namespace to a known branch
+                ns_author = None
+                if ns.startswith('pr-'):
+                    # Strip scenario test suffix (-1, -2, etc.) for matching
+                    ns_base = re.sub(r'-\d+$', '', ns)
+                    ns_author = ns_prefix_to_author.get(ns) or ns_prefix_to_author.get(ns_base)
+                if not ns_author:
+                    ns_author = ns if not ns.startswith('pr-') else 'unknown-pr'
+
+                if ns_author not in by_user:
+                    by_user[ns_author] = {'aws_cost': 0, 'gcp_cost': 0, 'runs': 0, 'by_date': {}}
+                by_user[ns_author]['gcp_cost'] += ns_cost
+    except Exception as e:
+        print(f"[attribution] GKE enrichment error: {e}")
+
+    # Sort and format
+    user_list = [{'author': a, 'aws_cost': round(v['aws_cost'], 2), 'gcp_cost': round(v['gcp_cost'], 2),
+                  'total_cost': round(v['aws_cost'] + v['gcp_cost'], 2), 'runs': v['runs'],
+                  'by_date': {d: round(c, 2) for d, c in sorted(v['by_date'].items())}}
+                 for a, v in sorted(by_user.items(), key=lambda x: -(x[1]['aws_cost'] + x[1]['gcp_cost']))]
+
+    branch_list = [{'branch': b, 'cost': round(v['cost'], 2), 'runs': v['runs'],
+                     'type': v['type'], 'author': v['author']}
+                    for b, v in sorted(by_branch.items(), key=lambda x: -x[1]['cost'])[:100]]
+
+    type_list = [{'type': t, 'cost': round(v['cost'], 2), 'runs': v['runs']}
+                 for t, v in sorted(by_type.items(), key=lambda x: -x[1]['cost'])]
+
+    instances.sort(key=lambda x: -(x['cost_usd'] or 0))
+
+    total_aws = sum(u['aws_cost'] for u in user_list)
+    total_gcp = sum(u['gcp_cost'] for u in user_list)
+
+    return Response(json.dumps({
+        'by_user': user_list,
+        'by_branch': branch_list,
+        'by_type': type_list,
+        'instances': instances[:500],  # cap to avoid huge payloads
+        'totals': {'aws': round(total_aws, 2), 'gcp': round(total_gcp, 2),
+                   'combined': round(total_aws + total_gcp, 2)},
+    }), mimetype='application/json')
 
 
 @app.route('/api/costs/runners')
@@ -646,44 +896,72 @@ def api_costs_overview():
 def api_costs_runners():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    granularity = request.args.get('granularity', 'daily')
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    by_date = rk_db.query('''
-        SELECT date(timestamp_ms/1000, 'unixepoch') as date,
-               SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) as spot_cost,
-               SUM(CASE WHEN spot=0 THEN cost_usd ELSE 0 END) as ondemand_cost,
-               SUM(cost_usd) as total,
-               ROUND(100.0 * SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) / MAX(SUM(cost_usd), 0.01), 1) as spot_pct
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
-        GROUP BY date(timestamp_ms/1000, 'unixepoch') ORDER BY date
-    ''', (ts_from, ts_to))
+    runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
+    runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
 
-    by_instance = rk_db.query('''
-        SELECT instance_type, SUM(cost_usd) as cost, COUNT(*) as runs
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL AND instance_type IS NOT NULL
-        GROUP BY instance_type ORDER BY cost DESC
-    ''', (ts_from, ts_to))
+    # By date
+    by_date_map = {}
+    for run in runs_with_cost:
+        date = rk_metrics._ts_to_date(run.get('timestamp', 0))
+        if date not in by_date_map:
+            by_date_map[date] = {'spot_cost': 0, 'ondemand_cost': 0, 'total': 0}
+        cost = run['cost_usd']
+        if run.get('spot'):
+            by_date_map[date]['spot_cost'] += cost
+        else:
+            by_date_map[date]['ondemand_cost'] += cost
+        by_date_map[date]['total'] += cost
 
-    by_dashboard = rk_db.query('''
-        SELECT dashboard, SUM(cost_usd) as cost, COUNT(*) as runs
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
-        GROUP BY dashboard ORDER BY cost DESC
-    ''', (ts_from, ts_to))
+    by_date = [{'date': date, 'spot_cost': round(d['spot_cost'], 2),
+                'ondemand_cost': round(d['ondemand_cost'], 2), 'total': round(d['total'], 2),
+                'spot_pct': round(100.0 * d['spot_cost'] / max(d['total'], 0.01), 1)}
+               for date, d in sorted(by_date_map.items())]
 
-    summary = rk_db.query('''
-        SELECT SUM(cost_usd) as total_cost,
-               ROUND(100.0 * SUM(CASE WHEN spot=1 THEN cost_usd ELSE 0 END) / MAX(SUM(cost_usd), 0.01), 1) as spot_pct,
-               ROUND(AVG(cost_usd), 2) as avg_cost_per_run,
-               COUNT(*) as total_runs
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND cost_usd IS NOT NULL
-    ''', (ts_from, ts_to))
+    by_date = _aggregate_dates(by_date, granularity,
+                               sum_fields=['spot_cost', 'ondemand_cost', 'total'])
+    for d in by_date:
+        d['spot_pct'] = round(100.0 * d['spot_cost'] / max(d['total'], 0.01), 1)
+
+    # By instance type
+    by_instance_map = {}
+    for run in runs_with_cost:
+        inst = run.get('instance_type', 'unknown')
+        if inst not in by_instance_map:
+            by_instance_map[inst] = {'cost': 0, 'runs': 0}
+        by_instance_map[inst]['cost'] += run['cost_usd']
+        by_instance_map[inst]['runs'] += 1
+    by_instance = [{'instance_type': k, 'cost': round(v['cost'], 2), 'runs': v['runs']}
+                   for k, v in sorted(by_instance_map.items(), key=lambda x: -x[1]['cost'])]
+
+    # By dashboard
+    by_dash_map = {}
+    for run in runs_with_cost:
+        dash = run.get('dashboard', 'unknown')
+        if dash not in by_dash_map:
+            by_dash_map[dash] = {'cost': 0, 'runs': 0}
+        by_dash_map[dash]['cost'] += run['cost_usd']
+        by_dash_map[dash]['runs'] += 1
+    by_dashboard = [{'dashboard': k, 'cost': round(v['cost'], 2), 'runs': v['runs']}
+                    for k, v in sorted(by_dash_map.items(), key=lambda x: -x[1]['cost'])]
+
+    # Summary
+    total_cost = sum(run['cost_usd'] for run in runs_with_cost)
+    spot_cost = sum(run['cost_usd'] for run in runs_with_cost if run.get('spot'))
 
     return Response(json.dumps({
         'by_date': by_date,
         'by_instance_type': by_instance,
         'by_dashboard': by_dashboard,
-        'summary': summary[0] if summary else {},
+        'summary': {
+            'total_cost': round(total_cost, 2),
+            'spot_pct': round(100.0 * spot_cost / max(total_cost, 0.01), 1),
+            'avg_cost_per_run': round(total_cost / max(len(runs_with_cost), 1), 2),
+            'total_runs': len(runs_with_cost),
+        },
     }), mimetype='application/json')
 
 
@@ -695,25 +973,52 @@ def api_ci_performance():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
+    granularity = request.args.get('granularity', 'daily')
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    dash_filter = "AND dashboard = ?" if dashboard else ""
-    params = [ts_from, ts_to] + ([dashboard] if dashboard else [])
+    runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = [run for run in runs if run.get('status') in ('PASSED', 'FAILED')]
+    if dashboard:
+        runs = [run for run in runs if run.get('dashboard') == dashboard]
 
-    by_date = rk_db.query(f'''
-        SELECT date(timestamp_ms/1000, 'unixepoch') as date,
-               COUNT(*) as total,
-               SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) as passed,
-               SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) as failed,
-               ROUND(100.0 * SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as pass_rate,
-               ROUND(100.0 * SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as failure_rate,
-               ROUND(AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END), 1) as avg_duration_mins
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND status IN ('PASSED','FAILED') {dash_filter}
-        GROUP BY date(timestamp_ms/1000, 'unixepoch') ORDER BY date
-    ''', params)
+    # By date
+    by_date_map = {}
+    for run in runs:
+        date = rk_metrics._ts_to_date(run.get('timestamp', 0))
+        if date not in by_date_map:
+            by_date_map[date] = {'total': 0, 'passed': 0, 'failed': 0, 'durations': []}
+        by_date_map[date]['total'] += 1
+        if run.get('status') == 'PASSED':
+            by_date_map[date]['passed'] += 1
+        else:
+            by_date_map[date]['failed'] += 1
+        complete = run.get('complete')
+        ts = run.get('timestamp')
+        if complete and ts:
+            by_date_map[date]['durations'].append((complete - ts) / 60000.0)
 
-    # Flake data from test_events
+    by_date = []
+    for date in sorted(by_date_map):
+        d = by_date_map[date]
+        by_date.append({
+            'date': date,
+            'total': d['total'],
+            'passed': d['passed'],
+            'failed': d['failed'],
+            'pass_rate': round(100.0 * d['passed'] / max(d['total'], 1), 1),
+            'failure_rate': round(100.0 * d['failed'] / max(d['total'], 1), 1),
+            'avg_duration_mins': round(sum(d['durations']) / len(d['durations']), 1) if d['durations'] else None,
+        })
+
+    by_date = _aggregate_dates(by_date, granularity,
+                               sum_fields=['total', 'passed', 'failed'],
+                               avg_fields=['avg_duration_mins'])
+    for d in by_date:
+        d['pass_rate'] = round(100.0 * d['passed'] / max(d['total'], 1), 1)
+        d['failure_rate'] = round(100.0 * d['failed'] / max(d['total'], 1), 1)
+
+    # Flake/failure data from test_events (the only SQLite data)
     top_flakes = rk_db.query('''
         SELECT test_cmd, COUNT(*) as count, ref_name
         FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
@@ -726,15 +1031,17 @@ def api_ci_performance():
         GROUP BY test_cmd ORDER BY count DESC LIMIT 15
     ''', (date_from, date_to + 'T23:59:59'))
 
-    summary = rk_db.query(f'''
-        SELECT COUNT(*) as total_runs,
-               ROUND(100.0 * SUM(CASE WHEN status='PASSED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as pass_rate,
-               ROUND(100.0 * SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) / MAX(COUNT(*), 1), 1) as failure_rate,
-               ROUND(AVG(CASE WHEN complete_ms IS NOT NULL THEN (complete_ms - timestamp_ms) / 60000.0 END), 1) as avg_duration_mins
-        FROM ci_runs WHERE timestamp_ms >= ? AND timestamp_ms < ? AND status IN ('PASSED','FAILED') {dash_filter}
-    ''', params)
+    # Summary
+    total = len(runs)
+    passed = sum(1 for run in runs if run.get('status') == 'PASSED')
+    failed = total - passed
+    durations = []
+    for run in runs:
+        complete = run.get('complete')
+        ts = run.get('timestamp')
+        if complete and ts:
+            durations.append((complete - ts) / 60000.0)
 
-    # Flake rate from test_events
     flake_count = rk_db.query('''
         SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
     ''', (date_from, date_to + 'T23:59:59'))
@@ -742,16 +1049,20 @@ def api_ci_performance():
         SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND timestamp >= ? AND timestamp <= ?
     ''', (date_from, date_to + 'T23:59:59'))
 
-    s = summary[0] if summary else {}
     fc = flake_count[0]['c'] if flake_count else 0
     tc = total_tests[0]['c'] if total_tests else 0
-    s['flake_rate'] = round(100.0 * fc / max(tc, 1), 1) if tc else 0
 
     return Response(json.dumps({
         'by_date': by_date,
         'top_flakes': top_flakes,
         'top_failures': top_failures,
-        'summary': s,
+        'summary': {
+            'total_runs': total,
+            'pass_rate': round(100.0 * passed / max(total, 1), 1),
+            'failure_rate': round(100.0 * failed / max(total, 1), 1),
+            'avg_duration_mins': round(sum(durations) / len(durations), 1) if durations else None,
+            'flake_rate': round(100.0 * fc / max(tc, 1), 1) if tc else 0,
+        },
     }), mimetype='application/json')
 
 
@@ -762,7 +1073,15 @@ def api_ci_performance():
 def api_deploy_speed():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    return Response(json.dumps(rk_github.get_deployment_speed(date_from, date_to)), mimetype='application/json')
+    workflow = request.args.get('workflow', '')
+    granularity = request.args.get('granularity', 'daily')
+    result = rk_github.get_deployment_speed(date_from, date_to, workflow)
+    if granularity != 'daily' and result.get('by_date'):
+        result['by_date'] = _aggregate_dates(
+            result['by_date'], granularity,
+            sum_fields=['count', 'success', 'failure'],
+            avg_fields=['median_mins', 'p95_mins'])
+    return Response(json.dumps(result), mimetype='application/json')
 
 
 # ---- Branch lag endpoint ----
@@ -783,7 +1102,11 @@ def api_pr_metrics():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     author = request.args.get('author', '')
-    return Response(json.dumps(rk_github.get_pr_metrics(date_from, date_to, author)), mimetype='application/json')
+    # Read CI runs from Redis to compute per-PR costs
+    ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
+    ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
+    ci_runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
+    return Response(json.dumps(rk_github.get_pr_metrics(date_from, date_to, author, ci_runs)), mimetype='application/json')
 
 
 # ---- Dashboard view routes ----
@@ -791,32 +1114,10 @@ def api_pr_metrics():
 @app.route('/cost-overview')
 @auth.login_required
 def cost_overview():
-    return serve_dashboard_view('cost-overview')
-
-@app.route('/ci-performance')
-@auth.login_required
-def ci_performance():
-    return serve_dashboard_view('ci-performance')
-
-@app.route('/deploy-speed')
-@auth.login_required
-def deploy_speed():
-    return serve_dashboard_view('deploy-speed')
-
-@app.route('/branch-lag')
-@auth.login_required
-def branch_lag():
-    return serve_dashboard_view('branch-lag')
-
-@app.route('/pr-metrics')
-@auth.login_required
-def pr_metrics():
-    return serve_dashboard_view('pr-metrics')
-
-@app.route('/runner-costs')
-@auth.login_required
-def runner_costs():
-    return serve_dashboard_view('runner-costs')
+    path = Path('dashboard-views/cost-overview.html')
+    if path.exists():
+        return path.read_text()
+    return "Dashboard not found", 404
 
 
 @app.route('/<key>')

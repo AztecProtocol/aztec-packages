@@ -1,28 +1,18 @@
-"""CI metrics ingestion: Redis pub/sub listener + periodic sorted set backfill.
+"""CI metrics: direct Redis reads + test event listener.
 
-Consumes Redis events and CI run data, writes to SQLite via rk_db.
+Reads CI run data directly from Redis sorted sets on each request.
+Test events stored in SQLite since they only arrive via pub/sub.
 """
 import json
 import re
 import threading
-import time
 from datetime import datetime, timezone
 
 import rk_db
 
-# Redis sorted set keys for CI runs
-SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network']
+SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake']
 
-# Pub/sub channels to subscribe to
-CHANNELS = [
-    b'ci:test:started',
-    b'ci:test:failed',
-    b'ci:test:flaked',
-    b'ci:run:started',
-    b'ci:run:completed',
-]
-
-# EC2 instance hourly rates (us-east-2, spot bid $0.0433/vCPU-hr)
+# EC2 instance hourly rates (us-east-2)
 INSTANCE_HOURLY_RATES = {
     ('m6a.48xlarge', True):  8.31,
     ('m6a.48xlarge', False): 16.56,
@@ -42,10 +32,11 @@ INSTANCE_HOURLY_RATES = {
 FALLBACK_VCPU_HOUR = {True: 0.0433, False: 0.0864}
 
 _PR_RE = re.compile(r'(?:pr-|#)(\d+)', re.IGNORECASE)
+_ANSI_RE = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')
+_URL_PR_RE = re.compile(r'/pull/(\d+)')
 
 
 def compute_run_cost(data: dict) -> float | None:
-    """Compute CI run cost from instance type, spot flag, and duration."""
     complete = data.get('complete')
     ts = data.get('timestamp')
     if not complete or not ts:
@@ -61,14 +52,55 @@ def compute_run_cost(data: dict) -> float | None:
 
 
 def extract_pr_number(name: str) -> int | None:
-    """Extract PR number from branch name or commit message."""
     m = _PR_RE.search(name)
+    if m:
+        return int(m.group(1))
+    # Try matching GitHub PR URL in ANSI-encoded strings
+    m = _URL_PR_RE.search(name)
+    if m:
+        return int(m.group(1))
+    # Strip ANSI codes and retry
+    clean = _ANSI_RE.sub('', name)
+    m = _PR_RE.search(clean)
     return int(m.group(1)) if m else None
 
 
+def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
+    """Read CI runs directly from Redis sorted sets."""
+    runs = []
+    for section in SECTIONS:
+        key = f'ci-run-{section}'
+        try:
+            if date_from_ms is not None and date_to_ms is not None:
+                entries = redis_conn.zrangebyscore(key, date_from_ms, date_to_ms, withscores=True)
+            else:
+                entries = redis_conn.zrange(key, 0, -1, withscores=True)
+            for entry_bytes, score in entries:
+                try:
+                    raw = entry_bytes.decode() if isinstance(entry_bytes, bytes) else entry_bytes
+                    data = json.loads(raw)
+                    data.setdefault('dashboard', section)
+                    data['cost_usd'] = compute_run_cost(data)
+                    data['pr_number'] = (
+                        extract_pr_number(data.get('name', ''))
+                        or extract_pr_number(data.get('msg', ''))
+                        or (int(data['pr_number']) if data.get('pr_number') else None)
+                    )
+                    runs.append(data)
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"[rk_metrics] Error reading {key}: {e}")
+    return runs
+
+
+def _ts_to_date(ts_ms):
+    return datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime('%Y-%m-%d')
+
+
+# ---- Test event handling (only thing needing SQLite) ----
+
 def _handle_test_event(channel: str, data: dict):
-    """Insert a test event from pub/sub into SQLite."""
-    # Channel is like 'ci:test:failed' -> status = 'failed'
     status = channel.split(':')[-1]
     rk_db.execute('''
         INSERT INTO test_events
@@ -93,60 +125,14 @@ def _handle_test_event(channel: str, data: dict):
     ))
 
 
-def _upsert_ci_run(data: dict, dashboard: str):
-    """Insert or update a CI run in SQLite."""
-    cost = compute_run_cost(data)
-    rk_db.execute('''
-        INSERT INTO ci_runs
-        (run_id, job_id, timestamp_ms, complete_ms, status, dashboard,
-         ref_name, msg, name, author, arch, spot, instance_type,
-         instance_vcpus, pr_number, cost_usd)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(run_id, job_id, timestamp_ms) DO UPDATE SET
-            complete_ms = excluded.complete_ms,
-            status = excluded.status,
-            cost_usd = excluded.cost_usd,
-            instance_type = COALESCE(excluded.instance_type, ci_runs.instance_type),
-            instance_vcpus = COALESCE(excluded.instance_vcpus, ci_runs.instance_vcpus)
-    ''', (
-        data.get('run_id', ''),
-        data.get('job_id', ''),
-        data.get('timestamp', 0),
-        data.get('complete'),
-        data.get('status', 'RUNNING'),
-        dashboard,
-        data.get('name', ''),
-        data.get('msg'),
-        data.get('name', ''),
-        data.get('author', ''),
-        data.get('arch'),
-        1 if data.get('spot') else 0,
-        data.get('instance_type'),
-        data.get('instance_vcpus'),
-        extract_pr_number(data.get('name', '') or data.get('msg', '')),
-        cost,
-    ))
+def start_test_listener(redis_conn):
+    """Subscribe to test event channels only."""
+    channels = [b'ci:test:started', b'ci:test:failed', b'ci:test:flaked']
 
-
-def handle_event(channel: str, data: dict):
-    """Dispatch a Redis pub/sub event to the appropriate handler."""
-    try:
-        if channel.startswith('ci:test:'):
-            _handle_test_event(channel, data)
-        elif channel == 'ci:run:started':
-            _upsert_ci_run(data, data.get('dashboard', 'prs'))
-        elif channel == 'ci:run:completed':
-            _upsert_ci_run(data, data.get('dashboard', 'prs'))
-    except Exception as e:
-        print(f"[rk_metrics] Error handling {channel}: {e}")
-
-
-def start_redis_listener(redis_conn):
-    """Start a background thread subscribing to CI event channels."""
     def listener():
         try:
             pubsub = redis_conn.pubsub()
-            pubsub.subscribe(*CHANNELS)
+            pubsub.subscribe(*channels)
             for message in pubsub.listen():
                 if message['type'] != 'message':
                     continue
@@ -157,46 +143,12 @@ def start_redis_listener(redis_conn):
                     payload = message['data']
                     if isinstance(payload, bytes):
                         payload = payload.decode()
-                    data = json.loads(payload)
-                    handle_event(channel, data)
+                    _handle_test_event(channel, json.loads(payload))
                 except Exception as e:
-                    print(f"[rk_metrics] Error parsing message on {channel}: {e}")
+                    print(f"[rk_metrics] Error parsing test event: {e}")
         except Exception as e:
-            print(f"[rk_metrics] Redis listener error: {e}")
+            print(f"[rk_metrics] Test listener error: {e}")
 
-    t = threading.Thread(target=listener, daemon=True, name='metrics-listener')
-    t.start()
-    return t
-
-
-def backfill_ci_runs(redis_conn):
-    """Scan Redis sorted sets and upsert CI run data into SQLite."""
-    for section in SECTIONS:
-        key = f'ci-run-{section}'
-        try:
-            entries = redis_conn.zrange(key, 0, -1, withscores=True)
-            for entry_bytes, score in entries:
-                try:
-                    if isinstance(entry_bytes, bytes):
-                        entry_bytes = entry_bytes.decode()
-                    data = json.loads(entry_bytes)
-                    _upsert_ci_run(data, section)
-                except Exception:
-                    continue
-        except Exception as e:
-            print(f"[rk_metrics] Error backfilling {key}: {e}")
-
-
-def start_backfill_loop(redis_conn, interval_secs=300):
-    """Start a background thread that periodically backfills CI runs from Redis."""
-    def loop():
-        while True:
-            try:
-                backfill_ci_runs(redis_conn)
-            except Exception as e:
-                print(f"[rk_metrics] Backfill error: {e}")
-            time.sleep(interval_secs)
-
-    t = threading.Thread(target=loop, daemon=True, name='metrics-backfill')
+    t = threading.Thread(target=listener, daemon=True, name='test-listener')
     t.start()
     return t

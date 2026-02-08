@@ -161,22 +161,6 @@ def _fetch_from_bigquery(date_from_str, date_to_str):
             json.dump(data, f, indent=2)
         count += 1
 
-    # Dual-write to SQLite for the metrics dashboard
-    try:
-        import rk_db
-        sqlite_rows = []
-        for date_str, data in days.items():
-            for ns, ns_data in data['namespaces'].items():
-                for cat, amt in ns_data['breakdown'].items():
-                    sqlite_rows.append((date_str, ns, cat, round(amt, 4)))
-        if sqlite_rows:
-            rk_db.executemany(
-                'INSERT OR REPLACE INTO gcp_namespace_costs (date, namespace, category, amount_usd) VALUES (?, ?, ?, ?)',
-                sqlite_rows
-            )
-    except Exception as e:
-        print(f"[rk_billing] SQLite dual-write failed (non-fatal): {e}")
-
     # Also write empty files for dates with no data so we don't re-query them
     current = datetime.strptime(date_from_str, '%Y-%m-%d')
     end = datetime.strptime(date_to_str, '%Y-%m-%d')
