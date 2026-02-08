@@ -222,15 +222,20 @@ if (isAnvil) {
   log('Detected anvil — retries will reset chain instead of using --resume.');
 }
 
-/** Write buffered stdout to process.stdout and exit. Waits for drain to avoid truncation on pipes. */
-function emitAndExit(result: ForgeResult, code: number): void {
-  const data = Buffer.concat(result.stdout);
-  if (data.length === 0) {
-    process.exit(code);
-  }
-  process.stdout.write(data, () => process.exit(code));
-  // If stdout is already destroyed/closed, the callback may never fire.
-  process.stdout.on('error', () => process.exit(code));
+/** Write buffered stdout to process.stdout and exit. Returns a never-resolving promise so
+ *  `await emitAndExit(...)` blocks execution until process.exit() fires. */
+function emitAndExit(result: ForgeResult, code: number): Promise<never> {
+  return new Promise(() => {
+    const data = Buffer.concat(result.stdout);
+    if (data.length === 0) {
+      process.exit(code);
+      return;
+    }
+    // Wait for write to drain before exiting to avoid truncation on pipes >64KB.
+    process.stdout.write(data, () => process.exit(code));
+    // If stdout is already destroyed/closed, the callback may never fire.
+    process.stdout.on('error', () => process.exit(code));
+  });
 }
 
 // Attempt 1: initial broadcast
@@ -239,7 +244,7 @@ let result = await runForge(forgeArgs, TIMEOUT);
 
 if (result.exitCode === 0) {
   log('Broadcast succeeded on first attempt.');
-  emitAndExit(result, 0);
+  await emitAndExit(result, 0);
 }
 
 log(`Attempt 1 ${result.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
@@ -247,7 +252,7 @@ log(`Attempt 1 ${result.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `fail
 // Forge sometimes exits non-zero even though all transactions were mined.
 if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
   log('All transactions confirmed on-chain despite non-zero exit — treating as success.');
-  emitAndExit(result, 0);
+  await emitAndExit(result, 0);
 }
 
 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -282,7 +287,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // and only check the exit code from the --resume attempt.
     if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
       log('All transactions confirmed on-chain after delay — treating as success.');
-      emitAndExit(result, 0);
+      await emitAndExit(result, 0);
     }
 
     log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: --resume`);
@@ -291,7 +296,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (resumeResult.exitCode === 0) {
       log(`Broadcast succeeded on attempt ${attempt + 1}.`);
       // Emit the first attempt's stdout which has the JSON simulation output.
-      emitAndExit(result, 0);
+      await emitAndExit(result, 0);
     }
     log(
       `Attempt ${attempt + 1} ${resumeResult.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${resumeResult.exitCode})`}.`,
@@ -301,7 +306,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 
   if (result.exitCode === 0) {
     log(`Broadcast succeeded on attempt ${attempt + 1}.`);
-    emitAndExit(result, 0);
+    await emitAndExit(result, 0);
   }
   log(
     `Attempt ${attempt + 1} ${result.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
@@ -311,8 +316,8 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 // Final on-chain check after all retries exhausted.
 if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
   log('All transactions confirmed on-chain after retries — treating as success.');
-  emitAndExit(result, 0);
+  await emitAndExit(result, 0);
 }
 
 log(`All ${MAX_RETRIES + 1} attempts failed.`);
-emitAndExit(result, result.exitCode);
+await emitAndExit(result, result.exitCode);
