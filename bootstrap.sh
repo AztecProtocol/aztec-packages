@@ -555,6 +555,7 @@ case "$cmd" in
   ;;
   "")
     install_hooks
+    "$root/.claude/bootstrap.sh" skills
     build
   ;;
 
@@ -778,6 +779,13 @@ case "$cmd" in
     export CI=1
     build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
+
+  ###########################
+  # CLAUDE SKILL TOOLING   #
+  ###########################
+  "skills"|"skill")
+    "$root/.claude/bootstrap.sh" "$cmd" "$@"
     ;;
 
   ##############################################
