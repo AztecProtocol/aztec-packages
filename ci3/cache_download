@@ -36,6 +36,22 @@ else
   endpoint="https://build-cache.aztec-labs.com"
 fi
 
+# Downloads the artifact from remote to stdout.
+function download_from_remote {
+  if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
+    # Use AWS CLI with custom params (e.g., custom endpoint)
+    # NOTE: This is NOT currently used, but allows for using minio or other S3-compatible storage for tests.
+    s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
+    aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" 2>/dev/null
+  elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
+    # Run remote download on remote host via SSH jump and pipe back
+    ssh "$CACHE_SSH_HOST" "curl -s -f \"$endpoint/$tar_file\""
+  else
+    # Default to download from remote via curl
+    curl -s -f "$endpoint/$tar_file"
+  fi
+}
+
 # Local cache: if CACHE_LOCAL_DIR is set, check local cache first,
 # and on miss, download from remote into local cache before extracting.
 # If the cache directory cannot be created, skip local caching and fall through.
@@ -43,6 +59,7 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]] && ! mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null;
   echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR, skipping local cache."
   CACHE_LOCAL_DIR=""
 fi
+
 if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   local_cache_file="$CACHE_LOCAL_DIR/$tar_file"
 
@@ -54,25 +71,10 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   fi
 
   echo_stderr "Local cache miss for $tar_file, downloading from remote."
-
-  if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
-    if ! aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "$local_cache_file" &>/dev/null; then
-      rm -f "$local_cache_file"
-      echo_stderr "Cache download of $tar_file failed."
-      exit 1
-    fi
-  elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
-    if ! ssh "$CACHE_SSH_HOST" "curl -s -f \"$S3_ENDPOINT/build-cache/$tar_file\"" > "$local_cache_file"; then
-      rm -f "$local_cache_file"
-      echo_stderr "SSH cache download of $tar_file via $CACHE_SSH_HOST failed."
-      exit 1
-    fi
-  else
-    if ! curl -s -f "$S3_ENDPOINT/build-cache/$tar_file" -o "$local_cache_file"; then
-      rm -f "$local_cache_file"
-      echo_stderr "Cache download of $tar_file failed."
-      exit 1
-    fi
+  if ! download_from_remote > "$local_cache_file"; then
+    rm -f "$local_cache_file"
+    echo_stderr "Cache download of $tar_file failed."
+    exit 1
   fi
 
   extract_tar < "$local_cache_file"
@@ -80,23 +82,9 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   exit 0
 fi
 
-if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
-  # Use AWS CLI with custom params (e.g., custom endpoint)
-  # NOTE: This is NOT currently used, but allows for using minio or other S3-compatible storage for tests.
-  s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
-  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" | extract_tar
-elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
-  # Run S3 download on remote host via SSH jump and pipe back
-  if ! ssh "$CACHE_SSH_HOST" "curl -s -f \"$endpoint/$tar_file\"" | extract_tar; then
-    echo_stderr "SSH cache download of $tar_file via $CACHE_SSH_HOST failed."
-    exit 1
-  fi
-else
-  # Default to AWS S3 URL via curl
-  # Attempt to download and extract the cache file
-  if ! curl -s -f "$endpoint/$tar_file" | extract_tar; then
-    echo_stderr "Cache download of $tar_file failed."
-    exit 1
-  fi
+if ! download_from_remote | extract_tar; then
+  echo_stderr "Cache download of $tar_file failed."
+  exit 1
 fi
+
 echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
