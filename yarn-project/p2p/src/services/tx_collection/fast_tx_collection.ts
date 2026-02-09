@@ -77,7 +77,7 @@ export class FastTxCollection {
     // This promise is used to await for the collection to finish during the main collectFast method.
     // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.
     const promise = promiseWithResolvers<void>();
-    setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
+    const timeoutTimer = setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
 
     const request: FastCollectionRequest = {
       ...input,
@@ -89,6 +89,7 @@ export class FastTxCollection {
     };
 
     const [duration] = await elapsed(() => this.collectFast(request, { ...opts }));
+    clearTimeout(timeoutTimer);
 
     this.log.verbose(
       `Collected ${request.foundTxs.size} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
