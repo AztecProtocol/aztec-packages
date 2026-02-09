@@ -532,35 +532,33 @@
       }
     },
     {
-      "name": "ios-arm64",
-      "displayName": "Build for iOS arm64 (device)",
-      "description": "Build for iOS arm64 devices using ios.toolchain.cmake",
-      "binaryDir": "build-ios-arm64",
-      "generator": "Ninja",
-      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "name": "zig-arm64-ios",
+      "displayName": "Build for iOS arm64 with Zig",
+      "description": "Cross-compile for iOS arm64 devices using Zig",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk"
+      },
       "cacheVariables": {
-        "PLATFORM": "OS64",
-        "DEPLOYMENT_TARGET": "16.3",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
-        "ENABLE_ARC": "OFF",
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
     },
     {
-      "name": "ios-sim-arm64",
-      "displayName": "Build for iOS Simulator arm64",
-      "description": "Build for iOS Simulator on Apple Silicon using ios.toolchain.cmake",
-      "binaryDir": "build-ios-sim-arm64",
-      "generator": "Ninja",
-      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "name": "zig-arm64-ios-sim",
+      "displayName": "Build for iOS Simulator arm64 with Zig",
+      "description": "Cross-compile for iOS Simulator on ARM64 using Zig",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk"
+      },
       "cacheVariables": {
-        "PLATFORM": "SIMULATORARM64",
-        "DEPLOYMENT_TARGET": "16.3",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
-        "ENABLE_ARC": "OFF",
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
@@ -753,13 +751,13 @@
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "ios-arm64",
-      "configurePreset": "ios-arm64",
+      "name": "zig-arm64-ios",
+      "configurePreset": "zig-arm64-ios",
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "ios-sim-arm64",
-      "configurePreset": "ios-sim-arm64",
+      "name": "zig-arm64-ios-sim",
+      "configurePreset": "zig-arm64-ios-sim",
       "inheritConfigureEnvironment": true
     }
   ],

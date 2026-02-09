@@ -107,11 +107,13 @@ function build_cross {
   fi
 }
 
-# Build for iOS (must run on macOS with Xcode installed)
-# Arg is preset name: ios-arm64 or ios-sim-arm64
+# Build for iOS using Zig cross-compilation (can run on Linux)
+# Arg is preset name: zig-arm64-ios or zig-arm64-ios-sim
 function build_ios {
   set -eu
   preset=$1
+  # Download iOS SDK if not present
+  bash scripts/download-ios-sdk.sh
   if ! cache_download barretenberg-$preset-$hash.zst; then
     build_preset $preset --target bb-external
     cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
@@ -248,12 +250,12 @@ function build_release_dir {
     tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
   fi
 
-  # Package iOS static libraries (built on macOS runners)
-  if [ -f build-ios-arm64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-ios-arm64/lib libbb-external.a
+  # Package iOS static libraries (cross-compiled with Zig from Linux)
+  if [ -f build-zig-arm64-ios/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-zig-arm64-ios/lib libbb-external.a
   fi
-  if [ -f build-ios-sim-arm64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-ios-sim-arm64/lib libbb-external.a
+  if [ -f build-zig-arm64-ios-sim/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-zig-arm64-ios-sim/lib libbb-external.a
   fi
 }
 

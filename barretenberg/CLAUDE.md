@@ -4,8 +4,27 @@ THE PROJECT ROOT IS AT ONE LEVEL ABOVE THIS FOLDER. Typically, the repository is
 
 **IMPORTANT**: When comparing branches or looking at diffs for barretenberg work, use `origin/merge-train/barretenberg` as the base branch, NOT `master` or `next`. Create new branches off `origin/merge-train/barretenberg` and target PRs to `merge-train/barretenberg`.
 
-Examples:
-- `git checkout -b my-branch origin/merge-train/barretenberg` (create a new branch)
+## Creating a new branch
+
+**Always fetch the latest changes before creating a new branch:**
+
+```bash
+git fetch origin merge-train/barretenberg
+git checkout -b my-branch origin/merge-train/barretenberg
+```
+
+## Rebasing your branch
+
+When your branch becomes out-of-date with the base branch, rebase (don't merge):
+
+```bash
+git fetch origin merge-train/barretenberg
+git rebase origin/merge-train/barretenberg
+git push -f  # Force push after rebase
+```
+
+## Common commands
+
 - `git diff origin/merge-train/barretenberg...HEAD` (not `git diff master...HEAD`)
 - `git log origin/merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
 - `gh pr create --base merge-train/barretenberg` (target PRs to merge-train)
@@ -16,6 +35,18 @@ Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo),
 
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
+
+## Handling noir/noir-repo submodule
+
+If `git status` shows `noir/noir-repo` as modified but your changes have nothing to do with updating noir, run:
+
+```bash
+git submodule update noir/noir-repo
+```
+
+This resets the submodule to the correct commit for the current branch. This commonly happens when switching branches.
+
+**Note:** If you're intentionally updating the noir submodule to a newer version, use the `noir-sync-update` skill instead, which handles the full update workflow including `Cargo.lock` and `yarn.lock` updates.
 
 # Modules
 

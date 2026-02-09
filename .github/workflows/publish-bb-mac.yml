@@ -24,9 +24,11 @@ permissions:
   issues: write
 
 jobs:
+  # TEMPORARILY DISABLED: Migrating from Xcode toolchain to Zig cross-compilation
   build-ios:
     name: Build iOS static libraries
     runs-on: macos-14
+    if: false  # Disabled during migration to Zig-based iOS builds
     strategy:
       matrix:
         include:
@@ -65,7 +67,7 @@ jobs:
   build-check:
     name: Check builds are successful
     needs: build-ios
-    if: ${{ always() }}
+    if: false  # Disabled during migration to Zig-based iOS builds
     runs-on: ubuntu-latest
     steps:
       - name: Report overall success
@@ -100,6 +102,7 @@ jobs:
   release:
     name: Publish
     needs: build-check
+    if: false  # Disabled during migration to Zig-based iOS builds
     runs-on: ubuntu-latest
     steps:
       - name: Download artifact (arm64-ios)
