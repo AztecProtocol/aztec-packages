@@ -242,7 +242,6 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     proving_key->polynomials.lagrange_first.at(0) = 1;
     // lagrange_real_last marks the last position with sorted values in ordered polynomials
     // (where we check maximum value = 2^14 - 1)
-    // This position overlaps with lagrange_ordered_masking_adjacent
     proving_key->polynomials.lagrange_real_last.at(circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1) = 1;
     proving_key->polynomials.lagrange_last.at(circuit_size - 1) = 1;
 
@@ -271,12 +270,6 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     // where random values are placed in ordered polynomials
     for (size_t i = circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; i < circuit_size; i++) {
         proving_key->polynomials.lagrange_ordered_masking.at(i) = 1;
-    }
-
-    // lagrange_ordered_masking_adjacent: marks the position before masking region AND all masking positions
-    // This disables delta range constraint at positions where ordered[i+1] would be a masking value
-    for (size_t i = circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1; i < circuit_size; i++) {
-        proving_key->polynomials.lagrange_ordered_masking_adjacent.at(i) = 1;
     }
 
     for (size_t i = Flavor::RANDOMNESS_START; i < Flavor::RESULT_ROW; i++) {

@@ -15,7 +15,7 @@ namespace bb {
  * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
  * 1) 2 sequential values are non-descending and have a difference of at most 3. This check is skipped
  *    at the real_last index (lagrange_real_last = 1) and in the ordered masking region
- *    (lagrange_ordered_masking_adjacent = 1).
+ *    (lagrange_ordered_masking = 1).
  * 2) The value at the real_last index is 2¹⁴ - 1.
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -50,18 +50,12 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
         auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
 
-        // Represents the position of the final non-masked witness index
         const auto lagrange_real_last = View(in.lagrange_real_last);
-        const auto lagrange_ordered_masking_adjacent = View(in.lagrange_ordered_masking_adjacent);
+        const auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
 
-        // This selector is 0 at the real_last row and in ordered masking/adjacent rows (where delta checks are
-        // skipped), and -1 at all other rows (where delta checks are enforced).
-        // lagrange_ordered_masking_adjacent is 1 at contiguous ordered masking rows AND the row before the masking
-        // region, which prevents checking ordered[i+1] - ordered[i] when ordered[i+1] is a masking value.
-        // We use a multiplicative form to correctly handle the overlap at the last non-masking row
-        // where both lagrange_real_last = 1 and lagrange_ordered_masking_adjacent = 1.
-        const auto not_last_or_masking =
-            (lagrange_real_last + minus_one) * (lagrange_ordered_masking_adjacent + minus_one);
+        // 0 at real_last and ordered masking rows (where delta checks are skipped), nonzero elsewhere.
+        // lagrange_real_last and lagrange_ordered_masking have disjoint support, so the sum is 0/1.
+        const auto not_last_or_masking = lagrange_real_last + lagrange_ordered_masking + minus_one;
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;

@@ -246,9 +246,9 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermCorruption)
 
 /**
  * @brief Corrupt ordered poly at position circuit_size - MAX_RANDOM - 2, the last row where the delta
- * constraint is enforced. This is right before lagrange_ordered_masking_adjacent kicks in.
+ * constraint is enforced. This is right before lagrange_real_last + lagrange_ordered_masking kicks in.
  *
- * @details At this position: lagrange_real_last = 0, lagrange_ordered_masking_adjacent = 0.
+ * @details At this position: lagrange_real_last = 0, lagrange_ordered_masking = 0.
  * The delta to the next row (real_last, which holds 2^14-1) must be in {0,1,2,3}.
  * Setting a value of 0 here creates a gap of 2^14 - 1 to the next row.
  */

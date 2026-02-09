@@ -1005,8 +1005,7 @@ TEST_F(TranslatorRelationCorrectnessTests, OrderedPolynomialBoundary)
 /**
  * @brief Test that all masking-related lagrange selectors have correct values at every critical boundary.
  * @details Checks lagrange_masking (scattered), lagrange_masking_adjacent (scattered + 1 row before),
- * lagrange_ordered_masking (contiguous at end), lagrange_ordered_masking_adjacent (contiguous + 1),
- * and lagrange_real_last at their boundary positions.
+ * lagrange_ordered_masking (contiguous at end), and lagrange_real_last at their boundary positions.
  */
 TEST_F(TranslatorRelationCorrectnessTests, LagrangeSelectorBoundaryCorrectness)
 {
@@ -1060,15 +1059,6 @@ TEST_F(TranslatorRelationCorrectnessTests, LagrangeSelectorBoundaryCorrectness)
         << "lagrange_ordered_masking should be 0 one position before masking region";
     for (size_t i = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; i < full_circuit_size; i++) {
         EXPECT_EQ(pp.lagrange_ordered_masking[i], FF(1)) << "lagrange_ordered_masking should be 1 at position " << i;
-    }
-
-    // --- lagrange_ordered_masking_adjacent (contiguous + 1) ---
-    EXPECT_EQ(pp.lagrange_ordered_masking_adjacent[full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 2],
-              FF(0))
-        << "lagrange_ordered_masking_adjacent should be 0 two positions before masking region";
-    for (size_t i = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1; i < full_circuit_size; i++) {
-        EXPECT_EQ(pp.lagrange_ordered_masking_adjacent[i], FF(1))
-            << "lagrange_ordered_masking_adjacent should be 1 at position " << i;
     }
 
     // --- lagrange_real_last ---

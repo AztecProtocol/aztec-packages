@@ -99,7 +99,7 @@ class TranslatorRecursiveFlavor {
      * polynomials used by the verifier.
      */
     using VerificationKey =
-        FixedStdlibVKAndHash_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
+        FixedStdlibVKAndHash_<CircuitBuilder, TranslatorFlavor::VKEntities<Commitment>, NativeVerificationKey>;
 
     /**
      * @brief A container for the witness commitments.

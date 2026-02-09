@@ -198,26 +198,18 @@ via the beta-separation term.
 
 **Files:** `translator_permutation_relation.hpp`, `translator_permutation_relation_impl.hpp`
 
-### 3. Delta Range Constraint: Ordered Masking Adjacent
+### 3. Delta Range Constraint: Ordered Masking Disable
 
 The delta range constraint checks `ordered[i+1] - ordered[i] ∈ {0,1,2,3}` at each row.
 With contiguous masking at the end of ordered polynomials, the constraint must be disabled
-at masking positions AND at the row immediately before the masking region (where `ordered[i+1]`
-would be a masking value).
+at masking positions AND at the `lagrange_real_last` row (where we enforce the maximum value).
 
-`lagrange_ordered_masking_adjacent` is 1 at all contiguous masking positions AND the row
-before the masking region:
-
-```
-lagrange_ordered_masking_adjacent[i] = 1  for i ∈ [circuit_size - MAX_RANDOM - 1, circuit_size)
-```
-
-The disable condition uses a multiplicative form to handle the overlap at the last non-masking row:
+The disable condition uses a linear form with disjoint-support selectors:
 
 ```cpp
-not_last_or_masking = (lagrange_real_last - 1) * (lagrange_ordered_masking_adjacent - 1)
-// = 0 (disabled) when either is 1
-// = 1 (enabled) otherwise
+not_last_or_masking = lagrange_real_last + lagrange_ordered_masking - 1
+// = 0 (disabled) when either is 1 (disjoint support, so at most one is 1)
+// = -1 (enabled) otherwise
 ```
 
 `lagrange_real_last` marks position `circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1`, which
@@ -330,9 +322,8 @@ Claims are batched without `InterleavedBatch`:
 | 9 | `lagrange_real_last` | Yes | Single point: row N-MAX_RANDOM-1 |
 | 10 | `lagrange_masking_adjacent` | Yes | Near-subcube: masking ∪ adjacent rows |
 | 11 | `lagrange_ordered_masking` | Yes | Subcube: bits R..D-1 = 1 |
-| 12 | `lagrange_ordered_masking_adjacent` | Yes | Near-subcube: ordered_masking ∪ 1 row |
 
-All 12 computable selectors are structured multilinear polynomials whose support forms subcubes
+All 11 computable selectors are structured multilinear polynomials whose support forms subcubes
 or small unions of subcubes. Their evaluations at the sumcheck challenge can be computed in O(d)
 field operations.
 
@@ -349,7 +340,7 @@ identities. Any forgery of witness evaluations would still be caught by the witn
 
 **Flavor constants** (`translator_flavor.hpp`):
 ```cpp
-static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 12;
+static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 11;
 static constexpr size_t COMPUTABLE_PRECOMPUTED_OFFSET = NUM_MASKING_POLYNOMIALS + 1; // = 2
 static constexpr size_t NUM_SENT_EVALUATIONS = NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED; // = 180
 ```
@@ -385,10 +376,9 @@ fewer scalar multiplications in the verifier's batch opening check.
 | `lagrange_masking` | Scattered across 16 blocks (end of each block) |
 | New: `lagrange_masking_adjacent` | Precomputed = masking ∪ row-before-masking (scattered) |
 | New: `lagrange_ordered_masking` | Precomputed = contiguous at end (for ordered polys) |
-| New: `lagrange_ordered_masking_adjacent` | Contiguous masking + 1 adjacent row |
 | `lagrange_real_last` | Position `circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1` |
 | Permutation relation | Dual masking selectors (scattered for numerator, contiguous for denominator) |
-| Delta range constraint | Uses `lagrange_ordered_masking_adjacent` (contiguous) |
+| Delta range constraint | Uses `lagrange_real_last + lagrange_ordered_masking - 1` (linear form) |
 | Ordered polynomial construction | Contiguous masking at end; sorted values packed before |
 | `compute_interleaved_polynomials()` → `compute_concatenated_polynomials()` | MSB-lane concatenation |
 | `split_interleaved_..._to_ordered()` → `split_concatenated_..._to_ordered()` | Extract from scattered, place contiguous |
@@ -435,4 +425,4 @@ fewer scalar multiplications in the verifier's batch opening check.
 | `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp` | Forwarded constants and methods |
 | `sumcheck/sumcheck.hpp` | Prover: filtered eval send; Verifier: filtered receive + compute |
 | `relations/translator_vm/translator_permutation_relation*.hpp` | Dual masking selectors |
-| `relations/translator_vm/translator_delta_range_constraint_relation*.hpp` | `lagrange_ordered_masking_adjacent` |
+| `relations/translator_vm/translator_delta_range_constraint_relation*.hpp` | `lagrange_real_last + lagrange_ordered_masking` |

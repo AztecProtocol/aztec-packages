@@ -7,7 +7,7 @@
 namespace bb {
 
 /**
- * @brief Evaluates the 12 structured Translator precomputed selectors at a sumcheck challenge point.
+ * @brief Evaluates the 11 structured Translator precomputed selectors at a sumcheck challenge point.
  *
  * @details All Translator selectors except ordered_extra_range_constraints_numerator are multilinear
  * polynomials over {0,1}^d whose support forms subcubes or small unions of subcubes. Their evaluations
@@ -45,7 +45,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     static_assert(LOG_RESULT_ROW < LOG_MINI_CIRCUIT_SIZE);
     static_assert(LOG_MINI_CIRCUIT_SIZE > LOG_MAX_RANDOM, "Mini circuit must be larger than max random region");
 
-    // The 12 selector evaluations (order matches PrecomputedEntities in translator_flavor.hpp,
+    // The 11 selector evaluations (order matches PrecomputedEntities in translator_flavor.hpp,
     // skipping ordered_extra_range_constraints_numerator which cannot be efficiently computed)
     FF lagrange_first;
     FF lagrange_last;
@@ -58,13 +58,12 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     FF lagrange_real_last;
     FF lagrange_masking_adjacent;
     FF lagrange_ordered_masking;
-    FF lagrange_ordered_masking_adjacent;
 
     /**
-     * @brief Compute evaluations of all 12 structured selectors at the sumcheck challenge.
+     * @brief Compute evaluations of all 11 structured selectors at the sumcheck challenge.
      *
      * @param u Sumcheck challenge (u_0, ..., u_{LOG_N-1}). Size must equal LOG_N.
-     * @return TranslatorSelectorEvaluations with all 12 fields populated.
+     * @return TranslatorSelectorEvaluations with all 11 fields populated.
      */
     static TranslatorSelectorEvaluations compute(std::span<const FF> u)
     {
@@ -185,10 +184,6 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
 
         // ---- Near-subcube indicators ----
 
-        // lagrange_ordered_masking_adjacent: lagrange_ordered_masking ∪ {lagrange_real_last row}
-        //   = ∏_{k=R+1}^{D-1} u_k · [ u_R + (1-u_R) · ∏_{k=0}^{R-1} u_k ]
-        evals.lagrange_ordered_masking_adjacent = u_Rp1_D1 * (u[R] + c[R] * u_0_R1);
-
         // lagrange_masking_adjacent: lagrange_masking ∪ {row before each masking block, all 16 blocks}
         //   The adjacent row within each block has bits 0..m-1=1, bit m=0, bits m+1..M-1=1;
         //   across all blocks (bits M..D-1 free), this is itself a subcube.
@@ -233,7 +228,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     }
 
     /**
-     * @brief Write all 12 computed evaluations into any entity struct with matching named fields.
+     * @brief Write all 11 computed evaluations into any entity struct with matching named fields.
      * @details Works for AllValues, AllEntities<FF>, PrecomputedEntities<FF>, native or stdlib.
      */
     template <typename Entities> void populate(Entities& target) const
@@ -249,7 +244,6 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
         target.lagrange_real_last = lagrange_real_last;
         target.lagrange_masking_adjacent = lagrange_masking_adjacent;
         target.lagrange_ordered_masking = lagrange_ordered_masking;
-        target.lagrange_ordered_masking_adjacent = lagrange_ordered_masking_adjacent;
     }
 };
 

@@ -12,7 +12,7 @@ using namespace bb;
 namespace {
 
 /**
- * @brief Create all 12 structured Translator selector polynomials and verify that
+ * @brief Create all 11 structured Translator selector polynomials and verify that
  * TranslatorSelectorEvaluations::compute matches their MLE evaluations at a random challenge.
  *
  * @details Replicates the pattern-setting logic from TranslatorProvingKey::compute_lagrange_polynomials()
@@ -74,14 +74,6 @@ template <size_t LOG_MINI> void test_translator_selector_evaluations()
                   }
               }),
               evals.lagrange_ordered_masking);
-
-    // --- lagrange_ordered_masking_adjacent: 1 at rows [N - MAX_RANDOM - 1, N - 1] ---
-    EXPECT_EQ(make_and_eval([](Poly& p) {
-                  for (size_t i = N - MAX_RANDOM_VALUES_PER_ORDERED - 1; i < N; i++) {
-                      p.at(i) = 1;
-                  }
-              }),
-              evals.lagrange_ordered_masking_adjacent);
 
     // --- lagrange_masking: 1 at last NUM_MASKED rows of each of 16 blocks ---
     EXPECT_EQ(make_and_eval([](Poly& p) {
@@ -150,7 +142,7 @@ TEST(TranslatorSelectors, RealCircuit)
 }
 
 /**
- * @brief Measure the in-circuit cost of computing all 12 Translator selector evaluations.
+ * @brief Measure the in-circuit cost of computing all 11 Translator selector evaluations.
  *
  * @details Creates witness challenge values in a circuit builder, runs the analytical computation,
  * measures the gate delta, and verifies correctness against native field computation.
@@ -203,8 +195,6 @@ template <typename Builder, size_t LOG_MINI> void test_translator_selector_circu
     EXPECT_EQ(circuit_evals.lagrange_real_last.get_value(), native_evals.lagrange_real_last);
     EXPECT_EQ(circuit_evals.lagrange_masking_adjacent.get_value(), native_evals.lagrange_masking_adjacent);
     EXPECT_EQ(circuit_evals.lagrange_ordered_masking.get_value(), native_evals.lagrange_ordered_masking);
-    EXPECT_EQ(circuit_evals.lagrange_ordered_masking_adjacent.get_value(),
-              native_evals.lagrange_ordered_masking_adjacent);
 }
 
 TEST(TranslatorSelectors, CircuitCostUltra)

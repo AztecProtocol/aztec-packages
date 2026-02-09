@@ -21,10 +21,9 @@ TranslatorFlavor::VerificationKey create_vk_from_proving_key(
     const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
 {
     TranslatorFlavor::VerificationKey vk;
-    // Overwrite fixed commitments with computed commitments from the proving key
-    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
-        commitment = proving_key->commitment_key.commit(polynomial);
-    }
+    // Only ordered_extra_range_constraints_numerator needs a VK commitment (the only non-computable precomputed)
+    vk.ordered_extra_range_constraints_numerator =
+        proving_key->commitment_key.commit(proving_key->polynomials.ordered_extra_range_constraints_numerator);
     return vk;
 }
 

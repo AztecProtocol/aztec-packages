@@ -59,9 +59,9 @@ class TranslatorFlavor {
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
-    // 12 of 13 precomputed selectors are structured multilinear polynomials whose evaluations at the
+    // 11 of 12 precomputed selectors are structured multilinear polynomials whose evaluations at the
     // sumcheck challenge can be computed in O(d) field ops (all except ordered_extra_range_constraints_numerator).
-    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 12;
+    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 11;
 
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
@@ -129,15 +129,15 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    // = MaskingEntities(1) + Precomputed(13) + Witness(92) + Shifted(86) = 192
-    static constexpr size_t NUM_ALL_ENTITIES = 192;
+    // = MaskingEntities(1) + Precomputed(12) + Witness(92) + Shifted(86) = 191
+    static constexpr size_t NUM_ALL_ENTITIES = 191;
 
     // Number of evaluations sent in proof (all minus computable precomputed)
     static constexpr size_t NUM_SENT_EVALUATIONS = NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED;
 
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 13;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
 
     // The total number of witness entities not including shifts.
     // = WireNonshifted(1) + WireToBeShifted(80) + OrderedRange(5) + Derived(1) + Concatenated(5) = 92
@@ -222,7 +222,7 @@ class TranslatorFlavor {
         /* 5. Libra sum */ (num_frs_fr) +
         /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
         (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. sumcheck evaluations (12 computable precomputed excluded) */ (NUM_SENT_EVALUATIONS * num_frs_fr) +
+        /* 5. sumcheck evaluations (computable precomputed excluded) */ (NUM_SENT_EVALUATIONS * num_frs_fr) +
         /* 6. Libra claimed evaluation */ (num_frs_fr) +
         /* 7. Libra grand sum commitment */ (num_frs_comm) +
         /* 8. Libra quotient commitment */ (num_frs_comm) +
@@ -254,8 +254,7 @@ class TranslatorFlavor {
                               lagrange_mini_masking,                     // column 8
                               lagrange_real_last,                        // column 9
                               lagrange_masking_adjacent,                 // column 10
-                              lagrange_ordered_masking,                  // column 11
-                              lagrange_ordered_masking_adjacent);        // column 12
+                              lagrange_ordered_masking);                 // column 11
     };
 
     template <typename DataType> class ConcatenatedPolynomials {
@@ -904,7 +903,7 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Unshifted polynomials for PCS, excluding concatenated AND 12 computable precomputed.
+         * @brief Unshifted polynomials for PCS, excluding concatenated AND computable precomputed.
          * @details Masking(1) + ordered_extra(1) + WireNonshifted(1) + OrderedRange(5) + Derived(1) = 9
          */
         auto get_unshifted_without_concatenated()
@@ -969,8 +968,15 @@ class TranslatorFlavor {
         using Base::Base;
     };
 
+    // Static consistency checks for entity counts
+    static_assert(PrecomputedEntities<FF>::_members_size == NUM_PRECOMPUTED_ENTITIES);
+    static_assert(NUM_ALL_ENTITIES ==
+                  NUM_MASKING_POLYNOMIALS + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES);
+    static_assert(NUM_COMPUTABLE_PRECOMPUTED == NUM_PRECOMPUTED_ENTITIES - 1,
+                  "All precomputed selectors except ordered_extra_range_constraints_numerator are computable");
+
     /**
-     * @brief Compute 12 computable precomputed selector evaluations and write them into AllEntities.
+     * @brief Compute the computable precomputed selector evaluations and write them into AllEntities.
      */
     template <typename FFType>
     static void compute_computable_precomputed(AllEntities<FFType>& evals, std::span<const FFType> challenge)
@@ -1026,7 +1032,7 @@ class TranslatorFlavor {
     template <typename FFType>
     static void complete_claimed_evaluations(AllEntities<FFType>& evals, std::span<const FFType> challenge)
     {
-        // 1. Compute the 12 computable precomputed selector evaluations
+        // 1. Compute the computable precomputed selector evaluations
         compute_computable_precomputed(evals, challenge);
 
         // 2. Scale minicircuit wire evaluations by L_0(u_top) = Π_{i=0}^{3} (1 - u_{LOG_MINI + i})
@@ -1158,11 +1164,6 @@ class TranslatorFlavor {
             lagrange_ordered_masking = Polynomial{ /*size*/ MAX_RANDOM_VALUES_PER_ORDERED,
                                                    /*virtual_size*/ circuit_size,
                                                    /*start_index*/ circuit_size - MAX_RANDOM_VALUES_PER_ORDERED };
-            // Ordered masking adjacent: includes the row before masking region (for delta constraint)
-            lagrange_ordered_masking_adjacent =
-                Polynomial{ /*size*/ MAX_RANDOM_VALUES_PER_ORDERED + 1,
-                            /*virtual_size*/ circuit_size,
-                            /*start_index*/ circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1 };
             lagrange_last = Polynomial{ /*size*/ 1,
                                         /*virtual_size*/ circuit_size,
                                         /*start_index*/ circuit_size - 1 };
@@ -1231,10 +1232,24 @@ class TranslatorFlavor {
     };
 
     /**
+     * @brief The only precomputed commitment the verifier needs for PCS.
+     * @details All other precomputed selectors are computable (evaluations derived from the sumcheck challenge),
+     * so they never enter PCS and don't need commitments in the VK.
+     */
+    template <typename DataType_> class VKEntities {
+      public:
+        bool operator==(const VKEntities& other) const = default;
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType, ordered_extra_range_constraints_numerator);
+    };
+
+    /**
      * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
      * @details Translator has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
+     * Only ordered_extra_range_constraints_numerator needs a commitment — all other precomputed
+     * selectors are structured multilinear polynomials whose evaluations the verifier computes analytically.
      */
-    using VerificationKey = FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, TranslatorHardcodedVKAndHash>;
+    using VerificationKey = FixedVKAndHash_<VKEntities<Commitment>, FF, TranslatorHardcodedVKAndHash>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -1376,20 +1391,10 @@ class TranslatorFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            this->lagrange_first = verification_key->lagrange_first;
-            this->lagrange_last = verification_key->lagrange_last;
-            this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
-            this->lagrange_even_in_minicircuit = verification_key->lagrange_even_in_minicircuit;
-            this->lagrange_result_row = verification_key->lagrange_result_row;
-            this->lagrange_last_in_minicircuit = verification_key->lagrange_last_in_minicircuit;
+            // Only ordered_extra_range_constraints_numerator needs a VK commitment for PCS.
+            // All other precomputed selectors are computable (evaluations derived from sumcheck challenge).
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
-            this->lagrange_masking = verification_key->lagrange_masking;
-            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
-            this->lagrange_real_last = verification_key->lagrange_real_last;
-            this->lagrange_masking_adjacent = verification_key->lagrange_masking_adjacent;
-            this->lagrange_ordered_masking = verification_key->lagrange_ordered_masking;
-            this->lagrange_ordered_masking_adjacent = verification_key->lagrange_ordered_masking_adjacent;
         }
     };
 
