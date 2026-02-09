@@ -16,7 +16,7 @@ use crate::{
         private_tx_base_rollup::{self, PrivateTxBaseRollupPrivateInputs},
     },
 };
-use dep::types::{
+use ::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         gas::Gas, gas_fees::GasFees,

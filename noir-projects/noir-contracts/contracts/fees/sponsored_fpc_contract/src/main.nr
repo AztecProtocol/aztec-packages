@@ -1,11 +1,11 @@
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 /// FOR TESTING ONLY
 /// Sponsored Fee Payment Contract (Sponsored FPC)
 /// This contract covers transaction fees for users unconditionally.
 #[aztec]
 pub contract SponsoredFPC {
-    use dep::aztec::macros::functions::{allow_phase_change, external};
+    use ::aztec::macros::functions::{allow_phase_change, external};
 
     /// Sponsors the transaction unconditionally.
     #[external("private")]

@@ -1,4 +1,4 @@
-use dep::types::{
+use ::types::{
     abis::validation_requests::KeyValidationRequestAndGenerator,
     hash::compute_app_siloed_secret_key, scalar::Scalar, side_effect::Scoped,
 };

@@ -1,4 +1,4 @@
-use dep::types::{
+use ::types::{
     abis::private_log::PrivateLog,
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
     traits::Empty,

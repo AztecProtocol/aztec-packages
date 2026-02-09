@@ -12,7 +12,7 @@ use crate::{
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
-use dep::types::{
+use ::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         note_hash_leaf_preimage::NoteHashLeafPreimage, nullifier::Nullifier,

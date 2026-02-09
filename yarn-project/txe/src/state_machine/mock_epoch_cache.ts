@@ -1,6 +1,7 @@
 import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 /**
  * Mock implementation of the EpochCacheInterface used to satisfy dependencies of AztecNodeService.
@@ -63,5 +64,9 @@ export class MockEpochCache implements EpochCacheInterface {
 
   filterInCommittee(_slot: SlotTag, _validators: EthAddress[]): Promise<EthAddress[]> {
     return Promise.resolve([]);
+  }
+
+  getL1Constants(): L1RollupConstants {
+    return EmptyL1RollupConstants;
   }
 }

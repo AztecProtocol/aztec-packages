@@ -2,7 +2,7 @@ use crate::{
     private_kernel_inner::{self, PrivateKernelInnerCircuitPrivateInputs},
     tests::private_kernel_inner::TestBuilder,
 };
-use dep::types::abis::private_call_request::PrivateCallRequest;
+use ::types::abis::private_call_request::PrivateCallRequest;
 
 impl TestBuilder {
     pub fn new_call_request() -> (Self, PrivateCallRequest) {

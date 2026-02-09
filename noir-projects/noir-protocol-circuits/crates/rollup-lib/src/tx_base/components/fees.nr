@@ -1,4 +1,4 @@
-use dep::types::{
+use ::types::{
     abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{FEE_JUICE_ADDRESS, FEE_JUICE_BALANCES_SLOT},

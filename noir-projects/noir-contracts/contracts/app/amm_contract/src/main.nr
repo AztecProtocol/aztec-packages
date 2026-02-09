@@ -2,7 +2,7 @@ mod lib;
 mod config;
 mod test;
 
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 /// ## Overview
 /// This contract demonstrates how to implement an **Automated Market Maker (AMM)** that maintains **public state**
@@ -39,14 +39,14 @@ pub contract AMM {
         config::Config,
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
     };
-    use dep::aztec::{
+    use ::aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
 
-    use dep::token::Token;
-    use dep::uint_note::PartialUintNote;
+    use ::token::Token;
+    use ::uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {

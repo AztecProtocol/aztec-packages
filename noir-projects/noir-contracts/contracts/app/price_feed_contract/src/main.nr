@@ -1,13 +1,13 @@
 mod asset;
 
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract PriceFeed {
     use crate::asset::Asset;
-    use dep::aztec::state_vars::{Map, PublicMutable};
+    use ::aztec::state_vars::{Map, PublicMutable};
 
-    use dep::aztec::macros::{functions::{external, view}, storage::storage};
+    use ::aztec::macros::{functions::{external, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]

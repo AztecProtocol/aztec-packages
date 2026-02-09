@@ -1,9 +1,9 @@
 // A contract used along with `StaticParent` contract to test static calls.
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticChild {
-    use dep::aztec::{
+    use ::aztec::{
         macros::{functions::{external, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
