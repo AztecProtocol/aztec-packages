@@ -374,14 +374,26 @@ describe('HA Full Setup', () => {
   });
 
   it('should distribute work across multiple HA nodes', async () => {
-    logger.info('Testing that multiple HA nodes are participating and work is distributed');
+    logger.info('Testing HA resilience by killing nodes after they produce blocks');
 
-    // Deploy multiple contracts to generate several blocks
-    // We send transactions sequentially and wait for each to be mined to ensure we get distinct blocks
-    const blockCount = 5;
+    // We'll produce NODE_COUNT blocks (5 total with NODE_COUNT=5)
+    // Each node produces exactly 1 block, and we kill it after it produces
+    // The last remaining node will produce the final block
+    const blockCount = NODE_COUNT;
     const receipts = [];
+    const killedNodes: number[] = []; // Track indices of killed nodes
+    const blockProducers = new Map<number, string>(); // Map block index to node ID
+    let previousBlockNumber: number | undefined;
+
+    const nodeIds: string[] = [];
+    for (const service of haNodeServices) {
+      nodeIds.push((await service.getConfig()).nodeId);
+    }
 
     for (let i = 0; i < blockCount; i++) {
+      logger.info(`\n=== Producing block ${i + 1}/${blockCount} ===`);
+      logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
+
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
       const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
@@ -393,18 +405,77 @@ describe('HA Full Setup', () => {
 
       expect(receipt.blockNumber).toBeDefined();
 
+      // Verify this transaction is in a different block than the previous one
+      if (previousBlockNumber !== undefined) {
+        expect(receipt.blockNumber).toBeGreaterThan(previousBlockNumber);
+      }
+
+      previousBlockNumber = receipt.blockNumber;
       receipts.push(receipt);
-      logger.info(`Block ${i + 1}/${blockCount} created: ${receipt.blockNumber}`);
+
+      // Find which node produced this block
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      if (!block) {
+        throw new Error(`Block ${receipt.blockNumber} not found`);
+      }
+      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const duties = await getValidatorDuties(mainPool, slotNumber);
+      const blockProposalDuty = duties.find(d => d.dutyType === 'BLOCK_PROPOSAL');
+
+      if (!blockProposalDuty) {
+        throw new Error(`No block proposal duty found for slot ${slotNumber}`);
+      }
+
+      blockProducers.set(i, blockProposalDuty.nodeId);
+      logger.info(`Block ${receipt.blockNumber} produced by node ${blockProposalDuty.nodeId}`);
+
+      // Kill the node that produced this block, unless it's the last block
+      if (i < blockCount - 1) {
+        const producerNodeId = blockProposalDuty.nodeId;
+        const nodeIndexToKill = nodeIds.findIndex(nodeId => nodeId === producerNodeId);
+
+        if (nodeIndexToKill === -1) {
+          throw new Error(`Could not find active node with ID ${producerNodeId}`);
+        }
+
+        logger.info(`Killing node ${producerNodeId} that produced this block`);
+        await haNodeServices[nodeIndexToKill].stop();
+        killedNodes.push(nodeIndexToKill);
+      } else {
+        logger.info(`Last block produced.`);
+      }
+
+      logger.info(`Block ${i + 1}/${blockCount} completed. Killed nodes: ${killedNodes.length}/${NODE_COUNT}`);
     }
 
-    // Verify we actually got 5 distinct blocks
+    // Verify we got the expected number of distinct blocks
     const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
     const uniqueBlockNumbers = new Set(blockNumbers);
     expect(uniqueBlockNumbers.size).toBe(blockCount);
     logger.info(`Created ${uniqueBlockNumbers.size} distinct blocks: ${Array.from(uniqueBlockNumbers).join(', ')}`);
 
-    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
+    // Verify each node produced at least 1 block
+    const nodeBlockCounts = new Map<string, number>();
+    for (const nodeId of blockProducers.values()) {
+      const count = nodeBlockCounts.get(nodeId) || 0;
+      nodeBlockCounts.set(nodeId, count + 1);
+    }
+
+    logger.info(`Block production by node: ${JSON.stringify(Array.from(nodeBlockCounts.entries()))}`);
+
+    // Verify: each node should have produced at least 1 block
+    // (there may be empty blocks produced during node transitions)
+    for (const [nodeId, count] of nodeBlockCounts.entries()) {
+      expect(count).toBeGreaterThanOrEqual(1);
+      logger.info(`Node ${nodeId} produced ${count} block(s) as expected`);
+    }
+
+    // Verify all nodes participated (NODE_COUNT nodes total)
+    expect(nodeBlockCounts.size).toBe(NODE_COUNT);
+    logger.info(`All ${NODE_COUNT} nodes participated in block production`);
+
     // Verify no double-signing occurred across all blocks
+    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
     for (const receipt of receipts) {
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
       if (!block) {
@@ -424,7 +495,16 @@ describe('HA Full Setup', () => {
       );
 
       // P2P LAYER CHECK: Verify only one attestation per validator was sent over P2P
-      const p2pNode = haNodeServices[0];
+      // Find first active node for P2P check
+      let p2pNodeIndex = 0;
+      for (let idx = 0; idx < haNodeServices.length; idx++) {
+        if (!killedNodes.includes(idx)) {
+          p2pNodeIndex = idx;
+          break;
+        }
+      }
+
+      const p2pNode = haNodeServices[p2pNodeIndex];
       const p2p = p2pNode.getP2P();
       const slot = SlotNumber(Number(slotNumber));
 

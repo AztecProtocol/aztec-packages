@@ -1,5 +1,5 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -38,11 +38,11 @@ export class CheckpointRollupPublicInputs {
     /**
      * The hashes of the headers of the constituent checkpoints.
      */
-    public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public checkpointHeaderHashes: Tuple<Fr, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     /**
      * The summed transaction fees and recipients of the constituent checkpoints.
      */
-    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     /**
      * Accumulated opening proofs for all blobs before this checkpoint range.
      */
@@ -65,8 +65,8 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, Fr),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
       reader.readObject(BlobAccumulator),
       reader.readObject(BlobAccumulator),
       reader.readObject(FinalBlobBatchingChallenges),

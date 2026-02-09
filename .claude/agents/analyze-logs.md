@@ -39,14 +39,14 @@ Return a condensed summary:
 
 ## Key Events Timeline
 
-**IMPORTANT**: Include BOTH absolute timestamps (for referencing original logs) AND relative offsets from test start (for easier understanding and cross-run comparison).
+**IMPORTANT**: Include BOTH absolute timestamps (for referencing original logs) AND relative offsets from test start (for easier understanding and cross-run comparison). Include the **actor** column when logs come from multi-node tests.
 
-| Time | Offset | Level | Module | Event |
-|------|--------|-------|--------|-------|
-| 11:18:42 | +0.0s | INFO | e2e | Running test my_test |
-| 11:18:44 | +2.1s | INFO | sequencer | Building block |
-| 11:18:47 | +5.3s | ERROR | sequencer | Failed to build block |
-| 11:18:50 | +8.0s | WARN | p2p | Connection timeout |
+| Time | Offset | Actor | Level | Module | Event |
+|------|--------|-------|-------|--------|-------|
+| 11:18:42 | +0.0s | | INFO | e2e | Running test my_test |
+| 11:18:44 | +2.1s | validator-0 | INFO | sequencer | Building block |
+| 11:18:47 | +5.3s | validator-0 | ERROR | sequencer | Failed to build block |
+| 11:18:50 | +8.0s | node-0 | WARN | p2p | Connection timeout |
 
 (Offset = seconds since "Running test" marker. Makes it easy to compare timing between failed and successful runs.)
 
@@ -75,14 +75,26 @@ Return a condensed summary:
 
 Aztec logs follow this format:
 ```
-HH:MM:SS [HH:MM:SS.mmm] LEVEL: module:submodule Message {optional json}
+HH:MM:SS [HH:MM:SS.mmm] LEVEL: module [actor] [instanceId] Message {optional json}
 ```
 
-Example:
+- **module**: Always present. The component emitting the log (colon-separated hierarchy).
+- **actor**: Optional. Identifies *which process/node* is emitting the log in multi-node tests (e.g., `validator-0`, `node-1`, `prover-0`). Only set in e2e tests that spin up multiple nodes.
+- **instanceId**: Optional. Identifies *which instance* of a component within a single process (e.g., `checkpoint-5`, `epoch-3`). Used when multiple instances of the same component exist concurrently (e.g., one epoch-proving-job per epoch).
+
+Both `actor` and `instanceId` appear between the module name and the message in pretty-printed output.
+
+Examples:
 ```
 11:18:42 [11:18:42.518] WARN: node:blob-client:client No L1 consensus host urls configured
 11:18:42 [11:18:42.562] INFO: world_state Created world state synchroniser with block history of 2
+11:18:44 [11:18:44.100] INFO: sequencer validator-0 Building block 1
+11:18:45 [11:18:45.200] INFO: checkpoint-builder validator-1 checkpoint-5 Building block 1
 ```
+
+In the last two examples:
+- `validator-0` / `validator-1` is the **actor** (which node)
+- `checkpoint-5` is the **instanceId** (which checkpoint instance)
 
 **Levels** (in priority order for investigation):
 1. `ERROR` - Always investigate
@@ -165,16 +177,25 @@ FAIL src/e2e_something.test.ts
 ## Multi-Actor Awareness
 
 Tests may have multiple actors running concurrently:
-- Multiple nodes
-- Sequencers
-- Validators
-- Provers
+- Multiple nodes (`node-0`, `node-1`, ...)
+- Validators (`validator-0`, `validator-1`, ...)
+- Provers (`prover-0`, `prover-1`, ...)
 
-Log entries belong to different actors, sometimes (but not always) identified by a keyword or number in the module. Example:
+The **actor** field in logs identifies which node/process emitted a log line. It appears between the module name and the message:
 ```
-INFO: node:MAIN-aztec-node Starting...      # Main node
-INFO: node:SECONDARY-aztec-node Starting... # Secondary node
+INFO: sequencer validator-0 Building block 1     # Sequencer on validator-0
+INFO: sequencer validator-1 Building block 1     # Sequencer on validator-1
+INFO: p2p node-0 Received block proposal         # P2P on node-0
 ```
+
+**Filtering by actor**: When investigating a specific node's behavior, filter logs by the actor name (e.g., grep for `validator-0`) to isolate that node's log stream.
+
+**Instance IDs**: Within a single actor, the **instanceId** field distinguishes multiple instances of the same component. For example, epoch-proving-jobs spawn one per epoch:
+```
+INFO: epoch-proving-job prover-0 epoch-3 Starting proof generation
+INFO: epoch-proving-job prover-0 epoch-4 Starting proof generation
+```
+Here `prover-0` is the actor and `epoch-3`/`epoch-4` are instance IDs.
 
 ## High-Value Log Sources
 

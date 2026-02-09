@@ -126,7 +126,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn(`Creating malicious node 1 with coinbase ${coinbase1.toString()}`);
     const maliciousNode1 = await createNode(
       { ...t.ctx.aztecNodeConfig, validatorPrivateKey: maliciousPrivateKeyHex, coinbase: coinbase1 },
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
       maliciousValidatorIndex,
@@ -138,7 +138,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn(`Creating malicious node 2 with coinbase ${coinbase2.toString()}`);
     const maliciousNode2 = await createNode(
       { ...t.ctx.aztecNodeConfig, validatorPrivateKey: maliciousPrivateKeyHex, coinbase: coinbase2 },
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
       maliciousValidatorIndex,
@@ -151,7 +151,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn('Creating honest nodes');
     const honestNode1 = await createNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 3,
       t.bootstrapNodeEnr,
       1,
@@ -161,7 +161,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     );
     const honestNode2 = await createNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 4,
       t.bootstrapNodeEnr,
       2,

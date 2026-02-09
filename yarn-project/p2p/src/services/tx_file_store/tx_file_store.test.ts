@@ -54,7 +54,6 @@ describe('TxFileStore', () => {
     config = {
       txFileStoreEnabled: true,
       txFileStoreUrl: `file://${tmpDir}`,
-      txFileStoreDownloadUrl: `file://${tmpDir}`,
       txFileStoreUploadConcurrency: 2,
       txFileStoreMaxQueueSize: 10,
     };

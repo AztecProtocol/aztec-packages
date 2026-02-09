@@ -122,7 +122,7 @@ export abstract class BaseMemoryQueue<T> {
    * @param handler - A function that takes an item of type T and returns a Promise<void> after processing the item.
    * @returns A Promise<void> that resolves when the queue is finished processing.
    */
-  public async process(handler: (item: T) => Promise<void>) {
+  public async process(handler: (item: T) => Promise<void> | void) {
     try {
       while (true) {
         const item = await this.get();

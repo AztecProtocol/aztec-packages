@@ -403,7 +403,7 @@ describe('e2e_synching', () => {
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
-    await watcher?.stop();
+    await watcher.stop();
 
     const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
@@ -411,7 +411,7 @@ describe('e2e_synching', () => {
 
     const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
       deployL1ContractsValues.l1Client,
-      { logger, dateProvider: dateProvider! },
+      { logger, dateProvider },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
@@ -450,7 +450,7 @@ describe('e2e_synching', () => {
         slashingProposerContract,
         slashFactoryContract,
         epochCache,
-        dateProvider: dateProvider!,
+        dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
       },

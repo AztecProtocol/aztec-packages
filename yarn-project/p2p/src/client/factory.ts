@@ -24,6 +24,7 @@ import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_hea
 import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
+import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
@@ -149,12 +150,23 @@ export async function createP2PClient<T extends P2PClientType>(
     });
   }
 
+  const fileStoreSources = await createFileStoreTxSources(
+    config.txCollectionFileStoreUrls,
+    logger.createChild('file-store-tx-source'),
+  );
+  if (fileStoreSources.length > 0) {
+    logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
+      stores: fileStoreSources.map(s => s.getInfo()),
+    });
+  }
+
   const txCollection = new TxCollection(
     p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,
     config,
+    fileStoreSources,
     dateProvider,
     telemetry,
     logger.createChild('tx-collection'),

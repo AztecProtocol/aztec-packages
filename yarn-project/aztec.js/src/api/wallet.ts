@@ -17,7 +17,6 @@ export {
   type ContractClassMetadata,
   AppCapabilitiesSchema,
   WalletCapabilitiesSchema,
-  FunctionCallSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
   WalletSimulationFeeOptionSchema,
