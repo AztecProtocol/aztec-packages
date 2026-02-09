@@ -23,7 +23,7 @@ cp -rp "$src/script/deploy" "l1-contracts/script/"  # only deploy/, other script
 mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
-cp -p "$src"/{foundry.toml,foundry.lock,solc-*} "l1-contracts/"
+cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
 # Copy the forge broadcast wrapper script (used by yarn-project for deployments)
 mkdir -p "l1-contracts/scripts"
 cp -p "$src/scripts/forge_broadcast.ts" "l1-contracts/scripts/"
