@@ -14,11 +14,11 @@
 
 namespace bb::avm2::tracegen {
 
+using C = Column;
+
 void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simulation::ToRadixEvent>::Container& events,
                                   TraceContainer& trace)
 {
-    using C = Column;
-
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
@@ -94,8 +94,6 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 void ToRadixTraceBuilder::process_with_memory(
     const simulation::EventEmitterInterface<simulation::ToRadixMemoryEvent>::Container& events, TraceContainer& trace)
 {
-    using C = Column;
-
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
         // Helpers
@@ -253,9 +251,9 @@ const InteractionDefinition ToRadixTraceBuilder::interactions =
         .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByRow>()
         // Mem Aware To Radix
         // GT checks
-        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Dispatch to To Radix
         .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>();
 
