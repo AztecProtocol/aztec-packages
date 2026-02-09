@@ -18,6 +18,14 @@ template <typename FF_> class ECCVMSetRelationImpl {
   public:
     using FF = FF_;
 
+    // Domain separation tags for the three tuple families in the set relation grand product.
+    // Each tuple family uses a distinct tag multiplied by beta^4 to prevent cross-family collisions.
+    // Without these tags, tuples from different families with identical packed values would produce
+    // identical fingerprints, allowing cross-family substitution in the multiset equality check.
+    static constexpr uint64_t FIRST_TERM_TAG = 1;  // (pc, round, wnaf_slice)
+    static constexpr uint64_t SECOND_TERM_TAG = 2; // (pc, P.x, P.y, scalar)
+    static constexpr uint64_t THIRD_TERM_TAG = 3;  // (pc, P.x, P.y, msm_size)
+
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         22, // grand product construction sub-relation
         3   // left-shiftable polynomial sub-relation
