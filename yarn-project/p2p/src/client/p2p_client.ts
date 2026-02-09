@@ -85,19 +85,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private validatorAddresses: EthAddress[] = [];
 
   /** Tracks the last slot for which we called prepareForSlot */
-  private lastSlotProcessed: SlotNumber = SlotNumber(0);
+  private lastSlotProcessed: SlotNumber = SlotNumber.ZERO;
 
   /** Polls for slot changes and calls prepareForSlot on the tx pool */
   private slotMonitor: RunningPromise | undefined;
 
-  /**
-   * In-memory P2P client constructor.
-   * @param store - The client's instance of the KV store.
-   * @param l2BlockSource - P2P client's source for fetching existing blocks.
-   * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
-   * @param p2pService - The concrete instance of p2p networking to use.
-   * @param log - A logger.
-   */
   constructor(
     _clientType: T,
     private store: AztecAsyncKVStore,
@@ -223,7 +215,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   #assertIsReady() {
-    // this.log.info('Checking if p2p client is ready, current state: ', this.currentState);
     if (!this.isReady()) {
       throw new Error('P2P client not ready');
     }
@@ -296,7 +287,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.txFileStore?.start();
 
     // Start slot monitor to call prepareForSlot when the slot changes
-    this.slotMonitor = new RunningPromise(() => this.maybeCallPrepareForSlot(), this.log, 1000);
+    this.slotMonitor = new RunningPromise(
+      () => this.maybeCallPrepareForSlot(),
+      this.log,
+      this.config.slotCheckIntervalMS,
+    );
     this.slotMonitor.start();
 
     return this.syncPromise;
@@ -555,8 +550,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
-   * @param tx - The tx to verify.
+   * Accepts a transaction, adds it to local tx pool and forwards it to other peers.
+   * @param tx - The tx to send.
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
