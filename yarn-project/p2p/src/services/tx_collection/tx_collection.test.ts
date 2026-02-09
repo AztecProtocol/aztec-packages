@@ -22,6 +22,7 @@ import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import { ReqRespStatus } from '../reqresp/status.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
+import type { FileStoreTxSource } from './file_store_tx_source.js';
 import type { SlowTxCollection } from './slow_tx_collection.js';
 import { type FastCollectionRequest, TxCollection } from './tx_collection.js';
 import type { TxSource } from './tx_source.js';
@@ -50,8 +51,15 @@ describe('TxCollection', () => {
     return node;
   };
 
+  const makeFileStoreSource = (name: string) => {
+    const source = mock<FileStoreTxSource>();
+    source.getInfo.mockReturnValue(name);
+    source.getTxsByHash.mockResolvedValue([]);
+    return source;
+  };
+
   const makeTx = async (txHash?: string | TxHash) => {
-    const tx = Tx.random({ txHash }) as Tx;
+    const tx = Tx.random({ txHash });
     await tx.recomputeHash();
     return tx;
   };
@@ -132,6 +140,8 @@ describe('TxCollection', () => {
       txCollectionFastMaxParallelRequestsPerNode: 2,
       txCollectionFastNodeIntervalMs: 100,
       txCollectionMissingTxsCollectorType: 'old',
+      txCollectionFileStoreSlowDelayMs: 100,
+      txCollectionFileStoreFastDelayMs: 100,
     };
 
     txs = await Promise.all([makeTx(), makeTx(), makeTx()]);
@@ -140,11 +150,12 @@ describe('TxCollection', () => {
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
 
     mockP2PService.reqResp = reqResp;
-    txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
+    txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
   });
 
   afterEach(async () => {
     await txCollection.stop();
+    dateProvider.clearPendingTimeouts();
   });
 
   describe('slow collection', () => {
@@ -230,7 +241,7 @@ describe('TxCollection', () => {
     });
 
     it('collects missing txs directly via reqresp if there are no nodes configured', async () => {
-      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
       txCollection.startCollecting(block, txHashes);
 
       setReqRespTxs([txs[0]]);
@@ -260,7 +271,7 @@ describe('TxCollection', () => {
 
     it('does not request missing txs being collected via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: false };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -280,7 +291,7 @@ describe('TxCollection', () => {
 
     it('pauses slow collection if fast collection is ongoing', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -301,7 +312,7 @@ describe('TxCollection', () => {
 
     it('stops collecting a tx when found via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
 
       setNodeTxs(nodes[0], txs);
       txCollection.startCollecting(block, txHashes);
@@ -420,7 +431,7 @@ describe('TxCollection', () => {
     });
 
     it('collects via reqresp if no nodes are configured', async () => {
-      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
       setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expectReqRespToHaveBeenCalledWith(txHashes);
@@ -499,6 +510,69 @@ describe('TxCollection', () => {
       expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
     });
   });
+
+  describe('file store collection', () => {
+    let fileStoreSources: MockProxy<FileStoreTxSource>[];
+
+    const setFileStoreTxs = (source: MockProxy<FileStoreTxSource>, txsToReturn: Tx[]) => {
+      source.getTxsByHash.mockImplementation(hashes => {
+        return Promise.resolve(hashes.map(h => txsToReturn.find(tx => tx.txHash.equals(h))));
+      });
+    };
+
+    beforeEach(() => {
+      fileStoreSources = [makeFileStoreSource('store1')];
+      txCollection = new TestTxCollection(
+        mockP2PService,
+        nodes,
+        constants,
+        txPool,
+        config,
+        fileStoreSources,
+        dateProvider,
+      );
+    });
+
+    it('collects txs from file store after slow delay', async () => {
+      setFileStoreTxs(fileStoreSources[0], txs);
+      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
+      txPool.hasTx.mockResolvedValue(false);
+
+      await txCollection.start();
+      txCollection.startCollecting(block, txHashes);
+
+      // File store should not have been called yet (delay hasn't elapsed)
+      expect(fileStoreSources[0].getTxsByHash).not.toHaveBeenCalled();
+
+      // Advance time past the 4s slow delay
+      dateProvider.setTime(dateProvider.now() + 200);
+      // Allow the async sleep resolution and worker processing to complete
+      await sleep(100);
+
+      // File store should now have been called for each tx
+      expect(fileStoreSources[0].getTxsByHash).toHaveBeenCalled();
+    });
+
+    it('does not download txs from file store if found via P2P before delay expires', async () => {
+      setFileStoreTxs(fileStoreSources[0], txs);
+      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
+      txPool.hasTx.mockResolvedValue(false);
+
+      await txCollection.start();
+      txCollection.startCollecting(block, txHashes);
+
+      // Simulate all txs found via P2P before delay expires
+      await txCollection.handleTxsAddedToPool({ txs, source: 'test' });
+
+      // Now advance time past the delay
+      dateProvider.setTime(dateProvider.now() + 200);
+      await sleep(100);
+
+      // File store should not have downloaded any txs because they were all found
+      const allCalls = fileStoreSources.flatMap(s => s.getTxsByHash.mock.calls);
+      expect(allCalls.length).toBe(0);
+    });
+  });
 });
 
 class TestFastTxCollection extends FastTxCollection {
@@ -513,5 +587,6 @@ class TestFastTxCollection extends FastTxCollection {
 class TestTxCollection extends TxCollection {
   declare slowCollection: SlowTxCollection;
   declare fastCollection: TestFastTxCollection;
+  declare fileStoreCollection: TxCollection['fileStoreCollection'];
   declare handleTxsAddedToPool: TxPoolEvents['txs-added'];
 }
