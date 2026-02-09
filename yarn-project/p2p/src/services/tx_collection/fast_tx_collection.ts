@@ -85,7 +85,7 @@ export class FastTxCollection {
       blockInfo,
       promise,
       foundTxs: new Map<string, Tx>(),
-      missingTxTracker: new MissingTxsTracker(new Set(txHashes.map(t => t.toString()))),
+      missingTxTracker: MissingTxsTracker.fromArray(txHashes),
       deadline: opts.deadline,
     };
 

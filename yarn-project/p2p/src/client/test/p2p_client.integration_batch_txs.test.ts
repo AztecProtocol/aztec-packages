@@ -229,7 +229,7 @@ describe('p2p client integration batch txs', () => {
     mockP2PService.reqResp = (client0 as any).p2pService.reqresp;
 
     const requester = new BatchTxRequester(
-      new MissingTxsTracker(new Set(missingTxHashes.map(TxHash.toString))),
+      MissingTxsTracker.fromArray(missingTxHashes),
       blockProposal,
       undefined, // no pinned peer
       5_000,

@@ -9,21 +9,18 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { type Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../../../config.js';
+import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import { MissingTxsTracker } from '../../../services/reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
-import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../../../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/reqresp-nodes.js';
+import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
   InMemoryAttestationPool,
@@ -32,7 +29,7 @@ import {
   calculateInternalTimeout,
   createMockEpochCache,
   createMockWorldStateSynchronizer,
-} from '../../../test-helpers/testbench-utils.js';
+} from '../../../test-helpers/index.js';
 import { createP2PClient } from '../../index.js';
 import type { P2PClient } from '../../p2p_client.js';
 import {
@@ -217,7 +214,7 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            new MissingTxsTracker(new Set(parsedTxHashes.map(TxHash.toString))),
+            MissingTxsTracker.fromArray(parsedTxHashes),
             parsedProposal,
             pinnedPeer,
             internalTimeoutMs,
@@ -235,7 +232,7 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            new MissingTxsTracker(new Set(parsedTxHashes.map(TxHash.toString))),
+            MissingTxsTracker.fromArray(parsedTxHashes),
             parsedProposal,
             pinnedPeer,
             internalTimeoutMs,

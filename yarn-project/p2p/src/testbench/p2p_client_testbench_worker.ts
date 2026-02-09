@@ -275,7 +275,7 @@ async function runAggregatorBenchmark(
         noopTxValidator,
       );
       const fetchedTxs = await collector.collectTxs(
-        new MissingTxsTracker(new Set(txHashes.map(TxHash.toString))),
+        MissingTxsTracker.fromArray(txHashes),
         blockProposal,
         pinnedPeer,
         timeoutMs,
@@ -295,7 +295,7 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
     const fetchedTxs = await collector.collectTxs(
-      new MissingTxsTracker(new Set(txHashes.map(TxHash.toString))),
+      MissingTxsTracker.fromArray(txHashes),
       blockProposal,
       pinnedPeer,
       timeoutMs,

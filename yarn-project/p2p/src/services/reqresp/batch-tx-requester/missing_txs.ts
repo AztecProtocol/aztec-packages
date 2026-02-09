@@ -6,7 +6,11 @@ import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { IMissingTxsTracker, ITxMetadataCollection } from './interface.js';
 
 export class MissingTxsTracker implements IMissingTxsTracker {
-  constructor(public readonly missingTxHashes: Set<string>) {}
+  private constructor(public readonly missingTxHashes: Set<string>) {}
+
+  public static fromArray(hashes: TxHash[] | string[]) {
+    return new MissingTxsTracker(new Set(hashes.map(hash => hash.toString())));
+  }
 
   markFetched(tx: Tx): boolean {
     return this.missingTxHashes.delete(tx.txHash.toString());
