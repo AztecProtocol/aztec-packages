@@ -178,16 +178,16 @@ describe('Utility Execution test suite', () => {
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    const execRequest: FunctionCall = {
+    const execRequest = FunctionCall.from({
       name: artifact.name,
       to: contractAddress,
       selector: FunctionSelector.empty(),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: encodeArguments(artifact, [owner]),
       returnTypes: artifact.returnTypes,
-    };
+    });
 
     const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test-job-id');
 

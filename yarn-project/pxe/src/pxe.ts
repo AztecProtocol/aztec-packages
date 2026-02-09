@@ -33,6 +33,7 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import {
+  BlockHeader,
   type ContractOverrides,
   type InTx,
   PrivateExecutionResult,
@@ -430,6 +431,19 @@ export class PXE {
 
   // Public API
 
+  /**
+   * Returns the block header up to which the PXE has synced.
+   * @returns The synced block header
+   */
+  public getSyncedBlockHeader(): Promise<BlockHeader> {
+    return this.anchorBlockStore.getBlockHeader();
+  }
+
+  /**
+   * Returns the contract instance for a given address, if it's registered in the PXE.
+   * @param address - The contract address.
+   * @returns The contract instance if found, undefined otherwise.
+   */
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.contractStore.getContractInstance(address);
   }
@@ -881,7 +895,7 @@ export class PXE {
         if (skipKernels) {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
-            this.contractStore,
+            (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.

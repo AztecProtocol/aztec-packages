@@ -411,7 +411,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // We pass the non-zero minRevertibleSideEffectCounter to make sure the side effects are split correctly.
     const { publicInputs } = await generateSimulatedProvingResult(
       result,
-      this.contractStore,
+      (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
       minRevertibleSideEffectCounter,
     );
 
@@ -684,16 +684,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.jobId,
     );
 
-    const call = new FunctionCall(
-      artifact.name,
-      targetContractAddress,
-      functionSelector,
-      FunctionType.UTILITY,
-      false,
-      false,
+    const call = FunctionCall.from({
+      name: artifact.name,
+      to: targetContractAddress,
+      selector: functionSelector,
+      type: FunctionType.UTILITY,
+      hideMsgSender: false,
+      isStatic: false,
       args,
-      [],
-    );
+      returnTypes: [],
+    });
 
     return this.executeUtilityCall(call);
   }
