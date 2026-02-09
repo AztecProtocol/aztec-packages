@@ -25434,7 +25434,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 ]
 
     [inputs.hints.start_blob_accumulator.c_acc]
-    is_infinity = false
+    is_infinity = true
 
       [inputs.hints.start_blob_accumulator.c_acc.x]
       limbs = [

@@ -66,8 +66,8 @@ pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     poseidon2_hash_with_separator(calldata, DOM_SEP__PUBLIC_CALLDATA)
 }
 
-/// Computes the public bytecode commitment for a contract class. The commitment is `hash([separator, ...bytecode])`
-/// where bytecode omits the length prefix present in `packed_bytecode`.
+/// Computes the public bytecode commitment for a contract class. The commitment is `hash([(length | separator),
+/// ...bytecode])`.
 ///
 /// @param packed_bytecode - The packed bytecode of the contract class. 0th word is the length in bytes.
 /// packed_bytecode is mutable so that we can avoid copying the array to construct one starting with separator instead
@@ -77,14 +77,14 @@ pub fn compute_public_bytecode_commitment(
 ) -> Field {
     // First field element contains the length of the bytecode
     let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
-    let bytecode_length_in_fields: u32 =
-        (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
+    let bytecode_length_in_fields: u32 = (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
     // Don't allow empty public bytecode. AVM doesn't handle execution of contracts that exist with empty bytecode.
     assert(bytecode_length_in_fields != 0);
     assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
     // Packed_bytecode's 0th entry is the length. Replace it with separator before hashing.
-    let separator = DOM_SEP__PUBLIC_BYTECODE.to_field();
+    let shift = (1 << 32 as u64) as Field;
+    let separator = DOM_SEP__PUBLIC_BYTECODE.to_field() + packed_public_bytecode[0] * shift;
     packed_public_bytecode[0] = separator;
 
     // `fields_to_hash` is the number of fields from the start of `packed_public_bytecode` that should be included in
