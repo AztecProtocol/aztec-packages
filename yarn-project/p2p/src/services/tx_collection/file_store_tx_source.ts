@@ -39,19 +39,24 @@ export class FileStoreTxSource implements TxSource {
     return `file-store:${this.baseUrl}`;
   }
 
-  public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return Promise.all(
-      txHashes.map(async txHash => {
-        const path = `txs/${txHash.toString()}.bin`;
-        try {
-          const buffer = await this.fileStore.read(path);
-          return Tx.fromBuffer(buffer);
-        } catch {
-          // Tx not found or error reading - return undefined
-          return undefined;
-        }
-      }),
-    );
+  public async getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+    return {
+      validTxs: (
+        await Promise.all(
+          txHashes.map(async txHash => {
+            const path = `txs/${txHash.toString()}.bin`;
+            try {
+              const buffer = await this.fileStore.read(path);
+              return Tx.fromBuffer(buffer);
+            } catch {
+              // Tx not found or error reading - return undefined
+              return undefined;
+            }
+          }),
+        )
+      ).filter(tx => tx !== undefined),
+      invalidTxHashes: [],
+    };
   }
 }
 

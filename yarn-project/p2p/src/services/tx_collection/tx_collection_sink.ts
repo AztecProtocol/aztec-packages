@@ -54,7 +54,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
         ...info,
         requestedTxs: requested,
       });
-      return { validTxs, requested, duration };
+      return { txs: validTxs, requested, duration };
     }
 
     if (invalidTxHashes.length > 0) {
