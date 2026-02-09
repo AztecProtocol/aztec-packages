@@ -83,7 +83,7 @@ class TranslatorProvingKey {
         compute_lagrange_polynomials();
 
         // Construct the extra range constraint numerator which contains all the additional values in ordered range
-        // constraints not present in the interleaved polynomials
+        // constraints not present in the concatenated polynomials
         // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 

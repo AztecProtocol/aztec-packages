@@ -37,8 +37,8 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
         auto& group = groups[i];
         auto& current_target = targets[i];
 
-        // For group 4 (non-range), the last 3 slots are null padding (point to concatenated_non_range itself).
-        // These are zero-initialized polynomials, so we skip them.
+        // For group 4 (non-range), the last 3 slots are null padding (static zero values).
+        // These are zero-initialized, so we skip them.
         if (i == 4 && j >= 13) {
             return; // null padding slots - leave as zero
         }
@@ -121,8 +121,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         std::advance(ordered_vector_it, free_space_before_runway);
         std::copy(sorted_elements.cbegin(), sorted_elements.cend(), ordered_vector_it);
 
-        // Sort the polynomial in nondescending order. We sort using the size_t vector for 2 reasons:
-        // 1. It is faster to sort size_t
+        // Sort the polynomial in nondescending order. We sort using the uint32_t vector for 2 reasons:
+        // 1. It is faster to sort integers
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
         // from Montgomery
         std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
@@ -171,8 +171,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 }
 
 /**
- * @brief Distribute the randomness from the 5 concatenated polynomials to the 5 ordered range constraints such that
- * commitments and evaluations of ordered polynomials and their shifts are hidden.
+ * @brief Distribute the randomness from the 4 concatenated range constraint polynomials to the 5 ordered range
+ * constraints such that commitments and evaluations of ordered polynomials and their shifts are hidden.
  *
  * @details With concatenation, masking values are at scattered positions: the last NUM_MASKED_ROWS_END rows
  * of each block (positions [j * MINI + (MINI - NUM_MASKED_ROWS_END), j * MINI + MINI) for each j in [0,16)).
@@ -231,7 +231,8 @@ void TranslatorProvingKey::split_concatenated_random_coefficients_to_ordered()
  *
  * @details With concatenation, lagrange_masking is scattered across 16 blocks (end of each block),
  * and lagrange_masking_adjacent is 1 at masking rows AND the row immediately preceding each masking block.
- * lagrange_real_last is moved to the last non-masking row before block 15's masking region.
+ * lagrange_real_last marks the last row with sorted values in ordered polynomials (before the contiguous
+ * masking region at the end).
  */
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {

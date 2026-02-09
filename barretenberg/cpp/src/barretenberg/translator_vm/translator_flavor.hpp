@@ -74,8 +74,7 @@ class TranslatorFlavor {
     // How many mini_circuit_size polynomials are concatenated in one concatenated poly
     static constexpr size_t CONCATENATION_GROUP_SIZE = 16;
 
-    // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
-    // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
+    // The fixed log size of Translator mini circuit. It should be determined by the size of the EccOpQueue.
     static constexpr size_t LOG_MINI_CIRCUIT_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE;
 
     // Log of size of concatenated and ordered polynomials
@@ -121,12 +120,6 @@ class TranslatorFlavor {
     static_assert(SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1) < MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
                   "Translator circuit is too small for defined number of steps "
                   "(TranslatorDeltaRangeConstraintRelation). ");
-
-    // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr const std::array<FF, 5>& negative_modulus_limbs()
-    {
-        return CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
-    }
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
@@ -454,25 +447,6 @@ class TranslatorFlavor {
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
-        };
-
-        /**
-         * @brief Get only the op queue wires (provided by merge protocol, not committed to in translator)
-         */
-        auto get_op_queue_wires()
-        {
-            return concatenate(OpQueueWireNonshiftedEntities<DataType>::get_all(),
-                               OpQueueWiresToBeShiftedEntities<DataType>::get_all());
-        };
-
-        /**
-         * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
-         */
-        auto get_wires_and_ordered_range_constraints()
-        {
-            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
-                               WireToBeShiftedEntities<DataType>::get_all(),
-                               OrderedRangeConstraints<DataType>::get_all());
         };
 
         /**

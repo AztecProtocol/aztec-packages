@@ -433,7 +433,7 @@ Together they guarantee: All limb decompositions are valid and all values are co
 
 The Permutation Relation is the foundation of all range constraints in the Translator circuit. It proves that every microlimb value used in the circuit belongs to the set $[0, 2^{14} - 1]$. The relation uses a grand product argument comparing two multisets:
 
-- **Interleaved multiset:** All microlimbs as they appear in the circuit (spread across 16 segments due to interleaving)
+- **Concatenated multiset:** All microlimbs as they appear in the circuit (spread across 16 blocks in the concatenated polynomials)
 - **Ordered multiset:** The same values, but sorted in ascending order
 
 If the two multisets are equal (i.e., one is a permutation of the other), then all values are valid.
@@ -451,30 +451,33 @@ $$\{0, 3, 6, 9, \ldots, 16380, 16383\}$$
 
 resulting in $\left\lceil\frac{16384}{3}\right\rceil = 5462$ values. This ensures that any microlimb value $ \leq 16383$ can be proven to be in range by showing it appears in the ordered multiset. We prove equality of multisets using a grand product argument. The correctness of the ordered multiset is proven by the Delta Range Constraints described in the next section.
 
-**Balancing the multisets:** The 4 interleaved wires contain only circuit microlimbs, while each of the 5 ordered wires contains circuit microlimbs plus the step sequence. To balance this, we add a 5th numerator wire (`ordered_extra_range_constraints_numerator`) containing 5 copies of the step sequence—one for each ordered wire. This ensures the multisets have equal cardinality. The Delta Range Constraints enforce that each value in the ordered multiset differs from the previous by at most 3.
+**Balancing the multisets:** The 4 concatenated range constraint wires contain only circuit microlimbs, while each of the 5 ordered wires contains circuit microlimbs plus the step sequence. To balance this, we add a 5th numerator wire (`ordered_extra_range_constraints_numerator`) containing 5 copies of the step sequence—one for each ordered wire. This ensures the multisets have equal cardinality. The Delta Range Constraints enforce that each value in the ordered multiset differs from the previous by at most 3.
 
 ---
 
 ### Subrelation 1: Grand Product Identity
 
-**Purpose:** Prove the interleaved and ordered multisets are equal via grand product.
+**Purpose:** Prove the concatenated and ordered multisets are equal via grand product.
 
 The grand product polynomial $z_{\text{perm}}$ is defined recursively:
 
-$$\boxed{z_{\text{perm}}[i+1] \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}}[i] + \beta \cdot L_{\text{mask}}[i] + \gamma \right) = z_{\text{perm}}[i] \cdot \prod_{j=0}^{4} \left( w_j^{\text{interleaved}}[i] + \beta \cdot L_{\text{mask}}[i] + \gamma \right)}$$
+$$\boxed{z_{\text{perm}}[i+1] \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}}[i] + \beta \cdot L_{\text{ordered\_masking}}[i] + \gamma \right) = z_{\text{perm}}[i] \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}}[i] + \beta \cdot L_{\text{masking}}[i] + \gamma \right) \cdot \left( w_4^{\text{concatenated}}[i] + \beta \cdot L_{\text{ordered\_masking}}[i] + \gamma \right)}$$
 
 where:
 
-- $w_j^{\text{interleaved}}[i]$: The $j$-th interleaved range constraint wire at row $i$
+- $w_j^{\text{concatenated}}[i]$: The $j$-th concatenated range constraint wire at row $i$
 - $w_j^{\text{ordered}}[i]$: The $j$-th ordered (sorted) range constraint wire at row $i$
 - $\beta, \gamma$: Random challenges (from Fiat-Shamir)
-- $L_{\text{mask}}[i]$: Lagrange polynomial indicating masking rows (for zero-knowledge)
+- $L_{\text{masking}}[i]$: Lagrange polynomial indicating masking rows for the 4 concatenated range constraint wires (scattered across the 16 blocks)
+- $L_{\text{ordered\_masking}}[i]$: Lagrange polynomial indicating masking rows for the ordered wires and the extra numerator wire (contiguous at the end)
 
-The term $(\beta \cdot L_{\text{mask}}[i])$ on both sides enforces that the zero-knowledge masking values in both sets are identical.
-It is added only to the masking region, to avoid interfering with the actual circuit values (which must be in the range $[0, 2^{14} - 1]$).
+The beta masking terms enforce that the zero-knowledge masking values in both sets are identical.
+The numerator uses TWO different masking selectors: $L_{\text{masking}}$ for the 4 concatenated range constraint factors (scattered across 16 blocks), and $L_{\text{ordered\_masking}}$ for the extra numerator factor.
+The denominator uses $L_{\text{ordered\_masking}}$ for all 5 ordered factors.
+These are added only to the masking regions, to avoid interfering with the actual circuit values (which must be in the range $[0, 2^{14} - 1]$).
 The subrelation is then expressed, with boundary conditions, as:
 
-$$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{4} \left( w_j^{\text{interleaved}} + \beta \cdot L_{\text{mask}} + \gamma \right) = \left( z_{\text{perm}}^{\text{shift}} + L_{\text{last}} \right) \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}} + \beta \cdot L_{\text{mask}} + \gamma \right)}$$
+$$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}} + \beta \cdot L_{\text{masking}} + \gamma \right) \cdot \left( w_4^{\text{concatenated}} + \beta \cdot L_{\text{ordered\_masking}} + \gamma \right) = \left( z_{\text{perm}}^{\text{shift}} + L_{\text{last}} \right) \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}} + \beta \cdot L_{\text{ordered\_masking}} + \gamma \right)}$$
 
 where:
 
@@ -489,7 +492,7 @@ If the two multisets are equal:
 2. After processing all rows, the grand product returns to 1 (accounting for initialization/finalization)
 3. If any value is out of range or missing from the sorted set, the product cannot telescope correctly
 
-Active when: All rows (both even and odd in the full interleaved circuit)
+Active when: All rows (both even and odd in the full concatenated circuit)
 
 Degree: 6 (each side is linear polynomial × product of 5 linear terms)
 
@@ -521,7 +524,7 @@ What it proves:
 2. Consecutive values differ by at most `SORT_STEP = 3`
 3. The final value in each column is exactly $2^{14} - 1 = 16383$
 
-The Permutation Relation only proves the multisets are equal. Without the Delta Range Constraint, an attacker could provide out of range values and the permutation would still pass if the interleaved set matches.
+The Permutation Relation only proves the multisets are equal. Without the Delta Range Constraint, an attacker could provide out of range values and the permutation would still pass if the concatenated set matches.
 
 The relation consists of 10 subrelations:
 
@@ -536,15 +539,15 @@ Purpose: Enforce that each ordered wire is in non-descending order with maximum 
 
 For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
 
-$$\boxed{\left( L_{\text{real\_last}} + L_{\text{mask}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
+$$\boxed{\left( L_{\text{real\_last}} - 1 \right) \cdot \left( L_{\text{ordered\_masking\_adjacent}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
 
 where:
 $$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i].$$
 
-When active, it forces: $\Delta_j \in \{0, 1, 2, 3\}$. The constraint is active when:
+When active, it forces: $\Delta_j \in \{0, 1, 2, 3\}$. The constraint is disabled when EITHER:
 
-- $L_{\text{real\_last}} = 0$ (not the last real row)
-- $L_{\text{mask}} = 0$ (not a masking row)
+- $L_{\text{real\_last}} = 1$ (the last real row), OR
+- $L_{\text{ordered\_masking\_adjacent}} = 1$ (an ordered masking row or its neighbor)
 
 Why maximum step 3?
 To ensure full coverage of $[0, 2^{14} - 1]$, we insert "step values" into the sorted array:
@@ -684,10 +687,10 @@ Degree: 2 (Lagrange × difference)
 ### Zero Constraints Relation
 
 The Zero Constraints Relation enforces that certain witness wires are zero outside the mini-circuit.
-Due to interleaving, the full circuit is 16× larger than the mini-circuit:
+Due to concatenation, the full circuit is 16× larger than the mini-circuit:
 
 - Mini-circuit: $2^{13} = 8,192$ rows (actual computation)
-- Full circuit: $2^{17} = 131,072$ rows (for interleaving optimization)
+- Full circuit: $2^{17} = 131,072$ rows (for concatenation optimization)
 
 Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. All the range constraint microlimb wires and transcript wires should be zero outside the mini-circuit. Thus, for each such wire $w$, we enforce:
 
