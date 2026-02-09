@@ -109,16 +109,16 @@ export class CrossChainMessagingTest {
 
   async applyBaseSetup() {
     // Set up base context fields
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     this.aztecNodeConfig = this.context.config;
     this.cheatCodes = this.context.cheatCodes;
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
 
     if (this.requireEpochProven) {
       // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher!.setIsMarkingAsProven(false);
+      this.context.watcher.setIsMarkingAsProven(false);
     }
 
     // Deploy 3 accounts
