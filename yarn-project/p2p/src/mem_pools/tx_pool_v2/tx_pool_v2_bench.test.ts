@@ -140,7 +140,7 @@ describe('TxPoolV2: benchmarks', () => {
     const pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      createTxValidator: () => alwaysValidValidator,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
     });
     await pool.start();
     const cleanup = async () => {
@@ -494,7 +494,7 @@ describe('TxPoolV2: benchmarks', () => {
         const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -511,7 +511,7 @@ describe('TxPoolV2: benchmarks', () => {
           const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            createTxValidator: () => alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           });
 
           const startTime = performance.now();

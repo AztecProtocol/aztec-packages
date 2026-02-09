@@ -56,7 +56,7 @@ export type TxPoolV2Dependencies = {
   /** World state synchronizer for validating transactions after chain prunes */
   worldStateSynchronizer: WorldStateSynchronizer;
   /** Factory that creates a validator for re-validating pool transactions using metadata */
-  createTxValidator: () => TxValidator<TxMetaData>;
+  createTxValidator: () => Promise<TxValidator<TxMetaData>>;
 };
 
 /**

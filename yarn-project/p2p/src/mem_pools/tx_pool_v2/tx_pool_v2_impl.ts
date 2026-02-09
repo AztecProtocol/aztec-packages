@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
-import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { TxArchive } from './archive/index.js';
 import {
@@ -272,8 +272,8 @@ export class TxPoolV2Impl {
 
     // Build metadata and validate using metadata
     const meta = await buildTxMetaData(tx);
-    const validationResult = await this.#createTxValidator().validateTx(meta);
-    if (validationResult.result !== 'valid') {
+    const validationResult = await this.#validateMeta(meta, undefined, 'can add pending');
+    if (validationResult !== true) {
       return 'rejected';
     }
 
@@ -645,8 +645,9 @@ export class TxPoolV2Impl {
   // ============================================================================
 
   /** Validates transaction metadata, returning true if valid */
-  async #validateMeta(meta: TxMetaData, context?: string): Promise<boolean> {
-    const result = await this.#createTxValidator().validateTx(meta);
+  async #validateMeta(meta: TxMetaData, validator?: TxValidator<TxMetaData>, context?: string): Promise<boolean> {
+    const txValidator = validator ?? (await this.#createTxValidator());
+    const result = await txValidator.validateTx(meta);
     if (result.result !== 'valid') {
       const contextStr = context ? ` ${context}` : '';
       this.#log.info(`Tx ${meta.txHash}${contextStr} failed validation: ${result.reason?.join(', ')}`);
@@ -655,15 +656,16 @@ export class TxPoolV2Impl {
     return true;
   }
 
-  /** Validates metadata directly — no DB reads needed. */
+  /** Validates metadata directly */
   async #revalidateMetadata(
     metas: TxMetaData[],
     context?: string,
   ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
+    const validator = await this.#createTxValidator();
     for (const meta of metas) {
-      if (await this.#validateMeta(meta, context)) {
+      if (await this.#validateMeta(meta, validator, context)) {
         valid.push(meta);
       } else {
         invalid.push(meta.txHash);

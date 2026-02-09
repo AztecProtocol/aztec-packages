@@ -76,8 +76,9 @@ export async function createP2PClient<T extends P2PClientType>(
   const l1Constants = await archiver.getL1Constants();
 
   /** Validator factory for pool re-validation (double-spend + block header only). */
-  const createPoolTxValidator = () =>
-    new AggregateTxValidator<TxMetaData>(
+  const createPoolTxValidator = async () => {
+    await worldStateSynchronizer.syncImmediate();
+    return new AggregateTxValidator<TxMetaData>(
       new DoubleSpendTxValidator<TxMetaData>(
         {
           nullifiersExist: async (nullifiers: Buffer[]) => {
@@ -98,6 +99,7 @@ export async function createP2PClient<T extends P2PClientType>(
         bindings,
       ),
     );
+  };
 
   const txPool =
     deps.txPool ??

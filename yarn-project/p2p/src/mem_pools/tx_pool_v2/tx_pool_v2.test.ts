@@ -117,7 +117,7 @@ describe('TxPoolV2', () => {
     pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      createTxValidator: () => alwaysValidValidator,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
     });
     await pool.start();
 
@@ -524,7 +524,7 @@ describe('TxPoolV2', () => {
       rejectingPool = new AztecKVTxPoolV2(rejectingStore, rejectingArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        createTxValidator: () => rejectingValidator,
+        createTxValidator: () => Promise.resolve(rejectingValidator),
       });
       await rejectingPool.start();
     });
@@ -1668,7 +1668,7 @@ describe('TxPoolV2', () => {
       poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        createTxValidator: () => mockValidator,
+        createTxValidator: () => Promise.resolve(mockValidator),
       });
       await poolWithValidator.start();
     });
@@ -3492,7 +3492,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3517,7 +3517,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 
@@ -3545,7 +3545,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            createTxValidator: () => alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -3571,7 +3571,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            createTxValidator: () => alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -3603,7 +3603,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3620,7 +3620,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 
@@ -3649,7 +3649,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3683,7 +3683,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            createTxValidator: () => alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -3711,7 +3711,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3737,7 +3737,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => selectiveValidator,
+          createTxValidator: () => Promise.resolve(selectiveValidator),
         });
         await pool2.start();
 
@@ -3762,7 +3762,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3787,7 +3787,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          createTxValidator: () => alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 
