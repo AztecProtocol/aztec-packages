@@ -34,7 +34,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     collectValidTxsFn: (txHashes: TxHash[]) => Promise<(Tx | undefined)[]>,
     requested: TxHash[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
-    context?: TxAddContext,
+    context: TxAddContext,
   ) {
     this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
       ...info,
@@ -110,7 +110,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
   private async foundTxs(
     txs: Tx[],
     info: Record<string, any> & { description: string; method: CollectionMethod; duration: number },
-    context?: TxAddContext,
+    context: TxAddContext,
   ) {
     // Report metrics for the collection
     this.instrumentation.increaseTxsFor(info.method, txs.length, info.duration);
@@ -120,12 +120,10 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
 
     // Add the txs to the tx pool using the appropriate method based on context
     try {
-      if (context?.type === 'mined') {
+      if (context.type === 'mined') {
         await this.txPool.addMinedTxs(txs, context.block.header, { source: 'tx-collection' });
-      } else if (context?.type === 'proposal') {
-        await this.txPool.addProtectedTxs(txs, context.blockHeader, { source: 'tx-collection' });
       } else {
-        await this.txPool.addPendingTxs(txs, { source: 'tx-collection' });
+        await this.txPool.addProtectedTxs(txs, context.blockHeader, { source: 'tx-collection' });
       }
     } catch (err) {
       this.log.error(`Error adding txs to the pool via ${info.description}`, err, {

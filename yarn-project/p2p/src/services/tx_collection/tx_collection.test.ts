@@ -108,10 +108,6 @@ describe('TxCollection', () => {
     );
   };
 
-  const expectTxsAddedToPool = (txs: Tx[]) => {
-    expect(txPool.addPendingTxs).toHaveBeenCalledWith(txs, { source: 'tx-collection' });
-  };
-
   const expectTxsMinedInPool = (txs: Tx[]) => {
     expect(txPool.addMinedTxs).toHaveBeenCalledWith(txs, block.header, { source: 'tx-collection' });
   };
@@ -169,7 +165,7 @@ describe('TxCollection', () => {
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsAddedToPool(txs);
+      expectTxsMinedInPool(txs);
 
       jest.clearAllMocks();
       await txCollection.trigger();
@@ -185,15 +181,15 @@ describe('TxCollection', () => {
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsAddedToPool([txs[0]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[0]]);
+      expectTxsMinedInPool([txs[1]]);
 
       jest.clearAllMocks();
       setNodeTxs(nodes[0], [txs[0], txs[2]]);
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-      expectTxsAddedToPool([txs[2]]);
+      expectTxsMinedInPool([txs[2]]);
 
       jest.clearAllMocks();
       await txCollection.trigger();
@@ -210,8 +206,8 @@ describe('TxCollection', () => {
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(0, 5));
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(5, 10));
-      expectTxsAddedToPool(txs.slice(0, 5));
-      expectTxsAddedToPool(txs.slice(5, 10));
+      expectTxsMinedInPool(txs.slice(0, 5));
+      expectTxsMinedInPool(txs.slice(5, 10));
 
       jest.clearAllMocks();
       await txCollection.trigger();
@@ -228,14 +224,14 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
-      expectTxsAddedToPool([txs[0]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[0]]);
+      expectTxsMinedInPool([txs[1]]);
 
       jest.clearAllMocks();
       setReqRespTxs([txs[2]]);
       await txCollection.trigger();
       expectReqRespToHaveBeenCalledWith([txHashes[2]]);
-      expectTxsAddedToPool([txs[2]]);
+      expectTxsMinedInPool([txs[2]]);
 
       jest.clearAllMocks();
       await txCollection.trigger();
@@ -250,13 +246,13 @@ describe('TxCollection', () => {
       setReqRespTxs([txs[0]]);
       await txCollection.trigger();
       expectReqRespToHaveBeenCalledWith(txHashes);
-      expectTxsAddedToPool([txs[0]]);
+      expectTxsMinedInPool([txs[0]]);
 
       jest.clearAllMocks();
       setReqRespTxs([txs[1]]);
       await txCollection.trigger();
       expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[1]]);
     });
 
     it('rejects expired txs', async () => {
@@ -327,7 +323,7 @@ describe('TxCollection', () => {
       jest.clearAllMocks();
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsAddedToPool([txs[1], txs[2]]);
+      expectTxsMinedInPool([txs[1], txs[2]]);
     });
 
     it('stops collecting a tx when reported as found from the pool', async () => {
@@ -343,7 +339,7 @@ describe('TxCollection', () => {
       setNodeTxs(nodes[0], [txs[1]]);
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[1]]);
     });
 
     it('stops collecting txs based on block number', async () => {
@@ -353,12 +349,16 @@ describe('TxCollection', () => {
       txCollection.startCollecting(blocks[2], [txHashes[2]]);
 
       await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
+      // Each block's txs are requested separately since they're grouped by block
+      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[0]]);
+      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
+      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
 
       jest.clearAllMocks();
       txCollection.stopCollectingForBlocksUpTo(BlockNumber(1));
       await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
+      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
+      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
 
       jest.clearAllMocks();
       txCollection.stopCollectingForBlocksAfter(BlockNumber(2));
@@ -373,7 +373,7 @@ describe('TxCollection', () => {
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsAddedToPool([txs[0]]);
+      expectTxsMinedInPool([txs[0]]);
 
       jest.clearAllMocks();
       txPool.getTxsByHash.mockResolvedValue([txs[1]]);
@@ -470,11 +470,6 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
 
-      txPool.addPendingTxs.mockImplementation((txs: Tx[]) => {
-        jest.clearAllMocks();
-        return Promise.resolve({ accepted: txs.map(tx => tx.getTxHash()), ignored: [], rejected: [] });
-      });
-
       // Simulate a tx found in a node, another one via reqresp, and a third one added to the pool via gossipsub
       setNodeTxs(nodes[0], [txs[0]]);
       reqRespPromise.resolve([new TxArray(...[txs[1]])]);
@@ -538,8 +533,6 @@ describe('TxCollection', () => {
 
     it('collects txs from file store after slow delay', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
-      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
-      txPool.hasTx.mockResolvedValue(false);
 
       await txCollection.start();
       txCollection.startCollecting(block, txHashes);
@@ -558,14 +551,12 @@ describe('TxCollection', () => {
 
     it('does not download txs from file store if found via P2P before delay expires', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
-      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
-      txPool.hasTx.mockResolvedValue(false);
 
       await txCollection.start();
       txCollection.startCollecting(block, txHashes);
 
       // Simulate all txs found via P2P before delay expires
-      await txCollection.handleTxsAddedToPool({ txs, source: 'test' });
+      txCollection.handleTxsAddedToPool({ txs, source: 'test' });
 
       // Now advance time past the delay
       dateProvider.setTime(dateProvider.now() + 200);

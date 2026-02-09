@@ -3,7 +3,7 @@ import { FifoMemoryQueue } from '@aztec/foundation/queue';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { FileStoreTxSource } from './file_store_tx_source.js';
-import type { TxCollectionSink } from './tx_collection_sink.js';
+import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 
 // Internal constants (not configurable by node operators)
 const FILE_STORE_DOWNLOAD_CONCURRENCY = 5; // Max concurrent downloads
@@ -14,8 +14,8 @@ const FILE_STORE_DOWNLOAD_CONCURRENCY = 5; // Max concurrent downloads
  * collection is managed by the TxCollection orchestrator, not this class.
  */
 export class FileStoreTxCollection {
-  /** Set of tx hashes that have been queued for download (prevents duplicate queueing). */
-  private pendingTxs = new Set<string>();
+  /** Map from tx hash to add context for txs queued for download. */
+  private pendingTxs = new Map<string, TxAddContext>();
 
   /** Queue of tx hashes to be downloaded. */
   private downloadQueue = new FifoMemoryQueue<TxHash>();
@@ -79,11 +79,11 @@ export class FileStoreTxCollection {
   }
 
   /** Queue the given tx hashes for file store collection. */
-  public startCollecting(txHashes: TxHash[]) {
+  public startCollecting(txHashes: TxHash[], context: TxAddContext) {
     for (const txHash of txHashes) {
       const hashStr = txHash.toString();
       if (!this.pendingTxs.has(hashStr)) {
-        this.pendingTxs.add(hashStr);
+        this.pendingTxs.set(hashStr, context);
         this.downloadQueue.put(txHash);
       }
     }
@@ -92,36 +92,41 @@ export class FileStoreTxCollection {
   /** Stop tracking txs that were found elsewhere. */
   public foundTxs(txs: Tx[]) {
     for (const tx of txs) {
-      const hashStr = tx.getTxHash().toString();
-      this.pendingTxs.delete(hashStr);
+      this.pendingTxs.delete(tx.getTxHash().toString());
     }
   }
 
   /** Processes a single tx hash from the download queue. */
   private async processDownload(txHash: TxHash) {
     const hashStr = txHash.toString();
+    const context = this.pendingTxs.get(hashStr);
 
     // Skip if already found by another method
-    if (!this.pendingTxs.has(hashStr)) {
+    if (!context) {
       return;
     }
 
-    await this.downloadTx(txHash);
+    await this.downloadTx(txHash, context);
     this.pendingTxs.delete(hashStr);
   }
 
   /** Attempt to download a tx from file stores (round-robin). */
-  private async downloadTx(txHash: TxHash) {
+  private async downloadTx(txHash: TxHash, context: TxAddContext) {
     const startIndex = Math.floor(Math.random() * this.fileStoreSources.length);
     for (let i = startIndex; i < startIndex + this.fileStoreSources.length; i++) {
       const source = this.fileStoreSources[i % this.fileStoreSources.length];
 
       try {
-        const result = await this.txCollectionSink.collect(hashes => source.getTxsByHash(hashes), [txHash], {
-          description: `file-store ${source.getInfo()}`,
-          method: 'file-store',
-          fileStore: source.getInfo(),
-        });
+        const result = await this.txCollectionSink.collect(
+          hashes => source.getTxsByHash(hashes),
+          [txHash],
+          {
+            description: `file-store ${source.getInfo()}`,
+            method: 'file-store',
+            fileStore: source.getInfo(),
+          },
+          context,
+        );
 
         if (result.txs.length > 0) {
           return;

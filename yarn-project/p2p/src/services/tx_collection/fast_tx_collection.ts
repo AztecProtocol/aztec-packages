@@ -299,13 +299,12 @@ export class FastTxCollection {
   }
 
   /** Returns the TxAddContext for the given request, used by the sink to add txs to the pool correctly. */
-  private getAddContext(request: FastCollectionRequest): TxAddContext | undefined {
+  private getAddContext(request: FastCollectionRequest): TxAddContext {
     if (request.type === 'proposal') {
       return { type: 'proposal', blockHeader: request.blockProposal.blockHeader };
-    } else if (request.type === 'block') {
+    } else {
       return { type: 'mined', block: request.block };
     }
-    return undefined;
   }
 
   /**
