@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -174,8 +175,7 @@ export class TxCollection {
 
     // Delay file store collection to give P2P methods time to find txs first
     if (this.hasFileStoreSources) {
-      this.dateProvider
-        .sleep(this.config.txCollectionFileStoreSlowDelayMs)
+      sleep(this.config.txCollectionFileStoreSlowDelayMs)
         .then(() => {
           if (this.started) {
             this.fileStoreCollection.startCollecting(txHashes);
@@ -214,8 +214,7 @@ export class TxCollection {
 
     // Delay file store collection to give P2P methods time to find txs first
     if (this.hasFileStoreSources) {
-      this.dateProvider
-        .sleep(this.config.txCollectionFileStoreFastDelayMs)
+      sleep(this.config.txCollectionFileStoreFastDelayMs)
         .then(() => {
           if (this.started) {
             this.fileStoreCollection.startCollecting(hashes);

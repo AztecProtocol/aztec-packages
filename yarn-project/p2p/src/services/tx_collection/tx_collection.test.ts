@@ -155,7 +155,6 @@ describe('TxCollection', () => {
 
   afterEach(async () => {
     await txCollection.stop();
-    dateProvider.clearPendingTimeouts();
   });
 
   describe('slow collection', () => {
