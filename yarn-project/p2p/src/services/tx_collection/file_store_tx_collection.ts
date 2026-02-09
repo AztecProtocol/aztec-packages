@@ -17,17 +17,11 @@ export class FileStoreTxCollection {
   /** Set of tx hashes that have been queued for download (prevents duplicate queueing). */
   private pendingTxs = new Set<string>();
 
-  /** Set of tx hashes that were found elsewhere (prevents queueing txs already found via P2P). */
-  private foundTxHashes = new Set<string>();
-
   /** Queue of tx hashes to be downloaded. */
   private downloadQueue = new FifoMemoryQueue<TxHash>();
 
   /** Worker promises for concurrent downloads. */
   private workers: Promise<void>[] = [];
-
-  /** Round-robin index for distributing requests across file store sources. */
-  private currentSourceIndex = 0;
 
   /** Whether the collection has been started. */
   private started = false;
@@ -69,29 +63,26 @@ export class FileStoreTxCollection {
     await Promise.all(this.workers);
     this.workers = [];
     this.pendingTxs.clear();
-    this.foundTxHashes.clear();
   }
 
-  /** Remove the given tx hashes from pending and mark them as found. */
+  /** Remove the given tx hashes from pending. */
   public stopCollecting(txHashes: TxHash[]) {
     for (const txHash of txHashes) {
       const hashStr = txHash.toString();
       this.pendingTxs.delete(hashStr);
-      this.foundTxHashes.add(hashStr);
     }
   }
 
   /** Clears all pending state. Items already in the download queue will still be processed but won't be re-queued. */
   public clearPending() {
     this.pendingTxs.clear();
-    this.foundTxHashes.clear();
   }
 
   /** Queue the given tx hashes for file store collection. */
   public startCollecting(txHashes: TxHash[]) {
     for (const txHash of txHashes) {
       const hashStr = txHash.toString();
-      if (!this.pendingTxs.has(hashStr) && !this.foundTxHashes.has(hashStr)) {
+      if (!this.pendingTxs.has(hashStr)) {
         this.pendingTxs.add(hashStr);
         this.downloadQueue.put(txHash);
       }
@@ -103,7 +94,6 @@ export class FileStoreTxCollection {
     for (const tx of txs) {
       const hashStr = tx.getTxHash().toString();
       this.pendingTxs.delete(hashStr);
-      this.foundTxHashes.add(hashStr);
     }
   }
 
@@ -112,8 +102,7 @@ export class FileStoreTxCollection {
     const hashStr = txHash.toString();
 
     // Skip if already found by another method
-    if (this.foundTxHashes.has(hashStr)) {
-      this.pendingTxs.delete(hashStr);
+    if (!this.pendingTxs.has(hashStr)) {
       return;
     }
 
@@ -123,10 +112,9 @@ export class FileStoreTxCollection {
 
   /** Attempt to download a tx from file stores (round-robin). */
   private async downloadTx(txHash: TxHash) {
-    // Try each source starting from current index
-    for (let i = 0; i < this.fileStoreSources.length; i++) {
-      const sourceIndex = (this.currentSourceIndex + i) % this.fileStoreSources.length;
-      const source = this.fileStoreSources[sourceIndex];
+    const startIndex = Math.floor(Math.random() * this.fileStoreSources.length);
+    for (let i = startIndex; i < startIndex + this.fileStoreSources.length; i++) {
+      const source = this.fileStoreSources[i % this.fileStoreSources.length];
 
       try {
         const result = await this.txCollectionSink.collect(hashes => source.getTxsByHash(hashes), [txHash], {
@@ -136,8 +124,6 @@ export class FileStoreTxCollection {
         });
 
         if (result.txs.length > 0) {
-          // Found the tx, advance round-robin for next request
-          this.currentSourceIndex = (sourceIndex + 1) % this.fileStoreSources.length;
           return;
         }
       } catch (err) {
