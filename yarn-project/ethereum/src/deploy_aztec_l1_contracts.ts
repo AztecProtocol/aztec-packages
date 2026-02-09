@@ -336,7 +336,7 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.ts');
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [
     FORGE_SCRIPT,
     '--sig',
@@ -353,7 +353,12 @@ export async function deployAztecL1Contracts(
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runProcess<ForgeL1ContractsDeployResult>(scriptPath, forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeL1ContractsDeployResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -596,7 +601,7 @@ export const deployRollupForUpgrade = async (
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.ts');
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -606,7 +611,12 @@ export const deployRollupForUpgrade = async (
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>(scriptPath, forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeRollupUpgradeResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
