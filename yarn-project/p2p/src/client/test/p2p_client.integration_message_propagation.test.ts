@@ -62,12 +62,17 @@ describe('p2p client integration message propagation', () => {
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
+    txPool.addPendingTxs.mockImplementation(async (txs: Tx[]) => ({
+      accepted: txs.map(tx => tx.getTxHash()),
+      ignored: [],
+      rejected: [],
+    }));
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
 
     attestationPool.isEmpty.mockResolvedValue(true);
+    attestationPool.tryAddBlockProposal.mockResolvedValue({ added: true, alreadyExists: false, totalForPosition: 1 });
 
     worldState.status.mockResolvedValue({
       state: mock(),

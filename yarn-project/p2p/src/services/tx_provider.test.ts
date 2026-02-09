@@ -97,6 +97,12 @@ describe('TxProvider', () => {
       return Promise.resolve({ accepted, ignored: [], rejected: [] });
     });
 
+    txPool.addProtectedTxs.mockImplementation(async txs => {
+      for (const tx of txs) {
+        txPools.set(tx.getTxHash().toString(), tx);
+      }
+    });
+
     txCollection.collectFastFor.mockImplementation((_request, txHashes) => {
       const requestedP2PTxs = additionalP2PTxs.filter(p2pTx =>
         txHashes.some(txHash => p2pTx.txHash.toString() === txHash.toString()),

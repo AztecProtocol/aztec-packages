@@ -2,6 +2,7 @@ import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -86,6 +87,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /** Tracks the last slot for which we called prepareForSlot */
   private lastSlotProcessed: SlotNumber = SlotNumber(0);
 
+  /** Polls for slot changes and calls prepareForSlot on the tx pool */
+  private slotMonitor: RunningPromise | undefined;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -102,7 +106,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     private p2pService: P2PService,
     private txCollection: TxCollection,
     private txFileStore: TxFileStore | undefined,
-    private epochCache: EpochCacheInterface | undefined,
+    private epochCache: EpochCacheInterface,
     config: Partial<P2PConfig> = {},
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -290,6 +294,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.blockStream!.start();
     await this.txCollection.start();
     this.txFileStore?.start();
+
+    // Start slot monitor to call prepareForSlot when the slot changes
+    this.slotMonitor = new RunningPromise(() => this.maybeCallPrepareForSlot(), this.log, 1000);
+    this.slotMonitor.start();
+
     return this.syncPromise;
   }
 
@@ -320,6 +329,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   public async stop() {
     this.log.debug('Stopping p2p client...');
+    await this.slotMonitor?.stop();
+    this.log.debug('Stopped slot monitor');
     await tryStop(this.txCollection);
     this.log.debug('Stopped tx collection service');
     await this.txFileStore?.stop();
@@ -549,10 +560,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    const addedCount = await this.addTxsToPool([tx]);
-    const txAddedSuccessfully = addedCount === 1;
-    if (txAddedSuccessfully) {
+    this.#assertIsReady();
+    const result = await this.txPool.addPendingTxs([tx]);
+    if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
+    } else {
+      this.log.warn(
+        `Tx ${tx.getTxHash()} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
+      );
     }
   }
 
@@ -731,14 +746,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
-    if (!this.epochCache) {
+    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
+    if (currentSlot <= this.lastSlotProcessed) {
       return;
     }
-    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-    if (currentSlot > this.lastSlotProcessed) {
-      this.lastSlotProcessed = currentSlot;
-      await this.txPool.prepareForSlot(currentSlot);
-    }
+    this.lastSlotProcessed = currentSlot;
+    await this.txPool.prepareForSlot(currentSlot);
   }
 
   private async startServiceIfSynched() {

@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -64,6 +64,9 @@ describe('p2p client integration batch txs', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     txPool.hasTxs.mockResolvedValue([]);
     txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
@@ -190,6 +193,7 @@ describe('p2p client integration batch txs', () => {
       const peerTxs = txs.slice(start, end);
       const peerTxHashSet = new Set(peerTxs.map(tx => tx.txHash.toString()));
 
+      peerTxPool.isEmpty.mockResolvedValue(true);
       peerTxPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
         return Promise.resolve(hashes.map(h => peerTxHashSet.has(h.toString())));
       });

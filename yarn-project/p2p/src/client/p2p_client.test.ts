@@ -1,4 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryFastUntil } from '@aztec/foundation/retry';
@@ -31,6 +32,7 @@ describe('P2P Client', () => {
   let kvStore: AztecAsyncKVStore;
   let client: P2PClient;
   let txCollection: MockProxy<TxCollection>;
+  let epochCache: MockProxy<EpochCacheInterface>;
   let l1Constants: L1RollupConstants;
 
   beforeEach(async () => {
@@ -46,6 +48,9 @@ describe('P2P Client', () => {
     l1Constants = EmptyL1RollupConstants;
     txCollection = mock<TxCollection>();
     txCollection.getConstants.mockReturnValue(l1Constants);
+
+    epochCache = mock<EpochCacheInterface>();
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
 
     attestationPool = await createTestAttestationPool();
 
@@ -66,7 +71,7 @@ describe('P2P Client', () => {
       p2pService,
       txCollection,
       undefined,
-      undefined,
+      epochCache,
       config,
     );
 
@@ -102,7 +107,9 @@ describe('P2P Client', () => {
     const tx1 = await mockTx();
     const tx2 = await mockTx();
 
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [tx1.getTxHash()], ignored: [], rejected: [] });
     await client.sendTx(tx1);
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [tx2.getTxHash()], ignored: [], rejected: [] });
     await client.sendTx(tx2);
 
     expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);
@@ -111,12 +118,12 @@ describe('P2P Client', () => {
     await client.stop();
   });
 
-  it('adds txs to pool and dont propagate it if it already existed', async () => {
+  it('does not propagate tx if it already existed', async () => {
     await client.start();
     const tx1 = await mockTx();
 
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [tx1.getTxHash()], ignored: [], rejected: [] });
     await client.sendTx(tx1);
-    // Return empty accepted array to indicate tx was ignored (already existed)
     txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [], ignored: [tx1.getTxHash()], rejected: [] });
     await client.sendTx(tx1);
 
@@ -130,7 +137,9 @@ describe('P2P Client', () => {
     await client.start();
     const tx1 = await mockTx();
     const tx2 = await mockTx();
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [tx1.getTxHash()], ignored: [], rejected: [] });
     await client.sendTx(tx1);
+    txPool.addPendingTxs.mockResolvedValueOnce({ accepted: [tx2.getTxHash()], ignored: [], rejected: [] });
     await client.sendTx(tx2);
 
     expect(txPool.addPendingTxs).toHaveBeenCalledTimes(2);

@@ -104,6 +104,10 @@ describe('TxCollection', () => {
     expect(txPool.addPendingTxs).toHaveBeenCalledWith(txs, { source: 'tx-collection' });
   };
 
+  const expectTxsMinedInPool = (txs: Tx[]) => {
+    expect(txPool.addMinedTxs).toHaveBeenCalledWith(txs, block.header, { source: 'tx-collection' });
+  };
+
   const sortByHash = (txs: Tx[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
 
   beforeEach(async () => {
@@ -307,7 +311,7 @@ describe('TxCollection', () => {
 
       await txCollection.collectFastForBlock(block, [txHashes[0]], { deadline });
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[0]]);
-      expectTxsAddedToPool([txs[0]]);
+      expectTxsMinedInPool([txs[0]]);
 
       jest.clearAllMocks();
       await txCollection.trigger();
@@ -377,7 +381,7 @@ describe('TxCollection', () => {
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
-      expectTxsAddedToPool(txs);
+      expectTxsMinedInPool(txs);
       expect(collected).toEqual(txs);
     });
 
@@ -396,10 +400,10 @@ describe('TxCollection', () => {
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(10, 15));
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(15, 20));
 
-      expectTxsAddedToPool(txs.slice(0, 5));
-      expectTxsAddedToPool(txs.slice(5, 10));
-      expectTxsAddedToPool(txs.slice(10, 15));
-      expectTxsAddedToPool(txs.slice(15, 20));
+      expectTxsMinedInPool(txs.slice(0, 5));
+      expectTxsMinedInPool(txs.slice(5, 10));
+      expectTxsMinedInPool(txs.slice(10, 15));
+      expectTxsMinedInPool(txs.slice(15, 20));
 
       expect(sortByHash(collected)).toEqual(sortByHash(txs));
     });
@@ -412,9 +416,9 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expectReqRespToHaveBeenCalledWith([txHashes[2]]);
-      expectTxsAddedToPool([txs[0]]);
-      expectTxsAddedToPool([txs[1]]);
-      expectTxsAddedToPool([txs[2]]);
+      expectTxsMinedInPool([txs[0]]);
+      expectTxsMinedInPool([txs[1]]);
+      expectTxsMinedInPool([txs[2]]);
       expect(collected).toEqual(txs);
     });
 
@@ -423,7 +427,7 @@ describe('TxCollection', () => {
       setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expectReqRespToHaveBeenCalledWith(txHashes);
-      expectTxsAddedToPool(txs);
+      expectTxsMinedInPool(txs);
       expect(collected).toEqual(txs);
     });
 
@@ -437,8 +441,8 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
       expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsAddedToPool([txs[0]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[0]]);
+      expectTxsMinedInPool([txs[1]]);
       expect(collected).toEqual([txs[0], txs[1]]);
     });
 
@@ -485,8 +489,8 @@ describe('TxCollection', () => {
       const collected = await collectionPromise;
 
       expect(dateProvider.now()).toBeLessThan(+deadline);
-      expectTxsAddedToPool([txs[0]]);
-      expectTxsAddedToPool([txs[1]]);
+      expectTxsMinedInPool([txs[0]]);
+      expectTxsMinedInPool([txs[1]]);
       expect(collected).toEqual([txs[0], txs[1], txs[2]]);
     });
 
