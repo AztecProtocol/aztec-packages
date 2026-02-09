@@ -15,6 +15,20 @@ Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with b
 
 <Image img={require("@site/static/img/Aztec_overview.png")} />
 
+## Getting started
+
+Learn about Aztec, what it is, how it works and how to get start writing smart contracts on Aztec with programmable privacy by watching this video:
+
+<div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '100%', marginBottom: '2rem'}}>
+  <iframe
+    style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}}
+    src="https://www.youtube.com/embed/93pfZMjKMmQ"
+    title="Aztec Overview Video"
+    frameBorder="0"
+    allowFullScreen>
+  </iframe>
+</div>
+
 ## High level view
 
 <Image img={require("@site/static/img/aztec-high-level.png")} />

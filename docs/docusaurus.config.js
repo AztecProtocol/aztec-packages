@@ -289,14 +289,6 @@ const config = {
           src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
-          // Participate section - educational content (non-versioned)
-          {
-            type: "doc",
-            docId: "index",
-            docsPluginId: "participate",
-            position: "left",
-            label: "Participate",
-          },
           // Developer sidebar link (Build)
           {
             type: "docSidebar",
@@ -312,6 +304,14 @@ const config = {
             docsPluginId: "network",
             position: "left",
             label: "Operate",
+          },
+          // Participate section - educational content (non-versioned)
+          {
+            type: "doc",
+            docId: "index",
+            docsPluginId: "participate",
+            position: "left",
+            label: "Participate",
           },
           // Unified version dropdown - shows context-aware versions based on current section
           {
