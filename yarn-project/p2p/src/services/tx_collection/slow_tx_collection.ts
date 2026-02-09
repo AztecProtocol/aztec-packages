@@ -254,9 +254,14 @@ export class SlowTxCollection {
 
   /** Computes the proof submission deadline for a given slot, a tx mined in this slot is no longer interesting after this deadline */
   private getDeadlineForSlot(slotNumber: SlotNumber): Date {
-    const epoch = getEpochAtSlot(slotNumber, this.constants);
-    const submissionEndEpoch = EpochNumber(epoch + this.constants.proofSubmissionEpochs);
-    const submissionEndTimestamp = getTimestampRangeForEpoch(submissionEndEpoch, this.constants)[1];
-    return new Date(Number(submissionEndTimestamp) * 1000);
+    return getProofDeadlineForSlot(slotNumber, this.constants);
   }
+}
+
+/** Computes the proof submission deadline for a given slot. A tx mined in this slot is no longer interesting after this deadline. */
+export function getProofDeadlineForSlot(slotNumber: SlotNumber, constants: L1RollupConstants): Date {
+  const epoch = getEpochAtSlot(slotNumber, constants);
+  const submissionEndEpoch = EpochNumber(epoch + constants.proofSubmissionEpochs);
+  const submissionEndTimestamp = getTimestampRangeForEpoch(submissionEndEpoch, constants)[1];
+  return new Date(Number(submissionEndTimestamp) * 1000);
 }
