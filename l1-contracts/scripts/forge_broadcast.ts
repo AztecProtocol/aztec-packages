@@ -32,10 +32,9 @@
 // Uses only Node.js built-ins (no external dependencies).
 
 import { spawn } from 'node:child_process';
-import { readdirSync, readFileSync, rmSync, statSync, writeSync } from 'node:fs';
+import { rmSync, writeSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { join } from 'node:path';
 
 // Chain IDs for timeout selection.
 const MAINNET_CHAIN_ID = 1;
@@ -65,34 +64,6 @@ function log(msg: string): void {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/** Find the most recently modified run-latest.json in broadcast/. */
-function findLatestBroadcastArtifact(): string | undefined {
-  try {
-    let latestFile = '';
-    let latestMtime = 0;
-
-    const walk = (dir: string): void => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const fullPath = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          walk(fullPath);
-        } else if (entry.name === 'run-latest.json') {
-          const mtime = statSync(fullPath).mtimeMs;
-          if (mtime > latestMtime) {
-            latestMtime = mtime;
-            latestFile = fullPath;
-          }
-        }
-      }
-    };
-
-    walk('broadcast');
-    return latestFile || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /** Extract --rpc-url value from forge args. */
@@ -160,50 +131,6 @@ async function getChainId(rpcUrl: string): Promise<number | undefined> {
     return parseInt(result, 16);
   } catch {
     return undefined;
-  }
-}
-
-/**
- * Verify that all transactions in the broadcast artifacts were mined successfully.
- * Checks the deployer's on-chain nonce against the highest nonce in the artifacts.
- * If on-chain nonce > max artifact nonce, all transactions have been confirmed.
- */
-async function verifyBroadcastOnChain(rpcUrl: string): Promise<boolean> {
-  try {
-    const artifactPath = findLatestBroadcastArtifact();
-    if (!artifactPath) return false;
-
-    const data = JSON.parse(readFileSync(artifactPath, 'utf-8'));
-    const transactions: { transaction: { from: string; nonce: string } }[] = data.transactions ?? [];
-
-    if (transactions.length === 0) return false;
-
-    const maxNonceByAddress = new Map<string, number>();
-    for (const tx of transactions) {
-      const from = tx.transaction.from.toLowerCase();
-      const nonce = parseInt(tx.transaction.nonce, 16);
-      const current = maxNonceByAddress.get(from) ?? -1;
-      if (nonce > current) maxNonceByAddress.set(from, nonce);
-    }
-
-    log(`Checking on-chain nonces for ${transactions.length} transactions from ${artifactPath}...`);
-
-    for (const [address, maxNonce] of maxNonceByAddress) {
-      const onChainNonce = parseInt(
-        (await rpcCall(rpcUrl, 'eth_getTransactionCount', [address, 'latest'])) as string,
-        16,
-      );
-      if (onChainNonce <= maxNonce) {
-        log(`Address ${address}: on-chain nonce ${onChainNonce}, need > ${maxNonce}. Not all transactions confirmed.`);
-        return false;
-      }
-    }
-
-    log(`All ${transactions.length} transactions confirmed on-chain (nonce check).`);
-    return true;
-  } catch (e) {
-    log(`verifyBroadcastOnChain error: ${e instanceof Error ? e.message : e}`);
-    return false;
   }
 }
 
@@ -284,12 +211,6 @@ if (result.exitCode === 0) {
 
 log(`Attempt 1 ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
 
-// Forge sometimes exits non-zero even though all transactions were mined.
-if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
-  log('All transactions confirmed on-chain despite non-zero exit — treating as success.');
-  emitAndExit(result, 0);
-}
-
 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
   log(`Waiting ${RETRY_DELAY / 1000}s before retry...`);
   await sleep(RETRY_DELAY);
@@ -314,11 +235,6 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // NOTE: --resume skips simulation, so console.log output (e.g. JSON deploy results)
     // is only produced on the first attempt. We keep the first attempt's stdout (`result`)
     // and only check the exit code from the --resume attempt.
-    if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
-      log('All transactions confirmed on-chain after delay — treating as success.');
-      emitAndExit(result, 0);
-    }
-
     log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: --resume`);
     const resumeResult = await runForge([...forgeArgs, '--resume'], TIMEOUT);
 
@@ -340,12 +256,6 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
   log(
     `Attempt ${attempt + 1} ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
   );
-}
-
-// Final on-chain check after all retries exhausted.
-if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
-  log('All transactions confirmed on-chain after retries — treating as success.');
-  emitAndExit(result, 0);
 }
 
 log(`All ${MAX_RETRIES + 1} attempts failed.`);
