@@ -28,6 +28,9 @@ solc-*
 yarn.lock
 .yarn/
 
+# Compiled JS from TypeScript (built by bootstrap)
+scripts/forge_broadcast.js
+
 # 'deploy_contracts' script output
 serve/
 

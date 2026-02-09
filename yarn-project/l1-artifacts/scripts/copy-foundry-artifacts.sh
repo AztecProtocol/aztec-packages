@@ -24,10 +24,9 @@ mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
 cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
-# Compile the forge broadcast wrapper to JS (Node refuses to load .ts from node_modules).
+# Copy the compiled forge broadcast wrapper (built by l1-contracts bootstrap).
 mkdir -p "l1-contracts/scripts"
-npx swc "$src/scripts/forge_broadcast.ts" -o "l1-contracts/scripts/forge_broadcast.js" \
-  --config-file="$(dirname "$0")/../../.swcrc"
+cp -p "$src/scripts/forge_broadcast.js" "l1-contracts/scripts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib
 (cd "$src" && find lib \( -name "*.sol" -o -name "remappings.txt" -o -name "foundry.toml" \) -exec cp --parents -t "$abs_dest" {} +)
