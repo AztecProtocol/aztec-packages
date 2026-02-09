@@ -24,6 +24,13 @@ export class FileStoreTxCollection {
    */
   private foundTxHashes = new Set<string>();
 
+  /**
+   * Tracks tx hashes found elsewhere, even before startCollecting is called.
+   * Needed because the orchestrator delays startCollecting via a real sleep, but foundTxs
+   * may arrive during that delay — before the hashes are added to pendingTxs.
+   */
+  private foundTxHashes = new Set<string>();
+
   /** Queue of tx hashes to be downloaded. */
   private downloadQueue = new FifoMemoryQueue<TxHash>();
 
