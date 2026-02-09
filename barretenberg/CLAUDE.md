@@ -20,8 +20,10 @@ When your branch becomes out-of-date with the base branch, rebase (don't merge):
 ```bash
 git fetch origin merge-train/barretenberg
 git rebase origin/merge-train/barretenberg
-git push -f  # Force push after rebase
+git push -f  # Force push after rebase (only when necessary)
 ```
+
+**During active development:** Avoid `git push --force` when iterating on changes - use regular `git push` after each commit to make iteration history visible. Only use force-push after rebasing or when you need to rewrite history.
 
 ## Common commands
 
