@@ -23,7 +23,7 @@ describe('FileStoreTxCollection', () => {
   const makeFileStoreSource = (name: string) => {
     const source = mock<FileStoreTxSource>();
     source.getInfo.mockReturnValue(name);
-    source.getTxsByHash.mockResolvedValue([]);
+    source.getTxsByHash.mockResolvedValue({ validTxs: [], invalidTxHashes: [] });
     return source;
   };
 
@@ -35,7 +35,10 @@ describe('FileStoreTxCollection', () => {
 
   const setFileStoreTxs = (source: MockProxy<FileStoreTxSource>, txs: Tx[]) => {
     source.getTxsByHash.mockImplementation(hashes => {
-      return Promise.resolve(hashes.map(h => txs.find(tx => tx.getTxHash().equals(h))));
+      return Promise.resolve({
+        validTxs: hashes.map(h => txs.find(tx => tx.getTxHash().equals(h))).filter(tx => tx !== undefined),
+        invalidTxHashes: [],
+      });
     });
   };
 
