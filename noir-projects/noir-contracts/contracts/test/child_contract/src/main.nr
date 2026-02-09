@@ -1,11 +1,11 @@
 // A contract used along with `Parent` contract to test nested calls.
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::protocol::address::AztecAddress;
+    use ::aztec::protocol::address::AztecAddress;
 
-    use dep::aztec::{
+    use ::aztec::{
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},

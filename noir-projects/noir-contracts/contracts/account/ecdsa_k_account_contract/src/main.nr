@@ -1,10 +1,10 @@
 // Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
 // The signing key is stored in an immutable private note and should be different from the signing key.
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract EcdsaKAccount {
-    use dep::aztec::{
+    use ::aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{
@@ -16,7 +16,7 @@ pub contract EcdsaKAccount {
         state_vars::SinglePrivateImmutable,
     };
 
-    use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
+    use ::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
     struct Storage<Context> {

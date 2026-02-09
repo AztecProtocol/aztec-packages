@@ -5,7 +5,7 @@ use crate::{
     },
     components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
 };
-use dep::types::{
+use ::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,

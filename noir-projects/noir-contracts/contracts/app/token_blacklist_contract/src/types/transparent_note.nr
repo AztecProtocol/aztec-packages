@@ -1,4 +1,4 @@
-use dep::aztec::{
+use ::aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
     note::note_interface::NoteHash,
@@ -9,7 +9,7 @@ use dep::aztec::{
         traits::Packable,
     },
 };
-use dep::std::mem::zeroed;
+use ::std::mem::zeroed;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.

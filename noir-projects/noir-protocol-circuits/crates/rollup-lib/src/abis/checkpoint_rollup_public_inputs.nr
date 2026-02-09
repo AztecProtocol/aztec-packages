@@ -1,4 +1,4 @@
-use dep::types::{
+use ::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, epoch_constant_data::EpochConstantData,
         fee_recipient::FeeRecipient,

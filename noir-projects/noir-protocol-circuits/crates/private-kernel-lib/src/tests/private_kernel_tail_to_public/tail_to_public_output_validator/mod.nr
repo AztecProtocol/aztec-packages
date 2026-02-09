@@ -7,7 +7,7 @@ use crate::components::{
     gas_meter::meter_gas_used, tail_to_public_output_validator::TailToPublicOutputValidator,
 };
 use super::TestBuilder;
-use dep::types::abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs;
+use ::types::abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs;
 
 impl TestBuilder {
     pub fn export_output(self) -> PrivateToPublicKernelCircuitPublicInputs {

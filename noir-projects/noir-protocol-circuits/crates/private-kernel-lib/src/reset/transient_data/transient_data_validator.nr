@@ -5,7 +5,7 @@ use super::{
     validate_note_hash_nullifier_squashing::validate_note_hash_nullifier_squashing,
     validate_transient_data_squashing_hints::validate_transient_data_squashing_hints,
 };
-use dep::types::{
+use ::types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
     side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
@@ -108,10 +108,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
 
 pub(crate) mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
-    use dep::types::{
-        abis::{nullifier::Nullifier, private_log::PrivateLogData},
-        side_effect::Counted,
-    };
+    use ::types::{abis::{nullifier::Nullifier, private_log::PrivateLogData}, side_effect::Counted};
 
     #[test]
     fn succeeds_empty_everything() {

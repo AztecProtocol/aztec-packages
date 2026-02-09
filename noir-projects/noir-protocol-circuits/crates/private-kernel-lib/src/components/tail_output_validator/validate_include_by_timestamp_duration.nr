@@ -1,4 +1,4 @@
-use dep::types::{
+use ::types::{
     abis::global_variables::GlobalVariables, constants::MAX_INCLUDE_BY_TIMESTAMP_DURATION,
 };
 

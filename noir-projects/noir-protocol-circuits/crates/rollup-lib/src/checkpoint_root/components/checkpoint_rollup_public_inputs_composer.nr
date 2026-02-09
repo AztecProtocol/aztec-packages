@@ -168,7 +168,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         // These are reused for all blob evaluations in this checkpoint.
         let challenge_z = BLS12_381_Fr::from(self.final_blob_challenges.z);
 
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             let end_blob_accumulator = evaluate_blobs_and_batch(
                 self.blobs_fields,
                 num_blob_fields,

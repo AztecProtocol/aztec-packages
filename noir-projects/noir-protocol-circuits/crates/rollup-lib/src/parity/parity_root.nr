@@ -1,5 +1,5 @@
 use crate::abis::ParityPublicInputs;
-use dep::types::{
+use ::types::{
     constants::{NUM_BASE_PARITY_PER_ROOT_PARITY, PARITY_BASE_VK_INDEX},
     merkle_tree::MerkleTree,
     proof::proof_data::UltraHonkProofData,

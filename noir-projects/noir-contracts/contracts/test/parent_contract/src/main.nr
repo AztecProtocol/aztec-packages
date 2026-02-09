@@ -1,10 +1,10 @@
 // A contract used along with `Child` contract to test nested calls.
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract Parent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::external};
-    use dep::aztec::protocol::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
+    use ::aztec::{context::gas::GasOpts, macros::functions::external};
+    use ::aztec::protocol::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
     use aztec::protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
@@ -266,8 +266,8 @@ pub contract Parent {
         // Call the target private function
         self.context.static_call_public_function(target_contract, target_selector, args, false);
     }
-    use dep::aztec::test::helpers::test_environment::TestEnvironment;
-    use dep::child_contract::Child;
+    use ::aztec::test::helpers::test_environment::TestEnvironment;
+    use ::child_contract::Child;
 
     #[test]
     unconstrained fn test_private_call() {

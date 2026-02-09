@@ -1,4 +1,4 @@
-use dep::private_kernel_lib::{
+use ::private_kernel_lib::{
     PaddedSideEffectAmounts, private_kernel_tail_to_public,
     PrivateKernelTailToPublicCircuitPrivateInputs,
 };

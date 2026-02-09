@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::constants::DEFAULT_UPDATE_DELAY;
+use ::types::constants::DEFAULT_UPDATE_DELAY;
 
 #[test]
 fn validate_aggregated_values_empty_data_succeeds() {
