@@ -205,6 +205,9 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Skip pushing proposed blocks to archiver (default: true)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
+  minBlocksForCheckpoint: {
+    description: 'Minimum number of blocks required for a checkpoint proposal (test only)',
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
