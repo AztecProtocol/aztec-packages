@@ -162,11 +162,12 @@ void AvmProver::execute_relation_check_rounds()
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    // Generate gate challenges
+    // Generate gate challenges over the full (virtual) log size for padding support.
     std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "Sumcheck:gate_challenge", ProvingKey::log_circuit_size);
 
-    Sumcheck sumcheck(ProvingKey::circuit_size,
+    // Use the actual circuit size for real sumcheck rounds, with padding rounds up to the fixed log size.
+    Sumcheck sumcheck(actual_circuit_size,
                       prover_polynomials,
                       transcript,
                       alpha,
@@ -175,6 +176,15 @@ void AvmProver::execute_relation_check_rounds()
                       ProvingKey::log_circuit_size);
 
     sumcheck_output = sumcheck.prove();
+}
+
+size_t AvmProver::compute_actual_circuit_size() const
+{
+    size_t actual_size = 0;
+    for (const auto& poly : prover_polynomials.get_unshifted()) {
+        actual_size = std::max(actual_size, poly.end_index());
+    }
+    return numeric::round_up_power_2(actual_size);
 }
 
 /**
@@ -246,14 +256,12 @@ void AvmProver::execute_pcs_rounds()
         idx++;
     }
 
-    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
-
-    PolynomialBatcher polynomial_batcher(circuit_dyadic_size);
+    PolynomialBatcher polynomial_batcher(actual_circuit_size);
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        actual_circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
@@ -273,6 +281,9 @@ HonkProof AvmProver::construct_proof()
 
     // Compute wire commitments.
     AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());
+
+    // Compute actual circuit size (max end_index across all polynomials).
+    actual_circuit_size = compute_actual_circuit_size();
 
     // Compute log derivative inverses.
     AVM_TRACK_TIME("prove/log_derivative_inverse_round", execute_log_derivative_inverse_round());

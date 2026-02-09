@@ -40,6 +40,9 @@ class AvmProver {
     void execute_relation_check_rounds();
     void execute_pcs_rounds();
 
+    // Computes the actual circuit size as the max end_index() across all prover polynomials.
+    size_t compute_actual_circuit_size() const;
+
     HonkProof export_proof();
     HonkProof construct_proof();
 
@@ -56,6 +59,8 @@ class AvmProver {
     ProverPolynomials prover_polynomials;
 
     SumcheckOutput<Flavor> sumcheck_output;
+
+    size_t actual_circuit_size = 0;
 
     PCSCommitmentKey commitment_key;
 };
