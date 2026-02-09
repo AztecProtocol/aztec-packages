@@ -7,6 +7,29 @@ const GOOGLE_CLOUD_SPAN_ID = 'logging.googleapis.com/spanId';
 const GOOGLE_CLOUD_TRACE_SAMPLED = 'logging.googleapis.com/trace_sampled';
 
 /**
+ * Converts bigint values to strings recursively in a log object to avoid serialization issues.
+ */
+function convertBigintsToStrings(obj: unknown): unknown {
+  if (typeof obj === 'bigint') {
+    return String(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertBigintsToStrings(item));
+  }
+
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const key in obj) {
+      result[key] = convertBigintsToStrings((obj as Record<string, unknown>)[key]);
+    }
+    return result;
+  }
+
+  return obj;
+}
+
+/**
  * Pino configuration for google cloud observability. Tweaks message and timestamp,
  * adds trace context attributes, and injects severity level.
  * Adapted from https://cloud.google.com/trace/docs/setup/nodejs-ot#config-structured-logging.
@@ -15,6 +38,9 @@ export const GoogleCloudLoggerConfig = {
   messageKey: 'message',
   formatters: {
     log(object: Record<string, unknown>): Record<string, unknown> {
+      // Convert bigints to strings recursively to avoid serialization issues
+      convertBigintsToStrings(object) as Record<string, unknown>;
+
       // Add trace context attributes following Cloud Logging structured log format described
       // in https://cloud.google.com/logging/docs/structured-logging#special-payload-fields
       const { trace_id, span_id, trace_flags, ...rest } = object;

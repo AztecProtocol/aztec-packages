@@ -134,6 +134,29 @@ const customLevels = { verbose: 25 };
 // Global pino options, tweaked for google cloud if running there.
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 
+/**
+ * Converts bigint values to strings recursively in a log object to avoid serialization issues.
+ */
+function convertBigintsToStrings(obj: unknown): unknown {
+  if (typeof obj === 'bigint') {
+    return String(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertBigintsToStrings(item));
+  }
+
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const key in obj) {
+      result[key] = convertBigintsToStrings((obj as Record<string, unknown>)[key]);
+    }
+    return result;
+  }
+
+  return obj;
+}
+
 const redactedPaths = [
   'validatorPrivateKeys',
   // for both the validator and the prover
@@ -164,6 +187,9 @@ const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
       ...redactedPaths.map(p => `options.${p}`),
       ...redactedPaths.map(p => `opts.${p}`),
     ],
+  },
+  formatters: {
+    log: obj => convertBigintsToStrings(obj) as Record<string, unknown>,
   },
   ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
