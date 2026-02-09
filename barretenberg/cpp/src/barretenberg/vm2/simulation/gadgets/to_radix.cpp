@@ -12,13 +12,16 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
                                                                            uint32_t num_limbs,
                                                                            uint32_t radix)
 {
+    BB_ASSERT_LTE(radix, static_cast<decltype(radix)>(256), "Radix is greater than 256");
+    BB_ASSERT_GTE(radix, static_cast<decltype(radix)>(2), "Radix is less than 2");
+
     std::vector<uint8_t> limbs;
     uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
     limbs.reserve(std::max(num_limbs, num_p_limbs));
 
     uint256_t value_integer = static_cast<uint256_t>(value);
     while (value_integer != 0) {
-        auto [quotient, remainder] = value_integer.divmod(radix);
+        const auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder));
         value_integer = quotient;
     }
@@ -34,7 +37,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
         .limbs = limbs,
     });
 
-    bool truncated = num_limbs < limbs.size();
+    const bool truncated = num_limbs < limbs.size();
     if (truncated) {
         limbs.erase(limbs.begin() + num_limbs, limbs.end());
     }
@@ -66,24 +69,21 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
     uint32_t execution_clk = execution_id_manager.get_execution_id();
     uint16_t space_id = memory.get_space_id();
 
-    // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
-    // a hierarchy of errors so that we can throw on the first error we encounter
-
     // Error handling - check that the maximum write address does not exceed the highest memory address
     // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
-    uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
-    bool dst_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
+    const uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
+    const bool dst_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
     // Error handling - check that the radix value is within the valid range
     // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
     // We need to perform both checks explicitly since that is what the circuit would do
-    bool radix_is_lt_2 = gt.gt(2, radix);
-    bool radix_is_gt_256 = gt.gt(radix, 256);
+    const bool radix_is_lt_2 = gt.gt(2, radix);
+    const bool radix_is_gt_256 = gt.gt(radix, 256);
 
     // Error handling - check that if is_output_bits is true, the radix has to be 2
-    bool invalid_bitwise_radix = is_output_bits && (radix != 2);
+    const bool invalid_bitwise_radix = is_output_bits && (radix != 2);
     // Error handling - if num_limbs is zero, value needs to be zero
-    bool invalid_num_limbs = (num_limbs == 0) && (value != FF(0));
+    const bool invalid_num_limbs = (num_limbs == 0) && (!value.is_zero());
 
     ToRadixMemoryEvent event = {
         .execution_clk = execution_clk,
