@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionCall, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
@@ -102,21 +102,21 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
 
     const witness = await this.wallet.createAuthWit(this.sender, {
       caller: this.paymentContract,
-      call: {
+      call: FunctionCall.from({
         name: 'transfer_to_public',
-        args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
+        to: await this.getAsset(),
         selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
         type: FunctionType.PRIVATE,
         hideMsgSender: false,
         isStatic: false,
-        to: await this.getAsset(),
+        args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
         returnTypes: [],
-      },
+      }),
     });
 
     return new ExecutionPayload(
       [
-        {
+        FunctionCall.from({
           name: 'fee_entrypoint_private',
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
@@ -125,7 +125,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
           isStatic: false,
           args: [maxFee, txNonce],
           returnTypes: [],
-        },
+        }),
       ],
       [witness],
       [],
