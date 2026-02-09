@@ -18,6 +18,11 @@ function build_image {
   docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
+  # In CI, dump all files under /usr/src.
+  if [ "$CI" -eq 1 ]; then
+    docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:latest -c 'cd /usr/src && find . -print | grep -v node_modules'
+  fi
+
   # If we actually built a new image (not from cache), remove all but the just-built image.
   local new_ids=$(docker images aztecprotocol/aztec --format "{{.ID}}" | uniq)
   if [ "$previous_ids" != "$new_ids" ]; then

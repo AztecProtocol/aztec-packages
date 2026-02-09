@@ -137,9 +137,15 @@ List of all slashable offenses in the system:
 **Time Unit**: Slot-based offense.
 
 ### ATTESTED_DESCENDANT_OF_INVALID
-**Description**: A committee member attested to a block built on top of an invalid ancestor.  
-**Detection**: AttestationsBlockWatcher tracks invalid blocks and their descendants.  
-**Target**: Committee members who attested to the descendant block.  
+**Description**: A committee member attested to a block built on top of an invalid ancestor.
+**Detection**: AttestationsBlockWatcher tracks invalid blocks and their descendants.
+**Target**: Committee members who attested to the descendant block.
+**Time Unit**: Slot-based offense.
+
+### DUPLICATE_PROPOSAL
+**Description**: A proposer sent multiple block or checkpoint proposals for the same position (slot and indexWithinCheckpoint for blocks, or slot for checkpoints) with different content. Since each slot has exactly one designated proposer, sending conflicting proposals is equivocation.
+**Detection**: Detected in the P2P layer when proposals are received. The AttestationPool tracks proposals by position; when a second proposal arrives for the same position with a different archive, it flags the duplicate. The first duplicate is propagated (Accept) so other validators can witness the offense.
+**Target**: Proposer who broadcast the duplicate proposal.
 **Time Unit**: Slot-based offense.
 
 ## Configuration
@@ -175,6 +181,7 @@ These settings are configured locally on each validator node:
 - `slashDataWithholdingPenalty`: Penalty for DATA_WITHHOLDING
 - `slashInactivityPenalty`: Penalty for INACTIVITY
 - `slashBroadcastedInvalidBlockPenalty`: Penalty for BROADCASTED_INVALID_BLOCK_PROPOSAL
+- `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID
 - `slashUnknownPenalty`: Default penalty for unknown offense types

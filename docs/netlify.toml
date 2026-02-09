@@ -18,10 +18,6 @@
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================
 [[redirects]]
-    from = "/try_testnet"
-    to = "/ignition_info"
-
-[[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
 
@@ -31,11 +27,11 @@
 
 [[redirects]]
     from = "/developers/reference/smart_contract_reference/storage/*"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/how_to_define_storage"
-    to = "/developers/docs/guides/smart_contracts/state_variables"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 # [[redirects]]
 #     from = "/developers/docs/aztec-cli/cli_reference"
@@ -75,7 +71,7 @@
 
 [[redirects]]
     from = "/v2.0.2/migration_notes"
-    to = "/developers/migration_notes"
+    to = "/developers/docs/resources/migration_notes"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
@@ -212,7 +208,7 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/define_storage"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/call_contracts"

@@ -7,7 +7,7 @@ set -euo pipefail
 # 1. Extracts all 'to' paths from [[redirects]] blocks in netlify.toml
 # 2. Skips wildcard patterns (:splat, *) and external URLs
 # 3. Maps URL paths to filesystem paths (using versioned docs for default versions)
-# 4. Validates that each target file exists
+# 4. Validates that each target file exists (by filename or Docusaurus id frontmatter)
 # 5. Exits with error code 1 if any invalid paths are found
 #
 # Usage: validate_redirect_targets.sh [netlify_toml_path]
@@ -89,6 +89,72 @@ INVALID_PATHS=""
 SKIPPED_COUNT=0
 VALIDATED_COUNT=0
 
+# Check if a URL sub_path resolves to a file in the given base directory.
+# Handles direct file matches, index files in directories, and Docusaurus id frontmatter.
+# Args: $1 = base directory, $2 = sub_path (can be empty for bare category paths)
+# Returns: 0 if found, 1 if not
+check_file_or_id() {
+  local base_dir="$1"
+  local sub_path="$2"
+
+  # Handle empty sub_path (bare category path like /participate)
+  if [[ -z "$sub_path" ]]; then
+    for ext in md mdx; do
+      if [[ -f "$base_dir/index.${ext}" ]]; then
+        return 0
+      fi
+    done
+    return 1
+  fi
+
+  # Direct file match
+  for ext in md mdx; do
+    if [[ -f "$base_dir/${sub_path}.${ext}" ]]; then
+      return 0
+    fi
+  done
+
+  # Directory with index file
+  if [[ -d "$base_dir/${sub_path}" ]]; then
+    for ext in md mdx; do
+      if [[ -f "$base_dir/${sub_path}/index.${ext}" ]]; then
+        return 0
+      fi
+    done
+  fi
+
+  # Check Docusaurus id frontmatter in sibling files
+  # Split sub_path into parent directory + slug
+  local parent_dir slug search_dir
+  if [[ "$sub_path" == */* ]]; then
+    parent_dir="${sub_path%/*}"
+    slug="${sub_path##*/}"
+  else
+    parent_dir=""
+    slug="$sub_path"
+  fi
+
+  if [[ -n "$parent_dir" ]]; then
+    search_dir="$base_dir/$parent_dir"
+  else
+    search_dir="$base_dir"
+  fi
+
+  if [[ -d "$search_dir" ]]; then
+    for file in "$search_dir"/*.md "$search_dir"/*.mdx; do
+      [[ -f "$file" ]] || continue
+      # Extract id from YAML frontmatter (between --- markers)
+      local file_id
+      file_id=$(sed -n '/^---$/,/^---$/{s/^id:[[:space:]]*//p}' "$file" | head -1)
+      if [[ "$file_id" == "$slug" ]]; then
+        return 0
+      fi
+    done
+  fi
+
+  return 1
+}
+
 # Function to check if a docs file exists
 # Args: $1 = URL path
 # Returns: 0 if exists, 1 if not
@@ -113,108 +179,41 @@ check_docs_path() {
 
   # Handle /developers/docs/* paths
   if [[ "$clean_path" =~ ^developers/docs/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned docs/
-    for ext in md mdx; do
-      if [[ -f "$DEVELOPER_DOCS_DIR/docs/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$DEVELOPER_DOCS_DIR/docs/${sub_path}" ]]; then
-        if [[ -f "$DEVELOPER_DOCS_DIR/docs/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$DEVELOPER_DOCS_DIR/docs" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
   # Handle /developers/* paths (not /developers/docs/*)
   if [[ "$clean_path" =~ ^developers/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned developer docs root
-    for ext in md mdx; do
-      if [[ -f "$DEVELOPER_DOCS_DIR/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$DEVELOPER_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$DEVELOPER_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$DEVELOPER_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
   # Handle /operate/* paths (formerly /network/*)
   if [[ "$clean_path" =~ ^operate/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned operate docs
-    for ext in md mdx; do
-      if [[ -f "$OPERATE_DOCS_DIR/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$OPERATE_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$OPERATE_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$OPERATE_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
   # Handle /network/* paths (legacy, will redirect to /operate/*)
   if [[ "$clean_path" =~ ^network/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned operate docs
-    for ext in md mdx; do
-      if [[ -f "$OPERATE_DOCS_DIR/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$OPERATE_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$OPERATE_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$OPERATE_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
-  # Handle /participate/* paths
+  # Handle /participate (bare) or /participate/* paths
+  if [[ "$clean_path" == "participate" ]]; then
+    check_file_or_id "$DOCS_ROOT/docs-participate" ""
+    return $?
+  fi
   if [[ "$clean_path" =~ ^participate/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in participate docs (not versioned)
-    for ext in md mdx; do
-      if [[ -f "$DOCS_ROOT/docs-participate/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$DOCS_ROOT/docs-participate/${sub_path}" ]]; then
-        if [[ -f "$DOCS_ROOT/docs-participate/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$DOCS_ROOT/docs-participate" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
-  # Handle other root-level paths (e.g., /ignition_info, /aztec_connect_sunset)
-  for ext in md mdx; do
-    if [[ -f "$DOCS_ROOT/docs/${clean_path}.${ext}" ]]; then
-      return 0
-    fi
-    # Also check for index files in directories
-    if [[ -d "$DOCS_ROOT/docs/${clean_path}" ]]; then
-      if [[ -f "$DOCS_ROOT/docs/${clean_path}/index.${ext}" ]]; then
-        return 0
-      fi
-    fi
-  done
-
-  return 1
+  # Handle other root-level paths (e.g., /aztec_connect_sunset)
+  check_file_or_id "$DOCS_ROOT/docs" "$clean_path"
+  return $?
 }
 
 while IFS= read -r to_path; do

@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v4.0.0-nightly.20260205
-Generated: 2026-02-05T04:45:32.726Z
+Version: v4.0.0-nightly.20260209
+Generated: 2026-02-09T04:50:18.313Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,7 +14,7 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 36 classes, 24 interfaces, 31 functions, 63 types
+Exports: 36 classes, 24 interfaces, 32 functions, 72 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
