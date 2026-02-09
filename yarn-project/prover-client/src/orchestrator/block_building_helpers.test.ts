@@ -26,20 +26,20 @@ describe('buildBlobHints', () => {
     expect(blobCommitmentsFields).toEqual(blobCommitments[0].toBN254Fields());
     const blobCommitmentStr = onlyBlob.commitment.toString('hex');
     expect(blobCommitmentStr).toMatchInlineSnapshot(
-      `"b6e7a457a8799e584eeac804e0e01d8bc4e1d159ac2a801309b22d1612691ecc97d31a330b5cd07fc78df6ffe5c7c4d6"`,
+      `"8237b1ff58b30787118558b932c9782f8b6d200543e0d0c63d9466aaf8238cc4226b6d91f1569e91e7353f2686151c4f"`,
     );
 
     const blobsHashStr = blobsHash.toString();
-    expect(blobsHashStr).toMatchInlineSnapshot(`"0x0098b965ae031d8ee91534cdd87a14d0edb804397e31ae1daf0ea27fa9c502b9"`);
+    expect(blobsHashStr).toMatchInlineSnapshot(`"0x00b2d6078f2e80ca3c09cc955600053d0542e304b5ee4cefac37e554064fe32d"`);
 
     const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     const challengeZ = await onlyBlob.computeChallengeZ(blobFieldsHash);
     const zStr = challengeZ.toString();
-    expect(zStr).toMatchInlineSnapshot(`"0x214fde23666780cf52da41db2ce5ac67b74907efeecfb183c477063859fd8e4b"`);
+    expect(zStr).toMatchInlineSnapshot(`"0x11d6daed56531bd5c5acf341663d21089bb96913f4e716dca3cdb01b8d5735a3"`);
 
     const proof = onlyBlob.evaluate(challengeZ, true /* verifyProof */);
     const yStr = proof.y.toString();
-    expect(yStr).toMatchInlineSnapshot(`"0x058c570b7d2911810e7e797a8c242928751ce2385a6591f9884e32b60c27482c"`);
+    expect(yStr).toMatchInlineSnapshot(`"0x6033e46c697b3de1a5ddedb940ae6ccdb6efc0adeb255336b0220d3fd4b76720"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(

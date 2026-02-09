@@ -12,7 +12,7 @@ export interface CheckpointEndMarker {
 }
 
 export function encodeCheckpointEndMarker(checkpointEndMarker: CheckpointEndMarker) {
-  let value = CHECKPOINT_END_PREFIX;
+  let value = BigInt(CHECKPOINT_END_PREFIX);
   value <<= NUM_BLOB_FIELDS_BIT_SIZE;
   value += BigInt(checkpointEndMarker.numBlobFields);
   return new Fr(value);
@@ -24,7 +24,7 @@ export function decodeCheckpointEndMarker(field: Fr): CheckpointEndMarker {
   value >>= NUM_BLOB_FIELDS_BIT_SIZE;
 
   const prefix = value;
-  if (prefix !== CHECKPOINT_END_PREFIX) {
+  if (prefix !== BigInt(CHECKPOINT_END_PREFIX)) {
     throw new BlobDeserializationError(`Incorrect encoding of blob fields: invalid checkpoint end marker.`);
   }
 
@@ -36,5 +36,5 @@ export function decodeCheckpointEndMarker(field: Fr): CheckpointEndMarker {
 // Check if a field is a checkpoint end marker. Used to check if it has reached the end of the blob fields.
 export function isCheckpointEndMarker(field: Fr): boolean {
   const prefix = field.toBigInt() >> NUM_BLOB_FIELDS_BIT_SIZE;
-  return prefix === CHECKPOINT_END_PREFIX;
+  return prefix === BigInt(CHECKPOINT_END_PREFIX);
 }
