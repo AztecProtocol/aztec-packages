@@ -292,7 +292,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
 
-        // OriginTag false positive: All evaluations and commitments received above are PCS-bound.
+        // OriginTag false positive: All evaluations received above are PCS-bound.
         // The prover cannot choose them freely because they must satisfy the batched opening equation
         // verified by the pairing check. Tag them with the shplonk evaluation challenge.
         if constexpr (Curve::is_stdlib_type) {
