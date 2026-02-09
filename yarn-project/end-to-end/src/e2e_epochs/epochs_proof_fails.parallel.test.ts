@@ -2,12 +2,12 @@ import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import type { ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -72,8 +72,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     context.proverNode = proverNode;
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
-      .delayer!;
+    proverDelayer = (proverNode as TestProverNode).publisher.l1TxUtils.delayer!;
 
     // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
@@ -114,8 +113,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
-      .delayer!;
+    proverDelayer = (proverNode as TestProverNode).publisher.l1TxUtils.delayer!;
 
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
     const epochProverManager = (proverNode as TestProverNode).prover;

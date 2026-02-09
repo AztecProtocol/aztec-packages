@@ -10,6 +10,7 @@ import type { L1TxUtilsConfig } from './config.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
+import { type Delayer, applyDelayer } from './tx_delayer.js';
 import type { SigningCallback } from './types.js';
 
 export function createL1TxUtilsFromViemWallet(
@@ -19,10 +20,12 @@ export function createL1TxUtilsFromViemWallet(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   },
   config?: Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean },
 ): L1TxUtils {
-  return new L1TxUtils(
+  const l1TxUtils = new L1TxUtils(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
@@ -33,6 +36,8 @@ export function createL1TxUtilsFromViemWallet(
     deps?.store,
     deps?.metrics,
   );
+  applyDelayer(l1TxUtils, config ?? {}, deps?.ethereumSlotDuration, deps?.delayer);
+  return l1TxUtils;
 }
 
 export function createL1TxUtilsFromEthSigner(
@@ -43,6 +48,8 @@ export function createL1TxUtilsFromEthSigner(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   },
   config?: Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean },
 ): L1TxUtils {
@@ -50,7 +57,7 @@ export function createL1TxUtilsFromEthSigner(
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
-  return new L1TxUtils(
+  const l1TxUtils = new L1TxUtils(
     client,
     signer.address,
     callback,
@@ -61,4 +68,6 @@ export function createL1TxUtilsFromEthSigner(
     deps?.store,
     deps?.metrics,
   );
+  applyDelayer(l1TxUtils, config ?? {}, deps?.ethereumSlotDuration, deps?.delayer);
+  return l1TxUtils;
 }

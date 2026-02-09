@@ -16,7 +16,9 @@ import {
   walletActions,
 } from 'viem';
 
-import { type ViemClient, isExtendedClient } from '../types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
+import type { L1TxUtilsConfig } from './config.js';
+import type { L1TxUtils } from './l1_tx_utils.js';
 
 const MAX_WAIT_TIME_SECONDS = 180;
 
@@ -133,22 +135,31 @@ class DelayerImpl implements Delayer {
 }
 
 /**
+ * Creates a new DelayerImpl instance. Exposed so callers can create a single shared delayer
+ * and pass it to multiple `withDelayer` / `applyDelayer` calls.
+ */
+export function createDelayer(dateProvider: DateProvider, opts: { ethereumSlotDuration: bigint | number }): Delayer {
+  return new DelayerImpl(dateProvider, opts);
+}
+
+/**
  * Returns a new client (without modifying the one passed in) with an injected tx delayer.
  * The delayer can be used to hold off the next tx to be sent until a given block number.
+ * If an existing delayer is provided, it will be reused instead of creating a new one.
  * TODO(#10824): This doesn't play along well with blob txs for some reason.
  */
 export function withDelayer<T extends ViemClient>(
   client: T,
   dateProvider: DateProvider,
   opts: { ethereumSlotDuration: bigint | number },
+  existingDelayer?: Delayer,
 ): { client: T; delayer: Delayer } {
-  if (!isExtendedClient(client)) {
-    throw new Error('withDelayer has to be instantiated with a wallet viem client.');
-  }
   const logger = createLogger('ethereum:tx_delayer');
-  const delayer = new DelayerImpl(dateProvider, opts);
+  const delayer = (existingDelayer as DelayerImpl | undefined) ?? new DelayerImpl(dateProvider, opts);
 
-  const extended = client
+  // Cast to ExtendedViemWalletClient for the extend chain since it has sendRawTransaction.
+  // The sendRawTransaction override is applied to all clients regardless of type.
+  const withRawTx = (client as unknown as ExtendedViemWalletClient)
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.
     // Note that this will only work with local accounts (ie accounts for which we have the private key).
     // Transactions signed by the node will not be delayed since they use sendTransaction directly,
@@ -237,16 +248,46 @@ export function withDelayer<T extends ViemClient>(
           return txHash;
         }
       },
-    }))
-    // Re-extend with sendTransaction so it uses the modified sendRawTransaction.
-    .extend(client => ({ sendTransaction: walletActions(client).sendTransaction }))
-    // And with the actions that depend on the modified sendTransaction
-    .extend(client => ({
-      writeContract: walletActions(client).writeContract,
-      deployContract: walletActions(client).deployContract,
-    })) as T;
+    }));
 
-  return { client: extended, delayer };
+  // Only re-bind wallet actions (sendTransaction, writeContract, deployContract) for wallet clients.
+  const extended = isExtendedClient(client)
+    ? withRawTx
+        // Re-extend with sendTransaction so it uses the modified sendRawTransaction.
+        .extend(client => ({ sendTransaction: walletActions(client).sendTransaction }))
+        // And with the actions that depend on the modified sendTransaction
+        .extend(client => ({
+          writeContract: walletActions(client).writeContract,
+          deployContract: walletActions(client).deployContract,
+        }))
+    : withRawTx;
+
+  return { client: extended as T, delayer };
+}
+
+/** Applies a tx delayer to an L1TxUtils instance if enableDelayer is set in config.
+ *  If an existing delayer is provided, it will be shared instead of creating a new one.
+ */
+export function applyDelayer(
+  l1TxUtils: L1TxUtils,
+  config: Partial<L1TxUtilsConfig>,
+  ethereumSlotDuration?: number,
+  existingDelayer?: Delayer,
+) {
+  if (!config.enableDelayer || ethereumSlotDuration === undefined) {
+    return;
+  }
+  const { client, delayer } = withDelayer(
+    l1TxUtils.client,
+    l1TxUtils.dateProvider,
+    { ethereumSlotDuration },
+    existingDelayer,
+  );
+  l1TxUtils.client = client;
+  l1TxUtils.delayer = delayer;
+  if (config.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
+    delayer.setMaxInclusionTimeIntoSlot(config.txDelayerMaxInclusionTimeIntoSlot);
+  }
 }
 
 /**

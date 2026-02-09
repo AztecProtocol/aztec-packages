@@ -89,4 +89,9 @@ export class SequencerPublisherFactory {
       publisher,
     };
   }
+
+  /** Interrupts all publishers managed by this factory. Used during sequencer shutdown. */
+  public interruptAll(): void {
+    this.deps.publisherManager.interrupt();
+  }
 }

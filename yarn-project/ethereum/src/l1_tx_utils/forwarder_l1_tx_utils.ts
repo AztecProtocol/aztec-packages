@@ -11,6 +11,7 @@ import type { L1TxUtilsConfig } from './config.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { createViemSigner } from './signer.js';
+import { type Delayer, applyDelayer } from './tx_delayer.js';
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, SigningCallback } from './types.js';
 
 /**
@@ -69,11 +70,13 @@ export function createForwarderL1TxUtilsFromViemWallet(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   } = {},
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
-  return new ForwarderL1TxUtils(
+  const l1TxUtils = new ForwarderL1TxUtils(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
@@ -85,6 +88,8 @@ export function createForwarderL1TxUtilsFromViemWallet(
     deps.metrics,
     forwarderAddress,
   );
+  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
+  return l1TxUtils;
 }
 
 export function createForwarderL1TxUtilsFromEthSigner(
@@ -96,6 +101,8 @@ export function createForwarderL1TxUtilsFromEthSigner(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   } = {},
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
@@ -104,7 +111,7 @@ export function createForwarderL1TxUtilsFromEthSigner(
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
-  return new ForwarderL1TxUtils(
+  const l1TxUtils = new ForwarderL1TxUtils(
     client,
     signer.address,
     callback,
@@ -116,4 +123,6 @@ export function createForwarderL1TxUtilsFromEthSigner(
     deps.metrics,
     forwarderAddress,
   );
+  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
+  return l1TxUtils;
 }

@@ -5,14 +5,12 @@ import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validat
 
 import { SequencerClient } from '../client/sequencer-client.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { Sequencer } from '../sequencer/sequencer.js';
 import type { SequencerTimetable } from '../sequencer/timetable.js';
 
 class TestSequencer_ extends Sequencer {
   declare public publicProcessorFactory: PublicProcessorFactory;
   declare public timetable: SequencerTimetable;
-  declare public publisher: SequencerPublisher;
   declare public publisherFactory: SequencerPublisherFactory;
   declare public validatorClient: ValidatorClient;
   declare public checkpointsBuilder: FullNodeCheckpointsBuilder;

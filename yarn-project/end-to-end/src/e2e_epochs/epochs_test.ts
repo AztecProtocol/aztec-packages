@@ -9,7 +9,8 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
+import { type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/l1-tx-utils';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -20,16 +21,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
-import type { TestProverNode } from '@aztec/prover-node/test';
+import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
-import {
-  type SequencerClient,
-  type SequencerEvents,
-  type SequencerPublisher,
-  SequencerState,
-} from '@aztec/sequencer-client';
-import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -169,17 +163,8 @@ export class EpochsTestContext {
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
 
-    // This is hideous.
-    // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.
-    this.proverDelayer = context.proverNode
-      ? (((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils).delayer!
-      : undefined!;
-    this.sequencerDelayer = context.sequencer
-      ? (
-          ((context.sequencer as TestSequencerClient).sequencer.publisher as SequencerPublisher)
-            .l1TxUtils as DelayedTxUtils
-        ).delayer!
-      : undefined!;
+    this.proverDelayer = context.proverDelayer!;
+    this.sequencerDelayer = context.sequencerDelayer!;
 
     if ((context.proverNode && !this.proverDelayer) || (context.sequencer && !this.sequencerDelayer)) {
       throw new Error(`Could not find prover or sequencer delayer`);
@@ -248,15 +233,13 @@ export class EpochsTestContext {
 
   public createValidatorNode(
     privateKeys: `0x${string}`[],
-    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
+    opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
     return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
-  private async createNode(
-    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
-  ) {
+  private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
     const nodeIndex = this.nodes.length + 1;
     const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
@@ -284,26 +267,6 @@ export class EpochsTestContext {
         },
       ),
     );
-
-    // REFACTOR: We're getting too much into the internals of the sequencer here.
-    // We should have a single method for constructing an aztec node that returns a TestAztecNodeService
-    // which directly exposes the delayer and sets any test config.
-    if (opts.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
-      this.logger.info(
-        `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
-      );
-      // Here we reach into the sequencer and hook in a tx delayer. The problem is that the sequencer's l1 utils only uses a public client, not a wallet.
-      // The delayer needs a wallet (a client that can sign), so we have to create one here.
-      const l1Client = createExtendedL1Client(
-        resolvedConfig.l1RpcUrls!,
-        resolvedConfig.publisherPrivateKeys![0]!.getValue(),
-      );
-      const sequencer = node.getSequencer() as TestSequencerClient;
-      const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
-      delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
-      publisher.l1TxUtils = delayed;
-    }
 
     this.nodes.push(node);
     return node;

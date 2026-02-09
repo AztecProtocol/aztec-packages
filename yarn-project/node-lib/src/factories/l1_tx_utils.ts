@@ -1,5 +1,6 @@
 import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import {
+  createDelayer,
   createL1TxUtilsFromEthSigner as createL1TxUtilsFromEthSignerBase,
   createL1TxUtilsFromViemWallet as createL1TxUtilsFromViemWalletBase,
 } from '@aztec/ethereum/l1-tx-utils';
@@ -25,10 +26,11 @@ import { L1TxStore } from '../stores/l1_tx_store.js';
 const L1_TX_STORE_NAME = 'l1-tx-utils';
 
 /**
- * Creates shared dependencies (logger, store, metrics) for L1TxUtils instances.
+ * Creates shared dependencies (logger, store, metrics, delayer) for L1TxUtils instances.
+ * When enableDelayer is set in config, a single shared delayer is created and passed to all instances.
  */
 async function createSharedDeps(
-  config: DataStoreConfig & { scope?: L1TxScope },
+  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -46,15 +48,22 @@ async function createSharedDeps(
   const meter = deps.telemetry.getMeter('L1TxUtils');
   const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
 
-  return { logger, store, metrics, dateProvider: deps.dateProvider };
+  // Create a single shared delayer for all L1TxUtils instances in this group
+  const delayer =
+    config.enableDelayer && config.ethereumSlotDuration !== undefined && deps.dateProvider
+      ? createDelayer(deps.dateProvider, { ethereumSlotDuration: config.ethereumSlotDuration })
+      : undefined;
+
+  return { logger, store, metrics, dateProvider: deps.dateProvider, delayer };
 }
 
 /**
- * Creates L1TxUtils with blobs from multiple Viem wallets, sharing store and metrics.
+ * Creates L1TxUtils with blobs from multiple Viem wallets, sharing store, metrics, and delayer.
  */
 export async function createL1TxUtilsWithBlobsFromViemWallet(
   clients: ExtendedViemWalletClient[],
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -64,17 +73,23 @@ export async function createL1TxUtilsWithBlobsFromViemWallet(
   const sharedDeps = await createSharedDeps(config, deps);
 
   return clients.map(client =>
-    createL1TxUtilsWithBlobsFromViemWalletBase(client, sharedDeps, config, config.debugMaxGasLimit),
+    createL1TxUtilsWithBlobsFromViemWalletBase(
+      client,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
+      config,
+      config.debugMaxGasLimit,
+    ),
   );
 }
 
 /**
- * Creates L1TxUtils with blobs from multiple EthSigners, sharing store and metrics. Removes duplicates
+ * Creates L1TxUtils with blobs from multiple EthSigners, sharing store, metrics, and delayer. Removes duplicates.
  */
 export async function createL1TxUtilsWithBlobsFromEthSigner(
   client: ViemClient,
   signers: EthSigner[],
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -102,16 +117,23 @@ export async function createL1TxUtilsWithBlobsFromEthSigner(
   }
 
   return uniqueSigners.map(signer =>
-    createL1TxUtilsWithBlobsFromEthSignerBase(client, signer, sharedDeps, config, config.debugMaxGasLimit),
+    createL1TxUtilsWithBlobsFromEthSignerBase(
+      client,
+      signer,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
+      config,
+      config.debugMaxGasLimit,
+    ),
   );
 }
 
 /**
- * Creates L1TxUtils (without blobs) from multiple Viem wallets, sharing store and metrics.
+ * Creates L1TxUtils (without blobs) from multiple Viem wallets, sharing store, metrics, and delayer.
  */
 export async function createL1TxUtilsFromViemWalletWithStore(
   clients: ExtendedViemWalletClient[],
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -121,16 +143,23 @@ export async function createL1TxUtilsFromViemWalletWithStore(
 ) {
   const sharedDeps = await createSharedDeps(config, deps);
 
-  return clients.map(client => createL1TxUtilsFromViemWalletBase(client, sharedDeps, config));
+  return clients.map(client =>
+    createL1TxUtilsFromViemWalletBase(
+      client,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
+      config,
+    ),
+  );
 }
 
 /**
- * Creates L1TxUtils (without blobs) from multiple EthSigners, sharing store and metrics. Removes duplicates.
+ * Creates L1TxUtils (without blobs) from multiple EthSigners, sharing store, metrics, and delayer. Removes duplicates.
  */
 export async function createL1TxUtilsFromEthSignerWithStore(
   client: ViemClient,
   signers: EthSigner[],
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -158,17 +187,25 @@ export async function createL1TxUtilsFromEthSignerWithStore(
     );
   }
 
-  return uniqueSigners.map(signer => createL1TxUtilsFromEthSignerBase(client, signer, sharedDeps, config));
+  return uniqueSigners.map(signer =>
+    createL1TxUtilsFromEthSignerBase(
+      client,
+      signer,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
+      config,
+    ),
+  );
 }
 
 /**
- * Creates ForwarderL1TxUtils from multiple Viem wallets, sharing store and metrics.
+ * Creates ForwarderL1TxUtils from multiple Viem wallets, sharing store, metrics, and delayer.
  * This wraps all transactions through a forwarder contract for testing purposes.
  */
 export async function createForwarderL1TxUtilsFromViemWallet(
   clients: ExtendedViemWalletClient[],
   forwarderAddress: import('@aztec/foundation/eth-address').EthAddress,
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -178,19 +215,26 @@ export async function createForwarderL1TxUtilsFromViemWallet(
   const sharedDeps = await createSharedDeps(config, deps);
 
   return clients.map(client =>
-    createForwarderL1TxUtilsFromViemWalletBase(client, forwarderAddress, sharedDeps, config, config.debugMaxGasLimit),
+    createForwarderL1TxUtilsFromViemWalletBase(
+      client,
+      forwarderAddress,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
+      config,
+      config.debugMaxGasLimit,
+    ),
   );
 }
 
 /**
- * Creates ForwarderL1TxUtils from multiple EthSigners, sharing store and metrics.
+ * Creates ForwarderL1TxUtils from multiple EthSigners, sharing store, metrics, and delayer.
  * This wraps all transactions through a forwarder contract for testing purposes.
  */
 export async function createForwarderL1TxUtilsFromEthSigner(
   client: ViemClient,
   signers: EthSigner[],
   forwarderAddress: import('@aztec/foundation/eth-address').EthAddress,
-  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  config: DataStoreConfig &
+    Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope; ethereumSlotDuration?: number },
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
@@ -204,7 +248,7 @@ export async function createForwarderL1TxUtilsFromEthSigner(
       client,
       signer,
       forwarderAddress,
-      sharedDeps,
+      { ...sharedDeps, ethereumSlotDuration: config.ethereumSlotDuration },
       config,
       config.debugMaxGasLimit,
     ),

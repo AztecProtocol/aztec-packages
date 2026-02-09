@@ -30,6 +30,7 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
+import type { Delayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
   type L1BlobInputs,
@@ -47,6 +48,8 @@ const MAX_L1_TX_STATES = 32;
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
+  /** Tx delayer for testing. Only set when enableDelayer config is true. */
+  public delayer: Delayer | undefined;
 
   constructor(
     public override client: ViemClient,

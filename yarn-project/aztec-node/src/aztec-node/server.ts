@@ -468,7 +468,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       slotDuration: Number(slotDuration),
     });
 
-    return new AztecNodeService(
+    const node = new AztecNodeService(
       config,
       p2pClient,
       archiver,
@@ -490,6 +490,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log,
       blobClient,
     );
+
+    return node;
   }
 
   /**

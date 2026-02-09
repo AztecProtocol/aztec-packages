@@ -8,6 +8,7 @@ export * from './l1_tx_utils.js';
 export * from './readonly_l1_tx_utils.js';
 export * from './signer.js';
 export * from './types.js';
+export * from './tx_delayer.js';
 export * from './utils.js';
 
 // Note: We intentionally do not export l1_tx_utils_with_blobs.js

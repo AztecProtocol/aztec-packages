@@ -30,13 +30,8 @@ import {
   type ZKPassportArgs,
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import {
-  DelayedTxUtils,
-  EthCheatCodes,
-  EthCheatCodesWithState,
-  createDelayedL1TxUtilsFromViemWallet,
-  startAnvil,
-} from '@aztec/ethereum/test';
+import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
+import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -44,7 +39,7 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -52,9 +47,9 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
+import type { TestProverNode } from '@aztec/prover-node/test';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -248,6 +243,10 @@ export type EndToEndContext = {
   telemetryClient: TelemetryClient;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+  /** Delayer for sequencer L1 txs (only when enableDelayer is true). */
+  sequencerDelayer: Delayer | undefined;
+  /** Delayer for prover node L1 txs (only when enableDelayer and startProverNode are true). */
+  proverDelayer: Delayer | undefined;
   /** Prefilled public data used for setting up nodes. */
   prefilledPublicData: PublicDataTreeLeaf[] | undefined;
   /** ACVM config (only set if running locally). */
@@ -287,6 +286,7 @@ export async function setup(
     config.realProofs = !!opts.realProofs;
     // Only enforce the time table if requested
     config.enforceTimeTable = !!opts.enforceTimeTable;
+    config.enableDelayer = true;
     config.listenAddress = '127.0.0.1';
 
     const logger = getLogger();
@@ -491,11 +491,6 @@ export async function setup(
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
-    if (sequencerClient) {
-      const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration, l1Client);
-    }
-
     let proverNode: ProverNode | undefined = undefined;
     if (opts.startProverNode) {
       logger.verbose('Creating and syncing a simulated prover node...');
@@ -520,6 +515,9 @@ export async function setup(
         },
       );
     }
+
+    const sequencerDelayer = sequencerClient?.getDelayer();
+    const proverDelayer = proverNode ? (proverNode as TestProverNode).publisher.l1TxUtils.delayer : undefined;
 
     logger.verbose('Creating a pxe...');
     const pxeConfig = { ...getPXEConfig(), ...pxeOpts };
@@ -621,6 +619,8 @@ export async function setup(
       mockGossipSubNetwork,
       prefilledPublicData,
       proverNode,
+      sequencerDelayer,
+      proverDelayer,
       sequencer: sequencerClient,
       teardown,
       telemetryClient,
@@ -747,38 +747,17 @@ export function createAndSyncProverNode(
       ...proverNodeConfig,
     };
 
-    const l1TxUtils = createDelayedL1TxUtils(
-      aztecNodeConfig,
-      proverNodePrivateKey,
-      'prover-node',
-      proverNodeDeps.dateProvider,
-    );
-
     const proverNode = await createProverNode(
       proverConfig,
-      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
+      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver },
       { prefilledPublicData },
     );
-    getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
+    getLogger().info(`Created and synced prover node`);
     if (!proverNodeConfig.dontStart) {
       await proverNode.start();
     }
     return proverNode;
   });
-}
-
-function createDelayedL1TxUtils(
-  aztecNodeConfig: AztecNodeConfig,
-  privateKey: `0x${string}`,
-  logName: string,
-  dateProvider?: DateProvider,
-) {
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-
-  const log = createLogger(logName);
-  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, log, dateProvider, aztecNodeConfig);
-  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
-  return l1TxUtils;
 }
 
 export type BalancesFn = ReturnType<typeof getBalancesFn>;

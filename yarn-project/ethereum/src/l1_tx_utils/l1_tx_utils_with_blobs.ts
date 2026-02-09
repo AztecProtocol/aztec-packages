@@ -11,6 +11,7 @@ import type { L1TxUtilsConfig } from './config.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
+import { type Delayer, applyDelayer } from './tx_delayer.js';
 import type { L1BlobInputs, SigningCallback } from './types.js';
 
 /** Extends L1TxUtils with the capability to cancel blobs. This needs to be a separate class so we don't require a dependency on blob-lib unnecessarily. */
@@ -30,11 +31,13 @@ export function createL1TxUtilsWithBlobsFromViemWallet(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   } = {},
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
-  return new L1TxUtilsWithBlobs(
+  const l1TxUtils = new L1TxUtilsWithBlobs(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
@@ -45,6 +48,8 @@ export function createL1TxUtilsWithBlobsFromViemWallet(
     deps.store,
     deps.metrics,
   );
+  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
+  return l1TxUtils;
 }
 
 export function createL1TxUtilsWithBlobsFromEthSigner(
@@ -55,6 +60,8 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
+    ethereumSlotDuration?: number;
+    delayer?: Delayer;
   } = {},
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
@@ -63,7 +70,7 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
-  return new L1TxUtilsWithBlobs(
+  const l1TxUtils = new L1TxUtilsWithBlobs(
     client,
     signer.address,
     callback,
@@ -74,4 +81,6 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
     deps.store,
     deps.metrics,
   );
+  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
+  return l1TxUtils;
 }
