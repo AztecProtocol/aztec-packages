@@ -5,9 +5,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Timeout for local/testnet deployments.
-export FORGE_BROADCAST_TIMEOUT="${FORGE_BROADCAST_TIMEOUT:-50}"
-
 echo "=== Loading devnet defaults ==="
 source ./scripts/load_network_defaults.sh devnet
 

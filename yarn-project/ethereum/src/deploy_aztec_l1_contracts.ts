@@ -30,11 +30,6 @@ const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
-/** Returns forge broadcast timeout in seconds. Mainnet/sepolia get 5 minutes, everything else gets 50 seconds. */
-function getForgeBroadcastTimeout(chainId: number): number {
-  return chainId === mainnet.id || chainId === sepolia.id ? 300 : 50;
-}
-
 /**
  * Runs a process and parses JSON deploy results from stdout.
  * Lines starting with JSON_DEPLOY_RESULT_PREFIX are parsed and returned.
@@ -360,7 +355,6 @@ export async function deployAztecL1Contracts(
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-    FORGE_BROADCAST_TIMEOUT: getForgeBroadcastTimeout(chainId).toString(),
     ...getDeployAztecL1ContractsEnvVars(args),
   };
   const result = await runProcess<ForgeL1ContractsDeployResult>(
@@ -618,7 +612,6 @@ export const deployRollupForUpgrade = async (
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),
     NETWORK: getActiveNetworkName(),
-    FORGE_BROADCAST_TIMEOUT: getForgeBroadcastTimeout(chainId).toString(),
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 

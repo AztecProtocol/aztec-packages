@@ -10,9 +10,7 @@
 // Anvil's auto-miner has a race condition where batched transactions can get stranded
 // in the mempool — they arrive after the auto-miner already triggered for the batch,
 // and sit waiting for the next trigger that never comes. Neither evm_mine nor --resume
-// can recover these stuck transactions. The anvil team recommends using interval mining
-// (--block-time) instead of automine for reliable transaction inclusion:
-//   https://github.com/foundry-rs/foundry/issues/8919#issuecomment-2789655937
+// can recover these stuck transactions. Interval mining (--block-time) avoids this issue.
 //
 // On anvil, we work around this by clearing broadcast artifacts and retrying from scratch.
 // On real chains (where this anvil-specific bug doesn't apply), we use --resume.
@@ -28,24 +26,36 @@
 //     --rpc-url "$RPC_URL" --private-key "$KEY" -vvv
 //
 // Environment variables:
-//   FORGE_BROADCAST_TIMEOUT       - Timeout per attempt in seconds (default: 300)
+//   FORGE_BROADCAST_TIMEOUT       - Override timeout per attempt in seconds (auto-detected from chain ID)
 //   FORGE_BROADCAST_MAX_RETRIES   - Max retries after initial attempt (default: 3)
 //
 // Uses only Node.js built-ins (no external dependencies).
 
 import { spawn } from 'node:child_process';
-import { readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync, statSync, writeSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { join } from 'node:path';
 
-const TIMEOUT = parseInt(process.env.FORGE_BROADCAST_TIMEOUT ?? '300', 10);
+// Chain IDs for timeout selection.
+const MAINNET_CHAIN_ID = 1;
+const SEPOLIA_CHAIN_ID = 11155111;
+
+// Timeout per attempt: 300s for mainnet/sepolia (real chains are slow), 50s for everything else.
+// FORGE_BROADCAST_TIMEOUT env var overrides the auto-detected value.
+function getDefaultTimeout(chainId: number | undefined): number {
+  if (chainId === MAINNET_CHAIN_ID || chainId === SEPOLIA_CHAIN_ID) return 300;
+  return 50;
+}
+
 const MAX_RETRIES = parseInt(process.env.FORGE_BROADCAST_MAX_RETRIES ?? '3', 10);
 
 // Batch size of 8 prevents forge from hanging during broadcast.
 // See: https://github.com/foundry-rs/foundry/issues/6796
 const BATCH_SIZE = 8;
 const KILL_GRACE = 15_000;
+// Exit code indicating a timeout, matching the `timeout` coreutil convention.
+const EXIT_TIMEOUT = 124;
 // Delay before retry to let pending transactions settle in the mempool.
 const RETRY_DELAY = 10_000;
 
@@ -93,26 +103,41 @@ function extractRpcUrl(args: string[]): string | undefined {
   return undefined;
 }
 
-/** JSON-RPC call using Node.js built-ins. */
+const RPC_TIMEOUT = 10_000;
+
+/** JSON-RPC call using Node.js built-ins. Rejects on JSON-RPC errors and timeouts. */
 function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const url = new URL(rpcUrl);
     const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
     const reqFn = url.protocol === 'https:' ? httpsRequest : httpRequest;
 
+    const timer = setTimeout(() => {
+      req.destroy();
+      reject(new Error(`RPC call ${method} timed out after ${RPC_TIMEOUT}ms`));
+    }, RPC_TIMEOUT);
+
     const req = reqFn(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, res => {
       let data = '';
       res.on('data', chunk => (data += chunk));
       res.on('end', () => {
+        clearTimeout(timer);
         try {
           const parsed = JSON.parse(data);
-          resolve(parsed.result);
+          if (parsed.error) {
+            reject(new Error(`RPC error for ${method}: ${JSON.stringify(parsed.error)}`));
+          } else {
+            resolve(parsed.result);
+          }
         } catch {
           reject(new Error(`Bad RPC response: ${data.slice(0, 200)}`));
         }
       });
     });
-    req.on('error', reject);
+    req.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     req.write(body);
     req.end();
   });
@@ -125,6 +150,16 @@ async function detectAnvil(rpcUrl: string): Promise<boolean> {
     return version.toLowerCase().includes('anvil');
   } catch {
     return false;
+  }
+}
+
+/** Get the chain ID from the RPC endpoint. */
+async function getChainId(rpcUrl: string): Promise<number | undefined> {
+  try {
+    const result = (await rpcCall(rpcUrl, 'eth_chainId', [])) as string;
+    return parseInt(result, 16);
+  } catch {
+    return undefined;
   }
 }
 
@@ -201,7 +236,7 @@ function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
       settled = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
-      resolve({ exitCode: timedOut ? 124 : code, stdout });
+      resolve({ exitCode: timedOut ? EXIT_TIMEOUT : code, stdout });
     };
 
     proc.on('error', () => finish(1));
@@ -210,9 +245,16 @@ function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
 }
 
 // Main
-log(`timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}`);
 const forgeArgs = process.argv.slice(2);
 const rpcUrl = extractRpcUrl(forgeArgs);
+
+// Query chain info from RPC at startup.
+const chainId = rpcUrl ? await getChainId(rpcUrl) : undefined;
+const TIMEOUT = process.env.FORGE_BROADCAST_TIMEOUT
+  ? parseInt(process.env.FORGE_BROADCAST_TIMEOUT, 10)
+  : getDefaultTimeout(chainId);
+
+log(`chain_id=${chainId ?? 'unknown'}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}`);
 
 // Detect anvil once at startup. On anvil, retries reset the chain and start from scratch
 // instead of using --resume, because anvil's auto-miner can strand transactions in the
@@ -222,20 +264,13 @@ if (isAnvil) {
   log('Detected anvil — retries will reset chain instead of using --resume.');
 }
 
-/** Write buffered stdout to process.stdout and exit. Returns a never-resolving promise so
- *  `await emitAndExit(...)` blocks execution until process.exit() fires. */
-function emitAndExit(result: ForgeResult, code: number): Promise<never> {
-  return new Promise(() => {
-    const data = Buffer.concat(result.stdout);
-    if (data.length === 0) {
-      process.exit(code);
-      return;
-    }
-    // Wait for write to drain before exiting to avoid truncation on pipes >64KB.
-    process.stdout.write(data, () => process.exit(code));
-    // If stdout is already destroyed/closed, the callback may never fire.
-    process.stdout.on('error', () => process.exit(code));
-  });
+/** Write buffered stdout to fd 1 (synchronous) and exit. */
+function emitAndExit(result: ForgeResult, code: number): never {
+  const data = Buffer.concat(result.stdout);
+  if (data.length > 0) {
+    writeSync(1, data);
+  }
+  process.exit(code);
 }
 
 // Attempt 1: initial broadcast
@@ -244,15 +279,15 @@ let result = await runForge(forgeArgs, TIMEOUT);
 
 if (result.exitCode === 0) {
   log('Broadcast succeeded on first attempt.');
-  await emitAndExit(result, 0);
+  emitAndExit(result, 0);
 }
 
-log(`Attempt 1 ${result.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
+log(`Attempt 1 ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
 
 // Forge sometimes exits non-zero even though all transactions were mined.
 if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
   log('All transactions confirmed on-chain despite non-zero exit — treating as success.');
-  await emitAndExit(result, 0);
+  emitAndExit(result, 0);
 }
 
 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -269,13 +304,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     //   - Forge computes new nonces from on-chain state
     //   - New transactions replace any stuck ones with the same nonce
     //   - The race condition is intermittent (~0.04%), so retries almost always succeed
-    //
-    // The anvil team recommends interval mining (--block-time) over automine for
-    // reliable transaction inclusion. See:
-    //   https://github.com/foundry-rs/foundry/issues/8919#issuecomment-2789655937
-    try {
-      rmSync('broadcast', { recursive: true, force: true });
-    } catch { /* broadcast dir may not exist */ }
+    rmSync('broadcast', { recursive: true, force: true });
 
     log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: retrying from scratch (anvil)...`);
     result = await runForge(forgeArgs, TIMEOUT);
@@ -287,7 +316,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // and only check the exit code from the --resume attempt.
     if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
       log('All transactions confirmed on-chain after delay — treating as success.');
-      await emitAndExit(result, 0);
+      emitAndExit(result, 0);
     }
 
     log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: --resume`);
@@ -296,28 +325,28 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (resumeResult.exitCode === 0) {
       log(`Broadcast succeeded on attempt ${attempt + 1}.`);
       // Emit the first attempt's stdout which has the JSON simulation output.
-      await emitAndExit(result, 0);
+      emitAndExit(result, 0);
     }
     log(
-      `Attempt ${attempt + 1} ${resumeResult.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${resumeResult.exitCode})`}.`,
+      `Attempt ${attempt + 1} ${resumeResult.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${resumeResult.exitCode})`}.`,
     );
     continue;
   }
 
   if (result.exitCode === 0) {
     log(`Broadcast succeeded on attempt ${attempt + 1}.`);
-    await emitAndExit(result, 0);
+    emitAndExit(result, 0);
   }
   log(
-    `Attempt ${attempt + 1} ${result.exitCode === 124 ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
+    `Attempt ${attempt + 1} ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
   );
 }
 
 // Final on-chain check after all retries exhausted.
 if (rpcUrl && (await verifyBroadcastOnChain(rpcUrl))) {
   log('All transactions confirmed on-chain after retries — treating as success.');
-  await emitAndExit(result, 0);
+  emitAndExit(result, 0);
 }
 
 log(`All ${MAX_RETRIES + 1} attempts failed.`);
-await emitAndExit(result, result.exitCode);
+emitAndExit(result, result.exitCode);

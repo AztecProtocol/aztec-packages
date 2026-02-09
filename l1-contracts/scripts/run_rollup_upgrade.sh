@@ -14,9 +14,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Timeout ensures forge fails instead of hanging forever. Default 300s for mainnet/sepolia deployments.
-export FORGE_BROADCAST_TIMEOUT="${FORGE_BROADCAST_TIMEOUT:-300}"
-
 registry_address="${1:?registry_address is required}"
 
 echo "=== Deploying rollup upgrade ==="
