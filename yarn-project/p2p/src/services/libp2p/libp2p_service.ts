@@ -45,7 +45,7 @@ import {
   type GossipsubMessage,
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
-import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
+import { createPeerScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -80,7 +80,8 @@ import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
 import { DiscV5Service } from '../discv5/discV5_service.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { gossipScoreThresholds } from '../gossipsub/scoring.js';
+import { APP_SPECIFIC_WEIGHT, gossipScoreThresholds } from '../gossipsub/scoring.js';
+import { createAllTopicScoreParams } from '../gossipsub/topic_score_params.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
@@ -311,11 +312,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const versions = getVersions(config);
     const protocolVersion = compressComponentVersions(versions);
 
-    const txTopic = createTopicString(TopicType.tx, protocolVersion);
-    const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
-    const checkpointProposalTopic = createTopicString(TopicType.checkpoint_proposal, protocolVersion);
-    const checkpointAttestationTopic = createTopicString(TopicType.checkpoint_attestation, protocolVersion);
-
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
     const directPeers = (
       await Promise.all(
@@ -334,6 +330,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     ).filter(peer => peer !== undefined);
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
+
+    // Create dynamic topic score params based on network configuration
+    const l1Constants = epochCache.getL1Constants();
+    const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
+      slotDurationMs: l1Constants.slotDuration * 1000,
+      heartbeatIntervalMs: config.gossipsubInterval,
+      targetCommitteeSize: l1Constants.targetCommitteeSize,
+      blockDurationMs: config.blockDurationMs,
+    });
 
     const node = await createLibp2p({
       start: false,
@@ -430,28 +435,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
-            topics: {
-              [txTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [blockProposalTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [checkpointProposalTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [checkpointAttestationTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-            },
+            topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
         components: (components: { connectionManager: ConnectionManager }) => ({
@@ -477,8 +461,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       epochCache,
     );
 
-    // Update gossipsub score params
-    node.services.pubsub.score.params.appSpecificWeight = 10;
+    // Configure application-specific scoring for gossipsub.
+    // The weight scales app score to align with gossipsub thresholds:
+    // - Disconnect (-50) × 10 = -500 = gossipThreshold (stops receiving gossip)
+    // - Ban (-100) × 10 = -1000 = publishThreshold (cannot publish)
+    // Note: positive topic scores can offset penalties, so alignment is best-effort.
+    node.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
     node.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
       peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 

@@ -73,6 +73,7 @@ describe('Archiver Sync', () => {
       slotDuration: 24,
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
       proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
       genesisArchiveRoot: GENESIS_ROOT,
     };
 
