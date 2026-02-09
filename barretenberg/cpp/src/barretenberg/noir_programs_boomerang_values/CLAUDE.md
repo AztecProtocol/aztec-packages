@@ -208,7 +208,7 @@ auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1,
 | ⬜ TODO | ECDSA_K1 | `process_ecdsa_constraints` | No |
 | ⬜ TODO | ECDSA_R1 | `process_ecdsa_constraints` | No |
 | ⬜ TODO | MULTI_SCALAR_MUL | `process_multi_scalar_mul_constraints` | No |
-| ⬜ TODO | EC_ADD | `process_embedded_curve_add_constraints` | No |
+| ✅ Done | EC_ADD | `process_embedded_curve_add_constraints` | Yes |
 | ⬜ TODO | HONK_RECURSION | `process_recursion_constraints` | No |
 | ⬜ TODO | AVM_RECURSION | Not implemented | No |
 | ⬜ TODO | HN_RECURSION | Not implemented | No |

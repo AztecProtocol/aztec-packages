@@ -1,4 +1,5 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include <type_traits>
 #include <unordered_map>
@@ -377,6 +378,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
             break;
         case AcirConstraintType::BLOCK:
             result = process_block_constraint(constraint_info.ptr);
+            break;
+        case AcirConstraintType::EC_ADD:
+            result = process_ec_add_constraint(constraint_info.ptr);
             break;
         default:
             // Constraint type not yet implemented - mark as not processed
@@ -927,6 +931,47 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
 
     return true;
 }
+
+// Checks that the ECADD constraint is valid.
+// Right now we only check that input points are asserted to be on curve
+// TODO(defkit): check that result point is constrained to be input1 + input2
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const ConstraintPtr& ptr)
+{
+    const auto* constraint = std::get<const EcAdd*>(ptr);
+    Point input1_point = { constraint->input1_x.index, constraint->input1_y.index, constraint->input1_infinite.index };
+    Point input2_point = { constraint->input2_x.index, constraint->input2_y.index, constraint->input2_infinite.index };
+
+    auto is_point_constant = [](const Point& point) {
+        return point.x_idx == bb::stdlib::IS_CONSTANT && point.y_idx == bb::stdlib::IS_CONSTANT &&
+               point.is_infinity_idx == bb::stdlib::IS_CONSTANT;
+    };
+
+    // If point is not constant, check that all gates needed for the on-curve check exist
+    try {
+        if (!is_point_constant(input1_point) &&
+            !is_on_curve_check_exists<FF>(builder, input1_point, constraint->predicate.index)) {
+            log_error("On-curve check for input1 point does not exist");
+            return false;
+        }
+    } catch (const std::runtime_error& e) {
+        log_error("Error checking on-curve check for input1 point: ", e.what());
+        return false;
+    }
+
+    try {
+        if (!is_point_constant(input2_point) &&
+            !is_on_curve_check_exists<FF>(builder, input2_point, constraint->predicate.index)) {
+            log_error("On-curve check for input2 point does not exist");
+            return false;
+        }
+    } catch (const std::runtime_error& e) {
+        log_error("Error checking on-curve check for input2 point: ", e.what());
+        return false;
+    }
+    return true;
+}
+
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
 } // namespace cdg
