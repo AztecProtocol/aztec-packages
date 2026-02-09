@@ -18,7 +18,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { DuplicateProposalInfo, P2P, PeerId } from '@aztec/p2p';
+import type { DuplicateAttestationInfo, DuplicateProposalInfo, P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -32,14 +32,14 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
-import type {
-  BlockProposal,
-  BlockProposalOptions,
-  CheckpointAttestation,
-  CheckpointProposalCore,
-  CheckpointProposalOptions,
+import {
+  type BlockProposal,
+  type BlockProposalOptions,
+  type CheckpointAttestation,
+  CheckpointProposal,
+  type CheckpointProposalCore,
+  type CheckpointProposalOptions,
 } from '@aztec/stdlib/p2p';
-import { CheckpointProposal } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -80,13 +80,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   // Whether it has already registered handlers on the p2p client
   private hasRegisteredHandlers = false;
 
-  // Used to check if we are sending the same proposal twice
-  private previousProposal?: BlockProposal;
+  /** Tracks the last block proposal we created, to detect duplicate proposal attempts. */
+  private lastProposedBlock?: BlockProposal;
+
+  /** Tracks the last checkpoint proposal we created. */
+  private lastProposedCheckpoint?: CheckpointProposal;
 
   private lastEpochForCommitteeUpdateLoop: EpochNumber | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
+
+  /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
+  private lastAttestedProposal?: CheckpointProposalCore;
 
   protected constructor(
     private keyStore: ExtendedValidatorKeyStore,
@@ -314,6 +320,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.handleDuplicateProposal(info);
       });
 
+      // Duplicate attestation handler - triggers slashing for attestation equivocation
+      this.p2pClient.registerDuplicateAttestationCallback((info: DuplicateAttestationInfo) => {
+        this.handleDuplicateAttestation(info);
+      });
+
       const myAddresses = this.getValidatorAddresses();
       this.p2pClient.registerThisValidatorAddresses(myAddresses);
 
@@ -515,14 +526,44 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    return this.createCheckpointAttestationsFromProposal(proposal, attestors);
+    return await this.createCheckpointAttestationsFromProposal(proposal, attestors);
+  }
+
+  /**
+   * Checks if we should attest to a slot based on equivocation prevention rules.
+   * @returns true if we should attest, false if we should skip
+   */
+  private shouldAttestToSlot(slotNumber: SlotNumber): boolean {
+    // If attestToEquivocatedProposals is true, always allow
+    if (this.config.attestToEquivocatedProposals) {
+      return true;
+    }
+
+    // Check if incoming slot is strictly greater than last attested
+    if (this.lastAttestedProposal && slotNumber <= this.lastAttestedProposal.slotNumber) {
+      this.log.warn(
+        `Refusing to process a proposal for slot ${slotNumber} given we already attested to a proposal for slot ${this.lastAttestedProposal.slotNumber}`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   private async createCheckpointAttestationsFromProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[] = [],
-  ): Promise<CheckpointAttestation[]> {
+  ): Promise<CheckpointAttestation[] | undefined> {
+    // Equivocation check: must happen right before signing to minimize the race window
+    if (!this.shouldAttestToSlot(proposal.slotNumber)) {
+      return undefined;
+    }
+
     const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors);
+
+    // Track the proposal we attested to (to prevent equivocation)
+    this.lastAttestedProposal = proposal;
+
     await this.p2pClient.addOwnCheckpointAttestations(attestations);
     return attestations;
   }
@@ -750,6 +791,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     ]);
   }
 
+  /**
+   * Handle detection of a duplicate attestation (equivocation).
+   * Emits a slash event when an attester signs attestations for different proposals at the same slot.
+   */
+  private handleDuplicateAttestation(info: DuplicateAttestationInfo): void {
+    const { slot, attester } = info;
+
+    this.log.warn(`Triggering slash event for duplicate attestation from ${attester.toString()} at slot ${slot}`, {
+      attester: attester.toString(),
+      slot,
+    });
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: attester,
+        amount: this.config.slashDuplicateAttestationPenalty,
+        offenseType: OffenseType.DUPLICATE_ATTESTATION,
+        epochOrSlot: BigInt(slot),
+      },
+    ]);
+  }
+
   async createBlockProposal(
     blockHeader: BlockHeader,
     indexWithinCheckpoint: IndexWithinCheckpoint,
@@ -759,11 +822,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions = {},
   ): Promise<BlockProposal> {
-    // TODO(palla/mbps): Prevent double proposals properly
-    // if (this.previousProposal?.slotNumber === blockHeader.globalVariables.slotNumber) {
-    //   this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
-    //   return Promise.resolve(undefined);
-    // }
+    // Validate that we're not creating a proposal for an older or equal position
+    if (this.lastProposedBlock) {
+      const lastSlot = this.lastProposedBlock.slotNumber;
+      const lastIndex = this.lastProposedBlock.indexWithinCheckpoint;
+      const newSlot = blockHeader.globalVariables.slotNumber;
+
+      if (newSlot < lastSlot || (newSlot === lastSlot && indexWithinCheckpoint <= lastIndex)) {
+        throw new Error(
+          `Cannot create block proposal for slot ${newSlot} index ${indexWithinCheckpoint}: ` +
+            `already proposed block for slot ${lastSlot} index ${lastIndex}`,
+        );
+      }
+    }
 
     this.log.info(
       `Assembling block proposal for block ${blockHeader.globalVariables.blockNumber} slot ${blockHeader.globalVariables.slotNumber}`,
@@ -780,7 +851,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
       },
     );
-    this.previousProposal = newProposal;
+    this.lastProposedBlock = newProposal;
     return newProposal;
   }
 
@@ -791,14 +862,29 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
   ): Promise<CheckpointProposal> {
+    // Validate that we're not creating a proposal for an older or equal slot
+    if (this.lastProposedCheckpoint) {
+      const lastSlot = this.lastProposedCheckpoint.slotNumber;
+      const newSlot = checkpointHeader.slotNumber;
+
+      if (newSlot <= lastSlot) {
+        throw new Error(
+          `Cannot create checkpoint proposal for slot ${newSlot}: ` +
+            `already proposed checkpoint for slot ${lastSlot}`,
+        );
+      }
+    }
+
     this.log.info(`Assembling checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
-    return await this.validationService.createCheckpointProposal(
+    const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
       lastBlockInfo,
       proposerAddress,
       options,
     );
+    this.lastProposedCheckpoint = newProposal;
+    return newProposal;
   }
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
@@ -819,6 +905,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
     const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee);
+
+    if (!attestations) {
+      return [];
+    }
 
     // We broadcast our own attestations to our peers so, in case our block does not get mined on L1,
     // other nodes can see that our validators did attest to this block proposal, and do not slash us
