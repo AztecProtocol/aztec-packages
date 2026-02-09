@@ -127,6 +127,18 @@ template <typename Flavor> class TranslatorVerifier_ {
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
 
     /**
+     * @brief Reconstruct concatenated polynomial evaluations from individual wire evaluations.
+     * @details Each concatenated polynomial packs CONCATENATION_GROUP_SIZE minicircuit wires into sequential blocks.
+     * The verifier reconstructs concat(u) from the wire evals via Lagrange decomposition over
+     * the top log2(CONCATENATION_GROUP_SIZE) sumcheck challenges.
+     */
+    static std::pair<std::array<FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>,
+                     std::array<FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>>
+    reconstruct_concatenated_evaluations(const std::vector<FF>& challenge,
+                                         const std::vector<RefVector<FF>>& groups,
+                                         const std::vector<RefVector<FF>>& shift_groups);
+
+    /**
      * @brief Populate relation parameters with translation data from ECCVM verifier
      * @details Converts the translation challenges and accumulated result into limbs.
      * - evaluation_input_x and batching_challenge_v: 5 limbs (4 binary + 1 prime), see TranslatorNonNativeFieldRelation

@@ -118,31 +118,26 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     }
 }
 
-/**
- * @brief Reconstruct concatenated polynomial evaluations from individual wire evaluations.
- * @details Each concatenated polynomial packs 16 minicircuit wires into sequential blocks.
- * The verifier reconstructs concat(u) from the wire evals via Lagrange decomposition over
- * the top 4 sumcheck challenges: concat(u) = [1/L_0(u_top)] * Σ_j L_j(u_top) * wire_j(u).
- *
- * @param challenge Full sumcheck challenge vector (size = log_n)
- * @param groups Wire evaluation groups for unshifted concatenated polys (5 groups of 16)
- * @param shift_groups Wire evaluation groups for shifted concatenated polys (5 groups of 16)
- * @return Pair of arrays: {unshifted_concat_evals, shifted_concat_evals}
- */
-template <typename FF>
-std::pair<std::array<FF, 5>, std::array<FF, 5>> reconstruct_concatenated_evaluations(const std::vector<FF>& challenge,
-                                                                                     const auto& groups,
-                                                                                     const auto& shift_groups)
-{
-    static constexpr size_t NUM_TOP_BITS = 4; // log2(CONCATENATION_GROUP_SIZE)
-    const size_t log_n = challenge.size();
+} // namespace
 
-    // Compute 16-point Lagrange basis over the top 4 challenges
-    std::array<FF, 16> lagrange_basis;
-    for (size_t j = 0; j < 16; j++) {
+template <typename Flavor>
+std::pair<std::array<typename TranslatorVerifier_<Flavor>::FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>,
+          std::array<typename TranslatorVerifier_<Flavor>::FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>>
+TranslatorVerifier_<Flavor>::reconstruct_concatenated_evaluations(const std::vector<FF>& challenge,
+                                                                  const std::vector<RefVector<FF>>& groups,
+                                                                  const std::vector<RefVector<FF>>& shift_groups)
+{
+    static constexpr size_t CONCATENATION_GROUP_SIZE = TranslatorFlavor::CONCATENATION_GROUP_SIZE;
+    static constexpr size_t NUM_CONCATENATED_POLYS = TranslatorFlavor::NUM_CONCATENATED_POLYS;
+    static constexpr size_t NUM_TOP_BITS = numeric::get_msb(CONCATENATION_GROUP_SIZE);
+    static constexpr size_t LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+
+    // Compute CONCATENATION_GROUP_SIZE-point Lagrange basis over the top challenges
+    std::array<FF, CONCATENATION_GROUP_SIZE> lagrange_basis;
+    for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
         lagrange_basis[j] = FF(1);
         for (size_t bit = 0; bit < NUM_TOP_BITS; bit++) {
-            const FF& u = challenge[log_n - NUM_TOP_BITS + bit];
+            const FF& u = challenge[LOG_N - NUM_TOP_BITS + bit];
             lagrange_basis[j] *= ((j >> bit) & 1) ? u : (FF(1) - u);
         }
     }
@@ -152,21 +147,20 @@ std::pair<std::array<FF, 5>, std::array<FF, 5>> reconstruct_concatenated_evaluat
     // Reconstruct a single concatenated eval: [1/L_0] * Σ_j L_j * wire_j(u)
     auto reconstruct = [&](const auto& group) -> FF {
         FF result = FF(0);
-        for (size_t j = 0; j < 16; j++) {
+        for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
             result += lagrange_basis[j] * group[j];
         }
         return result * padding_inv;
     };
 
-    std::array<FF, 5> concat_evals;
-    std::array<FF, 5> concat_shift_evals;
-    for (size_t g = 0; g < 5; g++) {
+    std::array<FF, NUM_CONCATENATED_POLYS> concat_evals;
+    std::array<FF, NUM_CONCATENATED_POLYS> concat_shift_evals;
+    for (size_t g = 0; g < NUM_CONCATENATED_POLYS; g++) {
         concat_evals[g] = reconstruct(groups[g]);
         concat_shift_evals[g] = reconstruct(shift_groups[g]);
     }
     return { concat_evals, concat_shift_evals };
 }
-} // namespace
 
 template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters()
 {
