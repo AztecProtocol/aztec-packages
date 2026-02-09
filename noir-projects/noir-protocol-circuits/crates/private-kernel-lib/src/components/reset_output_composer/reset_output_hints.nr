@@ -1,5 +1,5 @@
 use crate::reset::{squash_transient_data, TransientDataSquashingHint};
-use dep::types::{
+use ::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         nullifier::Nullifier, private_log::PrivateLogData,

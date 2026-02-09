@@ -2,7 +2,7 @@ use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
 };
-use dep::types::abis::{
+use ::types::abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
     transaction::tx_request::TxRequest,

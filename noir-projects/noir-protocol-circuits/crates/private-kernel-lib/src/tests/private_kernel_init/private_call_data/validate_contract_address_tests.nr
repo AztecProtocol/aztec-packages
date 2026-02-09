@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::{
+use ::types::{
     abis::protocol_contracts::ProtocolContracts, address::AztecAddress,
     constants::MAX_PROTOCOL_CONTRACTS, traits::FromField,
 };

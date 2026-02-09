@@ -5,7 +5,7 @@ use crate::{
     components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates,
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
 };
-use dep::types::{
+use ::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         transaction::tx_request::TxRequest,

@@ -1,4 +1,4 @@
-use dep::rollup_lib::checkpoint_merge::{
+use ::rollup_lib::checkpoint_merge::{
     checkpoint_merge_rollup, CheckpointMergeRollupPrivateInputs, CheckpointRollupPublicInputs,
 };
 
