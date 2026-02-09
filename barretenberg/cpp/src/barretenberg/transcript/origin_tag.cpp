@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <cstring>
+#include <string>
 
 namespace bb {
 using namespace numeric;
@@ -61,40 +62,24 @@ inline uint128_t extract_uint128(const uint64_t* data)
  */
 void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    // Extract uint128_t values safely using memcpy to avoid strict aliasing violations
-    // Lower 128 bits (data[0..1]) = submitted rounds, Upper 128 bits (data[2..3]) = challenge rounds
-    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
-    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
+    // Lower 128 bits = submitted rounds, Upper 128 bits = challenge rounds
     const auto submitted_a = extract_uint128(&provenance_a.data[0]);
     const auto submitted_b = extract_uint128(&provenance_b.data[0]);
 
-    // If either has no submitted data, nothing to check
-    if (submitted_a == 0 || submitted_b == 0) {
+    // Nothing to check if either has no submitted data or both are from the same round(s)
+    if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
         return;
     }
 
-    // If both have the exact same submitted pattern, they're from the same round(s) - OK to combine
-    // (This preserves the original behavior: two round-0 values can combine before any challenge)
-    if (submitted_a == submitted_b) {
-        return;
-    }
+    // Ensure that values from different rounds are not mixing without max challenge round >= max submitted round
+    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
+    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
+    const int max_challenge_round = highest_set_bit_128(challenges_a | challenges_b);
+    const int max_submitted_round = highest_set_bit_128(submitted_a | submitted_b);
 
-    // Different submitted patterns - need challenge coverage
-    const uint128_t merged_challenges = challenges_a | challenges_b;
-    const uint128_t merged_submitted = submitted_a | submitted_b;
-
-    if (merged_challenges == 0) {
-        throw_or_abort("Round provenance check failed: mixing submitted values from different rounds without any "
-                       "challenge coverage");
-    }
-
-    const int max_submitted_round = highest_set_bit_128(merged_submitted);
-    const int max_challenge_round = highest_set_bit_128(merged_challenges);
-
-    // The highest challenge round must be >= the highest submitted round
-    // This ensures all submitted data is bound by a challenge from at least that round
     if (max_challenge_round < max_submitted_round) {
-        throw_or_abort("Round provenance check failed: max challenge round < max submitted round");
+        throw_or_abort("Round provenance check failed: max challenge round (" + std::to_string(max_challenge_round) +
+                       ") < max submitted round (" + std::to_string(max_submitted_round) + ")");
     }
 }
 
