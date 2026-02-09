@@ -802,7 +802,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blockHeader - The block header providing slot context.
    * @returns Hashes of transactions not found in the pool.
    */
-  public async protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]> {
+  public protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]> {
     return this.txPool.protectTxs(txHashes, blockHeader);
   }
 

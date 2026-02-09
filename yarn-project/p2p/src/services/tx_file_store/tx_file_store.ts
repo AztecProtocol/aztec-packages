@@ -7,7 +7,6 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { TxPoolV2 } from '../../mem_pools/index.js';
-import type { TxPoolEvents } from '../../mem_pools/tx_pool/index.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStoreInstrumentation } from './instrumentation.js';
 
@@ -19,7 +18,7 @@ export class TxFileStore {
   private uploadQueue: Tx[] = [];
   private activeUploads = 0;
   private readonly queueProcessor: RunningPromise;
-  private readonly handleTxsAdded: TxPoolEvents['txs-added'];
+  private readonly handleTxsAdded: (args: { txs: Tx[]; source?: string }) => void;
 
   /** Recently uploaded tx hashes for deduplication. */
   private recentUploads: Set<string> = new Set();

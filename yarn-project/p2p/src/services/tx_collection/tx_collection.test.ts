@@ -326,7 +326,7 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
 
-      await txCollection.handleTxsAddedToPool({ txs: [txs[0]], source: 'test' });
+      txCollection.handleTxsAddedToPool({ txs: [txs[0]], source: 'test' });
 
       jest.clearAllMocks();
       setNodeTxs(nodes[0], [txs[1]]);
@@ -467,7 +467,7 @@ describe('TxCollection', () => {
       // Simulate a tx found in a node, another one via reqresp, and a third one added to the pool via gossipsub
       setNodeTxs(nodes[0], [txs[0]]);
       reqRespPromise.resolve([new TxArray(...[txs[1]])]);
-      await txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
+      txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
       jest.clearAllMocks();
 
       const collected = await collectionPromise;
@@ -485,7 +485,7 @@ describe('TxCollection', () => {
 
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
       await sleep(1000);
-      await txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
+      txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
       const collected = await collectionPromise;
 
       expect(dateProvider.now()).toBeLessThan(+deadline);

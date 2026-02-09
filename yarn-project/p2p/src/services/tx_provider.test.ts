@@ -97,10 +97,11 @@ describe('TxProvider', () => {
       return Promise.resolve({ accepted, ignored: [], rejected: [] });
     });
 
-    txPool.addProtectedTxs.mockImplementation(async txs => {
+    txPool.addProtectedTxs.mockImplementation(txs => {
       for (const tx of txs) {
         txPools.set(tx.getTxHash().toString(), tx);
       }
+      return Promise.resolve();
     });
 
     txCollection.collectFastFor.mockImplementation((_request, txHashes) => {
