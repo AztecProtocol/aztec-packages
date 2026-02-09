@@ -17,7 +17,12 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  EmptyL1RollupConstants,
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -30,6 +35,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private provenBlockNumber: number = 0;
   private finalizedBlockNumber: number = 0;
   private checkpointedBlockNumber: number = 0;
+  private currentSlotNumber: SlotNumber = SlotNumber(0);
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -40,6 +46,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       this.l2Blocks.push(block);
     }
 
+    this.currentSlotNumber = SlotNumber(this.l2Blocks[this.l2Blocks.length - 1].header.globalVariables.slotNumber);
     this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
@@ -66,6 +73,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public setCheckpointedBlockNumber(checkpointedBlockNumber: number) {
     this.checkpointedBlockNumber = checkpointedBlockNumber;
+  }
+
+  public setCurrentSlotNumber(slot: SlotNumber) {
+    this.currentSlotNumber = slot;
   }
 
   /**
@@ -396,11 +407,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getL2EpochNumber(): Promise<EpochNumber> {
-    throw new Error('Method not implemented.');
+    const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
+    return Promise.resolve(getEpochAtSlot(this.currentSlotNumber, { epochDuration }));
   }
 
   getL2SlotNumber(): Promise<SlotNumber> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(this.currentSlotNumber);
   }
 
   isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
