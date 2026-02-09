@@ -417,7 +417,7 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  utilityDebugLog(
+  async utilityDebugLog(
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -426,8 +426,8 @@ export class Oracle {
     const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
-    return Promise.resolve([]);
+    await this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
+    return [];
   }
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you

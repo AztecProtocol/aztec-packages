@@ -3,7 +3,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -47,7 +47,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isMisc = true as const;
   isUtility = true as const;
 
-  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
+  private contractLogger: Logger | undefined;
 
   constructor(
     protected readonly contractAddress: AztecAddress,
@@ -354,12 +354,28 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return values;
   }
 
-  public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+  /**
+   * Returns a per-contract logger whose output is prefixed with `contract_log::<name>(<addrAbbrev>)`.
+   */
+  async #getContractLogger(): Promise<Logger> {
+    if (!this.contractLogger) {
+      const addrAbbrev = this.contractAddress.toString().slice(0, 10);
+      const name = await this.contractStore.getDebugContractName(this.contractAddress);
+      const module = name ? `contract_log::${name}(${addrAbbrev})` : `contract_log::${addrAbbrev}`;
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.contractLogger = createLogger(module, { instanceId: this.jobId });
+    }
+    return this.contractLogger;
+  }
+
+  public async utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid debug log level: ${level}`);
     }
     const levelName = LogLevels[level];
-    this.aztecNrDebugLog[levelName](`${applyStringFormatting(message, fields)}`);
+    const logger = await this.#getContractLogger();
+    logger[levelName](`${applyStringFormatting(message, fields)}`);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
