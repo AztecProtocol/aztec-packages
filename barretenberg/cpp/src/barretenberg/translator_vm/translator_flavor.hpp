@@ -62,9 +62,6 @@ class TranslatorFlavor {
     // 12 of 13 precomputed selectors are structured multilinear polynomials whose evaluations at the
     // sumcheck challenge can be computed in O(d) field ops (all except ordered_extra_range_constraints_numerator).
     static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 12;
-    // Offset in AllEntities::get_all() where computable precomputed begin
-    // = MaskingEntities(1) + ordered_extra(1) = 2
-    static constexpr size_t COMPUTABLE_PRECOMPUTED_OFFSET = NUM_MASKING_POLYNOMIALS + 1;
 
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
@@ -147,6 +144,12 @@ class TranslatorFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 92;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1; // only the opcode wire
     static constexpr size_t NUM_SHIFTED_ENTITIES = 86;
+
+    // 77 unshifted + 77 shifted minicircuit wire evaluations are sent mid-sumcheck (after round
+    // LOG_MINI_CIRCUIT_SIZE-1)
+    static constexpr size_t NUM_MINICIRCUIT_WIRES = 77; // NonRangeMain(13) + RangeConstraint(64)
+    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = 2 * NUM_MINICIRCUIT_WIRES;                           // 154
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NUM_SENT_EVALUATIONS - NUM_MINICIRCUIT_EVALUATIONS; // 26
 
     // Total number of minicircuit wires across all concatenation groups (5 groups × 16 wires each)
     static constexpr size_t NUM_CONCATENATED_WIRES = NUM_CONCATENATED_POLYS * CONCATENATION_GROUP_SIZE;
@@ -614,14 +617,22 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief Represents polynomials shifted by 1 or their evaluations, defined relative to WireToBeShiftedEntities.
+     * @brief Op queue shifted entities (mirrors OpQueueWiresToBeShiftedEntities)
      */
-    template <typename DataType> class ShiftedEntities {
+    template <typename DataType> class OpQueueShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi_shift,                                    // column 0
-                              x_hi_z_1_shift,                                     // column 1
-                              y_lo_z_2_shift,                                     // column 2
+                              x_lo_y_hi_shift, // column 0
+                              x_hi_z_1_shift,  // column 1
+                              y_lo_z_2_shift)  // column 2
+    };
+
+    /**
+     * @brief Non-op-queue minicircuit wire shifted entities (mirrors NonOpQueueWiresToBeShiftedEntities)
+     */
+    template <typename DataType> class NonOpQueueShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
                               p_x_low_limbs_shift,                                // column 3
                               p_x_high_limbs_shift,                               // column 10
                               p_y_low_limbs_shift,                                // column 17
@@ -698,13 +709,34 @@ class TranslatorFlavor {
                               relation_wide_limbs_range_constraint_0_shift,       // column 76
                               relation_wide_limbs_range_constraint_1_shift,       // column 77
                               relation_wide_limbs_range_constraint_2_shift,       // column 78
-                              relation_wide_limbs_range_constraint_3_shift,       // column 79
-                              ordered_range_constraints_0_shift,                  // column 80
-                              ordered_range_constraints_1_shift,                  // column 81
-                              ordered_range_constraints_2_shift,                  // column 82
-                              ordered_range_constraints_3_shift,                  // column 83
-                              ordered_range_constraints_4_shift,                  // column 84
-                              z_perm_shift)                                       // column 85
+                              relation_wide_limbs_range_constraint_3_shift)       // column 79
+    };
+
+    /**
+     * @brief Ordered range constraint + z_perm shifted entities
+     */
+    template <typename DataType> class DerivedShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              ordered_range_constraints_0_shift, // column 80
+                              ordered_range_constraints_1_shift, // column 81
+                              ordered_range_constraints_2_shift, // column 82
+                              ordered_range_constraints_3_shift, // column 83
+                              ordered_range_constraints_4_shift, // column 84
+                              z_perm_shift)                      // column 85
+    };
+
+    /**
+     * @brief Represents polynomials shifted by 1 or their evaluations, defined relative to WireToBeShiftedEntities.
+     */
+    template <typename DataType>
+    class ShiftedEntities : public OpQueueShiftedEntities<DataType>,
+                            public NonOpQueueShiftedEntities<DataType>,
+                            public DerivedShiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(OpQueueShiftedEntities<DataType>,
+                                NonOpQueueShiftedEntities<DataType>,
+                                DerivedShiftedEntities<DataType>)
 
         /**
          * @brief PCS-level shifted evaluations matching get_to_be_shifted():
@@ -712,15 +744,8 @@ class TranslatorFlavor {
          */
         auto get_pcs_shifted()
         {
-            return RefArray{ x_lo_y_hi_shift,
-                             x_hi_z_1_shift,
-                             y_lo_z_2_shift,
-                             ordered_range_constraints_0_shift,
-                             ordered_range_constraints_1_shift,
-                             ordered_range_constraints_2_shift,
-                             ordered_range_constraints_3_shift,
-                             ordered_range_constraints_4_shift,
-                             z_perm_shift };
+            return concatenate(OpQueueShiftedEntities<DataType>::get_all(),
+                               DerivedShiftedEntities<DataType>::get_all());
         }
 
         /**
@@ -892,6 +917,33 @@ class TranslatorFlavor {
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         auto get_pcs_shifted() { return ShiftedEntities<DataType>::get_pcs_shifted(); };
 
+        /**
+         * @brief The 26 full-circuit entities: everything except computable precomputed and minicircuit wires/shifts.
+         * @details Masking(1) + ordered_extra(1) + op(1) + OpQueueTBS(3) + OrderedRange(5) + z_perm(1)
+         *          + Concatenated(5) + pcs_shifted(9) = 26
+         */
+        auto get_full_circuit_entities()
+        {
+            return concatenate(MaskingEntities<DataType>::get_all(),
+                               RefArray<DataType, 1>{ this->ordered_extra_range_constraints_numerator },
+                               WireNonshiftedEntities<DataType>::get_all(),
+                               OpQueueWiresToBeShiftedEntities<DataType>::get_all(),
+                               OrderedRangeConstraints<DataType>::get_all(),
+                               DerivedWitnessEntities<DataType>::get_all(),
+                               ConcatenatedPolynomials<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_pcs_shifted());
+        }
+
+        /**
+         * @brief The 77 minicircuit wires (unshifted): NonRangeMain(13) + RangeConstraint(64).
+         */
+        auto get_minicircuit_wires() { return NonOpQueueWiresToBeShiftedEntities<DataType>::get_all(); }
+
+        /**
+         * @brief The 77 minicircuit wire shifts: corresponds 1:1 with get_minicircuit_wires().
+         */
+        auto get_minicircuit_wires_shifted() { return NonOpQueueShiftedEntities<DataType>::get_all(); }
+
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
             os << "{ ";
@@ -927,40 +979,108 @@ class TranslatorFlavor {
     }
 
     /**
-     * @brief Extract non-computable evaluations from AllEntities (for prover send).
-     * @details Skips the 12 computable precomputed entries at COMPUTABLE_PRECOMPUTED_OFFSET.
+     * @brief Prover: read the 154 minicircuit wire evaluations from partially-evaluated polynomials.
+     * @details After LOG_MINI_CIRCUIT_SIZE rounds, each polynomial has been folded to a single value at index [0].
+     * We extract the 77 unshifted + 77 shifted minicircuit wire evaluations.
      */
-    template <typename FFType>
-    static std::array<FFType, NUM_SENT_EVALUATIONS> get_all_without_computable_precomputed(
-        const AllEntities<FFType>& evals)
+    template <typename PolyContainer>
+    static std::array<FF, NUM_MINICIRCUIT_EVALUATIONS> get_minicircuit_evaluations(PolyContainer& polys)
     {
-        auto all = evals.get_all();
-        std::array<FFType, NUM_SENT_EVALUATIONS> result;
+        std::array<FF, NUM_MINICIRCUIT_EVALUATIONS> result;
         size_t dst = 0;
-        for (size_t i = 0; i < COMPUTABLE_PRECOMPUTED_OFFSET; i++) {
-            result[dst++] = all[i];
+        for (auto& wire : polys.get_minicircuit_wires()) {
+            result[dst++] = wire[0];
         }
-        for (size_t i = COMPUTABLE_PRECOMPUTED_OFFSET + NUM_COMPUTABLE_PRECOMPUTED; i < NUM_ALL_ENTITIES; i++) {
-            result[dst++] = all[i];
+        for (auto& wire : polys.get_minicircuit_wires_shifted()) {
+            result[dst++] = wire[0];
         }
         return result;
     }
 
     /**
-     * @brief Write non-computable evaluations back into AllEntities (for verifier receive).
-     * @details Fills all positions except the 12 computable precomputed entries.
+     * @brief Verifier: place the 154 raw mid-sumcheck minicircuit wire evaluations into AllEntities.
+     * @details These are evaluations after LOG_MINI_CIRCUIT_SIZE rounds of partial evaluation (before the
+     * top-4 rounds). They must be scaled by L_0(u_top) before the relation check — see complete_claimed_evaluations.
      */
     template <typename FFType>
-    static void set_all_without_computable_precomputed(AllEntities<FFType>& evals,
-                                                       const std::array<FFType, NUM_SENT_EVALUATIONS>& sent)
+    static void set_minicircuit_evaluations(AllEntities<FFType>& evals,
+                                            const std::array<FFType, NUM_MINICIRCUIT_EVALUATIONS>& mid)
     {
-        auto all = evals.get_all();
         size_t src = 0;
-        for (size_t i = 0; i < COMPUTABLE_PRECOMPUTED_OFFSET; i++) {
-            all[i] = sent[src++];
+        for (auto& wire : evals.get_minicircuit_wires()) {
+            wire = mid[src++];
         }
-        for (size_t i = COMPUTABLE_PRECOMPUTED_OFFSET + NUM_COMPUTABLE_PRECOMPUTED; i < NUM_ALL_ENTITIES; i++) {
-            all[i] = sent[src++];
+        for (auto& wire : evals.get_minicircuit_wires_shifted()) {
+            wire = mid[src++];
+        }
+    }
+
+    /**
+     * @brief Verifier: complete the claimed evaluations for the sumcheck relation check.
+     * @details After set_full_circuit_evaluations and set_minicircuit_evaluations have placed raw values,
+     * this method:
+     *   1. Computes the 12 structured precomputed selector evaluations from the challenge.
+     *   2. Multiplies the 154 minicircuit wire entries by L_0(u_top) = Π(1 - u_i) for the top 4
+     *      challenges, converting mid-sumcheck values to full evaluations at the sumcheck point.
+     */
+    template <typename FFType>
+    static void complete_claimed_evaluations(AllEntities<FFType>& evals, std::span<const FFType> challenge)
+    {
+        // 1. Compute the 12 computable precomputed selector evaluations
+        compute_computable_precomputed(evals, challenge);
+
+        // 2. Scale minicircuit wire evaluations by L_0(u_top) = Π_{i=0}^{3} (1 - u_{LOG_MINI + i})
+        FFType l0 = FFType(1);
+        for (size_t i = 0; i < CONST_TRANSLATOR_LOG_N - LOG_MINI_CIRCUIT_SIZE; i++) {
+            l0 *= (FFType(1) - challenge[LOG_MINI_CIRCUIT_SIZE + i]);
+        }
+        for (auto& wire : evals.get_minicircuit_wires()) {
+            wire *= l0;
+        }
+        for (auto& wire : evals.get_minicircuit_wires_shifted()) {
+            wire *= l0;
+        }
+    }
+
+    /**
+     * @brief Verifier: complete full-circuit evaluations from received array and challenge.
+     * @details Assumes minicircuit wire evaluations have already been placed into evals
+     * via set_minicircuit_evaluations. This method sets the full-circuit evaluations and then completes
+     * all evaluations (computable precomputed selectors + L_0 scaling of minicircuit wires).
+     */
+    template <typename FFType>
+    static void complete_full_circuit_evaluations(AllEntities<FFType>& evals,
+                                                  const std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS>& full_circuit,
+                                                  std::span<const FFType> challenge)
+    {
+        set_full_circuit_evaluations(evals, full_circuit);
+        complete_claimed_evaluations(evals, challenge);
+    }
+
+    /**
+     * @brief Prover: extract the 26 full-circuit evaluations via get_full_circuit_entities().
+     */
+    template <typename FFType>
+    static std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS> get_full_circuit_evaluations(AllEntities<FFType>& evals)
+    {
+        std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS> result;
+        size_t dst = 0;
+        for (auto& entity : evals.get_full_circuit_entities()) {
+            result[dst++] = entity;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Verifier: write the 26 full-circuit evaluations back via get_full_circuit_entities().
+     */
+    template <typename FFType>
+    static void set_full_circuit_evaluations(AllEntities<FFType>& evals,
+                                             const std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS>& full_circuit)
+    {
+        size_t src = 0;
+        for (auto& entity : evals.get_full_circuit_entities()) {
+            entity = full_circuit[src++];
         }
     }
 

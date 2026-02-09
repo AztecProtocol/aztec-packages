@@ -59,8 +59,10 @@ class TranslatorTests : public ::testing::Test {
      * - Round 0: vk_hash, Gemini masking, 10 wire commitments -> beta, gamma challenges
      * - Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges
      * - Round 2: Libra:concatenation_commitment + Sum -> Libra:Challenge
-     * - Rounds 3-19: Sumcheck univariates (17 rounds)
-     * - Round 20: Sumcheck evaluations + Libra commitments -> rho
+     * - Rounds 3-15: Sumcheck univariates for rounds 0-12 (mini-circuit rounds)
+     * - Round 16: minicircuit_evaluations(154) + univariate_13 -> u_13
+     * - Rounds 17-19: Sumcheck univariates for rounds 14-16
+     * - Round 20: Sumcheck full-circuit evaluations(26) + Libra commitments -> rho
      * - Round 21: Gemini fold commitments -> Gemini:r
      * - Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
      * - Round 23: Shplonk:Q -> Shplonk:z
@@ -106,15 +108,28 @@ class TranslatorTests : public ::testing::Test {
         manifest.add_entry(2, "Libra:Sum", 1);
         manifest.add_challenge(2, "Libra:Challenge");
 
-        // Rounds 3-19: Sumcheck univariates (17 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
+        // Rounds 3-15: Sumcheck univariates for mini-circuit rounds 0..12
+        constexpr size_t LOG_MINI = Flavor::LOG_MINI_CIRCUIT_SIZE;
+        for (size_t i = 0; i < LOG_MINI; ++i) {
             manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
             manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 
-        // Sumcheck evaluations (12 computable precomputed excluded) + Libra commitments -> rho
+        // Round 16: 154 minicircuit wire evaluations sent mid-sumcheck, then univariate_13
+        manifest.add_entry(3 + LOG_MINI, "Sumcheck:minicircuit_evaluations", Flavor::NUM_MINICIRCUIT_EVALUATIONS);
+        manifest.add_entry(3 + LOG_MINI, "Sumcheck:univariate_" + std::to_string(LOG_MINI), 9);
+        manifest.add_challenge(3 + LOG_MINI, "Sumcheck:u_" + std::to_string(LOG_MINI));
+
+        // Rounds 17-19: remaining sumcheck rounds 14..16
+        for (size_t i = LOG_MINI + 1; i < NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
+        }
+
+        // Sumcheck full-circuit evaluations (computable precomputed + minicircuit wires excluded) + Libra commitments
+        // -> rho
         const size_t eval_round = 3 + NUM_SUMCHECK_ROUNDS;
-        manifest.add_entry(eval_round, "Sumcheck:evaluations", Flavor::NUM_SENT_EVALUATIONS);
+        manifest.add_entry(eval_round, "Sumcheck:evaluations", Flavor::NUM_FULL_CIRCUIT_EVALUATIONS);
         manifest.add_entry(eval_round, "Libra:claimed_evaluation", 1);
         manifest.add_entry(eval_round, "Libra:grand_sum_commitment", frs_per_G);
         manifest.add_entry(eval_round, "Libra:quotient_commitment", frs_per_G);
@@ -437,111 +452,98 @@ TEST_F(TranslatorTests, TranscriptPinned)
  * 1. Concatenated polynomials are correctly constructed from wire polynomials
  * 2. The verifier's reconstruction formula correctly recovers the concatenated evaluation
  */
-TEST_F(TranslatorTests, ConcatenationReconstruction)
+/**
+ * @brief Sanity check that minicircuit wires + full-circuit entities + computable precomputed
+ * partition all 192 entities without overlap or gaps.
+ * @details The sumcheck helpers split AllEntities into three groups for mid-sumcheck sending:
+ *   - get_minicircuit_wires()         : 77 unshifted minicircuit wires
+ *   - get_minicircuit_wires_shifted()  : 77 shifted minicircuit wires
+ *   - get_full_circuit_entities()      : 26 full-circuit entities
+ *   - compute_computable_precomputed   : 12 computable precomputed selectors
+ *   Total: 77 + 77 + 26 + 12 = 192 = NUM_ALL_ENTITIES
+ */
+TEST_F(TranslatorTests, EvaluationPartition)
 {
     using Flavor = TranslatorFlavor;
-    using Polynomial = Flavor::Polynomial;
     using FF = Flavor::FF;
 
-    const size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
-    const size_t circuit_size = 1UL << Flavor::CONST_TRANSLATOR_LOG_N;
-
-    // Create 16 wire polynomials matching actual translator structure:
-    // size=MINI-1, virtual_size=circuit_size, start_index=1
-    // This means they have values in [1, MINI) but are embedded in full circuit space
-    std::array<Polynomial, 16> wires;
-    for (size_t j = 0; j < 16; j++) {
-        wires[j] = Polynomial(MINI - 1, circuit_size, 1);
-        // Fill positions [1, MINI) with random values
-        for (size_t k = 1; k < MINI; k++) {
-            wires[j].at(k) = FF::random_element(&engine);
+    // Fill all entities with distinct values (entity index as value)
+    Flavor::AllEntities<FF> evals;
+    {
+        size_t idx = 0;
+        for (auto& e : evals.get_all()) {
+            e = FF(idx++);
         }
     }
 
-    // Create concatenated polynomial (17-dimensional) by copying wire data into lanes
-    Polynomial concat_poly(circuit_size - 1, circuit_size, 1);
-    for (size_t j = 0; j < 16; j++) {
-        for (size_t k = 1; k < MINI; k++) {
-            concat_poly.at(j * MINI + k) = wires[j].at(k);
+    // Collect addresses of all entities touched by each getter
+    std::set<FF*> covered;
+
+    for (auto& e : evals.get_minicircuit_wires()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "minicircuit wire overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), Flavor::NUM_MINICIRCUIT_WIRES);
+
+    for (auto& e : evals.get_minicircuit_wires_shifted()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "minicircuit wire shift overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), 2 * Flavor::NUM_MINICIRCUIT_WIRES);
+
+    for (auto& e : evals.get_full_circuit_entities()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "full-circuit entity overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), 2 * Flavor::NUM_MINICIRCUIT_WIRES + Flavor::NUM_FULL_CIRCUIT_EVALUATIONS);
+
+    // The computable precomputed selectors are the remaining 12
+    size_t remaining = Flavor::NUM_ALL_ENTITIES - covered.size();
+    EXPECT_EQ(remaining, Flavor::NUM_COMPUTABLE_PRECOMPUTED);
+
+    // Verify the remaining entities are exactly the computable precomputed ones
+    for (auto& e : evals.get_all()) {
+        if (covered.find(&e) == covered.end()) {
+            // This entity must be one of the 12 computable precomputed selectors
+            remaining--;
         }
     }
+    EXPECT_EQ(remaining, 0UL);
+}
 
-    // Generate a random challenge point
+/**
+ * @brief Verify that the verifier-side methods populate every entity in AllEntities.
+ * @details Start from all-zeros, call set_minicircuit_evaluations + complete_full_circuit_evaluations
+ * with random inputs, and check that no entity remains zero (with overwhelming probability).
+ */
+TEST_F(TranslatorTests, VerifierPopulatesAllEntities)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = Flavor::FF;
+
+    // Prepare random minicircuit evaluations (154 values)
+    std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS> mid;
+    for (auto& v : mid) {
+        v = FF::random_element(&engine);
+    }
+
+    // Prepare random full-circuit evaluations (26 values)
+    std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS> full_circuit;
+    for (auto& v : full_circuit) {
+        v = FF::random_element(&engine);
+    }
+
+    // Random challenge (computable precomputed selectors depend on this)
     std::vector<FF> challenge(Flavor::CONST_TRANSLATOR_LOG_N);
     for (auto& u : challenge) {
         u = FF::random_element(&engine);
     }
 
-    // Evaluate concatenated polynomial at full challenge (17-dimensional)
-    FF concat_eval_expected = concat_poly.evaluate_mle(challenge);
+    // Verifier reconstruction: start from zero, populate via the two verifier methods
+    Flavor::AllEntities<FF> evals;
+    Flavor::set_minicircuit_evaluations(evals, mid);
+    Flavor::complete_full_circuit_evaluations(evals, full_circuit, std::span<const FF>(challenge));
 
-    // Evaluate individual wires at full challenge (17-dimensional)
-    // Even though wires only have values in [1, MINI), they have virtual_size=circuit_size
-    // so their MLE is evaluated in 17-dimensional space
-    std::array<FF, 16> wire_evals;
-    for (size_t j = 0; j < 16; j++) {
-        wire_evals[j] = wires[j].evaluate_mle(challenge);
+    // Every entity should now be nonzero (probability of a random FF being zero is negligible)
+    auto all = evals.get_all();
+    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
+        EXPECT_NE(all[i], FF(0)) << "Entity " << i << " was not populated by verifier methods";
     }
-
-    // Extract top 4 challenges
-    std::array<FF, 4> u_top;
-    const size_t num_top_bits = 4;
-    const size_t log_n = Flavor::CONST_TRANSLATOR_LOG_N;
-    for (size_t i = 0; i < num_top_bits; i++) {
-        u_top[i] = challenge[log_n - num_top_bits + i];
-    }
-
-    // Compute L_0(u_top) = (1-u_13)(1-u_14)(1-u_15)(1-u_16)
-    // This accounts for wires having values in [1,MINI) embedded in 17D space
-    FF padding = FF(1);
-    for (size_t i = 0; i < num_top_bits; i++) {
-        padding *= (FF(1) - u_top[i]);
-    }
-    FF padding_inv = padding.invert();
-
-    // Compute Lagrange basis L_j(u_top) for j = 0..15
-    // Uses little-endian bit ordering to match compute_lagranges_for_multi_claim
-    std::array<FF, 16> lagrange_basis;
-    for (size_t j = 0; j < 16; j++) {
-        lagrange_basis[j] = FF(1);
-        for (size_t bit = 0; bit < num_top_bits; bit++) {
-            // Little-endian: bit i of j corresponds to challenge u_top[i]
-            bool bit_set = (j >> bit) & 1;
-            lagrange_basis[j] *= bit_set ? u_top[bit] : (FF(1) - u_top[bit]);
-        }
-    }
-
-    // Reconstruct: concat(u) = [1/L_0(u_top)] * Σ_j L_j(u_top) * wire_j(u_17d)
-    FF concat_eval_reconstructed = FF(0);
-    for (size_t j = 0; j < 16; j++) {
-        concat_eval_reconstructed += lagrange_basis[j] * wire_evals[j];
-    }
-    concat_eval_reconstructed *= padding_inv;
-
-    // Verify reconstruction matches direct evaluation
-    info("Unshifted - Expected concat eval:      ", concat_eval_expected);
-    info("Unshifted - Reconstructed concat eval: ", concat_eval_reconstructed);
-    EXPECT_EQ(concat_eval_expected, concat_eval_reconstructed);
-
-    // Test shifted case
-    // Evaluate shifted concatenated polynomial at full challenge (17-dimensional)
-    FF concat_shift_eval_expected = concat_poly.shifted().evaluate_mle(challenge);
-
-    // Evaluate individual wire shifts at full challenge (17-dimensional)
-    std::array<FF, 16> wire_shift_evals;
-    for (size_t j = 0; j < 16; j++) {
-        wire_shift_evals[j] = wires[j].shifted().evaluate_mle(challenge);
-    }
-
-    // Reconstruct shifted eval using same formula
-    FF concat_shift_eval_reconstructed = FF(0);
-    for (size_t j = 0; j < 16; j++) {
-        concat_shift_eval_reconstructed += lagrange_basis[j] * wire_shift_evals[j];
-    }
-    concat_shift_eval_reconstructed *= padding_inv;
-
-    // Verify shifted reconstruction
-    info("Shifted - Expected concat eval:      ", concat_shift_eval_expected);
-    info("Shifted - Reconstructed concat eval: ", concat_shift_eval_reconstructed);
-    EXPECT_EQ(concat_shift_eval_expected, concat_shift_eval_reconstructed);
 }

@@ -21,12 +21,21 @@
  *   DeltaRangeFailsOnFirstSortedValueTooLarge         — position 0->1 transition (virtual zero start)
  *   DeltaRangeFailsOnFifthOrderedPolyCorruption       — 5th ordered poly (different build path)
  *
+ * Accumulator transfer relation (TranslatorAccumulatorTransferRelation) — 6 tests:
+ *   AccumulatorTransferFailsOnOddRowCorruption        — interior odd row (transfer chain)
+ *   AccumulatorTransferFailsOnZeroInitCorruption      — last minicircuit row (zero-init)
+ *   AccumulatorTransferFailsOnResultMismatch          — result row vs expected (subrelations 8-11)
+ *   AccumulatorTransferPassesWithMaskingRegionValues   — masking regions excluded by selectors
+ *   AccumulatorTransferFailsAtFirstTransferRow        — row 9 (left boundary of transfer chain)
+ *   AccumulatorTransferFailsAtLastTransferRow         — row 8185 (right boundary before zero-init)
+ *
  * Pipeline correctness — 1 test:
  *   InRangeValueInMaskingFlowsToOrderedTail           — trace FF(42) from wire masking through
  *                                                       concatenation into ordered poly tail
  */
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include <gtest/gtest.h>
@@ -93,6 +102,61 @@ ValidTranslatorState build_valid_translator_state()
     // Compute grand product
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
     compute_grand_product<Flavor, TranslatorPermutationRelation<FF>>(pp, params);
+
+    return { std::move(key), params };
+}
+
+/**
+ * @brief Construct a valid state from a real TranslatorCircuitBuilder, giving a proper accumulator chain.
+ *
+ * @details Builds an ECCOpQueue with mixed operations, constructs a TranslatorCircuitBuilder and
+ * TranslatorProvingKey from it (which populates all wires including accumulators_binary_limbs_0..3
+ * with real Horner-scheme accumulator values), then reads accumulated_result from the witness.
+ * The resulting state satisfies the AccumulatorTransferRelation with non-trivial values.
+ */
+ValidTranslatorState build_valid_accumulator_transfer_state()
+{
+    using BF = typename Flavor::BF;
+    using GroupElement = typename Flavor::GroupElement;
+
+    auto& engine = numeric::get_debug_randomness();
+
+    auto op_queue = std::make_shared<ECCOpQueue>();
+
+    // Add a no-op, then random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
+    op_queue->no_op_ultra_only();
+    for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_START; i++) {
+        op_queue->random_op_ultra_only();
+    }
+    for (size_t i = 0; i < 50; i++) {
+        op_queue->add_accumulate(GroupElement::random_element(&engine));
+        op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
+    }
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    for (size_t i = 0; i < 50; i++) {
+        op_queue->add_accumulate(GroupElement::random_element(&engine));
+        op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
+    }
+    op_queue->eq_and_reset();
+    for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
+        op_queue->random_op_ultra_only();
+    }
+    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
+    const auto batching_challenge_v = BF::random_element(&engine);
+    const auto evaluation_input_x = BF::random_element(&engine);
+
+    auto circuit_builder = Flavor::CircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
+    TranslatorProvingKey key(circuit_builder);
+
+    // Read accumulated_result from the witness (same as the prover does)
+    auto& pp = key.proving_key->polynomials;
+    RelationParameters<FF> params;
+    params.accumulated_result = { pp.accumulators_binary_limbs_0[Flavor::RESULT_ROW],
+                                  pp.accumulators_binary_limbs_1[Flavor::RESULT_ROW],
+                                  pp.accumulators_binary_limbs_2[Flavor::RESULT_ROW],
+                                  pp.accumulators_binary_limbs_3[Flavor::RESULT_ROW] };
 
     return { std::move(key), params };
 }
@@ -443,6 +507,158 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnExtraNumeratorCorruptio
     auto failures =
         RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
     EXPECT_FALSE(failures.empty()) << "Permutation should fail after extra numerator corruption";
+}
+
+// ======================== Accumulator Transfer Relation ========================
+
+/**
+ * @brief Corrupt an accumulator limb at an interior odd row to break the transfer chain.
+ * Subrelations 0-3 enforce acc[odd] == acc[odd+1] at odd minicircuit rows (except the last).
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferFailsOnOddRowCorruption)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: accumulator transfer passes with real Horner-scheme accumulator values
+    auto baseline = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline accumulator transfer should pass";
+
+    // Corrupt accumulators_binary_limbs_0 at an interior odd row.
+    // Transfer checks acc[101] == acc[102]. Corrupting acc[101] breaks this.
+    pp.accumulators_binary_limbs_0.at(101) = FF::random_element();
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_FALSE(failures.empty()) << "Accumulator transfer should fail after odd row corruption";
+}
+
+/**
+ * @brief Set a non-zero accumulator at the last minicircuit row where zero-init is enforced.
+ * Subrelations 4-7 check acc * lagrange_last_in_minicircuit == 0 at position MINI - NUM_MASKED - 1 (= 8187).
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferFailsOnZeroInitCorruption)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline accumulator transfer should pass";
+
+    // Corrupt: set non-zero accumulator at the last minicircuit row (zero-init position 8187)
+    const size_t last_in_minicircuit = Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END - 1;
+    pp.accumulators_binary_limbs_0.at(last_in_minicircuit) = FF(1);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_FALSE(failures.empty()) << "Accumulator transfer should fail when zero-init position is non-zero";
+}
+
+/**
+ * @brief Mismatch accumulated_result[0] with the actual accumulator value at RESULT_ROW (= 8).
+ * Subrelations 8-11 check (acc - expected) * lagrange_result_row == 0.
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferFailsOnResultMismatch)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline accumulator transfer should pass";
+
+    // Perturb accumulated_result so it no longer matches the witness at RESULT_ROW
+    params.accumulated_result[0] += FF(1);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_FALSE(failures.empty()) << "Accumulator transfer should fail on result mismatch";
+}
+
+/**
+ * @brief Place arbitrary non-zero values in accumulator limbs at masking positions ([2,7] and [8188,8191]).
+ * Verify the relation still passes — masking regions must not leak into the accumulator transfer relation.
+ *
+ * @details This is the key test for the new concatenated layout: lagrange_odd_in_minicircuit is only active
+ * at odd positions in [RESULT_ROW, MINI - NUM_MASKED), lagrange_last_in_minicircuit at 8187, and
+ * lagrange_result_row at 8. None of these cover masking positions [2,7] or [8188,8191].
+ * If any selector were accidentally set at a masking position, non-zero accumulator values there
+ * would cause a failure.
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferPassesWithMaskingRegionValues)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Place non-zero values at start masking positions [RANDOMNESS_START, RESULT_ROW) = [2, 8)
+    for (size_t i = Flavor::RANDOMNESS_START; i < Flavor::RESULT_ROW; i++) {
+        pp.accumulators_binary_limbs_0.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_1.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_2.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_3.at(i) = FF::random_element();
+    }
+
+    // Place non-zero values at end masking positions [MINI - NUM_MASKED, MINI) = [8188, 8192)
+    const size_t end_mask_start = Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END;
+    for (size_t i = end_mask_start; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
+        pp.accumulators_binary_limbs_0.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_1.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_2.at(i) = FF::random_element();
+        pp.accumulators_binary_limbs_3.at(i) = FF::random_element();
+    }
+
+    // Relation should still pass — masking regions are excluded by selectors
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(failures.empty()) << "Accumulator transfer should pass even with arbitrary masking region values";
+}
+
+/**
+ * @brief Corrupt the accumulator at row 9 (first odd row in minicircuit, left boundary of transfer chain).
+ * lagrange_odd_in_minicircuit is first active at RESULT_ROW + 1 = 9.
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferFailsAtFirstTransferRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline accumulator transfer should pass";
+
+    // Row 9 is the first odd row where lagrange_odd_in_minicircuit = 1.
+    // Transfer checks acc[9] == acc[10]. Corrupting acc[9] breaks this.
+    const size_t first_transfer_row = Flavor::RESULT_ROW + 1;
+    pp.accumulators_binary_limbs_0.at(first_transfer_row) = FF::random_element();
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_FALSE(failures.empty()) << "Accumulator transfer should fail at first transfer row";
+}
+
+/**
+ * @brief Corrupt the accumulator at the penultimate odd row (right boundary of the transfer chain,
+ * just before the zero-init row 8187). Row 8185 is the last odd row where the transfer subrelation
+ * is active (lagrange_odd = 1, lagrange_last = 0).
+ */
+TEST_F(TranslatorRelationFailureTests, AccumulatorTransferFailsAtLastTransferRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline accumulator transfer should pass";
+
+    // Row MINI - NUM_MASKED - 3 = 8185 is the last odd row before 8187 where transfer is enforced
+    const size_t last_transfer_row = Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKED_ROWS_END - 3;
+    pp.accumulators_binary_limbs_0.at(last_transfer_row) = FF::random_element();
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        pp, params, "TranslatorAccumulatorTransferRelation");
+    EXPECT_FALSE(failures.empty()) << "Accumulator transfer should fail at last transfer row";
 }
 
 /**

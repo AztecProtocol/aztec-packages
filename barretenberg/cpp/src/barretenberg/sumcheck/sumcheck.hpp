@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
@@ -573,6 +574,15 @@ template <typename Flavor> class SumcheckProver {
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
+
+            // For Translator: send 154 minicircuit wire evaluations mid-sumcheck (after the last mini-circuit round)
+            if constexpr (IsTranslatorFlavor<Flavor>) {
+                if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    transcript->send_to_verifier("Sumcheck:minicircuit_evaluations",
+                                                 Flavor::get_minicircuit_evaluations(partially_evaluated_polynomials));
+                }
+            }
+
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -597,10 +607,11 @@ template <typename Flavor> class SumcheckProver {
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
-        // For Translator: skip sending 12 computable precomputed evaluations (verifier computes them locally)
-        if constexpr (requires { Flavor::NUM_COMPUTABLE_PRECOMPUTED; }) {
-            auto filtered = Flavor::get_all_without_computable_precomputed(multivariate_evaluations);
-            transcript->send_to_verifier("Sumcheck:evaluations", filtered);
+        // For Translator: send only the full-circuit evaluations (computable precomputed and minicircuit wires
+        // excluded)
+        if constexpr (IsTranslatorFlavor<Flavor>) {
+            transcript->send_to_verifier("Sumcheck:evaluations",
+                                         Flavor::get_full_circuit_evaluations(multivariate_evaluations));
         } else {
             transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         }
@@ -800,21 +811,33 @@ template <typename Flavor> class SumcheckVerifier {
         // For other flavors, we perform the sumcheck univariate consistency check
 
         bool verified = true;
+        ClaimedEvaluations purported_evaluations;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             round.process_round(
                 transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
             verified = verified && !round.round_failed;
+
+            // For Translator: receive minicircuit wire evaluations after the last mini-circuit round
+            // and place them directly into purported_evaluations
+            if constexpr (IsTranslatorFlavor<Flavor>) {
+                if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    Flavor::set_minicircuit_evaluations(
+                        purported_evaluations,
+                        transcript->template receive_from_prover<std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS>>(
+                            "Sumcheck:minicircuit_evaluations"));
+                }
+            }
         }
 
         // Populate claimed evaluations at the challenge
-        ClaimedEvaluations purported_evaluations;
-        // For Translator: receive fewer evals (excluding 12 computable precomputed) and compute the rest locally
-        if constexpr (requires { Flavor::NUM_COMPUTABLE_PRECOMPUTED; }) {
-            auto transcript_evals =
-                transcript->template receive_from_prover<std::array<FF, Flavor::NUM_SENT_EVALUATIONS>>(
+        if constexpr (IsTranslatorFlavor<Flavor>) {
+            // Translator path: receive full-circuit evaluations, set them, and complete
+            // (computable precomputed selectors + L_0 scaling of minicircuit wires already placed above)
+            auto get_full_circuit_evaluations =
+                transcript->template receive_from_prover<std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS>>(
                     "Sumcheck:evaluations");
-            Flavor::set_all_without_computable_precomputed(purported_evaluations, transcript_evals);
-            Flavor::compute_computable_precomputed(purported_evaluations, std::span<const FF>(multivariate_challenge));
+            Flavor::complete_full_circuit_evaluations(
+                purported_evaluations, get_full_circuit_evaluations, std::span<const FF>(multivariate_challenge));
         } else {
             auto transcript_evaluations =
                 transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");

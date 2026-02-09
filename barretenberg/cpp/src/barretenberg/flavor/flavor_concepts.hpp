@@ -38,7 +38,8 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
 
