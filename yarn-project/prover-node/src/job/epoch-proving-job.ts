@@ -63,6 +63,9 @@ export class EpochProvingJob implements Traceable {
   /** Resolves when the epoch is complete and we know all checkpoints. */
   private epochCompleteResolver = promiseWithResolvers<{ attestations: CommitteeAttestation[] }>();
 
+  /** Resolves to unblock the submission gate on stop/timeout. */
+  private stopResolver = promiseWithResolvers<void>();
+
   /** Tracks the next expected checkpoint index. */
   private nextCheckpointIndex = 0;
   /** Checkpoint numbers already added, for dedup. */
@@ -79,6 +82,7 @@ export class EpochProvingJob implements Traceable {
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
+    private submissionGate?: Promise<void>,
     bindings?: LoggerBindings,
   ) {
     this.uuid = crypto.randomUUID();
@@ -234,6 +238,13 @@ export class EpochProvingJob implements Traceable {
       const { publicInputs, proof, batchedBlobInputs } = await this.prover.finalizeEpoch();
       this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
+      if (this.submissionGate) {
+        this.progressState('awaiting-submission');
+        this.log.verbose(`Awaiting submission gate for epoch ${epochNumber}`, { uuid: this.uuid });
+        await Promise.race([this.submissionGate, this.stopResolver.promise]);
+        this.checkState();
+      }
+
       this.progressState('publishing-proof');
 
       const viemAttestations = attestations.map(a => a.toViem());
@@ -276,7 +287,12 @@ export class EpochProvingJob implements Traceable {
         return;
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
-      if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
+      if (
+        this.state === 'processing' ||
+        this.state === 'awaiting-prover' ||
+        this.state === 'awaiting-submission' ||
+        this.state === 'publishing-proof'
+      ) {
         this.state = 'failed';
       }
     } finally {
@@ -411,6 +427,8 @@ export class EpochProvingJob implements Traceable {
   public async stop(state: EpochProvingJobTerminalState = 'stopped') {
     this.state = state;
     this.prover.cancel();
+    // Resolve the stop resolver to unblock the submission gate if waiting.
+    this.stopResolver.resolve();
     // Resolve the epoch complete promise to unblock run() if waiting.
     this.epochCompleteResolver.resolve({ attestations: [] });
     if (this.runPromise) {

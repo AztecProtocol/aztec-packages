@@ -88,6 +88,10 @@ describe('prover-node', () => {
     txProvider = mock<TxProvider>();
 
     rollupContract = mock<RollupContract>();
+    rollupContract.getTips.mockResolvedValue({
+      pending: CheckpointNumber(0),
+      proven: CheckpointNumber(0),
+    });
     publisherFactory = mock<ProverPublisherFactory>();
     publisherFactory.create.mockResolvedValue(publisher);
 
@@ -525,6 +529,305 @@ describe('prover-node', () => {
     });
   });
 
+  describe('submission gate ordering', () => {
+    // Checkpoints with controlled slot numbers for gate tests.
+    const EPOCH_DURATION = 100;
+    let publishedCheckpoints: PublishedCheckpoint[];
+
+    beforeEach(async () => {
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: EPOCH_DURATION,
+      });
+
+      const startBlockNumber = 20;
+      checkpoints = await Promise.all(
+        [0, 1, 2].map(i =>
+          Checkpoint.random(CheckpointNumber(i + 1), {
+            numBlocks: 1,
+            startBlockNumber: startBlockNumber + i,
+            slotNumber: SlotNumber(EPOCH_DURATION + i),
+          }),
+        ),
+      );
+      previousBlockHeader = BlockHeader.random({ blockNumber: BlockNumber(startBlockNumber - 1) });
+
+      publishedCheckpoints = checkpoints.map(
+        cp => new PublishedCheckpoint(cp, L1PublishedData.random(), [CommitteeAttestation.random()]),
+      );
+
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      // Return a header for any requested block number so custom checkpoints work.
+      l2BlockSource.getBlockHeader.mockImplementation(number =>
+        Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(number as number) })),
+      );
+
+      proverNode = createProverNode();
+    });
+
+    it('resolves gate when L1 proven tip allows', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      // proven=0 on L1. Epoch 1 has fromCheckpoint=1 → 1-1=0 <= 0 → gate resolves.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(0),
+      });
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[0],
+        block: blockId,
+      });
+
+      // Gate should be resolved and removed from the map.
+      expect(proverNode.getSubmissionGates().has(1)).toBe(false);
+
+      resolveRun();
+    });
+
+    it('does not resolve gate when L1 proven tip is behind', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      // proven=0 on L1. We need a checkpoint with fromCheckpoint=3 → 3-1=2 > 0 → gate not resolved.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(0),
+      });
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      // Create a checkpoint with number 3 for epoch 1.
+      const cp3 = await Checkpoint.random(CheckpointNumber(3), {
+        numBlocks: 1,
+        startBlockNumber: 30,
+        slotNumber: SlotNumber(EPOCH_DURATION),
+      });
+      const pub3 = new PublishedCheckpoint(cp3, L1PublishedData.random(), [CommitteeAttestation.random()]);
+
+      const lastBlock = cp3.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: pub3,
+        block: blockId,
+      });
+
+      // Gate should still be in the map (not resolved).
+      const epoch1 = EpochNumber(1);
+      expect(proverNode.getSubmissionGates().has(epoch1)).toBe(true);
+
+      resolveRun();
+    });
+
+    it('resolves gate on chain-proven event', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      // Initially proven=0. Create two epochs worth of checkpoints.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(0),
+      });
+
+      // Epoch 1: checkpoint 1 (fromCheckpoint=1, 1-1=0 <= 0 → resolves immediately).
+      const lastBlock1 = checkpoints[0].blocks.at(-1)!;
+      const blockId1 = { number: lastBlock1.number, hash: (await lastBlock1.hash()).toString() };
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: publishedCheckpoints[0],
+        block: blockId1,
+      });
+
+      const epoch1 = EpochNumber(1);
+      expect(proverNode.getSubmissionGates().has(epoch1)).toBe(false); // Resolved.
+
+      // Epoch 2: checkpoint 4 with slot in epoch 2. fromCheckpoint=4, 4-1=3 > 0 → not resolved.
+      const { promise: runPromise2, resolve: resolveRun2 } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise2;
+      proverNode.nextJobState = 'processing';
+
+      const cp4 = await Checkpoint.random(CheckpointNumber(4), {
+        numBlocks: 1,
+        startBlockNumber: 40,
+        slotNumber: SlotNumber(EPOCH_DURATION * 2),
+      });
+      const pub4 = new PublishedCheckpoint(cp4, L1PublishedData.random(), [CommitteeAttestation.random()]);
+      const lastBlock2 = cp4.blocks.at(-1)!;
+      const blockId2 = { number: lastBlock2.number, hash: (await lastBlock2.hash()).toString() };
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: pub4,
+        block: blockId2,
+      });
+
+      const epoch2 = EpochNumber(2);
+      expect(proverNode.getSubmissionGates().has(epoch2)).toBe(true); // Not resolved.
+
+      // Now proven advances to 3 (epoch 1 fully proven). Fire chain-proven.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(3),
+      });
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-proven',
+        block: { number: BlockNumber(22), hash: '0xabc' },
+      });
+
+      // Epoch 2 gate should now be resolved (4-1=3 <= 3).
+      expect(proverNode.getSubmissionGates().has(epoch2)).toBe(false);
+
+      resolveRun();
+      resolveRun2();
+    });
+
+    it('does not resolve gate on partial epoch proven', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      // Epoch 1 has checkpoints [1,2,3]. All slots in epoch 1.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(0),
+      });
+
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      // Push all 3 checkpoints for epoch 1.
+      for (const pub of publishedCheckpoints) {
+        await proverNode.handleBlockStreamEvent({
+          type: 'chain-checkpointed',
+          checkpoint: pub,
+          block: blockId,
+        });
+      }
+
+      const epoch1 = EpochNumber(1);
+      expect(proverNode.getSubmissionGates().has(epoch1)).toBe(false); // fromCheckpoint=1, 1-1=0 <= 0.
+
+      // Epoch 2 starts at checkpoint 4, slot in epoch 2.
+      const { promise: runPromise2, resolve: resolveRun2 } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise2;
+      proverNode.nextJobState = 'processing';
+
+      const cp4 = await Checkpoint.random(CheckpointNumber(4), {
+        numBlocks: 1,
+        startBlockNumber: 40,
+        slotNumber: SlotNumber(EPOCH_DURATION * 2),
+      });
+      const pub4 = new PublishedCheckpoint(cp4, L1PublishedData.random(), [CommitteeAttestation.random()]);
+      const lastBlock2 = cp4.blocks.at(-1)!;
+      const blockId2 = { number: lastBlock2.number, hash: (await lastBlock2.hash()).toString() };
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: pub4,
+        block: blockId2,
+      });
+
+      const epoch2 = EpochNumber(2);
+      expect(proverNode.getSubmissionGates().has(epoch2)).toBe(true); // 4-1=3 > 0.
+
+      // Partial proven: only checkpoints 1-2 proven → proven=2.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(2),
+      });
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-proven',
+        block: { number: BlockNumber(21), hash: '0xpartial' },
+      });
+
+      // Epoch 2 should NOT resolve (4-1=3 > 2).
+      expect(proverNode.getSubmissionGates().has(epoch2)).toBe(true);
+
+      // Full epoch 1 proven: proven=3.
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(3),
+      });
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-proven',
+        block: { number: BlockNumber(22), hash: '0xfull' },
+      });
+
+      // Now epoch 2 resolves (4-1=3 <= 3).
+      expect(proverNode.getSubmissionGates().has(epoch2)).toBe(false);
+
+      resolveRun();
+      resolveRun2();
+    });
+
+    it('cleans up gates on chain prune', async () => {
+      config.proverNodeOptimisticProcessing = true;
+      proverNode = createProverNode();
+
+      rollupContract.getTips.mockResolvedValue({
+        pending: CheckpointNumber(10),
+        proven: CheckpointNumber(0),
+      });
+
+      // Keep job pending.
+      const { promise: runPromise, resolve: resolveRun } = promiseWithResolvers<void>();
+      proverNode.nextJobRun = () => runPromise;
+      proverNode.nextJobState = 'processing';
+
+      // Create a checkpoint with number 3 so gate won't immediately resolve (3-1=2 > 0).
+      const cp3 = await Checkpoint.random(CheckpointNumber(3), {
+        numBlocks: 1,
+        startBlockNumber: 30,
+        slotNumber: SlotNumber(EPOCH_DURATION),
+      });
+      const pub3 = new PublishedCheckpoint(cp3, L1PublishedData.random(), [CommitteeAttestation.random()]);
+      const lastBlock = cp3.blocks.at(-1)!;
+      const blockId = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
+
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        checkpoint: pub3,
+        block: blockId,
+      });
+
+      const epoch1 = EpochNumber(1);
+      expect(proverNode.getSubmissionGates().has(epoch1)).toBe(true);
+
+      // Chain prune — gate should be removed.
+      await proverNode.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(10), hash: '0xdead' },
+        checkpoint: { number: CheckpointNumber(0), hash: '0xdead' },
+      });
+
+      expect(proverNode.getSubmissionGates().has(epoch1)).toBe(false);
+
+      resolveRun();
+    });
+  });
+
   class TestProverNode extends ProverNode {
     public totalJobCount = 0;
     public nextJobState: EpochProvingJobState = 'completed';
@@ -557,6 +860,12 @@ describe('prover-node', () => {
       // Register in the base class's maps (same as base createJobForEpoch).
       this.jobs.set(job.getId(), job);
       this.activeJobsByEpoch.set(epochNumber, job);
+
+      // Create submission gate (mirrors base class).
+      const gate = promiseWithResolvers<void>();
+      this.submissionGates.set(epochNumber, gate);
+      await this.tryResolveNextSubmission();
+
       jobs.push({ epochNumber, job });
       this.totalJobCount++;
       return job;
@@ -565,6 +874,11 @@ describe('prover-node', () => {
     /** Exposes the size of the internal activeJobsByEpoch map for testing. */
     public getActiveJobCount() {
       return this.activeJobsByEpoch.size;
+    }
+
+    /** Exposes submission gates for testing. */
+    public getSubmissionGates() {
+      return this.submissionGates;
     }
 
     public override triggerBlockStream() {

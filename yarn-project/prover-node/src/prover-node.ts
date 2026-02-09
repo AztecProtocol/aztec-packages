@@ -5,6 +5,7 @@ import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { P2PClient } from '@aztec/p2p';
@@ -66,6 +67,8 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   private pendingCheckpoints: Map<number, { checkpoint: Checkpoint; published: PublishedCheckpoint }[]> = new Map();
   /** Previous block headers per epoch, for linking checkpoints. */
   private previousBlockHeaders: Map<number, BlockHeader> = new Map();
+  /** Submission gates per epoch: resolved when L1 proven tip allows submission. */
+  protected submissionGates: Map<number, PromiseWithResolvers<void>> = new Map();
 
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
@@ -154,6 +157,10 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     await tryStop(this.l2BlockSource);
     await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
+    for (const [, gate] of this.submissionGates) {
+      gate.resolve();
+    }
+    this.submissionGates.clear();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.rewardsMetrics.stop();
@@ -171,6 +178,9 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         break;
       case 'chain-pruned':
         await this.onChainPruned(event);
+        break;
+      case 'chain-proven':
+        await this.tryResolveNextSubmission();
         break;
       case 'epoch-completed':
         await this.onEpochCompleted(event.epochNumber);
@@ -238,6 +248,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     // Stop jobs for epochs affected by the reorg.
     for (const [epoch, job] of this.activeJobsByEpoch) {
       // If any of the job's processed checkpoints have blocks past the pruned block, stop the job.
+      this.submissionGates.delete(epoch);
       await job.stop('reorg');
       this.activeJobsByEpoch.delete(epoch);
       this.completedEpochs.delete(epoch);
@@ -370,10 +381,40 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       this.completedEpochs.delete(epochNumber);
       this.pendingCheckpoints.delete(epochNumber);
       this.previousBlockHeaders.delete(epochNumber);
+      this.submissionGates.delete(epochNumber);
+      void this.tryResolveNextSubmission();
 
       // Retry on reorg: the epoch data may have changed.
       if (job.getState() === 'reorg') {
         void this.startProof(epochNumber);
+      }
+    }
+  }
+
+  /** Resolves submission gates for epochs whose fromCheckpoint can submit given the L1 proven tip. */
+  protected async tryResolveNextSubmission(): Promise<void> {
+    if (this.submissionGates.size === 0) {
+      return;
+    }
+    const { proven } = await this.rollupContract.getTips();
+    const sortedEpochs = [...this.submissionGates.keys()].sort((a, b) => a - b);
+    for (const epoch of sortedEpochs) {
+      const checkpoints = this.pendingCheckpoints.get(epoch);
+      if (!checkpoints || checkpoints.length === 0) {
+        // No checkpoint info yet (legacy/non-optimistic path) — resolve immediately.
+        const gate = this.submissionGates.get(epoch)!;
+        gate.resolve();
+        this.submissionGates.delete(epoch);
+        continue;
+      }
+      const fromCheckpoint = checkpoints[0].checkpoint.number;
+      if (fromCheckpoint - 1 <= proven) {
+        const gate = this.submissionGates.get(epoch)!;
+        this.log.verbose(`Resolving submission gate for epoch ${epoch}`, { proven, fromCheckpoint });
+        gate.resolve();
+        this.submissionGates.delete(epoch);
+      } else {
+        break; // Epochs are sorted; later ones can't submit either.
       }
     }
   }
@@ -442,6 +483,10 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const deadline = new Date(Number(deadlineTs) * 1000);
 
     const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit, proverNodeDisableProofPublish } = this.config;
+
+    const gate = promiseWithResolvers<void>();
+    this.submissionGates.set(epochNumber, gate);
+
     const job = new EpochProvingJob(
       epochNumber,
       this.worldState,
@@ -451,11 +496,13 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       this.jobMetrics,
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish },
+      gate.promise,
       this.log.getBindings(),
     );
 
     this.jobs.set(job.getId(), job);
     this.activeJobsByEpoch.set(epochNumber, job);
+    await this.tryResolveNextSubmission();
     return job;
   }
 

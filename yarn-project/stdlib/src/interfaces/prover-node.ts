@@ -8,6 +8,7 @@ const EpochProvingJobState = [
   'initialized',
   'processing',
   'awaiting-prover',
+  'awaiting-submission',
   'publishing-proof',
   'completed',
   'failed',

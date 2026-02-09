@@ -51,6 +51,7 @@ export async function rerunEpochProvingJob(
     metrics,
     deadline,
     {},
+    undefined, // submissionGate — not needed for reruns.
     log.getBindings(),
   );
 

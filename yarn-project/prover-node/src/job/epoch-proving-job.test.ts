@@ -3,6 +3,8 @@ import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
@@ -51,7 +53,14 @@ describe('epoch-proving-job', () => {
   const proverId = EthAddress.random();
 
   // Subject factory
-  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number; skipSubmitProof?: boolean } = {}) => {
+  const createJob = (
+    opts: {
+      deadline?: Date;
+      parallelBlockLimit?: number;
+      skipSubmitProof?: boolean;
+      submissionGate?: Promise<void>;
+    } = {},
+  ) => {
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
     const l1ToL2Messages: Record<number, never[]> = fromEntries(checkpoints.map(c => [c.number, []]));
 
@@ -64,6 +73,7 @@ describe('epoch-proving-job', () => {
       metrics,
       opts.deadline,
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
+      opts.submissionGate,
     );
 
     // Push checkpoints and mark epoch complete.
@@ -317,6 +327,50 @@ describe('epoch-proving-job', () => {
 
     expect(job.getState()).toEqual('completed');
     expect(prover.finalizeEpoch).toHaveBeenCalled();
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
+  it('awaits submission gate before publishing proof', async () => {
+    const gate = promiseWithResolvers<void>();
+    const job = createJob({ submissionGate: gate.promise });
+
+    void job.run();
+
+    // Wait for the job to reach 'awaiting-submission'.
+    await retryUntil(() => job.getState() === 'awaiting-submission', 'awaiting-submission', 5);
+    expect(job.getState()).toEqual('awaiting-submission');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+
+    // Resolve gate → job should complete.
+    gate.resolve();
+    await retryUntil(() => job.getState() === 'completed', 'completed', 5);
+    expect(job.getState()).toEqual('completed');
+    expect(publisher.submitEpochProof).toHaveBeenCalled();
+  });
+
+  it('stops cleanly when awaiting submission gate', async () => {
+    const gate = promiseWithResolvers<void>();
+    const job = createJob({ submissionGate: gate.promise });
+
+    void job.run();
+
+    // Wait for the job to reach 'awaiting-submission'.
+    await retryUntil(() => job.getState() === 'awaiting-submission', 'awaiting-submission', 5);
+    expect(job.getState()).toEqual('awaiting-submission');
+
+    // Stop should not deadlock — stopResolver unblocks the gate race.
+    await job.stop();
+    expect(job.getState()).toEqual('stopped');
+  });
+
+  it('times out while awaiting submission gate', async () => {
+    const gate = promiseWithResolvers<void>();
+    const deadline = new Date(Date.now() + 100);
+    const job = createJob({ submissionGate: gate.promise, deadline });
+
+    await job.run();
+
+    expect(job.getState()).toEqual('timed-out');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 
