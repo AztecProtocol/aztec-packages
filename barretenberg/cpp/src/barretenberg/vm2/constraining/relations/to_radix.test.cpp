@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"

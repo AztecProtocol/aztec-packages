@@ -1,13 +1,10 @@
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 
 #include <algorithm>
-#include <cstdint>
-#include <stdexcept>
-#include <vector>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -48,10 +45,11 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
 std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
     const auto [limbs, truncated] = to_le_radix(value, num_limbs, 2);
-    std::vector<bool> bits(limbs.size());
+    std::vector<bool> bits;
+    bits.reserve(limbs.size());
 
-    std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {
-        return val != 0; // Convert nonzero values to `true`, zero to `false`
+    std::ranges::for_each(std::as_const(limbs), [&](uint8_t val) {
+        bits.push_back(val != 0); // Convert nonzero values to `true`, zero to `false`
     });
 
     return { bits, truncated };
