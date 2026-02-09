@@ -1,6 +1,6 @@
 # @aztec/test-wallet
 
-Version: v4.0.0-nightly.20260208
+Version: v4.0.0-nightly.20260209
 
 ## Quick Import Reference
 
