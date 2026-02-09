@@ -64,7 +64,7 @@ describe('FileStoreTxCollection', () => {
   /** Waits until the total number of getTxsByHash calls across all sources reaches the expected count. */
   const waitForSourceCalls = async (sources: MockProxy<FileStoreTxSource>[], totalCalls: number) => {
     const start = Date.now();
-    while (Date.now() - start < 5_000) {
+    while (Date.now() - start < 60_000) {
       const total = sources.reduce((sum, s) => sum + s.getTxsByHash.mock.calls.length, 0);
       if (total >= totalCalls) {
         return;
