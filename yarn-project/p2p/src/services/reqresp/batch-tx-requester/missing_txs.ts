@@ -6,18 +6,18 @@ import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { IMissingTxsTracker, ITxMetadataCollection } from './interface.js';
 
 export class MissingTxsTracker implements IMissingTxsTracker {
-  private readonly pendingTxs: Set<string>;
-
-  constructor(missingTxHashes: TxHash[]) {
-    this.pendingTxs = new Set(missingTxHashes.map(hash => hash.toString()));
-  }
-
-  getMissingTxHashes(): Set<string> {
-    return this.pendingTxs;
-  }
+  constructor(public readonly missingTxHashes: Set<string>) {}
 
   markFetched(tx: Tx): boolean {
-    return this.pendingTxs.delete(tx.txHash.toString());
+    return this.missingTxHashes.delete(tx.txHash.toString());
+  }
+
+  get numberOfMissingTxs(): number {
+    return this.missingTxHashes.size;
+  }
+
+  isMissing(txHash: string): boolean {
+    return this.missingTxHashes.has(txHash.toString());
   }
 }
 
@@ -74,7 +74,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
     private missingTxsTracker: IMissingTxsTracker,
     private readonly txBatchSize: number = DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
   ) {
-    missingTxsTracker.getMissingTxHashes().forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
+    missingTxsTracker.missingTxHashes.forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
   }
 
   public getPrioritizingNotInFlightAndLowerRequestCount(txs: string[]): MissingTxMetadata[] {
@@ -95,7 +95,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public getMissingTxHashes(): Set<string> {
-    return this.missingTxsTracker.getMissingTxHashes();
+    return this.missingTxsTracker.missingTxHashes;
   }
 
   public getTxsPeerHas(peer: PeerId): Set<string> {

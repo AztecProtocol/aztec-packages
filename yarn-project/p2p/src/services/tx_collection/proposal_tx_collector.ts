@@ -1,13 +1,12 @@
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
-import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import { MissingTxsTracker } from '../reqresp/batch-tx-requester/missing_txs.js';
+import type { BatchTxRequesterLibP2PService, IMissingTxsTracker } from '../reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../reqresp/batch-tx-requester/tx_validator.js';
 import { type BlockTxsSource, ReqRespSubProtocol, chunkTxHashesRequest } from '../reqresp/index.js';
 
@@ -18,14 +17,14 @@ import { type BlockTxsSource, ReqRespSubProtocol, chunkTxHashesRequest } from '.
 export interface MissingTxsCollector {
   /**
    * Collect missing transactions for a block or proposal.
-   * @param txHashes - The transaction hashes to collect
+   * @param missingTxsTracker - The missing transactions tracker
    * @param blockTxsSource - The block or proposal containing the transactions
    * @param pinnedPeer - Optional peer expected to have the transactions
    * @param timeoutMs - Timeout in milliseconds
    * @returns The collected transactions
    */
   collectTxs(
-    txHashes: TxHash[],
+    missingTxsTracker: IMissingTxsTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
@@ -46,7 +45,7 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
   ) {}
 
   async collectTxs(
-    txHashes: TxHash[],
+    missingTxsTracker: IMissingTxsTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
@@ -59,7 +58,7 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
     } = this.batchTxRequesterConfig ?? {};
 
     const batchRequester = new BatchTxRequester(
-      new MissingTxsTracker(txHashes),
+      missingTxsTracker,
       blockTxsSource,
       pinnedPeer,
       timeoutMs,
@@ -94,14 +93,14 @@ export class SendBatchRequestCollector implements MissingTxsCollector {
   ) {}
 
   async collectTxs(
-    txHashes: TxHash[],
+    missingTxsTracker: IMissingTxsTracker,
     _blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
   ): Promise<Tx[]> {
     const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
       ReqRespSubProtocol.TX,
-      chunkTxHashesRequest(txHashes),
+      chunkTxHashesRequest(Array.from(missingTxsTracker.missingTxHashes).map(TxHash.fromString)),
       pinnedPeer,
       timeoutMs,
       this.maxPeers,

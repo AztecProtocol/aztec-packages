@@ -14,7 +14,7 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { TxPool } from '../../mem_pools/index.js';
 import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
-import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
+import type { BatchTxRequesterLibP2PService, IMissingTxsTracker } from '../reqresp/batch-tx-requester/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import { FileStoreTxCollection } from './file_store_tx_collection.js';
@@ -32,7 +32,7 @@ export type FastCollectionRequestInput =
   | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: BlockNumber };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
-  missingTxHashes: Set<string>;
+  missingTxTracker: IMissingTxsTracker;
   deadline: Date;
   blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;

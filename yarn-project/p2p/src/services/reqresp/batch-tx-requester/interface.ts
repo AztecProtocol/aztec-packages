@@ -20,7 +20,11 @@ export interface IPeerPenalizer {
  */
 export interface IMissingTxsTracker {
   /** Returns the set of transaction hashes that are still missing. */
-  getMissingTxHashes(): Set<string>;
+  get missingTxHashes(): Set<string>;
+  /** Size of this.missingTxHashes */
+  get numberOfMissingTxs(): number;
+  /** Checks that transaction is still missing */
+  isMissing(txHash: string): boolean;
   /** Marks a transaction as fetched. Returns true if it was previously missing. */
   markFetched(tx: Tx): boolean;
 }

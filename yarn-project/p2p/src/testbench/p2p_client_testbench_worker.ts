@@ -29,22 +29,19 @@ import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
-import type { P2PClient } from '../client/p2p_client.js';
+import type { P2PClient } from '../client/index.js';
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
-import type { MemPools } from '../mem_pools/interface.js';
-import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { MemPools } from '../mem_pools/index.js';
+import { BatchTxRequesterCollector, LibP2PService, SendBatchRequestCollector } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
+import { MissingTxsTracker } from '../services/reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
+import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
   type CollectorType,
@@ -55,7 +52,7 @@ import {
   createMockEpochCache,
   createMockWorldStateSynchronizer,
   filterTxsByDistribution,
-} from '../test-helpers/testbench-utils.js';
+} from '../test-helpers/index.js';
 import type { PubSubLibp2p } from '../util.js';
 
 export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
@@ -277,7 +274,12 @@ async function runAggregatorBenchmark(
         new DateProvider(),
         noopTxValidator,
       );
-      const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+      const fetchedTxs = await collector.collectTxs(
+        new MissingTxsTracker(new Set(txHashes.map(TxHash.toString))),
+        blockProposal,
+        pinnedPeer,
+        timeoutMs,
+      );
       const durationMs = timer.ms();
       return {
         type: 'BENCH_RESULT',
@@ -292,7 +294,12 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
-    const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+    const fetchedTxs = await collector.collectTxs(
+      new MissingTxsTracker(new Set(txHashes.map(TxHash.toString))),
+      blockProposal,
+      pinnedPeer,
+      timeoutMs,
+    );
     const durationMs = timer.ms();
     return {
       type: 'BENCH_RESULT',

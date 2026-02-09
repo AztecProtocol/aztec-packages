@@ -27,7 +27,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
   }
 
   public async collect(
-    collectValidTxsFn: (txHashes: TxHash[]) => Promise<(Tx | undefined)[]>,
+    collectValidTxsFn: () => Promise<(Tx | undefined)[]>,
     requested: TxHash[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
   ) {
@@ -39,7 +39,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     // Execute collection function and measure the time taken, catching any errors.
     const [duration, txs] = await elapsed(async () => {
       try {
-        const response = await collectValidTxsFn(requested);
+        const response = await collectValidTxsFn();
         return response.filter(tx => tx !== undefined);
       } catch (err) {
         this.log.error(`Error collecting txs via ${info.description}`, err, {
