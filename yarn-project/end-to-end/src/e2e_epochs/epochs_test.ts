@@ -404,7 +404,7 @@ export class EpochsTestContext {
         privateKeyToAccount(this.getNextPrivateKey()),
         this.l1Client.chain,
       ),
-      this.context.dateProvider!,
+      this.context.dateProvider,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);

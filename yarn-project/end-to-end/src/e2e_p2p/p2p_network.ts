@@ -333,9 +333,9 @@ export class P2PNetworkTest {
     const block = await this.context.deployL1ContractsValues.l1Client.getBlock({
       blockNumber: receipt.blockNumber,
     });
-    this.context.dateProvider!.setTime(Number(block.timestamp) * 1000);
+    this.context.dateProvider.setTime(Number(block.timestamp) * 1000);
 
-    await this.context.aztecNodeService!.stop();
+    await this.context.aztecNodeService.stop();
   }
 
   async sendDummyTx() {
@@ -374,8 +374,8 @@ export class P2PNetworkTest {
     this.prefilledPublicData = prefilledPublicData;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
-    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!).start();
-    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider!.setTime(Number(timestamp) * 1000));
+    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
+    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider.setTime(Number(timestamp) * 1000));
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

@@ -220,7 +220,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
 
       logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}. Stopping block production.`);
-      await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
+      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Remove the L2 block from L1
       const l1BlocksToReorg = monitor.l1BlockNumber - l1BlockNumber + 1;
@@ -248,7 +248,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       sequencerDelayer.cancelNextTx();
       await retryUntil(() => sequencerDelayer.getCancelledTxs().length, 'next block', L2_SLOT_DURATION_IN_S * 2, 0.1);
       const [l2BlockTx] = sequencerDelayer.getCancelledTxs();
-      await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
+      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Save the L1 block number when the L2 block would have been mined
       const l1BlockNumber = monitor.l1BlockNumber;
