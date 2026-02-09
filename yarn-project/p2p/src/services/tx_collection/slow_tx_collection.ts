@@ -115,7 +115,7 @@ export class SlowTxCollection {
 
     // Request in chunks to avoid hitting RPC limits
     for (const batch of chunk(missingTxHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
-      await this.txCollectionSink.collect(() => node.getTxsByHash(batch), batch, {
+      await this.txCollectionSink.collect(() => node.getTxsByHash(batch), batch.map(TxHash.toString), {
         description: `node ${node.getInfo()}`,
         node: node.getInfo(),
         method: 'slow-node-rpc',
@@ -150,19 +150,19 @@ export class SlowTxCollection {
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
     const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
-    const txHashes = missingTxs.map(([txHash]) => TxHash.fromString(txHash));
+    const txHashes = missingTxs.map(([txHash]) => txHash);
     // Send a batch request via reqresp for the missing txs
     await this.txCollectionSink.collect(
       async () => {
         const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
           ReqRespSubProtocol.TX,
-          chunkTxHashesRequest(txHashes),
+          chunkTxHashesRequest(txHashes.map(TxHash.fromString)),
           pinnedPeer,
           timeoutMs,
           maxPeers,
           maxRetryAttempts,
         );
-        return txs.flat();
+        return { validTxs: txs.flat(), invalidTxHashes: [] };
       },
       txHashes,
       { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },

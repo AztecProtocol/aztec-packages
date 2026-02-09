@@ -8,7 +8,7 @@ import { makeTracedFetch } from '@aztec/telemetry-client';
 
 export interface TxSource {
   getInfo(): string;
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }>;
 }
 
 export class NodeRpcTxSource implements TxSource {
@@ -26,8 +26,25 @@ export class NodeRpcTxSource implements TxSource {
     return this.info;
   }
 
-  public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.client.getTxsByHash(txHashes);
+  public async getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+    return this.verifyTxs(await this.client.getTxsByHash(txHashes));
+  }
+
+  private async verifyTxs(txs: Tx[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+    // Validate tx hashes for all collected txs from external sources
+    const validTxs: Tx[] = [];
+    const invalidTxHashes: string[] = [];
+    await Promise.all(
+      txs.map(async tx => {
+        const isValid = await tx.validateTxHash();
+        if (isValid) {
+          validTxs.push(tx);
+        } else {
+          invalidTxHashes.push(tx.getTxHash().toString());
+        }
+      }),
+    );
+    return { validTxs: validTxs, invalidTxHashes: invalidTxHashes };
   }
 }
 

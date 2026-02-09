@@ -232,14 +232,24 @@ export class FastTxCollection {
           return;
         }
 
-        const txHashes = batch.map(({ txHash }) => TxHash.fromString(txHash));
+        const txHashes = batch.map(({ txHash }) => txHash);
         // Collect this batch from the node
-        await this.txCollectionSink.collect(() => node.getTxsByHash(txHashes), txHashes, {
-          description: `fast ${node.getInfo()}`,
-          node: node.getInfo(),
-          method: 'fast-node-rpc',
-          ...request.blockInfo,
-        });
+        await this.txCollectionSink.collect(
+          async () => {
+            const result = await node.getTxsByHash(txHashes.map(TxHash.fromString));
+            for (const tx of result.validTxs) {
+              request.missingTxTracker.markFetched(tx);
+            }
+            return result;
+          },
+          txHashes,
+          {
+            description: `fast ${node.getInfo()}`,
+            node: node.getInfo(),
+            method: 'fast-node-rpc',
+            ...request.blockInfo,
+          },
+        );
 
         // Clear from the active requests the txs we just requested
         for (const requestedTx of batch) {
@@ -278,8 +288,9 @@ export class FastTxCollection {
     try {
       await this.txCollectionSink.collect(
         async () => {
+          let result: Tx[];
           if (request.type === 'proposal') {
-            return await this.missingTxsCollector.collectTxs(
+            result = await this.missingTxsCollector.collectTxs(
               request.missingTxTracker,
               request.blockProposal,
               pinnedPeer,
@@ -290,7 +301,7 @@ export class FastTxCollection {
               txHashes: request.block.body.txEffects.map(e => e.txHash),
               archive: request.block.archive.root,
             };
-            return await this.missingTxsCollector.collectTxs(
+            result = await this.missingTxsCollector.collectTxs(
               request.missingTxTracker,
               blockTxsSource,
               pinnedPeer,
@@ -299,8 +310,9 @@ export class FastTxCollection {
           } else {
             throw new Error(`Unknown request type: ${(request as any).type}`);
           }
+          return { validTxs: result, invalidTxHashes: [] };
         },
-        Array.from(request.missingTxTracker.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
+        Array.from(request.missingTxTracker.missingTxHashes),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
       );
     } catch (err) {

@@ -1,7 +1,7 @@
 import type { Logger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import { Tx, type TxHash } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
@@ -27,50 +27,35 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
   }
 
   public async collect(
-    collectValidTxsFn: () => Promise<(Tx | undefined)[]>,
-    requested: TxHash[],
+    collectValidTxsFn: () => Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }>,
+    requested: string[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
   ) {
     this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
       ...info,
-      requestedTxs: requested.map(t => t.toString()),
+      requestedTxs: requested,
     });
 
     // Execute collection function and measure the time taken, catching any errors.
-    const [duration, txs] = await elapsed(async () => {
+    const [duration, { validTxs, invalidTxHashes }] = await elapsed(async () => {
       try {
-        const response = await collectValidTxsFn();
-        return response.filter(tx => tx !== undefined);
+        return await collectValidTxsFn();
       } catch (err) {
         this.log.error(`Error collecting txs via ${info.description}`, err, {
           ...info,
-          requestedTxs: requested.map(hash => hash.toString()),
+          requestedTxs: requested,
         });
-        return [] as Tx[];
+        return { validTxs: [] as Tx[], invalidTxHashes: [] as string[] };
       }
     });
 
-    if (txs.length === 0) {
+    if (validTxs.length === 0 && invalidTxHashes.length === 0) {
       this.log.trace(`No txs found via ${info.description}`, {
         ...info,
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
       });
-      return { txs, requested, duration };
+      return { validTxs, requested, duration };
     }
-
-    // Validate tx hashes for all collected txs from external sources
-    const validTxs: Tx[] = [];
-    const invalidTxHashes: string[] = [];
-    await Promise.all(
-      txs.map(async tx => {
-        const isValid = await tx.validateTxHash();
-        if (isValid) {
-          validTxs.push(tx);
-        } else {
-          invalidTxHashes.push(tx.getTxHash().toString());
-        }
-      }),
-    );
 
     if (invalidTxHashes.length > 0) {
       this.log.warn(`Rejecting ${invalidTxHashes.length} txs with invalid hashes from ${info.description}`, {
@@ -82,7 +67,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     if (validTxs.length === 0) {
       this.log.trace(`No valid txs found via ${info.description} after validation`, {
         ...info,
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
         invalidTxHashes,
       });
       return { txs: [], requested, duration };
@@ -94,7 +79,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
         ...info,
         duration,
         txs: validTxs.map(t => t.getTxHash().toString()),
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
         rejectedCount: invalidTxHashes.length,
       },
     );
