@@ -3,7 +3,7 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, epoch_constant_data::EpochConstantData,
         fee_recipient::FeeRecipient,
     },
-    constants::{AZTEC_MAX_EPOCH_DURATION, CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH},
+    constants::{CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH, MAX_CHECKPOINTS_PER_EPOCH},
     tests::utils::make_fixture,
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::array_length,
@@ -30,10 +30,10 @@ pub struct CheckpointRollupPublicInputs {
     pub new_out_hash: AppendOnlyTreeSnapshot,
 
     // Hashes of checkpoint headers for this checkpoint range.
-    pub checkpoint_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
+    pub checkpoint_header_hashes: [Field; MAX_CHECKPOINTS_PER_EPOCH],
 
     // Concatenation of all coinbase and fees for each checkpoint in this checkpoint range.
-    pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
+    pub fees: [FeeRecipient; MAX_CHECKPOINTS_PER_EPOCH],
 
     // Accumulated opening proofs for all blobs before this checkpoint range.
     pub start_blob_accumulator: BlobAccumulator,
@@ -61,8 +61,8 @@ impl Empty for CheckpointRollupPublicInputs {
             new_archive: AppendOnlyTreeSnapshot::empty(),
             previous_out_hash: AppendOnlyTreeSnapshot::empty(),
             new_out_hash: AppendOnlyTreeSnapshot::empty(),
-            checkpoint_header_hashes: [0; AZTEC_MAX_EPOCH_DURATION],
-            fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
+            checkpoint_header_hashes: [0; MAX_CHECKPOINTS_PER_EPOCH],
+            fees: [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH],
             start_blob_accumulator: BlobAccumulator::empty(),
             end_blob_accumulator: BlobAccumulator::empty(),
             final_blob_challenges: FinalBlobBatchingChallenges::empty(),
@@ -81,7 +81,7 @@ fn serialization_of_checkpoint_rollup_public_inputs() {
 #[test]
 fn correct_num_checkpoints() {
     let mut item: CheckpointRollupPublicInputs = make_fixture(1);
-    item.checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+    item.checkpoint_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
     item.checkpoint_header_hashes[0] = 11;
     item.checkpoint_header_hashes[1] = 22;
     item.checkpoint_header_hashes[2] = 33;

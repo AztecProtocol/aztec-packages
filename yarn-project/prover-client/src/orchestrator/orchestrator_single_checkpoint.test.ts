@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -57,7 +57,7 @@ describe('prover/orchestrator/single-checkpoint', () => {
     expect(epoch.proof).toBeDefined();
 
     expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
-      padArrayEnd([header.hash()], Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+      padArrayEnd([header.hash()], Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
     );
 
     if (isGenerateTestDataEnabled()) {
@@ -101,7 +101,7 @@ describe('prover/orchestrator/single-checkpoint', () => {
     expect(epoch.proof).toBeDefined();
 
     expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
-      padArrayEnd([header.hash()], Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+      padArrayEnd([header.hash()], Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
     );
 
     if (isGenerateTestDataEnabled()) {
