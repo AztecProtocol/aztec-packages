@@ -18,7 +18,7 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_DOM_SEP__PUBLIC_BYTECODE = FF(260313585);
     const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
     const auto bc_hashing_SEPARATOR =
-        constants_DOM_SEP__PUBLIC_BYTECODE + in.get(C::bc_hashing_size_in_bytes) * FF(1099511627776UL);
+        constants_DOM_SEP__PUBLIC_BYTECODE + in.get(C::bc_hashing_size_in_bytes) * FF(4294967296UL);
     const auto bc_hashing_PADDING_1 = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel_not_padding_1));
     const auto bc_hashing_PADDING_2 = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel_not_padding_2));
 
