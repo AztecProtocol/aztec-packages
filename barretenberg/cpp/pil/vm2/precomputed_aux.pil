@@ -1,0 +1,14 @@
+include "precomputed.pil";
+
+// Finer grained selectors for the precomputed table.
+namespace precomputed_aux;
+
+#[skippable_if]
+sel_bitwise_active + sel_range_16_active = 0;
+
+pol commit sel_bitwise_active;
+// sel_bitwise_active implies sel_range_16 (which is used as the coarse selector for the bitwise table).
+sel_bitwise_active * (1 - precomputed.sel_range_16) = 0;
+
+pol commit sel_range_16_active;
+sel_range_16_active * (1 - precomputed.sel_range_16) = 0;

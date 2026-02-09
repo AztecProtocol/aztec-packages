@@ -18,7 +18,7 @@ struct lookup_memory_range_check_limb_0_settings_ {
     static constexpr std::string_view RELATION_NAME = "memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::memory_sel_rng_chk;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_aux_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_memory_range_check_limb_0_counts;
     static constexpr Column INVERSES = Column::lookup_memory_range_check_limb_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::memory_limb_0_ };
@@ -36,7 +36,7 @@ struct lookup_memory_range_check_limb_1_settings_ {
     static constexpr std::string_view RELATION_NAME = "memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::memory_sel_rng_chk;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_aux_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_memory_range_check_limb_1_counts;
     static constexpr Column INVERSES = Column::lookup_memory_range_check_limb_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::memory_limb_1_ };
@@ -54,7 +54,7 @@ struct lookup_memory_range_check_limb_2_settings_ {
     static constexpr std::string_view RELATION_NAME = "memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::memory_sel_rng_chk;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_aux_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_memory_range_check_limb_2_counts;
     static constexpr Column INVERSES = Column::lookup_memory_range_check_limb_2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::memory_limb_2_ };

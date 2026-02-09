@@ -1,4 +1,5 @@
 include "precomputed.pil";
+include "precomputed_aux.pil";
 include "constants_gen.pil";
 
 /**
@@ -244,7 +245,7 @@ pol commit output_xor;
 sel {
      ia_byte, ib_byte,
      output_and, output_or, output_xor
-} in precomputed.sel_range_16 {
+} in precomputed_aux.sel_bitwise_active {
      precomputed.bitwise_input_a, precomputed.bitwise_input_b,
      precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor
 };

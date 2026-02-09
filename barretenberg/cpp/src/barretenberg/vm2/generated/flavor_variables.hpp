@@ -46,6 +46,7 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
+#include "relations/precomputed_aux.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -145,10 +146,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 123;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3085;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3087;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 359;
-    static constexpr size_t NUM_WIRES = 2618;
-    static constexpr size_t NUM_ALL_ENTITIES = 3567;
+    static constexpr size_t NUM_WIRES = 2620;
+    static constexpr size_t NUM_ALL_ENTITIES = 3569;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -198,6 +199,7 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
+        avm2::precomputed_aux<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,

@@ -21,6 +21,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
                   "BaseBuilder must be an IndexedLookupTraceBuilder");
 
   public:
+    using BaseBuilder::BaseBuilder;
     using TupleType = typename BaseBuilder::TupleType;
     ~AddChecksToBuilder() override = default;
 

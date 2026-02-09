@@ -16,6 +16,9 @@ namespace bb::avm2::tracegen {
  * start {tag, ctr} in p.sel_tag_parameters {p.idx, p.tag_byte_length};
  */
 template <typename LookupSettings> class LookupIntoIndexedByRow : public IndexedLookupTraceBuilder<LookupSettings> {
+  public:
+    using IndexedLookupTraceBuilder<LookupSettings>::IndexedLookupTraceBuilder;
+
   protected:
     using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     // This is an efficient implementation of indexing into the precomputed table.

@@ -7,6 +7,9 @@
 namespace bb::avm2::tracegen {
 
 template <typename LookupSettings> class LookupIntoBitwise : public IndexedLookupTraceBuilder<LookupSettings> {
+  public:
+    using IndexedLookupTraceBuilder<LookupSettings>::IndexedLookupTraceBuilder;
+
   protected:
     using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     // This is an efficient implementation of indexing into the precomputed table.

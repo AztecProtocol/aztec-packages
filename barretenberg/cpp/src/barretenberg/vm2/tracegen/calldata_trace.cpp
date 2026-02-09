@@ -117,7 +117,8 @@ void CalldataTraceBuilder::process_hashing(
 
 const InteractionDefinition CalldataTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_calldata_range_check_context_id_diff_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_calldata_range_check_context_id_diff_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
         .add<lookup_calldata_hashing_get_calldata_field_0_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_1_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_2_settings, InteractionType::LookupSequential>()

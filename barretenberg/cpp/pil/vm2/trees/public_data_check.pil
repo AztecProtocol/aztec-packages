@@ -4,6 +4,7 @@ include "../ff_gt.pil";
 include "../poseidon2_hash.pil";
 include "../constants_gen.pil";
 include "../precomputed.pil";
+include "../precomputed_aux.pil";
 include "public_data_squash.pil";
 
 /**
@@ -134,11 +135,11 @@ namespace public_data_check;
 
     #[CLK_DIFF_RANGE_LO]
     not_end { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed_aux.sel_range_16_active { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     not_end { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed_aux.sel_range_16_active { precomputed.idx };
 
     // We enforce reads, which have unconstrained clk, to have clk = 0
     // So they have to be at the start of the trace

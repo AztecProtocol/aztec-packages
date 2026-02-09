@@ -95,15 +95,24 @@ void RangeCheckTraceBuilder::process(
 
 const InteractionDefinition RangeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_range_check_dyn_diff_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_dyn_diff_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
         .add<lookup_range_check_dyn_rng_chk_pow_2_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r0_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r1_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r2_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r3_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r4_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r5_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r6_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_range_check_r7_is_u16_settings, InteractionType::LookupIntoIndexedByRow>();
+        .add<lookup_range_check_r0_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r1_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r2_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r3_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r4_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r5_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r6_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16)
+        .add<lookup_range_check_r7_is_u16_settings, InteractionType::LookupIntoIndexedByRow>(
+            Column::precomputed_sel_range_16);
 
 } // namespace bb::avm2::tracegen

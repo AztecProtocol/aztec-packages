@@ -18,7 +18,7 @@ struct lookup_calldata_range_check_context_id_diff_settings_ {
     static constexpr std::string_view RELATION_NAME = "calldata";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::calldata_latch;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_aux_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_calldata_range_check_context_id_diff_counts;
     static constexpr Column INVERSES = Column::lookup_calldata_range_check_context_id_diff_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
