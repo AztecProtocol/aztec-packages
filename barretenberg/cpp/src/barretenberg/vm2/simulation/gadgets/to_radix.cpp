@@ -8,6 +8,16 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Performs a little endian radix decomposition of a field element into limbs. This emits a ToRadixEvent.
+ *
+ * Precondition: radix must be in the range [2, 256].
+ *
+ * @param value The field element to decompose.
+ * @param num_limbs The number of limbs to decompose into.
+ * @param radix The radix to decompose into. Must be in the range [2, 256].
+ * @return A pair containing the vector of limbs and a boolean indicating if the decomposition was truncated.
+ */
 std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const FF& value,
                                                                            uint32_t num_limbs,
                                                                            uint32_t radix)
@@ -22,7 +32,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
     uint256_t value_integer = static_cast<uint256_t>(value);
     while (value_integer != 0) {
         const auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
-        limbs.push_back(static_cast<uint8_t>(remainder));
+        limbs.push_back(static_cast<uint8_t>(remainder)); // Cast is fine by the precondition that radix <= 256.
         value_integer = quotient;
     }
 
@@ -45,6 +55,14 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
     return { limbs, truncated };
 }
 
+/**
+ * @brief Performs a little endian radix decomposition of a field element into bits. This emits a ToRadixEvent.
+ *
+ * @param value The field element to decompose.
+ * @param num_limbs The number of bits to decompose into.
+ * @return A pair containing the vector of bits and a boolean indicating if the decomposition was truncated. The bits
+ * are converted ina standard way, i.e., from nonzero values to `true`, zero to `false`.
+ */
 std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
     const auto [limbs, truncated] = to_le_radix(value, num_limbs, 2);
@@ -58,6 +76,26 @@ std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF&
     return { bits, truncated };
 }
 
+/**
+ * @brief Performs a big endian radix decomposition of a field element into limbs. This directly emits a
+ * ToRadixMemoryEvent and indirectly emits a ToRadixEvent if no error different that truncation is encountered. The
+ * limbs are written to the memory in big endian order at supplied destination address.
+ *
+ * @throws ToRadixException if the parameters are invalid:
+ * - Radix is less than 2 or greater than 256.
+ * - Num limbs is zero and value is not zero.
+ * - Radix is not 2 if is_output_bits is true.
+ * - The memory slice output is out-of-range.
+ * - Truncation error, i.e., the value cannot be fully decomposed into the given number of limbs. Note that the
+ *   supplied num_limbs can be greater than the number of limbs that the value decomposes into.
+ *
+ * @param memory The memory to write the limbs to.
+ * @param value The field element to decompose.
+ * @param radix The radix to decompose into. Must be in the range [2, 256].
+ * @param num_limbs The number of limbs to decompose into.
+ * @param is_output_bits A boolean indicating if the output is U1 or U8.
+ * @param dst_addr The address to write the limbs to.
+ */
 void ToRadix::to_be_radix(MemoryInterface& memory,
                           const FF& value,
                           uint32_t radix,
