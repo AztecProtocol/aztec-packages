@@ -188,6 +188,10 @@ tests:
     error_regex: "Error: Timeout of 2000ms exceeded"
     owners:
       - *martin
+  - regex: "yarn-project/kv-store"
+    error_regex: "Browser tests did not start within 2 minutes. Force exiting."
+    owners:
+      - *martin
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
