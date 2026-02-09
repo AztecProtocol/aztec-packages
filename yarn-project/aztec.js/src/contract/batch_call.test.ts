@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
 
@@ -8,7 +8,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createUtilityExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -16,16 +15,16 @@ function createUtilityExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.UTILITY,
-        isStatic: true,
         hideMsgSender: false,
+        isStatic: true,
         args,
         returnTypes: [{ kind: 'field' }],
-      },
+      }),
     ],
     [],
     [],
@@ -34,7 +33,6 @@ function createUtilityExecutionPayload(
   );
 }
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createPrivateExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -43,16 +41,16 @@ function createPrivateExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.PRIVATE,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args,
         returnTypes: Array(numReturnValues).fill({ kind: 'field' }),
-      },
+      }),
     ],
     [],
     [],
@@ -61,7 +59,6 @@ function createPrivateExecutionPayload(
   );
 }
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createPublicExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -69,16 +66,16 @@ function createPublicExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.PUBLIC,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args,
         returnTypes: [{ kind: 'field' }],
-      },
+      }),
     ],
     [],
     [],
@@ -272,7 +269,7 @@ describe('BatchCall', () => {
       batchCall = new BatchCall(wallet, [payload]);
 
       const feePayload = createPrivateExecutionPayload('payFee', [Fr.random()], await AztecAddress.random());
-      // eslint-disable-next-line jsdoc/require-jsdoc
+
       const mockPaymentMethod = mock<{ getExecutionPayload: () => Promise<ExecutionPayload> }>();
       mockPaymentMethod.getExecutionPayload.mockResolvedValue(feePayload);
 

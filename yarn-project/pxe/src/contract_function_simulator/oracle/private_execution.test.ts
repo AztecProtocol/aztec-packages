@@ -27,7 +27,7 @@ import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type FunctionCall,
+  FunctionCall,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -464,16 +464,16 @@ describe('Private Execution test suite', () => {
         throw new Error(`Contract not found: ${to}`);
       }
       const functionArtifact = getFunctionArtifactByName(contract, functionName);
-      return {
+      return FunctionCall.from({
         name: functionArtifact.name,
-        args: encodeArguments(functionArtifact, args),
+        to,
         selector: await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters),
         type: functionArtifact.functionType,
-        to,
         hideMsgSender: false,
         isStatic: functionArtifact.isStatic,
+        args: encodeArguments(functionArtifact, args),
         returnTypes: functionArtifact.returnTypes,
-      };
+      });
     });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
