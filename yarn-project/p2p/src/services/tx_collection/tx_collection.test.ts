@@ -515,8 +515,8 @@ describe('TxCollection', () => {
     let fileStoreSources: MockProxy<FileStoreTxSource>[];
 
     const setFileStoreTxs = (source: MockProxy<FileStoreTxSource>, txsToReturn: Tx[]) => {
-      source.getTxsByHash.mockImplementation(async hashes => {
-        return hashes.map(h => txsToReturn.find(tx => tx.txHash.equals(h)));
+      source.getTxsByHash.mockImplementation(hashes => {
+        return Promise.resolve(hashes.map(h => txsToReturn.find(tx => tx.txHash.equals(h))));
       });
     };
 
@@ -535,7 +535,7 @@ describe('TxCollection', () => {
 
     it('collects txs from file store after slow delay', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
-      txPool.addTxs.mockImplementation(async addedTxs => addedTxs.length);
+      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
       txPool.hasTx.mockResolvedValue(false);
 
       await txCollection.start();
@@ -555,7 +555,7 @@ describe('TxCollection', () => {
 
     it('does not download txs from file store if found via P2P before delay expires', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
-      txPool.addTxs.mockImplementation(async addedTxs => addedTxs.length);
+      txPool.addTxs.mockImplementation(addedTxs => Promise.resolve(addedTxs.length));
       txPool.hasTx.mockResolvedValue(false);
 
       await txCollection.start();

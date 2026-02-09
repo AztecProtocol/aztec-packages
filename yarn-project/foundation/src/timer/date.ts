@@ -127,8 +127,8 @@ export class TestDateProvider extends DateProvider {
     for (const { controller } of this.pendingTimeouts) {
       controller.abort(new DOMException('TimeoutError', 'TimeoutError'));
     }
-    for (const { reject } of this.pendingSleeps) {
-      reject(new Error('TestDateProvider cleared'));
+    for (const { resolve } of this.pendingSleeps) {
+      resolve();
     }
     this.pendingTimeouts = [];
     this.pendingSleeps = [];

@@ -33,8 +33,8 @@ describe('FileStoreTxCollection', () => {
   };
 
   const setFileStoreTxs = (source: MockProxy<FileStoreTxSource>, txs: Tx[]) => {
-    source.getTxsByHash.mockImplementation(async hashes => {
-      return hashes.map(h => txs.find(tx => tx.getTxHash().equals(h)));
+    source.getTxsByHash.mockImplementation(hashes => {
+      return Promise.resolve(hashes.map(h => txs.find(tx => tx.getTxHash().equals(h))));
     });
   };
 
@@ -55,7 +55,7 @@ describe('FileStoreTxCollection', () => {
 
   beforeEach(async () => {
     txPool = mock<TxPool>();
-    txPool.addTxs.mockImplementation(async txs => txs.length);
+    txPool.addTxs.mockImplementation(txs => Promise.resolve(txs.length));
 
     const log = createLogger('test');
     txCollectionSink = new TxCollectionSink(txPool, getTelemetryClient(), log);

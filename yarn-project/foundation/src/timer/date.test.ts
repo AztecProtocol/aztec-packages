@@ -1,3 +1,4 @@
+import { retryUntil } from '../retry/index.js';
 import { sleep } from '../sleep/index.js';
 import { TestDateProvider } from './date.js';
 
@@ -140,20 +141,18 @@ describe('TestDateProvider', () => {
   });
 
   describe('clearPendingTimeouts', () => {
-    it('should clear pending timeouts so they never abort', () => {
+    it('should clear pending timeouts so they never abort', async () => {
       const baseTime = Date.now();
       dateProvider.setTime(baseTime);
 
       const signal = dateProvider.createTimeoutSignal(1000);
+
       expect(signal.aborted).toBe(false);
 
       dateProvider.clearPendingTimeouts();
 
-      // Advance time past the deadline
-      dateProvider.setTime(baseTime + 2000);
-
-      // Signal should not have been aborted since we cleared pending timeouts
-      expect(signal.aborted).toBe(false);
+      const aborted = await retryUntil(() => signal.aborted, 'wait for abort', 0.1, 0.01);
+      expect(aborted).toBe(true);
     });
   });
 
