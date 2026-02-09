@@ -119,7 +119,7 @@ export default [
     },
   }),
   {
-    files: ['*.test.ts'],
+    files: ['**/*.test.ts'],
     rules: {
       'jsdoc/require-jsdoc': 'off',
     },

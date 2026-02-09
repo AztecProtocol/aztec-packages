@@ -2,7 +2,7 @@ import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
-import type { BlockHeader, ContractOverrides } from '@aztec/stdlib/tx';
+import type { ContractOverrides } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer.js';
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
@@ -79,11 +79,6 @@ export class PXEDebugUtils {
 
       return this.noteStore.getNotes(filter, jobId);
     });
-  }
-
-  /** Returns the block header up to which the PXE has synced. */
-  public getSyncedBlockHeader(): Promise<BlockHeader> {
-    return this.anchorBlockStore.getBlockHeader();
   }
 
   /**

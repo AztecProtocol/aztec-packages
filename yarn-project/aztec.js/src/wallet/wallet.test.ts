@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
-import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -164,16 +164,16 @@ describe('WalletSchema', () => {
   });
 
   it('simulateUtility', async () => {
-    const call = {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: await AztecAddress.random(),
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
+    });
     const result = await context.client.simulateUtility(call, [AuthWitness.random()]);
     expect(result).toBeInstanceOf(UtilitySimulationResult);
   });
@@ -272,16 +272,16 @@ describe('WalletSchema', () => {
       profileMode: 'gates',
     };
 
-    const call = {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: address3,
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
+    });
 
     const mockInstance: ContractInstanceWithAddress = {
       address: address2,
@@ -355,7 +355,6 @@ describe('WalletSchema', () => {
   });
 });
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 class MockWallet implements Wallet {
   getChainInfo(): Promise<ChainInfo> {
     return Promise.resolve({
