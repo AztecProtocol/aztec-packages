@@ -17,7 +17,7 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(450);
-    const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(1843769845);
+    const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(57496191);
     const auto nullifier_check_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF =
         (in.get(C::nullifier_check_siloed_nullifier) - in.get(C::nullifier_check_low_leaf_nullifier));
     const auto nullifier_check_NEXT_NULLIFIER_IS_ZERO = (FF(1) - in.get(C::nullifier_check_next_nullifier_is_nonzero));

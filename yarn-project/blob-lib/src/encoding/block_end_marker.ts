@@ -17,7 +17,7 @@ export interface BlockEndMarker {
 }
 
 export function encodeBlockEndMarker(blockEndMarker: BlockEndMarker) {
-  let value = BLOCK_END_PREFIX;
+  let value = BigInt(BLOCK_END_PREFIX);
   value <<= TIMESTAMP_BIT_SIZE;
   value += blockEndMarker.timestamp;
   value <<= BLOCK_NUMBER_BIT_SIZE;
@@ -37,7 +37,7 @@ export function decodeBlockEndMarker(field: Fr): BlockEndMarker {
   value >>= TIMESTAMP_BIT_SIZE;
 
   const prefix = value;
-  if (prefix !== BLOCK_END_PREFIX) {
+  if (prefix !== BigInt(BLOCK_END_PREFIX)) {
     throw new BlobDeserializationError(`Incorrect encoding of blob fields: invalid block end marker.`);
   }
 
@@ -51,5 +51,5 @@ export function decodeBlockEndMarker(field: Fr): BlockEndMarker {
 // Check if a field is a block end marker. Used before decoding to check if it has reached the end of the block.
 export function isBlockEndMarker(field: Fr): boolean {
   const prefix = field.toBigInt() >> (NUM_TXS_BIT_SIZE + BLOCK_NUMBER_BIT_SIZE + TIMESTAMP_BIT_SIZE);
-  return prefix === BLOCK_END_PREFIX;
+  return prefix === BigInt(BLOCK_END_PREFIX);
 }

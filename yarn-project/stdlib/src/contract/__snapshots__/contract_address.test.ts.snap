@@ -1,9 +1,0 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
-
-exports[`ContractAddress computeContractAddressFromInstance 1`] = `"0x228cee07b35e89cec61836b47fe757f2a94cf41121038ac57cdc9a5316a19153"`;
-
-exports[`ContractAddress computeInitializationHash 1`] = `Fr<0x0fd20bdf3599df5cd9bdc7b416b96c4cd4425b85ef4b0b27e4aeef5687642dc4>`;
-
-exports[`ContractAddress computePartialAddress 1`] = `Fr<0x2e9c354f68f21034607fe19784abfd3f20729d993acfcf9c61ebc78a8189a06a>`;
-
-exports[`ContractAddress computeSaltedInitializationHash 1`] = `Fr<0x2c707e4e654de68e8620b722e39794701a03ea61459251d5f9efcf3b1695f867>`;

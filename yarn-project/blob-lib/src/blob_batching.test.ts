@@ -123,7 +123,7 @@ describe('Blob Batching', () => {
     [
       BLOBS_PER_CHECKPOINT,
       BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB,
-      '0x04ef3822a4e42167ad10a5665c813bd5cd0a2fedb8ba726d2d1ed4394796a031',
+      '0x344cd1654b68e5ab9c592df2e6fbe6b619415b276db449810d95e318d78ac950',
       true,
     ],
   ])(
