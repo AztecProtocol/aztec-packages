@@ -1,0 +1,22 @@
+name: Mac Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: "Session timeout in minutes"
+        type: number
+        default: 30
+
+jobs:
+  mac-runner:
+    runs-on: macos-14
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        with:
+          limit-access-to-actor: true

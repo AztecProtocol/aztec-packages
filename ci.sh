@@ -38,6 +38,7 @@ function print_usage {
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
+  echo_cmd "mac-runner"            "Start a GitHub Actions macOS runner with SSH access via tmate."
   echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
@@ -296,6 +297,53 @@ case "$cmd" in
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
     ;;
+  mac-runner)
+    # Start a GitHub Actions macOS runner with SSH access via tmate.
+    # Usage: ./ci.sh mac-runner [timeout_minutes]
+    timeout_mins=${1:-30}
+    echo "Triggering mac-runner workflow on branch $BRANCH (timeout: ${timeout_mins}m)..."
+    gh workflow run mac-runner.yml -r "$BRANCH" -f timeout="$timeout_mins"
+
+    # Wait for the run to appear
+    echo "Waiting for workflow run to start..."
+    sleep 5
+    run_id=""
+    for i in {1..30}; do
+      run_id=$(gh run list --workflow mac-runner.yml -b "$BRANCH" --limit 1 --json databaseId,status \
+        -q '.[] | select(.status != "completed") | .databaseId')
+      [ -n "$run_id" ] && break
+      sleep 2
+    done
+    if [ -z "$run_id" ]; then
+      echo "Failed to find workflow run."
+      exit 1
+    fi
+
+    run_url="https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/runs/$run_id"
+    echo "Workflow run: $run_url"
+    echo "Waiting for SSH connection info..."
+
+    # Poll job logs for tmate SSH string
+    for i in {1..120}; do
+      job_id=$(gh api "repos/{owner}/{repo}/actions/runs/$run_id/jobs" \
+        --jq '.jobs[0].id' 2>/dev/null || true)
+      if [ -n "$job_id" ]; then
+        ssh_cmd=$(gh api "repos/{owner}/{repo}/actions/jobs/$job_id/logs" 2>/dev/null \
+          | grep -o 'ssh .*\.tmate\.io' | head -1 || true)
+        if [ -n "$ssh_cmd" ]; then
+          echo
+          echo "Connect with:"
+          echo "  $ssh_cmd"
+          echo
+          echo "When done, run: touch /continue (inside the session to let the runner terminate)"
+          exit 0
+        fi
+      fi
+      sleep 5
+    done
+    echo "Timed out waiting for SSH info. Check the workflow run: $run_url"
+    ;;
+
   kill)
     existing_instance=$(aws ec2 describe-instances \
       --region us-east-2 \
