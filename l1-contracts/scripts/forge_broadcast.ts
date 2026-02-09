@@ -74,6 +74,12 @@ function extractRpcUrl(args: string[]): string | undefined {
   return undefined;
 }
 
+/** Strip --verify from args, returning the filtered args and whether --verify was present. */
+function extractVerifyFlag(args: string[]): { args: string[]; verify: boolean } {
+  const filtered = args.filter(a => a !== '--verify');
+  return { args: filtered, verify: filtered.length !== args.length };
+}
+
 const RPC_TIMEOUT = 10_000;
 
 /** JSON-RPC call using Node.js built-ins. Rejects on JSON-RPC errors and timeouts. */
@@ -172,7 +178,12 @@ function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
 }
 
 // Main
-const forgeArgs = process.argv.slice(2);
+
+// Strip --verify from args so it doesn't run during broadcast attempts. Verification
+// happens after all receipts are collected (foundry-rs/foundry crates/script/src/lib.rs:333-338)
+// and forge exits non-zero if ANY verification fails (crates/script/src/verify.rs), even when
+// all transactions landed. We run verification as a separate step after broadcast succeeds.
+const { args: forgeArgs, verify: wantsVerify } = extractVerifyFlag(process.argv.slice(2));
 const rpcUrl = extractRpcUrl(forgeArgs);
 
 // Query chain info from RPC at startup.
@@ -181,7 +192,7 @@ const TIMEOUT = process.env.FORGE_BROADCAST_TIMEOUT
   ? parseInt(process.env.FORGE_BROADCAST_TIMEOUT, 10)
   : getDefaultTimeout(chainId);
 
-log(`chain_id=${chainId ?? 'unknown'}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}`);
+log(`chain_id=${chainId ?? 'unknown'}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}${wantsVerify ? ', verify=true (after broadcast)' : ''}`);
 
 // Detect anvil once at startup. On anvil, retries reset the chain and start from scratch
 // instead of using --resume, because anvil's auto-miner can strand transactions in the
@@ -189,6 +200,30 @@ log(`chain_id=${chainId ?? 'unknown'}, timeout=${TIMEOUT}s, max_retries=${MAX_RE
 const isAnvil = rpcUrl ? await detectAnvil(rpcUrl) : false;
 if (isAnvil) {
   log('Detected anvil — retries will reset chain instead of using --resume.');
+}
+
+/**
+ * Run contract verification via `forge script --resume --verify --broadcast` (no timeout).
+ * Verification uses broadcast artifacts + re-compilation — it doesn't need simulation data.
+ * See: foundry-rs/foundry crates/script/src/build.rs (CompiledState::resume) and
+ *      crates/script/src/verify.rs (verify_contracts).
+ * Failure is logged but doesn't affect the exit code — transactions already landed.
+ */
+async function runVerification(args: string[]): Promise<void> {
+  log('Running contract verification (no timeout)...');
+  const verifyResult = await new Promise<number>(resolve => {
+    const proc = spawn('forge', ['script', ...args, '--broadcast', '--resume', '--verify'], {
+      stdio: ['ignore', 'inherit', 'inherit'],
+    });
+    let settled = false;
+    proc.on('error', () => { if (!settled) { settled = true; resolve(1); } });
+    proc.on('close', code => { if (!settled) { settled = true; resolve(code ?? 1); } });
+  });
+  if (verifyResult === 0) {
+    log('Contract verification succeeded.');
+  } else {
+    log(`Contract verification failed (exit ${verifyResult}). Transactions are on-chain; verify manually if needed.`);
+  }
 }
 
 /** Write buffered stdout to fd 1 (synchronous) and exit. */
@@ -200,13 +235,21 @@ function emitAndExit(result: ForgeResult, code: number): never {
   process.exit(code);
 }
 
+/** Run verification if requested, then emit stdout and exit. */
+async function verifyAndExit(result: ForgeResult): Promise<never> {
+  if (wantsVerify) {
+    await runVerification(forgeArgs);
+  }
+  emitAndExit(result, 0);
+}
+
 // Attempt 1: initial broadcast
 log(`Attempt 1/${MAX_RETRIES + 1}: broadcasting...`);
 let result = await runForge(forgeArgs, TIMEOUT);
 
 if (result.exitCode === 0) {
   log('Broadcast succeeded on first attempt.');
-  emitAndExit(result, 0);
+  await verifyAndExit(result);
 }
 
 log(`Attempt 1 ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
@@ -241,7 +284,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (resumeResult.exitCode === 0) {
       log(`Broadcast succeeded on attempt ${attempt + 1}.`);
       // Emit the first attempt's stdout which has the JSON simulation output.
-      emitAndExit(result, 0);
+      await verifyAndExit(result);
     }
     log(
       `Attempt ${attempt + 1} ${resumeResult.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${resumeResult.exitCode})`}.`,
@@ -251,7 +294,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 
   if (result.exitCode === 0) {
     log(`Broadcast succeeded on attempt ${attempt + 1}.`);
-    emitAndExit(result, 0);
+    await verifyAndExit(result);
   }
   log(
     `Attempt ${attempt + 1} ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
