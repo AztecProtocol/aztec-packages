@@ -2,11 +2,11 @@ mod test;
 
 // Test contract showing basic public access control that can be used in private. It uses a DelayedPublicMutable state variable to
 // publicly store the address of an authorized account that can call private functions.
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract Auth {
-    use dep::aztec::{
+    use ::aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, PublicImmutable},

@@ -1,4 +1,4 @@
-pub use dep::std::embedded_curve_ops::EmbeddedCurveScalar as Scalar;
+pub use ::std::embedded_curve_ops::EmbeddedCurveScalar as Scalar;
 use crate::traits::Empty;
 
 impl Empty for Scalar {

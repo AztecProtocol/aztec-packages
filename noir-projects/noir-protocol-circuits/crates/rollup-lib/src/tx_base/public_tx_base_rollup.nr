@@ -2,7 +2,7 @@ use crate::{
     abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tx_base::components::{PublicTxBaseInputsValidator, TxBasePublicInputsComposer},
 };
-use dep::types::{
+use ::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs,

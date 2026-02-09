@@ -1,4 +1,4 @@
-use dep::types::traits::Empty;
+use ::types::traits::Empty;
 
 #[derive(Eq)]
 pub struct PaddedSideEffectAmounts {

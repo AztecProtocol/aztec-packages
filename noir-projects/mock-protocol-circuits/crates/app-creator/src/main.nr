@@ -1,4 +1,4 @@
-use dep::mock_types::{AppPublicInputs, MAX_COMMITMENTS_PER_CALL};
+use ::mock_types::{AppPublicInputs, MAX_COMMITMENTS_PER_CALL};
 
 // Mock app for testing that creates the commitments the user commands.
 // Note: A zero is a null commitment.

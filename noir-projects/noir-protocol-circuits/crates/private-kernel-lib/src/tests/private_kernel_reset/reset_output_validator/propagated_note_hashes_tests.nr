@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_reset::{NOTE_HASH_SILOING_AMOUNT, TestBuilder};
-use dep::types::tests::utils::swap_items;
+use ::types::tests::utils::swap_items;
 
 #[test]
 fn previous_note_hashes_sorted() {

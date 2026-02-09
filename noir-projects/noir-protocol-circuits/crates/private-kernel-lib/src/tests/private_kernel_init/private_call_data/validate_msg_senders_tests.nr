@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::{
+use ::types::{
     address::AztecAddress, constants::NULL_MSG_SENDER_CONTRACT_ADDRESS, traits::FromField,
 };
 

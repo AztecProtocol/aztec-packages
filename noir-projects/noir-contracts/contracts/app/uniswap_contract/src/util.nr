@@ -1,5 +1,5 @@
 // docs:start:uniswap_public_content_hash
-use dep::aztec::protocol::{
+use ::aztec::protocol::{
     address::{AztecAddress, EthAddress},
     hash::sha256_to_field,
     traits::ToField,
