@@ -29,11 +29,12 @@ std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
     std::array<std::vector<uint8_t>, 257> limbs_per_radix;
 
     for (size_t radix = 2; radix < 257; ++radix) {
-        std::vector<uint8_t> p_limbs{};
-        p_limbs.reserve(31);
+        std::vector<uint8_t> p_limbs;
+        p_limbs.reserve(p_limbs_per_radix_sizes[radix]);
         uint256_t p = FF::modulus;
+
         while (p != 0) {
-            auto [quotient, remainder] = p.divmod(radix);
+            const auto [quotient, remainder] = p.divmod(static_cast<uint64_t>(radix));
             p_limbs.push_back(static_cast<uint8_t>(remainder));
             p = quotient;
         }
