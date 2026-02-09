@@ -40,7 +40,7 @@ function deserializeState(buffer: Buffer): DeletedTxState {
  * This class is responsible for ALL deletion decisions:
  *
  * - Transactions from pruned blocks are "soft deleted" - removed from indices but kept
- *   in the database for debugging/resubmission
+ *   in the database for later re-execution
  * - Transactions NOT from pruned blocks are "hard deleted" - completely removed from DB
  *
  * When a block is finalized, soft-deleted transactions that were originally mined at or
