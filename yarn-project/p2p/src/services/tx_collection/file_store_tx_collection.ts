@@ -17,6 +17,13 @@ export class FileStoreTxCollection {
   /** Map from tx hash to add context for txs queued for download. */
   private pendingTxs = new Map<string, TxAddContext>();
 
+  /**
+   * Tracks tx hashes found elsewhere, even before startCollecting is called.
+   * Needed because the orchestrator delays startCollecting via a real sleep, but foundTxs
+   * may arrive during that delay — before the hashes are added to pendingTxs.
+   */
+  private foundTxHashes = new Set<string>();
+
   /** Queue of tx hashes to be downloaded. */
   private downloadQueue = new FifoMemoryQueue<TxHash>();
 
@@ -63,6 +70,7 @@ export class FileStoreTxCollection {
     await Promise.all(this.workers);
     this.workers = [];
     this.pendingTxs.clear();
+    this.foundTxHashes.clear();
   }
 
   /** Remove the given tx hashes from pending. */
@@ -76,13 +84,14 @@ export class FileStoreTxCollection {
   /** Clears all pending state. Items already in the download queue will still be processed but won't be re-queued. */
   public clearPending() {
     this.pendingTxs.clear();
+    this.foundTxHashes.clear();
   }
 
   /** Queue the given tx hashes for file store collection. */
   public startCollecting(txHashes: TxHash[], context: TxAddContext) {
     for (const txHash of txHashes) {
       const hashStr = txHash.toString();
-      if (!this.pendingTxs.has(hashStr)) {
+      if (!this.pendingTxs.has(hashStr) && !this.foundTxHashes.has(hashStr)) {
         this.pendingTxs.set(hashStr, context);
         this.downloadQueue.put(txHash);
       }
@@ -92,7 +101,9 @@ export class FileStoreTxCollection {
   /** Stop tracking txs that were found elsewhere. */
   public foundTxs(txs: Tx[]) {
     for (const tx of txs) {
-      this.pendingTxs.delete(tx.getTxHash().toString());
+      const hashStr = tx.getTxHash().toString();
+      this.pendingTxs.delete(hashStr);
+      this.foundTxHashes.add(hashStr);
     }
   }
 
