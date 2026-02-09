@@ -143,7 +143,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/block_end_marker.test.ts
         let block_end_marker_from_typescript =
-            0x000000000000000000626c6f636b5f656e64000000000006f8550000007b0063;
+            0x0000000000000000000000000000eb8dcdbf000000000006f8550000007b0063;
 
         assert_eq(block_end_marker, block_end_marker_from_typescript);
     }
@@ -172,7 +172,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/block_end_marker.test.ts
         let large_block_end_marker_from_typescript =
-            0x000000000000000000626c6f636b5f656e64800000000008aa52abcd1234fedc;
+            0x0000000000000000000000000000eb8dcdbf800000000008aa52abcd1234fedc;
 
         assert_eq(block_end_marker, large_block_end_marker_from_typescript);
     }

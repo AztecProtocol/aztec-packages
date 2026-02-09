@@ -86,7 +86,7 @@ mod tests {
         };
         // Value from tx_request.test.ts "compute hash" test
         let test_data_tx_request_hash =
-            0x138613b6b771cd17311e8db847cd14f26ad3b466d8530257a59c10e0c6719c59;
+            0x09c2372649f434fc01e3c010792c33b383bfff50f7e6ed7b6ba689d6d7b1f109;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }
