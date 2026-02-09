@@ -255,6 +255,10 @@ const InteractionDefinition ToRadixTraceBuilder::interactions =
         .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Dispatch to To Radix
-        .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>();
+        // Cannnot be sequential because the non-memory aware to_radix subtrace rows are ordered
+        // by the little endian decomposition while the memory aware to_radix subtrace rows are ordered
+        // by the big endian decomposition.
+        .add<lookup_to_radix_mem_input_output_to_radix_settings,
+             InteractionType::LookupGeneric>(); // CANNOT BE SEQUENTIAL!
 
 } // namespace bb::avm2::tracegen
