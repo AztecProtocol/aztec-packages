@@ -3,6 +3,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { TxPool } from '../../mem_pools/index.js';
@@ -54,6 +55,8 @@ describe('FileStoreTxCollection', () => {
   };
 
   beforeEach(async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+
     txPool = mock<TxPool>();
     txPool.addTxs.mockImplementation(txs => Promise.resolve(txs.length));
 
@@ -70,6 +73,7 @@ describe('FileStoreTxCollection', () => {
 
   afterEach(async () => {
     await fileStoreCollection.stop();
+    jest.restoreAllMocks();
   });
 
   it('downloads txs immediately when startCollecting is called', async () => {
