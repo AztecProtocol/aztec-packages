@@ -1,17 +1,16 @@
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
-#include <cassert>
-#include <memory>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
-#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix_mem.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
