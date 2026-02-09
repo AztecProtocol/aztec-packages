@@ -17,8 +17,8 @@ use types::{
     address::{AztecAddress, EthAddress},
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, OUT_HASH_TREE_HEIGHT,
+        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_HEIGHT,
         OUT_HASH_TREE_LEAF_COUNT,
     },
     hash::poseidon2_hash,
@@ -357,8 +357,8 @@ impl RollupFixtureBuilder {
         let start_checkpoint_index = (start_slot_number - self.start_slot_number) as u32;
         let end_checkpoint_index = (end_slot_number - self.start_slot_number) as u32;
 
-        let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
-        let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        let mut checkpoint_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
+        let mut fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         let num_checkpoints = end_checkpoint_index - start_checkpoint_index + 1;
         for i in 0..num_checkpoints {
             let slot_number = i as Field + start_slot_number;

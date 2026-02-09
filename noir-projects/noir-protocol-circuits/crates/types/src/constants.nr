@@ -39,7 +39,7 @@ pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of ba
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
 pub global NULLIFIER_TREE_HEIGHT: u32 = NOTE_HASH_TREE_HEIGHT;
 pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 36; // 1024 messages per checkpoint, with 72 seconds per checkpoint, for 100 years.
-pub global OUT_HASH_TREE_HEIGHT: u32 = 6; // 48 (AZTEC_MAX_EPOCH_DURATION) checkpoints per epoch, each has 1 out hash.
+pub global OUT_HASH_TREE_HEIGHT: u32 = 5; // 32 (MAX_CHECKPOINTS_PER_EPOCH) checkpoints per epoch, each has 1 out hash.
 pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = FUNCTION_TREE_HEIGHT; // The number of unconstrained functions in a contract. Set to equal the number of private functions in a contract.
 
 pub global NULLIFIER_TREE_ID: Field = 0;
@@ -162,7 +162,7 @@ pub global INITIAL_CHECKPOINT_NUMBER: Field = 1;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
-pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48; // Is this the max number of checkpoints per epoch? If so, we should rename it.
+pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
@@ -170,7 +170,7 @@ pub global GENESIS_BLOCK_HEADER_HASH: Field =
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x2b7cc335b4798b4d9b5e88cd6b55b1ce54b1225970ad2adff7820413a3c4ca3c;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
-    0x00f10d3a401a22634ebb4b0b17410cd138fd388872486b6280d552d6317c255d;
+    0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
 // CONTRACT CLASS CONSTANTS
 pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000; // Arbitrary.
@@ -585,9 +585,9 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 1 /* accumulated_mana_used */;
 pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
-    + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
+    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* start_out_hash and end_out_hash */
-    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
+    + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
@@ -598,8 +598,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contracts_hash */
     + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
-    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
+    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
+    + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
 // Depends on the final number of messages per checkpoint.
@@ -1248,14 +1248,14 @@ mod test {
     use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-        AZTEC_MAX_EPOCH_DURATION, EMPTY_EPOCH_OUT_HASH, GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
+        EMPTY_EPOCH_OUT_HASH, GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
         GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, GLOBAL_INDEX_NOTE_HASH_OFFSET,
         GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET, GLOBAL_INDEX_NULLIFIER_OFFSET,
         GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
-        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_ETH_ADDRESS_BIT_SIZE, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CHECKPOINTS_PER_EPOCH,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_ETH_ADDRESS_BIT_SIZE,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
         MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1348,9 +1348,9 @@ mod test {
     #[test]
     fn validate_out_hash_tree_height() {
         assert_eq(OUT_HASH_TREE_LEAF_COUNT, 1 << OUT_HASH_TREE_HEIGHT);
-        assert(OUT_HASH_TREE_LEAF_COUNT >= AZTEC_MAX_EPOCH_DURATION);
+        assert(OUT_HASH_TREE_LEAF_COUNT >= MAX_CHECKPOINTS_PER_EPOCH);
         assert(
-            AZTEC_MAX_EPOCH_DURATION * 2 > OUT_HASH_TREE_LEAF_COUNT,
+            MAX_CHECKPOINTS_PER_EPOCH * 2 > OUT_HASH_TREE_LEAF_COUNT,
             "We can get away with making the out hash tree smaller",
         );
     }
