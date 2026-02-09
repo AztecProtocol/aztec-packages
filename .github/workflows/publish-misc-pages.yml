@@ -1,0 +1,36 @@
+name: Publish misc GitHub Pages
+on:
+  push:
+    branches:
+      - next
+    paths:
+      - "yarn-project/scripts/latency-explorer/**"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Checkout benchmark-page-data repo
+        uses: actions/checkout@v4
+        with:
+          repository: AztecProtocol/benchmark-page-data
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          path: benchmark-page-data
+
+      - name: Copy latency explorer
+        run: |
+          mkdir -p benchmark-page-data/misc/tx-latency-explorer
+          cp yarn-project/scripts/latency-explorer/index.html benchmark-page-data/misc/tx-latency-explorer/index.html
+
+      - name: Push changes
+        working-directory: benchmark-page-data
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztecprotocol.com"
+          git add .
+          git diff --cached --quiet && echo "No changes to publish" && exit 0
+          git commit -m "Update tx-latency-explorer from ${{ github.sha }}"
+          git push
