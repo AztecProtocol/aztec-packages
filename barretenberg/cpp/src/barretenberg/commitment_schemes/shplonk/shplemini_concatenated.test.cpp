@@ -55,7 +55,7 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
     }
 
     /**
-     * @brief Concatenate 16 minicircuit polynomials: concat[j*MINI + k] = wire[j][k]
+     * @brief Concatenate 16 minicircuit polynomials: concat[j*MINI + idx] = wire[j][idx]
      */
     Polynomial concatenate_polynomials(const std::array<Polynomial, CONCATENATION_GROUP_SIZE>& polys)
     {
@@ -75,7 +75,6 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
     Fr compute_batched_evaluation(const std::vector<Fr>& challenge,
                                   const std::array<Fr, CONCATENATION_GROUP_SIZE>& individual_evals)
     {
-        // Extract top k challenges
         Fr padding = Fr::one();
         for (size_t i = 0; i < k; ++i) {
             padding *= (Fr::one() - challenge[log_n - k + i]);
@@ -92,82 +91,102 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
         }
         return result * padding.invert();
     }
+
+    /**
+     * @brief Compute batched evaluations (unshifted + shifted) for a group of wires at a challenge point,
+     * and verify them against direct evaluation of the concatenated polynomial.
+     */
+    std::pair<Fr, Fr> evaluate_concatenation_group(const std::array<Polynomial, CONCATENATION_GROUP_SIZE>& wires,
+                                                   const Polynomial& concat_poly,
+                                                   const std::vector<Fr>& challenge)
+    {
+        std::array<Fr, CONCATENATION_GROUP_SIZE> wire_evals;
+        std::array<Fr, CONCATENATION_GROUP_SIZE> wire_shift_evals;
+
+        for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; ++j) {
+            wire_evals[j] = wires[j].evaluate_mle(challenge);
+            wire_shift_evals[j] = wires[j].shifted().evaluate_mle(challenge);
+        }
+
+        Fr batched_unshifted = compute_batched_evaluation(challenge, wire_evals);
+        Fr batched_shifted = compute_batched_evaluation(challenge, wire_shift_evals);
+
+        EXPECT_EQ(batched_unshifted, concat_poly.evaluate_mle(challenge));
+        EXPECT_EQ(batched_shifted, concat_poly.shifted().evaluate_mle(challenge));
+
+        return { batched_unshifted, batched_shifted };
+    }
+
+    /**
+     * @brief Run Shplemini prove-and-verify for N concatenated polynomials (unshifted + shifted).
+     */
+    template <size_t N>
+    bool prove_and_verify(std::array<Polynomial, N>& concat_polys,
+                          std::array<Commitment, N>& commitments,
+                          std::array<Fr, N>& unshifted_evals,
+                          std::array<Fr, N>& shifted_evals,
+                          std::vector<Fr>& challenge)
+    {
+        CK ck(n);
+
+        // --- Prover ---
+        auto prover_transcript = NativeTranscript::test_prover_init_empty();
+
+        using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
+        PolynomialBatcher polynomial_batcher(n);
+
+        std::vector<Polynomial> polys_vec(concat_polys.begin(), concat_polys.end());
+        polynomial_batcher.set_unshifted(RefVector<Polynomial>(polys_vec));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector<Polynomial>(polys_vec));
+
+        auto prover_opening_claim =
+            ShpleminiProver_<Curve>::prove(n, polynomial_batcher, challenge, ck, prover_transcript);
+        KZG<Curve>::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
+
+        // --- Verifier ---
+        auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+        using ClaimBatcher = ClaimBatcher_<Curve>;
+        using ClaimBatch = ClaimBatcher::Batch;
+
+        ClaimBatcher claim_batcher{
+            .unshifted = ClaimBatch{ RefArray<Commitment, N>(commitments), RefArray<Fr, N>(unshifted_evals) },
+            .shifted = ClaimBatch{ RefArray<Commitment, N>(commitments), RefArray<Fr, N>(shifted_evals) }
+        };
+
+        std::vector<Fr> padding_indicator(challenge.size(), Fr{ 1 });
+
+        auto shplemini_output = ShpleminiVerifier_<Curve>::compute_batch_opening_claim(
+            padding_indicator, claim_batcher, challenge, Commitment::one(), verifier_transcript);
+
+        auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(
+            std::move(shplemini_output.batch_opening_claim), verifier_transcript);
+
+        VK vk;
+        return vk.pairing_check(pairing_points[0], pairing_points[1]);
+    }
 };
 
-/**
- * @brief Test with a single shiftable concatenated polynomial (both unshifted and shifted)
- */
 TEST_F(ShpleminiConcatenatedTest, SingleGroup)
 {
     auto wires = create_minicircuit_polynomials();
-    Polynomial concat_poly = concatenate_polynomials(wires);
+    std::array<Polynomial, 1> concat_polys = { concatenate_polynomials(wires) };
 
     CK ck(n);
-    Commitment concat_commitment = ck.commit(concat_poly);
+    std::array<Commitment, 1> commitments = { ck.commit(concat_polys[0]) };
 
     std::vector<Fr> challenge(log_n);
     for (auto& u : challenge) {
         u = Fr::random_element();
     }
 
-    // Evaluate wires and their shifts
-    std::array<Fr, CONCATENATION_GROUP_SIZE> wire_evals, wire_shift_evals;
-    for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; ++j) {
-        wire_evals[j] = wires[j].evaluate_mle(challenge);
-        wire_shift_evals[j] = wires[j].shifted().evaluate_mle(challenge);
-    }
+    auto [unshifted, shifted] = evaluate_concatenation_group(wires, concat_polys[0], challenge);
+    std::array<Fr, 1> unshifted_evals = { unshifted };
+    std::array<Fr, 1> shifted_evals = { shifted };
 
-    Fr batched_unshifted = compute_batched_evaluation(challenge, wire_evals);
-    Fr batched_shifted = compute_batched_evaluation(challenge, wire_shift_evals);
-
-    // Verify against ground truth
-    EXPECT_EQ(batched_unshifted, concat_poly.evaluate_mle(challenge));
-    EXPECT_EQ(batched_shifted, concat_poly.shifted().evaluate_mle(challenge));
-
-    // --- Prover ---
-    auto prover_transcript = NativeTranscript::test_prover_init_empty();
-
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
-    PolynomialBatcher polynomial_batcher(n);
-    polynomial_batcher.set_unshifted(RefVector<Polynomial>{ concat_poly });
-    polynomial_batcher.set_to_be_shifted_by_one(RefVector<Polynomial>{ concat_poly });
-
-    using OpeningClaim = ProverOpeningClaim<Curve>;
-    OpeningClaim prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(n, polynomial_batcher, challenge, ck, prover_transcript);
-
-    KZG<Curve>::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
-
-    // --- Verifier ---
-    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
-
-    std::array<Commitment, 1> commitments = { concat_commitment };
-    std::array<Fr, 1> unshifted_evals = { batched_unshifted };
-    std::array<Fr, 1> shifted_evals = { batched_shifted };
-
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ RefArray<Commitment, 1>(commitments), RefArray<Fr, 1>(unshifted_evals) },
-        .shifted = ClaimBatch{ RefArray<Commitment, 1>(commitments), RefArray<Fr, 1>(shifted_evals) }
-    };
-
-    std::vector<Fr> padding_indicator(challenge.size(), Fr{ 1 });
-
-    auto shplemini_output = ShpleminiVerifier_<Curve>::compute_batch_opening_claim(
-        padding_indicator, claim_batcher, challenge, Commitment::one(), verifier_transcript);
-
-    auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim),
-                                                                        verifier_transcript);
-
-    VK vk;
-    EXPECT_TRUE(vk.pairing_check(pairing_points[0], pairing_points[1]));
+    EXPECT_TRUE(prove_and_verify(concat_polys, commitments, unshifted_evals, shifted_evals, challenge));
 }
 
-/**
- * @brief Test with multiple concatenated groups (mimics translator with 5 concatenated polynomials)
- */
 TEST_F(ShpleminiConcatenatedTest, MultipleGroups)
 {
     constexpr size_t NUM_GROUPS = 5;
@@ -189,59 +208,16 @@ TEST_F(ShpleminiConcatenatedTest, MultipleGroups)
         u = Fr::random_element();
     }
 
-    std::array<Fr, NUM_GROUPS> batched_evals_unshifted, batched_evals_shifted;
+    std::array<Fr, NUM_GROUPS> unshifted_evals;
+    std::array<Fr, NUM_GROUPS> shifted_evals;
 
     for (size_t g = 0; g < NUM_GROUPS; ++g) {
-        std::array<Fr, CONCATENATION_GROUP_SIZE> wire_evals, wire_shift_evals;
-        for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; ++j) {
-            wire_evals[j] = all_groups[g][j].evaluate_mle(challenge);
-            wire_shift_evals[j] = all_groups[g][j].shifted().evaluate_mle(challenge);
-        }
-
-        batched_evals_unshifted[g] = compute_batched_evaluation(challenge, wire_evals);
-        batched_evals_shifted[g] = compute_batched_evaluation(challenge, wire_shift_evals);
-
-        EXPECT_EQ(batched_evals_unshifted[g], concat_polys[g].evaluate_mle(challenge));
-        EXPECT_EQ(batched_evals_shifted[g], concat_polys[g].shifted().evaluate_mle(challenge));
+        auto [u, s] = evaluate_concatenation_group(all_groups[g], concat_polys[g], challenge);
+        unshifted_evals[g] = u;
+        shifted_evals[g] = s;
     }
 
-    // --- Prover ---
-    auto prover_transcript = NativeTranscript::test_prover_init_empty();
-
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
-    PolynomialBatcher polynomial_batcher(n);
-
-    std::vector<Polynomial> concat_polys_vec(concat_polys.begin(), concat_polys.end());
-    polynomial_batcher.set_unshifted(RefVector<Polynomial>(concat_polys_vec));
-    polynomial_batcher.set_to_be_shifted_by_one(RefVector<Polynomial>(concat_polys_vec));
-
-    using OpeningClaim = ProverOpeningClaim<Curve>;
-    OpeningClaim prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(n, polynomial_batcher, challenge, ck, prover_transcript);
-
-    KZG<Curve>::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
-
-    // --- Verifier ---
-    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
-
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-
-    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefArray<Commitment, NUM_GROUPS>(commitments),
-                                                         RefArray<Fr, NUM_GROUPS>(batched_evals_unshifted) },
-                                .shifted = ClaimBatch{ RefArray<Commitment, NUM_GROUPS>(commitments),
-                                                       RefArray<Fr, NUM_GROUPS>(batched_evals_shifted) } };
-
-    std::vector<Fr> padding_indicator(challenge.size(), Fr{ 1 });
-
-    auto shplemini_output = ShpleminiVerifier_<Curve>::compute_batch_opening_claim(
-        padding_indicator, claim_batcher, challenge, Commitment::one(), verifier_transcript);
-
-    auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim),
-                                                                        verifier_transcript);
-
-    VK vk;
-    EXPECT_TRUE(vk.pairing_check(pairing_points[0], pairing_points[1]));
+    EXPECT_TRUE(prove_and_verify(concat_polys, commitments, unshifted_evals, shifted_evals, challenge));
 }
 
 } // namespace bb
