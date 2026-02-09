@@ -12,10 +12,11 @@ jobs:
     strategy:
       matrix:
         train-branch:
-          - merge-train/barretenberg
-          - merge-train/spartan
-          - merge-train/docs
           - merge-train/avm
+          - merge-train/barretenberg
+          - merge-train/ci
+          - merge-train/docs
+          - merge-train/spartan
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
