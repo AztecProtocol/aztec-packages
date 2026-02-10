@@ -537,11 +537,12 @@
       "description": "Cross-compile for iOS arm64 devices using Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include -L/usr/lib",
-        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -nostdinc++ --sysroot ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include/c++/v1 -L/usr/lib"
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
@@ -552,11 +553,12 @@
       "description": "Cross-compile for iOS Simulator on ARM64 using Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 --sysroot ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include -L/usr/lib",
-        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -nostdinc++ --sysroot ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include -I${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include/c++/v1 -L/usr/lib"
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
