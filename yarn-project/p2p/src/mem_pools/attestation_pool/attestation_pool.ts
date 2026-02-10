@@ -43,6 +43,7 @@ export type AttestationPoolApi = Pick<
   | 'deleteOlderThan'
   | 'getCheckpointAttestationsForSlot'
   | 'getCheckpointAttestationsForSlotAndProposal'
+  | 'hasBlockProposalsForSlot'
   | 'isEmpty'
 >;
 
@@ -252,6 +253,13 @@ export class AttestationPool {
     }
 
     return undefined;
+  }
+
+  /** Checks if any block proposals exist for a given slot (at index 0). */
+  public async hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
+    const positionKey = this.getBlockPositionKey(slot, 0);
+    const count = await this.blockProposalsForSlotAndIndex.getValueCountAsync(positionKey);
+    return count > 0;
   }
 
   /**

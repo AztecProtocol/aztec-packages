@@ -404,6 +404,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.attestationPool.addOwnCheckpointAttestations(attestations);
   }
 
+  public hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
+    return this.attestationPool.hasBlockProposalsForSlot(slot);
+  }
+
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
