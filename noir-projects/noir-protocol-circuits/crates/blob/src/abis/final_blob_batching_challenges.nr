@@ -1,4 +1,4 @@
-use crate::config::{pack_limbs, unpack_limbs};
+use crate::config::{pack_bls12_381_fr, unpack_bls12_381_fr};
 use bignum::{BigNum, BLS12_381_Fr};
 use types::{
     constants::BLS12_FR_SERIALIZED_FIELDS,
@@ -50,9 +50,9 @@ impl Serialize for FinalBlobBatchingChallenges {
     #[inline_always]
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         writer.write(self.z);
-        let limbs = self.gamma.get_limbs();
-        writer.write(pack_limbs(limbs[0], limbs[1]));
-        writer.write(limbs[2] as Field);
+        let (g0, g1) = pack_bls12_381_fr(self.gamma);
+        writer.write(g0);
+        writer.write(g1);
     }
 }
 
@@ -69,10 +69,7 @@ impl Deserialize for FinalBlobBatchingChallenges {
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let z = reader.read();
-        let (g0, g1) = unpack_limbs(reader.read());
-        let g2 = reader.read() as u128;
-        let gamma = BLS12_381_Fr::from_limbs([g0, g1, g2]);
-        gamma.validate_in_field();
+        let gamma = unpack_bls12_381_fr(reader.read(), reader.read());
         Self { z, gamma }
     }
 }

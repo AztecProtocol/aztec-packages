@@ -1,4 +1,7 @@
-use crate::{config::{pack_limbs, unpack_limbs}, utils::compress_to_blob_commitment};
+use crate::{
+    config::{pack_bls12_381_fq, pack_bls12_381_fr, unpack_bls12_381_fq, unpack_bls12_381_fr},
+    utils::compress_to_blob_commitment,
+};
 use super::{
     batching_blob_commitment::BatchingBlobCommitment, BLSPoint,
     final_blob_accumulator::FinalBlobAccumulator,
@@ -40,7 +43,6 @@ pub struct BlobAccumulationInputs {
 *  - We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
 *    and the blob's commitment (c_i).
 *
-* TODO(#14646): Compress BLS12_381_Fr and BLS12_381_Fq values to reduce number of public inputs (BLOB_ACCUMULATOR_LENGTH)
 * TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator instead of having manual implementations.
 * Not done here as BLS12_381_Fr doesn't implement serde and orphan rule prevents me from implementing it here.
 */
@@ -193,25 +195,20 @@ impl Serialize for BlobAccumulator {
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         writer.write(self.blob_commitments_hash_acc);
         writer.write(self.z_acc);
-        // y_acc: BLS12_381_Fr (3 limbs -> 2 fields)
-        let y_limbs = self.y_acc.get_limbs();
-        writer.write(pack_limbs(y_limbs[0], y_limbs[1]));
-        writer.write(y_limbs[2] as Field);
-        // c_acc.x: BLS12_381_Fq (4 limbs -> 2 fields)
-        let cx_limbs = self.c_acc.x.get_limbs();
-        writer.write(pack_limbs(cx_limbs[0], cx_limbs[1]));
-        writer.write(pack_limbs(cx_limbs[2], cx_limbs[3]));
-        // c_acc.y: BLS12_381_Fq (4 limbs -> 2 fields)
-        let cy_limbs = self.c_acc.y.get_limbs();
-        writer.write(pack_limbs(cy_limbs[0], cy_limbs[1]));
-        writer.write(pack_limbs(cy_limbs[2], cy_limbs[3]));
-        // c_acc.is_infinity
+        let (y0, y1) = pack_bls12_381_fr(self.y_acc);
+        writer.write(y0);
+        writer.write(y1);
+        let (cx0, cx1) = pack_bls12_381_fq(self.c_acc.x);
+        writer.write(cx0);
+        writer.write(cx1);
+        let (cy0, cy1) = pack_bls12_381_fq(self.c_acc.y);
+        writer.write(cy0);
+        writer.write(cy1);
         writer.write(self.c_acc.is_infinity as Field);
         writer.write(self.gamma_acc);
-        // gamma_pow_acc: BLS12_381_Fr (3 limbs -> 2 fields)
-        let gp_limbs = self.gamma_pow_acc.get_limbs();
-        writer.write(pack_limbs(gp_limbs[0], gp_limbs[1]));
-        writer.write(gp_limbs[2] as Field);
+        let (gp0, gp1) = pack_bls12_381_fr(self.gamma_pow_acc);
+        writer.write(gp0);
+        writer.write(gp1);
     }
 }
 
@@ -229,28 +226,12 @@ impl Deserialize for BlobAccumulator {
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let blob_commitments_hash_acc = reader.read();
         let z_acc = reader.read();
-        // y_acc: BLS12_381_Fr (2 packed fields -> 3 limbs)
-        let (y0, y1) = unpack_limbs(reader.read());
-        let y2 = reader.read() as u128;
-        // c_acc.x: BLS12_381_Fq (2 packed fields -> 4 limbs)
-        let (cx0, cx1) = unpack_limbs(reader.read());
-        let (cx2, cx3) = unpack_limbs(reader.read());
-        // c_acc.y: BLS12_381_Fq (2 packed fields -> 4 limbs)
-        let (cy0, cy1) = unpack_limbs(reader.read());
-        let (cy2, cy3) = unpack_limbs(reader.read());
+        let y_acc = unpack_bls12_381_fr(reader.read(), reader.read());
+        let c_x = unpack_bls12_381_fq(reader.read(), reader.read());
+        let c_y = unpack_bls12_381_fq(reader.read(), reader.read());
         let is_infinity = reader.read_bool();
         let gamma_acc = reader.read();
-        // gamma_pow_acc: BLS12_381_Fr (2 packed fields -> 3 limbs)
-        let (gp0, gp1) = unpack_limbs(reader.read());
-        let gp2 = reader.read() as u128;
-        let y_acc = BLS12_381_Fr::from_limbs([y0, y1, y2]);
-        y_acc.validate_in_field();
-        let c_x = BLS12_381_Fq::from_limbs([cx0, cx1, cx2, cx3]);
-        c_x.validate_in_field();
-        let c_y = BLS12_381_Fq::from_limbs([cy0, cy1, cy2, cy3]);
-        c_y.validate_in_field();
-        let gamma_pow_acc = BLS12_381_Fr::from_limbs([gp0, gp1, gp2]);
-        gamma_pow_acc.validate_in_field();
+        let gamma_pow_acc = unpack_bls12_381_fr(reader.read(), reader.read());
         Self {
             blob_commitments_hash_acc,
             z_acc,

@@ -1,4 +1,4 @@
-use bignum::{BigNum, BLS12_381_Fr};
+use bignum::{BigNum, BLS12_381_Fq, BLS12_381_Fr};
 use types::constants::FIELDS_PER_BLOB;
 
 pub global LOG_FIELDS_PER_BLOB: u32 = 12;
@@ -26,6 +26,31 @@ unconstrained fn __split_at_120(packed: Field) -> (u128, u128) {
     (lo, hi)
 }
 
+pub fn pack_bls12_381_fr(input: BLS12_381_Fr) -> (Field, Field) {
+    let limbs = input.get_limbs();
+    (pack_limbs(limbs[0], limbs[1]), limbs[2] as Field)
+}
+
+pub fn unpack_bls12_381_fr(packed0: Field, packed1: Field) -> BLS12_381_Fr {
+    let (limb0, limb1) = unpack_limbs(packed0);
+    let result = BLS12_381_Fr::from_limbs([limb0, limb1, packed1 as u128]);
+    result.validate_in_field();
+    result
+}
+
+pub fn pack_bls12_381_fq(input: BLS12_381_Fq) -> (Field, Field) {
+    let limbs: [u128; 4] = input.get_limbs();
+    (pack_limbs(limbs[0], limbs[1]), pack_limbs(limbs[2], limbs[3]))
+}
+
+pub fn unpack_bls12_381_fq(packed0: Field, packed1: Field) -> BLS12_381_Fq {
+    let (limb0, limb1) = unpack_limbs(packed0);
+    let (limb2, limb3) = unpack_limbs(packed1);
+    let result = BLS12_381_Fq::from_limbs([limb0, limb1, limb2, limb3]);
+    result.validate_in_field();
+    result
+}
+
 #[test]
 fn test_pack_unpack_limbs() {
     let limb0: u128 = 0x50;
@@ -42,6 +67,47 @@ fn test_pack_unpack_zero() {
     let (lo, hi) = unpack_limbs(packed);
     assert_eq(lo, 0);
     assert_eq(hi, 0);
+}
+
+#[test]
+fn test_pack_unpack_bls12_381_fr() {
+    let original = BLS12_381_Fr::from_limbs([
+        0xabcdef1234567890abcdef12345678,
+        0x12345678abcdef1234567890abcdef,
+        0x5678,
+    ]);
+    let (packed0, packed1) = pack_bls12_381_fr(original);
+    let recovered = unpack_bls12_381_fr(packed0, packed1);
+    assert(original.eq(recovered));
+}
+
+#[test]
+fn test_pack_unpack_bls12_381_fr_zero() {
+    let original = BLS12_381_Fr::zero();
+    let (packed0, packed1) = pack_bls12_381_fr(original);
+    let recovered = unpack_bls12_381_fr(packed0, packed1);
+    assert(original.eq(recovered));
+}
+
+#[test]
+fn test_pack_unpack_bls12_381_fq() {
+    let original = BLS12_381_Fq::from_limbs([
+        0xfedcba9876543210fedcba98765432,
+        0x0a0b0c0d0e0f1234567890abcdef12,
+        0x1234567890abcdef1234567890abcd,
+        0x0abcde,
+    ]);
+    let (packed0, packed1) = pack_bls12_381_fq(original);
+    let recovered = unpack_bls12_381_fq(packed0, packed1);
+    assert(original.eq(recovered));
+}
+
+#[test]
+fn test_pack_unpack_bls12_381_fq_zero() {
+    let original = BLS12_381_Fq::zero();
+    let (packed0, packed1) = pack_bls12_381_fq(original);
+    let recovered = unpack_bls12_381_fq(packed0, packed1);
+    assert(original.eq(recovered));
 }
 pub global D: BLS12_381_Fr = BLS12_381_Fr::from_limbs([4096, 0, 0]);
 pub global D_INV: BLS12_381_Fr = BLS12_381_Fr::from_limbs([
