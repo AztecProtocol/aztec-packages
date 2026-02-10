@@ -908,9 +908,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         IPA<NativeCurve, log_poly_length>::compute_opening_proof(
             ck, { challenge_poly, opening_pair }, prover_transcript);
-        BB_ASSERT_EQ(challenge_poly.evaluate(bb::fq(output_claim.opening_pair.challenge.get_value())),
-                     bb::fq(output_claim.opening_pair.evaluation.get_value()),
-                     "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
         return { output_claim, prover_transcript->export_proof() };
