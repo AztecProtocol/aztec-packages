@@ -7,7 +7,7 @@ include "precomputed.pil";
 // because users might want to decompose in more limbs that strictly needed for the radix.
 // The following table is non-exhaustive, we do have some extra columns to compute these values.
 // +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
-// | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | exponent | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | NOT_END |
+// | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | power    | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | NOT_END |
 // +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
 // |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
 // |  1337 |    10 |    7 |      7 |          0 |    7 |           0 | 1        |                1 |     0 |         76 |         0 |     1 |   0 |   1 |       1 |
@@ -59,22 +59,22 @@ namespace to_radix;
 
     // EXPONENTIATION
 
-    pol commit exponent;
+    pol commit power;
     // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used in a lookup
     pol commit not_padding_limb;
     not_padding_limb * (1 - not_padding_limb) = 0;
 
-    // exponent starts at 1
-    start * (exponent - 1) = 0;
-    // next exponent is current exponent * radix unless it's a padding limb
-    NOT_END * not_padding_limb' * (exponent * radix - exponent') = 0;
+    // power starts at 1
+    start * (power - 1) = 0;
+    // next power is current power * radix unless it's a padding limb
+    NOT_END * not_padding_limb' * (power * radix - power') = 0;
     // not_padding_limb starts at 1
     start * (1 - not_padding_limb) = 0;
     // next not not_padding_limb is current not_padding_limb unless current limb is unsafe, where it changes to 0
     NOT_END * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
 
-    // Padding limbs have zero exponent
-    (1 - not_padding_limb) * exponent = 0;
+    // Padding limbs have zero power
+    (1 - not_padding_limb) * power = 0;
 
 
     // ACCUMULATION
@@ -110,7 +110,7 @@ namespace to_radix;
     // On start, current acc must be equal to limb
     start * (acc - limb) = 0;
     // Next acc must be current acc + next_exponent*next_limb
-    NOT_END * (acc + exponent' * limb' - acc') = 0;
+    NOT_END * (acc + power' * limb' - acc') = 0;
 
     // found is 1 when value - acc = 0
     pol REM = value - acc;

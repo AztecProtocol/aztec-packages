@@ -35,7 +35,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
         const uint32_t safe_limbs = static_cast<uint32_t>(p_limbs.size()) - 1;
 
         FF acc = 0;
-        FF exponent = 1;          // Successive powers of the radix. After unsafe limbs, we set it to 0.
+        FF power = 1;             // Successive powers of the radix. After unsafe limbs, we set it to 0.
         bool found = false;       // Whether the value has been found in the decomposition.
         bool acc_under_p = false; // Whether the accumulator is under p.
 
@@ -61,7 +61,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             const bool is_unsafe_limb = i == safe_limbs;
             const FF safety_diff = FF(i) - FF(safe_limbs);
 
-            acc += exponent * FF(limb);
+            acc += power * FF(limb);
 
             const FF rem = value - acc;
             found = rem.is_zero();
@@ -77,7 +77,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_limb, limb },
                           { C::to_radix_start, i == 0 ? 1 : 0 },
                           { C::to_radix_end, end ? 1 : 0 },
-                          { C::to_radix_exponent, exponent },
+                          { C::to_radix_power, power },
                           { C::to_radix_not_padding_limb, !is_padding ? 1 : 0 },
                           { C::to_radix_acc, acc },
                           { C::to_radix_found, found ? 1 : 0 },
@@ -95,9 +95,9 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
             row++;
             if (is_unsafe_limb) {
-                exponent = 0;
+                power = 0;
             } else {
-                exponent *= FF(radix);
+                power *= FF(radix);
             }
         }
     }
@@ -174,14 +174,14 @@ void ToRadixTraceBuilder::process_with_memory(
 
         // Compute found for the given decomposition
         FF acc = 0;
-        FF exponent = 1;
+        FF power = 1;
         std::vector<bool> found(event.limbs.size(), false);
         for (size_t i = 0; i < event.limbs.size(); ++i) {
             // Limbs are BE, we compute found in LE since the to_radix subtrace is little endian
             size_t reverse_index = event.limbs.size() - i - 1;
             FF limb_value = event.limbs[reverse_index].as_ff();
-            acc += exponent * limb_value;
-            exponent *= event.radix;
+            acc += power * limb_value;
+            power *= event.radix;
             found[reverse_index] = acc == event.value;
         }
 
