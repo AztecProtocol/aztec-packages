@@ -165,11 +165,6 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/f2007345762c50a8
-  - regex: "src/e2e_multi_validator_node.test.ts"
-    error_regex: "✕ should attest ONLY with the correct validator keys"
-    owners:
-      - *spyros
 
   # yarn-project tests
   - regex: "yarn-project/kv-store"
