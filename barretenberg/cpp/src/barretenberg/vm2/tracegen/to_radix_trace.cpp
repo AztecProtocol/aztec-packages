@@ -197,6 +197,9 @@ void ToRadixTraceBuilder::process_with_memory(
             acc += power * limb_value;
             power *= event.radix;
             found[reverse_index] = acc == event.value;
+            // Once `found[reverse_index]` is set to true, it will never be set to false.
+            // This is guaranteed by a honest simulation that `limb_value == 0` from this point
+            // on and therefore `acc` remains constant.
         }
 
         // Truncation error. A radix decomposition in the non-memory aware to_radix subtrace is performed.
