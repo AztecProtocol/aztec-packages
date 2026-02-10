@@ -1,5 +1,8 @@
 # Chonk Audit Scope
 
+Repository: https://github.com/AztecProtocol/aztec-packages
+Commit hash: dac3f148132ecfc98adb6ac6444ab47861b38dd5
+
 Chonk is an RCG system designed for proving private smart contract execution on Aztec. It uses HyperNova folding to accumulate circuits with deferred PCS verification, combined with Goblin to defer non-native elliptic curve operations to a separate VM - Elliptic Curve Virtual Machine. The goal of the audit is to ensure that soundness and completeness of the protocol **assuming** the soundness of several building blocks audited separately -  Circuit Builders, Field, Bigfield, ECCVM, Translator, Biggroup, Transcript, DSL/ACIR, Sumcheck, and PCS.
 
 ---
