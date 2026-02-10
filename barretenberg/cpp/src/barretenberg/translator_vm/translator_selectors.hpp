@@ -7,7 +7,7 @@
 namespace bb {
 
 /**
- * @brief Evaluates the 11 structured Translator precomputed selectors at a sumcheck challenge point.
+ * @brief Evaluates the 10 structured Translator precomputed selectors at a sumcheck challenge point.
  *
  * @details All Translator selectors except ordered_extra_range_constraints_numerator are multilinear
  * polynomials over {0,1}^d whose support forms subcubes or small unions of subcubes. Their evaluations
@@ -45,7 +45,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     static_assert(LOG_RESULT_ROW < LOG_MINI_CIRCUIT_SIZE);
     static_assert(LOG_MINI_CIRCUIT_SIZE > LOG_MAX_RANDOM, "Mini circuit must be larger than max random region");
 
-    // The 11 selector evaluations (order matches PrecomputedEntities in translator_flavor.hpp,
+    // The 10 selector evaluations (order matches PrecomputedEntities in translator_flavor.hpp,
     // skipping ordered_extra_range_constraints_numerator which cannot be efficiently computed)
     FF lagrange_first;
     FF lagrange_last;
@@ -56,14 +56,13 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     FF lagrange_masking;
     FF lagrange_mini_masking;
     FF lagrange_real_last;
-    FF lagrange_masking_adjacent;
     FF lagrange_ordered_masking;
 
     /**
-     * @brief Compute evaluations of all 11 structured selectors at the sumcheck challenge.
+     * @brief Compute evaluations of all 10 structured selectors at the sumcheck challenge.
      *
      * @param u Sumcheck challenge (u_0, ..., u_{LOG_N-1}). Size must equal LOG_N.
-     * @return TranslatorSelectorEvaluations with all 11 fields populated.
+     * @return TranslatorSelectorEvaluations with all 10 fields populated.
      */
     static TranslatorSelectorEvaluations compute(std::span<const FF> u)
     {
@@ -182,14 +181,6 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
         //   = ∏_{k=m}^{M-1} u_k
         evals.lagrange_masking = u_m_M1;
 
-        // ---- Near-subcube indicators ----
-
-        // lagrange_masking_adjacent: lagrange_masking ∪ {row before each masking block, all 16 blocks}
-        //   The adjacent row within each block has bits 0..m-1=1, bit m=0, bits m+1..M-1=1;
-        //   across all blocks (bits M..D-1 free), this is itself a subcube.
-        //   = ∏_{k=m+1}^{M-1} u_k · [ u_m + ∏_{k=0}^{m-1} u_k · (1 - u_m) ]
-        evals.lagrange_masking_adjacent = u_mp1_M1 * (u[m] + u_0_m1 * c[m]);
-
         // ---- Mini-masking (two disjoint blocks in block 0) ----
 
         // lagrange_mini_masking: rows [RANDOMNESS_START .. RESULT_ROW-1] ∪ [MINI-NUM_MASKED .. MINI-1], block 0
@@ -242,7 +233,6 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
         target.lagrange_masking = lagrange_masking;
         target.lagrange_mini_masking = lagrange_mini_masking;
         target.lagrange_real_last = lagrange_real_last;
-        target.lagrange_masking_adjacent = lagrange_masking_adjacent;
         target.lagrange_ordered_masking = lagrange_ordered_masking;
     }
 };

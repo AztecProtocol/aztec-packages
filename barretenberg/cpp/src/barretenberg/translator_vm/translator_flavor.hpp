@@ -59,9 +59,9 @@ class TranslatorFlavor {
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
-    // 11 of 12 precomputed selectors are structured multilinear polynomials whose evaluations at the
+    // 10 of 11 precomputed selectors are structured multilinear polynomials whose evaluations at the
     // sumcheck challenge can be computed in O(d) field ops (all except ordered_extra_range_constraints_numerator).
-    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 11;
+    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 10;
 
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
@@ -129,15 +129,15 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    // = MaskingEntities(1) + Precomputed(12) + Witness(92) + Shifted(86) = 191
-    static constexpr size_t NUM_ALL_ENTITIES = 191;
+    // = MaskingEntities(1) + Precomputed(11) + Witness(92) + Shifted(86) = 190
+    static constexpr size_t NUM_ALL_ENTITIES = 190;
 
     // Number of evaluations sent in proof (all minus computable precomputed)
     static constexpr size_t NUM_SENT_EVALUATIONS = NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED;
 
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 11;
 
     // The total number of witness entities not including shifts.
     // = WireNonshifted(1) + WireToBeShifted(80) + OrderedRange(5) + Derived(1) + Concatenated(5) = 92
@@ -262,8 +262,7 @@ class TranslatorFlavor {
                               lagrange_masking,                          // column 7
                               lagrange_mini_masking,                     // column 8
                               lagrange_real_last,                        // column 9
-                              lagrange_masking_adjacent,                 // column 10
-                              lagrange_ordered_masking);                 // column 11
+                              lagrange_ordered_masking);                 // column 10
     };
 
     template <typename DataType> class ConcatenatedPolynomials {
@@ -1010,7 +1009,7 @@ class TranslatorFlavor {
      * @brief Verifier: complete the claimed evaluations for the sumcheck relation check.
      * @details After set_full_circuit_evaluations and set_minicircuit_evaluations have placed raw values,
      * this method:
-     *   1. Computes the 12 structured precomputed selector evaluations from the challenge.
+     *   1. Computes the 10 structured precomputed selector evaluations from the challenge.
      *   2. Multiplies the 154 minicircuit wire entries by L_0(u_top) = Π(1 - u_i) for the top 4
      *      challenges, converting mid-sumcheck values to full evaluations at the sumcheck point.
      */
@@ -1144,7 +1143,6 @@ class TranslatorFlavor {
             // With concatenation, masking rows are scattered in concatenated polys: end of each of the 16 blocks
             // Must span full circuit since values go up to position 15*MINI+(MINI-1)
             lagrange_masking = Polynomial{ circuit_size, circuit_size };
-            lagrange_masking_adjacent = Polynomial{ circuit_size, circuit_size };
             // Ordered masking: contiguous at the end (marks masking positions in ordered polynomials)
             lagrange_ordered_masking = Polynomial{ /*size*/ MAX_RANDOM_VALUES_PER_ORDERED,
                                                    /*virtual_size*/ circuit_size,
@@ -1254,120 +1252,29 @@ class TranslatorFlavor {
 
     /**
      * @brief A container for commitment labels.
-     * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly
-     * needed. It has, however, been useful during debugging to have these labels available.
-     *
+     * @details Only labels accessed by the prover/verifier are set: the 5 concatenated polynomials,
+     * 5 ordered range constraints, and z_perm. All other AllEntities fields remain empty strings.
      */
     class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
-            this->op = "OP";
-            this->x_lo_y_hi = "X_LO_Y_HI";
-            this->x_hi_z_1 = "X_HI_Z_1";
-            this->y_lo_z_2 = "Y_LO_Z_2";
-            this->p_x_low_limbs = "P_X_LOW_LIMBS";
-            this->p_x_high_limbs = "P_X_HIGH_LIMBS";
-            this->p_x_low_limbs_range_constraint_0 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_0";
-            this->p_x_low_limbs_range_constraint_1 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_1";
-            this->p_x_low_limbs_range_constraint_2 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_2";
-            this->p_x_low_limbs_range_constraint_3 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_3";
-            this->p_x_low_limbs_range_constraint_4 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_4";
-            this->p_x_low_limbs_range_constraint_tail = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->p_x_high_limbs_range_constraint_0 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0";
-            this->p_x_high_limbs_range_constraint_1 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1";
-            this->p_x_high_limbs_range_constraint_2 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2";
-            this->p_x_high_limbs_range_constraint_3 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3";
-            this->p_x_high_limbs_range_constraint_4 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4";
-            this->p_x_high_limbs_range_constraint_tail = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->p_y_low_limbs = "P_Y_LOW_LIMBS";
-            this->p_y_low_limbs_range_constraint_0 = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0";
-            this->p_y_low_limbs_range_constraint_1 = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1";
-            this->p_y_low_limbs_range_constraint_2 = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2";
-            this->p_y_low_limbs_range_constraint_3 = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3";
-            this->p_y_low_limbs_range_constraint_4 = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4";
-            this->p_y_low_limbs_range_constraint_tail = "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->p_y_high_limbs = "P_Y_HIGH_LIMBS";
-            this->p_y_high_limbs_range_constraint_0 = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0";
-            this->p_y_high_limbs_range_constraint_1 = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1";
-            this->p_y_high_limbs_range_constraint_2 = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2";
-            this->p_y_high_limbs_range_constraint_3 = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3";
-            this->p_y_high_limbs_range_constraint_4 = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4";
-            this->p_y_high_limbs_range_constraint_tail = "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->z_low_limbs = "Z_LOw_LIMBS";
-            this->z_low_limbs_range_constraint_0 = "Z_LOW_LIMBS_RANGE_CONSTRAINT_0";
-            this->z_low_limbs_range_constraint_1 = "Z_LOW_LIMBS_RANGE_CONSTRAINT_1";
-            this->z_low_limbs_range_constraint_2 = "Z_LOW_LIMBS_RANGE_CONSTRAINT_2";
-            this->z_low_limbs_range_constraint_3 = "Z_LOW_LIMBS_RANGE_CONSTRAINT_3";
-            this->z_low_limbs_range_constraint_4 = "Z_LOW_LIMBS_RANGE_CONSTRAINT_4";
-            this->z_low_limbs_range_constraint_tail = "Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->z_high_limbs = "Z_HIGH_LIMBS";
-            this->z_high_limbs_range_constraint_0 = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_0";
-            this->z_high_limbs_range_constraint_1 = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_1";
-            this->z_high_limbs_range_constraint_2 = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_2";
-            this->z_high_limbs_range_constraint_3 = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_3";
-            this->z_high_limbs_range_constraint_4 = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_4";
-            this->z_high_limbs_range_constraint_tail = "Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->accumulators_binary_limbs_0 = "ACCUMULATORS_BINARY_LIMBS_0";
-            this->accumulators_binary_limbs_1 = "ACCUMULATORS_BINARY_LIMBS_1";
-            this->accumulators_binary_limbs_2 = "ACCUMULATORS_BINARY_LIMBS_2";
-            this->accumulators_binary_limbs_3 = "ACCUMULATORS_BINARY_LIMBS_3";
-            this->accumulator_low_limbs_range_constraint_0 = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0";
-            this->accumulator_low_limbs_range_constraint_1 = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1";
-            this->accumulator_low_limbs_range_constraint_2 = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_2";
-            this->accumulator_low_limbs_range_constraint_3 = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_3";
-            this->accumulator_low_limbs_range_constraint_4 = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_4";
-            this->accumulator_low_limbs_range_constraint_tail = "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->accumulator_high_limbs_range_constraint_0 = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_0";
-            this->accumulator_high_limbs_range_constraint_1 = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_1";
-            this->accumulator_high_limbs_range_constraint_2 = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_2";
-            this->accumulator_high_limbs_range_constraint_3 = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3";
-            this->accumulator_high_limbs_range_constraint_4 = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4";
-            this->accumulator_high_limbs_range_constraint_tail = "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->quotient_low_binary_limbs = "QUOTIENT_LOW_BINARY_LIMBS";
-            this->quotient_high_binary_limbs = "QUOTIENT_HIGH_BINARY_LIMBS";
-            this->quotient_low_limbs_range_constraint_0 = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0";
-            this->quotient_low_limbs_range_constraint_1 = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_1";
-            this->quotient_low_limbs_range_constraint_2 = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_2";
-            this->quotient_low_limbs_range_constraint_3 = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_3";
-            this->quotient_low_limbs_range_constraint_4 = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_4";
-            this->quotient_low_limbs_range_constraint_tail = "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->quotient_high_limbs_range_constraint_0 = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_0";
-            this->quotient_high_limbs_range_constraint_1 = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_1";
-            this->quotient_high_limbs_range_constraint_2 = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_2";
-            this->quotient_high_limbs_range_constraint_3 = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_3";
-            this->quotient_high_limbs_range_constraint_4 = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_4";
-            this->quotient_high_limbs_range_constraint_tail = "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->relation_wide_limbs = "RELATION_WIDE_LIMBS";
-            this->relation_wide_limbs_range_constraint_0 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0";
-            this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
-            this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3";
-            this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
-            this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
-            this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
-            this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
-            this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
-            this->z_perm = "Z_PERM";
+            // Concatenated polynomials (sent via get_non_opqueue_wires_and_ordered_range_constraints)
             this->concatenated_range_constraints_0 = "CONCATENATED_RANGE_CONSTRAINTS_0";
             this->concatenated_range_constraints_1 = "CONCATENATED_RANGE_CONSTRAINTS_1";
             this->concatenated_range_constraints_2 = "CONCATENATED_RANGE_CONSTRAINTS_2";
             this->concatenated_range_constraints_3 = "CONCATENATED_RANGE_CONSTRAINTS_3";
             this->concatenated_non_range = "CONCATENATED_NON_RANGE";
 
-            // "__" are only used for debugging
-            this->lagrange_first = "__LAGRANGE_FIRST";
-            this->lagrange_last = "__LAGRANGE_LAST";
-            this->lagrange_odd_in_minicircuit = "__LAGRANGE_ODD_IN_MINICIRCUIT";
-            this->lagrange_even_in_minicircuit = "__LAGRANGE_EVEN_IN_MINICIRCUIT";
-            this->lagrange_result_row = "__LAGRANGE_RESULT_ROW";
-            this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
-            this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
-            this->lagrange_masking = "__LAGRANGE_MASKING";
-            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
-            this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
-            this->lagrange_masking_adjacent = "__LAGRANGE_MASKING_ADJACENT";
-            this->lagrange_ordered_masking = "__LAGRANGE_ORDERED_MASKING";
+            // Ordered range constraints (sent via get_non_opqueue_wires_and_ordered_range_constraints)
+            this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
+            this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
+            this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
+            this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
+            this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
+
+            // Grand product (committed separately)
+            this->z_perm = "Z_PERM";
         };
     };
 

@@ -92,7 +92,6 @@ ValidTranslatorState build_valid_translator_state()
     pp.lagrange_last = typename Flavor::Polynomial(full_circuit_size);
     pp.lagrange_real_last = typename Flavor::Polynomial(full_circuit_size);
     pp.lagrange_masking = typename Flavor::Polynomial(full_circuit_size);
-    pp.lagrange_masking_adjacent = typename Flavor::Polynomial(full_circuit_size);
 
     key.compute_lagrange_polynomials();
     key.compute_extra_range_constraint_numerator();
@@ -437,7 +436,6 @@ TEST_F(TranslatorRelationFailureTests, InRangeValueInMaskingFlowsToOrderedTail)
     pp.lagrange_last = typename Flavor::Polynomial(full_circuit_size);
     pp.lagrange_real_last = typename Flavor::Polynomial(full_circuit_size);
     pp.lagrange_masking = typename Flavor::Polynomial(full_circuit_size);
-    pp.lagrange_masking_adjacent = typename Flavor::Polynomial(full_circuit_size);
 
     key.compute_lagrange_polynomials();
     key.compute_extra_range_constraint_numerator();

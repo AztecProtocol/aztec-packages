@@ -8,9 +8,9 @@ Two optimizations reduce the Translator proof size and verifier cost:
    polynomial commitments. The prover still evaluates individual wires in Sumcheck; the verifier
    reconstructs concatenated evaluations from wire evaluations using Lagrange decomposition.
 
-2. **Computable precomputed selectors**: 12 of 13 precomputed selectors are structured multilinear
+2. **Computable precomputed selectors**: 10 of 11 precomputed selectors are structured multilinear
    polynomials whose evaluations at the sumcheck challenge can be computed in O(d) field ops. The
-   prover skips sending these 12 evaluations; the verifier computes them locally.
+   prover skips sending these 10 evaluations; the verifier computes them locally.
 
 **Net savings**:
 - 72 fewer group element commitments (83 → 11)
@@ -217,19 +217,7 @@ is the last non-masking row where we enforce `ordered_value = 2^14 - 1`.
 
 **Files:** `translator_delta_range_constraint_relation.hpp`, `..._impl.hpp`
 
-### 4. `lagrange_masking_adjacent`: Scattered Masking + Adjacent Rows
-
-`lagrange_masking_adjacent` extends `lagrange_masking` by also being 1 at the row immediately
-preceding each block's masking region. For each block `j`:
-
-```
-Active at: {j*MINI + (MINI - NUM_MASKED - 1)} ∪ {j*MINI + k : k ∈ [MINI - NUM_MASKED, MINI)}
-```
-
-This is a precomputed polynomial included in the VK. It is available for potential future use
-in constraints that need to disable checks at or near scattered masking boundaries.
-
-### 5. Ordered Polynomial Construction
+### 4. Ordered Polynomial Construction
 
 **File:** `translator_proving_key.cpp` — `compute_translator_range_constraint_ordered_polynomials()`
 
@@ -320,10 +308,9 @@ Claims are batched without `InterleavedBatch`:
 | 7 | `lagrange_masking` | Yes | Subcube: bits m..M-1 = 1 |
 | 8 | `lagrange_mini_masking` | Yes | Two disjoint blocks in block 0 |
 | 9 | `lagrange_real_last` | Yes | Single point: row N-MAX_RANDOM-1 |
-| 10 | `lagrange_masking_adjacent` | Yes | Near-subcube: masking ∪ adjacent rows |
-| 11 | `lagrange_ordered_masking` | Yes | Subcube: bits R..D-1 = 1 |
+| 10 | `lagrange_ordered_masking` | Yes | Subcube: bits R..D-1 = 1 |
 
-All 11 computable selectors are structured multilinear polynomials whose support forms subcubes
+All 10 computable selectors are structured multilinear polynomials whose support forms subcubes
 or small unions of subcubes. Their evaluations at the sumcheck challenge can be computed in O(d)
 field operations.
 
@@ -374,7 +361,6 @@ fewer scalar multiplications in the verifier's batch opening check.
 | Component | Change |
 |---|---|
 | `lagrange_masking` | Scattered across 16 blocks (end of each block) |
-| New: `lagrange_masking_adjacent` | Precomputed = masking ∪ row-before-masking (scattered) |
 | New: `lagrange_ordered_masking` | Precomputed = contiguous at end (for ordered polys) |
 | `lagrange_real_last` | Position `circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1` |
 | Permutation relation | Dual masking selectors (scattered for numerator, contiguous for denominator) |
@@ -387,7 +373,7 @@ fewer scalar multiplications in the verifier's batch opening check.
 | Prover PCS round | 14 unshifted + 14 shifted (standard + concatenated) |
 | Verifier PCS | Lagrange reconstruction of concat evals; no InterleavedBatch |
 | Sumcheck (prover) | Sends `NUM_SENT_EVALUATIONS` (12 computable precomputed excluded) |
-| Sumcheck (verifier) | Receives fewer evals; computes 12 precomputed locally |
+| Sumcheck (verifier) | Receives fewer evals; computes 10 precomputed locally |
 | PCS batching | 12 fewer MSMs (computable precomputed excluded) |
 
 ## Commitment Count Summary
@@ -416,7 +402,7 @@ fewer scalar multiplications in the verifier's batch opening check.
 
 | File | Changes |
 |---|---|
-| `translator_vm/translator_selectors.hpp` | `TranslatorSelectorEvaluations`: computes 12 selectors + `populate()` |
+| `translator_vm/translator_selectors.hpp` | `TranslatorSelectorEvaluations`: computes 10 selectors + `populate()` |
 | `translator_vm/translator_flavor.hpp` | Entity classes, constants, static methods, `PROOF_LENGTH` |
 | `translator_vm/translator_proving_key.hpp` | Concatenation/ordering parameters |
 | `translator_vm/translator_proving_key.cpp` | Concatenation, ordered polys, Lagrange polys, random distribution |

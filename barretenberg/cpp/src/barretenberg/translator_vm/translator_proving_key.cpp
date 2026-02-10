@@ -252,8 +252,6 @@ void TranslatorProvingKey::split_concatenated_random_coefficients_to_ordered()
  * - `lagrange_last`: Active at the very last row of the full circuit
  * - `lagrange_masking`: Active at scattered masking positions — the last NUM_MASKED_ROWS_END rows of each of the
  *   CONCATENATION_GROUP_SIZE blocks
- * - `lagrange_masking_adjacent`: Active where masking[i]=1 OR masking[i+1]=1. Disables the delta range constraint
- *   at masking rows AND at the row immediately before each masking block
  * - `lagrange_ordered_masking`: Active at the last MAX_RANDOM_VALUES_PER_ORDERED positions (contiguous at end),
  *   where random values are placed in ordered polynomials
  *
@@ -290,20 +288,6 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
         for (size_t k = MINI - Flavor::NUM_MASKED_ROWS_END; k < MINI; k++) {
             proving_key->polynomials.lagrange_masking.at(j * MINI + k) = 1;
-        }
-    }
-
-    // lagrange_masking_adjacent: 1 where masking[i]=1 OR masking[i+1]=1
-    // This disables the delta range constraint at masking rows AND at the row before each masking block
-    for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
-        size_t block_masking_start = j * MINI + (MINI - Flavor::NUM_MASKED_ROWS_END);
-        // The row before the masking block (adjacent)
-        if (block_masking_start > 0) {
-            proving_key->polynomials.lagrange_masking_adjacent.at(block_masking_start - 1) = 1;
-        }
-        // The masking rows themselves
-        for (size_t k = block_masking_start; k < j * MINI + MINI; k++) {
-            proving_key->polynomials.lagrange_masking_adjacent.at(k) = 1;
         }
     }
 

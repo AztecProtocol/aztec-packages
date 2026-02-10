@@ -12,7 +12,7 @@ using namespace bb;
 namespace {
 
 /**
- * @brief Create all 11 structured Translator selector polynomials and verify that
+ * @brief Create all 10 structured Translator selector polynomials and verify that
  * TranslatorSelectorEvaluations::compute matches their MLE evaluations at a random challenge.
  *
  * @details Replicates the pattern-setting logic from TranslatorProvingKey::compute_lagrange_polynomials()
@@ -84,20 +84,6 @@ template <size_t LOG_MINI> void test_translator_selector_evaluations()
                   }
               }),
               evals.lagrange_masking);
-
-    // --- lagrange_masking_adjacent: masking rows + row before each masking block ---
-    EXPECT_EQ(make_and_eval([](Poly& p) {
-                  for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
-                      size_t block_masking_start = j * MINI + (MINI - NUM_MASKED_ROWS_END);
-                      if (block_masking_start > 0) {
-                          p.at(block_masking_start - 1) = 1;
-                      }
-                      for (size_t k = block_masking_start; k < j * MINI + MINI; k++) {
-                          p.at(k) = 1;
-                      }
-                  }
-              }),
-              evals.lagrange_masking_adjacent);
 
     // --- lagrange_mini_masking: rows [RANDOMNESS_START..RESULT_ROW-1] ∪ [MINI-NUM_MASKED..MINI-1] in block 0 ---
     EXPECT_EQ(make_and_eval([](Poly& p) {
@@ -193,7 +179,6 @@ template <typename Builder, size_t LOG_MINI> void test_translator_selector_circu
     EXPECT_EQ(circuit_evals.lagrange_masking.get_value(), native_evals.lagrange_masking);
     EXPECT_EQ(circuit_evals.lagrange_mini_masking.get_value(), native_evals.lagrange_mini_masking);
     EXPECT_EQ(circuit_evals.lagrange_real_last.get_value(), native_evals.lagrange_real_last);
-    EXPECT_EQ(circuit_evals.lagrange_masking_adjacent.get_value(), native_evals.lagrange_masking_adjacent);
     EXPECT_EQ(circuit_evals.lagrange_ordered_masking.get_value(), native_evals.lagrange_ordered_masking);
 }
 

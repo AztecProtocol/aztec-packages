@@ -438,7 +438,6 @@ The circuit uses Lagrange polynomials to control which constraints are active: (
 | `lagrange_result_row`          | Row containing final accumulator result   | $i = (z_1 + r_{\textsf{start}})$                                                                |
 | `lagrange_last_in_minicircuit` | Last real row in mini-circuit             | $i = (n - r_{\textsf{end}}) - 1$                                                                |
 | `lagrange_ordered_masking`     | Contiguous masking at end of circuit      | $i \in [N - 64, N)$                                                                             |
-| `lagrange_masking_adjacent`    | Scattered masking + adjacent rows         | One row before each block's masking region                                                       |
 |                                |                                           |                                                                                                 |
 
 ## Concatenation: The Key Optimization

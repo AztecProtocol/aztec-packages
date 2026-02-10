@@ -1004,8 +1004,8 @@ TEST_F(TranslatorRelationCorrectnessTests, OrderedPolynomialBoundary)
 
 /**
  * @brief Test that all masking-related lagrange selectors have correct values at every critical boundary.
- * @details Checks lagrange_masking (scattered), lagrange_masking_adjacent (scattered + 1 row before),
- * lagrange_ordered_masking (contiguous at end), and lagrange_real_last at their boundary positions.
+ * @details Checks lagrange_masking (scattered), lagrange_ordered_masking (contiguous at end),
+ * and lagrange_real_last at their boundary positions.
  */
 TEST_F(TranslatorRelationCorrectnessTests, LagrangeSelectorBoundaryCorrectness)
 {
@@ -1031,26 +1031,6 @@ TEST_F(TranslatorRelationCorrectnessTests, LagrangeSelectorBoundaryCorrectness)
         // All masking rows should be 1
         for (size_t k = block_masking_start; k < j * MINI + MINI; k++) {
             EXPECT_EQ(pp.lagrange_masking[k], FF(1)) << "lagrange_masking should be 1 at block=" << j << " pos=" << k;
-        }
-    }
-
-    // --- lagrange_masking_adjacent: 1 at masking rows AND row before each masking block ---
-    for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
-        size_t block_masking_start = j * MINI + (MINI - NUM_MASKED);
-        // Row before masking: should be 1 (adjacent)
-        if (block_masking_start > 0) {
-            EXPECT_EQ(pp.lagrange_masking_adjacent[block_masking_start - 1], FF(1))
-                << "lagrange_masking_adjacent should be 1 at row before masking block " << j;
-        }
-        // Two rows before masking: should be 0
-        if (block_masking_start > 1) {
-            EXPECT_EQ(pp.lagrange_masking_adjacent[block_masking_start - 2], FF(0))
-                << "lagrange_masking_adjacent should be 0 two rows before masking block " << j;
-        }
-        // All masking rows should be 1
-        for (size_t k = block_masking_start; k < j * MINI + MINI; k++) {
-            EXPECT_EQ(pp.lagrange_masking_adjacent[k], FF(1))
-                << "lagrange_masking_adjacent should be 1 at masking block=" << j << " pos=" << k;
         }
     }
 
