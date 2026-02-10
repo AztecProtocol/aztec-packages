@@ -197,6 +197,7 @@ template <typename Builder> class cycle_group {
      */
     uint32_t set_public()
     {
+        standardize(); // if point is at infinity, ensure coordinates are (0,0).
         uint32_t start_idx = _x.set_public();
         _y.set_public();
         return start_idx;
@@ -227,14 +228,6 @@ template <typename Builder> class cycle_group {
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,
                                                bool is_addition,
                                                const std::optional<AffineElement> hint) const;
-
-    // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
-    cycle_group dbl_internal(const std::optional<AffineElement> hint = std::nullopt) const;
-    cycle_group add_internal(const cycle_group& other) const;
-    cycle_group subtract_internal(const cycle_group& other) const;
-    static cycle_group batch_mul_internal(const std::vector<cycle_group>& base_points,
-                                          const std::vector<cycle_scalar>& scalars,
-                                          const GeneratorContext& context = {});
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)

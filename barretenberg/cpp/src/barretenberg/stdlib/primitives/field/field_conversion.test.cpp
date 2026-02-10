@@ -211,8 +211,10 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
-        // Use constant_infinity() for infinity points (from_witness rejects infinity)
-        grumpkin_element<Builder> group_element = grumpkin_element<Builder>::constant_infinity(&builder);
+        // from_witness handles infinity: coordinates are set to (0,0), and the 2-arg constructor
+        // auto-detects infinity from x^2 + 5*y^2 == 0.
+        grumpkin_element<Builder> group_element =
+            grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
         this->check_conversion(group_element);
     }
 }
@@ -400,7 +402,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 TYPED_TEST(stdlib_field_conversion, GateCountGrumpkinPointDeserialization)
 {
     this->template check_deserialization_gate_count<grumpkin_element<TypeParam>>(
-        [] { return curve::Grumpkin::AffineElement::random_element(); }, 14);
+        [] { return curve::Grumpkin::AffineElement::random_element(); }, 10);
 }
 
 /**

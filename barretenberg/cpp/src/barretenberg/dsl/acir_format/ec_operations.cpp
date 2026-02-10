@@ -46,23 +46,16 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
 
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
-    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
     if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
-        builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
     }
 
     cycle_group_ct input1_point =
         to_grumpkin_point(input.input1_x, input.input1_y, input.input1_infinite, predicate, builder);
     cycle_group_ct input2_point =
         to_grumpkin_point(input.input2_x, input.input2_y, input.input2_infinite, predicate, builder);
-
-    // Constrain that the infinity flag is consistent with (0,0) coordinates.
-    // Noir represents point at infinity as (0, 0, is_infinite=true).
-    bool_ct is_origin = input_result_x.is_zero() && input_result_y.is_zero();
-    input_result_infinite.assert_equal(is_origin, "is_infinity flag must be consistent with (0,0) coordinates");
 
     // Use public constructor which auto-detects infinity from (0,0) coordinates.
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on

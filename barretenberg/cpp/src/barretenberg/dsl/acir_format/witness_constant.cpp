@@ -69,12 +69,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
         BB_ASSERT(predicate.get_value(), "Creating Grumpkin point with a constant predicate equal to false.");
     }
 
-    // Constrain that the infinity flag is consistent with (0,0) coordinates.
-    // Noir represents point at infinity as (0, 0, is_infinite=true).
-    bool_ct is_origin = point_x.is_zero() && point_y.is_zero();
-    infinite.assert_equal(is_origin, "is_infinity flag must be consistent with (0,0) coordinates");
-
-    // Use public constructor which auto-detects infinity from (0,0) coordinates
+    // Use public constructor which auto-detects infinity from (0,0) coordinates.
     cycle_group<Builder> input_point(point_x, point_y, /*assert_on_curve=*/true);
     return input_point;
 }

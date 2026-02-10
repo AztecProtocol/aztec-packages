@@ -239,7 +239,13 @@ template <typename Field> class StdlibCodec {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
+        } else if constexpr (IsAnyOf<T, grumpkin_commitment>) {
+            // Canonicalize: output (0,0) for infinity points, matching native FrCodec behavior.
+            auto is_inf = val.is_point_at_infinity();
+            fr canon_x = fr::conditional_assign(is_inf, fr(0), val.x());
+            fr canon_y = fr::conditional_assign(is_inf, fr(0), val.y());
+            return { canon_x, canon_y };
+        } else if constexpr (IsAnyOf<T, bn254_commitment>) {
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());

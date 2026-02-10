@@ -42,8 +42,8 @@ template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE +
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t POSEIDON2_PERMUTATION = 73 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3580 + ZERO_GATE;
-template <typename Builder> inline constexpr size_t EC_ADD = 112 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3567 + ZERO_GATE;
+template <typename Builder> inline constexpr size_t EC_ADD = 80 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_RAM_READ = 18 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_RAM_WRITE = 18 + ZERO_GATE + MEGA_OFFSET<Builder>;
@@ -55,7 +55,7 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12999135;
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12998755;
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
@@ -113,7 +113,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2391802;
+inline constexpr size_t CHONK_RECURSION_GATES = 2391296;
 
 // ========================================
 // Hypernova Recursion Constants
