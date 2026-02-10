@@ -365,3 +365,13 @@ tests:
     error_regex: "timeout: sending signal TERM to command 'bash'"
     owners:
       - *alex
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
+    error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
+    owners:
+      - *esau
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    error_regex: "✕ should coordinate governance voting across HA nodes"
+    owners:
+      - *spyros
