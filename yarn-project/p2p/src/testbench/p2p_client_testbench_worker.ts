@@ -141,7 +141,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
-      await this.mempools.txPool.addTxs([tx]);
+      await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
     }

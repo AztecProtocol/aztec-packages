@@ -1,11 +1,11 @@
 ---
-title: Communicating Cross-Chain
+title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
 ---
 
-This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
+Cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
 
 Aztec uses an Inbox/Outbox pattern for cross-chain messaging. Messages sent from L1 are inserted into the `Inbox` contract and later consumed on L2. Messages sent from L2 are inserted into the `Outbox` contract and later consumed on L1. Portal contracts are L1 contracts that facilitate this communication for your application.
 

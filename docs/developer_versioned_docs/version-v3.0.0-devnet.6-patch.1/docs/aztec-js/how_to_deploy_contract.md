@@ -13,7 +13,7 @@ Deploying a contract to Aztec involves publishing the contract class (the byteco
 
 ## Prerequisites
 
-- Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
+- Compiled contract artifacts (see [How to Compile](../aztec-nr/compiling_contracts.md))
 - Running Aztec local network
 - Funded wallet for deployment fees
 - TypeScript project set up

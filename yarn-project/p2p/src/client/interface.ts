@@ -1,7 +1,8 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
@@ -101,14 +102,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void;
 
   /**
-   * Request a list of transactions from another peer by their tx hashes.
-   * @param txHashes - Hashes of the txs to query.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns A list of transactions or undefined if the transactions are not found.
-   */
-  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<Tx[]>;
-
-  /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
    **/
@@ -122,11 +115,10 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   addTxsToPool(txs: Tx[]): Promise<number>;
 
   /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
+   * Handles failed transaction execution by removing txs from the pool.
+   * @param txHashes - Hashes of the transactions that failed execution.
    **/
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+  handleFailedExecution(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Returns a transaction in the transaction pool by its hash.
@@ -178,10 +170,21 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   getPendingTxCount(): Promise<number>;
 
   /**
-   * Marks transactions as non-evictable in the pool.
-   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   * Protects existing transactions by hash for a given slot.
+   * Returns hashes of transactions that weren't found in the pool.
+   * @param txHashes - Hashes of the transactions to protect.
+   * @param blockHeader - The block header providing slot context.
+   * @returns Hashes of transactions not found in the pool.
    */
-  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+  protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]>;
+
+  /**
+   * Prepares the pool for a new slot.
+   * Unprotects transactions from earlier slots and validates them before
+   * returning to pending state.
+   * @param slotNumber - The slot number to prepare for
+   */
+  prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 
   /**
    * Starts the p2p client.

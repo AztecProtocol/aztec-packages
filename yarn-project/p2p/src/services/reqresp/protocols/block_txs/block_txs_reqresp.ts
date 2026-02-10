@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxArray, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { BitVector } from './bitvector.js';
@@ -123,5 +124,21 @@ export class BlockTxsResponse {
 
   static empty(): BlockTxsResponse {
     return new BlockTxsResponse(Fr.ZERO, new TxArray(), BitVector.init(0, []));
+  }
+}
+
+/**
+ * Calculate the expected response size for a BLOCK_TXS request.
+ * @param requestBuffer - The serialized request buffer containing BlockTxsRequest
+ * @returns Expected response size in KB
+ */
+export function calculateBlockTxsResponseSize(requestBuffer: Buffer): number {
+  try {
+    const request = BlockTxsRequest.fromBuffer(requestBuffer);
+    const requestedTxCount = request.txIndices.getTrueIndices().length;
+    return requestedTxCount * MAX_TX_SIZE_KB + 1; // +1 KB overhead for serialization
+  } catch {
+    // If we can't parse the request, fall back to allowing a single transaction response
+    return MAX_TX_SIZE_KB + 1;
   }
 }

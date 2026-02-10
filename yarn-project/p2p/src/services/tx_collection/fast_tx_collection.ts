@@ -21,7 +21,7 @@ import {
   SendBatchRequestCollector,
 } from './proposal_tx_collector.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
-import type { TxCollectionSink } from './tx_collection_sink.js';
+import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
@@ -248,6 +248,7 @@ export class FastTxCollection {
             method: 'fast-node-rpc',
             ...request.blockInfo,
           },
+          this.getAddContext(request),
         );
 
         // Clear from the active requests the txs we just requested
@@ -313,12 +314,22 @@ export class FastTxCollection {
         },
         Array.from(request.missingTxTracker.missingTxHashes),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
+        this.getAddContext(request),
       );
     } catch (err) {
       this.log.error(`Error sending fast reqresp request for txs`, err, {
         txs: [...request.missingTxTracker.missingTxHashes],
         ...blockInfo,
       });
+    }
+  }
+
+  /** Returns the TxAddContext for the given request, used by the sink to add txs to the pool correctly. */
+  private getAddContext(request: FastCollectionRequest): TxAddContext {
+    if (request.type === 'proposal') {
+      return { type: 'proposal', blockHeader: request.blockProposal.blockHeader };
+    } else {
+      return { type: 'mined', block: request.block };
     }
   }
 

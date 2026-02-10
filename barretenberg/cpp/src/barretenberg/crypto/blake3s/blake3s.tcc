@@ -28,8 +28,7 @@
     The following code works ONLY for inputs of size less than 1024 bytes. This kind of constraint
     on the input size greatly simplifies the code and helps us get rid of the recursive merkle-tree
     like operations on chunks (data of size 1024 bytes). This is because we would always be using BLAKE3
-    hashing for inputs of size 32 bytes (or lesser) in barretenberg. The full C++ version of BLAKE3
-    from the original authors is in the module `../crypto/blake3s_full`.
+    hashing for inputs of size 32 bytes (or lesser) in barretenberg.
 
     Also, the length of the output in this specific implementation is fixed at 32 bytes which is the only
     version relevant to Barretenberg.
