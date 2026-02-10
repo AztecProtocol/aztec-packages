@@ -112,12 +112,13 @@ void ToRadixTraceBuilder::process_with_memory(
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
         // Helpers
-        uint8_t num_limbs_is_zero = event.num_limbs == 0 ? 1 : 0;
+        const uint32_t num_limbs = event.num_limbs;
+        uint8_t num_limbs_is_zero = num_limbs == 0 ? 1 : 0;
         uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
-        uint64_t write_addr_upper_bound = dst_addr + event.num_limbs;
+        uint64_t write_addr_upper_bound = dst_addr + num_limbs;
         bool write_out_of_range = write_addr_upper_bound > AVM_MEMORY_SIZE;
 
         // Error Handling - Radix Range
@@ -125,7 +126,7 @@ void ToRadixTraceBuilder::process_with_memory(
         bool invalid_bitwise_radix = event.is_output_bits && event.radix != 2;
 
         // Error Handling - Num Limbs and Value
-        bool invalid_num_limbs = event.num_limbs == 0 && !(event.value == FF(0));
+        bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
 
         // Common values for the first row
         trace.set(row,
@@ -138,7 +139,7 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_dst_addr, dst_addr },
                       { C::to_radix_mem_value_to_decompose, event.value },
                       { C::to_radix_mem_radix, event.radix },
-                      { C::to_radix_mem_num_limbs, event.num_limbs },
+                      { C::to_radix_mem_num_limbs, num_limbs },
                       { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
                       // Helpers
                       { C::to_radix_mem_max_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
@@ -146,7 +147,7 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_two, 2 },
                       { C::to_radix_mem_two_five_six, 256 },
                       { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
-                      { C::to_radix_mem_num_limbs_inv, event.num_limbs }, // Will be inverted in batch later
+                      { C::to_radix_mem_num_limbs_inv, num_limbs }, // Will be inverted in batch later
                       { C::to_radix_mem_sel_value_is_zero, value_is_zero },
                       { C::to_radix_mem_value_inv, event.value }, // Will be inverted in batch later
                   } });
@@ -168,8 +169,11 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
+        // If no error occured, the following invariant must hold (honest simulation):
+        BB_ASSERT(event.limbs.size() == static_cast<size_t>(num_limbs), "Number of limbs does not match");
+
         // Num limbs = 0 short circuit
-        if (event.num_limbs == 0) {
+        if (num_limbs == 0) {
             trace.set(row,
                       { {
                           { C::to_radix_mem_last, 1 },
@@ -178,13 +182,13 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
-        // At this point, a decomposition has happened, so we can process the limbs
+        // At this point, a decomposition has happened, so we can process the limbs.
 
         // Compute found for the given decomposition
         FF acc = 0;
         FF power = 1;
-        std::vector<bool> found(event.limbs.size(), false);
-        for (size_t i = 0; i < event.limbs.size(); ++i) {
+        std::vector<bool> found(num_limbs, false);
+        for (size_t i = 0; i < num_limbs; ++i) {
             // Limbs are BE, we compute found in LE since the to_radix subtrace is little endian
             size_t reverse_index = event.limbs.size() - i - 1;
             FF limb_value = event.limbs[reverse_index].as_ff();
@@ -194,7 +198,7 @@ void ToRadixTraceBuilder::process_with_memory(
         }
 
         // Truncation error. A radix decomposition in the non-memory aware to_radix subtrace is performed.
-        const bool truncation_error = (event.num_limbs != 0) && !found.at(0);
+        const bool truncation_error = (num_limbs != 0) && !found.at(0);
 
         // We only populate a single row to retrieve `value_found` from the non-memory aware to_radix subtrace
         // at the last limb (little endian) corresponding to the first limb in the big endian decomposition.
@@ -206,7 +210,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_sel_truncation_error, 1 },
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
-                          { C::to_radix_mem_limb_index_to_lookup, event.num_limbs - 1 },
+                          { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
                           { C::to_radix_mem_limb_value, event.limbs.at(0).as_ff() },
                           { C::to_radix_mem_value_found, 0 },
                       } });
@@ -215,15 +219,15 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
-        uint32_t remaining_limbs = static_cast<uint32_t>(event.num_limbs);
+        uint32_t remaining_limbs = static_cast<uint32_t>(num_limbs);
 
         // Base case
         // Here we have the following guarantees:
-        // - event.num_limbs > 0
+        // - num_limbs > 0
         // - No error occured
-        for (uint32_t i = 0; i < event.num_limbs; ++i) {
+        for (uint32_t i = 0; i < num_limbs; ++i) {
             MemoryValue limb_value = event.limbs.at(i);
-            bool last = i == (event.num_limbs - 1);
+            bool last = i == (num_limbs - 1);
 
             trace.set(row,
                       { {
