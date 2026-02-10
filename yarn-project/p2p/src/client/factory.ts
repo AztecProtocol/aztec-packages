@@ -76,32 +76,6 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  /** Validator factory for pool re-validation (double-spend + block header only). */
-  const createPoolTxValidator = async () => {
-    await worldStateSynchronizer.syncImmediate();
-    return new AggregateTxValidator<TxMetaData>(
-      new DoubleSpendTxValidator<TxMetaData>(
-        {
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
-          },
-        },
-        bindings,
-      ),
-      new BlockHeaderTxValidator<TxMetaData>(
-        {
-          getArchiveIndices: (archives: BlockHash[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
-          },
-        },
-        bindings,
-      ),
-    );
-  };
-
   const txPool =
     deps.txPool ??
     new AztecKVTxPoolV2(

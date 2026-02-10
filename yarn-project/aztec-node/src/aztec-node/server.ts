@@ -22,7 +22,13 @@ import {
   createForwarderL1TxUtilsFromEthSigner,
   createL1TxUtilsWithBlobsFromEthSigner,
 } from '@aztec/node-lib/factories';
-import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import {
+  type P2P,
+  type P2PClientDeps,
+  createP2PClient,
+  createValidatorForAcceptingTxsOverRPC,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
@@ -97,7 +103,6 @@ import {
   ValidatorClient,
   createBlockProposalHandler,
   createValidatorClient,
-  createValidatorForAcceptingTxs,
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -1197,7 +1202,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(
+    const validator = createValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
       verifier,

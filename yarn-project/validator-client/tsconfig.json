@@ -61,5 +61,9 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src",
+    "../p2p/src/msg_validators/tx_validator/nullifier_cache.ts",
+    "../p2p/src/msg_validators/tx_validator/nullifier_cache.test.ts"
+  ]
 }

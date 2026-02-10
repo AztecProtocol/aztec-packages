@@ -70,8 +70,8 @@ import {
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import {
-  type MessageValidator,
-  createTxMessageValidators,
+  type TransactionValidator,
+  createCompleteGossipedTransactionValidators,
   createTxReqRespValidator,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
@@ -87,6 +87,9 @@ import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
+  AuthRequest,
+  BlockTxsRequest,
+  BlockTxsResponse,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
@@ -94,14 +97,9 @@ import {
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
+  StatusMessage,
   type SubProtocolMap,
   ValidationError,
-} from '../reqresp/index.js';
-import {
-  AuthRequest,
-  BlockTxsRequest,
-  BlockTxsResponse,
-  StatusMessage,
   pingHandler,
   reqGoodbyeHandler,
   reqRespBlockHandler,
@@ -1633,13 +1631,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async createMessageValidators(
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
-  ): Promise<Record<string, MessageValidator>[]> {
+  ): Promise<Record<string, TransactionValidator>[]> {
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
     const blockNumberInWhichTheTxIsConsideredToBeIncluded = BlockNumber(currentBlockNumber + 1);
 
-    return createTxMessageValidators(
+    return createCompleteGossipedTransactionValidators(
       nextSlotTimestamp,
       blockNumberInWhichTheTxIsConsideredToBeIncluded,
       this.worldStateSynchronizer,
@@ -1663,7 +1661,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private async runValidations(
     tx: Tx,
-    messageValidators: Record<string, MessageValidator>,
+    messageValidators: Record<string, TransactionValidator>,
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
       const { result } = await validator.validateTx(tx);
