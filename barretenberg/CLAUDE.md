@@ -38,6 +38,14 @@ Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo),
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
 
+## CI labels for PRs
+
+Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
+
+- **`ci-barretenberg`** — Barretenberg-only builds (default for `merge-train/barretenberg` branch). Core tests, no cross-compilation.
+- **`ci-barretenberg-full`** or **`ci-full`** — Full builds including cross-compilation (macOS, iOS, ARM64 Linux), SMT verification, ASAN, and GCC syntax checks. Use when changing CMake presets, bootstrap.sh, or build infrastructure.
+- **`ci-release-pr`** — Creates a test release tag for pre-release validation. Use when changing release packaging or publish workflows.
+
 ## Handling noir/noir-repo submodule
 
 If `git status` shows `noir/noir-repo` as modified but your changes have nothing to do with updating noir, run:
