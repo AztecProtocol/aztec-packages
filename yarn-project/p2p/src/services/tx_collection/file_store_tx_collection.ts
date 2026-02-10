@@ -112,30 +112,26 @@ export class FileStoreTxCollection {
 
   private async workerLoop(): Promise<void> {
     while (this.running) {
-      const entry = this.pickNextEntry();
-      if (!entry) {
-        const sleepMs = this.getSleepMs();
-        if (sleepMs === undefined) {
-          await this.waitForWake();
-          continue;
-        }
-        await this.sleepOrWake(sleepMs);
+      const result = this.pickNextOrWait();
+      if ('wait' in result) {
+        await result.wait;
         continue;
       }
 
+      const entry = result.entry;
       const source = this.sources[entry.nextSourceIndex % this.sources.length];
       entry.nextSourceIndex++;
       entry.attempts++;
       entry.lastAttemptTime = this.dateProvider.now();
 
       try {
-        const result = await this.txCollectionSink.collect(
+        const collectResult = await this.txCollectionSink.collect(
           hashes => source.getTxsByHash(hashes),
           [TxHash.fromString(entry.txHash)],
           { description: `file-store ${source.getInfo()}`, method: 'file-store', fileStore: source.getInfo() },
           entry.context,
         );
-        if (result.txs.length > 0) {
+        if (collectResult.txs.length > 0) {
           this.entries.delete(entry.txHash);
         }
       } catch (err) {
@@ -144,10 +140,15 @@ export class FileStoreTxCollection {
     }
   }
 
-  /** Picks the next entry to process: removes expired, skips entries in backoff, returns entry with fewest attempts. */
-  private pickNextEntry(): FileStoreTxEntry | undefined {
+  /**
+   * Single-pass scan: removes expired entries, finds the best ready entry (fewest attempts),
+   * and tracks the earliest backoff exit time. Returns the entry if one is ready, or a promise
+   * to await (sleep until earliest backoff, or wait for new work).
+   */
+  private pickNextOrWait(): { entry: FileStoreTxEntry } | { wait: Promise<void> } {
     const now = this.dateProvider.now();
     let best: FileStoreTxEntry | undefined;
+    let earliestReadyAt = Infinity;
 
     for (const [key, entry] of this.entries) {
       if (+entry.deadline <= now) {
@@ -155,14 +156,23 @@ export class FileStoreTxCollection {
         continue;
       }
       const backoffMs = this.getBackoffMs(entry);
-      if (entry.lastAttemptTime + backoffMs > now) {
-        continue;
-      }
-      if (!best || entry.attempts < best.attempts) {
-        best = entry;
+      const readyAt = entry.lastAttemptTime + backoffMs;
+      if (readyAt <= now) {
+        if (!best || entry.attempts < best.attempts) {
+          best = entry;
+        }
+      } else {
+        earliestReadyAt = Math.min(earliestReadyAt, readyAt);
       }
     }
-    return best;
+
+    if (best) {
+      return { entry: best };
+    }
+    if (earliestReadyAt < Infinity) {
+      return { wait: Promise.race<void>([sleep(Math.max(0, earliestReadyAt - now)), this.wakeSignal.promise]) };
+    }
+    return { wait: this.wakeSignal.promise };
   }
 
   /** Computes backoff for an entry. Backoff applies after a full cycle through all sources. */
@@ -174,33 +184,9 @@ export class FileStoreTxCollection {
     return Math.min(this.config.backoffBaseMs * Math.pow(2, fullCycles - 1), this.config.backoffMaxMs);
   }
 
-  /** Returns time in ms until the earliest entry exits backoff, or undefined if no entries. */
-  private getSleepMs(): number | undefined {
-    if (this.entries.size === 0) {
-      return undefined;
-    }
-    const now = this.dateProvider.now();
-    let earliest = Infinity;
-    for (const entry of this.entries.values()) {
-      const readyAt = entry.lastAttemptTime + this.getBackoffMs(entry);
-      earliest = Math.min(earliest, readyAt);
-    }
-    return Math.max(0, earliest - now);
-  }
-
   /** Resolves the current wake signal and creates a new one. */
   private wake(): void {
     this.wakeSignal.resolve();
     this.wakeSignal = promiseWithResolvers<void>();
-  }
-
-  /** Waits until the wake signal is resolved. */
-  private async waitForWake(): Promise<void> {
-    await this.wakeSignal.promise;
-  }
-
-  /** Sleeps for the given duration or until the wake signal is resolved. */
-  private async sleepOrWake(ms: number): Promise<void> {
-    await Promise.race([sleep(ms), this.wakeSignal.promise]);
   }
 }
