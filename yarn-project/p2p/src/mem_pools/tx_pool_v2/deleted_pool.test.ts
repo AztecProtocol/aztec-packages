@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncMap } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -120,27 +120,25 @@ describe('DeletedPool', () => {
   });
 
   describe('deleteTx', () => {
-    it('soft-deletes tx from pruned block (keeps in DB)', async () => {
+    it('prune-soft-deletes tx from pruned block (keeps in DB)', async () => {
       await txsDB.set('tx1', Buffer.from('data1'));
       await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(5) }]);
       expect(pool.isSoftDeleted('tx1')).toBe(false);
 
-      const result = await pool.deleteTx('tx1');
+      await pool.deleteTx('tx1');
 
-      expect(result).toBe('soft');
       expect(pool.isSoftDeleted('tx1')).toBe(true);
       expect(await txsDB.getAsync('tx1')).toBeDefined(); // Still in DB
     });
 
-    it('hard-deletes tx NOT from pruned block (removes from DB)', async () => {
+    it('slot-soft-deletes tx NOT from pruned block (keeps in DB)', async () => {
       await txsDB.set('tx1', Buffer.from('data1'));
       // tx1 is NOT marked as from pruned block
 
-      const result = await pool.deleteTx('tx1');
+      await pool.deleteTx('tx1');
 
-      expect(result).toBe('hard');
-      expect(pool.isSoftDeleted('tx1')).toBe(false);
-      expect(await txsDB.getAsync('tx1')).toBeUndefined(); // Removed from DB
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(await txsDB.getAsync('tx1')).toBeDefined(); // Still in DB
     });
   });
 
@@ -208,8 +206,7 @@ describe('DeletedPool', () => {
       expect(pool.isFromPrunedBlock('tx1')).toBe(true);
 
       // 3. Soft-delete the tx (e.g., due to eviction)
-      const result = await pool.deleteTx('tx1');
-      expect(result).toBe('soft');
+      await pool.deleteTx('tx1');
       expect(pool.isSoftDeleted('tx1')).toBe(true);
       expect(await txsDB.getAsync('tx1')).toBeDefined(); // Still in DB
 
@@ -369,6 +366,144 @@ describe('DeletedPool', () => {
       // tx1 should be hard-deleted, tx2 still in DB
       expect(await txsDB.getAsync('tx1')).toBeUndefined();
       expect(await txsDB.getAsync('tx2')).toBeDefined();
+    });
+  });
+
+  describe('slot-based soft deletion', () => {
+    it('slot-soft-deletes tx NOT from pruned block (stays in DB, isSoftDeleted true)', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+
+      await pool.deleteTx('tx1');
+
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+    });
+
+    it('prune-soft-delete takes precedence over slot-soft-delete', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(5) }]);
+
+      await pool.deleteTx('tx1');
+
+      // Should use prune path, not slot path
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(pool.isFromPrunedBlock('tx1')).toBe(true);
+    });
+
+    it('cleanupSlotDeleted hard-deletes txs from earlier slots', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await txsDB.set('tx2', Buffer.from('data2'));
+
+      // Delete both txs at slot 0 (default)
+      await pool.deleteTx('tx1');
+      await pool.deleteTx('tx2');
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(pool.isSoftDeleted('tx2')).toBe(true);
+
+      // Advance to slot 1 - should hard-delete both (deleted at slot 0 < 1)
+      await pool.cleanupSlotDeleted(SlotNumber(1));
+
+      expect(pool.isSoftDeleted('tx1')).toBe(false);
+      expect(pool.isSoftDeleted('tx2')).toBe(false);
+      expect(await txsDB.getAsync('tx1')).toBeUndefined();
+      expect(await txsDB.getAsync('tx2')).toBeUndefined();
+    });
+
+    it('cleanupSlotDeleted preserves txs from current slot', async () => {
+      // Advance to slot 5 first
+      await pool.cleanupSlotDeleted(SlotNumber(5));
+
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await pool.deleteTx('tx1'); // Deleted at slot 5
+
+      // Cleanup at slot 5 - should NOT hard-delete (deleted at 5, not < 5)
+      await pool.cleanupSlotDeleted(SlotNumber(5));
+
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+
+      // Cleanup at slot 6 - NOW should hard-delete (deleted at 5 < 6)
+      await pool.cleanupSlotDeleted(SlotNumber(6));
+
+      expect(pool.isSoftDeleted('tx1')).toBe(false);
+      expect(await txsDB.getAsync('tx1')).toBeUndefined();
+    });
+
+    it('cleanupSlotDeleted does NOT affect prune-soft-deleted txs', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(5) }]);
+      await pool.deleteTx('tx1'); // Prune-soft-deleted
+
+      // Advance to slot 10 - should NOT affect prune-soft-deleted tx
+      await pool.cleanupSlotDeleted(SlotNumber(10));
+
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+      expect(pool.isFromPrunedBlock('tx1')).toBe(true);
+    });
+
+    it('clearSlotDeleted removes tx from slot-deleted tracking', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await pool.deleteTx('tx1');
+      expect(pool.isSoftDeleted('tx1')).toBe(true);
+
+      await pool.clearSlotDeleted('tx1');
+
+      expect(pool.isSoftDeleted('tx1')).toBe(false);
+      // Tx is still in DB (clearSlotDeleted doesn't delete the tx data)
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+    });
+
+    it('clearSlotDeleted is a no-op for non-slot-deleted txs', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+
+      // Should not throw or error
+      await pool.clearSlotDeleted('tx1');
+      expect(pool.isSoftDeleted('tx1')).toBe(false);
+    });
+
+    it('hydration hard-deletes all slot-deleted txs', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await txsDB.set('tx2', Buffer.from('data2'));
+
+      // Slot-delete both
+      await pool.deleteTx('tx1');
+      await pool.deleteTx('tx2');
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+      expect(await txsDB.getAsync('tx2')).toBeDefined();
+
+      // Simulate restart
+      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      await pool2.hydrateFromDatabase();
+
+      // Both should be hard-deleted after hydration
+      expect(await txsDB.getAsync('tx1')).toBeUndefined();
+      expect(await txsDB.getAsync('tx2')).toBeUndefined();
+      expect(pool2.isSoftDeleted('tx1')).toBe(false);
+      expect(pool2.isSoftDeleted('tx2')).toBe(false);
+    });
+
+    it('hydration does not affect prune-soft-deleted txs', async () => {
+      await txsDB.set('tx1', Buffer.from('data1'));
+      await txsDB.set('tx2', Buffer.from('data2'));
+
+      // Prune-soft-delete tx1, slot-delete tx2
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(5) }]);
+      await pool.deleteTx('tx1');
+      await pool.deleteTx('tx2');
+
+      // Simulate restart
+      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      await pool2.hydrateFromDatabase();
+
+      // tx1 (prune-soft-deleted) should still be in DB
+      expect(await txsDB.getAsync('tx1')).toBeDefined();
+      expect(pool2.isSoftDeleted('tx1')).toBe(true);
+      expect(pool2.isFromPrunedBlock('tx1')).toBe(true);
+
+      // tx2 (slot-deleted) should be hard-deleted
+      expect(await txsDB.getAsync('tx2')).toBeUndefined();
+      expect(pool2.isSoftDeleted('tx2')).toBe(false);
     });
   });
 

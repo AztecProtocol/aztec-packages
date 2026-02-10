@@ -32,17 +32,17 @@ TxPoolV2 manages transactions through a state machine with clear transitions:
         │ handleFinalizedBlock()              │ eviction after reorg
         ▼                                     ▼
 ┌─────────────────────────────────────┐  ┌─────────────────────────────────────┐
-│             DELETED                 │  │         SOFT-DELETED                │
-│   (hard-deleted or archived)        │  │   (kept in DB for debugging)        │
+│        SLOT-SOFT-DELETED            │  │       PRUNE-SOFT-DELETED            │
+│  (kept in DB until next slot)       │  │  (kept in DB until finalized)       │
 └─────────────────────────────────────┘  └─────────────────────────────────────┘
-                                                  │
-                                                  │ handleFinalizedBlock()
-                                                  │ (mined block finalized)
-                                                  ▼
-                                         ┌─────────────────────────────────────┐
-                                         │          HARD-DELETED               │
-                                         │   (permanently removed from DB)     │
-                                         └─────────────────────────────────────┘
+        │                                     │
+        │ prepareForSlot()                    │ handleFinalizedBlock()
+        │ (new slot)                          │ (mined block finalized)
+        ▼                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             HARD-DELETED                                    │
+│                  (permanently removed from DB)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Components
@@ -62,13 +62,18 @@ Core implementation containing:
 
 ### DeletedPool (`deleted_pool.ts`)
 
-Manages soft deletion of transactions from pruned blocks:
-- When a reorg (chain prune) occurs, transactions from pruned blocks are tracked with their original mined block number
-- When these transactions are later evicted (e.g., failed validation, nullifier conflict), they are "soft-deleted" instead of removed
-- Soft-deleted transactions remain in the database for debugging and potential resubmission
-- When the original mined block is finalized on the new chain, soft-deleted transactions are permanently hard-deleted
+Manages two kinds of soft deletion:
 
-This ensures transactions from reorged blocks are kept around until we're certain they won't be needed.
+**Prune-based soft deletion** (for txs from pruned blocks):
+- When a reorg occurs, transactions from pruned blocks are tracked with their original mined block number
+- When these transactions are later evicted, they are "prune-soft-deleted" - kept in DB until their mined block is finalized
+- This ensures transactions from reorged blocks are kept around until we're certain they won't be needed
+
+**Slot-based soft deletion** (for all other deleted txs):
+- When a non-pruned tx is deleted (eviction, failed execution, finalization), it is "slot-soft-deleted" - kept in DB until the next slot
+- This provides a grace period where other nodes can still fetch deleted txs via reqresp
+- `prepareForSlot` advances the slot and hard-deletes txs from previous slots
+- On node restart, all slot-deleted txs are immediately hard-deleted (stale by definition)
 
 ### TxMetaData (`tx_metadata.ts`)
 
@@ -86,36 +91,47 @@ Lightweight metadata stored alongside each transaction:
 State is derived by TxPoolIndices:
 - `mined` if `minedL2BlockId` is set
 - `protected` if in protection map
-- `deleted` if soft-deleted (from a pruned block, evicted but kept in DB)
+- `deleted` if soft-deleted (either prune-based or slot-based)
 - `pending` otherwise
 
 ## Soft Deletion
 
-When a chain reorganization occurs, transactions that were mined in pruned blocks are handled specially:
+All deleted transactions remain in the database for a grace period before being hard-deleted. There are two soft deletion mechanisms:
+
+### Slot-Based Soft Deletion
+
+When any non-pruned transaction is deleted (eviction, failed execution, finalization), it is kept in the database until the next slot:
+
+1. **Delete**: Transaction is removed from indices, tagged with the current slot number, and kept in DB
+2. **Retrieval**: During the grace period, the tx can still be fetched via `getTxByHash` and `hasTxs`, with status `'deleted'`
+3. **Hard Delete**: On `prepareForSlot(N)`, all txs tagged with slot < N are permanently removed from DB
+4. **Re-addition**: If a tx is re-added to the pool, its slot-deleted tracking is cleared
+5. **Restart**: All slot-deleted txs are hard-deleted on hydration (stale by definition)
+
+This allows other nodes to still fetch recently-deleted txs via reqresp during the current slot.
+
+### Prune-Based Soft Deletion
+
+When a chain reorganization occurs, transactions from pruned blocks get longer-lived soft deletion:
 
 1. **Tracking**: When `handlePrunedBlocks` is called, all un-mined transactions are tracked by their original mined block number
-2. **Soft Delete**: If these transactions are later evicted (failed validation, nullifier conflict, etc.), they are "soft-deleted" - removed from indices but kept in the database
-3. **Retrieval**: Soft-deleted transactions can still be retrieved via `getTxByHash` and `hasTxs`, and return status `'deleted'` from `getTxStatus`
+2. **Soft Delete**: If these transactions are later evicted (failed validation, nullifier conflict, etc.), they are "prune-soft-deleted" - removed from indices but kept in the database
+3. **Retrieval**: Prune-soft-deleted transactions can still be retrieved via `getTxByHash` and `hasTxs`, and return status `'deleted'` from `getTxStatus`
 4. **Hard Delete**: When `handleFinalizedBlock` is called and the finalized block number reaches or exceeds the transaction's original mined block, the transaction is permanently removed
+5. **Slot Immunity**: Prune-soft-deleted txs are NOT affected by slot-based cleanup
 
-This design allows:
-- Debugging reorg scenarios by keeping transaction data available
-- Potential resubmission of transactions that failed validation after a reorg
-- Clean eventual cleanup once we're certain the transaction won't be needed
-
-**Example scenario:**
+**Example scenario (prune-based):**
 1. Tx mined at block 10
 2. Chain prunes to block 5 (tx becomes un-mined, tracked as minedAtBlock=10)
-3. Tx fails validation and is soft-deleted
+3. Tx fails validation and is prune-soft-deleted
 4. Block 9 finalized → tx still in DB (minedAtBlock=10 > finalized=9)
 5. Block 10 finalized → tx hard-deleted (minedAtBlock=10 ≤ finalized=10)
 
-If the tx is re-mined at a higher block before being soft-deleted:
-1. Tx mined at block 10, pruned (tracked as minedAtBlock=10)
-2. Tx re-mined at block 15, pruned again (updated to minedAtBlock=15)
-3. Tx soft-deleted
-4. Block 10 finalized → tx still in DB
-5. Block 15 finalized → tx hard-deleted
+**Example scenario (slot-based):**
+1. Tx evicted from pool during slot 5
+2. Tagged as slot-deleted at slot 5, kept in DB
+3. `prepareForSlot(5)` → tx still in DB (deleted at slot 5, not < 5)
+4. `prepareForSlot(6)` → tx hard-deleted (deleted at slot 5 < 6)
 
 ## Architecture: Pre-add vs Post-event Rules
 
@@ -242,10 +258,10 @@ The archive uses FIFO eviction when `archivedTxLimit` is reached.
 ## Testing
 
 ```bash
-# Unit tests (177 tests)
+# Unit tests
 yarn test src/mem_pools/tx_pool_v2/tx_pool_v2.test.ts
 
-# Deleted pool tests (17 tests)
+# Deleted pool tests
 yarn test src/mem_pools/tx_pool_v2/deleted_pool.test.ts
 
 # Compatibility tests (25 tests)
