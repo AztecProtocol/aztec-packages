@@ -570,7 +570,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const field_t add_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
     const field_t add_result_y = lambda.madd(x1 - add_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
-    // Compute the doubling result (using internal dbl to avoid extra standardization)
+    // Compute the doubling result
     const cycle_group dbl_result = dbl();
 
     // If the addition amounts to a doubling then the result is the doubling result, else the addition result.
@@ -651,7 +651,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const field_t sub_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
     const field_t sub_result_y = lambda.madd(x1 - sub_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
-    // Compute the doubling result (using internal dbl to avoid extra standardization)
+    // Compute the doubling result
     const cycle_group dbl_result = dbl();
 
     // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
@@ -930,8 +930,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             const field_t y = lookup_data[ColumnIdx::C3][j];
             // Lookup table points are never at infinity (they are precomputed points on the curve).
             // Use private constructor to avoid auto-detection gates.
-            lookup_points.push_back(
-                cycle_group(x, y, /*is_infinity=*/bool_t(x.get_context(), false), /*assert_on_curve=*/false));
+            auto is_infinity = bool_t(x.get_context(), false);
+            lookup_points.push_back(cycle_group(x, y, is_infinity, /*assert_on_curve=*/false));
         }
         // Update offset accumulator with the total offset for the corresponding multitable
         offset_generator_accumulator += table::get_generator_offset_for_table_id(table_id);

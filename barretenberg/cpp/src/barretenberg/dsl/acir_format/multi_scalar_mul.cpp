@@ -83,19 +83,12 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder, const MultiSc
     // Reconstruct expected result
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.out_point_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.out_point_y);
-    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.out_point_is_infinite));
 
     // If no valid witness assignments, set result to generator point to avoid errors during circuit construction
     if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
-        builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
     }
-
-    // Constrain that the infinity flag is consistent with (0,0) coordinates.
-    // Noir represents point at infinity as (0, 0, is_infinite=true).
-    bool_ct is_origin = input_result_x.is_zero() && input_result_y.is_zero();
-    input_result_infinite.assert_equal(is_origin, "is_infinity flag must be consistent with (0,0) coordinates");
 
     // Use public constructor which auto-detects infinity from (0,0) coordinates.
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
