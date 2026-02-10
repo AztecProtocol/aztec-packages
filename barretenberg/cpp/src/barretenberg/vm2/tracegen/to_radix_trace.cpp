@@ -95,7 +95,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
             row++;
             if (is_unsafe_limb) {
-                power = 0;
+                power = 0; // Our constraints require that power is 0 after the unsafe limb.
             } else {
                 power *= FF(radix);
             }

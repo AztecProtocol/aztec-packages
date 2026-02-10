@@ -70,7 +70,7 @@ namespace to_radix;
     NOT_END * not_padding_limb' * (power * radix - power') = 0;
     // not_padding_limb starts at 1
     start * (1 - not_padding_limb) = 0;
-    // next not not_padding_limb is current not_padding_limb unless current limb is unsafe, where it changes to 0
+    // next `not_padding_limb` is current `not_padding_limb` unless current limb is unsafe, where it changes to 0
     NOT_END * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
 
     // Padding limbs have zero power
