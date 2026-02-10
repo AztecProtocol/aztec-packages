@@ -69,7 +69,7 @@
   </style>
 </head>
 <body>
-  <div class="nav">
+  <div class="nav" id="nav">
     <a href="/">&lt; CI</a> <span class="sep">|</span>
     <a href="/cost-overview" class="active">cost overview</a>
     <a href="/namespace-billing">namespace billing</a>
@@ -715,6 +715,13 @@
       const activeTab = document.querySelector('.tab.active');
       if (activeTab && activeTab.dataset.tab !== 'overview') p.set('tab', activeTab.dataset.tab);
       history.replaceState({}, '', '?' + p);
+      // Sync nav links so date/granularity carries across pages
+      const shared = new URLSearchParams();
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
+      document.querySelectorAll('#nav a[href]').forEach(a => {
+        const base = a.getAttribute('href').split('?')[0];
+        if (base !== '/') a.href = base + '?' + shared;
+      });
     }
 
     function loadUrl() {
