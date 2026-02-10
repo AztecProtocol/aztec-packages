@@ -59,6 +59,7 @@ describe('FileStoreTxCollection', () => {
 
   beforeEach(async () => {
     txPool = mock<TxPoolV2>();
+    jest.spyOn(Math, 'random').mockReturnValue(0);
 
     const log = createLogger('test');
     txCollectionSink = new TxCollectionSink(txPool, getTelemetryClient(), log);
@@ -76,6 +77,7 @@ describe('FileStoreTxCollection', () => {
 
   afterEach(async () => {
     await fileStoreCollection.stop();
+    jest.restoreAllMocks();
   });
 
   it('downloads txs immediately when startCollecting is called', async () => {

@@ -276,6 +276,15 @@ export function createMockEpochCache(): EpochCacheInterface {
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    getL1Constants: () => ({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      epochDuration: 1,
+      slotDuration: 1,
+      ethereumSlotDuration: 1,
+      proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
+    }),
   };
 }
 

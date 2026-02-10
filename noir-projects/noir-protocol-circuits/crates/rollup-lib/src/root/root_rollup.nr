@@ -52,7 +52,7 @@ pub struct RootRollupPrivateInputs {
 /// VkIndex: ROOT_ROLLUP_VK_INDEX
 pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
     // Verify the previous rollup proofs
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         inputs.previous_rollups[0].verify_proof_in_root();
         inputs.previous_rollups[1].verify_proof_in_root();
     }

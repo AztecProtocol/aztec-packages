@@ -194,6 +194,7 @@ export class EpochsTestContext {
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
+      targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
     };
 
     this.logger.info(

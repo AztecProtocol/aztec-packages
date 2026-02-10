@@ -405,7 +405,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     ..Default::default()
                 });
             }
-            BrilligOpcode::Return {} => avm_instrs
+            BrilligOpcode::Return => avm_instrs
                 .push(AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() }),
             BrilligOpcode::Stop { return_data } => {
                 generate_return_instruction(

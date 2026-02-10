@@ -1,4 +1,4 @@
-use dep::rollup_lib::checkpoint_root::{
+use rollup_lib::checkpoint_root::{
     checkpoint_root_rollup, CheckpointRollupPublicInputs, CheckpointRootRollupPrivateInputs,
 };
 

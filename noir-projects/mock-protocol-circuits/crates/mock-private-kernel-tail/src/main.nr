@@ -1,4 +1,4 @@
-use dep::mock_types::{
+use mock_types::{
     KernelPublicInputs, MAX_COMMITMENT_READ_REQUESTS_PER_TX, MEGA_VK_LENGTH_IN_FIELDS,
     PrivateKernelPublicInputs, PROOF_TYPE_HN_TAIL, VerificationKey,
 };

@@ -1,5 +1,5 @@
 use crate::PublicChecks;
-use dep::aztec::test::helpers::test_environment::TestEnvironment;
+use aztec::test::helpers::test_environment::TestEnvironment;
 use aztec::utils::comparison::Comparator;
 
 // For both block number and timestamp we only test one success and one failure case, as the rest are more thoroughly

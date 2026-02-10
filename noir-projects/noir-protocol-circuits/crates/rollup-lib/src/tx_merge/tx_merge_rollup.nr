@@ -5,7 +5,7 @@ use crate::{
         validate_consecutive_tx_rollups::validate_consecutive_tx_rollups,
     },
 };
-use dep::types::{
+use types::{
     constants::{
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
@@ -37,7 +37,7 @@ pub struct TxMergeRollupPrivateInputs {
 /// VkIndex: TX_MERGE_ROLLUP_VK_INDEX
 pub fn execute(inputs: TxMergeRollupPrivateInputs) -> TxRollupPublicInputs {
     // Verify the previous rollup proofs
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         inputs.previous_rollups[0].verify_proof();
         inputs.previous_rollups[1].verify_proof();
     }

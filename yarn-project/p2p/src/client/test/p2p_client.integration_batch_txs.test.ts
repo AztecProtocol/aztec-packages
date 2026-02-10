@@ -67,6 +67,15 @@ describe('p2p client integration batch txs', () => {
     epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
 
     attestationPool.isEmpty.mockResolvedValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.hasTxs.mockResolvedValue([]);
     txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });

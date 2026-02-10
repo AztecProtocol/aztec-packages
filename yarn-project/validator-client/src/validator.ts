@@ -352,6 +352,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
+    // Ignore proposals from ourselves (may happen in HA setups)
+    if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
+      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+        proposer: proposer.toString(),
+        slotNumber,
+      });
+      return false;
+    }
+
     // Check if we're in the committee (for metrics purposes)
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
@@ -450,6 +459,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Reject proposals with invalid signatures
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${slotNumber}`);
+      return undefined;
+    }
+
+    // Ignore proposals from ourselves (may happen in HA setups)
+    if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
+      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+        proposer: proposer.toString(),
+        slotNumber,
+      });
       return undefined;
     }
 
