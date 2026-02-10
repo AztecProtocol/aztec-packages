@@ -428,6 +428,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           seenTTL: config.gossipsubSeenTTL,
+          ignoreDuplicatePublishError: config.gossipsubAllowDuplicatePublish,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
