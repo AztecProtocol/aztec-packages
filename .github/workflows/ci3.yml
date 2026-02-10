@@ -266,9 +266,11 @@ jobs:
   # Only produces static libraries — Zig cannot link iOS executables (no TBD/dylib support).
   # Requires iOS SDK headers for C stdlib types; downloaded via scripts/download-ios-sdk.sh.
   # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
+  # TEMPORARILY DISABLED: Migrating from Xcode toolchain to Zig cross-compilation
   build-bb-ios:
     name: Build iOS static libraries
     runs-on: ubuntu-latest
+    if: false  # Disabled during migration to Zig-based iOS builds
     continue-on-error: true
     strategy:
       fail-fast: false
