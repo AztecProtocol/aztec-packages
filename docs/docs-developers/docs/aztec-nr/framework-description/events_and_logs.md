@@ -1,5 +1,5 @@
 ---
-title: Emitting Events
+title: Events and Logs
 tags: [contracts, events]
 sidebar_position: 7
 description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
@@ -40,7 +40,7 @@ fn transfer(to: AztecAddress, amount: u128) {
 
     self.emit(Transfer { from, to, amount }).deliver_to(
         to,
-        MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        MessageDelivery.ONCHAIN_UNCONSTRAINED,
     );
 }
 ```
@@ -55,15 +55,15 @@ You can deliver the same event to multiple recipients with different delivery mo
 
 ```rust
 let message = self.emit(Transfer { from, to, amount });
-message.deliver_to(from, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
-message.deliver_to(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+message.deliver_to(from, MessageDelivery.OFFCHAIN);
+message.deliver_to(to, MessageDelivery.ONCHAIN_CONSTRAINED);
 ```
 
 The `MessageDelivery` options are:
 
-- **`CONSTRAINED_ONCHAIN`** - Constrained encryption with onchain delivery. Slowest proving but provides cryptographic guarantees that recipients can decrypt messages.
-- **`UNCONSTRAINED_ONCHAIN`** - Unconstrained encryption with onchain delivery. Faster proving, but trusts the sender to encrypt correctly.
-- **`UNCONSTRAINED_OFFCHAIN`** - Unconstrained encryption with offchain delivery. Lowest cost, but requires custom infrastructure to deliver messages to recipients.
+- **`ONCHAIN_CONSTRAINED`** - Constrained encryption with onchain delivery. Slowest proving but provides cryptographic guarantees that recipients can decrypt messages.
+- **`ONCHAIN_UNCONSTRAINED`** - Unconstrained encryption with onchain delivery. Faster proving, but trusts the sender to encrypt correctly.
+- **`OFFCHAIN`** - Unconstrained encryption with offchain delivery. Lowest cost, but requires custom infrastructure to deliver messages to recipients.
 
 :::note
 Emitting private events is optional. Onchain delivery publishes encrypted data to Ethereum blobs, inheriting Ethereum's data availability guarantees. You can choose to share information offchain instead.
@@ -110,11 +110,11 @@ const publicLogs = (await node.getPublicLogs(logFilter)).logs;
 
 Event data published onchain is stored in Ethereum blobs, which incurs costs. Consider:
 
-- Use `UNCONSTRAINED_OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
+- Use `OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
 - Only emit events when necessary for your application's functionality
 
 ## Next steps
 
 - Learn about [storage](./state_variables.md) to persist data in your contracts
-- Explore [calling other contracts](./how_to_call_contracts.md) for cross-contract interactions
-- Understand [cross-chain communication](./how_to_communicate_cross_chain.md) between Ethereum and Aztec
+- Explore [calling other contracts](./calling_contracts.md) for cross-contract interactions
+- Understand [cross-chain communication](./ethereum_aztec_messaging.md) between Ethereum and Aztec
