@@ -120,8 +120,10 @@ A restricted variant of BLAKE3 with inputs limited to ≤1024 bytes that generat
 6. `dsl/acir_format/blake3_constraint.test.cpp`
 
 ### Security Mechanisms
-1. `boomerang_value_detection/graph_description_blake2s.test.cpp`
-2. `boomerang_value_detection/graph_description_blake3s.test.cpp`
+1. `stdlib/hash/blake2s/blake2s.fuzzer.cpp`
+2. `stdlib/hash/blake3s/blake3s.fuzzer.cpp`
+3. `boomerang_value_detection/graph_description_blake2s.test.cpp`
+4. `boomerang_value_detection/graph_description_blake3s.test.cpp`
 
 ---
 
@@ -159,6 +161,7 @@ The `aes128` module provides both native and circuit-friendly implementations of
 ### Security Mechanisms
 1. `boomerang_value_detection/graph_description_aes128.test.cpp`
 2. `stdlib/encryption/aes128/aes128.fuzzer.cpp`
+
 ---
 
 ## 4. Keccak
@@ -226,4 +229,5 @@ Pedersen commitments: https://en.wikipedia.org/wiki/Commitment_scheme#Pedersen_c
 
 ### Test Files
 1. `crypto/pedersen_hash/pedersen.test.cpp`
-2. `crypto/generators/generator_data.test.cpp`
+2. `crypto/pedersen_commitment/pedersen.test.cpp`
+3. `crypto/generators/generator_data.test.cpp`
