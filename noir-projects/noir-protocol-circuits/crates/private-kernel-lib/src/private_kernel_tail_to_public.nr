@@ -6,7 +6,7 @@ use crate::{
         tail_to_public_output_validator::TailToPublicOutputValidator,
     },
 };
-use ::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData,

@@ -1,5 +1,5 @@
 use super::{PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN, TestBuilder};
-use ::types::tests::utils::assert_array_eq;
+use types::tests::utils::assert_array_eq;
 
 impl TestBuilder {
     pub fn new_mixed() -> Self {

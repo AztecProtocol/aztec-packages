@@ -1,4 +1,4 @@
-use ::types::{side_effect::{Counted, Ordered, Readable, Scoped}, utils::arrays::ClaimedLengthArray};
+use types::{side_effect::{Counted, Ordered, Readable, Scoped}, utils::arrays::ClaimedLengthArray};
 
 pub struct PendingReadHint {
     pub read_request_index: u32, // "The note/nullifier read_request at index 3..."

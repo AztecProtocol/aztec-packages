@@ -1,11 +1,11 @@
-use ::types::{
+use std::cmp::min;
+use types::{
     abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{FEE_JUICE_ADDRESS, FEE_JUICE_BALANCES_SLOT},
     data::hash::compute_public_data_leaf_slot,
     storage::map::derive_storage_slot_in_map,
 };
-use std::cmp::min;
 
 pub fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let fee_payer_balance_slot_in_fee_juice_contract =

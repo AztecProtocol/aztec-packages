@@ -1,7 +1,7 @@
 mod config;
 mod utils;
 
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// Fee Payment Contract (FPC) allows users to pay for the transaction fee with an arbitrary asset. Supports private
 /// and public fee payment flows.
@@ -12,7 +12,6 @@ use ::aztec::macros::aztec;
 #[aztec]
 pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
-    use ::uint_note::PartialUintNote;
     use aztec::{
         macros::{
             functions::{allow_phase_change, external, initializer, only_self},
@@ -22,6 +21,7 @@ pub contract FPC {
         state_vars::PublicImmutable,
     };
     use token::Token;
+    use uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {

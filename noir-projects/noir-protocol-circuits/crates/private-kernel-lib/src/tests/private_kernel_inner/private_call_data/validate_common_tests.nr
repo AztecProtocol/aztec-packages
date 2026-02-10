@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_inner::TestBuilder;
-use ::types::{
+use types::{
     address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::FromField,
 };
 

@@ -1,4 +1,5 @@
-use ::types::{
+use blob::abis::{BlobAccumulator, FinalBlobBatchingChallenges};
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, epoch_constant_data::EpochConstantData,
         fee_recipient::FeeRecipient,
@@ -8,7 +9,6 @@ use ::types::{
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::array_length,
 };
-use blob::abis::{BlobAccumulator, FinalBlobBatchingChallenges};
 
 /// Public inputs for the checkpoint root and checkpoint merge rollup circuits.
 #[derive(Deserialize, Eq, Serialize)]

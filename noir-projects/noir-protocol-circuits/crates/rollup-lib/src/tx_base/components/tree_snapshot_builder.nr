@@ -1,6 +1,6 @@
 mod update_public_data_tree_leaf;
 
-use ::types::{
+use types::{
     abis::{
         nullifier_leaf_preimage::NullifierLeafPreimage,
         partial_state_reference::PartialStateReference,

@@ -1,8 +1,8 @@
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 contract AvmGadgetsTest {
-    use ::aztec::macros::functions::external;
+    use aztec::macros::functions::external;
 
     #[external("public")]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {

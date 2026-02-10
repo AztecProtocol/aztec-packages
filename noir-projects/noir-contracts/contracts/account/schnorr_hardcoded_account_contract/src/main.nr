@@ -1,9 +1,9 @@
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrHardcodedAccount {
-    use ::aztec::{
+    use aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},

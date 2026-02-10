@@ -5,7 +5,7 @@ use crate::{
         validate_consecutive_block_rollups::validate_consecutive_block_rollups,
     },
 };
-use ::types::{
+use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,

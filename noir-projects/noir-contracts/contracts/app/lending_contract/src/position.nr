@@ -1,4 +1,4 @@
-use ::aztec::protocol::traits::{Deserialize, Serialize};
+use aztec::protocol::traits::{Deserialize, Serialize};
 use std::meta::derive;
 
 #[derive(Serialize, Deserialize)]

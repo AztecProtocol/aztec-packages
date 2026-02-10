@@ -1,4 +1,4 @@
-use ::aztec::{
+use aztec::{
     authwit::entrypoint::FunctionCall,
     context::PrivateContext,
     protocol::{

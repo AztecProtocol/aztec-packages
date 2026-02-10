@@ -2,11 +2,11 @@ mod public_key_note;
 
 // Account contract that uses Schnorr signatures for authentication.
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrAccount {
-    use ::aztec::{
+    use aztec::{
         authwit::{
             account::AccountActions,
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},

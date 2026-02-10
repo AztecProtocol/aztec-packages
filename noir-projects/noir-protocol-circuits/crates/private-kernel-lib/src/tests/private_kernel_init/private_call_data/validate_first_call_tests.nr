@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use ::types::{address::AztecAddress, traits::FromField};
+use types::{address::AztecAddress, traits::FromField};
 
 #[test]
 fn with_regular_call() {
