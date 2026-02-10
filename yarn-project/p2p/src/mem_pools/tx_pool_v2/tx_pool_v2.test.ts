@@ -1837,13 +1837,13 @@ describe('TxPoolV2', () => {
   });
 
   describe('soft deletion', () => {
-    let mockValidator: MockProxy<TxValidator<Tx>>;
+    let mockValidator: MockProxy<TxValidator<TxMetaData>>;
     let poolWithValidator: AztecKVTxPoolV2;
     let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
     let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
 
     beforeEach(async () => {
-      mockValidator = mock<TxValidator<Tx>>();
+      mockValidator = mock<TxValidator<TxMetaData>>();
       mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
 
       validatorStore = await openTmpStore('p2p-soft-delete');
@@ -1851,7 +1851,7 @@ describe('TxPoolV2', () => {
       poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: mockValidator,
+        createTxValidator: () => Promise.resolve(mockValidator),
       });
       await poolWithValidator.start();
     });
