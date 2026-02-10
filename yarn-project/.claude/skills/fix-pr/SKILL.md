@@ -104,7 +104,7 @@ yarn workspace @aztec/<package> test <file>.test.ts
 If the PR targets `next`, amend to keep it as a single commit:
 
 ```bash
-git add -u
+git add .
 git commit --amend --no-edit
 git push --force-with-lease
 ```
@@ -112,7 +112,7 @@ git push --force-with-lease
 Otherwise, create a normal commit:
 
 ```bash
-git add -u
+git add .
 git commit -m "fix: <description of fix>"
 git push
 ```
@@ -123,7 +123,6 @@ git push
 - **Delegate identification**: Use `identify-ci-failures` subagent, don't analyze logs directly
 - **Rebase, don't merge**: Always rebase on the base branch
 - **Amend only for PRs targeting `next`**: Other PRs use normal commits
-- **Stage tracked files only**: Use `git add -u` for modifications. If new files were created, stage them explicitly by name. Never use `git add .`
 - **Bootstrap when needed**: Only if changes outside yarn-project
 - **Escalate e2e failures**: Complex e2e issues need `/debug-e2e`
 

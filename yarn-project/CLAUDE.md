@@ -235,7 +235,7 @@ For PRs with multiple commits that should be preserved (e.g., porting multiple P
 PRs are squashed to a single commit on merge, so during development just create normal commits. Only amend when explicitly asked or when using the `/fix-pr` skill on a PR targeting `next`.
 
 ```bash
-git add -u
+git add .
 git commit -m "fix: address review feedback"
 git push
 ```

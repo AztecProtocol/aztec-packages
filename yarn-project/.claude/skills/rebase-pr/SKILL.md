@@ -98,7 +98,7 @@ If there are changes from build fixes or conflict resolution, commit and push.
 If the PR targets `next`, amend to keep it as a single commit:
 
 ```bash
-git add -u
+git add .
 git commit --amend --no-edit
 git push --force-with-lease
 ```
@@ -106,7 +106,7 @@ git push --force-with-lease
 Otherwise, create a normal commit:
 
 ```bash
-git add -u
+git add .
 git commit -m "fix: resolve rebase conflicts"
 git push --force-with-lease
 ```
@@ -115,7 +115,6 @@ git push --force-with-lease
 
 - **Rebase, don't merge**: Always use `git rebase`, never `git merge`
 - **Amend only for PRs targeting `next`**: Other PRs use normal commits
-- **Stage tracked files only**: Use `git add -u` for modifications. If new files were created, stage them explicitly by name. Never use `git add .`
 - **Bootstrap when needed**: Only if there are changes outside yarn-project
 - **Verify build**: Always run `yarn build` after rebase
 - **Force push with lease**: Use `--force-with-lease` for safety
