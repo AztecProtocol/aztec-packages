@@ -173,6 +173,9 @@ export interface P2PConfig
   /** True to simulate discarding transactions. - For testing purposes only*/
   dropTransactions: boolean;
 
+  /** True to configure gossip sub to allow duplicate publishing - For testing purposes only */
+  gossipsubAllowDuplicatePublish: boolean;
+
   /** The probability that a transaction is discarded. - For testing purposes only */
   dropTransactionsProbability: number;
 
@@ -446,6 +449,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'FISHERMAN_MODE',
     description:
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
+    ...booleanConfigHelper(false),
+  },
+  gossipsubAllowDuplicatePublish: {
+    description: 'Whether to configure gossipsub to allow publlishing duplicate messages. For testing purposes only',
     ...booleanConfigHelper(false),
   },
   ...sharedSequencerConfigMappings,

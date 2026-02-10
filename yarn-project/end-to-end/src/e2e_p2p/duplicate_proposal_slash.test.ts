@@ -125,7 +125,12 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
     t.logger.warn(`Creating malicious node 1 with coinbase ${coinbase1.toString()}`);
     const maliciousNode1 = await createNode(
-      { ...t.ctx.aztecNodeConfig, validatorPrivateKey: maliciousPrivateKeyHex, coinbase: coinbase1 },
+      {
+        ...t.ctx.aztecNodeConfig,
+        validatorPrivateKey: maliciousPrivateKeyHex,
+        coinbase: coinbase1,
+        gossipsubAllowDuplicatePublish: true,
+      },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
@@ -137,7 +142,12 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
     t.logger.warn(`Creating malicious node 2 with coinbase ${coinbase2.toString()}`);
     const maliciousNode2 = await createNode(
-      { ...t.ctx.aztecNodeConfig, validatorPrivateKey: maliciousPrivateKeyHex, coinbase: coinbase2 },
+      {
+        ...t.ctx.aztecNodeConfig,
+        validatorPrivateKey: maliciousPrivateKeyHex,
+        coinbase: coinbase2,
+        gossipsubAllowDuplicatePublish: true,
+      },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
