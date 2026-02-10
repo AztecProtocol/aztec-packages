@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260209
+Version: v4.0.0-nightly.20260210
 
 ## Quick Import Reference
 
@@ -80,8 +80,9 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode)
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>`
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
 - `simulateUtility(call: FunctionCall, authwits?: AuthWitness[]) => Promise<UtilitySimulationResult>`
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -442,6 +443,12 @@ Configuration for web wallets
 
 ## Functions
 
+### buildMergedSimulationResult
+```typescript
+function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResult | null) => TxSimulationResult
+```
+Merges simulation results from the optimized (public static) and normal paths. Since optimized calls are always a leading prefix, return values are simply concatenated: optimized first, then normal. Stats are taken from the normal result only (the optimized path doesn't produce them).
+
 ### decrypt
 ```typescript
 function decrypt<T>(key: CryptoKey, payload: EncryptedPayload) => Promise<T>
@@ -466,6 +473,12 @@ function exportPublicKey(publicKey: CryptoKey) => Promise<ExportedPublicKey>
 ```
 Exports a public key to JWK format for transmission. The exported key contains only public components and is safe to transmit over untrusted channels.
 
+### extractOptimizablePublicStaticCalls
+```typescript
+function extractOptimizablePublicStaticCalls(payload: ExecutionPayload) => { optimizableCalls: FunctionCall[]; remainingCalls: FunctionCall[] }
+```
+Splits an execution payload into a leading prefix of public static calls (eligible for direct node simulation) and the remaining calls. Only a leading run of public static calls is eligible for optimization. Any non-public-static call may enqueue public state mutations (e.g. private calls can enqueue public calls), so all calls that follow must go through the normal simulation path to see the correct state.
+
 ### generateKeyPair
 ```typescript
 function generateKeyPair() => Promise<SecureKeyPair>
@@ -483,6 +496,12 @@ Converts a hex hash to an emoji sequence for visual verification. This is used f
 function importPublicKey(exported: ExportedPublicKey) => Promise<CryptoKey>
 ```
 Imports a public key from JWK format. Used to import the other party's public key for deriving session keys.
+
+### simulateViaNode
+```typescript
+function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean) => Promise<TxSimulationResult[]>
+```
+Simulates public static calls by splitting them into batches of MAX_ENQUEUED_CALLS_PER_CALL and sending each batch directly to the node.
 
 ## Types
 
@@ -558,4 +577,4 @@ This package references types from other Aztec packages:
 - `PXE`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilitySimulationResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilitySimulationResult`
