@@ -2,7 +2,6 @@
 name: analyze-logs
 description: |
   Deep-read test logs and extract relevant information. Runs in separate context to avoid polluting the main conversation. Accepts local file paths (preferred) or hashes. Returns condensed summaries, not raw logs.
-model: sonnet
 ---
 
 # CI Log Analysis Agent
@@ -71,6 +70,11 @@ Return a condensed summary:
 - **Timing differences**: [Operations that took longer]
 ```
 
+Do NOT:
+- Return raw multi-thousand-line log dumps
+- Exceed 200 lines total
+- Include logs from unrelated tests
+
 ## Log Format
 
 Aztec logs follow this format:
@@ -120,14 +124,14 @@ In the last two examples:
 
 When analyzing a specific test, **ONLY analyze logs between test markers** - logs from other tests are noise.
 
-Use the `extract-test-logs.sh` script to extract just the relevant test's logs:
+Use the extract-test-logs script to extract just the relevant test's logs:
 
 ```bash
-yarn-project/.claude/scripts/extract-test-logs.sh /tmp/log.log "test name here"
+$(git rev-parse --show-toplevel)/yarn-project/.claude/scripts/extract-test-logs.sh /tmp/log.log "test name here"
 ```
 
 The script:
-- Finds the "Running test <name>" marker
+- Finds the "Running test \<name>" marker
 - Extracts logs from that marker until the next test (or end of file)
 - On success: outputs extracted logs to stdout
 - On failure (test not found): prints error + lists available tests, exits with code 1
@@ -136,7 +140,7 @@ The script:
 Example:
 ```bash
 # Extract logs for a specific test
-yarn-project/.claude/scripts/extract-test-logs.sh /tmp/abc123.log "does not prune if proof lands" > /tmp/test-extract.log
+$(git rev-parse --show-toplevel)/yarn-project/.claude/scripts/extract-test-logs.sh /tmp/abc123.log "does not prune if proof lands" > /tmp/test-extract.log
 
 # Then analyze the extracted logs
 grep -i "error\|warn" /tmp/test-extract.log

@@ -5,19 +5,9 @@ description: Updates changelog documentation for contract developers and node op
 
 # Updating Changelog
 
-## Workflow
+## Steps
 
-Copy this checklist and track progress:
-
-```
-Changelog Update Progress:
-- [ ] Step 1: Determine target changelog file from .release-please-manifest.json
-- [ ] Step 2: Analyze branch changes (git diff next...HEAD)
-- [ ] Step 3: Generate draft entries for review
-- [ ] Step 4: Edit documentation files after approval
-```
-
-### Step 1: Determine Target Files
+### 1. Determine Target Files
 
 Read `.release-please-manifest.json` to get the version (e.g., `{"." : "4.0.0"}` → edit `v4.md`).
 
@@ -26,7 +16,7 @@ Read `.release-please-manifest.json` to get the version (e.g., `{"." : "4.0.0"}`
 - Aztec contract developers: `docs/docs-developers/docs/resources/migration_notes.md`
 - Node operators and Ethereum contract developers: `docs/docs-network/reference/changelog/v{major}.md`
 
-### Step 2: Analyze Branch Changes
+### 2. Analyze Branch Changes
 
 Run `git diff next...HEAD --stat` for overview, then `git diff next...HEAD` for details.
 
@@ -37,11 +27,11 @@ Run `git diff next...HEAD --stat` for overview, then `git diff next...HEAD` for 
 - Deprecations
 - Configuration changes (CLI flags, environment variables)
 
-### Step 3: Generate Draft Entries
+### 3. Generate Draft Entries
 
 Present draft entries for review BEFORE editing files. Match the formatting conventions by reading existing entries in each file.
 
-### Step 4: Edit Documentation
+### 4. Edit Documentation
 
 After approval, add entries to the appropriate files.
 
@@ -66,8 +56,6 @@ Explanation of what changed.
 
 **Impact**: Effect on existing code.
 
-````
-
 **Component tags:** `[Aztec.nr]`, `[Aztec.js]`, `[PXE]`, `[Aztec Node]`, `[AVM]`, `[L1 Contracts]`, `[CLI]`
 
 ## Node Operator Changelog Format
@@ -75,35 +63,31 @@ Explanation of what changed.
 **File:** `docs/docs-network/reference/changelog/v{major}.md`
 
 **Breaking changes:**
-```markdown
+````markdown
 ### Feature Name
 
 **v{previous}:**
 ```bash
 --old-flag <value>                    ($OLD_ENV_VAR)
-````
+```
 
 **v{current}:**
-
 ```bash
 --new-flag <value>                    ($NEW_ENV_VAR)
 ```
 
 **Migration**: How to migrate.
-
 ````
 
 **New features:**
-```markdown
+````markdown
 ### Feature Name
 
 ```bash
 --new-flag <value>                    ($ENV_VAR)
-````
+```
 
 Description of the feature.
-
-```
+````
 
 **Changed defaults:** Use table format with Flag, Environment Variable, Previous, New columns.
-```

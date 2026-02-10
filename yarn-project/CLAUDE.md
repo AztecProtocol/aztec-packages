@@ -235,7 +235,7 @@ For PRs with multiple commits that should be preserved (e.g., porting multiple P
 When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
 
 ```bash
-git add .
+git add -u
 git commit --amend --no-edit
 git push --force-with-lease
 ```

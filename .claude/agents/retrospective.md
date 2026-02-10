@@ -13,7 +13,6 @@ description: |
   user: "Let's do a retrospective on this session"
   assistant: "I'll analyze our conversation to extract learnings."
   </example>
-model: opus
 color: magenta
 ---
 
