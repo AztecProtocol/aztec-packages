@@ -512,7 +512,7 @@ class ECCVMFlavor {
          *          transcript_op: input transcript opcode value
          *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
          *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
-         * N.B. scalar multiplier = transcript_z1 + \lambda * transcript_z2. \lambda = cube root of unity in scalar
+         * N.B. scalar multiplier = transcript_z1 - \lambda * transcript_z2. \lambda = cube root of unity in scalar
          field
          *          transcript_z1zero: if 1, transcript_z1 must equal 0
          *          transcript_z2zero: if 1, transcript_z2 must equal 0
@@ -520,12 +520,12 @@ class ECCVMFlavor {
          *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
-         *          transcript_accumulator_not_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_accumulator_not_empty: if 1, transcript_accumulator is NOT the point at infinity
          *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
          *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
          *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
          *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
-         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_y_equal (if y-vals not equal inverse exists)
          *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
          *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
          *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
@@ -544,7 +544,7 @@ class ECCVMFlavor {
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
          *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         *          precompute_ty: y-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
